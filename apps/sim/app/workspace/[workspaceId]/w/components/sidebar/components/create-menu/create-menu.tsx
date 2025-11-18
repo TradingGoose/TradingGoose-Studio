@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Download, Folder, Plus } from 'lucide-react'
-import { useParams, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateFolderName } from '@/lib/naming'
 import { cn } from '@/lib/utils'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useFolderStore } from '@/stores/folders/store'
 import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
 import { parseWorkflowJson } from '@/stores/workflows/json/importer'
@@ -35,9 +36,8 @@ export function CreateMenu({ onCreateWorkflow, isCreatingWorkflow = false }: Cre
   const [closeTimer, setCloseTimer] = useState<NodeJS.Timeout | null>(null)
 
   // Hooks
-  const params = useParams()
   const router = useRouter()
-  const workspaceId = params.workspaceId as string
+  const workspaceId = useWorkspaceId()
   const { createFolder } = useFolderStore()
   const { createWorkflow } = useWorkflowRegistry()
   const userPermissions = useUserPermissionsContext()
@@ -277,7 +277,7 @@ export function CreateMenu({ onCreateWorkflow, isCreatingWorkflow = false }: Cre
 
   // Styles
   const menuItemClassName =
-    'group flex h-8 w-full cursor-pointer items-center gap-2 rounded-[8px] px-2 py-2 font-medium font-sans text-muted-foreground text-sm outline-none hover:bg-muted focus:bg-muted'
+    'group flex h-8 w-full cursor-pointer items-center gap-2 rounded-[8px] px-2 py-2 font-medium font-sans text-muted-foreground text-sm outline-none hover:bg-card focus:bg-muted'
   const iconClassName = 'h-4 w-4 group-hover:text-foreground'
   const textClassName = 'group-hover:text-foreground'
 
@@ -297,7 +297,7 @@ export function CreateMenu({ onCreateWorkflow, isCreatingWorkflow = false }: Cre
           <Button
             variant='ghost'
             size='icon'
-            className='h-8 w-8 shrink-0 rounded-[8px] border bg-background shadow-xs hover:bg-muted focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
+            className='h-8 w-8 shrink-0 rounded-[8px] border bg-background shadow-xs hover:bg-card focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
             title='Create Workflow (Hover, right-click, or long press for more options)'
             disabled={isCreatingWorkflow}
             onClick={handleButtonClick}

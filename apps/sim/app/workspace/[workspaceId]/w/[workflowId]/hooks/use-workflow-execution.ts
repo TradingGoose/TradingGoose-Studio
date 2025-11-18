@@ -17,6 +17,7 @@ import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { mergeSubblockState } from '@/stores/workflows/utils'
 import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/workflow/utils'
 import { useCurrentWorkflow } from './use-current-workflow'
+import { useWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 const logger = createLogger('useWorkflowExecution')
 
@@ -96,7 +97,14 @@ function extractExecutionResult(error: unknown): ExecutionResult | null {
 
 export function useWorkflowExecution() {
   const currentWorkflow = useCurrentWorkflow()
-  const { activeWorkflowId, workflows } = useWorkflowRegistry()
+  const { workflowId: routeWorkflowId, channelId } = useWorkflowRoute()
+  const workflows = useWorkflowRegistry((state) => state.workflows)
+  const registryWorkflowId = useWorkflowRegistry((state) =>
+    typeof state.getActiveWorkflowId === 'function'
+      ? state.getActiveWorkflowId(channelId)
+      : state.activeWorkflowId
+  )
+  const activeWorkflowId = routeWorkflowId ?? registryWorkflowId
   const { toggleConsole } = useConsoleStore()
   const { getAllVariables, loadWorkspaceEnvironment } = useEnvironmentStore()
   const { getVariablesByWorkflowId, variables } = useVariablesStore()

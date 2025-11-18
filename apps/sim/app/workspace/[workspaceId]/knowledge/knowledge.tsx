@@ -17,7 +17,6 @@ import {
   CreateModal,
   EmptyStateCard,
   KnowledgeBaseCardSkeletonGrid,
-  KnowledgeHeader,
   PrimaryButton,
   SearchInput,
 } from '@/app/workspace/[workspaceId]/knowledge/components'
@@ -34,6 +33,7 @@ import {
   sortKnowledgeBases,
 } from '@/app/workspace/[workspaceId]/knowledge/utils/sort'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { GlobalNavbarHeader } from '@/global-navbar'
 import { useKnowledgeBasesList } from '@/hooks/use-knowledge'
 import type { KnowledgeBaseData } from '@/stores/knowledge/store'
 
@@ -86,82 +86,84 @@ export function Knowledge() {
     updatedAt: kb.updatedAt,
   })
 
-  const breadcrumbs = [{ id: 'knowledge', label: 'Knowledge' }]
+  const headerLeftContent = (
+    <div className='flex w-full flex-1 items-center gap-3'>
+      <div className='hidden items-center gap-2 sm:flex'>
+        <LibraryBig className='h-[18px] w-[18px] text-muted-foreground' />
+        <span className='font-medium text-sm'>Knowledge</span>
+      </div>
+      <div className='flex w-full max-w-xl flex-1'>
+        <SearchInput
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder='Search knowledge bases...'
+          className='w-full'
+        />
+      </div>
+    </div>
+  )
+
+  const headerRightContent = (
+    <div className='flex items-center gap-2'>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant='outline' size='sm' className={filterButtonClass}>
+            {currentSortLabel}
+            <ChevronDown className='ml-2 h-4 w-4 text-muted-foreground' />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align='end'
+          side='bottom'
+          avoidCollisions={false}
+          sideOffset={4}
+          className={dropdownContentClass}
+        >
+          <div className={`${commandListClass} py-1`}>
+            {SORT_OPTIONS.map((option, index) => (
+              <div key={option.value}>
+                <DropdownMenuItem
+                  onSelect={() => handleSortChange(option.value)}
+                  className='flex cursor-pointer items-center justify-between rounded-md px-3 py-2 font-[380] text-card-foreground text-sm hover:bg-secondary/50 focus:bg-secondary/50'
+                >
+                  <span>{option.label}</span>
+                  {currentSortValue === option.value && (
+                    <Check className='h-4 w-4 text-muted-foreground' />
+                  )}
+                </DropdownMenuItem>
+                {index === 0 && <DropdownMenuSeparator />}
+              </div>
+            ))}
+          </div>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PrimaryButton
+            onClick={() => setIsCreateModalOpen(true)}
+            disabled={userPermissions.canEdit !== true}
+          >
+            <Plus className='h-3.5 w-3.5' />
+            <span>Create</span>
+          </PrimaryButton>
+        </TooltipTrigger>
+        {userPermissions.canEdit !== true && (
+          <TooltipContent>Write permission required to create knowledge bases</TooltipContent>
+        )}
+      </Tooltip>
+    </div>
+  )
 
   return (
     <>
-      <div className='flex h-screen flex-col pl-64'>
-        {/* Header */}
-        <KnowledgeHeader breadcrumbs={breadcrumbs} />
-
+      <GlobalNavbarHeader left={headerLeftContent} right={headerRightContent} />
+      <div className='flex h-screen flex-col'>
         <div className='flex flex-1 overflow-hidden'>
           <div className='flex flex-1 flex-col overflow-hidden'>
             {/* Main Content */}
             <div className='flex-1 overflow-auto'>
-              <div className='px-6 pb-6'>
-                {/* Search and Create Section */}
-                <div className='mb-4 flex items-center justify-between pt-1'>
-                  <SearchInput
-                    value={searchQuery}
-                    onChange={setSearchQuery}
-                    placeholder='Search knowledge bases...'
-                  />
-
-                  <div className='flex items-center gap-2'>
-                    {/* Sort Dropdown */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant='outline' size='sm' className={filterButtonClass}>
-                          {currentSortLabel}
-                          <ChevronDown className='ml-2 h-4 w-4 text-muted-foreground' />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        align='end'
-                        side='bottom'
-                        avoidCollisions={false}
-                        sideOffset={4}
-                        className={dropdownContentClass}
-                      >
-                        <div className={`${commandListClass} py-1`}>
-                          {SORT_OPTIONS.map((option, index) => (
-                            <div key={option.value}>
-                              <DropdownMenuItem
-                                onSelect={() => handleSortChange(option.value)}
-                                className='flex cursor-pointer items-center justify-between rounded-md px-3 py-2 font-[380] text-card-foreground text-sm hover:bg-secondary/50 focus:bg-secondary/50'
-                              >
-                                <span>{option.label}</span>
-                                {currentSortValue === option.value && (
-                                  <Check className='h-4 w-4 text-muted-foreground' />
-                                )}
-                              </DropdownMenuItem>
-                              {index === 0 && <DropdownMenuSeparator />}
-                            </div>
-                          ))}
-                        </div>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-
-                    {/* Create Button */}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <PrimaryButton
-                          onClick={() => setIsCreateModalOpen(true)}
-                          disabled={userPermissions.canEdit !== true}
-                        >
-                          <Plus className='h-3.5 w-3.5' />
-                          <span>Create</span>
-                        </PrimaryButton>
-                      </TooltipTrigger>
-                      {userPermissions.canEdit !== true && (
-                        <TooltipContent>
-                          Write permission required to create knowledge bases
-                        </TooltipContent>
-                      )}
-                    </Tooltip>
-                  </div>
-                </div>
-
+              <div className='p-6'>
                 {/* Error State */}
                 {error && (
                   <div className='mb-4 rounded-md border border-red-200 bg-red-50 p-4'>
@@ -197,7 +199,7 @@ export function Knowledge() {
                           onClick={
                             userPermissions.canEdit === true
                               ? () => setIsCreateModalOpen(true)
-                              : () => {}
+                              : () => { }
                           }
                           icon={<LibraryBig className='h-4 w-4 text-muted-foreground' />}
                         />

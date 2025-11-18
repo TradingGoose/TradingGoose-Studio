@@ -143,7 +143,7 @@ export default function ChangelogList({ initialEntries }: Props) {
           </div>
 
           <div
-            className={`${inter.className} prose prose-sm dark:prose-invert max-w-none prose-headings:font-semibold prose-a:text-brand-primary prose-headings:text-foreground prose-p:text-muted-foreground prose-a:no-underline hover:prose-a:underline`}
+            className={`${inter.className} prose prose-sm dark:prose-invert max-w-none prose-headings:font-semibold prose-a:text-primary prose-headings:text-foreground prose-p:text-muted-foreground prose-a:no-underline hover:prose-a:underline`}
           >
             <ReactMarkdown
               components={{
@@ -224,7 +224,7 @@ export default function ChangelogList({ initialEntries }: Props) {
             type='button'
             onClick={loadMore}
             disabled={loading}
-            className='rounded-md border border-border px-3 py-1.5 text-[13px] hover:bg-muted disabled:opacity-60'
+            className='rounded-md border border-border px-3 py-1.5 text-[13px] hover:bg-card disabled:opacity-60'
           >
             {loading ? 'Loading…' : 'Show more'}
           </button>

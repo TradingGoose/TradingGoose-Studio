@@ -34,18 +34,18 @@ const iconMap = {
 }
 
 const iconColorMap = {
-  userPlus: 'text-[var(--brand-primary-hex)]',
-  mail: 'text-[var(--brand-primary-hex)]',
-  users: 'text-[var(--brand-primary-hex)]',
+  userPlus: 'text-primary',
+  mail: 'text-primary',
+  users: 'text-primary',
   error: 'text-red-500 dark:text-red-400',
   success: 'text-green-500 dark:text-green-400',
   warning: 'text-yellow-600 dark:text-yellow-500',
 }
 
 const iconBgMap = {
-  userPlus: 'bg-[var(--brand-primary-hex)]/10',
-  mail: 'bg-[var(--brand-primary-hex)]/10',
-  users: 'bg-[var(--brand-primary-hex)]/10',
+  userPlus: 'bg-[var(--primary)]/10',
+  mail: 'bg-[var(--primary)]/10',
+  users: 'bg-[var(--primary)]/10',
   error: 'bg-red-50 dark:bg-red-950/20',
   success: 'bg-green-50 dark:bg-green-950/20',
   warning: 'bg-yellow-50 dark:bg-yellow-950/20',
@@ -66,8 +66,8 @@ export function InviteStatusCard({
   useEffect(() => {
     const checkCustomBrand = () => {
       const computedStyle = getComputedStyle(document.documentElement)
-      const brandAccent = computedStyle.getPropertyValue('--brand-accent-hex').trim()
-      if (brandAccent && brandAccent !== '#6f3dfa') {
+      const brandAccent = computedStyle.getPropertyValue('--accent').trim()
+      if (brandAccent && brandAccent !== '#ffcc00') {
         setButtonClass('auth-button-custom')
       } else {
         setButtonClass('auth-button-gradient')
@@ -132,7 +132,7 @@ export function InviteStatusCard({
           {isExpiredError && (
             <Button
               variant='outline'
-              className='w-full rounded-[10px] border-[var(--brand-primary-hex)] font-medium text-[15px] text-[var(--brand-primary-hex)] transition-colors duration-200 hover:bg-[var(--brand-primary-hex)] hover:text-white'
+              className='w-full rounded-[10px] border-primary font-medium text-[15px] text-primary transition-colors duration-200 hover:bg-primary hover:text-black'
               onClick={() => router.push('/')}
             >
               <RotateCcw className='mr-2 h-4 w-4' />
@@ -148,7 +148,7 @@ export function InviteStatusCard({
                 (action.variant || 'default') === 'default'
                   ? `${buttonClass} flex w-full items-center justify-center gap-2 rounded-[10px] border font-medium text-[15px] text-white transition-all duration-200`
                   : action.variant === 'outline'
-                    ? 'w-full rounded-[10px] border-[var(--brand-primary-hex)] font-medium text-[15px] text-[var(--brand-primary-hex)] transition-colors duration-200 hover:bg-[var(--brand-primary-hex)] hover:text-white'
+                    ? 'w-full rounded-[10px] border-primary font-medium text-[15px] text-primary transition-colors duration-200 hover:bg-primary hover:text-black'
                     : 'w-full rounded-[10px] text-muted-foreground hover:bg-secondary hover:text-foreground'
               }
               onClick={action.onClick}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Info, Plus, Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -19,6 +20,11 @@ export function TriggerList({ onSelect, className }: TriggerListProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [showList, setShowList] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
+  const [isClient, setIsClient] = useState(false)
+
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   // Get all trigger options from the centralized source
   const triggerOptions = useMemo(() => getAllTriggerBlocks(), [])
@@ -128,122 +134,129 @@ export function TriggerList({ onSelect, className }: TriggerListProps) {
     )
   }
 
-  return (
-    <div
-      className={cn(
-        'pointer-events-none absolute inset-0 flex items-center justify-center',
-        className
-      )}
-    >
-      {!showList ? (
-        /* Initial Button State */
-        <button
-          onClick={() => {
-            logger.info('Opening trigger list')
-            setShowList(true)
-          }}
-          className={cn(
-            'pointer-events-auto',
-            'flex items-center gap-2',
-            'px-4 py-2',
-            'rounded-lg border border-muted-foreground/50 border-dashed',
-            'bg-background/95 backdrop-blur-sm',
-            'hover:border-muted-foreground hover:bg-muted',
-            'transition-all duration-200',
-            'font-medium text-muted-foreground text-sm'
-          )}
-        >
-          <Plus className='h-4 w-4' />
-          Click to Add Trigger
-        </button>
-      ) : (
-        /* Trigger List View */
-        <div
-          ref={listRef}
-          className={cn(
-            'pointer-events-auto',
-            'max-h-[400px] w-[650px]',
-            'rounded-xl border border-border',
-            'bg-background/95 backdrop-blur-sm',
-            'shadow-lg',
-            'flex flex-col',
-            'relative'
-          )}
-        >
-          {/* Search - matching search modal exactly */}
-          <div className='flex items-center border-b px-4 py-1'>
-            <Search className='h-4 w-4 font-sans text-muted-foreground text-xl' />
-            <Input
-              placeholder='Search triggers'
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className='!font-[350] border-0 bg-transparent font-sans text-muted-foreground leading-10 tracking-normal placeholder:text-muted-foreground focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
-              autoFocus
-            />
-          </div>
-
-          {/* Close button */}
-          <button
-            onClick={handleClose}
-            className='absolute top-4 right-4 h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground focus:outline-none disabled:pointer-events-none'
-            tabIndex={-1}
-          >
-            <X className='h-4 w-4' />
-            <span className='sr-only'>Close</span>
-          </button>
-
-          {/* Trigger List */}
+  const triggerModal =
+    showList && isClient
+      ? createPortal(
+        <div className='fixed inset-0 z-[1000] flex items-center justify-center bg-background/70 backdrop-blur-sm p-4'>
           <div
-            className='flex-1 overflow-y-auto'
-            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            ref={listRef}
+            className={cn(
+              'pointer-events-auto',
+              'max-h-[80vh] w-full max-w-[700px]',
+              'rounded-xl border border-border',
+              'bg-background/95 backdrop-blur-lg',
+              'shadow-2xl',
+              'flex flex-col',
+              'relative'
+            )}
           >
-            <div className='space-y-4 pt-4 pb-4'>
-              {/* Core Triggers Section */}
-              {coreOptions.length > 0 && (
-                <div>
-                  <h3 className='mb-2 ml-4 font-normal font-sans text-[13px] text-muted-foreground leading-none tracking-normal'>
-                    Core Triggers
-                  </h3>
-                  <div className='px-4 pb-1'>
-                    {/* Display triggers in a 3-column grid */}
-                    <div className='grid grid-cols-3 gap-2'>
-                      {coreOptions.map((trigger) => (
-                        <TriggerItem key={trigger.id} trigger={trigger} />
-                      ))}
+            {/* Search */}
+            <div className='flex items-center border-b px-4 py-1'>
+              <Search className='h-4 w-4 font-sans text-muted-foreground text-xl' />
+              <Input
+                placeholder='Search triggers'
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className='!font-[350] border-0 bg-transparent font-sans text-muted-foreground leading-10 tracking-normal placeholder:text-muted-foreground focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
+                autoFocus
+              />
+            </div>
+
+            {/* Close button */}
+            <button
+              onClick={handleClose}
+              className='absolute top-4 right-4 h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground focus:outline-none disabled:pointer-events-none'
+              tabIndex={-1}
+            >
+              <X className='h-4 w-4' />
+              <span className='sr-only'>Close</span>
+            </button>
+
+            {/* Trigger List */}
+            <div
+              className='flex-1 overflow-y-auto'
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+              <div className='space-y-4 pt-4 pb-4'>
+                {/* Core Triggers Section */}
+                {coreOptions.length > 0 && (
+                  <div>
+                    <h3 className='mb-2 ml-4 font-normal font-sans text-[13px] text-muted-foreground leading-none tracking-normal'>
+                      Core Triggers
+                    </h3>
+                    <div className='px-4 pb-1'>
+                      <div className='grid grid-cols-3 gap-2'>
+                        {coreOptions.map((trigger) => (
+                          <TriggerItem key={trigger.id} trigger={trigger} />
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Integration Triggers Section */}
-              {integrationOptions.length > 0 && (
-                <div>
-                  <h3 className='mb-2 ml-4 font-normal font-sans text-[13px] text-muted-foreground leading-none tracking-normal'>
-                    Integration Triggers
-                  </h3>
-                  <div
-                    className='max-h-[200px] overflow-y-auto px-4 pb-1'
-                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                  >
-                    {/* Display triggers in a 3-column grid */}
-                    <div className='grid grid-cols-3 gap-2'>
-                      {integrationOptions.map((trigger) => (
-                        <TriggerItem key={trigger.id} trigger={trigger} />
-                      ))}
+                {/* Integration Triggers Section */}
+                {integrationOptions.length > 0 && (
+                  <div>
+                    <h3 className='mb-2 ml-4 font-normal font-sans text-[13px] text-muted-foreground leading-none tracking-normal'>
+                      Integration Triggers
+                    </h3>
+                    <div
+                      className='max-h-[300px] overflow-y-auto px-4 pb-1'
+                      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                    >
+                      <div className='grid grid-cols-3 gap-2'>
+                        {integrationOptions.map((trigger) => (
+                          <TriggerItem key={trigger.id} trigger={trigger} />
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {filteredOptions.length === 0 && (
-                <div className='ml-6 py-12 text-center'>
-                  <p className='text-muted-foreground'>No results found for "{searchQuery}"</p>
-                </div>
-              )}
+                {filteredOptions.length === 0 && (
+                  <div className='ml-6 py-12 text-center'>
+                    <p className='text-muted-foreground'>No results found for "{searchQuery}"</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        </div>,
+        document.body
+      )
+      : null
+
+  return (
+    <>
+      <div
+        className={cn(
+          'pointer-events-none absolute inset-0 flex items-center justify-center',
+          className
+        )}
+      >
+        {!showList && (
+          <button
+            onClick={() => {
+              logger.info('Opening trigger list')
+              setShowList(true)
+            }}
+            className={cn(
+              'pointer-events-auto',
+              'flex items-center gap-2',
+              'px-4 py-2',
+              'rounded-lg border border-muted-foreground/50 border-dashed',
+              'bg-background/95 backdrop-blur-sm',
+              'hover:border-muted-foreground hover:bg-card',
+              'transition-all duration-200',
+              'font-medium text-muted-foreground text-sm'
+            )}
+          >
+            <Plus className='h-4 w-4' />
+            Click to Add Trigger
+          </button>
+        )}
+      </div>
+      {triggerModal}
+    </>
   )
 }

@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { ExternalLink } from 'lucide-react'
-import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useSubBlockValue } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { getTrigger } from '@/triggers'
 import { TriggerModal } from './components/trigger-modal'
+import { useWorkflowId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 const logger = createLogger('TriggerConfig')
 
@@ -36,8 +36,7 @@ export function TriggerConfig({
   const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [triggerId, setTriggerId] = useState<string | null>(null)
-  const params = useParams()
-  const workflowId = params.workflowId as string
+  const workflowId = useWorkflowId()
   const [isLoading, setIsLoading] = useState(false)
 
   // Get trigger configuration from the block state
@@ -71,7 +70,7 @@ export function TriggerConfig({
       return
     }
 
-    ;(async () => {
+    ; (async () => {
       setIsLoading(true)
       try {
         const response = await fetch(`/api/webhooks?workflowId=${workflowId}&blockId=${blockId}`)
@@ -367,7 +366,7 @@ export function TriggerConfig({
       {isTriggerConnected ? (
         <div className='flex flex-col space-y-2'>
           <div
-            className='flex h-10 cursor-pointer items-center justify-center rounded border border-border bg-background px-3 py-2 transition-colors duration-200 hover:bg-accent hover:text-accent-foreground'
+            className='flex h-10 cursor-pointer items-center justify-center rounded border border-border bg-background px-3 py-2 transition-colors duration-200 hover:bg-card hover:text-accent-foreground'
             onClick={handleOpenModal}
           >
             <div className='flex items-center gap-2'>

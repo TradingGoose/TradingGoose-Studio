@@ -41,7 +41,7 @@ export default function SSOAuth({
   identifier,
   onAuthSuccess,
   title = 'chat',
-  primaryColor = 'var(--brand-primary-hover-hex)',
+  primaryColor = 'var(--primary-hover)',
 }: SSOAuthProps) {
   const router = useRouter()
   const [email, setEmail] = useState('')
@@ -53,9 +53,9 @@ export default function SSOAuth({
   useEffect(() => {
     const checkCustomBrand = () => {
       const computedStyle = getComputedStyle(document.documentElement)
-      const brandAccent = computedStyle.getPropertyValue('--brand-accent-hex').trim()
+      const brandAccent = computedStyle.getPropertyValue('--accent').trim()
 
-      if (brandAccent && brandAccent !== '#6f3dfa') {
+      if (brandAccent && brandAccent !== '#ffcc00') {
         setButtonClass('auth-button-custom')
       } else {
         setButtonClass('auth-button-gradient')

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, RefreshCw, X } from 'lucide-react'
-import { useParams } from 'next/navigation'
 import { PackageSearchIcon } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,6 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useSubBlockValue } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import type { SubBlockConfig } from '@/blocks/types'
 import { type KnowledgeBaseData, useKnowledgeStore } from '@/stores/knowledge/store'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 interface KnowledgeBaseSelectorProps {
   blockId: string
@@ -35,8 +35,7 @@ export function KnowledgeBaseSelector({
   isPreview = false,
   previewValue,
 }: KnowledgeBaseSelectorProps) {
-  const params = useParams()
-  const workspaceId = params.workspaceId as string
+  const workspaceId = useWorkspaceId()
 
   const { loadingKnowledgeBasesList } = useKnowledgeStore()
 

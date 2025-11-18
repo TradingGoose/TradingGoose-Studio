@@ -42,7 +42,7 @@ export default function EmailAuth({
   identifier,
   onAuthSuccess,
   title = 'chat',
-  primaryColor = 'var(--brand-primary-hover-hex)',
+  primaryColor = 'var(--primary-hover)',
 }: EmailAuthProps) {
   // Email auth state
   const [email, setEmail] = useState('')
@@ -63,10 +63,10 @@ export default function EmailAuth({
     // Check if CSS variable has been customized
     const checkCustomBrand = () => {
       const computedStyle = getComputedStyle(document.documentElement)
-      const brandAccent = computedStyle.getPropertyValue('--brand-accent-hex').trim()
+      const brandAccent = computedStyle.getPropertyValue('--accent').trim()
 
       // Check if the CSS variable exists and is different from the default
-      if (brandAccent && brandAccent !== '#6f3dfa') {
+      if (brandAccent && brandAccent !== '#ffcc00') {
         setButtonClass('auth-button-custom')
       } else {
         setButtonClass('auth-button-gradient')
@@ -374,7 +374,7 @@ export default function EmailAuth({
                         </span>
                       ) : (
                         <button
-                          className='font-medium text-[var(--brand-accent-hex)] underline-offset-4 transition hover:text-[var(--brand-accent-hover-hex)] hover:underline'
+                          className='font-medium text-[var(--accent)] underline-offset-4 transition hover:text-[var(--accent-hover)] hover:underline'
                           onClick={handleResendOtp}
                           disabled={isVerifyingOtp || isResendDisabled}
                         >
@@ -391,7 +391,7 @@ export default function EmailAuth({
                         setOtpValue('')
                         setAuthError(null)
                       }}
-                      className='font-medium text-[var(--brand-accent-hex)] underline-offset-4 transition hover:text-[var(--brand-accent-hover-hex)] hover:underline'
+                      className='font-medium text-[var(--accent)] underline-offset-4 transition hover:text-[var(--accent-hover)] hover:underline'
                     >
                       Change email
                     </button>

@@ -11,21 +11,12 @@ import {
   SkipForward,
   StepForward,
   Store,
-  Trash2,
   Webhook,
   WifiOff,
   X,
 } from 'lucide-react'
-import { useParams, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
   Button,
   Tooltip,
   TooltipContent,
@@ -47,14 +38,18 @@ import {
   getKeyboardShortcutText,
   useKeyboardShortcuts,
 } from '@/app/workspace/[workspaceId]/w/hooks/use-keyboard-shortcuts'
-import { useFolderStore } from '@/stores/folders/store'
 import { useOperationQueueStore } from '@/stores/operation-queue/store'
 import { usePanelStore } from '@/stores/panel/store'
 import { useSubscriptionStore } from '@/stores/subscription/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store'
+import { useWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
+import {
+  widgetHeaderControlClassName,
+  widgetHeaderIconButtonClassName,
+} from '@/widgets/components/widget-header-control'
 
 const logger = createLogger('ControlBar')
 
@@ -72,32 +67,86 @@ let usageDataCache: {
 
 interface ControlBarProps {
   hasValidationErrors?: boolean
+  className?: string
+  variant?: 'workspace' | 'widget'
 }
 
+type ControlBarVariant = 'workspace' | 'widget'
+
+const WORKSPACE_ICON_BUTTON_CLASS =
+  'h-12 w-12 rounded-[11px] border bg-card text-card-foreground shadow-xs hover:bg-secondary'
+const WORKSPACE_ICON_BUTTON_DISABLED_CLASS =
+  'inline-flex h-12 w-12 cursor-not-allowed items-center justify-center rounded-[11px] border bg-card text-card-foreground opacity-50 shadow-xs transition-colors'
+
+const WIDGET_ICON_BUTTON_CLASS = widgetHeaderIconButtonClassName()
+const WIDGET_ICON_BUTTON_DISABLED_CLASS = cn(widgetHeaderIconButtonClassName(), 'cursor-not-allowed opacity-60')
+
+const WORKSPACE_PRIMARY_BUTTON_CLASS = cn(
+  'gap-2 font-medium',
+  'bg-primary hover:bg-primary-hover ',
+  'shadow-[0_0_0_0_var(--primary)] ',
+  'transition-all duration-200',
+  'text-black disabled:opacity-50 disabled:hover:bg-primary-hover disabled:hover:shadow-none',
+  'h-12 rounded-[11px] px-4 py-2'
+)
+const WIDGET_PRIMARY_BUTTON_CLASS = cn(
+  widgetHeaderIconButtonClassName(),
+  'bg-primary hover:bg-primary-hover hover:text-black text-black '
+)
+
+const WORKSPACE_DANGER_BUTTON_CLASS = cn(
+  'gap-2 font-medium',
+  'bg-red-500 hover:bg-red-600',
+  'shadow-[0_0_0_0_#ef4444] hover:shadow-[0_0_0_4px_rgba(239,68,68,0.15)]',
+  'text-white transition-all duration-200',
+  'h-12 rounded-[11px] px-4 py-2'
+)
+const WIDGET_DANGER_BUTTON_CLASS = cn(
+  widgetHeaderIconButtonClassName(),
+  'bg-red-500 text-white hover:bg-red-600'
+)
+
+const getIconButtonClass = (variant: ControlBarVariant, extra?: string) =>
+  cn(variant === 'widget' ? WIDGET_ICON_BUTTON_CLASS : WORKSPACE_ICON_BUTTON_CLASS, extra)
+
+const getDisabledIconButtonClass = (variant: ControlBarVariant, extra?: string) =>
+  cn(
+    variant === 'widget'
+      ? WIDGET_ICON_BUTTON_DISABLED_CLASS
+      : WORKSPACE_ICON_BUTTON_DISABLED_CLASS,
+    extra
+  )
+
+const getPrimaryButtonClass = (variant: ControlBarVariant, extra?: string) =>
+  cn(variant === 'widget' ? WIDGET_PRIMARY_BUTTON_CLASS : WORKSPACE_PRIMARY_BUTTON_CLASS, extra)
+
+const getDangerButtonClass = (variant: ControlBarVariant, extra?: string) =>
+  cn(variant === 'widget' ? WIDGET_DANGER_BUTTON_CLASS : WORKSPACE_DANGER_BUTTON_CLASS, extra)
+
 /**
- * Control bar for managing workflows - handles editing, deletion, deployment,
+ * Control bar for managing workflows - handles editing, deployment,
  * history, notifications and execution.
  */
-export function ControlBar({ hasValidationErrors = false }: ControlBarProps) {
+export function ControlBar({
+  hasValidationErrors = false,
+  className,
+  variant = 'workspace',
+}: ControlBarProps) {
   const router = useRouter()
   const { data: session } = useSession()
-  const params = useParams()
-  const workspaceId = params.workspaceId as string
-
+  const { workspaceId, workflowId, channelId } = useWorkflowRoute()
   // Store hooks
   const { lastSaved, setNeedsRedeploymentFlag, blocks } = useWorkflowStore()
   const {
     workflows,
     updateWorkflow,
     activeWorkflowId,
-    removeWorkflow,
     duplicateWorkflow,
     setDeploymentStatus,
     isLoading: isRegistryLoading,
   } = useWorkflowRegistry()
   const { isExecuting, handleRunWorkflow, handleCancelExecution } = useWorkflowExecution()
   const { setActiveTab, togglePanel, isOpen } = usePanelStore()
-  const { getFolderTree, expandedFolders } = useFolderStore()
 
   // User permissions - use stable activeWorkspaceId from registry instead of deriving from currentWorkflow
   const userPermissions = useUserPermissionsContext()
@@ -113,15 +162,7 @@ export function ControlBar({ hasValidationErrors = false }: ControlBarProps) {
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
   const [isWebhookSettingsOpen, setIsWebhookSettingsOpen] = useState(false)
   const [isAutoLayouting, setIsAutoLayouting] = useState(false)
-
-  // Delete workflow state - grouped for better organization
-  const [deleteState, setDeleteState] = useState({
-    showDialog: false,
-    isDeleting: false,
-    hasPublishedTemplates: false,
-    publishedTemplates: [] as any[],
-    showTemplateChoice: false,
-  })
+  const isWidgetVariant = variant === 'widget'
 
   // Deployed state management
   const [deployedState, setDeployedState] = useState<WorkflowState | null>(null)
@@ -361,172 +402,6 @@ export function ControlBar({ hasValidationErrors = false }: ControlBarProps) {
     }
   }
 
-  /**
-   * Reset delete state
-   */
-  const resetDeleteState = useCallback(() => {
-    setDeleteState({
-      showDialog: false,
-      isDeleting: false,
-      hasPublishedTemplates: false,
-      publishedTemplates: [],
-      showTemplateChoice: false,
-    })
-  }, [])
-
-  /**
-   * Navigate to next workflow after deletion
-   */
-  const navigateAfterDeletion = useCallback(
-    (currentWorkflowId: string) => {
-      const sidebarWorkflows = getSidebarOrderedWorkflows()
-      const currentIndex = sidebarWorkflows.findIndex((w) => w.id === currentWorkflowId)
-
-      // Find next workflow: try next, then previous
-      let nextWorkflowId: string | null = null
-      if (sidebarWorkflows.length > 1) {
-        if (currentIndex < sidebarWorkflows.length - 1) {
-          nextWorkflowId = sidebarWorkflows[currentIndex + 1].id
-        } else if (currentIndex > 0) {
-          nextWorkflowId = sidebarWorkflows[currentIndex - 1].id
-        }
-      }
-
-      // Navigate to next workflow or workspace home
-      if (nextWorkflowId) {
-        router.push(`/workspace/${workspaceId}/w/${nextWorkflowId}`)
-      } else {
-        router.push(`/workspace/${workspaceId}`)
-      }
-    },
-    [workspaceId, router]
-  )
-
-  /**
-   * Check if workflow has published templates
-   */
-  const checkPublishedTemplates = useCallback(async (workflowId: string) => {
-    const checkResponse = await fetch(`/api/workflows/${workflowId}?check-templates=true`, {
-      method: 'DELETE',
-    })
-
-    if (!checkResponse.ok) {
-      throw new Error(`Failed to check templates: ${checkResponse.statusText}`)
-    }
-
-    return await checkResponse.json()
-  }, [])
-
-  /**
-   * Delete workflow with optional template handling
-   */
-  const deleteWorkflowWithTemplates = useCallback(
-    async (workflowId: string, templateAction?: 'keep' | 'delete') => {
-      const endpoint = templateAction
-        ? `/api/workflows/${workflowId}?deleteTemplates=${templateAction}`
-        : null
-
-      if (endpoint) {
-        // Use custom endpoint for template handling
-        const response = await fetch(endpoint, { method: 'DELETE' })
-        if (!response.ok) {
-          throw new Error(`Failed to delete workflow: ${response.statusText}`)
-        }
-
-        // Manual registry cleanup since we used custom API
-        useWorkflowRegistry.setState((state) => {
-          const newWorkflows = { ...state.workflows }
-          delete newWorkflows[workflowId]
-
-          return {
-            ...state,
-            workflows: newWorkflows,
-            activeWorkflowId: state.activeWorkflowId === workflowId ? null : state.activeWorkflowId,
-          }
-        })
-      } else {
-        // Use registry's built-in deletion (handles database + state)
-        await useWorkflowRegistry.getState().removeWorkflow(workflowId)
-      }
-    },
-    []
-  )
-
-  /**
-   * Handle deleting the current workflow - called after user confirms
-   */
-  const handleDeleteWorkflow = useCallback(async () => {
-    const currentWorkflowId = params.workflowId as string
-    if (!currentWorkflowId || !userPermissions.canEdit) return
-
-    setDeleteState((prev) => ({ ...prev, isDeleting: true }))
-
-    try {
-      // Check if workflow has published templates
-      const checkData = await checkPublishedTemplates(currentWorkflowId)
-
-      if (checkData.hasPublishedTemplates) {
-        setDeleteState((prev) => ({
-          ...prev,
-          hasPublishedTemplates: true,
-          publishedTemplates: checkData.publishedTemplates || [],
-          showTemplateChoice: true,
-          isDeleting: false, // Stop showing "Deleting..." and show template choice
-        }))
-        return
-      }
-
-      // No templates, proceed with standard deletion
-      navigateAfterDeletion(currentWorkflowId)
-      await deleteWorkflowWithTemplates(currentWorkflowId)
-      resetDeleteState()
-    } catch (error) {
-      logger.error('Error deleting workflow:', error)
-      setDeleteState((prev) => ({ ...prev, isDeleting: false }))
-    }
-  }, [
-    params.workflowId,
-    userPermissions.canEdit,
-    checkPublishedTemplates,
-    navigateAfterDeletion,
-    deleteWorkflowWithTemplates,
-    resetDeleteState,
-  ])
-
-  /**
-   * Handle template action selection
-   */
-  const handleTemplateAction = useCallback(
-    async (action: 'keep' | 'delete') => {
-      const currentWorkflowId = params.workflowId as string
-      if (!currentWorkflowId || !userPermissions.canEdit) return
-
-      setDeleteState((prev) => ({ ...prev, isDeleting: true }))
-
-      try {
-        logger.info(`Deleting workflow ${currentWorkflowId} with template action: ${action}`)
-
-        navigateAfterDeletion(currentWorkflowId)
-        await deleteWorkflowWithTemplates(currentWorkflowId, action)
-
-        logger.info(
-          `Successfully deleted workflow ${currentWorkflowId} with template action: ${action}`
-        )
-        resetDeleteState()
-      } catch (error) {
-        logger.error('Error deleting workflow:', error)
-        setDeleteState((prev) => ({ ...prev, isDeleting: false }))
-      }
-    },
-    [
-      params.workflowId,
-      userPermissions.canEdit,
-      navigateAfterDeletion,
-      deleteWorkflowWithTemplates,
-      resetDeleteState,
-    ]
-  )
-
   // Helper function to open subscription settings
   const openSubscriptionSettings = () => {
     if (typeof window !== 'undefined') {
@@ -555,143 +430,6 @@ export function ControlBar({ hasValidationErrors = false }: ControlBarProps) {
   }
 
   /**
-   * Render delete workflow button with confirmation dialog
-   */
-  const renderDeleteButton = () => {
-    const canEdit = userPermissions.canEdit
-    const hasMultipleWorkflows = Object.keys(workflows).length > 1
-    const isDisabled = !canEdit || !hasMultipleWorkflows
-
-    const getTooltipText = () => {
-      if (!canEdit) return 'Admin permission required to delete workflows'
-      if (!hasMultipleWorkflows) return 'Cannot delete the last workflow'
-      return 'Delete workflow'
-    }
-
-    if (isDisabled) {
-      return (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className='inline-flex h-12 w-12 cursor-not-allowed items-center justify-center rounded-[11px] border bg-card text-card-foreground opacity-50 shadow-xs transition-colors'>
-              <Trash2 className='h-4 w-4' />
-            </div>
-          </TooltipTrigger>
-          <TooltipContent>{getTooltipText()}</TooltipContent>
-        </Tooltip>
-      )
-    }
-
-    return (
-      <AlertDialog
-        open={deleteState.showDialog}
-        onOpenChange={(open) => {
-          if (open) {
-            // Reset all state when opening dialog to ensure clean start
-            setDeleteState({
-              showDialog: true,
-              isDeleting: false,
-              hasPublishedTemplates: false,
-              publishedTemplates: [],
-              showTemplateChoice: false,
-            })
-          } else {
-            resetDeleteState()
-          }
-        }}
-      >
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant='outline'
-                className={cn(
-                  'h-12 w-12 rounded-[11px] border bg-card text-card-foreground shadow-xs',
-                  'hover:border-red-500 hover:bg-red-500 hover:text-white',
-                  'transition-all duration-200'
-                )}
-              >
-                <Trash2 className='h-5 w-5' />
-                <span className='sr-only'>Delete Workflow</span>
-              </Button>
-            </AlertDialogTrigger>
-          </TooltipTrigger>
-          <TooltipContent>{getTooltipText()}</TooltipContent>
-        </Tooltip>
-
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {deleteState.showTemplateChoice ? 'Published Templates Found' : 'Delete workflow?'}
-            </AlertDialogTitle>
-            {deleteState.showTemplateChoice ? (
-              <div className='space-y-3'>
-                <AlertDialogDescription>
-                  This workflow has {deleteState.publishedTemplates.length} published template
-                  {deleteState.publishedTemplates.length > 1 ? 's' : ''}:
-                </AlertDialogDescription>
-                {deleteState.publishedTemplates.length > 0 && (
-                  <ul className='list-disc space-y-1 pl-6'>
-                    {deleteState.publishedTemplates.map((template) => (
-                      <li key={template.id}>{template.name}</li>
-                    ))}
-                  </ul>
-                )}
-                <AlertDialogDescription>
-                  What would you like to do with the published template
-                  {deleteState.publishedTemplates.length > 1 ? 's' : ''}?
-                </AlertDialogDescription>
-              </div>
-            ) : (
-              <AlertDialogDescription>
-                Deleting this workflow will permanently remove all associated blocks, executions,
-                and configuration.{' '}
-                <span className='text-red-500 dark:text-red-500'>
-                  This action cannot be undone.
-                </span>
-              </AlertDialogDescription>
-            )}
-          </AlertDialogHeader>
-          <AlertDialogFooter className='flex'>
-            {deleteState.showTemplateChoice ? (
-              <div className='flex w-full gap-2'>
-                <Button
-                  variant='outline'
-                  onClick={() => handleTemplateAction('keep')}
-                  disabled={deleteState.isDeleting}
-                  className='h-9 flex-1 rounded-[8px]'
-                >
-                  Keep templates
-                </Button>
-                <Button
-                  onClick={() => handleTemplateAction('delete')}
-                  disabled={deleteState.isDeleting}
-                  className='h-9 flex-1 rounded-[8px] bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
-                >
-                  {deleteState.isDeleting ? 'Deleting...' : 'Delete templates'}
-                </Button>
-              </div>
-            ) : (
-              <>
-                <AlertDialogCancel className='h-9 w-full rounded-[8px]'>Cancel</AlertDialogCancel>
-                <Button
-                  onClick={(e) => {
-                    e.preventDefault()
-                    handleDeleteWorkflow()
-                  }}
-                  disabled={deleteState.isDeleting}
-                  className='h-9 w-full rounded-[8px] bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
-                >
-                  {deleteState.isDeleting ? 'Deleting...' : 'Delete'}
-                </Button>
-              </>
-            )}
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    )
-  }
-
-  /**
    * Render deploy button with tooltip
    */
   const renderDeployButton = () => (
@@ -703,6 +441,7 @@ export function ControlBar({ hasValidationErrors = false }: ControlBarProps) {
       isLoadingDeployedState={isLoadingDeployedState}
       refetchDeployedState={fetchDeployedState}
       userPermissions={userPermissions}
+      variant={variant}
     />
   )
 
@@ -730,7 +469,7 @@ export function ControlBar({ hasValidationErrors = false }: ControlBarProps) {
             size='icon'
             disabled={isDisabled}
             onClick={() => setIsWebhookSettingsOpen(true)}
-            className='h-12 w-12 rounded-[11px] border bg-card text-card-foreground shadow-xs hover:bg-secondary'
+            className={getIconButtonClass(variant)}
           >
             <Webhook className='h-5 w-5' />
             <span className='sr-only'>Webhook Settings</span>
@@ -758,14 +497,14 @@ export function ControlBar({ hasValidationErrors = false }: ControlBarProps) {
       <Tooltip>
         <TooltipTrigger asChild>
           {isDisabled ? (
-            <div className='inline-flex h-12 w-12 cursor-not-allowed items-center justify-center rounded-[11px] border bg-card text-card-foreground opacity-50 shadow-xs transition-colors'>
+            <div className={getDisabledIconButtonClass(variant)}>
               <Copy className='h-4 w-4' />
             </div>
           ) : (
             <Button
               variant='outline'
               onClick={handleDuplicateWorkflow}
-              className='h-12 w-12 rounded-[11px] border bg-card text-card-foreground shadow-xs hover:bg-secondary'
+              className={getIconButtonClass(variant)}
             >
               <Copy className='h-5 w-5' />
               <span className='sr-only'>Duplicate Workflow</span>
@@ -791,7 +530,10 @@ export function ControlBar({ hasValidationErrors = false }: ControlBarProps) {
         // Use the shared auto layout utility for immediate frontend updates
         const { applyAutoLayoutAndUpdateStore } = await import('../../utils/auto-layout')
 
-        const result = await applyAutoLayoutAndUpdateStore(activeWorkflowId!)
+        const result = await applyAutoLayoutAndUpdateStore({
+          workflowId: activeWorkflowId!,
+          channelId,
+        })
 
         if (result.success) {
           logger.info('Auto layout completed successfully')
@@ -822,7 +564,7 @@ export function ControlBar({ hasValidationErrors = false }: ControlBarProps) {
       <Tooltip>
         <TooltipTrigger asChild>
           {isDisabled ? (
-            <div className='inline-flex h-12 w-12 cursor-not-allowed items-center justify-center rounded-[11px] border bg-card text-card-foreground opacity-50 shadow-xs transition-colors'>
+            <div className={getDisabledIconButtonClass(variant)}>
               {isAutoLayouting ? (
                 <RefreshCw className='h-4 w-4 animate-spin' />
               ) : (
@@ -833,7 +575,7 @@ export function ControlBar({ hasValidationErrors = false }: ControlBarProps) {
             <Button
               variant='outline'
               onClick={handleAutoLayoutClick}
-              className='h-12 w-12 rounded-[11px] border bg-card text-card-foreground shadow-xs hover:bg-secondary'
+              className={getIconButtonClass(variant)}
               disabled={isAutoLayouting}
             >
               {isAutoLayouting ? (
@@ -897,11 +639,14 @@ export function ControlBar({ hasValidationErrors = false }: ControlBarProps) {
     const isControlDisabled = pendingCount === 0
 
     const debugButtonClass = cn(
-      'h-12 w-12 rounded-[11px] font-medium',
-      'bg-[var(--brand-primary-hex)] hover:bg-[var(--brand-primary-hover-hex)]',
-      'shadow-[0_0_0_0_var(--brand-primary-hex)] hover:shadow-[0_0_0_4px_rgba(127,47,255,0.15)]]',
-      'text-white transition-all duration-200',
-      'disabled:opacity-50 disabled:hover:bg-[var(--brand-primary-hex)] disabled:hover:shadow-none'
+      getIconButtonClass(
+        variant,
+        'bg-primary  hover:bg-primary-hover'
+      ),
+      'font-semibold transition-all duration-200',
+      variant === 'workspace' &&
+      'shadow-[0_0_0_0_var(--primary)] ',
+      'disabled:opacity-50'
     )
 
     return (
@@ -976,14 +721,14 @@ export function ControlBar({ hasValidationErrors = false }: ControlBarProps) {
       <Tooltip>
         <TooltipTrigger asChild>
           {isDisabled ? (
-            <div className='inline-flex h-12 w-12 cursor-not-allowed items-center justify-center rounded-[11px] border bg-card text-card-foreground opacity-50 shadow-xs transition-colors'>
+            <div className={getDisabledIconButtonClass(variant)}>
               <Store className='h-4 w-4' />
             </div>
           ) : (
             <Button
               variant='outline'
               onClick={() => setIsTemplateModalOpen(true)}
-              className='h-12 w-12 rounded-[11px] border bg-card text-card-foreground shadow-xs hover:bg-secondary'
+              className={getIconButtonClass(variant)}
             >
               <Store className='h-5 w-5' />
               <span className='sr-only'>Publish Template</span>
@@ -1014,23 +759,13 @@ export function ControlBar({ hasValidationErrors = false }: ControlBarProps) {
       return isDebugging ? 'Stop debugging' : 'Start debugging'
     }
 
-    const buttonClass = cn(
-      'h-12 w-12 rounded-[11px] border bg-card text-card-foreground shadow-xs hover:bg-secondary',
-      isDebugging && 'text-amber-500'
-    )
+    const buttonClass = cn(getIconButtonClass(variant), isDebugging && 'text-amber-500')
 
     return (
       <Tooltip>
         <TooltipTrigger asChild>
           {isDisabled ? (
-            <div
-              className={cn(
-                'inline-flex h-12 w-12 cursor-not-allowed items-center justify-center',
-                'rounded-[11px] border bg-card text-card-foreground opacity-50',
-                'shadow-xs transition-colors',
-                isDebugging && 'text-amber-500'
-              )}
-            >
+            <div className={cn(getDisabledIconButtonClass(variant), isDebugging && 'text-amber-500')}>
               <Bug className='h-4 w-4' />
             </div>
           ) : (
@@ -1060,13 +795,7 @@ export function ControlBar({ hasValidationErrors = false }: ControlBarProps) {
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              className={cn(
-                'gap-2 font-medium',
-                'bg-red-500 hover:bg-red-600',
-                'shadow-[0_0_0_0_#ef4444] hover:shadow-[0_0_0_4px_rgba(239,68,68,0.15)]',
-                'text-white transition-all duration-200',
-                'h-12 rounded-[11px] px-4 py-2'
-              )}
+              className={getDangerButtonClass(variant)}
               onClick={handleCancelExecution}
             >
               <X className={cn('h-3.5 w-3.5')} />
@@ -1123,14 +852,7 @@ export function ControlBar({ hasValidationErrors = false }: ControlBarProps) {
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            className={cn(
-              'gap-2 font-medium',
-              'bg-[var(--brand-primary-hex)] hover:bg-[var(--brand-primary-hover-hex)]',
-              'shadow-[0_0_0_0_var(--brand-primary-hex)] hover:shadow-[0_0_0_4px_rgba(127,47,255,0.15)]',
-              'text-white transition-all duration-200',
-              'disabled:opacity-50 disabled:hover:bg-[var(--brand-primary-hex)] disabled:hover:shadow-none',
-              'h-12 rounded-[11px] px-4 py-2'
-            )}
+            className={getPrimaryButtonClass(variant)}
             onClick={handleRunClick}
             disabled={isButtonDisabled}
           >
@@ -1145,52 +867,10 @@ export function ControlBar({ hasValidationErrors = false }: ControlBarProps) {
   }
 
   /**
-   * Get workflows in the exact order they appear in the sidebar
-   */
-  const getSidebarOrderedWorkflows = () => {
-    // Get and sort regular workflows by creation date (newest first) for stable ordering
-    const regularWorkflows = Object.values(workflows)
-      .filter((workflow) => workflow.workspaceId === workspaceId)
-      .filter((workflow) => workflow.marketplaceData?.status !== 'temp')
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-
-    // Group workflows by folder
-    const workflowsByFolder = regularWorkflows.reduce(
-      (acc, workflow) => {
-        const folderId = workflow.folderId || 'root'
-        if (!acc[folderId]) acc[folderId] = []
-        acc[folderId].push(workflow)
-        return acc
-      },
-      {} as Record<string, typeof regularWorkflows>
-    )
-
-    const orderedWorkflows: typeof regularWorkflows = []
-
-    // Recursively collect workflows from expanded folders
-    const collectFromFolders = (folders: ReturnType<typeof getFolderTree>) => {
-      folders.forEach((folder) => {
-        if (expandedFolders.has(folder.id)) {
-          orderedWorkflows.push(...(workflowsByFolder[folder.id] || []))
-          if (folder.children.length > 0) {
-            collectFromFolders(folder.children)
-          }
-        }
-      })
-    }
-
-    // Get workflows from expanded folders first, then root workflows
-    if (workspaceId) collectFromFolders(getFolderTree(workspaceId))
-    orderedWorkflows.push(...(workflowsByFolder.root || []))
-
-    return orderedWorkflows
-  }
-
-  /**
    * Render disconnection notice
    */
   const renderDisconnectionNotice = () => {
-    if (!userPermissions.isOfflineMode) return null
+    if (!userPermissions.isOfflineMode || isWidgetVariant) return null
 
     const handleRefresh = () => {
       window.location.reload()
@@ -1220,13 +900,14 @@ export function ControlBar({ hasValidationErrors = false }: ControlBarProps) {
    * Render control bar toggle button
    */
   const renderToggleButton = () => {
+    if (isWidgetVariant) return null
     return (
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
             variant='outline'
             onClick={() => setIsExpanded(!isExpanded)}
-            className='h-12 w-12 rounded-[11px] border bg-card text-card-foreground shadow-xs hover:bg-secondary'
+            className={getIconButtonClass(variant)}
           >
             <ChevronLeft
               className={cn(
@@ -1242,15 +923,20 @@ export function ControlBar({ hasValidationErrors = false }: ControlBarProps) {
     )
   }
 
+  const showOptionalControls = isWidgetVariant ? true : isExpanded
+  const defaultContainerClass = isWidgetVariant
+    ? 'inline-flex flex-nowrap items-center'
+    : 'fixed top-4 right-4 z-20'
+  const containerClass = cn('flex items-center gap-1', className ?? defaultContainerClass)
+
   return (
-    <div className='fixed top-4 right-4 z-20 flex items-center gap-1'>
+    <div className={containerClass}>
       {renderDisconnectionNotice()}
       {renderToggleButton()}
-      {isExpanded && renderWebhookButton()}
-      {isExpanded && <ExportControls />}
-      {isExpanded && renderAutoLayoutButton()}
-      {isExpanded && renderPublishButton()}
-      {renderDeleteButton()}
+      {showOptionalControls && renderWebhookButton()}
+      {showOptionalControls && <ExportControls variant={variant} />}
+      {showOptionalControls && renderAutoLayoutButton()}
+      {showOptionalControls && renderPublishButton()}
       {renderDuplicateButton()}
       {!isDebugging && renderDebugModeToggle()}
       {renderDeployButton()}

@@ -226,24 +226,24 @@ export function DocumentTagEntry({
         const updatedTags =
           editingTagIndex !== null
             ? tags.map((tag, index) =>
-                index === editingTagIndex
-                  ? {
-                      ...tag,
-                      displayName: editForm.displayName,
-                      fieldType: editForm.fieldType,
-                      value: editForm.value,
-                    }
-                  : tag
-              )
-            : [
-                ...tags,
-                {
-                  slot: targetSlot,
+              index === editingTagIndex
+                ? {
+                  ...tag,
                   displayName: editForm.displayName,
                   fieldType: editForm.fieldType,
                   value: editForm.value,
-                },
-              ]
+                }
+                : tag
+            )
+            : [
+              ...tags,
+              {
+                slot: targetSlot,
+                displayName: editForm.displayName,
+                fieldType: editForm.fieldType,
+                value: editForm.value,
+              },
+            ]
         await onSave(updatedTags)
       }
 
@@ -279,7 +279,7 @@ export function DocumentTagEntry({
           <Badge
             key={index}
             variant='outline'
-            className='cursor-pointer gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-accent'
+            className='cursor-pointer gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-card'
             onClick={() => openTagModal(index)}
           >
             <span className='font-medium'>{tag.displayName || 'Unnamed Tag'}</span>

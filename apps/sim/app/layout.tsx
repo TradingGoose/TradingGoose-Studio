@@ -10,6 +10,7 @@ import '@/app/globals.css'
 import { SessionProvider } from '@/lib/session/session-context'
 import { ThemeProvider } from '@/app/theme-provider'
 import { ZoomPrevention } from '@/app/zoom-prevention'
+import { GlobalNavbar } from '@/global-navbar'
 
 const logger = createLogger('RootLayout')
 
@@ -94,7 +95,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <SessionProvider>
               <BrandedLayout>
                 <ZoomPrevention />
-                {children}
+                <GlobalNavbar>{children}</GlobalNavbar>
               </BrandedLayout>
             </SessionProvider>
           </ThemeProvider>

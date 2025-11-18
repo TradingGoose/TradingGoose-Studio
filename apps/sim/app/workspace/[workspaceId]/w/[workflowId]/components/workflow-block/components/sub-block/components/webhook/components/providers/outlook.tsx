@@ -124,9 +124,9 @@ export function OutlookConfig({
   labelFilterBehavior: folderFilterBehavior,
   setLabelFilterBehavior: setFolderFilterBehavior,
   markAsRead = false,
-  setMarkAsRead = () => {},
+  setMarkAsRead = () => { },
   includeRawEmail = false,
-  setIncludeRawEmail = () => {},
+  setIncludeRawEmail = () => { },
 }: OutlookConfigProps) {
   const [folders, setFolders] = useState<OutlookFolder[]>([])
   const [isLoadingFolders, setIsLoadingFolders] = useState(false)
@@ -254,11 +254,10 @@ export function OutlookConfig({
                 <Badge
                   key={folder.id}
                   variant={isSelected ? 'default' : 'secondary'}
-                  className={`cursor-pointer transition-colors ${
-                    isSelected
-                      ? 'bg-primary text-muted-foreground hover:bg-primary/90'
-                      : 'hover:bg-secondary/80'
-                  }`}
+                  className={`cursor-pointer transition-colors ${isSelected
+                    ? 'bg-primary text-muted-foreground hover:bg-[var(--primary)]/90'
+                    : 'hover:bg-secondary/80'
+                    }`}
                   onClick={() => {
                     if (isSelected) {
                       setSelectedFolders(selectedFolders.filter((id) => id !== folder.id))

@@ -24,7 +24,7 @@ export default function PasswordAuth({
   identifier,
   onAuthSuccess,
   title = 'chat',
-  primaryColor = 'var(--brand-primary-hover-hex)',
+  primaryColor = 'var(--primary-hover)',
 }: PasswordAuthProps) {
   // Password auth state
   const [password, setPassword] = useState('')
@@ -39,10 +39,10 @@ export default function PasswordAuth({
     // Check if CSS variable has been customized
     const checkCustomBrand = () => {
       const computedStyle = getComputedStyle(document.documentElement)
-      const brandAccent = computedStyle.getPropertyValue('--brand-accent-hex').trim()
+      const brandAccent = computedStyle.getPropertyValue('--accent').trim()
 
       // Check if the CSS variable exists and is different from the default
-      if (brandAccent && brandAccent !== '#6f3dfa') {
+      if (brandAccent && brandAccent !== '#ffcc00') {
         setButtonClass('auth-button-custom')
       } else {
         setButtonClass('auth-button-gradient')

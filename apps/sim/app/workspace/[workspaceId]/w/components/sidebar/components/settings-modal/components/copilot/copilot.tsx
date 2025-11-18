@@ -252,7 +252,7 @@ export function Copilot() {
                 onClick={onGenerate}
                 variant='ghost'
                 size='sm'
-                className='h-8 rounded-[8px] border bg-background px-3 shadow-xs hover:bg-muted focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
+                className='h-8 rounded-[8px] border bg-background px-3 shadow-xs hover:bg-card focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
                 disabled={isLoading}
               >
                 <Plus className='h-3.5 w-3.5 stroke-[2px]' />
@@ -331,7 +331,7 @@ export function Copilot() {
                     return (
                       <div
                         key={model.value}
-                        className='-mx-2 flex items-center justify-between rounded px-2 py-1.5 hover:bg-muted/50'
+                        className='-mx-2 flex items-center justify-between rounded px-2 py-1.5 hover:bg-card/50'
                       >
                         <div className='flex items-center gap-2'>
                           {getModelIcon(model.icon)}
@@ -359,7 +359,7 @@ export function Copilot() {
                     return (
                       <div
                         key={model.value}
-                        className='-mx-2 flex items-center justify-between rounded px-2 py-1.5 hover:bg-muted/50'
+                        className='-mx-2 flex items-center justify-between rounded px-2 py-1.5 hover:bg-card/50'
                       >
                         <div className='flex items-center gap-2'>
                           {getModelIcon(model.icon)}

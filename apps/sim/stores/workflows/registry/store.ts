@@ -3,6 +3,7 @@ import { devtools } from 'zustand/middleware'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateCreativeWorkflowName } from '@/lib/naming'
 import { API_ENDPOINTS } from '@/stores/constants'
+import { usePairColorStore } from '@/stores/dashboard/pair-store'
 import { useVariablesStore } from '@/stores/panel/variables/store'
 import type {
   DeploymentStatus,
@@ -12,11 +13,80 @@ import type {
 import { getNextWorkflowColor } from '@/stores/workflows/registry/utils'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store'
+import { isPairColor, PAIR_COLORS } from '@/widgets/pair-colors'
 
 const logger = createLogger('WorkflowRegistry')
 
 let isFetching = false
 let lastFetchTimestamp = 0
+
+const DEFAULT_WORKFLOW_CHANNEL_ID = 'default'
+
+const resolveChannelId = (channelId?: string) =>
+  channelId && channelId.trim().length > 0 ? channelId : DEFAULT_WORKFLOW_CHANNEL_ID
+
+const getPairColorFromChannelId = (channelId?: string): string | null => {
+  if (!channelId) return null
+  const prefix = 'pair-'
+  if (!channelId.startsWith(prefix)) return null
+  const color = channelId.slice(prefix.length) as (typeof PAIR_COLORS)[number]
+  return isPairColor(color) ? color : null
+}
+
+const syncPairContextForChannel = (channelId: string | undefined, workflowId: string | null) => {
+  const pairColor = getPairColorFromChannelId(channelId)
+  if (!pairColor) return
+  const { contexts, setContext } = usePairColorStore.getState()
+  const current = contexts[pairColor]
+  setContext(pairColor, {
+    ...current,
+    workflowId: workflowId ?? undefined,
+  })
+}
+
+const syncRegistryFromPairContexts = (contexts: ReturnType<typeof usePairColorStore.getState>['contexts']) => {
+  const updates: Record<string, string> = {}
+  const removals = new Set<string>()
+
+  Object.entries(contexts).forEach(([color, ctx]) => {
+    if (color === 'gray') return
+    const channelId = `pair-${color}`
+    if (ctx?.workflowId) {
+      updates[channelId] = ctx.workflowId
+    } else {
+      removals.add(channelId)
+    }
+  })
+
+  useWorkflowRegistry.setState((state) => {
+    const nextActiveWorkflowIds = { ...state.activeWorkflowIds }
+    const nextLoadedWorkflowIds = { ...state.loadedWorkflowIds }
+    removals.forEach((chan) => delete nextActiveWorkflowIds[chan])
+    Object.entries(updates).forEach(([chan, wfId]) => {
+      nextActiveWorkflowIds[chan] = wfId
+      delete nextLoadedWorkflowIds[chan] // mark as not yet loaded
+    })
+    return {
+      ...state,
+      activeWorkflowIds: nextActiveWorkflowIds,
+      loadedWorkflowIds: nextLoadedWorkflowIds,
+    }
+  })
+}
+
+const getActiveWorkflowIdFromState = (
+  state: WorkflowRegistry,
+  channelId?: string
+): string | null => {
+  const channelKey = resolveChannelId(channelId)
+  if (channelId) {
+    return state.loadedWorkflowIds[channelKey] ? state.activeWorkflowIds[channelKey] ?? null : null
+  }
+
+  return state.loadedWorkflowIds[DEFAULT_WORKFLOW_CHANNEL_ID]
+    ? state.activeWorkflowIds[DEFAULT_WORKFLOW_CHANNEL_ID] ?? state.activeWorkflowId
+    : null
+}
 
 async function fetchWorkflowsFromDB(workspaceId?: string): Promise<void> {
   if (typeof window === 'undefined') return
@@ -150,7 +220,17 @@ async function fetchWorkflowsFromDB(workspaceId?: string): Promise<void> {
     const currentState = useWorkflowRegistry.getState()
     if (!currentState.activeWorkflowId && Object.keys(registryWorkflows).length > 0) {
       const firstWorkflowId = Object.keys(registryWorkflows)[0]
-      useWorkflowRegistry.setState({ activeWorkflowId: firstWorkflowId })
+      useWorkflowRegistry.setState((state) => ({
+        activeWorkflowId: firstWorkflowId,
+        activeWorkflowIds: {
+          ...state.activeWorkflowIds,
+          [DEFAULT_WORKFLOW_CHANNEL_ID]: firstWorkflowId,
+        },
+        loadedWorkflowIds: {
+          ...state.loadedWorkflowIds,
+          [DEFAULT_WORKFLOW_CHANNEL_ID]: false,
+        },
+      }))
       logger.info(`Set first workflow as active: ${firstWorkflowId}`)
     }
 
@@ -241,12 +321,18 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
       // Store state
       workflows: {},
       activeWorkflowId: null,
+      activeWorkflowIds: {},
+      loadedWorkflowIds: {},
       isLoading: false,
       error: null,
       deploymentStatuses: {},
 
       setLoading: (loading: boolean) => {
         set({ isLoading: loading })
+      },
+
+      getActiveWorkflowId: (channelId?: string) => {
+        return getActiveWorkflowIdFromState(get(), channelId)
       },
 
       // Simple method to load workflows (replaces sync system)
@@ -279,6 +365,8 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           // Update state - sidebar will load workflows when URL changes
           set({
             activeWorkflowId: null,
+            loadedWorkflowIds: {},
+            activeWorkflowIds: {},
             workflows: {},
             isLoading: true,
             error: null,
@@ -300,7 +388,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
       getWorkflowDeploymentStatus: (workflowId: string | null): DeploymentStatus | null => {
         if (!workflowId) {
           // If no workflow ID provided, check the active workflow
-          workflowId = get().activeWorkflowId
+          workflowId = getActiveWorkflowIdFromState(get())
           if (!workflowId) return null
         }
 
@@ -323,7 +411,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
         apiKey?: string
       ) => {
         if (!workflowId) {
-          workflowId = get().activeWorkflowId
+          workflowId = getActiveWorkflowIdFromState(get())
           if (!workflowId) return
         }
 
@@ -345,7 +433,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
         }))
 
         // Also update the workflow store if this is the active workflow
-        const { activeWorkflowId } = get()
+        const activeWorkflowId = getActiveWorkflowIdFromState(get())
         if (workflowId === activeWorkflowId) {
           // Update the workflow store for backward compatibility
           useWorkflowStore.setState((state) => ({
@@ -373,7 +461,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
       // Method to set the needsRedeployment flag for a specific workflow
       setWorkflowNeedsRedeployment: (workflowId: string | null, needsRedeployment: boolean) => {
         if (!workflowId) {
-          workflowId = get().activeWorkflowId
+          workflowId = getActiveWorkflowIdFromState(get())
           if (!workflowId) return
         }
 
@@ -394,22 +482,34 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
         })
 
         // Only update the global flag if this is the active workflow
-        const { activeWorkflowId } = get()
+        const activeWorkflowId = getActiveWorkflowIdFromState(get())
         if (workflowId === activeWorkflowId) {
           useWorkflowStore.getState().setNeedsRedeploymentFlag(needsRedeployment)
         }
       },
 
       // Modified setActiveWorkflow to work with clean DB-only architecture
-      setActiveWorkflow: async (id: string) => {
-        const { workflows, activeWorkflowId } = get()
+      setActiveWorkflow: async (params: string | { workflowId: string; channelId?: string }) => {
+        const id = typeof params === 'string' ? params : params.workflowId
+        const channelId = typeof params === 'string' ? undefined : params.channelId
+        const channelKey = resolveChannelId(channelId)
 
-        // Check if workflow is already active AND has data loaded
+        const { workflows } = get()
+
+        // Check if workflow is already active for this channel AND has data loaded
         const workflowStoreState = useWorkflowStore.getState()
         const hasWorkflowData = Object.keys(workflowStoreState.blocks).length > 0
+        const activeWorkflowIdForChannel = getActiveWorkflowIdFromState(get(), channelKey)
 
-        if (activeWorkflowId === id && hasWorkflowData) {
-          logger.info(`Already active workflow ${id} with data loaded, skipping switch`)
+        const shouldSkip =
+          channelKey === DEFAULT_WORKFLOW_CHANNEL_ID &&
+          activeWorkflowIdForChannel === id &&
+          hasWorkflowData
+
+        if (shouldSkip && get().loadedWorkflowIds[channelKey]) {
+          logger.info(
+            `Already active workflow ${id} on channel ${channelKey}, skipping switch`
+          )
           return
         }
 
@@ -475,13 +575,26 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
 
         // Update all stores atomically to prevent race conditions
         // Set activeWorkflowId and workflow state together
-        set({ activeWorkflowId: id, error: null })
+        set((state) => ({
+          // Keep legacy activeWorkflowId in sync with most recent activation for backward compatibility
+          activeWorkflowId: id,
+          activeWorkflowIds: {
+            ...state.activeWorkflowIds,
+            [channelKey]: id,
+          },
+          loadedWorkflowIds: {
+            ...state.loadedWorkflowIds,
+            [channelKey]: true,
+          },
+          error: null,
+        }))
+        syncPairContextForChannel(channelId, id)
         useWorkflowStore.setState(workflowState)
         useSubBlockStore.getState().initializeFromWorkflow(id, (workflowState as any).blocks || {})
 
         window.dispatchEvent(
           new CustomEvent('active-workflow-changed', {
-            detail: { workflowId: id },
+            detail: { workflowId: id, channelId: channelKey },
           })
         )
 
@@ -640,8 +753,14 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           useSubBlockStore.getState().initializeFromWorkflow(id, state.blocks)
         }
 
-        // Set as active workflow and update store
-        set({ activeWorkflowId: id })
+        // Set as active workflow (default channel) and update store
+        set((state) => ({
+          activeWorkflowId: id,
+          activeWorkflowIds: {
+            ...state.activeWorkflowIds,
+            [DEFAULT_WORKFLOW_CHANNEL_ID]: id,
+          },
+        }))
         useWorkflowStore.setState(initialState)
 
         // Immediately persist the marketplace workflow to the database
@@ -764,7 +883,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
         // Otherwise, we need to fetch it from DB or use empty state
         let sourceState: any
 
-        if (sourceId === get().activeWorkflowId) {
+        if (sourceId === getActiveWorkflowIdFromState(get())) {
           // Source is the active workflow, copy current state
           sourceState = {
             blocks: currentWorkflowState.blocks || {},
@@ -898,8 +1017,8 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           error: null,
         }))
 
-        // Copy subblock values if duplicating active workflow
-        if (sourceId === get().activeWorkflowId) {
+        // Copy subblock values if duplicating active workflow (default channel)
+        if (sourceId === getActiveWorkflowIdFromState(get())) {
           const sourceSubblockValues = useSubBlockStore.getState().workflowValues[sourceId] || {}
           useSubBlockStore.setState((state) => ({
             workflowValues: {
@@ -986,6 +1105,16 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           // If deleting active workflow, clear active workflow ID immediately
           // Don't automatically switch to another workflow to prevent race conditions
           let newActiveWorkflowId = state.activeWorkflowId
+          const newActiveWorkflowIds = { ...state.activeWorkflowIds }
+          const newLoadedWorkflowIds = { ...state.loadedWorkflowIds }
+
+          Object.entries(newActiveWorkflowIds).forEach(([channel, activeId]) => {
+            if (activeId === id) {
+              delete newActiveWorkflowIds[channel]
+              delete newLoadedWorkflowIds[channel]
+            }
+          })
+
           if (state.activeWorkflowId === id) {
             newActiveWorkflowId = null
 
@@ -1026,6 +1155,8 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           return {
             workflows: newWorkflows,
             activeWorkflowId: newActiveWorkflowId,
+            activeWorkflowIds: newActiveWorkflowIds,
+            loadedWorkflowIds: newLoadedWorkflowIds,
             error: null,
             isLoading: false, // Clear loading state after successful deletion
           }
@@ -1111,6 +1242,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
         set({
           workflows: {},
           activeWorkflowId: null,
+          activeWorkflowIds: {},
           isLoading: true,
           error: null,
         })
@@ -1120,4 +1252,11 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
     }),
     { name: 'workflow-registry' }
   )
+)
+
+// Keep registry channel map in sync with pair color contexts so linked widgets retain their workflow IDs.
+syncRegistryFromPairContexts(usePairColorStore.getState().contexts)
+usePairColorStore.subscribe(
+  (state) => state.contexts,
+  (contexts) => syncRegistryFromPairContexts(contexts)
 )

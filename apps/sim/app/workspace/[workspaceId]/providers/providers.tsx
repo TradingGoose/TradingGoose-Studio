@@ -7,14 +7,17 @@ import { SettingsLoader } from './settings-loader'
 
 interface ProvidersProps {
   children: React.ReactNode
+  workspaceId?: string
 }
 
-const Providers = React.memo<ProvidersProps>(({ children }) => {
+const Providers = React.memo<ProvidersProps>(({ children, workspaceId }) => {
   return (
     <>
       <SettingsLoader />
       <TooltipProvider delayDuration={100} skipDelayDuration={0}>
-        <WorkspacePermissionsProvider>{children}</WorkspacePermissionsProvider>
+        <WorkspacePermissionsProvider workspaceId={workspaceId}>
+          {children}
+        </WorkspacePermissionsProvider>
       </TooltipProvider>
     </>
   )

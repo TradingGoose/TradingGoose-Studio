@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
-import { useParams } from 'next/navigation'
 import { useReactFlow } from 'reactflow'
 import { Button } from '@/components/ui/button'
 import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
@@ -13,13 +12,14 @@ import { useSubBlockValue } from '@/app/workspace/[workspaceId]/w/[workflowId]/c
 import { useAccessibleReferencePrefixes } from '@/app/workspace/[workspaceId]/w/[workflowId]/hooks/use-accessible-reference-prefixes'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useTagSelection } from '@/hooks/use-tag-selection'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 const logger = createLogger('ComboBox')
 
 interface ComboBoxProps {
   options:
-    | Array<string | { label: string; id: string }>
-    | (() => Array<string | { label: string; id: string }>)
+  | Array<string | { label: string; id: string }>
+  | (() => Array<string | { label: string; id: string }>)
   defaultValue?: string
   blockId: string
   subBlockId: string
@@ -47,8 +47,7 @@ export function ComboBox({
   config,
   isWide = false,
 }: ComboBoxProps) {
-  const params = useParams()
-  const workspaceId = params.workspaceId as string
+  const workspaceId = useWorkspaceId()
   const [storeValue, setStoreValue] = useSubBlockValue<string>(blockId, subBlockId)
   const [storeInitialized, setStoreInitialized] = useState(false)
   const [open, setOpen] = useState(false)
@@ -410,8 +409,8 @@ export function ComboBox({
           className={cn(
             'allow-scroll w-full overflow-auto pr-10 text-transparent caret-foreground placeholder:text-muted-foreground/50',
             isConnecting &&
-              config?.connectionDroppable !== false &&
-              'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500'
+            config?.connectionDroppable !== false &&
+            'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500'
           )}
           placeholder={placeholder}
           value={displayValue}
@@ -494,7 +493,7 @@ export function ComboBox({
                       }}
                       onMouseEnter={() => setHighlightedIndex(index)}
                       className={cn(
-                        'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground',
+                        'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-card hover:text-accent-foreground',
                         isHighlighted && 'bg-accent text-accent-foreground'
                       )}
                     >

@@ -222,8 +222,8 @@ export function Document({
     }
   }, [hasPrevPage, currentPage, goToPage])
 
-  const refreshChunks = showingSearch ? async () => {} : initialRefreshChunks
-  const updateChunk = showingSearch ? (id: string, updates: any) => {} : initialUpdateChunk
+  const refreshChunks = showingSearch ? async () => { } : initialRefreshChunks
+  const updateChunk = showingSearch ? (id: string, updates: any) => { } : initialUpdateChunk
 
   const [documentData, setDocumentData] = useState<DocumentData | null>(null)
   const [isLoadingDocument, setIsLoadingDocument] = useState(true)
@@ -274,7 +274,7 @@ export function Document({
 
     if (displayChunks.length === 0) {
       return (
-        <tr className='border-b transition-colors hover:bg-accent/30'>
+        <tr className='border-b transition-colors hover:bg-card/30'>
           <td className='px-4 py-3'>
             <div className='h-3.5 w-3.5' />
           </td>
@@ -305,7 +305,7 @@ export function Document({
     return displayChunks.map((chunk: ChunkData) => (
       <tr
         key={chunk.id}
-        className='cursor-pointer border-b transition-colors hover:bg-accent/30'
+        className='cursor-pointer border-b transition-colors hover:bg-card/30'
         onClick={() => handleChunkClick(chunk)}
       >
         <td className='px-4 py-3'>
@@ -314,7 +314,7 @@ export function Document({
             onCheckedChange={(checked) => handleSelectChunk(chunk.id, checked as boolean)}
             disabled={!userPermissions.canEdit}
             aria-label={`Select chunk ${chunk.chunkIndex}`}
-            className='h-3.5 w-3.5 border-gray-300 focus-visible:ring-[var(--brand-primary-hex)]/20 data-[state=checked]:border-[var(--brand-primary-hex)] data-[state=checked]:bg-[var(--brand-primary-hex)] [&>*]:h-3 [&>*]:w-3'
+            className='h-3.5 w-3.5 border-gray-300 focus-visible:ring-primary/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary[&>*]:h-3 [&>*]:w-3'
             onClick={(e) => e.stopPropagation()}
           />
         </td>
@@ -640,7 +640,7 @@ export function Document({
     ]
 
     return (
-      <div className='flex h-[100vh] flex-col pl-64'>
+      <div className='flex h-[100vh] flex-col '>
         <KnowledgeHeader breadcrumbs={errorBreadcrumbs} />
         <div className='flex flex-1 items-center justify-center'>
           <div className='text-center'>
@@ -658,7 +658,7 @@ export function Document({
   }
 
   return (
-    <div className='flex h-[100vh] flex-col pl-64'>
+    <div className='flex h-[100vh] flex-col '>
       {/* Fixed Header with Breadcrumbs */}
       <KnowledgeHeader breadcrumbs={breadcrumbs} />
 
@@ -685,7 +685,7 @@ export function Document({
                   onClick={() => setIsCreateChunkModalOpen(true)}
                   disabled={documentData?.processingStatus === 'failed' || !userPermissions.canEdit}
                   size='sm'
-                  className='flex items-center gap-1 bg-[var(--brand-primary-hex)] font-[480] text-white shadow-[0_0_0_0_var(--brand-primary-hex)] transition-all duration-200 hover:bg-[var(--brand-primary-hover-hex)] hover:shadow-[0_0_0_4px_rgba(127,47,255,0.15)] disabled:cursor-not-allowed disabled:opacity-50'
+                  className='flex items-center gap-1 bg-primary font-[480] shadow-[0_0_0_0_var(--primary)] transition-all duration-200 hover:bg-primary-hover  disabled:cursor-not-allowed disabled:opacity-50'
                 >
                   <Plus className='h-3.5 w-3.5' />
                   <span>Create Chunk</span>
@@ -726,7 +726,7 @@ export function Document({
                                 !userPermissions.canEdit
                               }
                               aria-label='Select all chunks'
-                              className='h-3.5 w-3.5 border-gray-300 focus-visible:ring-[var(--brand-primary-hex)]/20 data-[state=checked]:border-[var(--brand-primary-hex)] data-[state=checked]:bg-[var(--brand-primary-hex)] [&>*]:h-3 [&>*]:w-3'
+                              className='h-3.5 w-3.5 border-gray-300 focus-visible:ring-primary/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary[&>*]:h-3 [&>*]:w-3'
                             />
                           </th>
                           <th className='px-4 pt-2 pb-3 text-left font-medium'>
@@ -815,9 +815,8 @@ export function Document({
                                 key={page}
                                 onClick={() => goToPage(page)}
                                 disabled={false}
-                                className={`font-medium text-sm transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 ${
-                                  page === currentPage ? 'text-foreground' : 'text-muted-foreground'
-                                }`}
+                                className={`font-medium text-sm transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 ${page === currentPage ? 'text-foreground' : 'text-muted-foreground'
+                                  }`}
                               >
                                 {page}
                               </button>

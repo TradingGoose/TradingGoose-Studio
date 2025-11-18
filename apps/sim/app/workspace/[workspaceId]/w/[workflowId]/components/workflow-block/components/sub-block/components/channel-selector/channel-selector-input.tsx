@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useParams } from 'next/navigation'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   type SlackChannelInfo,
@@ -11,6 +10,7 @@ import { useDependsOnGate } from '@/app/workspace/[workspaceId]/w/[workflowId]/c
 import { useForeignCredential } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-block/components/sub-block/hooks/use-foreign-credential'
 import { useSubBlockValue } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import type { SubBlockConfig } from '@/blocks/types'
+import { useWorkflowId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 interface ChannelSelectorInputProps {
   blockId: string
@@ -31,8 +31,7 @@ export function ChannelSelectorInput({
   previewValue,
   previewContextValues,
 }: ChannelSelectorInputProps) {
-  const params = useParams()
-  const workflowIdFromUrl = (params?.workflowId as string) || ''
+  const workflowIdFromUrl = useWorkflowId()
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlock.id)
   const [authMethod] = useSubBlockValue(blockId, 'authMethod')
   const [botToken] = useSubBlockValue(blockId, 'botToken')

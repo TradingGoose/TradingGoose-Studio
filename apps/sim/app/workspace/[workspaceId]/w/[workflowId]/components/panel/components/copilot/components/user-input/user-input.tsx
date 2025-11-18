@@ -35,7 +35,6 @@ import {
   X,
   Zap,
 } from 'lucide-react'
-import { useParams } from 'next/navigation'
 import { createPortal } from 'react-dom'
 import {
   Button,
@@ -56,6 +55,7 @@ import { useCopilotStore } from '@/stores/copilot/store'
 import type { ChatContext } from '@/stores/copilot/types'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store'
 import { ContextUsagePill } from '../context-usage-pill/context-usage-pill'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 const logger = createLogger('CopilotUserInput')
 
@@ -206,8 +206,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       contextUsage,
       createNewChat,
     } = useCopilotStore()
-    const params = useParams()
-    const workspaceId = params.workspaceId as string
+    const workspaceId = useWorkspaceId()
 
     // Determine placeholder based on mode
     const effectivePlaceholder =
@@ -240,7 +239,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     // Use controlled value if provided, otherwise use internal state
     const message = controlledValue !== undefined ? controlledValue : internalMessage
     const setMessage =
-      controlledValue !== undefined ? onControlledChange || (() => {}) : setInternalMessage
+      controlledValue !== undefined ? onControlledChange || (() => { }) : setInternalMessage
 
     // Load workflows on mount if we have a workflowId
     useEffect(() => {
@@ -640,11 +639,11 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
             prev.map((f) =>
               f.id === tempFile.id
                 ? {
-                    ...f,
-                    path: presignedData.fileInfo.path,
-                    key: presignedData.fileInfo.key, // Store the actual storage key
-                    uploading: false,
-                  }
+                  ...f,
+                  path: presignedData.fileInfo.path,
+                  key: presignedData.fileInfo.key, // Store the actual storage key
+                  uploading: false,
+                }
                 : f
             )
           )
@@ -740,25 +739,25 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
         const aggregatedList =
           !openSubmenuFor && mainQ.length > 0
             ? [
-                ...workflowBlocks
-                  .filter((b) => (b.name || b.id).toLowerCase().includes(mainQ))
-                  .map((b) => ({ type: 'Workflow Blocks' as const, value: b })),
-                ...workflows
-                  .filter((w) => (w.name || 'Untitled Workflow').toLowerCase().includes(mainQ))
-                  .map((w) => ({ type: 'Workflows' as const, value: w })),
-                ...blocksList
-                  .filter((b) => (b.name || b.id).toLowerCase().includes(mainQ))
-                  .map((b) => ({ type: 'Blocks' as const, value: b })),
-                ...knowledgeBases
-                  .filter((k) => (k.name || 'Untitled').toLowerCase().includes(mainQ))
-                  .map((k) => ({ type: 'Knowledge' as const, value: k })),
-                ...templatesList
-                  .filter((t) => (t.name || 'Untitled Template').toLowerCase().includes(mainQ))
-                  .map((t) => ({ type: 'Templates' as const, value: t })),
-                ...pastChats
-                  .filter((c) => (c.title || 'Untitled Chat').toLowerCase().includes(mainQ))
-                  .map((c) => ({ type: 'Chats' as const, value: c })),
-              ]
+              ...workflowBlocks
+                .filter((b) => (b.name || b.id).toLowerCase().includes(mainQ))
+                .map((b) => ({ type: 'Workflow Blocks' as const, value: b })),
+              ...workflows
+                .filter((w) => (w.name || 'Untitled Workflow').toLowerCase().includes(mainQ))
+                .map((w) => ({ type: 'Workflows' as const, value: w })),
+              ...blocksList
+                .filter((b) => (b.name || b.id).toLowerCase().includes(mainQ))
+                .map((b) => ({ type: 'Blocks' as const, value: b })),
+              ...knowledgeBases
+                .filter((k) => (k.name || 'Untitled').toLowerCase().includes(mainQ))
+                .map((k) => ({ type: 'Knowledge' as const, value: k })),
+              ...templatesList
+                .filter((t) => (t.name || 'Untitled Template').toLowerCase().includes(mainQ))
+                .map((t) => ({ type: 'Templates' as const, value: t })),
+              ...pastChats
+                .filter((c) => (c.title || 'Untitled Chat').toLowerCase().includes(mainQ))
+                .map((c) => ({ type: 'Chats' as const, value: c })),
+            ]
             : []
 
         if (openSubmenuFor === 'Chats' && pastChats.length > 0) {
@@ -1784,7 +1783,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       // Haiku shows purple when selected, other zap models don't
       const colorClass =
         (isBrainModel || isBrainCircuitModel || isHaikuModel) && !agentPrefetch
-          ? 'text-[var(--brand-primary-hover-hex)]'
+          ? 'text-[var(--primary-hover)]'
           : 'text-muted-foreground'
 
       // Match the dropdown icon logic exactly
@@ -2135,7 +2134,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
           className={cn(
             'relative rounded-[8px] border border-[#E5E5E5] bg-[#FFFFFF] px-3 py-1.5 shadow-xs transition-all duration-200 dark:border-[#414141] dark:bg-[var(--surface-elevated)]',
             isDragging &&
-              'border-[var(--brand-primary-hover-hex)] bg-purple-50/50 dark:border-[var(--brand-primary-hover-hex)] dark:bg-purple-950/20'
+            'border-[var(--primary-hover)] bg-purple-50/50 dark:border-[var(--primary-hover)] dark:bg-purple-950/20'
           )}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
@@ -2158,7 +2157,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
               {attachedFiles.map((file) => (
                 <div
                   key={file.id}
-                  className='group relative h-16 w-16 cursor-pointer overflow-hidden rounded-md border border-border/50 bg-muted/20 transition-all hover:bg-muted/40'
+                  className='group relative h-16 w-16 cursor-pointer overflow-hidden rounded-md border border-border/50 bg-muted/20 transition-all hover:bg-card/40'
                   title={`${file.name} (${formatFileSize(file.size)})`}
                   onClick={() => handleFileClick(file)}
                 >
@@ -2220,7 +2219,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                 .map((ctx, idx) => (
                   <span
                     key={`selctx-${idx}-${ctx.label}`}
-                    className='inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--brand-primary-hover-hex)_14%,transparent)] px-1.5 py-0.5 text-[11px] text-foreground'
+                    className='inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--primary-hover)_14%,transparent)] px-1.5 py-0.5 text-[11px] text-foreground'
                     title={ctx.label}
                   >
                     {ctx.kind === 'past_chat' ? (
@@ -2292,7 +2291,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                         key={`${mentionText}-${i}-${lastIndex}`}
                         style={{
                           backgroundColor:
-                            'color-mix(in srgb, var(--brand-primary-hover-hex) 14%, transparent)',
+                            'color-mix(in srgb, var(--primary-hover) 14%, transparent)',
                           borderRadius: '6px',
                         }}
                       >
@@ -2401,7 +2400,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={chat.id}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-muted/60',
+                                        'flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2448,7 +2447,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={wf.id}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-muted/60',
+                                        'flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2493,7 +2492,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={kb.id}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-muted/60',
+                                        'flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2533,7 +2532,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={blk.id}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-muted/60',
+                                        'flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2580,7 +2579,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={blk.id}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-muted/60',
+                                        'flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2627,7 +2626,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={tpl.id}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-muted/60',
+                                        'flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2673,7 +2672,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={log.id}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-muted/60',
+                                        'flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2797,7 +2796,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={`${item.type}-${item.id}`}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex cursor-default items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-muted/60',
+                                        'flex cursor-default items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2933,7 +2932,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                   key={label}
                                   data-idx={idx}
                                   className={cn(
-                                    'flex cursor-default items-center justify-between gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-muted/60',
+                                    'flex cursor-default items-center justify-between gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-card/60',
                                     !inAggregated && mentionActiveIndex === idx && 'bg-muted'
                                   )}
                                   role='menuitem'
@@ -3073,7 +3072,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                         key={`${item.type}-${(item.value as any).id}`}
                                         data-idx={filteredLen + idx}
                                         className={cn(
-                                          'flex cursor-default items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-muted/60',
+                                          'flex cursor-default items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-card/60',
                                           inAggregated && submenuActiveIndex === idx && 'bg-muted'
                                         )}
                                         role='menuitem'
@@ -3335,7 +3334,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                         className={cn(
                           'flex h-6 items-center gap-1.5 rounded-full border px-2 py-1 font-medium text-xs focus-visible:ring-0 focus-visible:ring-offset-0',
                           showPurple
-                            ? 'border-[var(--brand-primary-hover-hex)] text-[var(--brand-primary-hover-hex)] hover:bg-[color-mix(in_srgb,var(--brand-primary-hover-hex)_8%,transparent)] hover:text-[var(--brand-primary-hover-hex)]'
+                            ? 'border-[var(--primary-hover)] text-[var(--primary-hover)] hover:bg-[color-mix(in_srgb,var(--primary-hover)_8%,transparent)] hover:text-[var(--primary-hover)]'
                             : 'border-border text-foreground'
                         )}
                         title='Choose mode'
@@ -3478,7 +3477,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                               })
                                             )
                                           }}
-                                          className='w-full rounded-sm px-2 py-1.5 text-left text-muted-foreground text-xs transition-colors hover:bg-muted/50'
+                                          className='w-full rounded-sm px-2 py-1.5 text-left text-muted-foreground text-xs transition-colors hover:bg-card/50'
                                         >
                                           More Models...
                                         </button>
@@ -3541,7 +3540,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                   onClick={handleSubmit}
                   disabled={!canSubmit}
                   size='icon'
-                  className='h-6 w-6 rounded-full bg-[var(--brand-primary-hover-hex)] text-white shadow-[0_0_0_0_var(--brand-primary-hover-hex)] transition-all duration-200 hover:bg-[var(--brand-primary-hover-hex)] hover:shadow-[0_0_0_4px_rgba(127,47,255,0.15)]'
+                  className='h-6 w-6 rounded-full bg-primary-hover text-white shadow-[0_0_0_0_var(--primary-hover)] transition-all duration-200 hover:bg-primary-hover '
                 >
                   {isLoading ? (
                     <Loader2 className='h-3 w-3 animate-spin' />

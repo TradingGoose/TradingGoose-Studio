@@ -4,17 +4,23 @@ import { useState } from 'react'
 import { ArrowDownToLine } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  widgetHeaderIconButtonClassName,
+} from '@/widgets/components/widget-header-control'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useWorkflowJsonStore } from '@/stores/workflows/json/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('ExportControls')
 
+type ControlVariant = 'workspace' | 'widget'
+
 interface ExportControlsProps {
   disabled?: boolean
+  variant?: ControlVariant
 }
 
-export function ExportControls({ disabled = false }: ExportControlsProps) {
+export function ExportControls({ disabled = false, variant = 'workspace' }: ExportControlsProps) {
   const [isExporting, setIsExporting] = useState(false)
   const { workflows, activeWorkflowId } = useWorkflowRegistry()
   const { getJson } = useWorkflowJsonStore()
@@ -71,6 +77,11 @@ export function ExportControls({ disabled = false }: ExportControlsProps) {
     return 'Export workflow as JSON'
   }
 
+  const buttonClass =
+    variant === 'widget'
+      ? widgetHeaderIconButtonClassName()
+      : 'h-12 w-12 rounded-[11px] border bg-card text-card-foreground shadow-xs hover:bg-secondary'
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -78,7 +89,7 @@ export function ExportControls({ disabled = false }: ExportControlsProps) {
           variant='outline'
           onClick={handleExportJson}
           disabled={isDisabled}
-          className='h-12 w-12 rounded-[11px] border bg-card text-card-foreground shadow-xs hover:bg-secondary'
+          className={buttonClass}
         >
           <ArrowDownToLine className='h-5 w-5' />
           <span className='sr-only'>Export</span>

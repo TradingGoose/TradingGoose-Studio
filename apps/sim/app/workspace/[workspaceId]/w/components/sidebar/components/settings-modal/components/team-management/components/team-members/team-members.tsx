@@ -164,11 +164,10 @@ export function TeamMembers({
             <div className='flex flex-1 items-center gap-3'>
               {/* Avatar */}
               <div
-                className={`flex h-8 w-8 items-center justify-center rounded-full font-medium text-sm ${
-                  item.type === 'member'
-                    ? 'bg-primary/10 text-muted-foreground'
-                    : 'bg-muted text-muted-foreground'
-                }`}
+                className={`flex h-8 w-8 items-center justify-center rounded-full font-medium text-sm ${item.type === 'member'
+                  ? 'bg-[var(--primary)]/10 text-muted-foreground'
+                  : 'bg-muted text-muted-foreground'
+                  }`}
               >
                 {item.avatarInitial}
               </div>
@@ -179,11 +178,10 @@ export function TeamMembers({
                   <span className='truncate font-medium text-sm'>{item.name}</span>
                   {item.type === 'member' && (
                     <span
-                      className={`inline-flex h-[1.125rem] items-center rounded-[6px] px-2 py-0 font-medium text-xs ${
-                        item.role === 'owner'
-                          ? 'gradient-text border-gradient-primary/20 bg-gradient-to-b from-gradient-primary via-gradient-secondary to-gradient-primary'
-                          : 'bg-primary/10 text-muted-foreground'
-                      } `}
+                      className={`inline-flex h-[1.125rem] items-center rounded-[6px] px-2 py-0 font-medium text-xs ${item.role === 'owner'
+                        ? 'gradient-text border-gradient-primary/20 bg-gradient-to-b from-gradient-primary via-gradient-secondary to-gradient-primary'
+                        : 'bg-[var(--primary)]/10 text-muted-foreground'
+                        } `}
                     >
                       {item.role.charAt(0).toUpperCase() + item.role.slice(1)}
                     </span>
@@ -279,7 +277,7 @@ export function TeamMembers({
               }
               onRemoveMember(currentUserMember)
             }}
-            className='w-full hover:bg-muted'
+            className='w-full hover:bg-card'
           >
             <LogOut className='mr-2 h-4 w-4' />
             Leave Organization

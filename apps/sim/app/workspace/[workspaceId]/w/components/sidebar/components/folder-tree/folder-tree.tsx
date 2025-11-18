@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
-import { useParams, usePathname } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { Skeleton } from '@/components/ui/skeleton'
 import { createLogger } from '@/lib/logs/console/logger'
 import { FolderItem } from '@/app/workspace/[workspaceId]/w/components/sidebar/components/folder-tree/components/folder-item'
 import { WorkflowItem } from '@/app/workspace/[workspaceId]/w/components/sidebar/components/folder-tree/components/workflow-item'
+import { useOptionalWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { type FolderTreeNode, useFolderStore } from '@/stores/folders/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
@@ -17,6 +18,8 @@ interface FolderSectionProps {
   folder: FolderTreeNode
   level: number
   onCreateWorkflow: (folderId?: string) => void
+  workspaceId: string | null
+  onWorkflowSelect?: (workflow: WorkflowMetadata) => void
   workflowsByFolder: Record<string, WorkflowMetadata[]>
   expandedFolders: Set<string>
   pathname: string
@@ -71,6 +74,8 @@ function FolderSection({
   folder,
   level,
   onCreateWorkflow,
+  workspaceId,
+  onWorkflowSelect,
   workflowsByFolder,
   expandedFolders,
   pathname,
@@ -80,8 +85,6 @@ function FolderSection({
   parentDragOver = false,
   isFirstItem = false,
 }: FolderSectionProps) {
-  const params = useParams()
-  const workspaceId = params.workspaceId as string
   const { isDragOver, isInvalidDrop, handleDragOver, handleDragLeave, handleDrop } =
     useDragHandlers(
       updateWorkflow,
@@ -104,9 +107,9 @@ function FolderSection({
       className={clsx(
         'relative',
         isDragOver &&
-          (isInvalidDrop
-            ? 'before:pointer-events-none before:absolute before:inset-0 before:rounded-[8px] before:border before:border-destructive/50 before:bg-destructive/15'
-            : 'before:pointer-events-none before:absolute before:inset-0 before:rounded-[8px] before:border before:border-muted-foreground/50 before:bg-muted/20')
+        (isInvalidDrop
+          ? 'before:pointer-events-none before:absolute before:inset-0 before:rounded-[8px] before:border before:border-destructive/50 before:bg-destructive/15'
+          : 'before:pointer-events-none before:absolute before:inset-0 before:rounded-[8px] before:border before:border-muted-foreground/50 before:bg-muted/20')
       )}
     >
       {/* Render folder */}
@@ -179,6 +182,7 @@ function FolderSection({
                       active={pathname === `/workspace/${workspaceId}/w/${workflow.id}`}
                       level={level}
                       isDragOver={isAnyDragOver}
+                      onSelect={onWorkflowSelect}
                     />
                   </div>
                 </div>
@@ -370,7 +374,11 @@ interface FolderTreeProps {
   regularWorkflows: WorkflowMetadata[]
   marketplaceWorkflows: WorkflowMetadata[]
   isLoading?: boolean
-  onCreateWorkflow: (folderId?: string) => void
+  onCreateWorkflow: (folderId?: string) => Promise<string | void> | void
+  workspaceIdOverride?: string | null
+  workflowIdOverride?: string | null
+  pathnameOverride?: string
+  onWorkflowSelect?: (workflow: WorkflowMetadata) => void
 }
 
 export function FolderTree({
@@ -378,21 +386,27 @@ export function FolderTree({
   marketplaceWorkflows,
   isLoading = false,
   onCreateWorkflow,
+  workspaceIdOverride = null,
+  workflowIdOverride = null,
+  pathnameOverride,
+  onWorkflowSelect,
 }: FolderTreeProps) {
-  const pathname = usePathname()
-  const params = useParams()
-  const workspaceId = params.workspaceId as string
-  const workflowId = params.workflowId as string
-  const {
-    getFolderTree,
-    expandedFolders,
-    fetchFolders,
-    isLoading: foldersLoading,
-    clearSelection,
-    updateFolderAPI,
-    getFolderPath,
-    setExpanded,
-  } = useFolderStore()
+  const routeContext = useOptionalWorkflowRoute()
+  const routerPathname = usePathname()
+  const workspaceId = workspaceIdOverride ?? routeContext?.workspaceId ?? null
+  const workflowId = workflowIdOverride ?? routeContext?.workflowId ?? null
+  const pathname = pathnameOverride ?? routerPathname ?? ''
+  const getFolderTree = useFolderStore((state) => state.getFolderTree)
+  const expandedFolders = useFolderStore((state) => state.expandedFolders)
+  const fetchFolders = useFolderStore((state) => state.fetchFolders)
+  const foldersLoading = useFolderStore((state) => state.isLoading)
+  const clearSelection = useFolderStore((state) => state.clearSelection)
+  const updateFolderAPI = useFolderStore((state) => state.updateFolderAPI)
+  const getFolderPath = useFolderStore((state) => state.getFolderPath)
+  const setExpanded = useFolderStore((state) => state.setExpanded)
+  const hasLoadedFolders = useFolderStore((state) =>
+    workspaceId ? Boolean(state.loadedWorkspaces[workspaceId]) : false
+  )
   const { updateWorkflow } = useWorkflowRegistry()
 
   // Memoize the active workflow's folder ID to avoid unnecessary re-runs
@@ -419,6 +433,7 @@ export function FolderTree({
 
   // Clean up any existing folders with 3+ levels of nesting
   const cleanupDeepNesting = useCallback(async () => {
+    if (!workspaceId) return
     const { getFolderTree, updateFolderAPI } = useFolderStore.getState()
     const folderTree = getFolderTree(workspaceId)
 
@@ -453,15 +468,32 @@ export function FolderTree({
     }
   }, [workspaceId])
 
-  // Fetch folders when workspace changes
+  // Fetch folders when workspace changes (only if not already loaded)
   useEffect(() => {
-    if (workspaceId) {
-      fetchFolders(workspaceId).then(() => {
-        // Clean up any existing deep nesting after folders are loaded
-        cleanupDeepNesting()
-      })
+    if (!workspaceId || hasLoadedFolders) {
+      return
     }
-  }, [workspaceId, fetchFolders, cleanupDeepNesting])
+
+    let cancelled = false
+
+    fetchFolders(workspaceId).then(() => {
+      if (!cancelled) {
+        cleanupDeepNesting()
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [workspaceId, hasLoadedFolders, fetchFolders, cleanupDeepNesting])
+
+  // Run cleanup when folders were already loaded from another component
+  useEffect(() => {
+    if (!workspaceId || !hasLoadedFolders) {
+      return
+    }
+    cleanupDeepNesting()
+  }, [workspaceId, hasLoadedFolders, cleanupDeepNesting])
 
   useEffect(() => {
     clearSelection()
@@ -499,6 +531,8 @@ export function FolderTree({
         folder={folder}
         level={level}
         onCreateWorkflow={onCreateWorkflow}
+        workspaceId={workspaceId}
+        onWorkflowSelect={onWorkflowSelect}
         workflowsByFolder={workflowsByFolder}
         expandedFolders={expandedFolders}
         pathname={pathname}
@@ -533,18 +567,18 @@ export function FolderTree({
   }
 
   return (
-    <div className='flex h-full flex-col pt-2 pb-[6px]'>
+    <div className='flex h-full flex-col '>
       {/* Folder tree */}
-      <div className='space-y-1'>{renderFolderTree(folderTree, 0, false)}</div>
+      <div className='space-y-1 '>{renderFolderTree(folderTree, 0, false)}</div>
 
       {/* Root level workflows and drop zone - fills remaining space */}
       <div
         className={clsx(
-          'relative flex-1',
+          'relative flex-1 ',
           rootDragOver &&
-            (rootInvalidDrop
-              ? 'before:pointer-events-none before:absolute before:inset-0 before:rounded-[8px] before:border before:border-destructive/50 before:bg-destructive/15'
-              : 'before:pointer-events-none before:absolute before:inset-0 before:rounded-[8px] before:border before:border-muted-foreground/50 before:bg-muted/20'),
+          (rootInvalidDrop
+            ? 'before:pointer-events-none before:absolute before:inset-0 before:rounded-[8px] before:border before:border-destructive/50 before:bg-destructive/15'
+            : 'before:pointer-events-none before:absolute before:inset-0 before:rounded-[8px] before:border before:border-muted-foreground/50 before:bg-muted/20'),
           // Ensure minimum height for drag target when empty
           rootWorkflows.length === 0 ? 'min-h-8' : ''
         )}
@@ -561,6 +595,7 @@ export function FolderTree({
               level={-1}
               isDragOver={rootDragOver}
               isFirstItem={folderTree.length === 0 && index === 0}
+              onSelect={onWorkflowSelect}
             />
           ))}
 

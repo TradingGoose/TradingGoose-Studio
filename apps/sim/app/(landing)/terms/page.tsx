@@ -289,7 +289,7 @@ export default function TermsOfService() {
           Agreement. The arbitration will be conducted by JAMS, an established alternative dispute
           resolution provider.
         </p>
-        <p className='mb-4 border-[var(--brand-primary-hex)] border-l-4 bg-[var(--brand-primary-hex)]/10 p-3'>
+        <p className='mb-4 border-primary border-l-4 bg-[var(--primary)]/10 p-3'>
           YOU AND COMPANY AGREE THAT EACH OF US MAY BRING CLAIMS AGAINST THE OTHER ONLY ON AN
           INDIVIDUAL BASIS AND NOT ON A CLASS, REPRESENTATIVE, OR COLLECTIVE BASIS. ONLY INDIVIDUAL
           RELIEF IS AVAILABLE, AND DISPUTES OF MORE THAN ONE CUSTOMER OR USER CANNOT BE ARBITRATED
@@ -300,7 +300,7 @@ export default function TermsOfService() {
           timely written notice of your decision to opt out to:{' '}
           <Link
             href='mailto:legal@sim.ai'
-            className='text-[var(--brand-primary-hex)] underline hover:text-[var(--brand-primary-hover-hex)]'
+            className='text-primary underline hover:text-[var(--primary-hover)]'
           >
             legal@sim.ai{' '}
           </Link>
@@ -350,7 +350,7 @@ export default function TermsOfService() {
           Our Copyright Agent can be reached at:{' '}
           <Link
             href='mailto:copyright@sim.ai'
-            className='text-[var(--brand-primary-hex)] underline hover:text-[var(--brand-primary-hover-hex)]'
+            className='text-primary underline hover:text-[var(--primary-hover)]'
           >
             copyright@sim.ai
           </Link>
@@ -363,7 +363,7 @@ export default function TermsOfService() {
           If you have any questions about these Terms, please contact us at:{' '}
           <Link
             href='mailto:legal@sim.ai'
-            className='text-[var(--brand-primary-hex)] underline hover:text-[var(--brand-primary-hover-hex)]'
+            className='text-primary underline hover:text-[var(--primary-hover)]'
           >
             legal@sim.ai
           </Link>

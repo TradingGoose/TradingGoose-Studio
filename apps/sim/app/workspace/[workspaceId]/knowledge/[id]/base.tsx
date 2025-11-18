@@ -88,7 +88,7 @@ const getStatusDisplay = (doc: DocumentData) => {
           </>
         ),
         className:
-          'inline-flex items-center rounded-md bg-purple-100 px-2 py-1 text-xs font-medium text-[var(--brand-primary-hex)] dark:bg-purple-900/30 dark:text-[var(--brand-primary-hex)]',
+          'inline-flex items-center rounded-md bg-purple-100 px-2 py-1 text-xs font-medium text-primary dark:bg-purple-900/30 dark:text-primary',
       }
     case 'failed':
       return {
@@ -104,15 +104,15 @@ const getStatusDisplay = (doc: DocumentData) => {
     case 'completed':
       return doc.enabled
         ? {
-            text: 'Enabled',
-            className:
-              'inline-flex items-center rounded-md bg-green-100 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400',
-          }
+          text: 'Enabled',
+          className:
+            'inline-flex items-center rounded-md bg-green-100 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400',
+        }
         : {
-            text: 'Disabled',
-            className:
-              'inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-          }
+          text: 'Disabled',
+          className:
+            'inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+        }
     default:
       return {
         text: 'Unknown',
@@ -673,7 +673,7 @@ export function KnowledgeBase({
     ]
 
     return (
-      <div className='flex h-[100vh] flex-col pl-64'>
+      <div className='flex h-[100vh] flex-col '>
         <KnowledgeHeader breadcrumbs={errorBreadcrumbs} />
         <div className='flex flex-1 items-center justify-center'>
           <div className='text-center'>
@@ -691,7 +691,7 @@ export function KnowledgeBase({
   }
 
   return (
-    <div className='flex h-[100vh] flex-col pl-64'>
+    <div className='flex h-[100vh] flex-col '>
       {/* Fixed Header with Breadcrumbs */}
       <KnowledgeHeader
         breadcrumbs={breadcrumbs}
@@ -765,7 +765,7 @@ export function KnowledgeBase({
                             onCheckedChange={handleSelectAll}
                             disabled={!userPermissions.canEdit}
                             aria-label='Select all documents'
-                            className='h-3.5 w-3.5 border-gray-300 focus-visible:ring-[var(--brand-primary-hex)]/20 data-[state=checked]:border-[var(--brand-primary-hex)] data-[state=checked]:bg-[var(--brand-primary-hex)] [&>*]:h-3 [&>*]:w-3'
+                            className='h-3.5 w-3.5 border-gray-300 focus-visible:ring-primary/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary[&>*]:h-3 [&>*]:w-3'
                           />
                         </th>
                         {renderSortableHeader('filename', 'Name')}
@@ -799,7 +799,7 @@ export function KnowledgeBase({
                     </colgroup>
                     <tbody>
                       {documents.length === 0 && !isLoadingDocuments ? (
-                        <tr className='border-b transition-colors hover:bg-accent/30'>
+                        <tr className='border-b transition-colors hover:bg-card/30'>
                           {/* Select column */}
                           <td className='px-4 py-3'>
                             <div className='h-3.5 w-3.5' />
@@ -885,9 +885,8 @@ export function KnowledgeBase({
                           return (
                             <tr
                               key={doc.id}
-                              className={`border-b transition-colors hover:bg-accent/30 ${
-                                isSelected ? 'bg-accent/30' : ''
-                              } ${doc.processingStatus === 'completed' ? 'cursor-pointer' : 'cursor-default'}`}
+                              className={`border-b transition-colors hover:bg-card/30 ${isSelected ? 'bg-accent/30' : ''
+                                } ${doc.processingStatus === 'completed' ? 'cursor-pointer' : 'cursor-default'}`}
                               onClick={() => {
                                 if (doc.processingStatus === 'completed') {
                                   handleDocumentClick(doc.id)
@@ -904,7 +903,7 @@ export function KnowledgeBase({
                                   disabled={!userPermissions.canEdit}
                                   onClick={(e) => e.stopPropagation()}
                                   aria-label={`Select ${doc.filename}`}
-                                  className='h-3.5 w-3.5 border-gray-300 focus-visible:ring-[var(--brand-primary-hex)]/20 data-[state=checked]:border-[var(--brand-primary-hex)] data-[state=checked]:bg-[var(--brand-primary-hex)] [&>*]:h-3 [&>*]:w-3'
+                                  className='h-3.5 w-3.5 border-gray-300 focus-visible:ring-primary/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary[&>*]:h-3 [&>*]:w-3'
                                 />
                               </td>
 
@@ -1045,7 +1044,7 @@ export function KnowledgeBase({
                                     </TooltipTrigger>
                                     <TooltipContent side='top'>
                                       {doc.processingStatus === 'processing' ||
-                                      doc.processingStatus === 'pending'
+                                        doc.processingStatus === 'pending'
                                         ? 'Cannot modify while processing'
                                         : !userPermissions.canEdit
                                           ? 'Write permission required to modify documents'
@@ -1126,9 +1125,8 @@ export function KnowledgeBase({
                               key={page}
                               onClick={() => goToPage(page)}
                               disabled={isLoadingDocuments}
-                              className={`font-medium text-sm transition-colors hover:text-foreground disabled:opacity-50 ${
-                                page === currentPage ? 'text-foreground' : 'text-muted-foreground'
-                              }`}
+                              className={`font-medium text-sm transition-colors hover:text-foreground disabled:opacity-50 ${page === currentPage ? 'text-foreground' : 'text-muted-foreground'
+                                }`}
                             >
                               {page}
                             </button>

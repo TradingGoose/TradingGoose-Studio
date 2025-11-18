@@ -47,9 +47,9 @@ export function TrainingFloatingButton({ isTraining, onToggleModal }: TrainingFl
             onClick={handleClick}
             className={cn(
               'flex items-center gap-2 rounded-[14px] border bg-card/95 px-3 py-2 shadow-lg backdrop-blur-sm transition-all',
-              'hover:bg-muted/80',
+              'hover:bg-card/80',
               isTraining &&
-                'border-orange-500 bg-orange-50 dark:border-orange-400 dark:bg-orange-950/30'
+              'border-orange-500 bg-orange-50 dark:border-orange-400 dark:bg-orange-950/30'
             )}
           >
             {isTraining ? (

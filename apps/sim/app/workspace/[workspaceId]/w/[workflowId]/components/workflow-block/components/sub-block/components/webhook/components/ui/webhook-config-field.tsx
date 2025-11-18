@@ -113,7 +113,7 @@ export function WebhookConfigField({
           type='button'
           size='icon'
           variant='outline'
-          className={cn('ml-2 h-10 w-10', 'hover:bg-primary/5', 'transition-colors')}
+          className={cn('ml-2 h-10 w-10', 'hover:bg-[var(--primary)]/5', 'transition-colors')}
           onClick={() => copyToClipboard(value, copyType)}
           disabled={isLoading || !value}
         >

@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card'
 import { createLogger } from '@/lib/logs/console/logger'
 import { ControlBar } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/control-bar/control-bar'
 import { Panel } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/panel/panel'
+import { useOptionalWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 const logger = createLogger('ErrorBoundary')
 
@@ -23,6 +24,9 @@ export function ErrorUI({
   onReset,
   fullScreen = false,
 }: ErrorUIProps) {
+  const workflowRoute = useOptionalWorkflowRoute()
+  const hasWorkflowContext = Boolean(workflowRoute)
+
   const containerClass = fullScreen
     ? 'flex flex-col w-full h-screen bg-muted/40'
     : 'flex flex-col w-full h-full bg-muted/40'
@@ -30,7 +34,7 @@ export function ErrorUI({
   return (
     <div className={containerClass}>
       {/* Control bar */}
-      <ControlBar hasValidationErrors={false} />
+      {hasWorkflowContext && <ControlBar hasValidationErrors={false} />}
 
       {/* Main content area */}
       <div className='relative flex flex-1'>
@@ -46,9 +50,11 @@ export function ErrorUI({
         </div>
 
         {/* Console panel */}
-        <div className='fixed top-0 right-0 z-10'>
-          <Panel />
-        </div>
+        {hasWorkflowContext ? (
+          <div className='fixed top-0 right-0 z-10'>
+            <Panel />
+          </div>
+        ) : null}
       </div>
     </div>
   )

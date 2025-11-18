@@ -409,11 +409,10 @@ export function OutputSelect({
       <button
         type='button'
         onClick={() => setIsOutputDropdownOpen(!isOutputDropdownOpen)}
-        className={`flex h-9 w-full items-center justify-between rounded-[8px] border px-3 py-1.5 font-normal text-sm shadow-xs transition-colors ${
-          isOutputDropdownOpen
-            ? 'border-[#E5E5E5] bg-[#FFFFFF] text-muted-foreground dark:border-[#414141] dark:bg-[var(--surface-elevated)]'
-            : 'border-[#E5E5E5] bg-[#FFFFFF] text-muted-foreground hover:text-muted-foreground dark:border-[#414141] dark:bg-[var(--surface-elevated)]'
-        }`}
+        className={`flex h-9 w-full items-center justify-between rounded-[8px] border px-3 py-1.5 font-normal text-sm shadow-xs transition-colors ${isOutputDropdownOpen
+          ? 'border-[#E5E5E5] bg-[#FFFFFF] text-muted-foreground dark:border-[#414141] dark:bg-[var(--surface-elevated)]'
+          : 'border-[#E5E5E5] bg-[#FFFFFF] text-muted-foreground hover:text-muted-foreground dark:border-[#414141] dark:bg-[var(--surface-elevated)]'
+          }`}
         disabled={workflowOutputs.length === 0 || disabled}
       >
         {selectedOutputInfo ? (
@@ -482,7 +481,7 @@ export function OutputSelect({
                           onClick={() => handleOutputSelection(output.label)}
                           className={cn(
                             'flex w-full items-center gap-2 px-3 py-1.5 text-left font-normal text-sm',
-                            'hover:bg-accent hover:text-accent-foreground',
+                            'hover:bg-card hover:text-accent-foreground',
                             'focus:bg-accent focus:text-accent-foreground focus:outline-none'
                           )}
                         >

@@ -1,6 +1,5 @@
 'use client'
 
-import { useParams } from 'next/navigation'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { getEnv } from '@/lib/env'
 import { getProviderIdFromServiceId } from '@/lib/oauth'
@@ -19,6 +18,7 @@ import { useSubBlockValue } from '@/app/workspace/[workspaceId]/w/[workflowId]/c
 import type { SubBlockConfig } from '@/blocks/types'
 import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { useWorkflowId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 interface FileSelectorInputProps {
   blockId: string
@@ -39,8 +39,7 @@ export function FileSelectorInput({
 }: FileSelectorInputProps) {
   const { collaborativeSetSubblockValue } = useCollaborativeWorkflow()
   const { activeWorkflowId } = useWorkflowRegistry()
-  const params = useParams()
-  const workflowIdFromUrl = (params?.workflowId as string) || activeWorkflowId || ''
+  const workflowIdFromUrl = useWorkflowId() || activeWorkflowId || ''
   // Central dependsOn gating for this selector instance
   const { finalDisabled } = useDependsOnGate(blockId, subBlock, { disabled, isPreview })
 

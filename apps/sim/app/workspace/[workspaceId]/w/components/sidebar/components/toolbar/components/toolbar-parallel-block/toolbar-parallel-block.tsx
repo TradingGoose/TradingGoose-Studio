@@ -2,15 +2,23 @@ import { useCallback } from 'react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { useOptionalWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { ParallelTool } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/subflows/parallel/parallel-config'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store'
 
 type ParallelToolbarItemProps = {
   disabled?: boolean
+  channelId?: string
 }
 
 // Custom component for the Parallel Tool
-export default function ParallelToolbarItem({ disabled = false }: ParallelToolbarItemProps) {
+export default function ParallelToolbarItem({
+  disabled = false,
+  channelId,
+}: ParallelToolbarItemProps) {
   const userPermissions = useUserPermissionsContext()
+  const workflowRoute = useOptionalWorkflowRoute()
+  const resolvedChannelId = channelId ?? workflowRoute?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
   const handleDragStart = (e: React.DragEvent) => {
     if (disabled) {
       e.preventDefault()
@@ -35,12 +43,13 @@ export default function ParallelToolbarItem({ disabled = false }: ParallelToolba
           type: 'parallel',
           clientX: e.clientX,
           clientY: e.clientY,
+          channelId: resolvedChannelId,
         },
         bubbles: true,
       })
       window.dispatchEvent(event)
     },
-    [disabled]
+    [disabled, resolvedChannelId]
   )
 
   const blockContent = (
@@ -52,7 +61,7 @@ export default function ParallelToolbarItem({ disabled = false }: ParallelToolba
         'group flex h-8 items-center gap-[10px] rounded-[8px] p-2 transition-colors',
         disabled
           ? 'cursor-not-allowed opacity-60'
-          : 'cursor-pointer hover:bg-muted active:cursor-grabbing'
+          : 'cursor-pointer hover:bg-card active:cursor-grabbing'
       )}
     >
       <div

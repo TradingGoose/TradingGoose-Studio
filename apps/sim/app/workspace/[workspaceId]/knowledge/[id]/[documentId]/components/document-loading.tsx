@@ -40,7 +40,7 @@ export function DocumentLoading({
   ]
 
   return (
-    <div className='flex h-[100vh] flex-col pl-64'>
+    <div className='flex h-[100vh] flex-col '>
       {/* Header with Breadcrumbs */}
       <KnowledgeHeader breadcrumbs={breadcrumbs} />
 
@@ -66,7 +66,7 @@ export function DocumentLoading({
                 <Button
                   disabled
                   size='sm'
-                  className='flex items-center gap-1 bg-[var(--brand-primary-hex)] font-[480] text-muted-foreground shadow-[0_0_0_0_var(--brand-primary-hex)] transition-all duration-200 hover:bg-[var(--brand-primary-hover-hex)] hover:shadow-[0_0_0_4px_rgba(127,47,255,0.15)] disabled:opacity-50'
+                  className='flex items-center gap-1 bg-primary font-[480] text-muted-foreground shadow-[0_0_0_0_var(--primary)] transition-all duration-200 hover:bg-primary-hover  disabled:opacity-50'
                 >
                   <Plus className='h-3.5 w-3.5' />
                   <span>Create Chunk</span>

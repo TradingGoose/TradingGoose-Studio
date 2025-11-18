@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ChevronsUpDown, Wand2 } from 'lucide-react'
-import { useParams } from 'next/navigation'
 import { useReactFlow } from 'reactflow'
 import { Button } from '@/components/ui/button'
 import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
@@ -15,6 +14,7 @@ import { useAccessibleReferencePrefixes } from '@/app/workspace/[workspaceId]/w/
 import { useWand } from '@/app/workspace/[workspaceId]/w/[workflowId]/hooks/use-wand'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useTagSelection } from '@/hooks/use-tag-selection'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 const logger = createLogger('LongInput')
 
@@ -50,29 +50,28 @@ export function LongInput({
   onChange,
   disabled,
 }: LongInputProps) {
-  const params = useParams()
-  const workspaceId = params.workspaceId as string
+  const workspaceId = useWorkspaceId()
   // Local state for immediate UI updates during streaming
   const [localContent, setLocalContent] = useState<string>('')
 
   // Wand functionality (only if wandConfig is enabled) - define early to get streaming state
   const wandHook = config.wandConfig?.enabled
     ? useWand({
-        wandConfig: config.wandConfig,
-        currentValue: localContent,
-        onStreamStart: () => {
-          // Clear the content when streaming starts
-          setLocalContent('')
-        },
-        onStreamChunk: (chunk) => {
-          // Update local content with each chunk as it arrives
-          setLocalContent((current) => current + chunk)
-        },
-        onGeneratedContent: (content) => {
-          // Final content update (fallback)
-          setLocalContent(content)
-        },
-      })
+      wandConfig: config.wandConfig,
+      currentValue: localContent,
+      onStreamStart: () => {
+        // Clear the content when streaming starts
+        setLocalContent('')
+      },
+      onStreamChunk: (chunk) => {
+        // Update local content with each chunk as it arrives
+        setLocalContent((current) => current + chunk)
+      },
+      onGeneratedContent: (content) => {
+        // Final content update (fallback)
+        setLocalContent(content)
+      },
+    })
     : null
 
   // State management - useSubBlockValue with explicit streaming control
@@ -370,8 +369,8 @@ export function LongInput({
           className={cn(
             'allow-scroll min-h-full w-full resize-none text-transparent caret-foreground placeholder:text-muted-foreground/50',
             isConnecting &&
-              config?.connectionDroppable !== false &&
-              'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500',
+            config?.connectionDroppable !== false &&
+            'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500',
             wandHook?.isStreaming && 'pointer-events-none cursor-not-allowed opacity-50'
           )}
           rows={rows ?? DEFAULT_ROWS}
@@ -424,7 +423,7 @@ export function LongInput({
               }
               disabled={wandHook.isLoading || wandHook.isStreaming || disabled}
               aria-label='Generate content with AI'
-              className='h-8 w-8 rounded-full border border-transparent bg-muted/80 text-muted-foreground shadow-sm transition-all duration-200 hover:border-primary/20 hover:bg-muted hover:text-foreground hover:shadow'
+              className='h-8 w-8 rounded-full border border-transparent bg-muted/80 text-muted-foreground shadow-sm transition-all duration-200 hover:border-primary/20 hover:bg-card hover:text-foreground hover:shadow'
             >
               <Wand2 className='h-4 w-4' />
             </Button>

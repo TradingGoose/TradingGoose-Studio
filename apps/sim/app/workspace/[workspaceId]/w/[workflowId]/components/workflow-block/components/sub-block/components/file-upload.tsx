@@ -2,7 +2,6 @@
 
 import { useRef, useState } from 'react'
 import { ChevronDown, X } from 'lucide-react'
-import { useParams } from 'next/navigation'
 import {
   Command,
   CommandEmpty,
@@ -21,6 +20,7 @@ import type { WorkspaceFileRecord } from '@/lib/uploads/contexts/workspace'
 import { useSubBlockValue } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 const logger = createLogger('FileUpload')
 
@@ -79,8 +79,7 @@ export function FileUpload({
 
   // Stores
   const { activeWorkflowId } = useWorkflowRegistry()
-  const params = useParams()
-  const workspaceId = params?.workspaceId as string
+  const workspaceId = useWorkspaceId()
 
   // Use preview value when in preview mode, otherwise use store value
   const value = isPreview ? previewValue : storeValue

@@ -587,7 +587,7 @@ export function ScheduleModal({
                 disabled={!hasChanges || isSaving}
                 className={cn(
                   'w-[140px] rounded-[8px]',
-                  hasChanges ? 'bg-primary hover:bg-primary/90' : ''
+                  hasChanges ? 'bg-primary hover:bg-[var(--primary)]/90' : ''
                 )}
                 size='sm'
               >

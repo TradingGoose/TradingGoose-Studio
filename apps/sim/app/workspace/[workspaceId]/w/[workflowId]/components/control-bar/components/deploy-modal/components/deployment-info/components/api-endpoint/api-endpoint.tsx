@@ -16,7 +16,7 @@ export function ApiEndpoint({ endpoint, showLabel = true }: ApiEndpointProps) {
           <Label className='font-medium text-sm'>API Endpoint</Label>
         </div>
       )}
-      <div className='group relative rounded-md border bg-background transition-colors hover:bg-muted/50'>
+      <div className='group relative rounded-md border bg-background transition-colors hover:bg-card/50'>
         <pre className='overflow-x-auto whitespace-pre-wrap p-3 font-mono text-xs'>{endpoint}</pre>
         <CopyButton text={endpoint} />
       </div>

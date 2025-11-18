@@ -88,11 +88,11 @@ export function TriggerConfigSection({
 
         const availableOptions = Array.isArray(rawOptions)
           ? rawOptions.map((option: any) => {
-              if (typeof option === 'string') {
-                return { id: option, name: option }
-              }
-              return option
-            })
+            if (typeof option === 'string') {
+              return { id: option, name: option }
+            }
+            return option
+          })
           : []
 
         return (
@@ -330,7 +330,7 @@ export function TriggerConfigSection({
                     className={cn(
                       'group h-7 w-7 rounded-md p-0',
                       'text-muted-foreground/60 transition-all duration-200',
-                      'hover:bg-muted/50 hover:text-foreground',
+                      'hover:bg-card/50 hover:text-foreground',
                       'focus-visible:ring-2 focus-visible:ring-muted-foreground/20 focus-visible:ring-offset-1'
                     )}
                     onClick={() => toggleSecretVisibility(fieldId)}
@@ -350,7 +350,7 @@ export function TriggerConfigSection({
                     className={cn(
                       'group h-7 w-7 rounded-md p-0',
                       'text-muted-foreground/60 transition-all duration-200',
-                      'hover:bg-muted/50 hover:text-foreground',
+                      'hover:bg-card/50 hover:text-foreground',
                       'focus-visible:ring-2 focus-visible:ring-muted-foreground/20 focus-visible:ring-offset-1'
                     )}
                     onClick={() => copyToClipboard(value, fieldId)}
@@ -422,7 +422,7 @@ export function TriggerConfigSection({
                 className={cn(
                   'group h-7 w-7 rounded-md p-0',
                   'text-muted-foreground/60 transition-all duration-200',
-                  'hover:scale-105 hover:bg-muted/50 hover:text-foreground',
+                  'hover:scale-105 hover:bg-card/50 hover:text-foreground',
                   'active:scale-95',
                   'focus-visible:ring-2 focus-visible:ring-muted-foreground/20 focus-visible:ring-offset-1'
                 )}

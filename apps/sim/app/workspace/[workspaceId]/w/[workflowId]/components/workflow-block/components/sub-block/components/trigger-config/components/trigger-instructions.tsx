@@ -39,7 +39,7 @@ export function TriggerInstructions({
       await navigator.clipboard.writeText(googleFormsSnippet)
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
-    } catch {}
+    } catch { }
   }
 
   return (
@@ -58,7 +58,7 @@ export function TriggerInstructions({
           <div className='mt-4'>
             <div className='relative overflow-hidden rounded-lg border border-border bg-card shadow-sm'>
               <div
-                className='relative flex cursor-pointer items-center border-border/60 border-b bg-muted/30 px-4 py-3 transition-colors hover:bg-muted/40'
+                className='relative flex cursor-pointer items-center border-border/60 border-b bg-muted/30 px-4 py-3 transition-colors hover:bg-card/40'
                 onClick={() => setIsExpanded(!isExpanded)}
               >
                 <div className='flex items-center gap-2'>
@@ -84,7 +84,7 @@ export function TriggerInstructions({
                     className={cn(
                       'group -translate-y-1/2 absolute top-1/2 right-3 h-6 w-6 rounded-md p-0',
                       'text-muted-foreground/60 transition-all duration-200',
-                      'hover:bg-muted/50 hover:text-foreground',
+                      'hover:bg-card/50 hover:text-foreground',
                       'focus-visible:ring-2 focus-visible:ring-muted-foreground/20 focus-visible:ring-offset-1'
                     )}
                   >

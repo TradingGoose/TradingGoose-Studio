@@ -195,7 +195,7 @@ export const JSONView = ({ data }: JSONViewProps) => {
             style={{ left: contextMenuPosition.x, top: contextMenuPosition.y }}
           >
             <button
-              className='w-full px-3 py-1.5 text-left font-[380] text-sm hover:bg-accent'
+              className='w-full px-3 py-1.5 text-left font-[380] text-sm hover:bg-card'
               onClick={() => copyToClipboard(redactedData)}
             >
               Copy value
@@ -218,7 +218,7 @@ export const JSONView = ({ data }: JSONViewProps) => {
           style={{ left: contextMenuPosition.x, top: contextMenuPosition.y }}
         >
           <button
-            className='w-full px-3 py-1.5 text-left font-[380] text-sm hover:bg-accent'
+            className='w-full px-3 py-1.5 text-left font-[380] text-sm hover:bg-card'
             onClick={() => copyToClipboard(redactedData)}
           >
             Copy object

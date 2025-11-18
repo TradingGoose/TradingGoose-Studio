@@ -503,7 +503,7 @@ export function TrainingModal() {
                     {datasets.map((dataset, index) => (
                       <div
                         key={dataset.id}
-                        className='rounded-lg border bg-card transition-colors hover:bg-muted/50'
+                        className='rounded-lg border bg-card transition-colors hover:bg-card/50'
                       >
                         <div className='flex items-start p-4'>
                           <Checkbox

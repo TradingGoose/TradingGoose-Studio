@@ -324,7 +324,7 @@ export function DocumentTagEntry({
                     .map((tagDef) => (
                       <div
                         key={tagDef.id}
-                        className='relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground'
+                        className='relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-card hover:text-accent-foreground'
                         onMouseDown={(e) => {
                           e.preventDefault()
                           handleCellChange(rowIndex, 'tagName', tagDef.displayName)
@@ -412,7 +412,7 @@ export function DocumentTagEntry({
                   {typeOptions.map((option) => (
                     <div
                       key={option.value}
-                      className='relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground'
+                      className='relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-card hover:text-accent-foreground'
                       onMouseDown={(e) => {
                         e.preventDefault()
                         handleCellChange(rowIndex, 'type', option.value)

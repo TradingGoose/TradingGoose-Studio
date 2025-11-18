@@ -645,31 +645,28 @@ export function DeployModal({
               <div className='flex gap-2'>
                 <button
                   onClick={() => setActiveTab('api')}
-                  className={`rounded-md px-3 py-1 text-sm transition-colors ${
-                    activeTab === 'api'
-                      ? 'bg-accent text-foreground'
-                      : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-                  }`}
+                  className={`rounded-md px-3 py-1 text-sm transition-colors ${activeTab === 'api'
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-card hover:text-foreground'
+                    }`}
                 >
                   API
                 </button>
                 <button
                   onClick={() => setActiveTab('chat')}
-                  className={`rounded-md px-3 py-1 text-sm transition-colors ${
-                    activeTab === 'chat'
-                      ? 'bg-accent text-foreground'
-                      : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-                  }`}
+                  className={`rounded-md px-3 py-1 text-sm transition-colors ${activeTab === 'chat'
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-card hover:text-foreground'
+                    }`}
                 >
                   Chat
                 </button>
                 <button
                   onClick={() => setActiveTab('versions')}
-                  className={`rounded-md px-3 py-1 text-sm transition-colors ${
-                    activeTab === 'versions'
-                      ? 'bg-accent text-foreground'
-                      : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-                  }`}
+                  className={`rounded-md px-3 py-1 text-sm transition-colors ${activeTab === 'versions'
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-card hover:text-foreground'
+                    }`}
                 >
                   Versions
                 </button>
@@ -783,7 +780,7 @@ export function DeployModal({
                                 .map((v) => (
                                   <tr
                                     key={v.id}
-                                    className='cursor-pointer transition-colors hover:bg-muted/30'
+                                    className='cursor-pointer transition-colors hover:bg-card/30'
                                     onClick={() => {
                                       if (editingVersion !== v.version) {
                                         openVersionPreview(v.version)
@@ -792,9 +789,8 @@ export function DeployModal({
                                   >
                                     <td className='px-4 py-2.5'>
                                       <div
-                                        className={`h-2 w-2 rounded-full ${
-                                          v.isActive ? 'bg-green-500' : 'bg-muted-foreground/40'
-                                        }`}
+                                        className={`h-2 w-2 rounded-full ${v.isActive ? 'bg-green-500' : 'bg-muted-foreground/40'
+                                          }`}
                                         title={v.isActive ? 'Active' : 'Inactive'}
                                       />
                                     </td>
@@ -946,10 +942,10 @@ export function DeployModal({
                 disabled={isSubmitting || !apiKeys.length}
                 className={cn(
                   'gap-2 font-medium',
-                  'bg-[var(--brand-primary-hover-hex)] hover:bg-[var(--brand-primary-hover-hex)]',
-                  'shadow-[0_0_0_0_var(--brand-primary-hover-hex)] hover:shadow-[0_0_0_4px_rgba(127,47,255,0.15)]',
+                  'bg-primary-hover hover:bg-primary-hover',
+                  'shadow-[0_0_0_0_var(--primary-hover)] ',
                   'text-white transition-all duration-200',
-                  'disabled:opacity-50 disabled:hover:bg-[var(--brand-primary-hover-hex)] disabled:hover:shadow-none'
+                  'disabled:opacity-50 disabled:hover:bg-primary-hover disabled:hover:shadow-none'
                 )}
               >
                 {isSubmitting ? (
@@ -1005,10 +1001,10 @@ export function DeployModal({
                   disabled={chatSubmitting || !isChatFormValid}
                   className={cn(
                     'gap-2 font-medium',
-                    'bg-[var(--brand-primary-hover-hex)] hover:bg-[var(--brand-primary-hover-hex)]',
-                    'shadow-[0_0_0_0_var(--brand-primary-hover-hex)] hover:shadow-[0_0_0_4px_rgba(127,47,255,0.15)]',
+                    'bg-primary-hover hover:bg-primary-hover',
+                    'shadow-[0_0_0_0_var(--primary-hover)] ',
                     'text-white transition-all duration-200',
-                    'disabled:opacity-50 disabled:hover:bg-[var(--brand-primary-hover-hex)] disabled:hover:shadow-none'
+                    'disabled:opacity-50 disabled:hover:bg-primary-hover disabled:hover:shadow-none'
                   )}
                 >
                   {chatSubmitting ? (

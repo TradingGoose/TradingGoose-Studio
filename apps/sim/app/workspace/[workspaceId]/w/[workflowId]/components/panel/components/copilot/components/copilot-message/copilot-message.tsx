@@ -751,7 +751,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                         setShowCheckpointDiscardModal(false)
                         pendingEditRef.current = null
                       }}
-                      className='flex flex-1 items-center justify-center gap-1.5 rounded-md border border-gray-300 bg-muted px-2 py-1 text-foreground text-xs transition-colors hover:bg-muted/80 dark:border-gray-600 dark:bg-background dark:hover:bg-muted'
+                      className='flex flex-1 items-center justify-center gap-1.5 rounded-md border border-gray-300 bg-muted px-2 py-1 text-foreground text-xs transition-colors hover:bg-card/80 dark:border-gray-600 dark:bg-background dark:hover:bg-card'
                     >
                       <span>Cancel</span>
                       <span className='text-[10px] text-muted-foreground'>(Esc)</span>
@@ -768,7 +768,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                           pendingEditRef.current = null
                         }
                       }}
-                      className='flex-1 rounded-md border border-border bg-background px-2 py-1 text-xs transition-colors hover:bg-muted dark:bg-muted dark:hover:bg-muted/80'
+                      className='flex-1 rounded-md border border-border bg-background px-2 py-1 text-xs transition-colors hover:bg-card dark:bg-muted dark:hover:bg-card/80'
                     >
                       Continue
                     </button>
@@ -810,7 +810,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                           pendingEditRef.current = null
                         }
                       }}
-                      className='flex flex-1 items-center justify-center gap-1.5 rounded-md bg-[var(--brand-primary-hover-hex)] px-2 py-1 text-white text-xs transition-colors hover:bg-[var(--brand-primary-hex)]'
+                      className='flex flex-1 items-center justify-center gap-1.5 rounded-md bg-primary-hover px-2 py-1 text-white text-xs transition-colors hover:bg-[var(--primary)]'
                     >
                       <span>Continue and revert</span>
                       <CornerDownLeft className='h-3 w-3' />
@@ -830,8 +830,8 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
               {/* Context chips displayed above the message box */}
               {(Array.isArray((message as any).contexts) && (message as any).contexts.length > 0) ||
-              (Array.isArray(message.contentBlocks) &&
-                (message.contentBlocks as any[]).some((b: any) => b?.type === 'contexts')) ? (
+                (Array.isArray(message.contentBlocks) &&
+                  (message.contentBlocks as any[]).some((b: any) => b?.type === 'contexts')) ? (
                 <div className='mb-1.5 flex flex-wrap gap-1.5'>
                   {(() => {
                     const direct = Array.isArray((message as any).contexts)
@@ -855,7 +855,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                         {visible.map((ctx: any, idx: number) => (
                           <span
                             key={`ctx-${idx}-${ctx?.label || ctx?.kind}`}
-                            className='inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--brand-primary-hover-hex)_14%,transparent)] px-1.5 py-0.5 text-[11px] text-foreground'
+                            className='inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--primary-hover)_14%,transparent)] px-1.5 py-0.5 text-[11px] text-foreground'
                             title={ctx?.label || ctx?.kind}
                           >
                             {ctx?.kind === 'past_chat' ? (
@@ -886,7 +886,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                           <button
                             type='button'
                             onClick={() => setShowAllContexts((v) => !v)}
-                            className='inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--brand-primary-hover-hex)_10%,transparent)] px-1.5 py-0.5 text-[11px] text-foreground hover:bg-[color-mix(in_srgb,var(--brand-primary-hover-hex)_14%,transparent)]'
+                            className='inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--primary-hover)_10%,transparent)] px-1.5 py-0.5 text-[11px] text-foreground hover:bg-[color-mix(in_srgb,var(--primary-hover)_14%,transparent)]'
                             title={
                               showAllContexts
                                 ? 'Show less'
@@ -947,7 +947,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                       nodes.push(
                         <span
                           key={`mention-${i}-${lastIndex}`}
-                          className='rounded-[6px] bg-[color-mix(in_srgb,var(--brand-primary-hover-hex)_14%,transparent)] px-1'
+                          className='rounded-[6px] bg-[color-mix(in_srgb,var(--primary-hover)_14%,transparent)] px-1'
                         >
                           {mention}
                         </span>
@@ -989,7 +989,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                         e.stopPropagation()
                         handleRevertToCheckpoint()
                       }}
-                      className='flex h-6 w-6 items-center justify-center rounded-full bg-muted text-muted-foreground transition-all duration-200 hover:bg-muted-foreground/20'
+                      className='flex h-6 w-6 items-center justify-center rounded-full bg-muted text-muted-foreground transition-all duration-200 hover:bg-card-foreground/20'
                       title='Revert to checkpoint'
                     >
                       <RotateCcw className='h-3 w-3' />
@@ -1013,7 +1013,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
               <div className='flex gap-1.5'>
                 <button
                   onClick={handleCancelRevert}
-                  className='flex flex-1 items-center justify-center gap-1.5 rounded-md border border-gray-300 bg-muted px-2 py-1 text-foreground text-xs transition-colors hover:bg-muted/80 dark:border-gray-600'
+                  className='flex flex-1 items-center justify-center gap-1.5 rounded-md border border-gray-300 bg-muted px-2 py-1 text-foreground text-xs transition-colors hover:bg-card/80 dark:border-gray-600'
                 >
                   <span>Cancel</span>
                   <span className='text-[10px] text-muted-foreground'>(Esc)</span>
@@ -1058,7 +1058,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
               <div className='flex items-center gap-2'>
                 <button
                   onClick={handleCopyContent}
-                  className='text-muted-foreground transition-colors hover:bg-muted'
+                  className='text-muted-foreground transition-colors hover:bg-card'
                   title='Copy'
                 >
                   {showCopySuccess ? (
@@ -1069,7 +1069,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 </button>
                 <button
                   onClick={handleUpvote}
-                  className='text-muted-foreground transition-colors hover:bg-muted'
+                  className='text-muted-foreground transition-colors hover:bg-card'
                   title='Upvote'
                 >
                   {showUpvoteSuccess ? (
@@ -1080,7 +1080,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 </button>
                 <button
                   onClick={handleDownvote}
-                  className='text-muted-foreground transition-colors hover:bg-muted'
+                  className='text-muted-foreground transition-colors hover:bg-card'
                   title='Downvote'
                 >
                   {showDownvoteSuccess ? (
@@ -1103,7 +1103,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                       href={citation.url}
                       target='_blank'
                       rel='noopener noreferrer'
-                      className='inline-flex max-w-full items-center rounded-md border bg-muted/50 px-2 py-1 text-muted-foreground text-xs transition-colors hover:bg-muted hover:text-foreground'
+                      className='inline-flex max-w-full items-center rounded-md border bg-muted/50 px-2 py-1 text-muted-foreground text-xs transition-colors hover:bg-card hover:text-foreground'
                     >
                       <span className='truncate'>{citation.title}</span>
                     </a>

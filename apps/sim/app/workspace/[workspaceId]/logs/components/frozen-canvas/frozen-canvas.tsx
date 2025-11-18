@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useParams } from 'next/navigation'
 import {
   AlertCircle,
   ChevronDown,
@@ -40,7 +41,7 @@ function ExpandableDataSection({ title, data }: { title: string; data: any }) {
             {isLargeData && (
               <button
                 onClick={() => setIsModalOpen(true)}
-                className='rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground'
+                className='rounded p-1 text-muted-foreground hover:bg-card hover:text-foreground'
                 title='Expand in modal'
               >
                 <Maximize2 className='h-3 w-3' />
@@ -48,7 +49,7 @@ function ExpandableDataSection({ title, data }: { title: string; data: any }) {
             )}
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className='rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground'
+              className='rounded p-1 text-muted-foreground hover:bg-card hover:text-foreground'
             >
               {isExpanded ? <ChevronUp className='h-3 w-3' /> : <ChevronDown className='h-3 w-3' />}
             </button>
@@ -72,7 +73,7 @@ function ExpandableDataSection({ title, data }: { title: string; data: any }) {
               <h3 className='font-medium text-foreground text-lg'>{title}</h3>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className='rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground'
+                className='rounded p-1 text-muted-foreground hover:bg-card hover:text-foreground'
               >
                 <X className='h-4 w-4' />
               </button>
@@ -114,17 +115,17 @@ function formatExecutionData(executionData: any) {
     errorStackTrace,
     cost: cost
       ? {
-          input: cost.input || 0,
-          output: cost.output || 0,
-          total: cost.total || 0,
-        }
+        input: cost.input || 0,
+        output: cost.output || 0,
+        total: cost.total || 0,
+      }
       : null,
     tokens: tokens
       ? {
-          prompt: tokens.prompt || 0,
-          completion: tokens.completion || 0,
-          total: tokens.total || 0,
-        }
+        prompt: tokens.prompt || 0,
+        completion: tokens.completion || 0,
+        total: tokens.total || 0,
+      }
       : null,
   }
 }
@@ -191,7 +192,7 @@ function PinnedLogs({
               <Zap className='h-5 w-5' />
               {formatted.blockName}
             </CardTitle>
-            <button onClick={onClose} className='rounded-sm p-1 text-foreground hover:bg-muted'>
+            <button onClick={onClose} className='rounded-sm p-1 text-foreground hover:bg-card'>
               <X className='h-4 w-4' />
             </button>
           </div>
@@ -243,7 +244,7 @@ function PinnedLogs({
             <Zap className='h-5 w-5' />
             {formatted.blockName}
           </CardTitle>
-          <button onClick={onClose} className='rounded-sm p-1 text-foreground hover:bg-muted'>
+          <button onClick={onClose} className='rounded-sm p-1 text-foreground hover:bg-card'>
             <X className='h-4 w-4' />
           </button>
         </div>
@@ -261,7 +262,7 @@ function PinnedLogs({
               <button
                 onClick={goToPreviousIteration}
                 disabled={currentIterationIndex === 0}
-                className='rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50'
+                className='rounded p-1 text-muted-foreground hover:bg-card hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50'
               >
                 <ChevronLeft className='h-4 w-4' />
               </button>
@@ -273,7 +274,7 @@ function PinnedLogs({
               <button
                 onClick={goToNextIteration}
                 disabled={currentIterationIndex === totalIterations - 1}
-                className='rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50'
+                className='rounded p-1 text-muted-foreground hover:bg-card hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50'
               >
                 <ChevronRight className='h-4 w-4' />
               </button>
@@ -392,6 +393,11 @@ export function FrozenCanvas({
   const [error, setError] = useState<string | null>(null)
 
   const [pinnedBlockId, setPinnedBlockId] = useState<string | null>(null)
+
+  const params = useParams()
+  const workspaceIdFromParams = params.workspaceId
+  const workspaceId =
+    Array.isArray(workspaceIdFromParams) ? workspaceIdFromParams[0] : workspaceIdFromParams
 
   // Process traceSpans to create blockExecutions map
   useEffect(() => {
@@ -582,6 +588,8 @@ export function FrozenCanvas({
       <div style={{ height, width }} className={cn('frozen-canvas-mode h-full w-full', className)}>
         <WorkflowPreview
           workflowState={data.workflowState}
+          workspaceId={workspaceId ?? undefined}
+          workflowId={data.workflowId}
           showSubBlocks={true}
           isPannable={true}
           defaultZoom={0.8}

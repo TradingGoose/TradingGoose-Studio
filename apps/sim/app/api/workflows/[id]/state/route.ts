@@ -157,19 +157,25 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     // Filter out blocks without type or name before saving
     const filteredBlocks = Object.entries(sanitizedBlocks).reduce(
       (acc, [blockId, block]: [string, any]) => {
-        if (block.type && block.name) {
-          // Ensure all required fields are present
-          acc[blockId] = {
-            ...block,
-            enabled: block.enabled !== undefined ? block.enabled : true,
-            horizontalHandles:
-              block.horizontalHandles !== undefined ? block.horizontalHandles : true,
-            isWide: block.isWide !== undefined ? block.isWide : false,
-            height: block.height !== undefined ? block.height : 0,
-            subBlocks: block.subBlocks || {},
-            outputs: block.outputs || {},
-          }
+        if (!block?.type) {
+          logger.warn(`[${requestId}] Skipping block ${blockId} due to missing type`)
+          return acc
         }
+
+        // Ensure all required fields are present
+        acc[blockId] = {
+          ...block,
+          id: block.id || blockId,
+          name: typeof block.name === 'string' ? block.name : '',
+          enabled: block.enabled !== undefined ? block.enabled : true,
+          horizontalHandles:
+            block.horizontalHandles !== undefined ? block.horizontalHandles : true,
+          isWide: block.isWide !== undefined ? block.isWide : false,
+          height: block.height !== undefined ? block.height : 0,
+          subBlocks: block.subBlocks || {},
+          outputs: block.outputs || {},
+        }
+
         return acc
       },
       {} as typeof state.blocks

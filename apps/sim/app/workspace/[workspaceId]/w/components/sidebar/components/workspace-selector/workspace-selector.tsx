@@ -335,7 +335,7 @@ export function WorkspaceSelector({
               onClick={(e) => handleWorkspaceClick(workspace, e)}
               className={cn(
                 'group flex h-8 cursor-pointer items-center rounded-[8px] p-2 text-left transition-colors',
-                activeWorkspace?.id === workspace.id ? 'bg-muted' : 'hover:bg-muted'
+                activeWorkspace?.id === workspace.id ? 'bg-muted' : 'hover:bg-card'
               )}
               style={{ maxWidth: '206px' }}
             >
@@ -500,7 +500,7 @@ export function WorkspaceSelector({
                 onClick={userPermissions.canAdmin ? () => setShowInviteMembers(true) : undefined}
                 disabled={!userPermissions.canAdmin}
                 className={cn(
-                  'h-8 flex-1 justify-center gap-2 rounded-[8px] font-medium text-muted-foreground text-xs transition-colors hover:bg-accent hover:text-foreground',
+                  'h-8 flex-1 justify-center gap-2 rounded-[8px] font-medium text-muted-foreground text-xs transition-colors hover:bg-card hover:text-foreground',
                   !userPermissions.canAdmin && 'cursor-not-allowed opacity-50'
                 )}
               >
@@ -515,7 +515,7 @@ export function WorkspaceSelector({
               onClick={onCreateWorkspace}
               disabled={isCreating}
               className={cn(
-                'h-8 flex-1 justify-center gap-2 rounded-[8px] font-medium text-muted-foreground text-xs transition-colors hover:bg-accent hover:text-foreground',
+                'h-8 flex-1 justify-center gap-2 rounded-[8px] font-medium text-muted-foreground text-xs transition-colors hover:bg-card hover:text-foreground',
                 isCreating && 'cursor-not-allowed'
               )}
             >

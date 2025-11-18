@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Calendar, ExternalLink } from 'lucide-react'
-import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -12,6 +11,7 @@ import { getBlockWithValues, getWorkflowWithValues } from '@/stores/workflows'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store'
+import { useWorkflowId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 const logger = createLogger('ScheduleConfig')
 
@@ -51,8 +51,7 @@ export function ScheduleConfig({
   const [isDeleting, setIsDeleting] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
-  const params = useParams()
-  const workflowId = params.workflowId as string
+  const workflowId = useWorkflowId()
 
   // Get workflow state from store
 

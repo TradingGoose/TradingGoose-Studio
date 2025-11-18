@@ -397,9 +397,9 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
       newWebhook.includeRateLimits !== (originalWebhook.includeRateLimits || false) ||
       newWebhook.includeUsageData !== (originalWebhook.includeUsageData || false) ||
       JSON.stringify([...newWebhook.levelFilter].sort()) !==
-        JSON.stringify([...originalWebhook.levelFilter].sort()) ||
+      JSON.stringify([...originalWebhook.levelFilter].sort()) ||
       JSON.stringify([...newWebhook.triggerFilter].sort()) !==
-        JSON.stringify([...originalWebhook.triggerFilter].sort()) ||
+      JSON.stringify([...originalWebhook.triggerFilter].sort()) ||
       newWebhook.secret !== ''
     )
   }
@@ -597,7 +597,7 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
                                       className={cn(
                                         'group relative h-8 w-8 rounded-md border border-border/40 bg-background/80 backdrop-blur-sm',
                                         'text-muted-foreground/70 shadow-sm transition-all duration-200',
-                                        'hover:border-border hover:bg-muted/50 hover:text-foreground hover:shadow-md',
+                                        'hover:border-border hover:bg-card/50 hover:text-foreground hover:shadow-md',
                                         'active:scale-95 active:shadow-sm',
                                         'focus-visible:ring-2 focus-visible:ring-muted-foreground/20 focus-visible:ring-offset-1'
                                       )}
@@ -637,7 +637,7 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
                                       className={cn(
                                         'group relative h-8 w-8 rounded-md border border-border/40 bg-background/80 backdrop-blur-sm',
                                         'text-muted-foreground/70 shadow-sm transition-all duration-200',
-                                        'hover:border-border hover:bg-muted/50 hover:text-foreground hover:shadow-md',
+                                        'hover:border-border hover:bg-card/50 hover:text-foreground hover:shadow-md',
                                         'active:scale-95 active:shadow-sm',
                                         'disabled:cursor-not-allowed disabled:opacity-50',
                                         'focus-visible:ring-2 focus-visible:ring-muted-foreground/20 focus-visible:ring-offset-1'
@@ -660,7 +660,7 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
                                       className={cn(
                                         'group relative h-8 w-8 rounded-md border border-border/40 bg-background/80 backdrop-blur-sm',
                                         'text-muted-foreground/70 shadow-sm transition-all duration-200',
-                                        'hover:border-border hover:bg-muted/50 hover:text-foreground hover:shadow-md',
+                                        'hover:border-border hover:bg-card/50 hover:text-foreground hover:shadow-md',
                                         'active:scale-95 active:shadow-sm',
                                         'focus-visible:ring-2 focus-visible:ring-muted-foreground/20 focus-visible:ring-offset-1'
                                       )}
@@ -682,7 +682,7 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
                                       className={cn(
                                         'group relative h-8 w-8 rounded-md border border-border/40 bg-background/80 backdrop-blur-sm',
                                         'text-muted-foreground/70 shadow-sm transition-all duration-200',
-                                        'hover:border-border hover:bg-muted/50 hover:text-muted-foreground hover:shadow-md',
+                                        'hover:border-border hover:bg-card/50 hover:text-muted-foreground hover:shadow-md',
                                         'active:scale-95 active:shadow-sm',
                                         'focus-visible:ring-2 focus-visible:ring-muted-foreground/20 focus-visible:ring-offset-1'
                                       )}
@@ -714,28 +714,28 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
                                 webhook.includeTraceSpans ||
                                 webhook.includeRateLimits ||
                                 webhook.includeUsageData) && (
-                                <>
-                                  <span className='text-muted-foreground'>•</span>
-                                  {webhook.includeFinalOutput && (
-                                    <span className='rounded-md bg-muted px-1.5 py-0.5'>
-                                      output
-                                    </span>
-                                  )}
-                                  {webhook.includeTraceSpans && (
-                                    <span className='rounded-md bg-muted px-1.5 py-0.5'>
-                                      traces
-                                    </span>
-                                  )}
-                                  {webhook.includeRateLimits && (
-                                    <span className='rounded-md bg-muted px-1.5 py-0.5'>
-                                      limits
-                                    </span>
-                                  )}
-                                  {webhook.includeUsageData && (
-                                    <span className='rounded-md bg-muted px-1.5 py-0.5'>usage</span>
-                                  )}
-                                </>
-                              )}
+                                  <>
+                                    <span className='text-muted-foreground'>•</span>
+                                    {webhook.includeFinalOutput && (
+                                      <span className='rounded-md bg-muted px-1.5 py-0.5'>
+                                        output
+                                      </span>
+                                    )}
+                                    {webhook.includeTraceSpans && (
+                                      <span className='rounded-md bg-muted px-1.5 py-0.5'>
+                                        traces
+                                      </span>
+                                    )}
+                                    {webhook.includeRateLimits && (
+                                      <span className='rounded-md bg-muted px-1.5 py-0.5'>
+                                        limits
+                                      </span>
+                                    )}
+                                    {webhook.includeUsageData && (
+                                      <span className='rounded-md bg-muted px-1.5 py-0.5'>usage</span>
+                                    )}
+                                  </>
+                                )}
                             </div>
                           </div>
                         </div>
@@ -843,7 +843,7 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
                                 className={cn(
                                   'group h-7 w-7 rounded-md p-0',
                                   'text-muted-foreground/60 transition-all duration-200',
-                                  'hover:scale-105 hover:bg-muted/50 hover:text-foreground',
+                                  'hover:scale-105 hover:bg-card/50 hover:text-foreground',
                                   'active:scale-95',
                                   'disabled:cursor-not-allowed disabled:opacity-50',
                                   'focus-visible:ring-2 focus-visible:ring-muted-foreground/20 focus-visible:ring-offset-1'
@@ -874,7 +874,7 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
                                 className={cn(
                                   'group h-7 w-7 rounded-md p-0',
                                   'text-muted-foreground/60 transition-all duration-200',
-                                  'hover:bg-muted/50 hover:text-foreground',
+                                  'hover:bg-card/50 hover:text-foreground',
                                   'disabled:cursor-not-allowed disabled:opacity-30',
                                   'focus-visible:ring-2 focus-visible:ring-muted-foreground/20 focus-visible:ring-offset-1'
                                 )}
@@ -900,7 +900,7 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
                                 className={cn(
                                   'group h-7 w-7 rounded-md p-0',
                                   'text-muted-foreground/60 transition-all duration-200',
-                                  'hover:bg-muted/50 hover:text-foreground',
+                                  'hover:bg-card/50 hover:text-foreground',
                                   'focus-visible:ring-2 focus-visible:ring-muted-foreground/20 focus-visible:ring-offset-1'
                                 )}
                                 onClick={() => setShowSecret(!showSecret)}
@@ -1100,7 +1100,7 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
                     newWebhook.triggerFilter.length === 0 ||
                     (!!editingWebhookId && !hasChanges())
                   }
-                  className='h-9 rounded-[8px] bg-[var(--brand-primary-hex)] font-[480] text-white shadow-[0_0_0_0_var(--brand-primary-hex)] transition-all duration-200 hover:bg-[var(--brand-primary-hover-hex)] hover:shadow-[0_0_0_4px_rgba(127,47,255,0.15)] disabled:opacity-50 disabled:hover:shadow-none'
+                  className='h-9 rounded-[8px] bg-primary font-[480]  shadow-[0_0_0_0_var(--primary)] transition-all duration-200 hover:bg-primary-hover  disabled:opacity-50 disabled:hover:shadow-none'
                 >
                   {isCreating ? (
                     <>{editingWebhookId ? 'Updating...' : 'Creating...'}</>
@@ -1121,7 +1121,7 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
                     setSearchTerm('')
                     setShowForm(true)
                   }}
-                  className='h-9 rounded-[8px] bg-[var(--brand-primary-hex)] px-3 font-[480] text-white shadow-[0_0_0_0_var(--brand-primary-hex)] transition-all duration-200 hover:bg-[var(--brand-primary-hover-hex)] hover:shadow-[0_0_0_4px_rgba(127,47,255,0.15)]'
+                  className='h-9 rounded-[8px] bg-primary px-3 font-[480] text-white shadow-[0_0_0_0_var(--primary)] transition-all duration-200 hover:bg-primary-hover '
                 >
                   <Plus className='h-4 w-4 stroke-[2px]' />
                   Add Webhook

@@ -1,4 +1,5 @@
 import type { Edge } from 'reactflow'
+import type { ReactNode } from 'react'
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -34,6 +35,19 @@ const initialState = {
   // New field for per-workflow deployment tracking
   deploymentStatuses: {},
   needsRedeployment: false,
+}
+
+export const DEFAULT_WORKFLOW_CHANNEL_ID = 'default'
+
+export function WorkflowStoreProvider({
+  channelId = DEFAULT_WORKFLOW_CHANNEL_ID,
+  children,
+}: {
+  channelId?: string
+  children: ReactNode
+}) {
+  void channelId // Reserved for future channel-scoped workflow store support
+  return children
 }
 
 export const useWorkflowStore = create<WorkflowStore>()(

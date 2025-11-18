@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { Folder, FolderOpen, Pencil, Trash2 } from 'lucide-react'
-import { useParams } from 'next/navigation'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { type FolderTreeNode, useFolderStore } from '@/stores/folders/store'
 
 const logger = createLogger('FolderItem')
@@ -56,8 +56,7 @@ export function FolderItem({
 
   const dragStartedRef = useRef(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const params = useParams()
-  const workspaceId = params.workspaceId as string
+  const workspaceId = useWorkspaceId()
   const isExpanded = expandedFolders.has(folder.id)
   const userPermissions = useUserPermissionsContext()
 
@@ -90,7 +89,7 @@ export function FolderItem({
 
     // Set global drag state for validation in other components
     if (typeof window !== 'undefined') {
-      ;(window as any).currentDragFolderId = folder.id
+      ; (window as any).currentDragFolderId = folder.id
     }
   }
 
@@ -102,7 +101,7 @@ export function FolderItem({
 
     // Clear global drag state
     if (typeof window !== 'undefined') {
-      ;(window as any).currentDragFolderId = null
+      ; (window as any).currentDragFolderId = null
     }
   }
 
@@ -200,9 +199,9 @@ export function FolderItem({
             >
               <div
                 className={clsx(
-                  'relative flex h-[14px] w-[14px] items-center justify-center rounded transition-colors hover:bg-muted',
+                  'relative flex h-[14px] w-[14px] items-center justify-center rounded transition-colors hover:bg-card',
                   dragOver &&
-                    'before:pointer-events-none before:absolute before:inset-0 before:rounded before:bg-muted/20 before:ring-2 before:ring-muted-foreground/60'
+                  'before:pointer-events-none before:absolute before:inset-0 before:rounded before:bg-muted/20 before:ring-2 before:ring-muted-foreground/60'
                 )}
               >
                 {isExpanded ? (
@@ -255,13 +254,11 @@ export function FolderItem({
       <div className='mb-1' onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
         <div
           className={clsx(
-            'group flex h-8 cursor-pointer items-center rounded-[8px] px-2 py-2 font-medium font-sans text-sm transition-colors hover:bg-muted',
+            'group flex h-8 w-full cursor-pointer items-center rounded-[8px] px-2 py-2 font-medium font-sans text-sm transition-colors hover:bg-card',
             isDragging ? 'opacity-50' : '',
             isFirstItem ? 'mr-[36px]' : ''
           )}
-          style={{
-            maxWidth: isFirstItem ? `${166 - level * 20}px` : `${206 - level * 20}px`,
-          }}
+
           onClick={handleClick}
           draggable={!isEditing}
           onDragStart={handleDragStart}
@@ -271,9 +268,9 @@ export function FolderItem({
         >
           <div className='mr-2 flex h-[14px] w-[14px] flex-shrink-0 items-center justify-center'>
             {isExpanded ? (
-              <FolderOpen className='h-[14px] w-[14px] text-foreground/70 group-hover:text-foreground dark:text-foreground/60' />
+              <FolderOpen className='h-[14px] w-full text-foreground/70 group-hover:text-foreground dark:text-foreground/60' />
             ) : (
-              <Folder className='h-[14px] w-[14px] text-foreground/70 group-hover:text-foreground dark:text-foreground/60' />
+              <Folder className='h-[14px] w-full text-foreground/70 group-hover:text-foreground dark:text-foreground/60' />
             )}
           </div>
 

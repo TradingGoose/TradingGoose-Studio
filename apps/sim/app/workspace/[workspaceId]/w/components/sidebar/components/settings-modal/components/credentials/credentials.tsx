@@ -204,7 +204,7 @@ export function Credentials({ onOpenChange, registerCloseHandler }: CredentialsP
         }
       }
       prevConnectedIdsRef.current = currentConnected
-    } catch {}
+    } catch { }
   }, [services])
 
   // On mount, register a close handler so the parent modal can delegate close events here
@@ -220,7 +220,7 @@ export function Credentials({ onOpenChange, registerCloseHandler }: CredentialsP
             })
           )
         }
-      } catch {}
+      } catch { }
       onOpenChange?.(open)
     }
     registerCloseHandler(handle)
@@ -369,7 +369,7 @@ export function Credentials({ onOpenChange, registerCloseHandler }: CredentialsP
 
           {/* Pending service message - only shown when coming from OAuth required modal */}
           {pendingService && showActionRequired && (
-            <div className='flex items-start gap-3 rounded-[8px] border border-primary/20 bg-primary/5 p-5 text-sm shadow-sm'>
+            <div className='flex items-start gap-3 rounded-[8px] border border-primary/20 bg-[var(--primary)]/5 p-5 text-sm shadow-sm'>
               <div className='mt-0.5 min-w-5'>
                 <ExternalLink className='h-4 w-4 text-muted-foreground' />
               </div>
@@ -383,7 +383,7 @@ export function Credentials({ onOpenChange, registerCloseHandler }: CredentialsP
                   variant='outline'
                   size='sm'
                   onClick={scrollToHighlightedService}
-                  className='mt-3 flex h-8 items-center gap-1.5 self-start border-primary/20 px-3 font-medium text-muted-foreground text-sm transition-colors hover:border-primary hover:bg-primary/10 hover:text-muted-foreground'
+                  className='mt-3 flex h-8 items-center gap-1.5 self-start border-primary/20 px-3 font-medium text-muted-foreground text-sm transition-colors hover:border-primary hover:bg-[var(--primary)]/10 hover:text-muted-foreground'
                 >
                   <span>Go to service</span>
                   <ChevronDown className='h-3.5 w-3.5' />
@@ -428,7 +428,7 @@ export function Credentials({ onOpenChange, registerCloseHandler }: CredentialsP
                       key={service.id}
                       className={cn(
                         'flex items-center justify-between gap-4',
-                        pendingService === service.id && '-m-2 rounded-[8px] bg-primary/5 p-2'
+                        pendingService === service.id && '-m-2 rounded-[8px] bg-[var(--primary)]/5 p-2'
                       )}
                       ref={pendingService === service.id ? pendingServiceRef : undefined}
                     >
@@ -463,7 +463,7 @@ export function Credentials({ onOpenChange, registerCloseHandler }: CredentialsP
                           className={cn(
                             'h-8 text-muted-foreground hover:text-foreground',
                             isConnecting === `${service.id}-${service.accounts![0].id}` &&
-                              'cursor-not-allowed'
+                            'cursor-not-allowed'
                           )}
                         >
                           Disconnect

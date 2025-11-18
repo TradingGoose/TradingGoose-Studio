@@ -82,15 +82,13 @@ export const ClientChatMessage = memo(
                     return (
                       <div
                         key={attachment.id}
-                        className={`relative overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800 ${
-                          attachment.dataUrl?.trim() && attachment.dataUrl.startsWith('data:')
+                        className={`relative overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800 ${attachment.dataUrl?.trim() && attachment.dataUrl.startsWith('data:')
                             ? 'cursor-pointer'
                             : ''
-                        } ${
-                          isImage
+                          } ${isImage
                             ? 'h-16 w-16 md:h-20 md:w-20'
                             : 'flex h-16 min-w-[140px] max-w-[220px] items-center gap-2 px-3 md:h-20 md:min-w-[160px] md:max-w-[240px]'
-                        }`}
+                          }`}
                         onClick={(e) => {
                           const validDataUrl = attachment.dataUrl?.trim()
                           if (validDataUrl?.startsWith('data:')) {
@@ -119,8 +117,8 @@ export const ClientChatMessage = memo(
                         }}
                       >
                         {isImage &&
-                        attachment.dataUrl?.trim() &&
-                        attachment.dataUrl.startsWith('data:') ? (
+                          attachment.dataUrl?.trim() &&
+                          attachment.dataUrl.startsWith('data:') ? (
                           <img
                             src={attachment.dataUrl}
                             alt={attachment.name}
@@ -194,7 +192,7 @@ export const ClientChatMessage = memo(
                     <Tooltip delayDuration={300}>
                       <TooltipTrigger asChild>
                         <button
-                          className='text-muted-foreground transition-colors hover:bg-muted'
+                          className='text-muted-foreground transition-colors hover:bg-card'
                           onClick={() => {
                             const contentToCopy =
                               typeof cleanTextContent === 'string'

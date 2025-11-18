@@ -1401,11 +1401,11 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                         key={tag}
                         className={cn(
                           'flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm',
-                          'hover:bg-accent hover:text-accent-foreground',
+                          'hover:bg-card hover:text-accent-foreground',
                           'focus:bg-accent focus:text-accent-foreground focus:outline-none',
                           tagIndex === selectedIndex &&
-                            tagIndex >= 0 &&
-                            'bg-accent text-accent-foreground'
+                          tagIndex >= 0 &&
+                          'bg-accent text-accent-foreground'
                         )}
                         {...createTagEventHandlers(
                           tag,
@@ -1530,7 +1530,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                               <button
                                 className={cn(
                                   'flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm',
-                                  'hover:bg-accent hover:text-accent-foreground',
+                                  'hover:bg-card hover:text-accent-foreground',
                                   'focus:bg-accent focus:text-accent-foreground focus:outline-none',
                                   isKeyboardSelected && 'bg-accent text-accent-foreground'
                                 )}
@@ -1658,7 +1658,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                                             'transition-colors duration-150',
                                             isSelected
                                               ? 'bg-accent text-accent-foreground'
-                                              : 'hover:bg-accent hover:text-accent-foreground'
+                                              : 'hover:bg-card hover:text-accent-foreground'
                                           )}
                                           onMouseEnter={() => {
                                             setSubmenuIndex(childIndex)

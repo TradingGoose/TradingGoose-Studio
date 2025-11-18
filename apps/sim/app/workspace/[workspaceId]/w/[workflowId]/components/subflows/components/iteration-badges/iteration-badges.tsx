@@ -224,7 +224,7 @@ export function IterationBadges({ nodeId, data, iterationType }: IterationBadges
             variant='outline'
             className={cn(
               'border-border bg-background/80 py-0.5 pr-1.5 pl-2.5 font-medium text-foreground text-sm backdrop-blur-sm',
-              !isPreview && 'cursor-pointer transition-colors duration-150 hover:bg-accent/50',
+              !isPreview && 'cursor-pointer transition-colors duration-150 hover:bg-card',
               'flex items-center gap-1'
             )}
             style={{ pointerEvents: isPreview ? 'none' : 'auto' }}
@@ -245,7 +245,7 @@ export function IterationBadges({ nodeId, data, iterationType }: IterationBadges
                     key={typeValue}
                     className={cn(
                       'flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5',
-                      currentType === typeValue ? 'bg-accent' : 'hover:bg-accent/50'
+                      currentType === typeValue ? 'bg-accent' : 'hover:bg-card'
                     )}
                     onClick={() => handleTypeChange(typeValue)}
                   >
@@ -268,7 +268,7 @@ export function IterationBadges({ nodeId, data, iterationType }: IterationBadges
             variant='outline'
             className={cn(
               'border-border bg-background/80 py-0.5 pr-1.5 pl-2.5 font-medium text-foreground text-sm backdrop-blur-sm',
-              !isPreview && 'cursor-pointer transition-colors duration-150 hover:bg-accent/50',
+              !isPreview && 'cursor-pointer transition-colors duration-150 hover:bg-card',
               'flex items-center gap-1'
             )}
             style={{ pointerEvents: isPreview ? 'none' : 'auto' }}

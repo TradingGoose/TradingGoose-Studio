@@ -3,9 +3,10 @@
 import { useMemo } from 'react'
 import clsx from 'clsx'
 import Link from 'next/link'
-import { useParams, usePathname } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSession } from '@/lib/auth-client'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
 
 interface WorkflowItemProps {
@@ -15,15 +16,14 @@ interface WorkflowItemProps {
 }
 
 function WorkflowItem({ workflow, active, isMarketplace }: WorkflowItemProps) {
-  const params = useParams()
-  const workspaceId = params.workspaceId as string
+  const workspaceId = useWorkspaceId()
 
   return (
     <Link
       href={`/workspace/${workspaceId}/w/${workflow.id}`}
       className={clsx(
         'flex items-center rounded-md px-2 py-1.5 font-medium text-sm',
-        active ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent/50'
+        active ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-card'
       )}
     >
       <div
@@ -50,8 +50,7 @@ export function WorkflowList({
   isLoading = false,
 }: WorkflowListProps) {
   const pathname = usePathname()
-  const params = useParams()
-  const workspaceId = params.workspaceId as string
+  const workspaceId = useWorkspaceId()
   const { data: session } = useSession()
 
   // Generate skeleton items for loading state

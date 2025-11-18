@@ -38,6 +38,7 @@
   from {
     stroke-dashoffset: 0;
   }
+
   to {
     stroke-dashoffset: -24;
   }
@@ -59,45 +60,48 @@
    THEME SYSTEM - CSS CUSTOM PROPERTIES
    ========================================================================== */
 @layer base {
+
   /* Light Mode Theme */
   :root,
   .light {
     /* Core Colors */
     --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
+    --foreground: 240 10% 3.922%;
 
     /* Card Colors */
-    --card: 0 0% 99.2%;
-    --card-foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.922%;
 
     /* Popover Colors */
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
+    --popover-foreground: 240 10% 3.922%;
 
     /* Primary Colors */
-    --primary: 0 0% 11.2%;
-    --primary-foreground: 0 0% 98%;
+    --primary: #ffcc00;
+    --primary-foreground: #000000;
+    --primary-hover: #ffcc00cc;
 
     /* Secondary Colors */
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 11.2%;
+    --secondary: 240 4.762% 95.882%;
+    --secondary-foreground: 240 5.882% 10%;
 
     /* Muted Colors */
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 46.9%;
+    --muted: 240 4.762% 95.882%;
+    --muted-foreground: 240 4.237% 46.275%;
 
     /* Accent Colors */
-    --accent: 0 0% 92.5%;
-    --accent-foreground: 0 0% 11.2%;
+    --accent: #f4f4f5;
+    --accent-foreground: #18181b;
+    --accent-hover: #f4f4f5cc;
 
     /* Destructive Colors */
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 357.143 100% 45.294%;
+    --destructive-foreground: 0 0% 100%;
 
     /* Border & Input Colors */
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
+    --border: 240 5.882% 90%;
+    --input: 240 5.882% 90%;
+    --ring: 48 100% 50%;
 
     /* Border Radius */
     --radius: 0.5rem;
@@ -120,58 +124,69 @@
     --base-muted-foreground: #737373;
 
     /* Gradient Colors */
-    --gradient-primary: 263 85% 70%; /* More vibrant purple */
-    --gradient-secondary: 336 95% 65%; /* More vibrant pink */
+    --gradient-primary: 48 100% 70%;
+    /* Warm yellow */
+    --gradient-secondary: 48 100% 60%;
+    /* Warm sunset */
 
-    /* Brand Colors (Default Sim Theme) */
-    --brand-primary-hex: #6f3dfa; /* Primary brand purple - matches Get Started gradient start */
-    --brand-primary-hover-hex: #6338d9; /* Primary brand purple hover - matches Get Started hover */
-    --brand-accent-hex: #6f3dfa; /* Accent purple for links - matches sign in button */
-    --brand-accent-hover-hex: #6f3dfa; /* Accent purple hover - matches sign in gradient start */
-    --brand-background-hex: #ffffff; /* Primary light background */
+    /* Background helper for auth components */
+    --background-hex: #ffffff;
 
     /* UI Surface Colors */
-    --surface-elevated: #202020; /* Elevated surface background for dark mode */
+    --surface-elevated: #202020;
+    /* Elevated surface background for dark mode */
+
+    /* Sidebar Colors (Light) */
+    --sidebar: 0 0% 98.039%;
+    --sidebar-foreground: 240 10% 3.922%;
+    --sidebar-primary: 48 100% 50%;
+    --sidebar-primary-foreground: 26.667 88.732% 13.922%;
+    --sidebar-accent: 240 4.762% 95.882%;
+    --sidebar-accent-foreground: 240 5.882% 10%;
+    --sidebar-border: 240 5.882% 90%;
+    --sidebar-ring: 48 100% 50%;
   }
 
   /* Dark Mode Theme */
   .dark {
     /* Core Colors */
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
+    --background: 240 10% 3.922%;
+    --foreground: 0 0% 98.039%;
 
     /* Card Colors */
-    --card: 0 0% 9.0%;
-    --card-foreground: 0 0% 98%;
+    --card: 240 5.882% 10%;
+    --card-foreground: 0 0% 98.039%;
 
     /* Popover Colors */
-    --popover: 0 0% 9.0%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 240 5.882% 10%;
+    --popover-foreground: 0 0% 98.039%;
 
     /* Primary Colors */
-    --primary: 0 0% 11.2%;
-    --primary-foreground: 0 0% 98%;
+    --primary: #ffcc00;
+    --primary-foreground: #000000;
+    --primary-hover: #ffcc00cc;
 
     /* Secondary Colors */
-    --secondary: 0 0% 12.0%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 240 3.704% 15.882%;
+    --secondary-foreground: 0 0% 98.039%;
 
     /* Muted Colors */
-    --muted: 0 0% 17.5%;
-    --muted-foreground: 0 0% 65.1%;
+    --muted: 240 3.704% 15.882%;
+    --muted-foreground: 240 5.495% 64.314%;
 
     /* Accent Colors */
-    --accent: 0 0% 17.5%;
-    --accent-foreground: 0 0% 98%;
+    --accent: rgb(39, 39, 42);
+    --accent-foreground: #fafafa;
+    --accent-hover: #27272acc;
 
     /* Destructive Colors */
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 358.839 100% 69.608%;
+    --destructive-foreground: 0 0% 0%;
 
     /* Border & Input Colors */
-    --border: 0 0% 16.1%;
-    --input: 0 0% 16.1%;
-    --ring: 0 0% 83.9%;
+    --border: 0 0% 10%;
+    --input: 0 0% 16%;
+    --ring: 48 100% 50%;
 
     /* Scrollbar Properties */
     --scrollbar-track: 0 0% 17.5%;
@@ -190,18 +205,28 @@
     --base-muted-foreground: #a3a3a3;
 
     /* Gradient Colors - Adjusted for dark mode */
-    --gradient-primary: 263 90% 75%; /* More vibrant purple for dark mode */
-    --gradient-secondary: 336 100% 72%; /* More vibrant pink for dark mode */
+    --gradient-primary: 48 100% 70%;
+    /* Warm yellow glow for dark mode */
+    --gradient-secondary: 48 100% 60%;
+    /* Warm sunset for dark mode */
 
-    /* Brand Colors (Keep dark background for actual dark mode) */
-    --brand-primary-hex: #701ffc; /* Primary brand purple */
-    --brand-primary-hover-hex: #802fff; /* Primary brand purple hover */
-    --brand-accent-hex: #9d54ff; /* Accent purple for links */
-    --brand-accent-hover-hex: #a66fff; /* Accent purple hover */
-    --brand-background-hex: #0c0c0c; /* Primary dark background */
+    /* Background helper for auth components */
+    --background-hex: #0c0c0c;
 
     /* UI Surface Colors */
-    --surface-elevated: #202020; /* Elevated surface background for dark mode */
+    --surface-elevated: #202020;
+    /* Elevated surface background for dark mode */
+
+    /* Sidebar Colors (Dark) */
+
+    --sidebar: 240 5.882% 10%;
+    --sidebar-foreground: 0 0% 98.039%;
+    --sidebar-primary: 48 100% 50%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 240 3.704% 15.882%;
+    --sidebar-accent-foreground: 0 0% 98.039%;
+    --sidebar-border: 0 0% 10%;
+    --sidebar-ring: 48 100% 50%;
   }
 }
 
@@ -333,6 +358,7 @@ input[type="search"]::-ms-clear {
    ANIMATIONS & UTILITIES
    ========================================================================== */
 @layer utilities {
+
   /* Animation Performance */
   .animation-container {
     contain: paint layout style;
@@ -386,48 +412,6 @@ input[type="search"]::-ms-clear {
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-  }
-
-  /* Brand Color Utilities */
-  .bg-brand-primary {
-    background-color: var(--brand-primary-hex);
-  }
-
-  .bg-brand-primary-hover {
-    background-color: var(--brand-primary-hover-hex);
-  }
-
-  .hover\:bg-brand-primary-hover:hover {
-    background-color: var(--brand-primary-hover-hex);
-  }
-
-  .hover\:text-brand-accent-hover:hover {
-    color: var(--brand-accent-hover-hex);
-  }
-
-  /* Gradient Button Utilities */
-  .bg-brand-gradient {
-    background: linear-gradient(
-      to bottom,
-      color-mix(in srgb, var(--brand-primary-hex) 85%, white),
-      var(--brand-primary-hex)
-    );
-  }
-
-  .border-brand-gradient {
-    border-color: var(--brand-primary-hex);
-  }
-
-  .shadow-brand-gradient {
-    box-shadow: inset 0 2px 4px 0 color-mix(in srgb, var(--brand-primary-hex) 60%, transparent);
-  }
-
-  .hover\:bg-brand-gradient-hover:hover {
-    background: linear-gradient(
-      to bottom,
-      var(--brand-primary-hover-hex),
-      color-mix(in srgb, var(--brand-primary-hex) 90%, black)
-    );
   }
 
   /* Apply fixed default light theme values for auth components */
@@ -502,23 +486,19 @@ input[type="search"]::-ms-clear {
   .streaming-effect::after {
     content: "";
     @apply pointer-events-none absolute left-0 top-0 h-full w-full;
-    background: linear-gradient(
-      90deg,
-      rgba(128, 128, 128, 0) 0%,
-      rgba(128, 128, 128, 0.1) 50%,
-      rgba(128, 128, 128, 0) 100%
-    );
+    background: linear-gradient(90deg,
+        rgba(128, 128, 128, 0) 0%,
+        rgba(128, 128, 128, 0.1) 50%,
+        rgba(128, 128, 128, 0) 100%);
     animation: code-shimmer 1.5s infinite;
     z-index: 10;
   }
 
   .dark .streaming-effect::after {
-    background: linear-gradient(
-      90deg,
-      rgba(180, 180, 180, 0) 0%,
-      rgba(180, 180, 180, 0.1) 50%,
-      rgba(180, 180, 180, 0) 100%
-    );
+    background: linear-gradient(90deg,
+        rgba(180, 180, 180, 0) 0%,
+        rgba(180, 180, 180, 0.1) 50%,
+        rgba(180, 180, 180, 0) 100%);
   }
 
   .loading-placeholder::placeholder {
@@ -527,27 +507,27 @@ input[type="search"]::-ms-clear {
 
   /* Auth Button Styles - Default Gradient */
   .auth-button-gradient {
-    background: linear-gradient(to bottom, #8357ff, #6f3dfa) !important;
-    border-color: #6f3dfa !important;
-    box-shadow: inset 0 2px 4px 0 #9b77ff !important;
+    background: linear-gradient(to bottom, #ffe460, #ffcc00) !important;
+    border-color: #ffcc00 !important;
+    box-shadow: inset 0 2px 4px 0 #ffd82f !important;
   }
 
   .auth-button-gradient:hover {
-    background: linear-gradient(to bottom, #8357ff, #6f3dfa) !important;
+    background: linear-gradient(to bottom, #ffe460, #ffcc00) !important;
     opacity: 0.9;
   }
 
   /* Auth Button Styles - CSS Variable Based */
   .auth-button-custom {
-    background: var(--brand-accent-hex) !important;
-    border-color: var(--brand-accent-hex) !important;
+    background: var(--accent) !important;
+    border-color: var(--accent) !important;
     /* Remove purple shadow when using custom color */
     box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.1) !important;
   }
 
   .auth-button-custom:hover {
-    background: var(--brand-accent-hover-hex, var(--brand-accent-hex)) !important;
-    border-color: var(--brand-accent-hover-hex, var(--brand-accent-hex)) !important;
+    background: var(--accent-hover, var(--accent)) !important;
+    border-color: var(--accent-hover, var(--accent)) !important;
     opacity: 1;
   }
 
@@ -580,13 +560,11 @@ input[type="search"]::-ms-clear {
 
   @keyframes orbit {
     0% {
-      transform: rotate(calc(var(--angle) * 1deg)) translateY(calc(var(--radius) * 1px))
-        rotate(calc(var(--angle) * -1deg));
+      transform: rotate(calc(var(--angle) * 1deg)) translateY(calc(var(--radius) * 1px)) rotate(calc(var(--angle) * -1deg));
     }
 
     100% {
-      transform: rotate(calc(var(--angle) * 1deg + 360deg)) translateY(calc(var(--radius) * 1px))
-        rotate(calc((var(--angle) * -1deg) - 360deg));
+      transform: rotate(calc(var(--angle) * 1deg + 360deg)) translateY(calc(var(--radius) * 1px)) rotate(calc((var(--angle) * -1deg) - 360deg));
     }
   }
 
@@ -621,6 +599,7 @@ input[type="search"]::-ms-clear {
   }
 
   @keyframes placeholder-pulse {
+
     0%,
     100% {
       opacity: 0.5;
