@@ -96,7 +96,7 @@ export function GroupedCheckboxList({
       <DialogTrigger asChild>
         <Button
           variant='outline'
-          className='h-10 w-full justify-between border-input bg-background px-3 font-normal text-sm hover:bg-accent hover:text-accent-foreground'
+          className='h-10 w-full justify-between border-input bg-background px-3 font-normal text-sm hover:bg-card hover:text-accent-foreground'
           disabled={disabled}
         >
           <span className='flex items-center gap-2 text-muted-foreground'>

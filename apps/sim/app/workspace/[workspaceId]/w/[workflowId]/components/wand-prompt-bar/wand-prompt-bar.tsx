@@ -117,7 +117,7 @@ export function WandPromptBar({
           variant='ghost'
           size='icon'
           onClick={handleCancel}
-          className='h-8 w-8 rounded-full text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+          className='h-8 w-8 rounded-full text-muted-foreground hover:bg-card hover:text-foreground'
         >
           <XIcon className='h-4 w-4' />
         </Button>
@@ -127,7 +127,7 @@ export function WandPromptBar({
             variant='ghost'
             size='icon'
             onClick={() => onSubmit(promptValue)}
-            className='h-8 w-8 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-foreground'
+            className='h-8 w-8 rounded-full text-muted-foreground hover:bg-[var(--primary)]/10 hover:text-foreground'
             disabled={isLoading || isStreaming || !promptValue.trim()}
           >
             <SendIcon className='h-4 w-4' />

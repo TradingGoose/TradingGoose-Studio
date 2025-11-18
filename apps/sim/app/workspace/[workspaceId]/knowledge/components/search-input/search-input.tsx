@@ -1,6 +1,7 @@
 'use client'
 
 import { Search, X } from 'lucide-react'
+import { Input } from '@/components/ui/input'
 
 interface SearchInputProps {
   value: string
@@ -21,32 +22,30 @@ export function SearchInput({
 }: SearchInputProps) {
   return (
     <div className={`relative ${className}`}>
-      <div className='relative flex items-center'>
-        <Search className='-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 h-[18px] w-[18px] transform text-muted-foreground' />
-        <input
-          type='text'
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          disabled={disabled}
-          className='h-10 w-full rounded-md border bg-background px-9 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:font-medium file:text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
-        />
-        {isLoading ? (
-          <div className='-translate-y-1/2 absolute top-1/2 right-3'>
-            <div className='h-[18px] w-[18px] animate-spin rounded-full border-2 border-gray-300 border-t-[var(--brand-primary-hex)]' />
-          </div>
-        ) : (
-          value &&
-          !disabled && (
-            <button
-              onClick={() => onChange('')}
-              className='-translate-y-1/2 absolute top-1/2 right-3 transform text-muted-foreground hover:text-foreground'
-            >
-              <X className='h-[18px] w-[18px]' />
-            </button>
-          )
-        )}
-      </div>
+      <Search className='-translate-y-1/2 pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 text-muted-foreground' />
+      <Input
+        type='text'
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        disabled={disabled}
+        className='h-9 w-full rounded-md border bg-background pl-10 pr-9 text-sm'
+      />
+      {isLoading ? (
+        <div className='-translate-y-1/2 absolute right-3 top-1/2 z-10'>
+          <div className='h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-primary' />
+        </div>
+      ) : (
+        value &&
+        !disabled && (
+          <button
+            onClick={() => onChange('')}
+            className='-translate-y-1/2 absolute right-3 top-1/2 z-10 text-muted-foreground hover:text-foreground'
+          >
+            <X className='h-4 w-4' />
+          </button>
+        )
+      )}
     </div>
   )
 }

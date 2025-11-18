@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { Check, ChevronDown, RefreshCw } from 'lucide-react'
-import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -16,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useSubBlockValue } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useEnabledServers, useMcpServersStore } from '@/stores/mcp-servers/store'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 interface McpServerSelectorProps {
   blockId: string
@@ -32,8 +32,7 @@ export function McpServerSelector({
   isPreview = false,
   previewValue,
 }: McpServerSelectorProps) {
-  const params = useParams()
-  const workspaceId = params.workspaceId as string
+  const workspaceId = useWorkspaceId()
   const [open, setOpen] = useState(false)
 
   const { fetchServers, isLoading, error } = useMcpServersStore()

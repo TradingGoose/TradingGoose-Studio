@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AlertCircle, Plus, Search, X } from 'lucide-react'
-import { useParams } from 'next/navigation'
 import {
   Alert,
   AlertDescription,
@@ -20,6 +19,7 @@ import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-drop
 import { formatDisplayText } from '@/components/ui/formatted-text'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { McpTransport } from '@/lib/mcp/types'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useMcpServerTest } from '@/hooks/use-mcp-server-test'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
 import { useMcpServersStore } from '@/stores/mcp-servers/store'
@@ -35,8 +35,7 @@ interface McpServerFormData {
 }
 
 export function MCP() {
-  const params = useParams()
-  const workspaceId = params.workspaceId as string
+  const workspaceId = useWorkspaceId()
   const { mcpTools, error: toolsError, refreshTools } = useMcpTools(workspaceId)
   const {
     servers,
@@ -1041,7 +1040,7 @@ export function MCP() {
               <Button
                 onClick={() => setShowAddForm(!showAddForm)}
                 variant='ghost'
-                className='h-9 rounded-[8px] border bg-background px-3 shadow-xs hover:bg-muted focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
+                className='h-9 rounded-[8px] border bg-background px-3 shadow-xs hover:bg-card focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
                 disabled={serversLoading}
               >
                 <Plus className='h-4 w-4 stroke-[2px]' />

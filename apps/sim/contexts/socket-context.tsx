@@ -100,9 +100,16 @@ export const useSocket = () => useContext(SocketContext)
 interface SocketProviderProps {
   children: ReactNode
   user?: User
+  workspaceId?: string
+  workflowId?: string
 }
 
-export function SocketProvider({ children, user }: SocketProviderProps) {
+export function SocketProvider({
+  children,
+  user,
+  workspaceId: workspaceIdOverride,
+  workflowId: workflowIdOverride,
+}: SocketProviderProps) {
   const [socket, setSocket] = useState<Socket | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
@@ -112,7 +119,11 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
 
   // Get current workflow ID from URL params
   const params = useParams()
-  const urlWorkflowId = params?.workflowId as string | undefined
+  const routeWorkspaceId = params?.workspaceId as string | undefined
+  const routeWorkflowId = params?.workflowId as string | undefined
+
+  const resolvedWorkspaceId = workspaceIdOverride ?? routeWorkspaceId
+  const resolvedWorkflowId = workflowIdOverride ?? routeWorkflowId
 
   // Use refs to store event handlers to avoid stale closures
   const eventHandlers = useRef<{
@@ -199,17 +210,19 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
             socketId: socketInstance.id,
             connected: socketInstance.connected,
             transport: socketInstance.io.engine?.transport?.name,
+            workspaceId: resolvedWorkspaceId || 'unknown',
+            workflowId: resolvedWorkflowId || 'none',
           })
 
           // Automatically join the current workflow room based on URL
           // This handles both initial connections and reconnections
-          if (urlWorkflowId) {
-            logger.info(`Joining workflow room after connection: ${urlWorkflowId}`)
+          if (resolvedWorkflowId) {
+            logger.info(`Joining workflow room after connection: ${resolvedWorkflowId}`)
             socketInstance.emit('join-workflow', {
-              workflowId: urlWorkflowId,
+              workflowId: resolvedWorkflowId,
             })
             // Update our internal state to match the URL
-            setCurrentWorkflowId(urlWorkflowId)
+            setCurrentWorkflowId(resolvedWorkflowId)
           }
         })
 
@@ -322,7 +335,7 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
         socketInstance.on('workflow-updated', (data) => {
           logger.info(`Workflow ${data.workflowId} has been updated externally - requesting sync`)
           // Request fresh workflow state to sync with external changes
-          if (data.workflowId === urlWorkflowId) {
+          if (data.workflowId === resolvedWorkflowId) {
             socketInstance.emit('request-sync', { workflowId: data.workflowId })
           }
         })
@@ -504,28 +517,28 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
 
   // Handle workflow room switching when URL changes (for navigation between workflows)
   useEffect(() => {
-    if (!socket || !isConnected || !urlWorkflowId) return
+    if (!socket || !isConnected || !resolvedWorkflowId) return
 
     // If we're already in the correct workflow room, no need to switch
-    if (currentWorkflowId === urlWorkflowId) return
+    if (currentWorkflowId === resolvedWorkflowId) return
 
     logger.info(
-      `URL workflow changed from ${currentWorkflowId} to ${urlWorkflowId}, switching rooms`
+      `URL workflow changed from ${currentWorkflowId} to ${resolvedWorkflowId} (workspace: ${resolvedWorkspaceId || 'unknown'}), switching rooms`
     )
 
     // Leave current workflow first if we're in one
     if (currentWorkflowId) {
-      logger.info(`Leaving current workflow ${currentWorkflowId} before joining ${urlWorkflowId}`)
+      logger.info(`Leaving current workflow ${currentWorkflowId} before joining ${resolvedWorkflowId}`)
       socket.emit('leave-workflow')
     }
 
     // Join the new workflow room
-    logger.info(`Joining workflow room: ${urlWorkflowId}`)
+    logger.info(`Joining workflow room: ${resolvedWorkflowId}`)
     socket.emit('join-workflow', {
-      workflowId: urlWorkflowId,
+      workflowId: resolvedWorkflowId,
     })
-    setCurrentWorkflowId(urlWorkflowId)
-  }, [socket, isConnected, urlWorkflowId, currentWorkflowId])
+    setCurrentWorkflowId(resolvedWorkflowId)
+  }, [socket, isConnected, resolvedWorkflowId, currentWorkflowId])
 
   // Cleanup socket on component unmount
   useEffect(() => {

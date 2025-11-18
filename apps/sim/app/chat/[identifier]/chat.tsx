@@ -483,7 +483,7 @@ export default function ChatClient({ identifier }: { identifier: string }) {
     // Get title and description from the URL params or use defaults
     const title = new URLSearchParams(window.location.search).get('title') || 'chat'
     const primaryColor =
-      new URLSearchParams(window.location.search).get('color') || 'var(--brand-primary-hover-hex)'
+      new URLSearchParams(window.location.search).get('color') || 'var(--primary-hover)'
 
     if (authRequired === 'password') {
       return (

@@ -31,7 +31,7 @@ export function DocumentList({
           return (
             <div
               key={doc.id}
-              className='flex items-center gap-3 border-border/50 border-b p-3 transition-colors last:border-b-0 hover:bg-muted/30'
+              className='flex items-center gap-3 border-border/50 border-b p-3 transition-colors last:border-b-0 hover:bg-card/30'
             >
               <DocumentIcon className='h-4 w-4 flex-shrink-0' />
               <div className='min-w-0 flex-1 overflow-hidden'>

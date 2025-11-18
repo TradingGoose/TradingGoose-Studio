@@ -2,7 +2,6 @@
 
 import { useCallback, useRef, useState } from 'react'
 import { X } from 'lucide-react'
-import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -27,6 +26,7 @@ import type { McpTransport } from '@/lib/mcp/types'
 import { useAccessibleReferencePrefixes } from '@/app/workspace/[workspaceId]/w/[workflowId]/hooks/use-accessible-reference-prefixes'
 import { useMcpServerTest } from '@/hooks/use-mcp-server-test'
 import { useMcpServersStore } from '@/stores/mcp-servers/store'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 const logger = createLogger('McpServerModal')
 
@@ -50,8 +50,7 @@ export function McpServerModal({
   onServerCreated,
   blockId,
 }: McpServerModalProps) {
-  const params = useParams()
-  const workspaceId = params.workspaceId as string
+  const workspaceId = useWorkspaceId()
   const [formData, setFormData] = useState<McpServerFormData>({
     name: '',
     transport: 'streamable-http',

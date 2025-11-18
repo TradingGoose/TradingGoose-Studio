@@ -8,12 +8,23 @@ import { isProd } from '@/lib/environment'
  * @throws Error if NEXT_PUBLIC_APP_URL is not configured
  */
 export function getBaseUrl(): string {
-  const baseUrl = getEnv('NEXT_PUBLIC_APP_URL')
+  let baseUrl = getEnv('NEXT_PUBLIC_APP_URL')
 
-  if (!baseUrl) {
-    throw new Error(
-      'NEXT_PUBLIC_APP_URL must be configured for webhooks and callbacks to work correctly'
-    )
+  if (!baseUrl || !baseUrl.trim()) {
+    if (typeof window !== 'undefined' && window.location?.origin) {
+      baseUrl = window.location.origin
+    } else if (
+      typeof process !== 'undefined' &&
+      process.env.NEXT_PUBLIC_VERCEL_URL &&
+      process.env.NEXT_PUBLIC_VERCEL_URL.trim() !== ''
+    ) {
+      const vercelUrl = process.env.NEXT_PUBLIC_VERCEL_URL
+      baseUrl = vercelUrl.startsWith('http://') || vercelUrl.startsWith('https://')
+        ? vercelUrl
+        : `https://${vercelUrl}`
+    } else {
+      baseUrl = isProd ? 'https://sim.ai' : 'http://localhost:3000'
+    }
   }
 
   if (baseUrl.startsWith('http://') || baseUrl.startsWith('https://')) {

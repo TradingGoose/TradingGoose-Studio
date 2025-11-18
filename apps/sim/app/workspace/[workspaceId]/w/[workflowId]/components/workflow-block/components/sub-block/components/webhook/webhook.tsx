@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { ExternalLink } from 'lucide-react'
-import { useParams } from 'next/navigation'
 import {
   AirtableIcon,
   GithubIcon,
@@ -17,6 +16,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { WebhookModal } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-block/components/sub-block/components/webhook/components'
 import { useSubBlockValue } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
+import { useWorkflowId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 const logger = createLogger('WebhookConfig')
 
@@ -226,7 +226,7 @@ export const WEBHOOK_PROVIDERS: { [key: string]: WebhookProvider } = {
       <div
         className={`flex items-center justify-center rounded ${props.className || ''}`}
         style={{
-          backgroundColor: 'var(--brand-primary-hover-hex)',
+          backgroundColor: 'var(--primary-hover)',
           minWidth: '28px',
           padding: '0 4px',
         }}
@@ -351,8 +351,7 @@ export function WebhookConfig({
   const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [webhookId, setWebhookId] = useState<string | null>(null)
-  const params = useParams()
-  const workflowId = params.workflowId as string
+  const workflowId = useWorkflowId()
   const [isLoading, setIsLoading] = useState(false)
 
   // No need to manage webhook status separately - it's determined by having provider + path
@@ -486,13 +485,13 @@ export function WebhookConfig({
       // Update previous provider to the new provider
       setPreviousProvider(webhookProvider)
 
-      // Delete existing webhook AFTER clearing the path to prevent race condition
-      // The webhook check useEffect won't restore the path if we clear it first
-      // Execute deletion asynchronously but don't block the UI
+        // Delete existing webhook AFTER clearing the path to prevent race condition
+        // The webhook check useEffect won't restore the path if we clear it first
+        // Execute deletion asynchronously but don't block the UI
 
-      ;(async () => {
-        await deleteExistingWebhook()
-      })()
+        ; (async () => {
+          await deleteExistingWebhook()
+        })()
     }
   }, [webhookProvider, previousProvider, blockId, webhookId, isPreview])
 
@@ -826,7 +825,7 @@ export function WebhookConfig({
       {isWebhookConnected ? (
         <div className='flex flex-col space-y-2'>
           <div
-            className='flex h-10 cursor-pointer items-center justify-center rounded border border-border bg-background px-3 py-2 transition-colors duration-200 hover:bg-accent hover:text-accent-foreground'
+            className='flex h-10 cursor-pointer items-center justify-center rounded border border-border bg-background px-3 py-2 transition-colors duration-200 hover:bg-card hover:text-accent-foreground'
             onClick={handleOpenModal}
           >
             <div className='flex items-center gap-2'>

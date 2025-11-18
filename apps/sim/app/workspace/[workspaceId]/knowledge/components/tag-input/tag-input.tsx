@@ -80,7 +80,7 @@ export function TagInput({
               <Settings className='h-4 w-4 text-muted-foreground' />
               <Label className='cursor-pointer font-medium text-sm'>Advanced Settings</Label>
               {hasAnyTags && (
-                <span className='rounded-full bg-primary/10 px-2 py-0.5 text-muted-foreground text-xs'>
+                <span className='rounded-full bg-[var(--primary)]/10 px-2 py-0.5 text-muted-foreground text-xs'>
                   {Object.values(tags).filter((tag) => tag?.trim()).length} tag
                   {Object.values(tags).filter((tag) => tag?.trim()).length !== 1 ? 's' : ''}
                 </span>
@@ -135,7 +135,7 @@ export function TagInput({
                         size='sm'
                         onClick={() => clearTag(key)}
                         disabled={disabled}
-                        className='-translate-y-1/2 absolute top-1/2 right-1 h-6 w-6 p-0 hover:bg-muted'
+                        className='-translate-y-1/2 absolute top-1/2 right-1 h-6 w-6 p-0 hover:bg-card'
                       >
                         <X className='h-3 w-3' />
                       </Button>
@@ -169,7 +169,7 @@ export function TagInput({
                     return (
                       <span
                         key={key}
-                        className='inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-muted-foreground text-xs'
+                        className='inline-flex items-center gap-1 rounded-md bg-[var(--primary)]/10 px-2 py-1 text-muted-foreground text-xs'
                       >
                         <span className='font-medium'>{tagLabel}:</span>
                         <span>{value}</span>
@@ -179,7 +179,7 @@ export function TagInput({
                           size='sm'
                           onClick={() => clearTag(key as keyof TagData)}
                           disabled={disabled}
-                          className='h-3 w-3 p-0 hover:bg-primary/20'
+                          className='h-3 w-3 p-0 hover:bg-[var(--primary)]/20'
                         >
                           <X className='h-2 w-2' />
                         </Button>

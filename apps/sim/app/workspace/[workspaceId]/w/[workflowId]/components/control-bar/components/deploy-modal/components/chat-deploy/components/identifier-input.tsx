@@ -67,7 +67,7 @@ export function IdentifierInput({
           />
           {isChecking && (
             <div className='-translate-y-1/2 absolute top-1/2 right-2'>
-              <div className='h-[18px] w-[18px] animate-spin rounded-full border-2 border-gray-300 border-t-[var(--brand-primary-hex)]' />
+              <div className='h-[18px] w-[18px] animate-spin rounded-full border-2 border-gray-300 border-t-primary' />
             </div>
           )}
         </div>

@@ -141,9 +141,9 @@ export default function LoginPage({
 
     const checkCustomBrand = () => {
       const computedStyle = getComputedStyle(document.documentElement)
-      const brandAccent = computedStyle.getPropertyValue('--brand-accent-hex').trim()
+      const brandAccent = computedStyle.getPropertyValue('--accent').trim()
 
-      if (brandAccent && brandAccent !== '#6f3dfa') {
+      if (brandAccent && brandAccent !== '#ffcc00') {
         setButtonClass('auth-button-custom')
       } else {
         setButtonClass('auth-button-gradient')
@@ -527,7 +527,7 @@ export default function LoginPage({
           <span className='font-normal'>Don't have an account? </span>
           <Link
             href={isInviteFlow ? `/signup?invite_flow=true&callbackUrl=${callbackUrl}` : '/signup'}
-            className='font-medium text-[var(--brand-accent-hex)] underline-offset-4 transition hover:text-[var(--brand-accent-hover-hex)] hover:underline'
+            className='font-medium text-[var(--accent)] underline-offset-4 transition hover:text-[var(--accent-hover)] hover:underline'
           >
             Sign up
           </Link>

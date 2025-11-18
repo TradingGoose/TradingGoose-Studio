@@ -729,6 +729,36 @@ export const workspace = pgTable('workspace', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
 
+export const layoutMap = pgTable(
+  'layout_map',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspace.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    sort_order: integer('sort_order').notNull().default(0),
+    layout: jsonb('layout').notNull().default('{}'),
+    color_pair: jsonb('color_pair').notNull().default('{}'),
+    isActive: boolean('is_active').notNull().default(false),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    workspaceIdx: index('layout_map_workspace_idx').on(table.workspaceId),
+    userIdx: index('layout_map_user_idx').on(table.userId),
+    workspaceUserIdx: index('layout_map_workspace_user_idx').on(table.workspaceId, table.userId),
+    workspaceUserActiveIdx: index('layout_map_workspace_user_active_idx').on(
+      table.workspaceId,
+      table.userId,
+      table.isActive
+    )
+  })
+)
+
 export const workspaceFile = pgTable(
   'workspace_file',
   {

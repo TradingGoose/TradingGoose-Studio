@@ -88,18 +88,18 @@ export function KnowledgeTagFilters({
   const rows: TagFilterRow[] =
     filters.length > 0
       ? filters.map((filter) => ({
-          id: filter.id,
-          cells: {
-            tagName: filter.tagName || '',
-            value: filter.tagValue || '',
-          },
-        }))
+        id: filter.id,
+        cells: {
+          tagName: filter.tagName || '',
+          value: filter.tagValue || '',
+        },
+      }))
       : [
-          {
-            id: 'empty-row-0',
-            cells: { tagName: '', value: '' },
-          },
-        ]
+        {
+          id: 'empty-row-0',
+          cells: { tagName: '', value: '' },
+        },
+      ]
 
   const updateFilters = (newFilters: TagFilter[]) => {
     if (isPreview) return
@@ -256,7 +256,7 @@ export function KnowledgeTagFilters({
                   {tagDefinitions.map((tag) => (
                     <div
                       key={tag.id}
-                      className='relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground'
+                      className='relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-card hover:text-accent-foreground'
                       onMouseDown={(e) => {
                         e.preventDefault()
                         handleCellChange(rowIndex, 'tagName', tag.displayName)

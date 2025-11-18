@@ -240,7 +240,7 @@ export const DiffControls = memo(function DiffControls() {
           id = candidates.length ? candidates[candidates.length - 1].id : undefined
         }
         if (id) updatePreviewToolCallState('accepted', id)
-      } catch {}
+      } catch { }
 
       // Accept changes without blocking the UI; errors will be logged by the store handler
       acceptChanges().catch((error) => {
@@ -289,7 +289,7 @@ export const DiffControls = memo(function DiffControls() {
         id = candidates.length ? candidates[candidates.length - 1].id : undefined
       }
       if (id) updatePreviewToolCallState('rejected', id)
-    } catch {}
+    } catch { }
 
     // Reject changes optimistically
     rejectChanges().catch((error) => {
@@ -332,7 +332,7 @@ export const DiffControls = memo(function DiffControls() {
           variant='default'
           size='sm'
           onClick={handleAccept}
-          className='h-8 rounded-[6px] bg-[var(--brand-primary-hover-hex)] px-3 text-white hover:bg-[var(--brand-primary-hover-hex)]/90 hover:shadow-[0_0_0_4px_rgba(127,47,255,0.15)]'
+          className='h-8 rounded-[6px] bg-primary-hover px-3 text-white hover:bg-primary-hover/90 '
           title='Accept changes'
         >
           Accept

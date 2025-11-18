@@ -77,14 +77,14 @@ export default async function ChangelogContent() {
               </Link>
               <Link
                 href='https://docs.sim.ai'
-                className='inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 hover:bg-muted'
+                className='inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 hover:bg-card'
               >
                 <BookOpen className='h-4 w-4' />
                 Documentation
               </Link>
               <Link
                 href='/changelog.xml'
-                className='inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 hover:bg-muted'
+                className='inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 hover:bg-card'
               >
                 <Rss className='h-4 w-4' />
                 RSS Feed

@@ -84,7 +84,7 @@ export function CopyableField({
         size='icon'
         onClick={() => copyToClipboard(value, copyType)}
         disabled={isLoading || !value}
-        className={cn('shrink-0', 'transition-colors hover:bg-primary/5')}
+        className={cn('shrink-0', 'transition-colors hover:bg-[var(--primary)]/5')}
         aria-label='Copy value'
       >
         {copied === copyType ? <Check className='h-4 w-4' /> : <Copy className='h-4 w-4' />}

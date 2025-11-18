@@ -236,11 +236,10 @@ export const ChatInput: React.FC<{
 
           {/* Text Input Area with Controls */}
           <motion.div
-            className={`rounded-2xl border shadow-sm transition-all duration-200 md:rounded-3xl ${
-              isDragOver
+            className={`rounded-2xl border shadow-sm transition-all duration-200 md:rounded-3xl ${isDragOver
                 ? 'border-purple-500 bg-purple-50/50 dark:border-purple-500 dark:bg-purple-950/20'
                 : 'border-gray-200 bg-white'
-            }`}
+              }`}
             onClick={handleActivate}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -288,11 +287,10 @@ export const ChatInput: React.FC<{
                   return (
                     <div
                       key={file.id}
-                      className={`group relative overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 ${
-                        file.dataUrl
+                      className={`group relative overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 ${file.dataUrl
                           ? 'h-16 w-16 md:h-20 md:w-20'
                           : 'flex h-16 min-w-[120px] max-w-[200px] items-center gap-2 px-2 md:h-20 md:min-w-[140px] md:max-w-[220px] md:px-3'
-                      }`}
+                        }`}
                       title=''
                     >
                       {file.dataUrl ? (
@@ -436,11 +434,10 @@ export const ChatInput: React.FC<{
 
               {/* Send Button */}
               <button
-                className={`flex items-center justify-center rounded-full p-1.5 text-white transition-colors md:p-2 ${
-                  inputValue.trim() || attachedFiles.length > 0
+                className={`flex items-center justify-center rounded-full p-1.5 text-white transition-colors md:p-2 ${inputValue.trim() || attachedFiles.length > 0
                     ? 'bg-black hover:bg-zinc-700'
                     : 'cursor-default bg-gray-300 hover:bg-gray-400'
-                }`}
+                  }`}
                 title={isStreaming ? 'Stop' : 'Send'}
                 type='button'
                 onClick={(e) => {

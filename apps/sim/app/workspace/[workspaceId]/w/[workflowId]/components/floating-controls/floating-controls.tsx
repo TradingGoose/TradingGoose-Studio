@@ -53,7 +53,7 @@ export function FloatingControls() {
               disabled={currentZoom <= 10}
               className={cn(
                 'h-9 w-9 rounded-[10px]',
-                'hover:bg-muted/80',
+                'hover:bg-card/80',
                 'disabled:cursor-not-allowed disabled:opacity-50'
               )}
             >
@@ -76,7 +76,7 @@ export function FloatingControls() {
               disabled={currentZoom >= 200}
               className={cn(
                 'h-9 w-9 rounded-[10px]',
-                'hover:bg-muted/80',
+                'hover:bg-card/80',
                 'disabled:cursor-not-allowed disabled:opacity-50'
               )}
             >
@@ -97,7 +97,7 @@ export function FloatingControls() {
               disabled={undoRedoSizes.undoSize === 0}
               className={cn(
                 'h-9 w-9 rounded-[10px]',
-                'hover:bg-muted/80',
+                'hover:bg-card/80',
                 'disabled:cursor-not-allowed disabled:opacity-50'
               )}
             >
@@ -121,7 +121,7 @@ export function FloatingControls() {
               disabled={undoRedoSizes.redoSize === 0}
               className={cn(
                 'h-9 w-9 rounded-[10px]',
-                'hover:bg-muted/80',
+                'hover:bg-card/80',
                 'disabled:cursor-not-allowed disabled:opacity-50'
               )}
             >

@@ -148,7 +148,7 @@ export function DeployedWorkflowModal({
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction
                       onClick={handleRevert}
-                      className='bg-primary text-primary-foreground hover:bg-primary/90'
+                      className='bg-primary text-primary-foreground hover:bg-[var(--primary)]/90'
                     >
                       Load Deployment
                     </AlertDialogAction>

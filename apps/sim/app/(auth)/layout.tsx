@@ -16,11 +16,11 @@ function isColorDark(hexColor: string): boolean {
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    // Check if brand background is dark and add class accordingly
+    // Check if the background color is dark and add class accordingly
     const rootStyle = getComputedStyle(document.documentElement)
-    const brandBackground = rootStyle.getPropertyValue('--brand-background-hex').trim()
+    const backgroundHex = rootStyle.getPropertyValue('--background-hex').trim()
 
-    if (brandBackground && isColorDark(brandBackground)) {
+    if (backgroundHex && isColorDark(backgroundHex)) {
       document.body.classList.add('auth-dark-bg')
     } else {
       document.body.classList.remove('auth-dark-bg')

@@ -47,15 +47,16 @@ const WorkspacePermissionsContext = createContext<WorkspacePermissionsContextTyp
 
 interface WorkspacePermissionsProviderProps {
   children: React.ReactNode
+  workspaceId?: string
 }
 
 /**
  * Provider that manages workspace permissions and user access
  * Also provides connection-aware permissions that enforce read-only mode when offline
  */
-export function WorkspacePermissionsProvider({ children }: WorkspacePermissionsProviderProps) {
+export function WorkspacePermissionsProvider({ children, workspaceId: workspaceIdProp }: WorkspacePermissionsProviderProps) {
   const params = useParams()
-  const workspaceId = params?.workspaceId as string
+  const workspaceId = workspaceIdProp ?? (params?.workspaceId as string | undefined) ?? null
 
   // Manage offline mode state locally
   const [isOfflineMode, setIsOfflineMode] = useState(false)

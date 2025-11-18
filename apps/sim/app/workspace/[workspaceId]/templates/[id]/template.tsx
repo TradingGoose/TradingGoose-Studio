@@ -163,6 +163,8 @@ export default function TemplateDetails({
       return (
         <WorkflowPreview
           workflowState={template.state as WorkflowState}
+          workspaceId={workspaceId}
+          workflowId={template.workflowId ?? undefined}
           showSubBlocks={true}
           height='100%'
           width='100%'

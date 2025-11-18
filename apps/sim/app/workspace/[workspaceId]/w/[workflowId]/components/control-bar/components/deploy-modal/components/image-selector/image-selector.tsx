@@ -239,8 +239,8 @@ export function ImageSelector({
           className={cn(
             'relative flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center transition-colors',
             isDragging
-              ? 'border-primary bg-primary/5'
-              : 'border-muted-foreground/25 hover:border-muted-foreground/40 hover:bg-muted/10',
+              ? 'border-primary bg-[var(--primary)]/5'
+              : 'border-muted-foreground/25 hover:border-muted-foreground/40 hover:bg-card/10',
             disabled && 'cursor-not-allowed opacity-50'
           )}
         >

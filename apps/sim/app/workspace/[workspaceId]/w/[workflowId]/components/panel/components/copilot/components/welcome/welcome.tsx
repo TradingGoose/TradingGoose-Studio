@@ -20,39 +20,39 @@ export function CopilotWelcome({ onQuestionClick, mode = 'ask' }: CopilotWelcome
   const capabilities =
     mode === 'agent'
       ? [
-          {
-            title: 'Build & edit workflows',
-            question: 'Help me build a workflow',
-            Icon: Workflow,
-          },
-          {
-            title: 'Optimize workflows',
-            question: 'Help me optimize my workflow',
-            Icon: Blocks,
-          },
-          {
-            title: 'Debug workflows',
-            question: 'Help me debug my workflow',
-            Icon: LibraryBig,
-          },
-        ]
+        {
+          title: 'Build & edit workflows',
+          question: 'Help me build a workflow',
+          Icon: Workflow,
+        },
+        {
+          title: 'Optimize workflows',
+          question: 'Help me optimize my workflow',
+          Icon: Blocks,
+        },
+        {
+          title: 'Debug workflows',
+          question: 'Help me debug my workflow',
+          Icon: LibraryBig,
+        },
+      ]
       : [
-          {
-            title: 'Understand my workflow',
-            question: 'What does my workflow do?',
-            Icon: Workflow,
-          },
-          {
-            title: 'Discover tools',
-            question: 'What tools are available?',
-            Icon: Blocks,
-          },
-          {
-            title: 'Get started',
-            question: 'How do I create a workflow?',
-            Icon: LibraryBig,
-          },
-        ]
+        {
+          title: 'Understand my workflow',
+          question: 'What does my workflow do?',
+          Icon: Workflow,
+        },
+        {
+          title: 'Discover tools',
+          question: 'What tools are available?',
+          Icon: Blocks,
+        },
+        {
+          title: 'Get started',
+          question: 'How do I create a workflow?',
+          Icon: LibraryBig,
+        },
+      ]
 
   return (
     <div className='relative h-full w-full overflow-hidden px-4 pt-8 pb-6'>
@@ -69,10 +69,10 @@ export function CopilotWelcome({ onQuestionClick, mode = 'ask' }: CopilotWelcome
               key={idx}
               type='button'
               onClick={() => handleQuestionClick(question)}
-              className='w-full rounded-[10px] border bg-background/60 p-3 text-left transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary-hover-hex)]/30'
+              className='w-full rounded-[10px] border bg-background/60 p-3 text-left transition-colors hover:bg-card focus:outline-none focus:ring-2 focus:ring-[var(--primary-hover)]/30'
             >
               <div className='flex items-start gap-2'>
-                <div className='mt-0.5 flex h-6 w-6 items-center justify-center rounded bg-[color-mix(in_srgb,var(--brand-primary-hover-hex)_16%,transparent)] text-[var(--brand-primary-hover-hex)]'>
+                <div className='mt-0.5 flex h-6 w-6 items-center justify-center rounded bg-[color-mix(in_srgb,var(--primary-hover)_16%,transparent)] text-[var(--primary-hover)]'>
                   <Icon className='h-3.5 w-3.5' />
                 </div>
                 <div>

@@ -81,9 +81,9 @@ export function AuthSelector({
           <Card
             key={type}
             className={cn(
-              'cursor-pointer overflow-hidden rounded-[8px] shadow-none transition-all duration-200 hover:bg-accent/30',
+              'cursor-pointer overflow-hidden rounded-[8px] shadow-none transition-all duration-200 hover:bg-card/30',
               authType === type
-                ? 'border border-muted-foreground hover:bg-accent/50'
+                ? 'border border-muted-foreground hover:bg-card'
                 : 'border border-input'
             )}
           >
@@ -122,7 +122,7 @@ export function AuthSelector({
 
             {isExistingChat && !password && (
               <div className='mb-2 flex items-center text-muted-foreground text-xs'>
-                <div className='mr-2 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-muted-foreground'>
+                <div className='mr-2 rounded-full bg-[var(--primary)]/10 px-2 py-0.5 font-medium text-muted-foreground'>
                   Password set
                 </div>
                 <span>Current password is securely stored</span>
@@ -154,7 +154,7 @@ export function AuthSelector({
                   className={cn(
                     'group h-7 w-7 rounded-md p-0',
                     'text-muted-foreground/60 transition-all duration-200',
-                    'hover:bg-muted/50 hover:text-foreground',
+                    'hover:bg-card/50 hover:text-foreground',
                     'disabled:cursor-not-allowed disabled:opacity-50',
                     'focus-visible:ring-2 focus-visible:ring-muted-foreground/20 focus-visible:ring-offset-1'
                   )}
@@ -171,7 +171,7 @@ export function AuthSelector({
                   className={cn(
                     'group h-7 w-7 rounded-md p-0',
                     'text-muted-foreground/60 transition-all duration-200',
-                    'hover:bg-muted/50 hover:text-foreground',
+                    'hover:bg-card/50 hover:text-foreground',
                     'disabled:cursor-not-allowed disabled:opacity-30',
                     'focus-visible:ring-2 focus-visible:ring-muted-foreground/20 focus-visible:ring-offset-1'
                   )}
@@ -192,7 +192,7 @@ export function AuthSelector({
                   className={cn(
                     'group h-7 w-7 rounded-md p-0',
                     'text-muted-foreground/60 transition-all duration-200',
-                    'hover:bg-muted/50 hover:text-foreground',
+                    'hover:bg-card/50 hover:text-foreground',
                     'focus-visible:ring-2 focus-visible:ring-muted-foreground/20 focus-visible:ring-offset-1'
                   )}
                 >

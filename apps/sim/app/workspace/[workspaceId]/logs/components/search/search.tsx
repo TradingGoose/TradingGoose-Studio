@@ -129,21 +129,18 @@ export function AutocompleteSearch({
   return (
     <div className={cn('relative', className)}>
       {/* Search Input */}
-      <div
-        className={cn(
-          'relative flex items-center gap-2 rounded-lg border bg-background pr-2 pl-3 transition-all duration-200',
-          'h-9 w-full min-w-[600px] max-w-[800px]',
-          state.isOpen && 'ring-1 ring-ring'
-        )}
-      >
+      <div className='relative flex items-center'>
         {showSpinner ? (
-          <Loader2 className='h-4 w-4 flex-shrink-0 animate-spin text-muted-foreground' />
+          <Loader2 className='-translate-y-1/2 absolute left-3 top-1/2 z-10 h-4 w-4 animate-spin text-muted-foreground' />
         ) : (
-          <Search className='h-4 w-4 flex-shrink-0 text-muted-foreground' strokeWidth={2} />
+          <Search
+            className='-translate-y-1/2 absolute left-3 top-1/2 z-10 h-4 w-4 text-muted-foreground'
+            strokeWidth={2}
+          />
         )}
 
         {/* Text display with ghost text */}
-        <div className='relative flex-1 font-[380] font-sans text-base leading-none'>
+        <div className='relative flex-1'>
           {/* Invisible input for cursor and interactions */}
           <Input
             ref={inputRef}
@@ -156,8 +153,12 @@ export function AutocompleteSearch({
             onClick={(e) => updateCursorPosition(e.currentTarget)}
             onKeyDown={handleKeyDown}
             onSelect={(e) => updateCursorPosition(e.currentTarget)}
-            className='relative z-10 w-full border-0 bg-transparent p-0 font-[380] font-sans text-base text-transparent leading-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
-            style={{ background: 'transparent' }}
+            className={cn(
+              'h-9 w-full rounded-md border bg-background pl-10 pr-10 text-sm text-transparent',
+              'font-[380] font-sans leading-none placeholder:text-muted-foreground ring-offset-background',
+              'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+              state.isOpen && 'ring-1 ring-ring'
+            )}
             role='combobox'
             aria-expanded={state.isOpen}
             aria-controls={state.isOpen ? listboxId : undefined}
@@ -170,8 +171,8 @@ export function AutocompleteSearch({
           />
 
           {/* Always-visible text overlay */}
-          <div className='pointer-events-none absolute inset-0 flex items-center'>
-            <span className='whitespace-pre font-[380] font-sans text-base leading-none'>
+          <div className='pointer-events-none absolute inset-0 flex items-center px-10'>
+            <span className='whitespace-pre font-[380] font-sans text-sm leading-none'>
               <span className='text-foreground'>{state.inputValue}</span>
               {state.showPreview &&
                 state.previewValue &&
@@ -191,7 +192,7 @@ export function AutocompleteSearch({
             type='button'
             variant='ghost'
             size='sm'
-            className='h-6 w-6 p-0 hover:bg-muted/50'
+            className='-translate-y-1/2 absolute right-2 top-1/2 z-20 h-6 w-6 p-0 hover:bg-card/50'
             onMouseDown={(e) => {
               e.preventDefault()
               clearAll()
@@ -206,7 +207,7 @@ export function AutocompleteSearch({
       {state.isOpen && state.suggestions.length > 0 && (
         <div
           ref={dropdownRef}
-          className='min-w[500px] absolute z-[9999] mt-1 w-full overflow-hidden rounded-md border bg-popover shadow-md'
+          className=' absolute z-[9999] mt-1 w-full overflow-hidden rounded-md border bg-popover shadow-md'
           id={listboxId}
           role='listbox'
           aria-labelledby={inputId}
@@ -229,7 +230,7 @@ export function AutocompleteSearch({
                 className={cn(
                   'w-full px-3 py-2 text-left text-sm',
                   'focus:bg-accent focus:text-accent-foreground focus:outline-none',
-                  'transition-colors hover:bg-accent hover:text-accent-foreground',
+                  'transition-colors hover:bg-card hover:text-accent-foreground',
                   index === state.highlightedIndex && 'bg-accent text-accent-foreground'
                 )}
                 onMouseEnter={() => {
@@ -274,7 +275,7 @@ export function AutocompleteSearch({
             <Badge
               key={`${filter.field}-${filter.value}-${index}`}
               variant='secondary'
-              className='h-6 border border-border/50 bg-muted/50 font-mono text-muted-foreground text-xs hover:bg-muted'
+              className='h-6 border border-border/50 bg-muted/50 font-mono text-muted-foreground text-xs hover:bg-card'
             >
               <span className='mr-1'>{filter.field}:</span>
               <span>
@@ -285,7 +286,7 @@ export function AutocompleteSearch({
                 type='button'
                 variant='ghost'
                 size='sm'
-                className='ml-1 h-3 w-3 p-0 text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                className='ml-1 h-3 w-3 p-0 text-muted-foreground hover:bg-card/50 hover:text-foreground'
                 onClick={() => removeFilter(filter)}
               >
                 <X className='h-2.5 w-2.5' />

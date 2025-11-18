@@ -46,7 +46,7 @@ const PermissionSelector = React.memo<PermissionSelectorProps>(
               disabled && 'cursor-not-allowed opacity-50',
               value === option.value
                 ? 'bg-foreground text-background'
-                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+                : 'text-muted-foreground hover:bg-card/50 hover:text-foreground',
               index > 0 && 'border-input border-l'
             )}
           >

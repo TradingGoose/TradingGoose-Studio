@@ -1,4 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+"use client"
+
+import { useCallback, useEffect } from 'react'
+import { create } from 'zustand'
 import type { permissionTypeEnum } from '@sim/db/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { API_ENDPOINTS } from '@/stores/constants'
@@ -34,73 +37,152 @@ interface UseWorkspacePermissionsReturn {
  * @param workspaceId - The workspace ID to fetch permissions for
  * @returns Object containing permissions data, loading state, error state, and refetch function
  */
-export function useWorkspacePermissions(workspaceId: string | null): UseWorkspacePermissionsReturn {
-  const [permissions, setPermissions] = useState<WorkspacePermissions | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+type WorkspacePermissionsRecord = {
+  permissions: WorkspacePermissions | null
+  loading: boolean
+  error: string | null
+}
 
-  const fetchPermissions = async (id: string): Promise<void> => {
-    try {
-      setLoading(true)
-      setError(null)
+interface WorkspacePermissionsStoreState {
+  records: Record<string, WorkspacePermissionsRecord>
+  inFlight: Record<string, Promise<void>>
+  setRecord: (workspaceId: string, partial: Partial<WorkspacePermissionsRecord>) => void
+  fetchPermissions: (workspaceId: string, options?: { force?: boolean }) => Promise<void>
+}
 
-      const response = await fetch(API_ENDPOINTS.WORKSPACE_PERMISSIONS(id))
+const createDefaultRecord = (): WorkspacePermissionsRecord => ({
+  permissions: null,
+  loading: false,
+  error: null,
+})
 
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error('Workspace not found or access denied')
-        }
-        if (response.status === 401) {
-          throw new Error('Authentication required')
-        }
-        throw new Error(`Failed to fetch permissions: ${response.statusText}`)
+const useWorkspacePermissionsStore = create<WorkspacePermissionsStoreState>((set, get) => ({
+  records: {},
+  inFlight: {},
+  setRecord: (workspaceId, partial) =>
+    set((state) => {
+      const prev = state.records[workspaceId] ?? createDefaultRecord()
+      return {
+        records: {
+          ...state.records,
+          [workspaceId]: {
+            ...prev,
+            ...partial,
+          },
+        },
+      }
+    }),
+  fetchPermissions: async (workspaceId, options) => {
+    const { force = false } = options ?? {}
+    const { records, inFlight, setRecord } = get()
+
+    if (!force) {
+      if (inFlight[workspaceId]) {
+        return inFlight[workspaceId]
       }
 
-      const data: WorkspacePermissions = await response.json()
-      setPermissions(data)
-
-      logger.info('Workspace permissions loaded', {
-        workspaceId: id,
-        userCount: data.total,
-        users: data.users.map((u) => ({ email: u.email, permissions: u.permissionType })),
-      })
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
-      setError(errorMessage)
-      logger.error('Failed to fetch workspace permissions', {
-        workspaceId: id,
-        error: errorMessage,
-      })
-    } finally {
-      setLoading(false)
+      const existing = records[workspaceId]
+      if (existing?.permissions && !existing?.error) {
+        return
+      }
     }
-  }
 
-  const updatePermissions = (newPermissions: WorkspacePermissions): void => {
-    setPermissions(newPermissions)
-  }
+    const fetchPromise = (async () => {
+      try {
+        setRecord(workspaceId, { loading: true, error: null })
+
+        const response = await fetch(API_ENDPOINTS.WORKSPACE_PERMISSIONS(workspaceId))
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            throw new Error('Workspace not found or access denied')
+          }
+          if (response.status === 401) {
+            throw new Error('Authentication required')
+          }
+          throw new Error(`Failed to fetch permissions: ${response.statusText}`)
+        }
+
+        const data: WorkspacePermissions = await response.json()
+
+        logger.info('Workspace permissions loaded', {
+          workspaceId,
+          userCount: data.total,
+          users: data.users.map((u) => ({ email: u.email, permissions: u.permissionType })),
+        })
+
+        setRecord(workspaceId, {
+          permissions: data,
+          loading: false,
+          error: null,
+        })
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
+        logger.error('Failed to fetch workspace permissions', {
+          workspaceId,
+          error: errorMessage,
+        })
+        setRecord(workspaceId, {
+          loading: false,
+          error: errorMessage,
+        })
+      } finally {
+        set((state) => {
+          const next = { ...state.inFlight }
+          delete next[workspaceId]
+          return { inFlight: next }
+        })
+      }
+    })()
+
+    set((state) => ({
+      inFlight: {
+        ...state.inFlight,
+        [workspaceId]: fetchPromise,
+      },
+    }))
+
+    await fetchPromise
+  },
+}))
+
+export function useWorkspacePermissions(workspaceId: string | null): UseWorkspacePermissionsReturn {
+  const record = useWorkspacePermissionsStore((state) =>
+    workspaceId ? state.records[workspaceId] : undefined
+  )
+  const fetchPermissions = useWorkspacePermissionsStore((state) => state.fetchPermissions)
+  const setRecord = useWorkspacePermissionsStore((state) => state.setRecord)
 
   useEffect(() => {
-    if (workspaceId) {
-      fetchPermissions(workspaceId)
-    } else {
-      // Clear state if no workspace ID
-      setPermissions(null)
-      setError(null)
-      setLoading(false)
+    if (!workspaceId) {
+      return () => {}
     }
-  }, [workspaceId])
+    fetchPermissions(workspaceId).catch((error) => {
+      logger.error('Failed to load workspace permissions', { workspaceId, error })
+    })
+  }, [workspaceId, fetchPermissions])
 
   const refetch = useCallback(async () => {
-    if (workspaceId) {
-      await fetchPermissions(workspaceId)
-    }
-  }, [workspaceId])
+    if (!workspaceId) return
+    await fetchPermissions(workspaceId, { force: true })
+  }, [workspaceId, fetchPermissions])
+
+  const updatePermissions = useCallback(
+    (newPermissions: WorkspacePermissions) => {
+      if (!workspaceId) return
+      setRecord(workspaceId, {
+        permissions: newPermissions,
+        loading: false,
+        error: null,
+      })
+    },
+    [workspaceId, setRecord]
+  )
 
   return {
-    permissions,
-    loading,
-    error,
+    permissions: record?.permissions ?? null,
+    loading: record?.loading ?? false,
+    error: record?.error ?? null,
     updatePermissions,
     refetch,
   }

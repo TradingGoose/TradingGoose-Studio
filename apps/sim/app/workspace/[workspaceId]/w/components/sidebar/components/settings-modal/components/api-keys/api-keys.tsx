@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, Copy, Plus, Search } from 'lucide-react'
-import { useParams } from 'next/navigation'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,6 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 const logger = createLogger('ApiKeys')
 
@@ -55,8 +55,7 @@ function ApiKeyDisplay({ apiKey }: ApiKeyDisplayProps) {
 export function ApiKeys({ onOpenChange, registerCloseHandler }: ApiKeysProps) {
   const { data: session } = useSession()
   const userId = session?.user?.id
-  const params = useParams()
-  const workspaceId = (params?.workspaceId as string) || ''
+  const workspaceId = useWorkspaceId()
   const userPermissions = useUserPermissionsContext()
   const canManageWorkspaceKeys = userPermissions.canEdit || userPermissions.canAdmin
 
@@ -483,7 +482,7 @@ export function ApiKeys({ onOpenChange, registerCloseHandler }: ApiKeysProps) {
                   setCreateError(null)
                 }}
                 variant='ghost'
-                className='h-9 rounded-[8px] border bg-background px-3 shadow-xs hover:bg-muted focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
+                className='h-9 rounded-[8px] border bg-background px-3 shadow-xs hover:bg-card focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
               >
                 <Plus className='h-4 w-4 stroke-[2px]' />
                 Create Key
@@ -518,7 +517,7 @@ export function ApiKeys({ onOpenChange, registerCloseHandler }: ApiKeysProps) {
                       setKeyType('personal')
                       if (createError) setCreateError(null)
                     }}
-                    className='h-8 data-[variant=outline]:border-border data-[variant=outline]:bg-background data-[variant=outline]:text-foreground data-[variant=outline]:hover:bg-muted dark:data-[variant=outline]:border-border dark:data-[variant=outline]:bg-background dark:data-[variant=outline]:text-foreground dark:data-[variant=outline]:hover:bg-muted/80'
+                    className='h-8 data-[variant=outline]:border-border data-[variant=outline]:bg-background data-[variant=outline]:text-foreground data-[variant=outline]:hover:bg-card dark:data-[variant=outline]:border-border dark:data-[variant=outline]:bg-background dark:data-[variant=outline]:text-foreground dark:data-[variant=outline]:hover:bg-card/80'
                   >
                     Personal
                   </Button>
@@ -530,7 +529,7 @@ export function ApiKeys({ onOpenChange, registerCloseHandler }: ApiKeysProps) {
                       setKeyType('workspace')
                       if (createError) setCreateError(null)
                     }}
-                    className='h-8 data-[variant=outline]:border-border data-[variant=outline]:bg-background data-[variant=outline]:text-foreground data-[variant=outline]:hover:bg-muted dark:data-[variant=outline]:border-border dark:data-[variant=outline]:bg-background dark:data-[variant=outline]:text-foreground dark:data-[variant=outline]:hover:bg-muted/80'
+                    className='h-8 data-[variant=outline]:border-border data-[variant=outline]:bg-background data-[variant=outline]:text-foreground data-[variant=outline]:hover:bg-card dark:data-[variant=outline]:border-border dark:data-[variant=outline]:bg-background dark:data-[variant=outline]:text-foreground dark:data-[variant=outline]:hover:bg-card/80'
                   >
                     Workspace
                   </Button>
@@ -557,7 +556,7 @@ export function ApiKeys({ onOpenChange, registerCloseHandler }: ApiKeysProps) {
 
           <AlertDialogFooter className='flex'>
             <AlertDialogCancel
-              className='h-9 w-full rounded-[8px] border-border bg-background text-foreground hover:bg-muted dark:border-border dark:bg-background dark:text-foreground dark:hover:bg-muted/80'
+              className='h-9 w-full rounded-[8px] border-border bg-background text-foreground hover:bg-card dark:border-border dark:bg-background dark:text-foreground dark:hover:bg-card/80'
               onClick={() => {
                 setNewKeyName('')
                 setKeyType('personal')
@@ -568,7 +567,7 @@ export function ApiKeys({ onOpenChange, registerCloseHandler }: ApiKeysProps) {
             <Button
               type='button'
               onClick={handleCreateKey}
-              className='h-9 w-full rounded-[8px] bg-primary text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50'
+              className='h-9 w-full rounded-[8px] bg-primary text-black hover:bg-[var(--primary)]/90 disabled:cursor-not-allowed disabled:opacity-50'
               disabled={
                 !newKeyName.trim() ||
                 isSubmittingCreate ||
@@ -611,7 +610,7 @@ export function ApiKeys({ onOpenChange, registerCloseHandler }: ApiKeysProps) {
               <Button
                 variant='ghost'
                 size='icon'
-                className='-translate-y-1/2 absolute top-1/2 right-1 h-7 w-7 rounded-[4px] text-muted-foreground hover:bg-muted hover:text-foreground'
+                className='-translate-y-1/2 absolute top-1/2 right-1 h-7 w-7 rounded-[4px] text-muted-foreground hover:bg-card hover:text-foreground'
                 onClick={() => copyToClipboard(newKey.key)}
               >
                 {copySuccess ? <Check className='h-3.5 w-3.5' /> : <Copy className='h-3.5 w-3.5' />}

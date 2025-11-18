@@ -124,21 +124,19 @@ const BlockContentDisplay = ({
         <div className='mb-2 flex space-x-1'>
           <button
             onClick={() => setActiveTab('output')}
-            className={`rounded-md px-3 py-1 text-xs transition-colors ${
-              activeTab === 'output'
-                ? 'bg-secondary text-foreground'
-                : 'text-muted-foreground hover:bg-secondary/50'
-            }`}
+            className={`rounded-md px-3 py-1 text-xs transition-colors ${activeTab === 'output'
+              ? 'bg-secondary text-foreground'
+              : 'text-muted-foreground hover:bg-secondary/50'
+              }`}
           >
             Output
           </button>
           <button
             onClick={() => setActiveTab('input')}
-            className={`rounded-md px-3 py-1 text-xs transition-colors ${
-              activeTab === 'input'
-                ? 'bg-secondary text-foreground'
-                : 'text-muted-foreground hover:bg-secondary/50'
-            }`}
+            className={`rounded-md px-3 py-1 text-xs transition-colors ${activeTab === 'input'
+              ? 'bg-secondary text-foreground'
+              : 'text-muted-foreground hover:bg-secondary/50'
+              }`}
           >
             Input
           </button>
@@ -325,13 +323,12 @@ export function Sidebar({
 
   return (
     <div
-      className={`fixed top-24 right-4 bottom-4 transform rounded-[14px] border bg-card shadow-xs ${
-        isOpen ? 'translate-x-0' : 'translate-x-[calc(100%+1rem)]'
-      } ${isDragging ? '' : 'transition-all duration-300 ease-in-out'} z-50 flex flex-col`}
+      className={`fixed top-24 right-4 bottom-4 transform rounded-[14px] border bg-card shadow-xs ${isOpen ? 'translate-x-0' : 'translate-x-[calc(100%+1rem)]'
+        } ${isDragging ? '' : 'transition-all duration-300 ease-in-out'} z-50 flex flex-col`}
       style={{ width: `${width}px`, minWidth: `${MIN_WIDTH}px` }}
     >
       <div
-        className='absolute top-0 bottom-0 left-[-4px] z-50 w-4 cursor-ew-resize hover:bg-accent/50'
+        className='absolute top-0 bottom-0 left-[-4px] z-50 w-4 cursor-ew-resize hover:bg-card'
         onMouseDown={handleMouseDown}
       />
       {log && (
@@ -515,7 +512,7 @@ export function Sidebar({
                       variant='ghost'
                       size='sm'
                       onClick={() => setIsFrozenCanvasOpen(true)}
-                      className='w-full justify-start gap-2 rounded-md border bg-muted/30 hover:bg-muted/50'
+                      className='w-full justify-start gap-2 rounded-md border bg-muted/30 hover:bg-card/50'
                     >
                       <Eye className='h-4 w-4' />
                       View Snapshot
@@ -591,7 +588,7 @@ export function Sidebar({
                         <div className='border-t'>
                           <button
                             onClick={() => setIsModelsExpanded(!isModelsExpanded)}
-                            className='flex w-full items-center justify-between p-3 text-left transition-colors hover:bg-muted/50'
+                            className='flex w-full items-center justify-between p-3 text-left transition-colors hover:bg-card/50'
                           >
                             <span className='font-medium text-muted-foreground text-xs'>
                               Model Breakdown ({Object.keys(log.cost?.models || {}).length})

@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react'
 import { Plus, Trash } from 'lucide-react'
-import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { formatDisplayText } from '@/components/ui/formatted-text'
 import { Input } from '@/components/ui/input'
@@ -19,6 +18,7 @@ import { useSubBlockValue } from '@/app/workspace/[workspaceId]/w/[workflowId]/c
 import { useAccessibleReferencePrefixes } from '@/app/workspace/[workspaceId]/w/[workflowId]/hooks/use-accessible-reference-prefixes'
 import { useVariablesStore } from '@/stores/panel/variables/store'
 import type { Variable } from '@/stores/panel/variables/types'
+import { useWorkflowId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 interface VariableAssignment {
   id: string
@@ -53,8 +53,7 @@ export function VariablesInput({
   disabled = false,
   isConnecting = false,
 }: VariablesInputProps) {
-  const params = useParams()
-  const workflowId = params.workflowId as string
+  const workflowId = useWorkflowId()
   const [storeValue, setStoreValue] = useSubBlockValue<VariableAssignment[]>(blockId, subBlockId)
   const { variables: workflowVariables } = useVariablesStore()
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)

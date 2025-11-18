@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Search, Share2 } from 'lucide-react'
-import { useParams } from 'next/navigation'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,6 +17,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
 import type { EnvironmentVariable as StoreEnvironmentVariable } from '@/stores/settings/environment/types'
 
@@ -59,8 +59,7 @@ export function EnvironmentVariables({
     upsertWorkspaceEnvironment,
     removeWorkspaceEnvironmentKeys,
   } = useEnvironmentStore()
-  const params = useParams()
-  const workspaceId = (params?.workspaceId as string) || ''
+  const workspaceId = useWorkspaceId()
 
   const [envVars, setEnvVars] = useState<UIEnvironmentVariable[]>([])
   const [searchTerm, setSearchTerm] = useState('')
@@ -147,9 +146,9 @@ export function EnvironmentVariables({
     const existingVars = Object.values(variables)
     const initialVars = existingVars.length
       ? existingVars.map((envVar) => ({
-          ...envVar,
-          id: generateRowId(),
-        }))
+        ...envVar,
+        id: generateRowId(),
+      }))
       : [createEmptyEnvVar()]
     initialVarsRef.current = JSON.parse(JSON.stringify(initialVars))
     setEnvVars(JSON.parse(JSON.stringify(initialVars)))
@@ -158,24 +157,24 @@ export function EnvironmentVariables({
 
   useEffect(() => {
     let mounted = true
-    ;(async () => {
-      if (!workspaceId) {
-        setIsWorkspaceLoading(false)
-        return
-      }
-      setIsWorkspaceLoading(true)
-      try {
-        const data = await loadWorkspaceEnvironment(workspaceId)
-        if (!mounted) return
-        setWorkspaceVars(data.workspace || {})
-        initialWorkspaceVarsRef.current = data.workspace || {}
-        setConflicts(data.conflicts || [])
-      } finally {
-        if (mounted) {
+      ; (async () => {
+        if (!workspaceId) {
           setIsWorkspaceLoading(false)
+          return
         }
-      }
-    })()
+        setIsWorkspaceLoading(true)
+        try {
+          const data = await loadWorkspaceEnvironment(workspaceId)
+          if (!mounted) return
+          setWorkspaceVars(data.workspace || {})
+          initialWorkspaceVarsRef.current = data.workspace || {}
+          setConflicts(data.conflicts || [])
+        } finally {
+          if (mounted) {
+            setIsWorkspaceLoading(false)
+          }
+        }
+      })()
     return () => {
       mounted = false
     }
@@ -442,7 +441,7 @@ export function EnvironmentVariables({
                       return filtered.length ? filtered : [createEmptyEnvVar()]
                     })
                   }}
-                  className='h-9 w-9 rounded-[8px] bg-muted p-0 text-muted-foreground hover:bg-muted/70'
+                  className='h-9 w-9 rounded-[8px] bg-muted p-0 text-muted-foreground hover:bg-card/70'
                 >
                   <Share2 className='h-4 w-4' />
                 </Button>
@@ -455,7 +454,7 @@ export function EnvironmentVariables({
                   variant='ghost'
                   size='icon'
                   onClick={() => removeEnvVar(originalIndex)}
-                  className='h-9 w-9 rounded-[8px] bg-muted p-0 text-muted-foreground hover:bg-muted/70'
+                  className='h-9 w-9 rounded-[8px] bg-muted p-0 text-muted-foreground hover:bg-card/70'
                 >
                   ×
                 </Button>
@@ -567,7 +566,7 @@ export function EnvironmentVariables({
                                     return next
                                   })
                                 }}
-                                className='h-9 w-9 rounded-[8px] bg-muted p-0 text-muted-foreground hover:bg-muted/70'
+                                className='h-9 w-9 rounded-[8px] bg-muted p-0 text-muted-foreground hover:bg-card/70'
                               >
                                 ×
                               </Button>
@@ -621,7 +620,7 @@ export function EnvironmentVariables({
                                   return next
                                 })
                               }}
-                              className='h-9 w-9 rounded-[8px] bg-muted p-0 text-muted-foreground hover:bg-muted/70'
+                              className='h-9 w-9 rounded-[8px] bg-muted p-0 text-muted-foreground hover:bg-card/70'
                             >
                               ×
                             </Button>
@@ -671,7 +670,7 @@ export function EnvironmentVariables({
               <Button
                 onClick={addEnvVar}
                 variant='ghost'
-                className='h-9 rounded-[8px] border bg-background px-3 shadow-xs hover:bg-muted focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
+                className='h-9 rounded-[8px] border bg-background px-3 shadow-xs hover:bg-card focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
               >
                 <Plus className='h-4 w-4 stroke-[2px]' />
                 Add Variable
@@ -718,7 +717,7 @@ export function EnvironmentVariables({
                 <TooltipTrigger asChild>
                   <AlertDialogAction
                     disabled={true}
-                    className='h-9 w-full cursor-not-allowed rounded-[8px] bg-primary text-white opacity-50 transition-all duration-200'
+                    className='h-9 w-full cursor-not-allowed rounded-[8px] bg-primary text-black opacity-50 transition-all duration-200'
                   >
                     Save Changes
                   </AlertDialogAction>
@@ -728,7 +727,7 @@ export function EnvironmentVariables({
             ) : (
               <AlertDialogAction
                 onClick={handleSave}
-                className='h-9 w-full rounded-[8px] bg-primary text-white transition-all duration-200 hover:bg-primary/90'
+                className='h-9 w-full rounded-[8px] bg-primary text-black transition-all duration-200 hover:bg-[var(--primary)]/90'
               >
                 Save Changes
               </AlertDialogAction>

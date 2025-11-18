@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { createLogger } from '@/lib/logs/console/logger'
+import { cn } from '@/lib/utils'
 import {
   extractBlockIdFromOutputId,
   extractPathFromOutputId,
@@ -20,7 +21,7 @@ import type { BlockLog, ExecutionResult } from '@/executor/types'
 import { useExecutionStore } from '@/stores/execution/store'
 import { useChatStore } from '@/stores/panel/chat/store'
 import { useConsoleStore } from '@/stores/panel/console/store'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { useWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 const logger = createLogger('ChatPanel')
 
@@ -35,10 +36,11 @@ interface ChatFile {
 interface ChatProps {
   chatMessage: string
   setChatMessage: (message: string) => void
+  hideScrollbar?: boolean
 }
 
-export function Chat({ chatMessage, setChatMessage }: ChatProps) {
-  const { activeWorkflowId } = useWorkflowRegistry()
+export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: ChatProps) {
+  const { workflowId: currentWorkflowId } = useWorkflowRoute()
 
   const {
     messages,
@@ -78,17 +80,17 @@ export function Chat({ chatMessage, setChatMessage }: ChatProps) {
 
   // Get output entries from console for the dropdown
   const outputEntries = useMemo(() => {
-    if (!activeWorkflowId) return []
-    return entries.filter((entry) => entry.workflowId === activeWorkflowId && entry.output)
-  }, [entries, activeWorkflowId])
+    if (!currentWorkflowId) return []
+    return entries.filter((entry) => entry.workflowId === currentWorkflowId && entry.output)
+  }, [entries, currentWorkflowId])
 
   // Get filtered messages for current workflow
   const workflowMessages = useMemo(() => {
-    if (!activeWorkflowId) return []
+    if (!currentWorkflowId) return []
     return messages
-      .filter((msg) => msg.workflowId === activeWorkflowId)
+      .filter((msg) => msg.workflowId === currentWorkflowId)
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-  }, [messages, activeWorkflowId])
+  }, [messages, currentWorkflowId])
 
   // Memoize user messages for performance
   const userMessages = useMemo(() => {
@@ -100,7 +102,7 @@ export function Chat({ chatMessage, setChatMessage }: ChatProps) {
 
   // Update prompt history when workflow changes
   useEffect(() => {
-    if (!activeWorkflowId) {
+    if (!currentWorkflowId) {
       setPromptHistory([])
       setHistoryIndex(-1)
       return
@@ -108,12 +110,12 @@ export function Chat({ chatMessage, setChatMessage }: ChatProps) {
 
     setPromptHistory(userMessages)
     setHistoryIndex(-1)
-  }, [activeWorkflowId, userMessages])
+  }, [currentWorkflowId, userMessages])
 
   // Get selected workflow outputs
   const selectedOutputs = useMemo(() => {
-    if (!activeWorkflowId) return []
-    const selected = selectedWorkflowOutputs[activeWorkflowId]
+    if (!currentWorkflowId) return []
+    const selected = selectedWorkflowOutputs[currentWorkflowId]
 
     if (!selected || selected.length === 0) {
       // Return empty array when nothing is explicitly selected
@@ -125,12 +127,12 @@ export function Chat({ chatMessage, setChatMessage }: ChatProps) {
 
     // If deduplication removed items, update the store
     if (dedupedSelection.length !== selected.length) {
-      setSelectedWorkflowOutput(activeWorkflowId, dedupedSelection)
+      setSelectedWorkflowOutput(currentWorkflowId, dedupedSelection)
       return dedupedSelection
     }
 
     return selected
-  }, [selectedWorkflowOutputs, activeWorkflowId, setSelectedWorkflowOutput])
+  }, [selectedWorkflowOutputs, currentWorkflowId, setSelectedWorkflowOutput])
 
   // Focus input helper with proper cleanup
   const focusInput = useCallback((delay = 0) => {
@@ -228,7 +230,7 @@ export function Chat({ chatMessage, setChatMessage }: ChatProps) {
   const handleSendMessage = useCallback(async () => {
     if (
       (!chatMessage.trim() && chatFiles.length === 0) ||
-      !activeWorkflowId ||
+      !currentWorkflowId ||
       isExecuting ||
       isUploadingFiles
     )
@@ -255,7 +257,7 @@ export function Chat({ chatMessage, setChatMessage }: ChatProps) {
     abortControllerRef.current = new AbortController()
 
     // Get the conversationId for this workflow before adding the message
-    const conversationId = getConversationId(activeWorkflowId)
+    const conversationId = getConversationId(currentWorkflowId)
     let result: any = null
 
     try {
@@ -290,7 +292,7 @@ export function Chat({ chatMessage, setChatMessage }: ChatProps) {
       addMessage({
         content:
           sentMessage || (chatFiles.length > 0 ? `Uploaded ${chatFiles.length} file(s)` : ''),
-        workflowId: activeWorkflowId,
+        workflowId: currentWorkflowId,
         type: 'user',
         attachments: attachmentsWithData,
       })
@@ -339,7 +341,7 @@ export function Chat({ chatMessage, setChatMessage }: ChatProps) {
       addMessage({
         id: responseMessageId,
         content: '',
-        workflowId: activeWorkflowId,
+        workflowId: currentWorkflowId,
         type: 'workflow',
         isStreaming: true,
       })
@@ -459,7 +461,7 @@ export function Chat({ chatMessage, setChatMessage }: ChatProps) {
         if (content) {
           addMessage({
             content,
-            workflowId: activeWorkflowId,
+            workflowId: currentWorkflowId,
             type: 'workflow',
           })
         }
@@ -467,7 +469,7 @@ export function Chat({ chatMessage, setChatMessage }: ChatProps) {
     } else if (result && 'success' in result && !result.success) {
       addMessage({
         content: `Error: ${'error' in result ? result.error : 'Workflow execution failed.'}`,
-        workflowId: activeWorkflowId,
+        workflowId: currentWorkflowId,
         type: 'workflow',
       })
     }
@@ -478,7 +480,7 @@ export function Chat({ chatMessage, setChatMessage }: ChatProps) {
     chatMessage,
     chatFiles,
     isUploadingFiles,
-    activeWorkflowId,
+    currentWorkflowId,
     isExecuting,
     promptHistory,
     getConversationId,
@@ -531,27 +533,27 @@ export function Chat({ chatMessage, setChatMessage }: ChatProps) {
       // Ensure no duplicates in selection
       const dedupedValues = [...new Set(values)]
 
-      if (activeWorkflowId) {
+      if (currentWorkflowId) {
         // If array is empty, explicitly set to empty array to ensure complete reset
         if (dedupedValues.length === 0) {
-          setSelectedWorkflowOutput(activeWorkflowId, [])
+          setSelectedWorkflowOutput(currentWorkflowId, [])
         } else {
-          setSelectedWorkflowOutput(activeWorkflowId, dedupedValues)
+          setSelectedWorkflowOutput(currentWorkflowId, dedupedValues)
         }
       }
     },
-    [activeWorkflowId, setSelectedWorkflowOutput]
+    [currentWorkflowId, setSelectedWorkflowOutput]
   )
 
   return (
-    <div className='flex h-full flex-col'>
+    <div className='flex h-full flex-col p-2'>
       {/* Output Source Dropdown */}
-      <div className='flex-none py-2'>
+      <div className='flex-none pb-2'>
         <OutputSelect
-          workflowId={activeWorkflowId}
+          workflowId={currentWorkflowId}
           selectedOutputs={selectedOutputs}
           onOutputSelect={handleOutputSelection}
-          disabled={!activeWorkflowId}
+          disabled={!currentWorkflowId}
           placeholder='Select output sources'
         />
       </div>
@@ -559,15 +561,18 @@ export function Chat({ chatMessage, setChatMessage }: ChatProps) {
       {/* Main layout with fixed heights to ensure input stays visible */}
       <div className='flex flex-1 flex-col overflow-hidden'>
         {/* Chat messages section - Scrollable area */}
-        <div className='flex-1 overflow-hidden'>
+        <div className='relative flex-1 overflow-hidden'>
           {workflowMessages.length === 0 ? (
             <div className='flex h-full items-center justify-center text-muted-foreground text-sm'>
               No messages yet
             </div>
           ) : (
             <div ref={scrollAreaRef} className='h-full'>
-              <ScrollArea className='h-full pb-2' hideScrollbar={true}>
-                <div>
+              <ScrollArea
+                className={cn('h-full pb-2 px-3', !hideScrollbar)}
+                hideScrollbar={hideScrollbar}
+              >
+                <div className='space-y-2'>
                   {workflowMessages.map((message) => (
                     <ChatMessage key={message.id} message={message} />
                   ))}
@@ -577,36 +582,22 @@ export function Chat({ chatMessage, setChatMessage }: ChatProps) {
             </div>
           )}
 
-          {/* Scroll to bottom button */}
-          {showScrollButton && (
-            <div className='-translate-x-1/2 absolute bottom-20 left-1/2 z-10'>
-              <Button
-                onClick={scrollToBottom}
-                size='sm'
-                variant='outline'
-                className='flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1 shadow-lg transition-all hover:bg-gray-50'
-              >
-                <ArrowDown className='h-3.5 w-3.5' />
-                <span className='sr-only'>Scroll to bottom</span>
-              </Button>
-            </div>
-          )}
         </div>
 
         {/* Input section - Fixed height */}
         <div
-          className='-mt-[1px] relative flex-none pt-3 pb-4'
+          className='-mt-[1px] relative flex-none pt-1'
           onDragEnter={(e) => {
             e.preventDefault()
             e.stopPropagation()
-            if (!(!activeWorkflowId || isExecuting || isUploadingFiles)) {
+            if (!(!currentWorkflowId || isExecuting || isUploadingFiles)) {
               setDragCounter((prev) => prev + 1)
             }
           }}
           onDragOver={(e) => {
             e.preventDefault()
             e.stopPropagation()
-            if (!(!activeWorkflowId || isExecuting || isUploadingFiles)) {
+            if (!(!currentWorkflowId || isExecuting || isUploadingFiles)) {
               e.dataTransfer.dropEffect = 'copy'
             }
           }}
@@ -619,7 +610,7 @@ export function Chat({ chatMessage, setChatMessage }: ChatProps) {
             e.preventDefault()
             e.stopPropagation()
             setDragCounter(0)
-            if (!(!activeWorkflowId || isExecuting || isUploadingFiles)) {
+            if (!(!currentWorkflowId || isExecuting || isUploadingFiles)) {
               const droppedFiles = Array.from(e.dataTransfer.files)
               if (droppedFiles.length > 0) {
                 const remainingSlots = Math.max(0, 5 - chatFiles.length)
@@ -688,11 +679,10 @@ export function Chat({ chatMessage, setChatMessage }: ChatProps) {
 
           {/* Combined input container matching copilot style */}
           <div
-            className={`rounded-[8px] border border-[#E5E5E5] bg-[#FFFFFF] p-2 shadow-xs transition-all duration-200 dark:border-[#414141] dark:bg-[var(--surface-elevated)] ${
-              isDragOver
-                ? 'border-[var(--brand-primary-hover-hex)] bg-purple-50/50 dark:border-[var(--brand-primary-hover-hex)] dark:bg-purple-950/20'
-                : ''
-            }`}
+            className={`rounded-[8px] border border-[#E5E5E5] bg-[#FFFFFF] p-2 shadow-xs transition-all duration-200 dark:border-[#414141] dark:bg-[var(--surface-elevated)] ${isDragOver
+              ? 'border-[var(--primary-hover)] bg-purple-50/50 dark:border-[var(--primary-hover)] dark:bg-purple-950/20'
+              : ''
+              }`}
           >
             {/* File thumbnails */}
             {chatFiles.length > 0 && (
@@ -726,11 +716,10 @@ export function Chat({ chatMessage, setChatMessage }: ChatProps) {
                   return (
                     <div
                       key={file.id}
-                      className={`group relative overflow-hidden rounded-md border border-border/50 bg-muted/20 ${
-                        previewUrl
-                          ? 'h-16 w-16'
-                          : 'flex h-16 min-w-[120px] max-w-[200px] items-center gap-2 px-2'
-                      }`}
+                      className={`group relative overflow-hidden rounded-md border border-border/50 bg-muted/20 ${previewUrl
+                        ? 'h-16 w-16'
+                        : 'flex h-16 min-w-[120px] max-w-[200px] items-center gap-2 px-2'
+                        }`}
                     >
                       {previewUrl ? (
                         <img
@@ -781,7 +770,7 @@ export function Chat({ chatMessage, setChatMessage }: ChatProps) {
                 size='icon'
                 onClick={() => document.getElementById('chat-file-input')?.click()}
                 disabled={
-                  !activeWorkflowId || isExecuting || isUploadingFiles || chatFiles.length >= 5
+                  !currentWorkflowId || isExecuting || isUploadingFiles || chatFiles.length >= 5
                 }
                 className='h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground'
                 title='Attach files'
@@ -838,7 +827,7 @@ export function Chat({ chatMessage, setChatMessage }: ChatProps) {
                   e.target.value = ''
                 }}
                 className='hidden'
-                disabled={!activeWorkflowId || isExecuting || isUploadingFiles}
+                disabled={!currentWorkflowId || isExecuting || isUploadingFiles}
               />
 
               {/* Text input */}
@@ -852,7 +841,7 @@ export function Chat({ chatMessage, setChatMessage }: ChatProps) {
                 onKeyDown={handleKeyPress}
                 placeholder={isDragOver ? 'Drop files here...' : 'Type a message...'}
                 className='h-8 flex-1 border-0 bg-transparent font-sans text-foreground text-sm shadow-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
-                disabled={!activeWorkflowId || isExecuting || isUploadingFiles}
+                disabled={!currentWorkflowId || isExecuting || isUploadingFiles}
               />
 
               {/* Send button */}
@@ -861,11 +850,11 @@ export function Chat({ chatMessage, setChatMessage }: ChatProps) {
                 size='icon'
                 disabled={
                   (!chatMessage.trim() && chatFiles.length === 0) ||
-                  !activeWorkflowId ||
+                  !currentWorkflowId ||
                   isExecuting ||
                   isUploadingFiles
                 }
-                className='h-6 w-6 shrink-0 rounded-full bg-[var(--brand-primary-hover-hex)] text-white shadow-[0_0_0_0_var(--brand-primary-hover-hex)] transition-all duration-200 hover:bg-[var(--brand-primary-hover-hex)] hover:shadow-[0_0_0_4px_rgba(127,47,255,0.15)]'
+                className='h-6 w-6 shrink-0 rounded-full bg-primary-hover text-white shadow-[0_0_0_0_var(--primary-hover)] transition-all duration-200 hover:bg-primary-hover '
               >
                 <ArrowUp className='h-3 w-3' />
               </Button>

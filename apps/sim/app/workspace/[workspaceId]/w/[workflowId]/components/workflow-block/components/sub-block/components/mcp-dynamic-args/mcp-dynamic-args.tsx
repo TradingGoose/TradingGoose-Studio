@@ -1,5 +1,4 @@
 import { useCallback, useRef, useState } from 'react'
-import { useParams } from 'next/navigation'
 import { formatDisplayText } from '@/components/ui/formatted-text'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,6 +19,7 @@ import { useSubBlockValue } from '@/app/workspace/[workspaceId]/w/[workflowId]/c
 import { useAccessibleReferencePrefixes } from '@/app/workspace/[workspaceId]/w/[workflowId]/hooks/use-accessible-reference-prefixes'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
 import { formatParameterLabel } from '@/tools/params'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 const logger = createLogger('McpDynamicArgs')
 
@@ -277,8 +277,7 @@ export function McpDynamicArgs({
   previewValue,
   isConnecting = false,
 }: McpDynamicArgsProps) {
-  const params = useParams()
-  const workspaceId = params.workspaceId as string
+  const workspaceId = useWorkspaceId()
   const { mcpTools, isLoading } = useMcpTools(workspaceId)
   const [selectedTool] = useSubBlockValue(blockId, 'tool')
   const [cachedSchema] = useSubBlockValue(blockId, '_toolSchema')

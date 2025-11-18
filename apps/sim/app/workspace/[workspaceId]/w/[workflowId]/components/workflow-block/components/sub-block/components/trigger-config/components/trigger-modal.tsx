@@ -647,7 +647,7 @@ export function TriggerModal({
                               className={cn(
                                 'group h-7 w-7 rounded-md p-0',
                                 'text-muted-foreground/60 transition-all duration-200',
-                                'hover:scale-105 hover:bg-muted/50 hover:text-foreground',
+                                'hover:scale-105 hover:bg-card/50 hover:text-foreground',
                                 'active:scale-95',
                                 'focus-visible:ring-2 focus-visible:ring-muted-foreground/20 focus-visible:ring-offset-1'
                               )}
@@ -663,7 +663,7 @@ export function TriggerModal({
                               className={cn(
                                 'group h-7 w-7 rounded-md p-0',
                                 'text-muted-foreground/60 transition-all duration-200',
-                                'hover:scale-105 hover:bg-muted/50 hover:text-foreground',
+                                'hover:scale-105 hover:bg-card/50 hover:text-foreground',
                                 'active:scale-95',
                                 'focus-visible:ring-2 focus-visible:ring-muted-foreground/20 focus-visible:ring-offset-1'
                               )}
@@ -740,7 +740,7 @@ export function TriggerModal({
                 className={cn(
                   'w-[140px] rounded-[8px]',
                   isConfigValid() && (hasConfigChanged || hasCredentialChanged || !triggerId)
-                    ? 'bg-primary hover:bg-primary/90'
+                    ? 'bg-primary hover:bg-[var(--primary)]/90'
                     : ''
                 )}
                 size='sm'

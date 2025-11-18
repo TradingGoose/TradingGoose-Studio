@@ -169,12 +169,12 @@ export default function Templates({ initialTemplates, currentUserId }: Templates
     // Only include "Your templates" tab if user has created or starred templates
     ...(yourTemplatesCount > 0 || loading
       ? [
-          {
-            id: 'your',
-            label: 'Your templates',
-            count: loading ? 8 : getTemplatesByCategory('your').length,
-          },
-        ]
+        {
+          id: 'your',
+          label: 'Your templates',
+          count: loading ? 8 : getTemplatesByCategory('your').length,
+        },
+      ]
       : []),
     {
       id: 'recent',
@@ -206,7 +206,7 @@ export default function Templates({ initialTemplates, currentUserId }: Templates
   ]
 
   return (
-    <div className='flex h-[100vh] flex-col pl-64'>
+    <div className='flex h-[100vh] flex-col '>
       <div className='flex flex-1 overflow-hidden'>
         <div className='flex flex-1 flex-col overflow-auto p-6'>
           {/* Header */}
@@ -234,7 +234,7 @@ export default function Templates({ initialTemplates, currentUserId }: Templates
             </div>
             {/* <Button
               onClick={handleCreateNew}
-              className='flex h-9 items-center gap-2 rounded-lg bg-[var(--brand-primary-hex)] px-4 py-2 font-normal font-sans text-sm text-white hover:bg-[#601EE0]'
+              className='flex h-9 items-center gap-2 rounded-lg bg-primary px-4 py-2 font-normal font-sans text-sm text-white hover:bg-[#601EE0]'
             >
               <Plus className='h-4 w-4' />
               Create New
@@ -291,8 +291,8 @@ export default function Templates({ initialTemplates, currentUserId }: Templates
               {loading
                 ? renderSkeletonCards()
                 : getTemplatesByCategory('marketing').map((template) =>
-                    renderTemplateCard(template)
-                  )}
+                  renderTemplateCard(template)
+                )}
             </div>
           </div>
 
@@ -351,8 +351,8 @@ export default function Templates({ initialTemplates, currentUserId }: Templates
               {loading
                 ? renderSkeletonCards()
                 : getTemplatesByCategory('artificial-intelligence').map((template) =>
-                    renderTemplateCard(template)
-                  )}
+                  renderTemplateCard(template)
+                )}
             </div>
           </div>
 

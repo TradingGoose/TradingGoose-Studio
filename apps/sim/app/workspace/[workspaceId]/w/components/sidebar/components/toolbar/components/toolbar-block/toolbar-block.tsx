@@ -2,20 +2,26 @@ import { useCallback } from 'react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { useOptionalWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store'
 import type { BlockConfig } from '@/blocks/types'
 
 export type ToolbarBlockProps = {
   config: BlockConfig
   disabled?: boolean
   enableTriggerMode?: boolean
+  channelId?: string
 }
 
 export function ToolbarBlock({
   config,
   disabled = false,
   enableTriggerMode = false,
+  channelId,
 }: ToolbarBlockProps) {
   const userPermissions = useUserPermissionsContext()
+  const workflowRoute = useOptionalWorkflowRoute()
+  const resolvedChannelId = channelId ?? workflowRoute?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
 
   const handleDragStart = (e: React.DragEvent) => {
     if (disabled) {
@@ -41,10 +47,11 @@ export function ToolbarBlock({
       detail: {
         type: config.type,
         enableTriggerMode,
+        channelId: resolvedChannelId,
       },
     })
     window.dispatchEvent(event)
-  }, [config.type, disabled, enableTriggerMode])
+  }, [config.type, disabled, enableTriggerMode, resolvedChannelId])
 
   const blockContent = (
     <div
@@ -52,10 +59,10 @@ export function ToolbarBlock({
       onDragStart={handleDragStart}
       onClick={handleClick}
       className={cn(
-        'group flex h-9 items-center gap-[10px] rounded-[8px] p-2 transition-colors',
+        'group flex h-9 items-center gap-[10px] w-full rounded-[8px] p-2 transition-colors',
         disabled
           ? 'cursor-not-allowed opacity-60'
-          : 'cursor-pointer hover:bg-muted active:cursor-grabbing'
+          : 'cursor-pointer hover:bg-card active:cursor-grabbing'
       )}
     >
       <div

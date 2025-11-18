@@ -448,7 +448,7 @@ export function SSO() {
       await navigator.clipboard.writeText(callbackUrl)
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
-    } catch {}
+    } catch { }
   }
 
   const handleReconfigure = (provider: SSOProvider) => {
@@ -643,8 +643,8 @@ export function SSO() {
                     className={cn(
                       'w-full rounded-[10px] border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                       showErrors &&
-                        errors.providerId.length > 0 &&
-                        'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                      errors.providerId.length > 0 &&
+                      'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                     )}
                   >
                     <option value=''>Select a provider ID</option>
@@ -681,8 +681,8 @@ export function SSO() {
                     className={cn(
                       'rounded-[10px] shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                       showErrors &&
-                        errors.issuerUrl.length > 0 &&
-                        'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                      errors.issuerUrl.length > 0 &&
+                      'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                     )}
                   />
                   {showErrors && errors.issuerUrl.length > 0 && (
@@ -710,8 +710,8 @@ export function SSO() {
                     className={cn(
                       'rounded-[10px] shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                       showErrors &&
-                        errors.domain.length > 0 &&
-                        'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                      errors.domain.length > 0 &&
+                      'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                     )}
                   />
                   {showErrors && errors.domain.length > 0 && (
@@ -741,8 +741,8 @@ export function SSO() {
                         className={cn(
                           'rounded-[10px] shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                           showErrors &&
-                            errors.clientId.length > 0 &&
-                            'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                          errors.clientId.length > 0 &&
+                          'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                         )}
                       />
                       {showErrors && errors.clientId.length > 0 && (
@@ -774,8 +774,8 @@ export function SSO() {
                           className={cn(
                             'rounded-[10px] pr-10 shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                             showErrors &&
-                              errors.clientSecret.length > 0 &&
-                              'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                            errors.clientSecret.length > 0 &&
+                            'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                           )}
                         />
                         <button
@@ -810,8 +810,8 @@ export function SSO() {
                         className={cn(
                           'rounded-[10px] shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                           showErrors &&
-                            errors.scopes.length > 0 &&
-                            'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                          errors.scopes.length > 0 &&
+                          'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                         )}
                       />
                       {showErrors && errors.scopes.length > 0 && (
@@ -840,8 +840,8 @@ export function SSO() {
                         className={cn(
                           'rounded-[10px] shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                           showErrors &&
-                            errors.entryPoint.length > 0 &&
-                            'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                          errors.entryPoint.length > 0 &&
+                          'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                         )}
                       />
                       {showErrors && errors.entryPoint.length > 0 && (
@@ -865,8 +865,8 @@ export function SSO() {
                         className={cn(
                           'min-h-[100px] w-full rounded-[10px] border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                           showErrors &&
-                            errors.cert.length > 0 &&
-                            'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                          errors.cert.length > 0 &&
+                          'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                         )}
                         rows={4}
                       />

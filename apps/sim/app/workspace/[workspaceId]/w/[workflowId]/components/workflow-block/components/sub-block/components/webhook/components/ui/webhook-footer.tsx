@@ -73,9 +73,9 @@ export function WebhookDialogFooter({
           disabled={isLoadingToken || isSaving || !isCurrentConfigValid}
           className={cn(
             'h-10',
-            !isLoadingToken && isCurrentConfigValid ? 'bg-primary hover:bg-primary/90' : '',
+            !isLoadingToken && isCurrentConfigValid ? 'bg-primary hover:bg-[var(--primary)]/90' : '',
             isSaving &&
-              'relative after:absolute after:inset-0 after:animate-pulse after:bg-white/20'
+            'relative after:absolute after:inset-0 after:animate-pulse after:bg-white/20'
           )}
           size='default'
         >

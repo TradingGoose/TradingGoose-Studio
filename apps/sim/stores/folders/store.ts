@@ -38,6 +38,7 @@ interface FolderState {
   isLoading: boolean
   expandedFolders: Set<string>
   selectedWorkflows: Set<string>
+  loadedWorkspaces: Record<string, boolean>
 
   // Actions
   setFolders: (folders: WorkflowFolder[]) => void
@@ -85,6 +86,7 @@ export const useFolderStore = create<FolderState>()(
       isLoading: false,
       expandedFolders: new Set(),
       selectedWorkflows: new Set(),
+      loadedWorkspaces: {},
 
       setFolders: (folders) =>
         set(() => ({
@@ -218,7 +220,10 @@ export const useFolderStore = create<FolderState>()(
       },
 
       fetchFolders: async (workspaceId) => {
-        set({ isLoading: true })
+        set((state) => ({
+          isLoading: true,
+          loadedWorkspaces: { ...state.loadedWorkspaces, [workspaceId]: false },
+        }))
         try {
           const response = await fetch(`/api/folders?workspaceId=${workspaceId}`)
           if (!response.ok) {
@@ -253,7 +258,10 @@ export const useFolderStore = create<FolderState>()(
         } catch (error) {
           logger.error('Error fetching folders:', error)
         } finally {
-          set({ isLoading: false })
+          set((state) => ({
+            isLoading: false,
+            loadedWorkspaces: { ...state.loadedWorkspaces, [workspaceId]: true },
+          }))
         }
       },
 

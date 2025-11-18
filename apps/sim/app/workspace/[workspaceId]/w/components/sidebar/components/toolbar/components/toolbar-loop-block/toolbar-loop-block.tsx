@@ -2,15 +2,20 @@ import { useCallback } from 'react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { useOptionalWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { LoopTool } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/subflows/loop/loop-config'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store'
 
 type LoopToolbarItemProps = {
   disabled?: boolean
+  channelId?: string
 }
 
 // Custom component for the Loop Tool
-export default function LoopToolbarItem({ disabled = false }: LoopToolbarItemProps) {
+export default function LoopToolbarItem({ disabled = false, channelId }: LoopToolbarItemProps) {
   const userPermissions = useUserPermissionsContext()
+  const workflowRoute = useOptionalWorkflowRoute()
+  const resolvedChannelId = channelId ?? workflowRoute?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
 
   const handleDragStart = (e: React.DragEvent) => {
     if (disabled) {
@@ -36,11 +41,12 @@ export default function LoopToolbarItem({ disabled = false }: LoopToolbarItemPro
           type: 'loop',
           clientX: e.clientX,
           clientY: e.clientY,
+          channelId: resolvedChannelId,
         },
       })
       window.dispatchEvent(event)
     },
-    [disabled]
+    [disabled, resolvedChannelId]
   )
 
   const blockContent = (
@@ -52,7 +58,7 @@ export default function LoopToolbarItem({ disabled = false }: LoopToolbarItemPro
         'group flex h-8 items-center gap-[10px] rounded-[8px] p-2 transition-colors',
         disabled
           ? 'cursor-not-allowed opacity-60'
-          : 'cursor-pointer hover:bg-muted active:cursor-grabbing'
+          : 'cursor-pointer hover:bg-card active:cursor-grabbing'
       )}
     >
       <div

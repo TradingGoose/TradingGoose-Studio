@@ -20,7 +20,7 @@ export function EmptyStateCard({
   return (
     <div
       onClick={onClick}
-      className='group flex cursor-pointer flex-col gap-3 rounded-md border border-muted-foreground/25 border-dashed bg-background p-4 transition-colors hover:border-muted-foreground/40 hover:bg-accent/50'
+      className='group flex cursor-pointer flex-col gap-3 rounded-md border border-muted-foreground/25 border-dashed bg-background p-4 transition-colors hover:border-muted-foreground/40 hover:bg-card'
     >
       <div className='flex items-center gap-2'>
         {icon || <LibraryBig className='h-4 w-4 flex-shrink-0 text-muted-foreground' />}

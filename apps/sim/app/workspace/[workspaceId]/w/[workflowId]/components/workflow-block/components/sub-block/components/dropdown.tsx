@@ -8,12 +8,12 @@ import { ResponseBlockHandler } from '@/executor/handlers/response/response-hand
 
 interface DropdownProps {
   options:
-    | Array<
-        string | { label: string; id: string; icon?: React.ComponentType<{ className?: string }> }
-      >
-    | (() => Array<
-        string | { label: string; id: string; icon?: React.ComponentType<{ className?: string }> }
-      >)
+  | Array<
+    string | { label: string; id: string; icon?: React.ComponentType<{ className?: string }> }
+  >
+  | (() => Array<
+    string | { label: string; id: string; icon?: React.ComponentType<{ className?: string }> }
+  >)
   defaultValue?: string
   blockId: string
   subBlockId: string
@@ -392,7 +392,7 @@ export function Dropdown({
                       }}
                       onMouseEnter={() => setHighlightedIndex(index)}
                       className={cn(
-                        'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground',
+                        'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-card hover:text-accent-foreground',
                         isHighlighted && 'bg-accent text-accent-foreground'
                       )}
                     >

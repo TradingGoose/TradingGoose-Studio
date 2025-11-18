@@ -18,6 +18,10 @@ import { cn } from '@/lib/utils'
 import { SubflowNodeComponent } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/subflows/subflow-node'
 import { WorkflowBlock } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-block/workflow-block'
 import { WorkflowEdge } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-edge/workflow-edge'
+import {
+  WorkflowRouteProvider,
+  useOptionalWorkflowRoute,
+} from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { getBlock } from '@/blocks'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
@@ -34,6 +38,9 @@ interface WorkflowPreviewProps {
   defaultZoom?: number
   fitPadding?: number
   onNodeClick?: (blockId: string, mousePosition: { x: number; y: number }) => void
+  workspaceId?: string
+  workflowId?: string
+  channelId?: string
 }
 
 // Define node types - the components now handle preview mode internally
@@ -58,9 +65,19 @@ export function WorkflowPreview({
   defaultZoom = 0.8,
   fitPadding = 0.25,
   onNodeClick,
+  workspaceId,
+  workflowId,
+  channelId,
 }: WorkflowPreviewProps) {
   // Check if the workflow state is valid
   const isValidWorkflowState = workflowState?.blocks && workflowState.edges
+
+  const routeContext = useOptionalWorkflowRoute()
+  const resolvedWorkspaceId = routeContext?.workspaceId ?? workspaceId
+  const resolvedWorkflowId = routeContext?.workflowId ?? workflowId
+  const resolvedChannelId = routeContext?.channelId ?? channelId
+  const hasRouteContext = Boolean(routeContext)
+  const hasRouteInfo = Boolean(resolvedWorkspaceId && resolvedWorkflowId)
 
   const blocksStructure = useMemo(() => {
     if (!isValidWorkflowState) return { count: 0, ids: '' }
@@ -266,7 +283,7 @@ export function WorkflowPreview({
     )
   }
 
-  return (
+  const previewContent = (
     <ReactFlowProvider>
       <div style={{ height, width }} className={cn('preview-mode')}>
         <ReactFlow
@@ -311,4 +328,38 @@ export function WorkflowPreview({
       </div>
     </ReactFlowProvider>
   )
+
+  if (!hasRouteContext) {
+    if (!hasRouteInfo) {
+      logger.warn('Workflow preview missing routing context', {
+        workspaceId,
+        workflowId,
+      })
+      return (
+        <div
+          style={{ height, width }}
+          className='flex items-center justify-center rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900'
+        >
+          <div className='text-center text-gray-500 dark:text-gray-400'>
+            <div className='mb-2 font-medium text-lg'>⚠️ Unable to render preview</div>
+            <div className='text-sm'>
+              This preview requires a workspace and workflow identifier to render blocks.
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <WorkflowRouteProvider
+        workspaceId={resolvedWorkspaceId}
+        workflowId={resolvedWorkflowId}
+        channelId={resolvedChannelId}
+      >
+        {previewContent}
+      </WorkflowRouteProvider>
+    )
+  }
+
+  return previewContent
 }

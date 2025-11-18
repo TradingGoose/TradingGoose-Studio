@@ -5,10 +5,15 @@ import { Loader2, Rocket } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import {
+  widgetHeaderIconButtonClassName,
+} from '@/widgets/components/widget-header-control'
 import { DeployModal } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/control-bar/components'
 import type { WorkspaceUserPermissions } from '@/hooks/use-user-permissions'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
+
+type ControlVariant = 'workspace' | 'widget'
 
 interface DeploymentControlsProps {
   activeWorkflowId: string | null
@@ -18,6 +23,7 @@ interface DeploymentControlsProps {
   isLoadingDeployedState: boolean
   refetchDeployedState: () => Promise<void>
   userPermissions: WorkspaceUserPermissions
+  variant?: ControlVariant
 }
 
 export function DeploymentControls({
@@ -28,6 +34,7 @@ export function DeploymentControls({
   isLoadingDeployedState,
   refetchDeployedState,
   userPermissions,
+  variant = 'workspace',
 }: DeploymentControlsProps) {
   const deploymentStatus = useWorkflowRegistry((state) =>
     state.getWorkflowDeploymentStatus(activeWorkflowId)
@@ -53,7 +60,7 @@ export function DeploymentControls({
 
     try {
       await refetchDeployedState()
-    } catch (error) {}
+    } catch (error) { }
   }
 
   const canDeploy = userPermissions.canAdmin
@@ -81,6 +88,11 @@ export function DeploymentControls({
     return 'Deploy Workflow'
   }
 
+  const buttonBaseClass =
+    variant === 'widget'
+      ? widgetHeaderIconButtonClassName()
+      : 'h-12 w-12 rounded-[11px] border bg-card text-card-foreground shadow-xs'
+
   return (
     <>
       <Tooltip>
@@ -91,14 +103,14 @@ export function DeploymentControls({
               onClick={handleDeployClick}
               disabled={isDisabled}
               className={cn(
-                'h-12 w-12 rounded-[11px] border bg-card text-card-foreground shadow-xs',
-                'hover:border-[var(--brand-primary-hex)] hover:bg-[var(--brand-primary-hex)] hover:text-white',
+                buttonBaseClass,
+                'hover:border-primary hover:bg-primary hover:text-black',
                 'transition-all duration-200',
-                isDeployed && !isPreviousVersionActive && 'text-[var(--brand-primary-hover-hex)]',
+                isDeployed && !isPreviousVersionActive && 'text-[var(--primary-hover)]',
                 isPreviousVersionActive &&
-                  'border-purple-500 bg-purple-500/10 text-purple-600 dark:text-purple-400',
+                'border-purple-500 bg-purple-500/10 text-purple-600 dark:text-purple-400',
                 isDisabled &&
-                  'cursor-not-allowed opacity-50 hover:border hover:bg-card hover:text-card-foreground hover:shadow-xs'
+                'cursor-not-allowed opacity-50 hover:border hover:bg-card hover:text-card-foreground hover:shadow-xs'
               )}
             >
               {isDeploying ? (

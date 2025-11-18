@@ -27,7 +27,7 @@ export function PrimaryButton({
       disabled={disabled}
       size={size}
       className={cn(
-        'flex items-center gap-1 bg-[var(--brand-primary-hex)] font-[480] text-white shadow-[0_0_0_0_var(--brand-primary-hex)] transition-all duration-200 hover:bg-[var(--brand-primary-hover-hex)] hover:shadow-[0_0_0_4px_rgba(127,47,255,0.15)]',
+        'flex items-center gap-1 bg-primary text-black font-[480] shadow-[0_0_0_0_var(--primary)] transition-all duration-200 hover:bg-primary-hover ',
         disabled && 'disabled:cursor-not-allowed disabled:opacity-50',
         className
       )}

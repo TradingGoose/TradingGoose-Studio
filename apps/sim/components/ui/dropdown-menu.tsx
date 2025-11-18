@@ -5,9 +5,50 @@ import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
 import { Check, ChevronRight, Circle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-const DropdownMenu = DropdownMenuPrimitive.Root
+type AlignValue = React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>['align']
+type AutoAlignValue = AlignValue | 'auto'
+type SideValue = React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>['side']
+type AutoSideValue = SideValue | 'auto'
 
-const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger
+interface DropdownMenuContextValue {
+  triggerElement: HTMLElement | null
+  setTriggerElement: (node: HTMLElement | null) => void
+}
+
+const DropdownMenuContext = React.createContext<DropdownMenuContextValue | null>(null)
+
+const DropdownMenu = ({ children, ...props }: DropdownMenuPrimitive.DropdownMenuProps) => {
+  const [triggerElement, setTriggerElement] = React.useState<HTMLElement | null>(null)
+  const value = React.useMemo(
+    () => ({ triggerElement, setTriggerElement }),
+    [triggerElement]
+  )
+
+  return (
+    <DropdownMenuContext.Provider value={value}>
+      <DropdownMenuPrimitive.Root {...props}>{children}</DropdownMenuPrimitive.Root>
+    </DropdownMenuContext.Provider>
+  )
+}
+DropdownMenu.displayName = 'DropdownMenu'
+
+const DropdownMenuTrigger = React.forwardRef<
+  React.ElementRef<typeof DropdownMenuPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Trigger>
+>(({ ...props }, ref) => {
+  const context = React.useContext(DropdownMenuContext)
+
+  const handleRef = React.useCallback(
+    (node: React.ElementRef<typeof DropdownMenuPrimitive.Trigger> | null) => {
+      assignRef(ref, node)
+      context?.setTriggerElement(node)
+    },
+    [ref, context]
+  )
+
+  return <DropdownMenuPrimitive.Trigger ref={handleRef} {...props} />
+})
+DropdownMenuTrigger.displayName = DropdownMenuPrimitive.Trigger.displayName
 
 const DropdownMenuGroup = DropdownMenuPrimitive.Group
 
@@ -55,22 +96,47 @@ DropdownMenuSubContent.displayName = DropdownMenuPrimitive.SubContent.displayNam
 
 const DropdownMenuContent = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>
->(({ className, sideOffset = 4, avoidCollisions = false, sticky = 'always', ...props }, ref) => (
-  <DropdownMenuPrimitive.Portal>
-    <DropdownMenuPrimitive.Content
-      ref={ref}
-      sideOffset={sideOffset}
-      avoidCollisions={avoidCollisions}
-      sticky={sticky as any}
-      className={cn(
-        'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md data-[state=closed]:animate-out data-[state=open]:animate-in',
-        className
-      )}
-      {...props}
-    />
-  </DropdownMenuPrimitive.Portal>
-))
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content> & {
+    align?: AutoAlignValue
+    side?: AutoSideValue
+  }
+>(
+  (
+    {
+      className,
+      sideOffset = 4,
+      avoidCollisions = false,
+      sticky = 'always',
+      align = 'auto',
+      side = 'auto',
+      ...props
+    },
+    ref
+  ) => {
+    const context = React.useContext(DropdownMenuContext)
+    const resolvedAlign = useDropdownAutoAlign(context?.triggerElement ?? null, align)
+    const resolvedSide = useDropdownAutoSide(context?.triggerElement ?? null, side)
+    const contentAlign: AlignValue | undefined = resolvedAlign === 'center' ? undefined : resolvedAlign
+
+    return (
+      <DropdownMenuPrimitive.Portal>
+        <DropdownMenuPrimitive.Content
+          ref={ref}
+          sideOffset={sideOffset}
+          avoidCollisions={avoidCollisions}
+          sticky={sticky as any}
+          align={contentAlign}
+          side={resolvedSide}
+          className={cn(
+            'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md data-[state=closed]:animate-out data-[state=open]:animate-in',
+            className
+          )}
+          {...props}
+        />
+      </DropdownMenuPrimitive.Portal>
+    )
+  }
+)
 DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName
 
 const DropdownMenuItem = React.forwardRef<
@@ -166,6 +232,118 @@ const DropdownMenuShortcut = ({ className, ...props }: React.HTMLAttributes<HTML
   return <span className={cn('ml-auto text-xs tracking-widest opacity-60', className)} {...props} />
 }
 DropdownMenuShortcut.displayName = 'DropdownMenuShortcut'
+
+function useDropdownAutoAlign(triggerElement: HTMLElement | null, align: AutoAlignValue): AlignValue {
+  const [computedAlign, setComputedAlign] = React.useState<AlignValue>('center')
+  const alignPreference = align ?? 'center'
+
+  React.useEffect(() => {
+    if (alignPreference !== 'auto') {
+      setComputedAlign(alignPreference as AlignValue)
+      return
+    }
+
+    if (!triggerElement) {
+      setComputedAlign('center')
+      return
+    }
+
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const updateAlignment = () => {
+      if (!triggerElement) return
+      const viewportWidth = window.innerWidth || document.documentElement?.clientWidth || 0
+      if (!viewportWidth) {
+        setComputedAlign('center')
+        return
+      }
+      const rect = triggerElement.getBoundingClientRect()
+      const triggerCenter = rect.left + rect.width / 2
+      const ratio = triggerCenter / viewportWidth
+
+      if (ratio < 0.3) {
+        setComputedAlign('start')
+      } else if (ratio > 0.7) {
+        setComputedAlign('end')
+      } else {
+        setComputedAlign('center')
+      }
+    }
+
+    updateAlignment()
+    window.addEventListener('resize', updateAlignment)
+    window.addEventListener('scroll', updateAlignment, true)
+    return () => {
+      window.removeEventListener('resize', updateAlignment)
+      window.removeEventListener('scroll', updateAlignment, true)
+    }
+  }, [alignPreference, triggerElement])
+
+  return alignPreference === 'auto' ? computedAlign : (alignPreference as AlignValue)
+}
+
+function useDropdownAutoSide(triggerElement: HTMLElement | null, side: AutoSideValue): SideValue {
+  const [computedSide, setComputedSide] = React.useState<SideValue>('bottom')
+  const sidePreference = side ?? 'auto'
+
+  React.useEffect(() => {
+    if (sidePreference !== 'auto') {
+      setComputedSide(sidePreference as SideValue)
+      return
+    }
+
+    if (!triggerElement) {
+      setComputedSide('bottom')
+      return
+    }
+
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const updateSide = () => {
+      if (!triggerElement) {
+        setComputedSide('bottom')
+        return
+      }
+
+      const viewportHeight = window.innerHeight || document.documentElement?.clientHeight || 0
+      if (!viewportHeight) {
+        setComputedSide('bottom')
+        return
+      }
+
+      const rect = triggerElement.getBoundingClientRect()
+      const spaceAbove = rect.top
+      const spaceBelow = viewportHeight - rect.bottom
+
+      setComputedSide(spaceBelow >= spaceAbove ? 'bottom' : 'top')
+    }
+
+    updateSide()
+    window.addEventListener('resize', updateSide)
+    window.addEventListener('scroll', updateSide, true)
+    return () => {
+      window.removeEventListener('resize', updateSide)
+      window.removeEventListener('scroll', updateSide, true)
+    }
+  }, [sidePreference, triggerElement])
+
+  return sidePreference === 'auto' ? computedSide : (sidePreference as SideValue)
+}
+
+function assignRef<T>(ref: React.Ref<T> | undefined, value: T | null) {
+  if (!ref) {
+    return
+  }
+  if (typeof ref === 'function') {
+    ref(value)
+  } else {
+    ; (ref as React.MutableRefObject<T | null>).current = value
+  }
+}
 
 export {
   DropdownMenu,

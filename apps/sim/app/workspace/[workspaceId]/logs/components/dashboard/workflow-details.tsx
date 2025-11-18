@@ -116,7 +116,7 @@ export function WorkflowDetails({
   }, [onLoadMore, hasMore, isLoadingMore])
 
   return (
-    <div className='mt-1 overflow-hidden rounded-[11px] border bg-card shadow-sm'>
+    <div className='mt-1  rounded-[11px] border bg-card shadow-sm'>
       <div className='border-b bg-muted/30 px-4 py-2.5'>
         <div className='flex items-center justify-between'>
           <div className='flex items-center gap-2'>
@@ -162,12 +162,12 @@ export function WorkflowDetails({
                 const tsLabel =
                   tsObj && !Number.isNaN(tsObj.getTime())
                     ? tsObj.toLocaleString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: 'numeric',
-                        minute: '2-digit',
-                        hour12: true,
-                      })
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true,
+                    })
                     : 'Selected segment'
                 return (
                   <div className='mb-4 flex items-center justify-between rounded-[10px] border bg-muted/30 px-3 py-2 text-[13px] text-foreground'>
@@ -184,7 +184,7 @@ export function WorkflowDetails({
                     </div>
                     <button
                       onClick={clearSegmentSelection}
-                      className='rounded px-2 py-1 text-foreground text-xs hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary/40'
+                      className='rounded px-2 py-1 text-foreground text-xs hover:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40'
                     >
                       Clear filter
                     </button>
@@ -215,28 +215,28 @@ export function WorkflowDetails({
                         [
                           details.durationP50
                             ? {
-                                id: 'p50',
-                                label: 'p50',
-                                color: '#60A5FA',
-                                data: details.durationP50,
-                                dashed: true,
-                              }
+                              id: 'p50',
+                              label: 'p50',
+                              color: '#60A5FA',
+                              data: details.durationP50,
+                              dashed: true,
+                            }
                             : undefined,
                           details.durationP90
                             ? {
-                                id: 'p90',
-                                label: 'p90',
-                                color: '#3B82F6',
-                                data: details.durationP90,
-                              }
+                              id: 'p90',
+                              label: 'p90',
+                              color: '#3B82F6',
+                              data: details.durationP90,
+                            }
                             : undefined,
                           details.durationP99
                             ? {
-                                id: 'p99',
-                                label: 'p99',
-                                color: '#1D4ED8',
-                                data: details.durationP99,
-                              }
+                              id: 'p99',
+                              label: 'p99',
+                              color: '#1D4ED8',
+                              data: details.durationP99,
+                            }
                             : undefined,
                         ].filter(Boolean) as any
                       }
@@ -259,7 +259,7 @@ export function WorkflowDetails({
               )
             })()}
 
-            <div className='flex flex-1 flex-col overflow-hidden'>
+            <div className='flex flex-1 flex-col '>
               <div className='w-full overflow-x-auto'>
                 <div>
                   <div className='border-border border-b'>
@@ -323,7 +323,7 @@ export function WorkflowDetails({
                           key={log.id}
                           className={cn(
                             'cursor-pointer border-border border-b transition-all duration-200',
-                            isExpanded ? 'bg-accent/30' : 'hover:bg-accent/20'
+                            isExpanded ? 'bg-accent/30' : 'hover:bg-card/20'
                           )}
                           onClick={() =>
                             setExpandedRowId((prev) => (prev === log.id ? null : log.id))

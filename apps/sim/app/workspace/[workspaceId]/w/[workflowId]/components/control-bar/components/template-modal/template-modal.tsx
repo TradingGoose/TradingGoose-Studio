@@ -362,7 +362,7 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
               size='icon'
               className={cn(
                 'h-8 w-8 rounded-md p-0 text-muted-foreground/70 transition-all duration-200',
-                'hover:scale-105 hover:bg-muted/50 hover:text-foreground',
+                'hover:scale-105 hover:bg-card/50 hover:text-foreground',
                 'active:scale-95',
                 'focus-visible:ring-2 focus-visible:ring-muted-foreground/20 focus-visible:ring-offset-1'
               )}
@@ -434,7 +434,7 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                               <Button
                                 variant='outline'
                                 role='combobox'
-                                className='h-10 w-20 rounded-[8px] border-border/50 p-0 transition-all duration-200 hover:border-border hover:bg-muted/50'
+                                className='h-10 w-20 rounded-[8px] border-border/50 p-0 transition-all duration-200 hover:border-border hover:bg-card/50'
                               >
                                 <SelectedIconComponent className='h-4 w-4' />
                               </Button>
@@ -454,9 +454,9 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                                         }}
                                         className={cn(
                                           'flex h-8 w-8 items-center justify-center rounded-md border border-border/40 transition-all duration-200',
-                                          'hover:scale-105 hover:border-border hover:bg-muted/50 active:scale-95',
+                                          'hover:scale-105 hover:border-border hover:bg-card/50 active:scale-95',
                                           field.value === icon.value &&
-                                            'border-primary/30 bg-primary/10 text-primary'
+                                          'border-primary/30 bg-[var(--primary)]/10 text-primary'
                                         )}
                                       >
                                         <IconComponent className='h-4 w-4' />
@@ -604,10 +604,10 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                   disabled={isSubmitting || !isFormValid || isLoadingTemplate}
                   className={cn(
                     'ml-auto h-9 rounded-[8px] px-4 font-[480]',
-                    'bg-[var(--brand-primary-hex)] hover:bg-[var(--brand-primary-hover-hex)]',
-                    'shadow-[0_0_0_0_var(--brand-primary-hex)] hover:shadow-[0_0_0_4px_rgba(127,47,255,0.15)]',
+                    'bg-primary hover:bg-primary-hover',
+                    'shadow-[0_0_0_0_var(--primary)] ',
                     'text-white transition-all duration-200',
-                    'disabled:opacity-50 disabled:hover:bg-[var(--brand-primary-hex)] disabled:hover:shadow-none'
+                    'disabled:opacity-50 disabled:hover:bg-primary disabled:hover:shadow-none'
                   )}
                 >
                   {isSubmitting ? (

@@ -1,16 +1,19 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AlertCircle, Info, Loader2 } from 'lucide-react'
+import { AlertCircle, Info, Loader2, Map as MapIcon, RefreshCw } from 'lucide-react'
 import { useParams } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
 import { parseQuery, queryToApiParams } from '@/lib/logs/query-parser'
 import { cn } from '@/lib/utils'
-import Controls from '@/app/workspace/[workspaceId]/logs/components/dashboard/controls'
+import Timeline from '@/app/workspace/[workspaceId]/logs/components/filters/components/timeline'
 import { AutocompleteSearch } from '@/app/workspace/[workspaceId]/logs/components/search/search'
 import { Sidebar } from '@/app/workspace/[workspaceId]/logs/components/sidebar/sidebar'
 import Dashboard from '@/app/workspace/[workspaceId]/logs/dashboard'
 import { formatDate } from '@/app/workspace/[workspaceId]/logs/utils'
+import { GlobalNavbarHeader } from '@/global-navbar'
 import { useDebounce } from '@/hooks/use-debounce'
 import { useFolderStore } from '@/stores/folders/store'
 import { useFilterStore } from '@/stores/logs/filters/store'
@@ -229,7 +232,7 @@ export default function Logs() {
           if (e?.name === 'AbortError') return
         }
       })
-    ).catch(() => {})
+    ).catch(() => { })
   }
 
   const handleNavigateNext = useCallback(() => {
@@ -284,7 +287,7 @@ export default function Logs() {
               if (e?.name === 'AbortError') return
             }
           })
-        ).catch(() => {})
+        ).catch(() => { })
       }
     }
   }, [selectedLogIndex, logs])
@@ -341,7 +344,7 @@ export default function Logs() {
               if (e?.name === 'AbortError') return
             }
           })
-        ).catch(() => {})
+        ).catch(() => { })
       }
     }
   }, [selectedLogIndex, logs])
@@ -678,48 +681,150 @@ export default function Logs() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [logs, selectedLogIndex, isSidebarOpen, selectedLog, handleNavigateNext, handleNavigatePrev])
 
-  // If in dashboard mode, show the dashboard
-  if (viewMode === 'dashboard') {
-    return <Dashboard />
-  }
+  const isDashboardView = viewMode === 'dashboard'
 
-  return (
-    <div className='flex h-full min-w-0 flex-col pl-64'>
-      {/* Add the animation styles */}
+  const headerLeftContent = isDashboardView ? null : (
+    <div className='flex w-full flex-1 items-center gap-3'>
+      <div className='hidden items-center gap-2 sm:flex'>
+        <MapIcon className='h-[18px] w-[18px] text-muted-foreground' />
+        <span className='font-medium text-sm'>Logs</span>
+      </div>
+      <div className='flex w-full flex-1'>
+        <AutocompleteSearch
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder='Search logs...'
+          availableWorkflows={availableWorkflows}
+          availableFolders={availableFolders}
+          className='w-full'
+          onOpenChange={(open) => {
+            isSearchOpenRef.current = open
+          }}
+          showActiveFilters={false}
+          showTextSearchIndicator={false}
+        />
+      </div>
+    </div>
+  )
+
+  const headerCenterContent = isDashboardView ? null : (
+    <div className='flex flex-wrap items-center justify-center gap-3'>
+      <div className='inline-flex h-9 items-center rounded-[11px] border bg-card p-1 shadow-sm'>
+        <Button
+          variant='ghost'
+          size='sm'
+          onClick={() => setIsLive((prev) => !prev)}
+          className={cn(
+            'h-7 rounded-[8px] px-3 font-normal text-xs',
+            isLive
+              ? 'bg-primary text-black shadow-[0_0_0_0_var(--primary)] hover:bg-primary-hover hover:text-black '
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+          aria-pressed={isLive}
+        >
+          Live
+        </Button>
+      </div>
+
+      <div className='inline-flex h-9 items-center rounded-[11px] border bg-card p-1 shadow-sm'>
+        <Button
+          variant='ghost'
+          size='sm'
+          onClick={() => setViewMode('logs')}
+          className={cn(
+            'h-7 rounded-[8px] px-3 font-normal text-xs',
+            viewMode !== 'dashboard'
+              ? 'bg-muted text-foreground'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+          aria-pressed={viewMode !== 'dashboard'}
+        >
+          Logs
+        </Button>
+        <Button
+          variant='ghost'
+          size='sm'
+          onClick={() => setViewMode('dashboard')}
+          className={cn(
+            'h-7 rounded-[8px] px-3 font-normal text-xs',
+            viewMode === 'dashboard'
+              ? 'bg-muted text-foreground'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+          aria-pressed={viewMode === 'dashboard'}
+        >
+          Dashboard
+        </Button>
+      </div>
+    </div>
+  )
+
+  const headerRightContent = (
+    <div className='flex flex-wrap items-center gap-3'>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant='ghost'
+            size='icon'
+            onClick={handleRefresh}
+            className='h-9 rounded-[11px] hover:bg-secondary'
+            disabled={isRefreshing}
+          >
+            {isRefreshing ? (
+              <Loader2 className='h-5 w-5 animate-spin' />
+            ) : (
+              <RefreshCw className='h-5 w-5' />
+            )}
+            <span className='sr-only'>Refresh</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{isRefreshing ? 'Refreshing...' : 'Refresh'}</TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant='ghost'
+            size='icon'
+            onClick={handleExport}
+            className='h-9 rounded-[11px] hover:bg-secondary'
+            aria-label='Export CSV'
+          >
+            <svg
+              xmlns='http://www.w3.org/2000/svg'
+              viewBox='0 0 24 24'
+              fill='none'
+              stroke='currentColor'
+              strokeWidth='2'
+              className='h-5 w-5'
+            >
+              <path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4' />
+              <polyline points='7 10 12 15 17 10' />
+              <line x1='12' y1='15' x2='12' y2='3' />
+            </svg>
+            <span className='sr-only'>Export CSV</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Export CSV</TooltipContent>
+      </Tooltip>
+    </div>
+  )
+
+  const logsLayout = (
+    <div className='flex h-full min-w-0 flex-col'>
       <style jsx global>
         {selectedRowAnimation}
       </style>
-
       <div className='flex min-w-0 flex-1 overflow-hidden'>
         <div className='flex flex-1 flex-col overflow-auto p-6'>
-          <Controls
-            isRefetching={isRefreshing}
-            resetToNow={handleRefresh}
-            live={isLive}
-            setLive={(fn) => setIsLive(fn)}
-            viewMode={viewMode as string}
-            setViewMode={setViewMode as (mode: 'logs' | 'dashboard') => void}
-            searchComponent={
-              <AutocompleteSearch
-                value={searchQuery}
-                onChange={setSearchQuery}
-                placeholder='Search logs...'
-                availableWorkflows={availableWorkflows}
-                availableFolders={availableFolders}
-                onOpenChange={(open) => {
-                  isSearchOpenRef.current = open
-                }}
-              />
-            }
-            showExport={true}
-            onExport={handleExport}
-          />
+          <div className='mb-6 sm:hidden'>
+            <TooltipProvider>
+              <Timeline />
+            </TooltipProvider>
+          </div>
 
-          {/* Table container */}
           <div className='flex flex-1 flex-col overflow-hidden'>
-            {/* Table with responsive layout */}
             <div className='w-full overflow-x-auto'>
-              {/* Header */}
               <div>
                 <div className='border-border border-b'>
                   <div className='grid min-w-[600px] grid-cols-[120px_80px_120px_120px] gap-2 px-2 pb-3 md:grid-cols-[140px_90px_140px_120px] md:gap-3 lg:min-w-0 lg:grid-cols-[160px_100px_160px_120px] lg:gap-4 xl:grid-cols-[160px_100px_160px_120px_120px_100px]'>
@@ -747,7 +852,6 @@ export default function Logs() {
               </div>
             </div>
 
-            {/* Table body - scrollable */}
             <div className='flex-1 overflow-auto' ref={scrollContainerRef}>
               {loading && page === 1 ? (
                 <div className='flex h-full items-center justify-center'>
@@ -780,13 +884,11 @@ export default function Logs() {
                       <div
                         key={log.id}
                         ref={isSelected ? selectedRowRef : null}
-                        className={`cursor-pointer border-border border-b transition-all duration-200 ${
-                          isSelected ? 'bg-accent/40' : 'hover:bg-accent/20'
-                        }`}
+                        className={`cursor-pointer border-border border-b transition-all duration-200 ${isSelected ? 'bg-accent/40' : 'hover:bg-card/20'
+                          }`}
                         onClick={() => handleLogClick(log)}
                       >
                         <div className='grid min-w-[600px] grid-cols-[120px_80px_120px_120px] items-center gap-2 px-2 py-4 md:grid-cols-[140px_90px_140px_120px] md:gap-3 lg:min-w-0 lg:grid-cols-[160px_100px_160px_120px] lg:gap-4 xl:grid-cols-[160px_100px_160px_120px_120px_100px]'>
-                          {/* Time */}
                           <div>
                             <div className='text-[13px]'>
                               <span className='font-sm text-muted-foreground'>
@@ -801,7 +903,6 @@ export default function Logs() {
                             </div>
                           </div>
 
-                          {/* Status */}
                           <div>
                             <div
                               className={cn(
@@ -815,14 +916,12 @@ export default function Logs() {
                             </div>
                           </div>
 
-                          {/* Workflow */}
                           <div className='min-w-0'>
                             <div className='truncate font-medium text-[13px]'>
                               {log.workflow?.name || 'Unknown Workflow'}
                             </div>
                           </div>
 
-                          {/* Cost */}
                           <div>
                             <div className='font-medium text-muted-foreground text-xs'>
                               {typeof (log as any)?.cost?.total === 'number'
@@ -831,7 +930,6 @@ export default function Logs() {
                             </div>
                           </div>
 
-                          {/* Trigger */}
                           <div className='hidden xl:block'>
                             {log.trigger ? (
                               <div
@@ -854,7 +952,6 @@ export default function Logs() {
                             )}
                           </div>
 
-                          {/* Duration */}
                           <div className='hidden xl:block'>
                             <div className='text-muted-foreground text-xs'>
                               {log.duration || '—'}
@@ -865,7 +962,6 @@ export default function Logs() {
                     )
                   })}
 
-                  {/* Infinite scroll loader */}
                   {hasMore && (
                     <div className='flex items-center justify-center py-4'>
                       <div
@@ -889,8 +985,30 @@ export default function Logs() {
           </div>
         </div>
       </div>
+    </div>
+  )
 
-      {/* Log Sidebar */}
+  const header = (
+    <GlobalNavbarHeader
+      left={headerLeftContent}
+      center={headerCenterContent}
+      right={headerRightContent}
+    />
+  )
+
+  if (isDashboardView) {
+    return (
+      <>
+        {header}
+        <Dashboard />
+      </>
+    )
+  }
+
+  return (
+    <>
+      {header}
+      {logsLayout}
       <Sidebar
         log={selectedLog}
         isOpen={isSidebarOpen}
@@ -900,6 +1018,6 @@ export default function Logs() {
         hasNext={selectedLogIndex < logs.length - 1}
         hasPrev={selectedLogIndex > 0}
       />
-    </div>
+    </>
   )
 }

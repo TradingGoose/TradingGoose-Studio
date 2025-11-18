@@ -1,17 +1,27 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
-import { Pencil } from 'lucide-react'
+import { Pencil, Trash2 } from 'lucide-react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useFolderStore, useIsWorkflowSelected } from '@/stores/folders/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
+import { shallow } from 'zustand/shallow'
 
 const logger = createLogger('WorkflowItem')
 
@@ -39,6 +49,7 @@ interface WorkflowItemProps {
   level: number
   isDragOver?: boolean
   isFirstItem?: boolean
+  onSelect?: (workflow: WorkflowMetadata) => void
 }
 
 export function WorkflowItem({
@@ -48,19 +59,36 @@ export function WorkflowItem({
   level,
   isDragOver = false,
   isFirstItem = false,
+  onSelect,
 }: WorkflowItemProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(workflow.name)
   const [isRenaming, setIsRenaming] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
+  const [deleteState, setDeleteState] = useState<{
+    showDialog: boolean
+    isDeleting: boolean
+    showTemplateChoice: boolean
+    publishedTemplates: { id: string; name: string }[]
+  }>({
+    showDialog: false,
+    isDeleting: false,
+    showTemplateChoice: false,
+    publishedTemplates: [],
+  })
   const dragStartedRef = useRef(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const params = useParams()
-  const workspaceId = params.workspaceId as string
+  const workspaceId = useWorkspaceId()
   const { selectedWorkflows, selectOnly, toggleWorkflowSelection } = useFolderStore()
   const isSelected = useIsWorkflowSelected(workflow.id)
-  const { updateWorkflow } = useWorkflowRegistry()
+  const { updateWorkflow, removeWorkflow } = useWorkflowRegistry(
+    (state) => ({
+      updateWorkflow: state.updateWorkflow,
+      removeWorkflow: state.removeWorkflow,
+    }),
+    shallow
+  )
   const userPermissions = useUserPermissionsContext()
 
   // Update editValue when workflow name changes
@@ -127,6 +155,70 @@ export function WorkflowItem({
     handleSaveEdit()
   }
 
+  const resetDeleteState = useCallback(() => {
+    setDeleteState({
+      showDialog: false,
+      isDeleting: false,
+      showTemplateChoice: false,
+      publishedTemplates: [],
+    })
+  }, [])
+
+  const checkPublishedTemplates = useCallback(async (workflowId: string) => {
+    const checkResponse = await fetch(`/api/workflows/${workflowId}?check-templates=true`, {
+      method: 'DELETE',
+    })
+
+    if (!checkResponse.ok) {
+      throw new Error(`Failed to check templates: ${checkResponse.statusText}`)
+    }
+
+    return checkResponse.json()
+  }, [])
+
+  const handleDeleteWorkflow = useCallback(async () => {
+    if (!userPermissions.canEdit || isMarketplace) return
+
+    setDeleteState((prev) => ({ ...prev, isDeleting: true }))
+
+    try {
+      const checkData = await checkPublishedTemplates(workflow.id)
+
+      if (checkData?.hasPublishedTemplates) {
+        setDeleteState((prev) => ({
+          ...prev,
+          isDeleting: false,
+          showTemplateChoice: true,
+          publishedTemplates: checkData.publishedTemplates || [],
+        }))
+        return
+      }
+
+      await removeWorkflow(workflow.id)
+      resetDeleteState()
+    } catch (error) {
+      logger.error('Error deleting workflow:', error)
+      setDeleteState((prev) => ({ ...prev, isDeleting: false }))
+    }
+  }, [checkPublishedTemplates, isMarketplace, removeWorkflow, resetDeleteState, userPermissions.canEdit, workflow.id])
+
+  const handleTemplateAction = useCallback(
+    async (action: 'keep' | 'delete') => {
+      if (!userPermissions.canEdit || isMarketplace) return
+
+      setDeleteState((prev) => ({ ...prev, isDeleting: true }))
+
+      try {
+        await removeWorkflow(workflow.id, action)
+        resetDeleteState()
+      } catch (error) {
+        logger.error('Error deleting workflow with template action:', error)
+        setDeleteState((prev) => ({ ...prev, isDeleting: false }))
+      }
+    },
+    [isMarketplace, removeWorkflow, resetDeleteState, userPermissions.canEdit, workflow.id]
+  )
+
   const handleClick = (e: React.MouseEvent) => {
     if (isDragging || isEditing) {
       e.preventDefault()
@@ -167,21 +259,24 @@ export function WorkflowItem({
     })
   }
 
+  const handleLinkClick = (e: React.MouseEvent) => {
+    handleClick(e)
+    if (onSelect) {
+      e.preventDefault()
+      onSelect(workflow)
+    }
+  }
+
   return (
     <div className='mb-1'>
       <div
         className={clsx(
           'group flex h-8 cursor-pointer items-center rounded-[8px] px-2 py-2 font-medium font-sans text-sm transition-colors',
-          active && !isDragOver ? 'bg-muted' : 'hover:bg-muted',
+          active && !isDragOver ? 'bg-muted' : 'hover:bg-card',
           isSelected && selectedWorkflows.size > 1 && !active && !isDragOver ? 'bg-muted' : '',
           isDragging ? 'opacity-50' : '',
           isFirstItem ? 'mr-[36px]' : ''
         )}
-        style={{
-          maxWidth: isFirstItem
-            ? `${166 - (level >= 0 ? (level + 1) * 20 + 8 : 0) - (level > 0 ? 8 : 0)}px`
-            : `${206 - (level >= 0 ? (level + 1) * 20 + 8 : 0) - (level > 0 ? 8 : 0)}px`,
-        }}
         draggable={!isMarketplace && !isEditing}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
@@ -192,7 +287,7 @@ export function WorkflowItem({
         <Link
           href={`/workspace/${workspaceId}/w/${workflow.id}`}
           className='flex min-w-0 flex-1 items-center'
-          onClick={handleClick}
+          onClick={handleLinkClick}
           draggable={false}
         >
           <div
@@ -269,7 +364,10 @@ export function WorkflowItem({
         </Link>
 
         {!isMarketplace && !isEditing && isHovered && userPermissions.canEdit && (
-          <div className='flex items-center justify-center' onClick={(e) => e.stopPropagation()}>
+          <div
+            className='flex items-center justify-center gap-1'
+            onClick={(e) => e.stopPropagation()}
+          >
             <Button
               variant='ghost'
               size='icon'
@@ -282,9 +380,106 @@ export function WorkflowItem({
               <Pencil className='!h-3.5 !w-3.5' />
               <span className='sr-only'>Rename workflow</span>
             </Button>
+            <Button
+              variant='ghost'
+              size='icon'
+              className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
+              onClick={(e) => {
+                e.stopPropagation()
+                setDeleteState({
+                  showDialog: true,
+                  isDeleting: false,
+                  showTemplateChoice: false,
+                  publishedTemplates: [],
+                })
+              }}
+            >
+              <Trash2 className='!h-3.5 !w-3.5' />
+              <span className='sr-only'>Delete workflow</span>
+            </Button>
           </div>
         )}
       </div>
+
+      <AlertDialog
+        open={deleteState.showDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            resetDeleteState()
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {deleteState.showTemplateChoice ? 'Published Templates Found' : 'Delete workflow?'}
+            </AlertDialogTitle>
+            {deleteState.showTemplateChoice ? (
+              <div className='space-y-3'>
+                <AlertDialogDescription>
+                  This workflow has {deleteState.publishedTemplates.length} published template
+                  {deleteState.publishedTemplates.length === 1 ? '' : 's'}:
+                </AlertDialogDescription>
+                {deleteState.publishedTemplates.length > 0 && (
+                  <ul className='list-disc space-y-1 pl-6'>
+                    {deleteState.publishedTemplates.map((template) => (
+                      <li key={template.id}>{template.name}</li>
+                    ))}
+                  </ul>
+                )}
+                <AlertDialogDescription>
+                  What would you like to do with the published template
+                  {deleteState.publishedTemplates.length === 1 ? '' : 's'}?
+                </AlertDialogDescription>
+              </div>
+            ) : (
+              <AlertDialogDescription>
+                Deleting this workflow will permanently remove all associated blocks, executions,
+                and configuration.{' '}
+                <span className='text-red-500 dark:text-red-500'>This action cannot be undone.</span>
+              </AlertDialogDescription>
+            )}
+          </AlertDialogHeader>
+
+          <AlertDialogFooter className='flex'>
+            {deleteState.showTemplateChoice ? (
+              <div className='flex w-full gap-2'>
+                <Button
+                  variant='outline'
+                  onClick={() => handleTemplateAction('keep')}
+                  disabled={deleteState.isDeleting}
+                  className='h-9 flex-1 rounded-[8px]'
+                >
+                  Keep templates
+                </Button>
+                <Button
+                  onClick={() => handleTemplateAction('delete')}
+                  disabled={deleteState.isDeleting}
+                  className='h-9 flex-1 rounded-[8px] bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+                >
+                  {deleteState.isDeleting ? 'Deleting...' : 'Delete templates'}
+                </Button>
+              </div>
+            ) : (
+              <>
+                <AlertDialogCancel className='h-9 w-full rounded-[8px]' disabled={deleteState.isDeleting}>
+                  Cancel
+                </AlertDialogCancel>
+                <Button
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleDeleteWorkflow()
+                  }}
+                  disabled={deleteState.isDeleting}
+                  className='h-9 w-full rounded-[8px] bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+                >
+                  {deleteState.isDeleting ? 'Deleting...' : 'Delete'}
+                </Button>
+              </>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

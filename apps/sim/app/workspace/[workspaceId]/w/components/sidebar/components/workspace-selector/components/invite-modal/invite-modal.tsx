@@ -2,7 +2,6 @@
 
 import React, { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2, RotateCw, X } from 'lucide-react'
-import { useParams } from 'next/navigation'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +25,7 @@ import {
   useUserPermissionsContext,
   useWorkspacePermissionsContext,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import type { WorkspacePermissions } from '@/hooks/use-workspace-permissions'
 import { API_ENDPOINTS } from '@/stores/constants'
 
@@ -147,7 +147,7 @@ const PermissionSelector = React.memo<PermissionSelectorProps>(
               disabled && 'cursor-not-allowed opacity-50',
               value === option.value
                 ? 'bg-foreground text-background'
-                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+                : 'text-muted-foreground hover:bg-card/50 hover:text-foreground',
               index > 0 && 'border-input border-l'
             )}
           >
@@ -221,10 +221,10 @@ const PermissionsTable = ({
     () =>
       session?.user?.email
         ? existingUsers.find((user) => user.isCurrentUser) || {
-            email: session.user.email,
-            permissionType: 'admin',
-            isCurrentUser: true,
-          }
+          email: session.user.email,
+          permissionType: 'admin',
+          isCurrentUser: true,
+        }
         : null,
     [session?.user?.email, existingUsers]
   )
@@ -324,8 +324,8 @@ const PermissionsTable = ({
                     {isPendingInvitation && (
                       <span className='inline-flex items-center gap-1 rounded-[8px] bg-gray-100 px-2 py-1 font-medium text-gray-700 text-xs dark:bg-gray-800 dark:text-gray-300'>
                         {resendingInvitationIds &&
-                        user.invitationId &&
-                        resendingInvitationIds[user.invitationId] ? (
+                          user.invitationId &&
+                          resendingInvitationIds[user.invitationId] ? (
                           <>
                             <Loader2 className='h-3.5 w-3.5 animate-spin' />
                             <span>Sending...</span>
@@ -405,36 +405,36 @@ const PermissionsTable = ({
                         currentUserIsAdmin &&
                         user.invitationId &&
                         onRemoveInvitation)) && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant='ghost'
-                            size='icon'
-                            onClick={() => {
-                              if (canShowRemoveButton && onRemoveMember) {
-                                onRemoveMember(user.userId!, user.email)
-                              } else if (
-                                isPendingInvitation &&
-                                user.invitationId &&
-                                onRemoveInvitation
-                              ) {
-                                onRemoveInvitation(user.invitationId, user.email)
-                              }
-                            }}
-                            disabled={disabled || isSaving}
-                            className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
-                          >
-                            <X className='h-3.5 w-3.5' />
-                            <span className='sr-only'>
-                              {isPendingInvitation ? 'Revoke invite' : 'Remove member'}
-                            </span>
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{isPendingInvitation ? 'Revoke invite' : 'Remove member'}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant='ghost'
+                              size='icon'
+                              onClick={() => {
+                                if (canShowRemoveButton && onRemoveMember) {
+                                  onRemoveMember(user.userId!, user.email)
+                                } else if (
+                                  isPendingInvitation &&
+                                  user.invitationId &&
+                                  onRemoveInvitation
+                                ) {
+                                  onRemoveInvitation(user.invitationId, user.email)
+                                }
+                              }}
+                              disabled={disabled || isSaving}
+                              className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
+                            >
+                              <X className='h-3.5 w-3.5' />
+                              <span className='sr-only'>
+                                {isPendingInvitation ? 'Revoke invite' : 'Remove member'}
+                              </span>
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{isPendingInvitation ? 'Revoke invite' : 'Remove member'}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                   </div>
                 </div>
               </div>
@@ -474,8 +474,7 @@ export function InviteModal({ open, onOpenChange, workspaceName }: InviteModalPr
   const [resendingInvitationIds, setResendingInvitationIds] = useState<Record<string, boolean>>({})
   const [resendCooldowns, setResendCooldowns] = useState<Record<string, number>>({})
   const [resentInvitationIds, setResentInvitationIds] = useState<Record<string, boolean>>({})
-  const params = useParams()
-  const workspaceId = params.workspaceId as string
+  const workspaceId = useWorkspaceId()
 
   const { data: session } = useSession()
   const {
@@ -1171,7 +1170,7 @@ export function InviteModal({ open, onOpenChange, workspaceName }: InviteModalPr
               }
               className={cn(
                 'ml-auto flex h-9 items-center justify-center gap-2 rounded-[8px] px-4 py-2 font-medium transition-all duration-200',
-                'bg-[var(--brand-primary-hex)] text-white shadow-[0_0_0_0_var(--brand-primary-hex)] hover:bg-[var(--brand-primary-hover-hex)] hover:shadow-[0_0_0_4px_rgba(112,31,252,0.15)] disabled:opacity-50 disabled:hover:bg-[var(--brand-primary-hex)] disabled:hover:shadow-none'
+                'bg-primary text-black shadow-[0_0_0_0_var(--primary)] hover:bg-primary-hover hover:shadow-[0_0_0_4px_rgba(112,31,252,0.15)] disabled:opacity-50 disabled:hover:bg-primary disabled:hover:shadow-none'
               )}
             >
               {isSubmitting && <Loader2 className='h-4 w-4 animate-spin' />}

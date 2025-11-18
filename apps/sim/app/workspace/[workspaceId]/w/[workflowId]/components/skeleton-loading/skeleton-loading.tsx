@@ -54,7 +54,7 @@ const SkeletonControlBar = () => {
 
       {/* Run Button */}
       <Button
-        className='h-12 cursor-not-allowed gap-2 rounded-[11px] bg-[var(--brand-primary-hex)] px-4 py-2 font-medium text-white shadow-[0_0_0_0_var(--brand-primary-hex)] transition-all duration-200 hover:bg-[var(--brand-primary-hover-hex)] hover:shadow-[0_0_0_4px_rgba(127,47,255,0.15)] disabled:opacity-50 disabled:hover:bg-[var(--brand-primary-hex)] disabled:hover:shadow-none'
+        className='h-12 cursor-not-allowed gap-2 rounded-[11px] bg-primary px-4 py-2 font-medium text-white shadow-[0_0_0_0_var(--primary)] transition-all duration-200 hover:bg-primary-hover  disabled:opacity-50 disabled:hover:bg-primary disabled:hover:shadow-none'
         disabled
       >
         <Play className='h-3.5 w-3.5 fill-current stroke-current' />
@@ -147,7 +147,7 @@ export function SkeletonLoading({
   children,
 }: SkeletonLoadingProps) {
   return (
-    <div className='flex h-screen w-full flex-col overflow-hidden pl-64'>
+    <div className='flex h-screen w-full flex-col overflow-hidden '>
       {/* Skeleton Control Bar */}
       <div
         className={`transition-opacity duration-500 ${showSkeleton ? 'opacity-100' : 'pointer-events-none absolute opacity-0'}`}

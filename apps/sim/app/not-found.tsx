@@ -28,8 +28,8 @@ export default function NotFound() {
   useEffect(() => {
     const checkCustomBrand = () => {
       const computedStyle = getComputedStyle(document.documentElement)
-      const brandAccent = computedStyle.getPropertyValue('--brand-accent-hex').trim()
-      if (brandAccent && brandAccent !== '#6f3dfa') {
+      const brandAccent = computedStyle.getPropertyValue('--accent').trim()
+      if (brandAccent && brandAccent !== '#ffcc00') {
         setButtonClass('auth-button-custom')
       } else {
         setButtonClass('auth-button-gradient')

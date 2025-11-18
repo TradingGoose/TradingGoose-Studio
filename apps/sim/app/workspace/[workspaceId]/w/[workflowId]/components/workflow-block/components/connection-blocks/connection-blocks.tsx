@@ -102,7 +102,7 @@ export function ConnectionBlocks({
         className={cn(
           'group flex w-max items-center gap-2 rounded-lg border bg-card p-2 shadow-sm transition-colors',
           !isDisabled
-            ? 'cursor-grab hover:bg-accent/50 active:cursor-grabbing'
+            ? 'cursor-grab hover:bg-card active:cursor-grabbing'
             : 'cursor-not-allowed opacity-60'
         )}
       >

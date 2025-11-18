@@ -11,7 +11,7 @@ const GRADIENT_BADGE_STYLES =
 const GRADIENT_TEXT_STYLES =
   'gradient-text bg-gradient-to-b from-gradient-primary via-gradient-secondary to-gradient-primary'
 const CONTAINER_STYLES =
-  'pointer-events-auto flex-shrink-0 rounded-[10px] border bg-background px-3 py-2.5 shadow-xs cursor-pointer transition-colors hover:bg-muted/50'
+  'pointer-events-auto flex-shrink-0 rounded-[10px] border bg-background px-3 py-2.5 shadow-xs cursor-pointer transition-colors hover:bg-card/50'
 
 // Plan name mapping
 const PLAN_NAMES = {

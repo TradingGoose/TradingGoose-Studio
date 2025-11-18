@@ -146,22 +146,49 @@ export async function applyAutoLayoutToWorkflow(
 /**
  * Apply auto layout and update the workflow store immediately
  */
-export async function applyAutoLayoutAndUpdateStore(
-  workflowId: string,
-  options: AutoLayoutOptions = {}
-): Promise<{
+interface ApplyAutoLayoutAndUpdateStoreParams {
+  workflowId: string
+  channelId?: string
+  options?: AutoLayoutOptions
+}
+
+export async function applyAutoLayoutAndUpdateStore({
+  workflowId,
+  channelId,
+  options = {},
+}: ApplyAutoLayoutAndUpdateStoreParams): Promise<{
   success: boolean
   error?: string
 }> {
+  let resolvedWorkflowId: string | undefined = workflowId
+
   try {
     // Import workflow store
     const { useWorkflowStore } = await import('@/stores/workflows/workflow/store')
+    const { useWorkflowRegistry } = await import('@/stores/workflows/registry/store')
 
-    const workflowStore = useWorkflowStore.getState()
+    const registryState = useWorkflowRegistry.getState()
+    const activeWorkflowIdForChannel = registryState.getActiveWorkflowId(channelId)
+    resolvedWorkflowId = workflowId ?? activeWorkflowIdForChannel
+
+    if (!resolvedWorkflowId) {
+      logger.error('Auto layout aborted: no active workflow for channel', { channelId })
+      return { success: false, error: 'No workflow selected' }
+    }
+
+    if (workflowId && workflowId !== activeWorkflowIdForChannel) {
+      logger.warn('Auto layout workflow mismatch detected, correcting', {
+        requestedWorkflowId: workflowId,
+        activeWorkflowIdForChannel,
+        channelId,
+      })
+    }
+
+    const workflowStore = useWorkflowStore.getState(channelId)
     const { blocks, edges, loops = {}, parallels = {} } = workflowStore
 
     logger.info('Auto layout store data:', {
-      workflowId,
+      workflowId: resolvedWorkflowId,
       blockCount: Object.keys(blocks).length,
       edgeCount: edges.length,
       loopCount: Object.keys(loops).length,
@@ -169,13 +196,13 @@ export async function applyAutoLayoutAndUpdateStore(
     })
 
     if (Object.keys(blocks).length === 0) {
-      logger.warn('No blocks to layout', { workflowId })
+      logger.warn('No blocks to layout', { workflowId: resolvedWorkflowId })
       return { success: false, error: 'No blocks to layout' }
     }
 
     // Apply auto layout
     const result = await applyAutoLayoutToWorkflow(
-      workflowId,
+      resolvedWorkflowId,
       blocks,
       edges,
       loops,
@@ -194,14 +221,17 @@ export async function applyAutoLayoutAndUpdateStore(
       lastSaved: Date.now(),
     }
 
-    useWorkflowStore.setState(newWorkflowState)
+    useWorkflowStore.setState(newWorkflowState, false, channelId)
 
-    logger.info('Successfully updated workflow store with auto layout', { workflowId })
+    logger.info('Successfully updated workflow store with auto layout', {
+      workflowId: resolvedWorkflowId,
+      channelId,
+    })
 
     // Persist the changes to the database optimistically
     try {
       // Update the lastSaved timestamp in the store
-      useWorkflowStore.getState().updateLastSaved()
+      useWorkflowStore.getState(channelId).updateLastSaved()
 
       // Clean up the workflow state for API validation
       // Destructure out UI-only fields that shouldn't be persisted
@@ -230,7 +260,7 @@ export async function applyAutoLayoutAndUpdateStore(
       }
 
       // Save the updated workflow state to the database
-      const response = await fetch(`/api/workflows/${workflowId}/state`, {
+      const response = await fetch(`/api/workflows/${resolvedWorkflowId}/state`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -243,20 +273,27 @@ export async function applyAutoLayoutAndUpdateStore(
         throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
       }
 
-      logger.info('Auto layout successfully persisted to database', { workflowId })
+      logger.info('Auto layout successfully persisted to database', {
+        workflowId: resolvedWorkflowId,
+        channelId,
+      })
       return { success: true }
     } catch (saveError) {
       logger.error('Failed to save auto layout to database, reverting store changes:', {
-        workflowId,
+        workflowId: resolvedWorkflowId,
         error: saveError,
       })
 
       // Revert the store changes since database save failed
-      useWorkflowStore.setState({
-        ...workflowStore.getWorkflowState(),
-        blocks: blocks, // Revert to original blocks
-        lastSaved: workflowStore.lastSaved, // Revert lastSaved
-      })
+      useWorkflowStore.setState(
+        {
+          ...workflowStore.getWorkflowState(),
+          blocks, // Revert to original blocks
+          lastSaved: workflowStore.lastSaved, // Revert lastSaved
+        },
+        false,
+        channelId
+      )
 
       return {
         success: false,
@@ -265,7 +302,10 @@ export async function applyAutoLayoutAndUpdateStore(
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown store update error'
-    logger.error('Failed to update store with auto layout:', { workflowId, error: errorMessage })
+    logger.error('Failed to update store with auto layout:', {
+      workflowId: resolvedWorkflowId ?? workflowId,
+      error: errorMessage,
+    })
 
     return {
       success: false,

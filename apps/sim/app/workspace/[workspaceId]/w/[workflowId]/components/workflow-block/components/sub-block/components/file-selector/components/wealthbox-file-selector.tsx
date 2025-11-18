@@ -423,7 +423,7 @@ export function WealthboxFileSelector({
               <Button
                 variant='ghost'
                 size='icon'
-                className='h-5 w-5 hover:bg-muted'
+                className='h-5 w-5 hover:bg-card'
                 onClick={handleClearSelection}
               >
                 <X className='h-3 w-3' />

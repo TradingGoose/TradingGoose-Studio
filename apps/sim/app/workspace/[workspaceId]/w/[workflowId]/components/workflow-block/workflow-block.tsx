@@ -1,6 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BookOpen, Code, Info, RectangleHorizontal, RectangleVertical, Zap } from 'lucide-react'
-import { useParams } from 'next/navigation'
 import { Handle, type NodeProps, Position, useUpdateNodeInternals } from 'reactflow'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -20,6 +19,7 @@ import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { mergeSubblockState } from '@/stores/workflows/utils'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store'
+import { useWorkflowId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useCurrentWorkflow } from '../../hooks'
 import { ActionBar } from './components/action-bar/action-bar'
 import { ConnectionBlocks } from './components/connection-blocks/connection-blocks'
@@ -224,10 +224,7 @@ export const WorkflowBlock = memo(
     const isActiveBlock = useExecutionStore((state) => state.activeBlockIds.has(id))
     const isActive = dataIsActive || isActiveBlock
 
-    // Get the current workflow ID from URL params instead of global state
-    // This prevents race conditions when switching workflows rapidly
-    const params = useParams()
-    const currentWorkflowId = params.workflowId as string
+    const currentWorkflowId = useWorkflowId()
 
     // Check if this is a starter block or trigger block
     const isStarterBlock = type === 'starter'
@@ -519,9 +516,9 @@ export const WorkflowBlock = memo(
         // Check if the condition value is an array
         const isValueMatch = Array.isArray(actualCondition.value)
           ? fieldValue != null &&
-            (actualCondition.not
-              ? !actualCondition.value.includes(fieldValue as string | number | boolean)
-              : actualCondition.value.includes(fieldValue as string | number | boolean))
+          (actualCondition.not
+            ? !actualCondition.value.includes(fieldValue as string | number | boolean)
+            : actualCondition.value.includes(fieldValue as string | number | boolean))
           : actualCondition.not
             ? fieldValue !== actualCondition.value
             : fieldValue === actualCondition.value
@@ -531,9 +528,9 @@ export const WorkflowBlock = memo(
           !actualCondition.and ||
           (Array.isArray(actualCondition.and.value)
             ? andFieldValue != null &&
-              (actualCondition.and.not
-                ? !actualCondition.and.value.includes(andFieldValue as string | number | boolean)
-                : actualCondition.and.value.includes(andFieldValue as string | number | boolean))
+            (actualCondition.and.not
+              ? !actualCondition.and.value.includes(andFieldValue as string | number | boolean)
+              : actualCondition.and.value.includes(andFieldValue as string | number | boolean))
             : actualCondition.and.not
               ? andFieldValue !== actualCondition.and.value
               : andFieldValue === actualCondition.and.value)
@@ -723,7 +720,7 @@ export const WorkflowBlock = memo(
             // Diff highlighting
             diffStatus === 'new' && 'bg-green-50/50 ring-2 ring-green-500 dark:bg-green-900/10',
             diffStatus === 'edited' &&
-              'bg-orange-50/50 ring-2 ring-orange-500 dark:bg-orange-900/10',
+            'bg-orange-50/50 ring-2 ring-orange-500 dark:bg-orange-900/10',
             // Deleted block highlighting (in original workflow)
             isDeletedBlock && 'bg-red-50/50 ring-2 ring-red-500 dark:bg-red-900/10',
             'z-[20]'
@@ -949,10 +946,10 @@ export const WorkflowBlock = memo(
                       }}
                       className={cn(
                         'h-7 p-1 text-gray-500',
-                        displayAdvancedMode && 'text-[var(--brand-primary-hex)]',
+                        displayAdvancedMode && 'text-primary',
                         !userPermissions.canEdit &&
-                          !currentWorkflow.isDiffMode &&
-                          'cursor-not-allowed opacity-50'
+                        !currentWorkflow.isDiffMode &&
+                        'cursor-not-allowed opacity-50'
                       )}
                       disabled={!userPermissions.canEdit && !currentWorkflow.isDiffMode}
                     >
@@ -989,8 +986,8 @@ export const WorkflowBlock = memo(
                         'h-7 p-1 text-gray-500',
                         displayTriggerMode && 'text-[#22C55E]',
                         !userPermissions.canEdit &&
-                          !currentWorkflow.isDiffMode &&
-                          'cursor-not-allowed opacity-50'
+                        !currentWorkflow.isDiffMode &&
+                        'cursor-not-allowed opacity-50'
                       )}
                       disabled={!userPermissions.canEdit && !currentWorkflow.isDiffMode}
                     >
@@ -1047,8 +1044,8 @@ export const WorkflowBlock = memo(
                                 <div key={key} className='mb-1'>
                                   <span className='text-muted-foreground'>{key}</span>{' '}
                                   {typeof value === 'object' &&
-                                  value !== null &&
-                                  'type' in value ? (
+                                    value !== null &&
+                                    'type' in value ? (
                                     // New format: { type: 'string', description: '...' }
                                     <span className='text-green-500'>{value.type}</span>
                                   ) : typeof value === 'object' && value !== null ? (
@@ -1095,8 +1092,8 @@ export const WorkflowBlock = memo(
                       className={cn(
                         'h-7 p-1 text-gray-500',
                         !userPermissions.canEdit &&
-                          !currentWorkflow.isDiffMode &&
-                          'cursor-not-allowed opacity-50'
+                        !currentWorkflow.isDiffMode &&
+                        'cursor-not-allowed opacity-50'
                       )}
                       disabled={!userPermissions.canEdit && !currentWorkflow.isDiffMode}
                     >
@@ -1225,17 +1222,17 @@ export const WorkflowBlock = memo(
                     position: 'absolute',
                     ...(horizontalHandles
                       ? {
-                          right: '-8px',
-                          top: 'auto',
-                          bottom: '30px',
-                          transform: 'translateY(0)',
-                        }
+                        right: '-8px',
+                        top: 'auto',
+                        bottom: '30px',
+                        transform: 'translateY(0)',
+                      }
                       : {
-                          bottom: '-7px',
-                          left: 'auto',
-                          right: '30px',
-                          transform: 'translateX(0)',
-                        }),
+                        bottom: '-7px',
+                        left: 'auto',
+                        right: '30px',
+                        transform: 'translateX(0)',
+                      }),
                   }}
                   data-nodeid={id}
                   data-handleid='error'

@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Download, Search, Trash2 } from 'lucide-react'
-import { useParams } from 'next/navigation'
 import { Input, Progress, Skeleton } from '@/components/ui'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,6 +17,7 @@ import type { WorkspaceFileRecord } from '@/lib/uploads/contexts/workspace'
 import { getFileExtension } from '@/lib/uploads/utils/file-utils'
 import { cn } from '@/lib/utils'
 import { getDocumentIcon } from '@/app/workspace/[workspaceId]/knowledge/components'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions'
 
@@ -51,8 +51,7 @@ interface UsageData {
 }
 
 export function FileUploads() {
-  const params = useParams()
-  const workspaceId = params?.workspaceId as string
+  const workspaceId = useWorkspaceId()
   const [files, setFiles] = useState<WorkspaceFileRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -334,7 +333,7 @@ export function FileUploads() {
                 onClick={handleUploadClick}
                 disabled={uploading}
                 variant='ghost'
-                className='h-9 rounded-[8px] border bg-background px-3 shadow-xs hover:bg-muted focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
+                className='h-9 rounded-[8px] border bg-background px-3 shadow-xs hover:bg-card focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
               >
                 {uploading && uploadProgress.total > 0
                   ? `Uploading ${uploadProgress.completed}/${uploadProgress.total}...`
@@ -372,7 +371,7 @@ export function FileUploads() {
               {filteredFiles.map((file) => {
                 const Icon = getDocumentIcon(file.type || '', file.name)
                 return (
-                  <TableRow key={file.id} className='hover:bg-muted/50'>
+                  <TableRow key={file.id} className='hover:bg-card/50'>
                     <TableCell className='px-3'>
                       <div className='flex min-w-0 items-center gap-2'>
                         <Icon className='h-3.5 w-3.5 shrink-0 text-muted-foreground' />
