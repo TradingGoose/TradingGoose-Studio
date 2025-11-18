@@ -1,0 +1,279 @@
+---
+title: Loop
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { Image } from '@/components/ui/image'
+
+Der Loop-Block ist ein Container-Block in Sim, der es ermöglicht, iterative Workflows zu erstellen, indem eine Gruppe von Blöcken wiederholt ausgeführt wird. Loops ermöglichen iterative Verarbeitung in deinen Workflows.
+
+Der Schleifenblock unterstützt vier Arten der Iteration:
+
+<Callout type="info">
+  Loop-Blöcke sind Container-Knoten, die andere Blöcke enthalten können. Die Blöcke innerhalb einer Schleife werden basierend auf deiner Konfiguration mehrfach ausgeführt.
+</Callout>
+
+## Überblick
+
+Der Loop-Block ermöglicht dir:
+
+<Steps>
+  <Step>
+    <strong>Über Sammlungen iterieren</strong>: Arrays oder Objekte Element für Element verarbeiten
+  </Step>
+  <Step>
+    <strong>Operationen wiederholen</strong>: Blöcke eine festgelegte Anzahl von Malen ausführen
+  </Step>
+  <Step>
+    <strong>Auf Bedingungen basierte Schleifen</strong>: Ausführung fortsetzen, während oder bis eine Bedingung erfüllt ist
+  </Step>
+  <Step>
+    <strong>Ergebnisse aggregieren</strong>: Ausgaben aus allen Schleifendurchläufen sammeln
+  </Step>
+</Steps>
+
+## Funktionsweise
+
+Der Loop-Block führt enthaltene Blöcke durch sequentielle Iteration aus:
+
+1. **Schleife initialisieren** - Iterationsparameter festlegen (Anzahl oder Sammlung)
+2. **Iteration ausführen** - Enthaltene Blöcke für aktuelle Iteration ausführen
+3. **Ergebnisse sammeln** - Ausgabe jeder Iteration speichern
+4. **Fortfahren oder abschließen** - Zur nächsten Iteration übergehen oder Schleife beenden
+
+## Konfigurationsoptionen
+
+### Schleifentyp
+
+Wähle zwischen vier Arten von Schleifen:
+
+<Tabs items={['For-Schleife', 'ForEach-Schleife', 'While-Schleife', 'Do-While-Schleife']}>
+  <Tab>
+    **For-Schleife (Iterationen)** - Eine numerische Schleife, die eine festgelegte Anzahl von Malen ausgeführt wird:
+    
+    <div className="flex justify-center">
+      <Image
+        src="/static/blocks/loop-1.png"
+        alt="For-Schleife mit Iterationen"
+        width={500}
+        height={400}
+        className="my-6"
+      />
+    </div>
+    
+    Verwende diese, wenn du eine Operation eine bestimmte Anzahl von Malen wiederholen musst.
+    
+
+    ```
+    Example: Run 5 times
+    - Iteration 1
+    - Iteration 2
+    - Iteration 3
+    - Iteration 4
+    - Iteration 5
+    ```
+
+  </Tab>
+  <Tab>
+    **ForEach-Schleife (Sammlung)** - Eine sammlungsbasierte Schleife, die über jedes Element in einem Array oder Objekt iteriert:
+    
+    <div className="flex justify-center">
+      <Image
+        src="/static/blocks/loop-2.png"
+        alt="ForEach-Schleife mit Sammlung"
+        width={500}
+        height={400}
+        className="my-6"
+      />
+    </div>
+    
+    Verwende diese, wenn du eine Sammlung von Elementen verarbeiten musst.
+    
+
+    ```
+    Example: Process ["apple", "banana", "orange"]
+    - Iteration 1: Process "apple"
+    - Iteration 2: Process "banana"
+    - Iteration 3: Process "orange"
+    ```
+
+  </Tab>
+  <Tab>
+    **While-Schleife (Bedingungsbasiert)** - Wird weiter ausgeführt, solange eine Bedingung als wahr ausgewertet wird:
+    
+    <div className="flex justify-center">
+      <Image
+        src="/static/blocks/loop-3.png"
+        alt="While-Schleife mit Bedingung"
+        width={500}
+        height={400}
+        className="my-6"
+      />
+    </div>
+    
+    Verwende diese, wenn du eine Schleife benötigst, die läuft, bis eine bestimmte Bedingung erfüllt ist. Die Bedingung wird **vor** jeder Iteration überprüft.
+    
+
+    ```
+    Example: While <variable.i> < 10
+    - Check condition → Execute if true
+    - Inside loop: Increment <variable.i>
+    - Inside loop: Variables assigns i = <variable.i> + 1
+    - Check condition → Execute if true
+    - Check condition → Exit if false
+    ```
+
+  </Tab>
+  <Tab>
+    **Do-While-Schleife (Bedingungsbasiert)** - Wird mindestens einmal ausgeführt und dann fortgesetzt, solange eine Bedingung wahr ist:
+    
+    <div className="flex justify-center">
+      <Image
+        src="/static/blocks/loop-3.png"
+        alt="Do-While-Schleife mit Bedingung"
+        width={500}
+        height={400}
+        className="my-6"
+      />
+    </div>
+    
+    Verwende diese, wenn du mindestens eine Ausführung benötigst und dann eine Schleife, bis eine Bedingung erfüllt ist. Die Bedingung wird **nach** jeder Iteration überprüft.
+    
+
+    ```
+    Example: Do-while <variable.i> < 10
+    - Execute blocks
+    - Inside loop: Increment <variable.i>
+    - Inside loop: Variables assigns i = <variable.i> + 1
+    - Check condition → Continue if true
+    - Check condition → Exit if false
+    ```
+
+  </Tab>
+</Tabs>
+
+## Wie man Schleifen verwendet
+
+### Eine Schleife erstellen
+
+1. Ziehe einen Schleifenblock aus der Werkzeugleiste auf deine Leinwand
+2. Konfiguriere den Schleifentyp und die Parameter
+3. Ziehe andere Blöcke in den Schleifencontainer
+4. Verbinde die Blöcke nach Bedarf
+
+### Auf Ergebnisse zugreifen
+
+Nach Abschluss einer Schleife können Sie auf die aggregierten Ergebnisse zugreifen:
+
+- **`<loop.results>`**: Array mit Ergebnissen aus allen Schleifendurchläufen
+
+## Beispielanwendungsfälle
+
+### Verarbeitung von API-Ergebnissen
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">Szenario: Mehrere Kundendatensätze verarbeiten</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>API-Block ruft Kundenliste ab</li>
+    <li>ForEach-Schleife iteriert über jeden Kunden</li>
+    <li>Innerhalb der Schleife: Agent analysiert Kundendaten</li>
+    <li>Innerhalb der Schleife: Funktion speichert Analyseergebnisse</li>
+  </ol>
+</div>
+
+### Iterative Inhaltserstellung
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">Szenario: Mehrere Variationen generieren</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>For-Schleife auf 5 Iterationen einstellen</li>
+    <li>Innerhalb der Schleife: Agent generiert Inhaltsvariante</li>
+    <li>Innerhalb der Schleife: Evaluator bewertet den Inhalt</li>
+    <li>Nach der Schleife: Funktion wählt die beste Variante aus</li>
+  </ol>
+</div>
+
+### Zähler mit While-Schleife
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">Szenario: Elemente mit zählerbasierter Schleife verarbeiten</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>Workflow-Variable initialisieren: `i = 0`</li>
+    <li>While-Schleife mit Bedingung: `<variable.i>` \< 10</li>
+    <li>Innerhalb der Schleife: Agent verarbeitet Element am Index `<variable.i>`</li>
+    <li>Innerhalb der Schleife: Variable erhöht `i = <variable.i> + 1`</li>
+    <li>Schleife wird fortgesetzt, solange i kleiner als 10 ist</li>
+  </ol>
+</div>
+
+## Erweiterte Funktionen
+
+### Einschränkungen
+
+<Callout type="warning">
+  Container-Blöcke (Schleifen und Parallele) können nicht ineinander verschachtelt werden. Das bedeutet:
+  - Sie können keinen Schleifenblock in einem anderen Schleifenblock platzieren
+  - Sie können keinen Parallelblock in einem Schleifenblock platzieren
+  - Sie können keinen Container-Block in einem anderen Container-Block platzieren
+  
+  Wenn Sie mehrdimensionale Iterationen benötigen, sollten Sie Ihren Workflow umstrukturieren, um sequentielle Schleifen zu verwenden oder Daten in Stufen zu verarbeiten.
+</Callout>
+
+<Callout type="info">
+  Schleifen werden sequentiell ausgeführt, nicht parallel. Wenn Sie eine gleichzeitige Ausführung benötigen, verwenden Sie stattdessen den Parallel-Block.
+</Callout>
+
+## Eingaben und Ausgaben
+
+<Tabs items={['Configuration', 'Variables', 'Results']}>
+  <Tab>
+    <ul className="list-disc space-y-2 pl-6">
+      <li>
+        <strong>Schleifentyp</strong>: Wählen Sie zwischen 'for', 'forEach', 'while' oder 'doWhile'
+      </li>
+      <li>
+        <strong>Iterationen</strong>: Anzahl der Ausführungen (für for-Schleifen)
+      </li>
+      <li>
+        <strong>Sammlung</strong>: Array oder Objekt, über das iteriert werden soll (forEach-Schleifen)
+      </li>
+      <li>
+        <strong>Bedingung</strong>: Boolescher Ausdruck zur Auswertung (while/do-while-Schleifen)
+      </li>
+    </ul>
+  </Tab>
+  <Tab>
+    <ul className="list-disc space-y-2 pl-6">
+      <li>
+        <strong>loop.currentItem</strong>: Aktuell verarbeitetes Element
+      </li>
+      <li>
+        <strong>loop.index</strong>: Aktuelle Iterationsnummer (0-basiert)
+      </li>
+      <li>
+        <strong>loop.items</strong>: Vollständige Sammlung (forEach-Schleifen)
+      </li>
+    </ul>
+  </Tab>
+  <Tab>
+    <ul className="list-disc space-y-2 pl-6">
+      <li>
+        <strong>loop.results</strong>: Array aller Iterationsergebnisse
+      </li>
+      <li>
+        <strong>Struktur</strong>: Ergebnisse behalten die Iterationsreihenfolge bei
+      </li>
+      <li>
+        <strong>Zugriff</strong>: Verfügbar in Blöcken nach der Schleife
+      </li>
+    </ul>
+  </Tab>
+</Tabs>
+
+## Bewährte Praktiken
+
+- **Vernünftige Grenzen setzen**: Halten Sie die Anzahl der Iterationen in einem vernünftigen Rahmen, um lange Ausführungszeiten zu vermeiden
+- **ForEach für Sammlungen verwenden**: Verwenden Sie ForEach statt For-Schleifen, wenn Sie Arrays oder Objekte verarbeiten
+- **Fehler elegant behandeln**: Erwägen Sie, Fehlerbehandlung innerhalb von Schleifen einzubauen, um robuste Workflows zu gewährleisten

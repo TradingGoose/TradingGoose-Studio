@@ -1,0 +1,720 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["app", "realtime"],
+  "properties": {
+    "global": {
+      "type": "object",
+      "properties": {
+        "imageRegistry": {
+          "type": "string",
+          "format": "hostname",
+          "description": "Global Docker image registry"
+        },
+        "useRegistryForAllImages": {
+          "type": "boolean",
+          "description": "Use registry for all images, not just simstudioai/* images"
+        },
+        "imagePullSecrets": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "description": "Global image pull secrets"
+        },
+        "storageClass": {
+          "type": "string",
+          "description": "Global storage class for PVCs"
+        }
+      }
+    },
+    "app": {
+      "type": "object",
+      "required": ["enabled"],
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable the main application"
+        },
+        "replicaCount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of app replicas"
+        },
+        "resources": {
+          "type": "object",
+          "properties": {
+            "limits": {
+              "type": "object",
+              "properties": {
+                "memory": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(Ki|Mi|Gi|Ti|Pi|Ei|m|k|M|G|T|P|E)?$",
+                  "description": "Memory limit (e.g., 4Gi, 2048Mi)"
+                },
+                "cpu": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(\\.[0-9]+)?m?$",
+                  "description": "CPU limit (e.g., 2000m, 2.0)"
+                },
+                "nvidia.com/gpu": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$",
+                  "description": "GPU limit"
+                }
+              }
+            },
+            "requests": {
+              "type": "object",
+              "properties": {
+                "memory": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(Ki|Mi|Gi|Ti|Pi|Ei|m|k|M|G|T|P|E)?$",
+                  "description": "Memory request (e.g., 2Gi, 1024Mi)"
+                },
+                "cpu": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(\\.[0-9]+)?m?$",
+                  "description": "CPU request (e.g., 1000m, 1.0)"
+                }
+              }
+            }
+          }
+        },
+        "env": {
+          "type": "object",
+          "properties": {
+            "BETTER_AUTH_SECRET": {
+              "type": "string",
+              "minLength": 32,
+              "description": "Auth secret (minimum 32 characters required)"
+            },
+            "ENCRYPTION_KEY": {
+              "type": "string",
+              "minLength": 32,
+              "description": "Encryption key (minimum 32 characters required)"
+            },
+            "NEXT_PUBLIC_APP_URL": {
+              "type": "string",
+              "format": "uri",
+              "description": "Public application URL"
+            },
+            "BETTER_AUTH_URL": {
+              "type": "string",
+              "format": "uri",
+              "description": "Authentication service URL"
+            },
+            "SOCKET_SERVER_URL": {
+              "type": "string",
+              "format": "uri",
+              "description": "Socket server URL"
+            },
+            "NEXT_PUBLIC_SOCKET_URL": {
+              "type": "string",
+              "format": "uri",
+              "description": "Public socket URL"
+            },
+            "NODE_ENV": {
+              "type": "string",
+              "enum": ["development", "test", "production"],
+              "description": "Runtime environment"
+            },
+            "NEXT_TELEMETRY_DISABLED": {
+              "type": "string",
+              "description": "Disable Next.js telemetry"
+            },
+            "RESEND_API_KEY": {
+              "type": "string",
+              "description": "Resend API key for transactional emails"
+            },
+            "FROM_EMAIL_ADDRESS": {
+              "type": "string",
+              "description": "Complete from address (e.g., \"Sim <noreply@domain.com>\" or \"DoNotReply@domain.com\")"
+            },
+            "EMAIL_DOMAIN": {
+              "type": "string",
+              "description": "Domain for sending emails (fallback when FROM_EMAIL_ADDRESS not set)"
+            },
+            "GOOGLE_CLIENT_ID": {
+              "type": "string",
+              "description": "Google OAuth client ID"
+            },
+            "GOOGLE_CLIENT_SECRET": {
+              "type": "string",
+              "description": "Google OAuth client secret"
+            },
+            "GITHUB_CLIENT_ID": {
+              "type": "string",
+              "description": "GitHub OAuth client ID"
+            },
+            "GITHUB_CLIENT_SECRET": {
+              "type": "string",
+              "description": "GitHub OAuth client secret"
+            },
+            "OPENAI_API_KEY": {
+              "type": "string",
+              "description": "Primary OpenAI API key"
+            },
+            "OPENAI_API_KEY_1": {
+              "type": "string",
+              "description": "Additional OpenAI API key for load balancing"
+            },
+            "OPENAI_API_KEY_2": {
+              "type": "string",
+              "description": "Additional OpenAI API key for load balancing"
+            },
+            "OPENAI_API_KEY_3": {
+              "type": "string",
+              "description": "Additional OpenAI API key for load balancing"
+            },
+            "MISTRAL_API_KEY": {
+              "type": "string",
+              "description": "Mistral AI API key"
+            },
+            "ANTHROPIC_API_KEY_1": {
+              "type": "string",
+              "description": "Primary Anthropic Claude API key"
+            },
+            "ANTHROPIC_API_KEY_2": {
+              "type": "string",
+              "description": "Additional Anthropic API key for load balancing"
+            },
+            "ANTHROPIC_API_KEY_3": {
+              "type": "string",
+              "description": "Additional Anthropic API key for load balancing"
+            },
+            "OLLAMA_URL": {
+              "type": "string",
+              "format": "uri",
+              "description": "Ollama local LLM server URL"
+            },
+            "ELEVENLABS_API_KEY": {
+              "type": "string",
+              "description": "ElevenLabs API key for text-to-speech in deployed chat"
+            },
+            "RATE_LIMIT_WINDOW_MS": {
+              "type": "string",
+              "description": "Rate limit window duration in milliseconds"
+            },
+            "RATE_LIMIT_FREE_SYNC": {
+              "type": "string",
+              "description": "Free tier sync API executions per minute"
+            },
+            "RATE_LIMIT_PRO_SYNC": {
+              "type": "string",
+              "description": "Pro tier sync API executions per minute"
+            },
+            "RATE_LIMIT_TEAM_SYNC": {
+              "type": "string",
+              "description": "Team tier sync API executions per minute"
+            },
+            "RATE_LIMIT_ENTERPRISE_SYNC": {
+              "type": "string",
+              "description": "Enterprise tier sync API executions per minute"
+            },
+            "RATE_LIMIT_FREE_ASYNC": {
+              "type": "string",
+              "description": "Free tier async API executions per minute"
+            },
+            "RATE_LIMIT_PRO_ASYNC": {
+              "type": "string",
+              "description": "Pro tier async API executions per minute"
+            },
+            "RATE_LIMIT_TEAM_ASYNC": {
+              "type": "string",
+              "description": "Team tier async API executions per minute"
+            },
+            "RATE_LIMIT_ENTERPRISE_ASYNC": {
+              "type": "string",
+              "description": "Enterprise tier async API executions per minute"
+            },
+            "MANUAL_EXECUTION_LIMIT": {
+              "type": "string",
+              "description": "Manual execution bypass value"
+            },
+            "NEXT_PUBLIC_BRAND_NAME": {
+              "type": "string",
+              "description": "Custom brand name"
+            },
+            "NEXT_PUBLIC_BRAND_LOGO_URL": {
+              "type": "string",
+              "description": "Custom logo URL"
+            },
+            "NEXT_PUBLIC_BRAND_FAVICON_URL": {
+              "type": "string",
+              "description": "Custom favicon URL"
+            },
+            "NEXT_PUBLIC_CUSTOM_CSS_URL": {
+              "type": "string",
+              "description": "Custom stylesheet URL"
+            },
+            "NEXT_PUBLIC_SUPPORT_EMAIL": {
+              "type": "string",
+              "format": "email",
+              "description": "Support email address"
+            },
+            "NEXT_PUBLIC_DOCUMENTATION_URL": {
+              "type": "string",
+              "description": "Documentation URL"
+            },
+            "NEXT_PUBLIC_TERMS_URL": {
+              "type": "string",
+              "description": "Terms of service URL"
+            },
+            "NEXT_PUBLIC_PRIVACY_URL": {
+              "type": "string",
+              "description": "Privacy policy URL"
+            },
+            "ALLOWED_LOGIN_EMAILS": {
+              "type": "string",
+              "description": "Comma-separated list of allowed email addresses for login"
+            },
+            "ALLOWED_LOGIN_DOMAINS": {
+              "type": "string",
+              "description": "Comma-separated list of allowed email domains for login"
+            }
+          }
+        }
+      }
+    },
+    "realtime": {
+      "type": "object",
+      "required": ["enabled"],
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable the realtime service"
+        },
+        "replicaCount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of realtime replicas"
+        },
+        "resources": {
+          "type": "object",
+          "properties": {
+            "limits": {
+              "type": "object",
+              "properties": {
+                "memory": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(Ki|Mi|Gi|Ti|Pi|Ei|m|k|M|G|T|P|E)?$",
+                  "description": "Memory limit (e.g., 2Gi, 1024Mi)"
+                },
+                "cpu": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(\\.[0-9]+)?m?$",
+                  "description": "CPU limit (e.g., 1000m, 1.0)"
+                }
+              }
+            },
+            "requests": {
+              "type": "object",
+              "properties": {
+                "memory": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(Ki|Mi|Gi|Ti|Pi|Ei|m|k|M|G|T|P|E)?$",
+                  "description": "Memory request (e.g., 1Gi, 512Mi)"
+                },
+                "cpu": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(\\.[0-9]+)?m?$",
+                  "description": "CPU request (e.g., 500m, 0.5)"
+                }
+              }
+            }
+          }
+        },
+        "env": {
+          "type": "object",
+          "properties": {
+            "BETTER_AUTH_SECRET": {
+              "type": "string",
+              "minLength": 32,
+              "description": "Auth secret (minimum 32 characters required)"
+            },
+            "NEXT_PUBLIC_APP_URL": {
+              "type": "string",
+              "format": "uri",
+              "description": "Public application URL"
+            },
+            "BETTER_AUTH_URL": {
+              "type": "string",
+              "format": "uri",
+              "description": "Authentication service URL"
+            },
+            "NEXT_PUBLIC_SOCKET_URL": {
+              "type": "string",
+              "format": "uri",
+              "description": "Public socket URL"
+            },
+            "ALLOWED_ORIGINS": {
+              "type": "string",
+              "description": "CORS allowed origins"
+            },
+            "NODE_ENV": {
+              "type": "string",
+              "enum": ["development", "test", "production"],
+              "description": "Runtime environment"
+            }
+          }
+        }
+      }
+    },
+    "postgresql": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable internal PostgreSQL"
+        },
+        "resources": {
+          "type": "object",
+          "properties": {
+            "limits": {
+              "type": "object",
+              "properties": {
+                "memory": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(Ki|Mi|Gi|Ti|Pi|Ei|m|k|M|G|T|P|E)?$",
+                  "description": "Memory limit (e.g., 2Gi, 1024Mi)"
+                },
+                "cpu": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(\\.[0-9]+)?m?$",
+                  "description": "CPU limit"
+                }
+              }
+            },
+            "requests": {
+              "type": "object",
+              "properties": {
+                "memory": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(Ki|Mi|Gi|Ti|Pi|Ei|m|k|M|G|T|P|E)?$",
+                  "description": "Memory request (e.g., 1Gi, 512Mi)"
+                },
+                "cpu": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(\\.[0-9]+)?m?$",
+                  "description": "CPU request (e.g., 500m, 0.5)"
+                }
+              }
+            }
+          }
+        },
+        "persistence": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable persistent storage"
+            },
+            "size": {
+              "type": "string",
+              "pattern": "^[0-9]+(Ki|Mi|Gi|Ti|Pi|Ei)$",
+              "description": "Storage size (e.g., 10Gi, 50Gi)"
+            }
+          }
+        },
+        "auth": {
+          "type": "object",
+          "properties": {
+            "username": {
+              "type": "string",
+              "minLength": 1,
+              "description": "PostgreSQL username"
+            },
+            "database": {
+              "type": "string",
+              "minLength": 1,
+              "description": "PostgreSQL database name"
+            },
+            "password": {
+              "type": "string",
+              "minLength": 8,
+              "not": {
+                "const": "CHANGE-ME-SECURE-PASSWORD"
+              },
+              "description": "PostgreSQL password (minimum 8 characters, must not be default placeholder)"
+            }
+          }
+        }
+      }
+    },
+    "externalDatabase": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Use external database"
+        },
+        "host": {
+          "type": "string",
+          "format": "hostname",
+          "description": "External database host"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "External database port"
+        },
+        "username": {
+          "type": "string",
+          "description": "External database username"
+        },
+        "password": {
+          "type": "string",
+          "description": "External database password"
+        },
+        "database": {
+          "type": "string",
+          "description": "External database name"
+        },
+        "sslMode": {
+          "type": "string",
+          "enum": ["disable", "allow", "prefer", "require", "verify-ca", "verify-full"],
+          "description": "SSL mode for database connection"
+        }
+      },
+      "if": {
+        "properties": {
+          "enabled": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "required": ["host", "username", "password", "database"]
+      }
+    },
+    "autoscaling": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable autoscaling"
+        },
+        "minReplicas": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Minimum replicas"
+        },
+        "maxReplicas": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum replicas"
+        }
+      },
+      "if": {
+        "properties": {
+          "enabled": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "required": ["minReplicas", "maxReplicas"]
+      }
+    },
+    "ollama": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable Ollama service"
+        },
+        "replicaCount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of Ollama replicas"
+        },
+        "resources": {
+          "type": "object",
+          "properties": {
+            "limits": {
+              "type": "object",
+              "properties": {
+                "memory": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(Ki|Mi|Gi|Ti|Pi|Ei|m|k|M|G|T|P|E)?$",
+                  "description": "Memory limit (e.g., 8Gi, 4096Mi)"
+                },
+                "cpu": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(\\.[0-9]+)?m?$",
+                  "description": "CPU limit"
+                },
+                "nvidia.com/gpu": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$",
+                  "description": "GPU limit"
+                }
+              }
+            },
+            "requests": {
+              "type": "object",
+              "properties": {
+                "memory": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(Ki|Mi|Gi|Ti|Pi|Ei|m|k|M|G|T|P|E)?$",
+                  "description": "Memory request (e.g., 4Gi, 2048Mi)"
+                },
+                "cpu": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(\\.[0-9]+)?m?$",
+                  "description": "CPU request (e.g., 1000m, 1.0)"
+                }
+              }
+            }
+          }
+        },
+        "persistence": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable persistent storage"
+            },
+            "size": {
+              "type": "string",
+              "pattern": "^[0-9]+(Ki|Mi|Gi|Ti|Pi|Ei)$",
+              "description": "Storage size (e.g., 100Gi, 500Gi)"
+            }
+          }
+        },
+        "gpu": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable GPU support"
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Number of GPUs"
+            }
+          }
+        }
+      }
+    },
+    "telemetry": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable telemetry collection"
+        },
+        "replicaCount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of telemetry collector replicas"
+        }
+      }
+    },
+    "sharedStorage": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable shared storage"
+        },
+        "volumes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "size"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Volume name"
+              },
+              "size": {
+                "type": "string",
+                "pattern": "^[0-9]+[KMGT]i$",
+                "description": "Volume size (e.g., 100Gi)"
+              }
+            }
+          }
+        }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable ingress"
+        },
+        "className": {
+          "type": "string",
+          "description": "Ingress class name"
+        },
+        "app": {
+          "type": "object",
+          "properties": {
+            "host": {
+              "type": "string",
+              "format": "hostname",
+              "description": "Main application hostname"
+            }
+          }
+        },
+        "realtime": {
+          "type": "object",
+          "properties": {
+            "host": {
+              "type": "string",
+              "format": "hostname",
+              "description": "Realtime service hostname"
+            }
+          }
+        },
+        "tls": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable TLS"
+            },
+            "secretName": {
+              "type": "string",
+              "minLength": 1,
+              "description": "TLS secret name"
+            }
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "postgresql": {
+            "properties": {
+              "enabled": {
+                "const": false
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "externalDatabase": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            },
+            "required": ["enabled"]
+          }
+        }
+      }
+    }
+  ]
+}

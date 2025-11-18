@@ -1,0 +1,40 @@
+---
+title: Bloque de flujo de trabajo
+description: Ejecuta otro flujo de trabajo dentro del flujo actual
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Image } from '@/components/ui/image'
+
+## Qué hace
+
+<div className='flex justify-center my-6'>
+  <Image
+    src='/static/blocks/workflow.png'
+    alt='Configuración del bloque de flujo de trabajo'
+    width={400}
+    height={280}
+    className='rounded-xl border border-border shadow-sm'
+  />
+</div>
+
+Coloca un bloque de Flujo de trabajo cuando quieras llamar a un flujo de trabajo secundario como parte de un flujo más grande. El bloque ejecuta la última versión implementada de ese flujo de trabajo, espera a que termine y luego continúa con el principal.
+
+## Cómo configurarlo
+
+1. **Elige un flujo de trabajo** del menú desplegable (las auto-referencias están bloqueadas para evitar bucles).
+2. **Asigna entradas**: Si el flujo de trabajo secundario tiene un disparador de Formulario de entrada, verás cada campo y podrás conectar variables del principal. Los valores asignados son los que recibe el secundario.
+3. **Salidas**: Después de que el secundario finaliza, el bloque expone:
+   - `result` – la respuesta final del flujo de trabajo secundario
+   - `success` – si se ejecutó sin errores
+   - `error` – mensaje cuando la ejecución falla
+
+## Notas de ejecución
+
+- Los flujos de trabajo secundarios se ejecutan en el mismo contexto de espacio de trabajo, por lo que las variables de entorno y herramientas se mantienen.
+- El bloque utiliza el versionado de implementación: cualquier ejecución de API, programación, webhook, manual o chat llama a la instantánea implementada. Vuelve a implementar el secundario cuando lo cambies.
+- Si el secundario falla, el bloque genera un error a menos que lo gestiones posteriormente.
+
+<Callout>
+Mantén los flujos de trabajo secundarios enfocados. Los flujos pequeños y reutilizables facilitan su combinación sin crear anidamientos profundos.
+</Callout>

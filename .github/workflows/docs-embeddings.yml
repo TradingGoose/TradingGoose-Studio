@@ -1,0 +1,35 @@
+name: Process Docs Embeddings
+
+on:
+  workflow_call:
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  process-docs-embeddings:
+    name: Process Documentation Embeddings
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.22
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Process docs embeddings
+        working-directory: ./apps/sim
+        env:
+          DATABASE_URL: ${{ github.ref == 'refs/heads/main' && secrets.DATABASE_URL || secrets.STAGING_DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: bun run scripts/process-docs.ts --clear 

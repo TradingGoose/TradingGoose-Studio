@@ -1,0 +1,19 @@
+{
+  "title": "Sim Documentation",
+  "pages": [
+    "./introduction/index",
+    "./getting-started/index",
+    "triggers",
+    "blocks",
+    "tools",
+    "connections",
+    "mcp",
+    "copilot",
+    "knowledgebase",
+    "variables",
+    "execution",
+    "permissions",
+    "sdks"
+  ],
+  "defaultOpen": false
+}

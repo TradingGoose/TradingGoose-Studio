@@ -1,0 +1,335 @@
+import { db } from '@sim/db'
+import { member, subscription, user, userStats } from '@sim/db/schema'
+import { and, eq, inArray } from 'drizzle-orm'
+import {
+  checkEnterprisePlan,
+  checkProPlan,
+  checkTeamPlan,
+  getFreeTierLimit,
+  getPerUserMinimumLimit,
+} from '@/lib/billing/subscriptions/utils'
+import type { UserSubscriptionState } from '@/lib/billing/types'
+import { isProd } from '@/lib/environment'
+import { createLogger } from '@/lib/logs/console/logger'
+import { getBaseUrl } from '@/lib/urls/utils'
+
+const logger = createLogger('SubscriptionCore')
+
+/**
+ * Core subscription management - single source of truth
+ * Consolidates logic from both lib/subscription.ts and lib/subscription/subscription.ts
+ */
+
+/**
+ * Get the highest priority active subscription for a user
+ * Priority: Enterprise > Team > Pro > Free
+ */
+export async function getHighestPrioritySubscription(userId: string) {
+  try {
+    // Get direct subscriptions
+    const personalSubs = await db
+      .select()
+      .from(subscription)
+      .where(and(eq(subscription.referenceId, userId), eq(subscription.status, 'active')))
+
+    // Get organization memberships
+    const memberships = await db
+      .select({ organizationId: member.organizationId })
+      .from(member)
+      .where(eq(member.userId, userId))
+
+    const orgIds = memberships.map((m: { organizationId: string }) => m.organizationId)
+
+    // Get organization subscriptions
+    let orgSubs: any[] = []
+    if (orgIds.length > 0) {
+      orgSubs = await db
+        .select()
+        .from(subscription)
+        .where(and(inArray(subscription.referenceId, orgIds), eq(subscription.status, 'active')))
+    }
+
+    const allSubs = [...personalSubs, ...orgSubs]
+
+    if (allSubs.length === 0) return null
+
+    // Return highest priority subscription
+    const enterpriseSub = allSubs.find((s) => checkEnterprisePlan(s))
+    if (enterpriseSub) return enterpriseSub
+
+    const teamSub = allSubs.find((s) => checkTeamPlan(s))
+    if (teamSub) return teamSub
+
+    const proSub = allSubs.find((s) => checkProPlan(s))
+    if (proSub) return proSub
+
+    return null
+  } catch (error) {
+    logger.error('Error getting highest priority subscription', { error, userId })
+    return null
+  }
+}
+
+/**
+ * Check if user is on Pro plan (direct or via organization)
+ */
+export async function isProPlan(userId: string): Promise<boolean> {
+  try {
+    if (!isProd) {
+      return true
+    }
+
+    const subscription = await getHighestPrioritySubscription(userId)
+    const isPro =
+      subscription &&
+      (checkProPlan(subscription) ||
+        checkTeamPlan(subscription) ||
+        checkEnterprisePlan(subscription))
+
+    if (isPro) {
+      logger.info('User has pro-level plan', { userId, plan: subscription.plan })
+    }
+
+    return !!isPro
+  } catch (error) {
+    logger.error('Error checking pro plan status', { error, userId })
+    return false
+  }
+}
+
+/**
+ * Check if user is on Team plan (direct or via organization)
+ */
+export async function isTeamPlan(userId: string): Promise<boolean> {
+  try {
+    if (!isProd) {
+      return true
+    }
+
+    const subscription = await getHighestPrioritySubscription(userId)
+    const isTeam =
+      subscription && (checkTeamPlan(subscription) || checkEnterprisePlan(subscription))
+
+    if (isTeam) {
+      logger.info('User has team-level plan', { userId, plan: subscription.plan })
+    }
+
+    return !!isTeam
+  } catch (error) {
+    logger.error('Error checking team plan status', { error, userId })
+    return false
+  }
+}
+
+/**
+ * Check if user is on Enterprise plan (direct or via organization)
+ */
+export async function isEnterprisePlan(userId: string): Promise<boolean> {
+  try {
+    if (!isProd) {
+      return true
+    }
+
+    const subscription = await getHighestPrioritySubscription(userId)
+    const isEnterprise = subscription && checkEnterprisePlan(subscription)
+
+    if (isEnterprise) {
+      logger.info('User has enterprise plan', { userId, plan: subscription.plan })
+    }
+
+    return !!isEnterprise
+  } catch (error) {
+    logger.error('Error checking enterprise plan status', { error, userId })
+    return false
+  }
+}
+
+/**
+ * Check if user has exceeded their cost limit based on current period usage
+ */
+export async function hasExceededCostLimit(userId: string): Promise<boolean> {
+  try {
+    if (!isProd) {
+      return false
+    }
+
+    const subscription = await getHighestPrioritySubscription(userId)
+
+    let limit = getFreeTierLimit() // Default free tier limit
+
+    if (subscription) {
+      // Team/Enterprise: Use organization limit
+      if (subscription.plan === 'team' || subscription.plan === 'enterprise') {
+        const { getUserUsageLimit } = await import('@/lib/billing/core/usage')
+        limit = await getUserUsageLimit(userId)
+        logger.info('Using organization limit', {
+          userId,
+          plan: subscription.plan,
+          limit,
+        })
+      } else {
+        // Pro/Free: Use individual limit
+        limit = getPerUserMinimumLimit(subscription)
+        logger.info('Using subscription-based limit', {
+          userId,
+          plan: subscription.plan,
+          limit,
+        })
+      }
+    } else {
+      logger.info('Using free tier limit', { userId, limit })
+    }
+
+    // Get user stats to check current period usage
+    const statsRecords = await db.select().from(userStats).where(eq(userStats.userId, userId))
+
+    if (statsRecords.length === 0) {
+      return false
+    }
+
+    // Use current period cost instead of total cost for accurate billing period tracking
+    const currentCost = Number.parseFloat(
+      statsRecords[0].currentPeriodCost?.toString() || statsRecords[0].totalCost.toString()
+    )
+
+    logger.info('Checking cost limit', { userId, currentCost, limit })
+
+    return currentCost >= limit
+  } catch (error) {
+    logger.error('Error checking cost limit', { error, userId })
+    return false // Be conservative in case of error
+  }
+}
+
+/**
+ * Check if sharing features are enabled for user
+ */
+// Removed unused feature flag helpers: isSharingEnabled, isMultiplayerEnabled, isWorkspaceCollaborationEnabled
+
+/**
+ * Get comprehensive subscription state for a user
+ * Single function to get all subscription information
+ */
+export async function getUserSubscriptionState(userId: string): Promise<UserSubscriptionState> {
+  try {
+    // Get subscription and user stats in parallel to minimize DB calls
+    const [subscription, statsRecords] = await Promise.all([
+      getHighestPrioritySubscription(userId),
+      db.select().from(userStats).where(eq(userStats.userId, userId)).limit(1),
+    ])
+
+    // Determine plan types based on subscription (avoid redundant DB calls)
+    const isPro =
+      !isProd ||
+      (subscription &&
+        (checkProPlan(subscription) ||
+          checkTeamPlan(subscription) ||
+          checkEnterprisePlan(subscription)))
+    const isTeam =
+      !isProd ||
+      (subscription && (checkTeamPlan(subscription) || checkEnterprisePlan(subscription)))
+    const isEnterprise = !isProd || (subscription && checkEnterprisePlan(subscription))
+    const isFree = !isPro && !isTeam && !isEnterprise
+
+    // Determine plan name
+    let planName = 'free'
+    if (isEnterprise) planName = 'enterprise'
+    else if (isTeam) planName = 'team'
+    else if (isPro) planName = 'pro'
+
+    // Check cost limit using already-fetched user stats
+    let hasExceededLimit = false
+    if (isProd && statsRecords.length > 0) {
+      let limit = getFreeTierLimit() // Default free tier limit
+      if (subscription) {
+        // Team/Enterprise: Use organization limit
+        if (subscription.plan === 'team' || subscription.plan === 'enterprise') {
+          const { getUserUsageLimit } = await import('@/lib/billing/core/usage')
+          limit = await getUserUsageLimit(userId)
+        } else {
+          // Pro/Free: Use individual limit
+          limit = getPerUserMinimumLimit(subscription)
+        }
+      }
+
+      const currentCost = Number.parseFloat(
+        statsRecords[0].currentPeriodCost?.toString() || statsRecords[0].totalCost.toString()
+      )
+      hasExceededLimit = currentCost >= limit
+    }
+
+    return {
+      isPro,
+      isTeam,
+      isEnterprise,
+      isFree,
+      highestPrioritySubscription: subscription,
+      hasExceededLimit,
+      planName,
+    }
+  } catch (error) {
+    logger.error('Error getting user subscription state', { error, userId })
+
+    // Return safe defaults in case of error
+    return {
+      isPro: false,
+      isTeam: false,
+      isEnterprise: false,
+      isFree: true,
+      highestPrioritySubscription: null,
+      hasExceededLimit: false,
+      planName: 'free',
+    }
+  }
+}
+
+/**
+ * Send welcome email for Pro and Team plan subscriptions
+ */
+export async function sendPlanWelcomeEmail(subscription: any): Promise<void> {
+  try {
+    const subPlan = subscription.plan
+    if (subPlan === 'pro' || subPlan === 'team') {
+      const userId = subscription.referenceId
+      const users = await db
+        .select({ email: user.email, name: user.name })
+        .from(user)
+        .where(eq(user.id, userId))
+        .limit(1)
+
+      if (users.length > 0 && users[0].email) {
+        const { getEmailSubject, renderPlanWelcomeEmail } = await import(
+          '@/components/emails/render-email'
+        )
+        const { sendEmail } = await import('@/lib/email/mailer')
+
+        const baseUrl = getBaseUrl()
+        const html = await renderPlanWelcomeEmail({
+          planName: subPlan === 'pro' ? 'Pro' : 'Team',
+          userName: users[0].name || undefined,
+          loginLink: `${baseUrl}/login`,
+        })
+
+        await sendEmail({
+          to: users[0].email,
+          subject: getEmailSubject(subPlan === 'pro' ? 'plan-welcome-pro' : 'plan-welcome-team'),
+          html,
+          emailType: 'updates',
+        })
+
+        logger.info('Plan welcome email sent successfully', {
+          userId,
+          email: users[0].email,
+          plan: subPlan,
+        })
+      }
+    }
+  } catch (error) {
+    logger.error('Failed to send plan welcome email', {
+      error,
+      subscriptionId: subscription.id,
+      plan: subscription.plan,
+    })
+    throw error
+  }
+}

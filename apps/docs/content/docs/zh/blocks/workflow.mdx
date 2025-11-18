@@ -1,0 +1,40 @@
+---
+title: 工作流模块
+description: 在当前流程中运行另一个工作流
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Image } from '@/components/ui/image'
+
+## 功能简介
+
+<div className='flex justify-center my-6'>
+  <Image
+    src='/static/blocks/workflow.png'
+    alt='工作流模块配置'
+    width={400}
+    height={280}
+    className='rounded-xl border border-border shadow-sm'
+  />
+</div>
+
+当您希望在更大的流程中调用子工作流时，可以使用工作流模块。该模块运行该工作流的最新部署版本，等待其完成后，再继续执行父流程。
+
+## 配置方法
+
+1. **选择一个工作流**：从下拉菜单中选择（为了防止循环，禁止自引用）。
+2. **映射输入**：如果子工作流有输入表单触发器，您将看到每个字段，并可以连接父变量。映射的值是子工作流接收到的值。
+3. **输出**：子工作流完成后，该模块会提供以下输出：
+   - `result` – 子工作流的最终响应
+   - `success` – 是否运行无错误
+   - `error` – 运行失败时的消息
+
+## 执行注意事项
+
+- 子工作流在相同的工作区上下文中运行，因此环境变量和工具会被继承。
+- 该模块使用部署版本控制：任何 API、计划任务、Webhook、手动或聊天执行都会调用已部署的快照。当您更改子工作流时，需要重新部署。
+- 如果子工作流失败，该模块会引发错误，除非您在下游处理了该错误。
+
+<Callout>
+保持子工作流的专注性。小型、可复用的流程更容易组合使用，而不会导致深层嵌套。
+</Callout>
