@@ -1,0 +1,635 @@
+<main id="nd-docs-layout"
+    class="flex flex-1 flex-col transition-[padding] pt-(--fd-nav-height) fd-notebook-layout max-md:[--fd-sidebar-width:0px] px-(--fd-layout-offset) md:[--fd-sidebar-width:286px]"
+    style="margin-inline-start:var(--fd-sidebar-width);width:calc(100% - var(--fd-sidebar-width));padding-inline-start:var(--fd-sidebar-width)">
+    <aside id="nd-sidebar"
+        class="fixed left-0 rtl:left-auto rtl:right-(--removed-body-scroll-bar-size,0) top-(--fd-sidebar-top) bottom-0 z-20 max-md:hidden flex flex-col bg-fd-card text-sm border-e shadow-sm transition-[width] duration-200 data-[collapsed=true]:items-center data-[collapsed=true]:overflow-hidden [--fd-nav-height:0px]"
+        data-collapsed="false" data-dragging="false"
+        style="--fd-sidebar-top: calc(var(--fd-banner-height) + var(--fd-nav-height)); width: 220px;">
+        <div class="flex min-h-0 flex-1 flex-col gap-2 px-2 py-3 data-[collapsed=true]:px-1 data-[collapsed=true]:py-3">
+            <div class="flex flex-col gap-3 p-4 pb-2 empty:hidden">
+                <div class="flex justify-between"><a class="inline-flex items-center gap-2.5 font-medium" href="/"><img
+                            alt="Sim" width="72" height="28" decoding="async" data-nimg="1" class="h-7 w-auto"
+                            style="color:transparent"
+                            srcset="/_next/image?url=%2Fstatic%2Flogo.png&amp;w=96&amp;q=75 1x, /_next/image?url=%2Fstatic%2Flogo.png&amp;w=256&amp;q=75 2x"
+                            src="/_next/image?url=%2Fstatic%2Flogo.png&amp;w=256&amp;q=75"></a></div>
+            </div>
+            <div dir="ltr" class="overflow-hidden h-full"
+                style="position:relative;--radix-scroll-area-corner-width:0px;--radix-scroll-area-corner-height:0px">
+                <style>
+                    [data-radix-scroll-area-viewport] {
+                        scrollbar-width: none;
+                        -ms-overflow-style: none;
+                        -webkit-overflow-scrolling: touch;
+                    }
+
+                    [data-radix-scroll-area-viewport]::-webkit-scrollbar {
+                        display: none
+                    }
+                </style>
+                <div data-radix-scroll-area-viewport="" class="size-full rounded-[inherit] p-4 overscroll-contain"
+                    style="overflow: hidden scroll; --sidebar-item-offset: calc(var(--spacing) * 2); mask-image: linear-gradient(transparent, white 12px, white calc(100% - 12px), transparent);">
+                    <div style="min-width:100%;display:table"><a data-collapsed="false" data-active="true"
+                            class="relative flex flex-row items-center gap-2 rounded-lg p-2 ps-(--sidebar-item-offset) text-start [overflow-wrap:anywhere] [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 bg-fd-primary/10 text-fd-primary justify-start"
+                            href="/de/introduction"><span class="inline-flex items-center justify-center"></span><span
+                                class="truncate">Einführung</span></a><a data-collapsed="false" data-active="false"
+                            class="relative flex flex-row items-center gap-2 rounded-lg p-2 ps-(--sidebar-item-offset) text-start text-fd-muted-foreground [overflow-wrap:anywhere] [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 transition-colors hover:bg-fd-accent/50 hover:text-fd-accent-foreground/80 hover:transition-none justify-start"
+                            href="/de/getting-started"><span
+                                class="inline-flex items-center justify-center"></span><span class="truncate">Erste
+                                Schritte</span></a>
+                        <div data-state="closed"><button type="button" aria-controls="radix-_R_1qcll9etb_"
+                                aria-expanded="false" data-state="closed"
+                                class="relative flex flex-row items-center gap-2 rounded-lg p-2 ps-(--sidebar-item-offset) text-start text-fd-muted-foreground [overflow-wrap:anywhere] [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 transition-colors hover:bg-fd-accent/50 hover:text-fd-accent-foreground/80 hover:transition-none w-full justify-start"
+                                data-collapsed="false"><span class="inline-flex items-center justify-center"><svg
+                                        xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" class="lucide lucide-zap" aria-hidden="true">
+                                        <path
+                                            d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z">
+                                        </path>
+                                    </svg></span><span class="truncate">Triggers</span><svg
+                                    xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    class="lucide lucide-chevron-down ms-auto transition-transform -rotate-90"
+                                    aria-hidden="true" data-icon="true">
+                                    <path d="m6 9 6 6 6-6"></path>
+                                </svg></button>
+                            <div data-state="closed" id="radix-_R_1qcll9etb_" hidden=""
+                                class="overflow-hidden data-[state=closed]:animate-fd-collapsible-up data-[state=open]:animate-fd-collapsible-down relative before:content-[''] before:absolute before:w-px before:inset-y-1 before:bg-fd-border before:start-2.5 **:data-[active=true]:before:content-[''] **:data-[active=true]:before:bg-fd-primary **:data-[active=true]:before:absolute **:data-[active=true]:before:w-px **:data-[active=true]:before:inset-y-2.5 **:data-[active=true]:before:start-2.5"
+                                style="--sidebar-item-offset: calc(var(--spacing) * 6);"></div>
+                        </div>
+                        <div data-state="closed"><button type="button" aria-controls="radix-_R_2acll9etb_"
+                                aria-expanded="false" data-state="closed"
+                                class="relative flex flex-row items-center gap-2 rounded-lg p-2 ps-(--sidebar-item-offset) text-start text-fd-muted-foreground [overflow-wrap:anywhere] [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 transition-colors hover:bg-fd-accent/50 hover:text-fd-accent-foreground/80 hover:transition-none w-full justify-start"
+                                data-collapsed="false"><span class="inline-flex items-center justify-center"><svg
+                                        xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" class="lucide lucide-square-stack" aria-hidden="true">
+                                        <path d="M4 10c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h4c1.1 0 2 .9 2 2"></path>
+                                        <path d="M10 16c-1.1 0-2-.9-2-2v-4c0-1.1.9-2 2-2h4c1.1 0 2 .9 2 2"></path>
+                                        <rect width="8" height="8" x="14" y="14" rx="2"></rect>
+                                    </svg></span><span class="truncate">Blocks</span><svg
+                                    xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    class="lucide lucide-chevron-down ms-auto transition-transform -rotate-90"
+                                    aria-hidden="true" data-icon="true">
+                                    <path d="m6 9 6 6 6-6"></path>
+                                </svg></button>
+                            <div data-state="closed" id="radix-_R_2acll9etb_" hidden=""
+                                class="overflow-hidden data-[state=closed]:animate-fd-collapsible-up data-[state=open]:animate-fd-collapsible-down relative before:content-[''] before:absolute before:w-px before:inset-y-1 before:bg-fd-border before:start-2.5 **:data-[active=true]:before:content-[''] **:data-[active=true]:before:bg-fd-primary **:data-[active=true]:before:absolute **:data-[active=true]:before:w-px **:data-[active=true]:before:inset-y-2.5 **:data-[active=true]:before:start-2.5"
+                                style="--sidebar-item-offset: calc(var(--spacing) * 6);"></div>
+                        </div>
+                        <div data-state="closed"><button type="button" aria-controls="radix-_R_2qcll9etb_"
+                                aria-expanded="false" data-state="closed"
+                                class="relative flex flex-row items-center gap-2 rounded-lg p-2 ps-(--sidebar-item-offset) text-start text-fd-muted-foreground [overflow-wrap:anywhere] [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 transition-colors hover:bg-fd-accent/50 hover:text-fd-accent-foreground/80 hover:transition-none w-full justify-start"
+                                data-collapsed="false"><span class="inline-flex items-center justify-center"><svg
+                                        xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" class="lucide lucide-wrench" aria-hidden="true">
+                                        <path
+                                            d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z">
+                                        </path>
+                                    </svg></span><span class="truncate">Tools</span><svg
+                                    xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    class="lucide lucide-chevron-down ms-auto transition-transform -rotate-90"
+                                    aria-hidden="true" data-icon="true">
+                                    <path d="m6 9 6 6 6-6"></path>
+                                </svg></button>
+                            <div data-state="closed" id="radix-_R_2qcll9etb_" hidden=""
+                                class="overflow-hidden data-[state=closed]:animate-fd-collapsible-up data-[state=open]:animate-fd-collapsible-down relative before:content-[''] before:absolute before:w-px before:inset-y-1 before:bg-fd-border before:start-2.5 **:data-[active=true]:before:content-[''] **:data-[active=true]:before:bg-fd-primary **:data-[active=true]:before:absolute **:data-[active=true]:before:w-px **:data-[active=true]:before:inset-y-2.5 **:data-[active=true]:before:start-2.5"
+                                style="--sidebar-item-offset: calc(var(--spacing) * 6);"></div>
+                        </div>
+                        <div data-state="closed"><button type="button" aria-controls="radix-_R_3acll9etb_"
+                                aria-expanded="false" data-state="closed"
+                                class="relative flex flex-row items-center gap-2 rounded-lg p-2 ps-(--sidebar-item-offset) text-start text-fd-muted-foreground [overflow-wrap:anywhere] [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 transition-colors hover:bg-fd-accent/50 hover:text-fd-accent-foreground/80 hover:transition-none w-full justify-start"
+                                data-collapsed="false"><span class="inline-flex items-center justify-center"><svg
+                                        xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" class="lucide lucide-cable" aria-hidden="true">
+                                        <path
+                                            d="M17 21v-2a1 1 0 0 1-1-1v-1a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1a1 1 0 0 1-1 1">
+                                        </path>
+                                        <path d="M19 15V6.5a1 1 0 0 0-7 0v11a1 1 0 0 1-7 0V9"></path>
+                                        <path d="M21 21v-2h-4"></path>
+                                        <path d="M3 5h4V3"></path>
+                                        <path d="M7 5a1 1 0 0 1 1 1v1a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a1 1 0 0 1 1-1V3">
+                                        </path>
+                                    </svg></span><span class="truncate">Connections</span><svg
+                                    xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    class="lucide lucide-chevron-down ms-auto transition-transform -rotate-90"
+                                    aria-hidden="true" data-icon="true">
+                                    <path d="m6 9 6 6 6-6"></path>
+                                </svg></button>
+                            <div data-state="closed" id="radix-_R_3acll9etb_" hidden=""
+                                class="overflow-hidden data-[state=closed]:animate-fd-collapsible-up data-[state=open]:animate-fd-collapsible-down relative before:content-[''] before:absolute before:w-px before:inset-y-1 before:bg-fd-border before:start-2.5 **:data-[active=true]:before:content-[''] **:data-[active=true]:before:bg-fd-primary **:data-[active=true]:before:absolute **:data-[active=true]:before:w-px **:data-[active=true]:before:inset-y-2.5 **:data-[active=true]:before:start-2.5"
+                                style="--sidebar-item-offset: calc(var(--spacing) * 6);"></div>
+                        </div>
+                        <div data-state="closed"><a data-active="false" data-collapsed="false"
+                                class="relative flex flex-row items-center gap-2 rounded-lg p-2 ps-(--sidebar-item-offset) text-start text-fd-muted-foreground [overflow-wrap:anywhere] [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 transition-colors hover:bg-fd-accent/50 hover:text-fd-accent-foreground/80 hover:transition-none w-full justify-start"
+                                href="/de/mcp"><span class="inline-flex items-center justify-center"><svg
+                                        xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" class="lucide lucide-network" aria-hidden="true">
+                                        <rect x="16" y="16" width="6" height="6" rx="1"></rect>
+                                        <rect x="2" y="16" width="6" height="6" rx="1"></rect>
+                                        <rect x="9" y="2" width="6" height="6" rx="1"></rect>
+                                        <path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"></path>
+                                        <path d="M12 12V8"></path>
+                                    </svg></span><span class="truncate">MCP (Model Context Protocol)</span><svg
+                                    xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    class="lucide lucide-chevron-down ms-auto transition-transform -rotate-90"
+                                    aria-hidden="true" data-icon="true">
+                                    <path d="m6 9 6 6 6-6"></path>
+                                </svg></a>
+                            <div data-state="closed" id="radix-_R_3qcll9etb_" hidden=""
+                                class="overflow-hidden data-[state=closed]:animate-fd-collapsible-up data-[state=open]:animate-fd-collapsible-down relative before:content-[''] before:absolute before:w-px before:inset-y-1 before:bg-fd-border before:start-2.5 **:data-[active=true]:before:content-[''] **:data-[active=true]:before:bg-fd-primary **:data-[active=true]:before:absolute **:data-[active=true]:before:w-px **:data-[active=true]:before:inset-y-2.5 **:data-[active=true]:before:start-2.5"
+                                style="--sidebar-item-offset: calc(var(--spacing) * 6);"></div>
+                        </div>
+                        <div data-state="closed"><a data-active="false" data-collapsed="false"
+                                class="relative flex flex-row items-center gap-2 rounded-lg p-2 ps-(--sidebar-item-offset) text-start text-fd-muted-foreground [overflow-wrap:anywhere] [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 transition-colors hover:bg-fd-accent/50 hover:text-fd-accent-foreground/80 hover:transition-none w-full justify-start"
+                                href="/de/copilot"><span class="inline-flex items-center justify-center"><svg
+                                        xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" class="lucide lucide-bot" aria-hidden="true">
+                                        <path d="M12 8V4H8"></path>
+                                        <rect width="16" height="12" x="4" y="8" rx="2"></rect>
+                                        <path d="M2 14h2"></path>
+                                        <path d="M20 14h2"></path>
+                                        <path d="M15 13v2"></path>
+                                        <path d="M9 13v2"></path>
+                                    </svg></span><span class="truncate">Copilot</span><svg
+                                    xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    class="lucide lucide-chevron-down ms-auto transition-transform -rotate-90"
+                                    aria-hidden="true" data-icon="true">
+                                    <path d="m6 9 6 6 6-6"></path>
+                                </svg></a>
+                            <div data-state="closed" id="radix-_R_4acll9etb_" hidden=""
+                                class="overflow-hidden data-[state=closed]:animate-fd-collapsible-up data-[state=open]:animate-fd-collapsible-down relative before:content-[''] before:absolute before:w-px before:inset-y-1 before:bg-fd-border before:start-2.5 **:data-[active=true]:before:content-[''] **:data-[active=true]:before:bg-fd-primary **:data-[active=true]:before:absolute **:data-[active=true]:before:w-px **:data-[active=true]:before:inset-y-2.5 **:data-[active=true]:before:start-2.5"
+                                style="--sidebar-item-offset: calc(var(--spacing) * 6);"></div>
+                        </div>
+                        <div data-state="closed"><a data-active="false" data-collapsed="false"
+                                class="relative flex flex-row items-center gap-2 rounded-lg p-2 ps-(--sidebar-item-offset) text-start text-fd-muted-foreground [overflow-wrap:anywhere] [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 transition-colors hover:bg-fd-accent/50 hover:text-fd-accent-foreground/80 hover:transition-none w-full justify-start"
+                                href="/de/knowledgebase"><span class="inline-flex items-center justify-center"><svg
+                                        xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" class="lucide lucide-book-open" aria-hidden="true">
+                                        <path d="M12 7v14"></path>
+                                        <path
+                                            d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z">
+                                        </path>
+                                    </svg></span><span class="truncate">Wissensdatenbank</span><svg
+                                    xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    class="lucide lucide-chevron-down ms-auto transition-transform -rotate-90"
+                                    aria-hidden="true" data-icon="true">
+                                    <path d="m6 9 6 6 6-6"></path>
+                                </svg></a>
+                            <div data-state="closed" id="radix-_R_4qcll9etb_" hidden=""
+                                class="overflow-hidden data-[state=closed]:animate-fd-collapsible-up data-[state=open]:animate-fd-collapsible-down relative before:content-[''] before:absolute before:w-px before:inset-y-1 before:bg-fd-border before:start-2.5 **:data-[active=true]:before:content-[''] **:data-[active=true]:before:bg-fd-primary **:data-[active=true]:before:absolute **:data-[active=true]:before:w-px **:data-[active=true]:before:inset-y-2.5 **:data-[active=true]:before:start-2.5"
+                                style="--sidebar-item-offset: calc(var(--spacing) * 6);"></div>
+                        </div>
+                        <div data-state="closed"><button type="button" aria-controls="radix-_R_5acll9etb_"
+                                aria-expanded="false" data-state="closed"
+                                class="relative flex flex-row items-center gap-2 rounded-lg p-2 ps-(--sidebar-item-offset) text-start text-fd-muted-foreground [overflow-wrap:anywhere] [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 transition-colors hover:bg-fd-accent/50 hover:text-fd-accent-foreground/80 hover:transition-none w-full justify-start"
+                                data-collapsed="false"><span class="inline-flex items-center justify-center"><svg
+                                        xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" class="lucide lucide-variable" aria-hidden="true">
+                                        <path d="M8 21s-4-3-4-9 4-9 4-9"></path>
+                                        <path d="M16 3s4 3 4 9-4 9-4 9"></path>
+                                        <line x1="15" x2="9" y1="9" y2="15"></line>
+                                        <line x1="9" x2="15" y1="9" y2="15"></line>
+                                    </svg></span><span class="truncate">Variables</span><svg
+                                    xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    class="lucide lucide-chevron-down ms-auto transition-transform -rotate-90"
+                                    aria-hidden="true" data-icon="true">
+                                    <path d="m6 9 6 6 6-6"></path>
+                                </svg></button>
+                            <div data-state="closed" id="radix-_R_5acll9etb_" hidden=""
+                                class="overflow-hidden data-[state=closed]:animate-fd-collapsible-up data-[state=open]:animate-fd-collapsible-down relative before:content-[''] before:absolute before:w-px before:inset-y-1 before:bg-fd-border before:start-2.5 **:data-[active=true]:before:content-[''] **:data-[active=true]:before:bg-fd-primary **:data-[active=true]:before:absolute **:data-[active=true]:before:w-px **:data-[active=true]:before:inset-y-2.5 **:data-[active=true]:before:start-2.5"
+                                style="--sidebar-item-offset: calc(var(--spacing) * 6);"></div>
+                        </div>
+                        <div data-state="closed"><button type="button" aria-controls="radix-_R_5qcll9etb_"
+                                aria-expanded="false" data-state="closed"
+                                class="relative flex flex-row items-center gap-2 rounded-lg p-2 ps-(--sidebar-item-offset) text-start text-fd-muted-foreground [overflow-wrap:anywhere] [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 transition-colors hover:bg-fd-accent/50 hover:text-fd-accent-foreground/80 hover:transition-none w-full justify-start"
+                                data-collapsed="false"><span class="inline-flex items-center justify-center"><svg
+                                        xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" class="lucide lucide-gauge" aria-hidden="true">
+                                        <path d="m12 14 4-4"></path>
+                                        <path d="M3.34 19a10 10 0 1 1 17.32 0"></path>
+                                    </svg></span><span class="truncate">Execution</span><svg
+                                    xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    class="lucide lucide-chevron-down ms-auto transition-transform -rotate-90"
+                                    aria-hidden="true" data-icon="true">
+                                    <path d="m6 9 6 6 6-6"></path>
+                                </svg></button>
+                            <div data-state="closed" id="radix-_R_5qcll9etb_" hidden=""
+                                class="overflow-hidden data-[state=closed]:animate-fd-collapsible-up data-[state=open]:animate-fd-collapsible-down relative before:content-[''] before:absolute before:w-px before:inset-y-1 before:bg-fd-border before:start-2.5 **:data-[active=true]:before:content-[''] **:data-[active=true]:before:bg-fd-primary **:data-[active=true]:before:absolute **:data-[active=true]:before:w-px **:data-[active=true]:before:inset-y-2.5 **:data-[active=true]:before:start-2.5"
+                                style="--sidebar-item-offset: calc(var(--spacing) * 6);"></div>
+                        </div>
+                        <div data-state="closed"><button type="button" aria-controls="radix-_R_6acll9etb_"
+                                aria-expanded="false" data-state="closed"
+                                class="relative flex flex-row items-center gap-2 rounded-lg p-2 ps-(--sidebar-item-offset) text-start text-fd-muted-foreground [overflow-wrap:anywhere] [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 transition-colors hover:bg-fd-accent/50 hover:text-fd-accent-foreground/80 hover:transition-none w-full justify-start"
+                                data-collapsed="false"><span class="inline-flex items-center justify-center"><svg
+                                        xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" class="lucide lucide-shield-check" aria-hidden="true">
+                                        <path
+                                            d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z">
+                                        </path>
+                                        <path d="m9 12 2 2 4-4"></path>
+                                    </svg></span><span class="truncate">Permissions</span><svg
+                                    xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    class="lucide lucide-chevron-down ms-auto transition-transform -rotate-90"
+                                    aria-hidden="true" data-icon="true">
+                                    <path d="m6 9 6 6 6-6"></path>
+                                </svg></button>
+                            <div data-state="closed" id="radix-_R_6acll9etb_" hidden=""
+                                class="overflow-hidden data-[state=closed]:animate-fd-collapsible-up data-[state=open]:animate-fd-collapsible-down relative before:content-[''] before:absolute before:w-px before:inset-y-1 before:bg-fd-border before:start-2.5 **:data-[active=true]:before:content-[''] **:data-[active=true]:before:bg-fd-primary **:data-[active=true]:before:absolute **:data-[active=true]:before:w-px **:data-[active=true]:before:inset-y-2.5 **:data-[active=true]:before:start-2.5"
+                                style="--sidebar-item-offset: calc(var(--spacing) * 6);"></div>
+                        </div>
+                        <div data-state="closed"><button type="button" aria-controls="radix-_R_6qcll9etb_"
+                                aria-expanded="false" data-state="closed"
+                                class="relative flex flex-row items-center gap-2 rounded-lg p-2 ps-(--sidebar-item-offset) text-start text-fd-muted-foreground [overflow-wrap:anywhere] [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 transition-colors hover:bg-fd-accent/50 hover:text-fd-accent-foreground/80 hover:transition-none w-full justify-start"
+                                data-collapsed="false"><span class="inline-flex items-center justify-center"><svg
+                                        xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" class="lucide lucide-code-xml" aria-hidden="true">
+                                        <path d="m18 16 4-4-4-4"></path>
+                                        <path d="m6 8-4 4 4 4"></path>
+                                        <path d="m14.5 4-5 16"></path>
+                                    </svg></span><span class="truncate">SDKs</span><svg
+                                    xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    class="lucide lucide-chevron-down ms-auto transition-transform -rotate-90"
+                                    aria-hidden="true" data-icon="true">
+                                    <path d="m6 9 6 6 6-6"></path>
+                                </svg></button>
+                            <div data-state="closed" id="radix-_R_6qcll9etb_" hidden=""
+                                class="overflow-hidden data-[state=closed]:animate-fd-collapsible-up data-[state=open]:animate-fd-collapsible-down relative before:content-[''] before:absolute before:w-px before:inset-y-1 before:bg-fd-border before:start-2.5 **:data-[active=true]:before:content-[''] **:data-[active=true]:before:bg-fd-primary **:data-[active=true]:before:absolute **:data-[active=true]:before:w-px **:data-[active=true]:before:inset-y-2.5 **:data-[active=true]:before:start-2.5"
+                                style="--sidebar-item-offset: calc(var(--spacing) * 6);"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="border-t p-4 pt-2 hidden flex-row text-fd-muted-foreground items-center"></div>
+        </div><button type="button" aria-label="Collapse sidebar"
+            class="absolute inset-y-0 right-0 w-3 cursor-col-resize select-none opacity-0 transition-opacity duration-200 hover:opacity-100 focus-visible:opacity-100"><span
+                class="pointer-events-none absolute inset-y-0 right-1/2 w-px translate-x-1/2 bg-fd-border"></span></button>
+    </aside>
+    <header id="nd-subnav"
+        class="fixed flex flex-col top-(--fd-banner-height) right-(--removed-body-scroll-bar-size,0) z-10 px-(--fd-layout-offset) h-(--fd-nav-height) backdrop-blur-sm transition-colors max-md:[--fd-sidebar-width:0px] bg-fd-background/80 ps-[calc(var(--fd-layout-offset)+var(--fd-sidebar-width))] on-root:[--fd-nav-height:56px] md:on-root:[--fd-nav-height:64px]"
+        style="inset-inline-start:var(--fd-sidebar-width);width:calc(100% - var(--fd-sidebar-width))">
+        <div class="flex border-b px-4 gap-2 flex-1 md:px-6">
+            <div class="items-center hidden max-md:flex has-data-[collapsed=true]:md:flex"><a
+                    class="inline-flex items-center gap-2.5 font-semibold md:hidden" href="/"><img alt="Sim" width="72"
+                        height="28" decoding="async" data-nimg="1" class="h-7 w-auto" style="color:transparent"
+                        srcset="/_next/image?url=%2Fstatic%2Flogo.png&amp;w=96&amp;q=75 1x, /_next/image?url=%2Fstatic%2Flogo.png&amp;w=256&amp;q=75 2x"
+                        src="/_next/image?url=%2Fstatic%2Flogo.png&amp;w=256&amp;q=75"></a></div><button type="button"
+                aria-label="Collapse Sidebar" data-collapsed="false"
+                class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring hover:bg-fd-accent hover:text-fd-accent-foreground p-1.5 [&amp;_svg]:size-4.5 text-fd-muted-foreground max-md:hidden"><svg
+                    xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-panel-left" aria-hidden="true">
+                    <rect width="18" height="18" x="3" y="3" rx="2"></rect>
+                    <path d="M9 3v18"></path>
+                </svg></button><button type="button" data-search-full=""
+                class="inline-flex items-center gap-2 rounded-lg border bg-fd-secondary/50 p-1.5 ps-2 text-sm text-fd-muted-foreground transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground w-full my-auto max-md:hidden max-w-[240px]"><svg
+                    xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-search size-4" aria-hidden="true">
+                    <path d="m21 21-4.34-4.34"></path>
+                    <circle cx="11" cy="11" r="8"></circle>
+                </svg>Search<div class="ms-auto inline-flex gap-0.5"><kbd
+                        class="rounded-md border bg-fd-background px-1.5">Ctrl</kbd><kbd
+                        class="rounded-md border bg-fd-background px-1.5">K</kbd></div></button>
+            <div class="flex flex-1 items-center justify-end md:gap-2">
+                <div class="flex items-center gap-6 empty:hidden max-lg:hidden"></div>
+                <div class="flex items-center md:hidden"><button type="button"
+                        class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring hover:bg-fd-accent hover:text-fd-accent-foreground [&amp;_svg]:size-4.5 p-2"
+                        data-search="" aria-label="Open Search"><svg xmlns="http://www.w3.org/2000/svg" width="24"
+                            height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-search"
+                            aria-hidden="true">
+                            <path d="m21 21-4.34-4.34"></path>
+                            <circle cx="11" cy="11" r="8"></circle>
+                        </svg></button><button
+                        class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring hover:bg-fd-accent hover:text-fd-accent-foreground [&amp;_svg]:size-4.5 p-2 -me-1.5"><svg
+                            xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-panel-left" aria-hidden="true">
+                            <rect width="18" height="18" x="3" y="3" rx="2"></rect>
+                            <path d="M9 3v18"></path>
+                        </svg></button></div>
+                <div class="flex items-center gap-2 max-md:hidden"><button type="button" aria-haspopup="dialog"
+                        aria-expanded="false" aria-controls="radix-_R_6opl9etb_" data-state="closed"
+                        aria-label="Choose a language"
+                        class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring hover:bg-fd-accent hover:text-fd-accent-foreground gap-1.5 p-1.5"><svg
+                            xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-languages size-4.5 text-fd-muted-foreground" aria-hidden="true">
+                            <path d="m5 8 6 6"></path>
+                            <path d="m4 14 6-6 2-3"></path>
+                            <path d="M2 5h12"></path>
+                            <path d="M7 2h1"></path>
+                            <path d="m22 22-5-10-5 10"></path>
+                            <path d="M14 18h6"></path>
+                        </svg></button>
+                    <div class="inline-flex items-center rounded-full border p-1" data-theme-toggle=""><button
+                            aria-label="light" class="size-6.5 rounded-full p-1.5 text-fd-muted-foreground"><svg
+                                xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-sun size-full" aria-hidden="true">
+                                <circle cx="12" cy="12" r="4"></circle>
+                                <path d="M12 2v2"></path>
+                                <path d="M12 20v2"></path>
+                                <path d="m4.93 4.93 1.41 1.41"></path>
+                                <path d="m17.66 17.66 1.41 1.41"></path>
+                                <path d="M2 12h2"></path>
+                                <path d="M20 12h2"></path>
+                                <path d="m6.34 17.66-1.41 1.41"></path>
+                                <path d="m19.07 4.93-1.41 1.41"></path>
+                            </svg></button><button aria-label="dark"
+                            class="size-6.5 rounded-full p-1.5 text-fd-muted-foreground"><svg
+                                xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-moon size-full" aria-hidden="true">
+                                <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+                            </svg></button><button aria-label="system"
+                            class="size-6.5 rounded-full p-1.5 bg-fd-accent text-fd-accent-foreground"><svg
+                                xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-airplay size-full" aria-hidden="true">
+                                <path d="M5 17H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1">
+                                </path>
+                                <path d="m12 15 5 6H7Z"></path>
+                            </svg></button></div>
+                </div>
+            </div>
+        </div>
+    </header>
+    <div id="nd-page"
+        class="flex flex-1 w-full mx-auto max-w-(--fd-page-width) pt-(--fd-tocnav-height) pe-(--fd-toc-width)">
+        <header id="nd-tocnav"
+            class="fixed pr-(--removed-body-scroll-bar-size,0) z-10 border-b backdrop-blur-sm transition-colors xl:hidden max-xl:on-root:[--fd-tocnav-height:40px] bg-fd-background/80"
+            style="top:calc(var(--fd-banner-height) + var(--fd-nav-height));inset-inline-start:calc(var(--fd-sidebar-width) + var(--fd-layout-offset));inset-inline-end:0"
+            data-state="closed"><button type="button" aria-controls="radix-_R_clrittl9etb_" aria-expanded="false"
+                data-state="closed"
+                class="flex w-full h-(--fd-tocnav-height) items-center text-sm text-fd-muted-foreground gap-2.5 px-4 py-2.5 text-start focus-visible:outline-none [&amp;_svg]:size-4 md:px-6"><svg
+                    role="progressbar" viewBox="0 0 24 24" aria-valuenow="0" aria-valuemin="0" aria-valuemax="1"
+                    class="shrink-0">
+                    <circle cx="12" cy="12" r="11" fill="none" stroke-width="2" class="stroke-current/25"></circle>
+                    <circle cx="12" cy="12" r="11" fill="none" stroke-width="2" stroke="currentColor"
+                        stroke-dasharray="69.11503837897544" stroke-dashoffset="69.11503837897544"
+                        stroke-linecap="round" transform="rotate(-90 12 12)" class="transition-all"></circle>
+                </svg><span class="grid flex-1 *:my-auto *:row-start-1 *:col-start-1"><span
+                        class="truncate transition-all">Einführung</span><span
+                        class="truncate transition-all opacity-0 translate-y-full pointer-events-none"></span></span><svg
+                    xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-chevron-down shrink-0 transition-transform mx-0.5" aria-hidden="true">
+                    <path d="m6 9 6 6 6-6"></path>
+                </svg></button>
+            <div data-state="closed" id="radix-_R_clrittl9etb_" hidden="" data-toc-popover=""
+                class="overflow-hidden data-[state=closed]:animate-fd-collapsible-up data-[state=open]:animate-fd-collapsible-down flex flex-col px-4 max-h-[50vh] md:px-6"
+                style=""></div>
+        </header>
+        <article class="flex min-w-0 w-full flex-col gap-4 pt-8 px-4 md:px-6 md:mx-auto scroll-smooth max-sm:pb-16">
+            <div class="relative">
+                <div class="absolute top-1 right-0"><button
+                        class="flex items-center gap-1.5 rounded-lg border border-border/40 bg-background px-2.5 py-1.5 text-muted-foreground/60 text-sm transition-all hover:border-border hover:bg-accent/50 hover:text-muted-foreground"
+                        aria-label="Copy page content"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-copy h-4 w-4"
+                            aria-hidden="true">
+                            <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
+                            <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+                        </svg><span>Copy page</span></button></div>
+                <h1 class="text-[1.75em] font-semibold">Einführung</h1>
+            </div>
+            <div class="prose flex-1">
+                <p>Sim ist ein visueller Workflow-Builder für KI-Anwendungen, mit dem Sie KI-Agenten-Workflows visuell
+                    erstellen können. Erstellen Sie leistungsstarke KI-Agenten, Automatisierungs-Workflows und
+                    Datenverarbeitungs-Pipelines, indem Sie Blöcke auf einer Leinwand verbinden – ganz ohne
+                    Programmierung.</p>
+                <div class="flex justify-center"><img alt="Sim visuelle Workflow-Leinwand" loading="lazy" width="700"
+                        height="450" decoding="async" data-nimg="1"
+                        class="overflow-hidden rounded-xl border border-border object-cover shadow-sm cursor-pointer transition-opacity hover:opacity-90 my-6"
+                        style="color:transparent"
+                        srcset="/_next/image?url=%2Fstatic%2Fintroduction.png&amp;w=750&amp;q=75 1x, /_next/image?url=%2Fstatic%2Fintroduction.png&amp;w=1920&amp;q=75 2x"
+                        src="/_next/image?url=%2Fstatic%2Fintroduction.png&amp;w=1920&amp;q=75"></div>
+                <h2 class="flex scroll-m-28 flex-row items-center gap-2" id="was-sie-erstellen-können"><a data-card=""
+                        href="#was-sie-erstellen-können" class="peer">Was Sie erstellen können</a><svg
+                        xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide size-3.5 shrink-0 text-fd-muted-foreground opacity-0 transition-opacity peer-hover:opacity-100"
+                        aria-label="Link to section">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                    </svg></h2>
+                <p><strong>KI-Assistenten &amp; Chatbots</strong>
+                    Erstellen Sie intelligente Agenten, die im Web suchen, auf Ihren Kalender zugreifen, E-Mails senden
+                    und mit Ihren Geschäftstools interagieren können.</p>
+                <p><strong>Geschäftsprozessautomatisierung</strong>
+                    Automatisieren Sie wiederkehrende Aufgaben wie Dateneingabe, Berichtserstellung,
+                    Kundenservice-Antworten und Content-Erstellung.</p>
+                <p><strong>Datenverarbeitung &amp; -analyse</strong>
+                    Gewinnen Sie Erkenntnisse aus Dokumenten, analysieren Sie Datensätze, erstellen Sie Berichte und
+                    synchronisieren Sie Daten zwischen Systemen.</p>
+                <p><strong>API-Integrations-Workflows</strong>
+                    Verbinden Sie mehrere Dienste zu einheitlichen Endpunkten, orchestrieren Sie komplexe Geschäftslogik
+                    und verwalten Sie ereignisgesteuerte Automatisierung.</p>
+                <h2 class="flex scroll-m-28 flex-row items-center gap-2" id="wie-es-funktioniert"><a data-card=""
+                        href="#wie-es-funktioniert" class="peer">Wie es funktioniert</a><svg
+                        xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide size-3.5 shrink-0 text-fd-muted-foreground opacity-0 transition-opacity peer-hover:opacity-100"
+                        aria-label="Link to section">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                    </svg></h2>
+                <p><strong>Visuelle Leinwand</strong>
+                    Ziehen Sie Blöcke per Drag-and-drop, um Workflows zu erstellen. Verbinden Sie KI-Modelle,
+                    Datenbanken, APIs und Geschäftstools mit einfachen Point-and-Click-Verbindungen.</p>
+                <p><strong>Intelligente Blöcke</strong>
+                    Wählen Sie aus Verarbeitungsblöcken (KI-Agenten, APIs, Funktionen), Logikblöcken (Bedingungen,
+                    Schleifen, Router) und Ausgabeblöcken (Antworten, Evaluatoren).</p>
+                <p><strong>Mehrere Auslöser</strong>
+                    Starten Sie Workflows über Chat-Schnittstelle, REST API, Webhooks, geplante Jobs oder externe
+                    Ereignisse von Diensten wie Slack und GitHub.</p>
+                <p><strong>Team-Zusammenarbeit</strong>
+                    Arbeiten Sie gleichzeitig mit Teammitgliedern am selben Workflow mit Echtzeit-Bearbeitung und
+                    Berechtigungsverwaltung.</p>
+                <h2 class="flex scroll-m-28 flex-row items-center gap-2" id="integrierte-anbindungen"><a data-card=""
+                        href="#integrierte-anbindungen" class="peer">Integrierte Anbindungen</a><svg
+                        xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide size-3.5 shrink-0 text-fd-muted-foreground opacity-0 transition-opacity peer-hover:opacity-100"
+                        aria-label="Link to section">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                    </svg></h2>
+                <p>Sim verbindet sich von Haus aus mit über 80 Diensten:</p>
+                <ul>
+                    <li><strong>KI-Modelle</strong>: OpenAI, Anthropic, Google, Groq, Cerebras, lokale Ollama-Modelle
+                    </li>
+                    <li><strong>Kommunikation</strong>: Gmail, Slack, Teams, Telegram, WhatsApp</li>
+                    <li><strong>Produktivität</strong>: Notion, Google Sheets, Airtable, Monday.com</li>
+                    <li><strong>Entwicklung</strong>: GitHub, Jira, Linear, Browser-Automatisierung</li>
+                    <li><strong>Suche &amp; Web</strong>: Google Search, Perplexity, Firecrawl, Exa AI</li>
+                    <li><strong>Datenbanken</strong>: PostgreSQL, MySQL, Supabase, Pinecone, Qdrant</li>
+                </ul>
+                <p>Benötigen Sie etwas Maßgeschneidertes? Nutzen Sie unsere <a href="/mcp">MCP-Integration</a>, um jeden
+                    externen Dienst anzubinden.</p>
+                <h2 class="flex scroll-m-28 flex-row items-center gap-2" id="bereitstellungsoptionen"><a data-card=""
+                        href="#bereitstellungsoptionen" class="peer">Bereitstellungsoptionen</a><svg
+                        xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide size-3.5 shrink-0 text-fd-muted-foreground opacity-0 transition-opacity peer-hover:opacity-100"
+                        aria-label="Link to section">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                    </svg></h2>
+                <p><strong>Cloud-gehostet</strong>: Starten Sie sofort bei <a href="https://sim.ai"
+                        rel="noreferrer noopener" target="_blank">sim.ai</a> mit verwalteter Infrastruktur,
+                    automatischer Skalierung und integriertem Monitoring.</p>
+                <p><strong>Selbst-gehostet</strong>: Stellen Sie die Anwendung auf Ihrer eigenen Infrastruktur mit
+                    Docker bereit, mit Unterstützung für lokale KI-Modelle über Ollama für vollständige
+                    Datenprivatsphäre.</p>
+                <h2 class="flex scroll-m-28 flex-row items-center gap-2" id="nächste-schritte"><a data-card=""
+                        href="#nächste-schritte" class="peer">Nächste Schritte</a><svg
+                        xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide size-3.5 shrink-0 text-fd-muted-foreground opacity-0 transition-opacity peer-hover:opacity-100"
+                        aria-label="Link to section">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                    </svg></h2>
+                <p>Bereit, Ihren ersten KI-Workflow zu erstellen?</p>
+                <div class="grid grid-cols-2 gap-3 @container"><a data-card="true"
+                        class="block rounded-xl border bg-fd-card p-4 text-fd-card-foreground transition-colors @max-lg:col-span-full hover:bg-fd-accent/80"
+                        href="/getting-started">
+                        <h3 class="not-prose mb-1 text-sm font-medium">Erste Schritte</h3>
+                        <div class="text-sm text-fd-muted-foreground prose-no-margin empty:hidden">
+                            <p>Erstellen Sie Ihren ersten Workflow in 10 Minuten</p>
+                        </div>
+                    </a><a data-card="true"
+                        class="block rounded-xl border bg-fd-card p-4 text-fd-card-foreground transition-colors @max-lg:col-span-full hover:bg-fd-accent/80"
+                        href="/blocks">
+                        <h3 class="not-prose mb-1 text-sm font-medium">Workflow-Bausteine</h3>
+                        <div class="text-sm text-fd-muted-foreground prose-no-margin empty:hidden">
+                            <p>Erfahren Sie mehr über die Bausteine</p>
+                        </div>
+                    </a><a data-card="true"
+                        class="block rounded-xl border bg-fd-card p-4 text-fd-card-foreground transition-colors @max-lg:col-span-full hover:bg-fd-accent/80"
+                        href="/tools">
+                        <h3 class="not-prose mb-1 text-sm font-medium">Tools &amp; Integrationen</h3>
+                        <div class="text-sm text-fd-muted-foreground prose-no-margin empty:hidden">
+                            <p>Entdecken Sie über 60 integrierte Schnittstellen</p>
+                        </div>
+                    </a><a data-card="true"
+                        class="block rounded-xl border bg-fd-card p-4 text-fd-card-foreground transition-colors @max-lg:col-span-full hover:bg-fd-accent/80"
+                        href="/permissions/roles-and-permissions">
+                        <h3 class="not-prose mb-1 text-sm font-medium">Team-Berechtigungen</h3>
+                        <div class="text-sm text-fd-muted-foreground prose-no-margin empty:hidden">
+                            <p>Richten Sie Workspace-Rollen und Berechtigungen ein</p>
+                        </div>
+                    </a></div>
+            </div>
+            <div class="flex flex-row flex-wrap items-center justify-between gap-4 empty:hidden"></div>
+            <div class="mt-12">
+                <div class="flex items-center justify-between py-8">
+                    <div></div><a
+                        class="group flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground"
+                        href="/de/getting-started"><span class="font-medium">Erste Schritte</span><svg
+                            xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-chevron-right h-4 w-4 transition-transform group-hover:translate-x-1"
+                            aria-hidden="true">
+                            <path d="m9 18 6-6-6-6"></path>
+                        </svg></a>
+                </div>
+                <div class="border-border border-t"></div>
+                <div class="flex items-center gap-4 py-6"><a target="_blank" rel="noopener noreferrer"
+                        aria-label="X (Twitter)" href="https://x.com/simdotai">
+                        <div class="h-5 w-5 bg-gray-400 transition-colors hover:bg-gray-500 dark:bg-gray-500 dark:hover:bg-gray-400"
+                            style="mask-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z%22/%3E%3C/svg%3E');mask-repeat:no-repeat;mask-position:center center;-webkit-mask-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z%22/%3E%3C/svg%3E');-webkit-mask-repeat:no-repeat;-webkit-mask-position:center center">
+                        </div>
+                    </a><a target="_blank" rel="noopener noreferrer" aria-label="GitHub"
+                        href="https://github.com/simstudioai/sim">
+                        <div class="h-5 w-5 bg-gray-400 transition-colors hover:bg-gray-500 dark:bg-gray-500 dark:hover:bg-gray-400"
+                            style="mask-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z%22/%3E%3C/svg%3E');mask-repeat:no-repeat;mask-position:center center;-webkit-mask-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z%22/%3E%3C/svg%3E');-webkit-mask-repeat:no-repeat;-webkit-mask-position:center center">
+                        </div>
+                    </a><a target="_blank" rel="noopener noreferrer" aria-label="Discord"
+                        href="https://discord.gg/Hr4UWYEcTT">
+                        <div class="h-5 w-5 bg-gray-400 transition-colors hover:bg-gray-500 dark:bg-gray-500 dark:hover:bg-gray-400"
+                            style="mask-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z%22/%3E%3C/svg%3E');mask-repeat:no-repeat;mask-position:center center;-webkit-mask-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z%22/%3E%3C/svg%3E');-webkit-mask-repeat:no-repeat;-webkit-mask-position:center center">
+                        </div>
+                    </a></div>
+            </div>
+        </article>
+        <div id="nd-toc"
+            class="fixed bottom-0 pt-12 pb-2 pr-(--removed-body-scroll-bar-size,0) xl:on-root:[--fd-toc-width:286px] max-xl:hidden"
+            style="top:calc(var(--fd-banner-height) + var(--fd-nav-height));inset-inline-end:max(var(--fd-layout-offset), calc(50vw  - var(--fd-page-width)))">
+            <div class="flex h-full w-(--fd-toc-width) max-w-full flex-col pe-4">
+                <div class="mb-2 font-medium text-sm">On this page</div>
+                <h3 id="toc-title" class="inline-flex items-center gap-1.5 text-sm text-fd-muted-foreground"><svg
+                        xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide lucide-text size-4" aria-hidden="true">
+                        <path d="M15 18H3"></path>
+                        <path d="M17 6H3"></path>
+                        <path d="M21 12H3"></path>
+                    </svg>On this page</h3>
+                <div
+                    class="relative min-h-0 text-sm ms-px overflow-auto [scrollbar-width:none] [mask-image:linear-gradient(to_bottom,transparent,white_16px,white_calc(100%-16px),transparent)] py-3">
+                    <div class="absolute start-0 top-0 rtl:-scale-x-100"
+                        style="width: 2px; height: 160px; mask-image: url(&quot;data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%202%20160%22%3E%3Cpath%20d%3D%22M1%2012%20L1%2032%20L1%2044%20L1%2064%20L1%2076%20L1%2096%20L1%20108%20L1%20128%20L1%20140%20L1%20160%22%20stroke%3D%22black%22%20stroke-width%3D%221%22%20fill%3D%22none%22%20%2F%3E%3C%2Fsvg%3E&quot;);">
+                        <div role="none" class="mt-(--fd-top) h-(--fd-height) bg-fd-primary transition-all"
+                            style="--fd-top: 0px; --fd-height: 0px;"></div>
+                    </div>
+                    <div class="flex flex-col"><a data-active="false" href="#was-sie-erstellen-können"
+                            style="padding-inline-start:14px"
+                            class="prose relative py-1.5 text-sm text-fd-muted-foreground hover:text-fd-accent-foreground transition-colors [overflow-wrap:anywhere] first:pt-0 last:pb-0 data-[active=true]:text-fd-primary">
+                            <div class="absolute inset-y-0 w-px bg-fd-foreground/10" style="inset-inline-start:0"></div>
+                            Was Sie erstellen können
+                        </a><a data-active="false" href="#wie-es-funktioniert" style="padding-inline-start:14px"
+                            class="prose relative py-1.5 text-sm text-fd-muted-foreground hover:text-fd-accent-foreground transition-colors [overflow-wrap:anywhere] first:pt-0 last:pb-0 data-[active=true]:text-fd-primary">
+                            <div class="absolute inset-y-0 w-px bg-fd-foreground/10" style="inset-inline-start:0"></div>
+                            Wie es funktioniert
+                        </a><a data-active="false" href="#integrierte-anbindungen" style="padding-inline-start:14px"
+                            class="prose relative py-1.5 text-sm text-fd-muted-foreground hover:text-fd-accent-foreground transition-colors [overflow-wrap:anywhere] first:pt-0 last:pb-0 data-[active=true]:text-fd-primary">
+                            <div class="absolute inset-y-0 w-px bg-fd-foreground/10" style="inset-inline-start:0"></div>
+                            Integrierte Anbindungen
+                        </a><a data-active="false" href="#bereitstellungsoptionen" style="padding-inline-start:14px"
+                            class="prose relative py-1.5 text-sm text-fd-muted-foreground hover:text-fd-accent-foreground transition-colors [overflow-wrap:anywhere] first:pt-0 last:pb-0 data-[active=true]:text-fd-primary">
+                            <div class="absolute inset-y-0 w-px bg-fd-foreground/10" style="inset-inline-start:0"></div>
+                            Bereitstellungsoptionen
+                        </a><a data-active="false" href="#nächste-schritte" style="padding-inline-start:14px"
+                            class="prose relative py-1.5 text-sm text-fd-muted-foreground hover:text-fd-accent-foreground transition-colors [overflow-wrap:anywhere] first:pt-0 last:pb-0 data-[active=true]:text-fd-primary">
+                            <div class="absolute inset-y-0 w-px bg-fd-foreground/10" style="inset-inline-start:0"></div>
+                            Nächste Schritte
+                        </a></div>
+                </div>
+            </div>
+        </div>
+    </div><!--$--><!--/$-->
+</main>
