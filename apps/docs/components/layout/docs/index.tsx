@@ -135,6 +135,116 @@ function addFolderIcons(root: PageTree.Root): PageTree.Root {
   };
 }
 
+function promoteFolderIndexes(root: PageTree.Root): PageTree.Root {
+  const mapNode = (node: PageTree.Node): PageTree.Node => {
+    if (node.type !== 'folder') return node;
+
+    const basePaths = getFolderBasePaths(node);
+    let assignedIndex = node.index;
+    const children: PageTree.Node[] = [];
+
+    for (const child of node.children) {
+      if (
+        !assignedIndex &&
+        child.type === 'page' &&
+        isFolderIndexCandidate(child, basePaths)
+      ) {
+        assignedIndex = child;
+        continue;
+      }
+
+      children.push(
+        child.type === 'folder' ? mapNode(child) : child,
+      );
+    }
+
+    return {
+      ...node,
+      index: assignedIndex,
+      children,
+    };
+  };
+
+  return {
+    ...root,
+    children: root.children.map(mapNode),
+    fallback: root.fallback ? promoteFolderIndexes(root.fallback) : undefined,
+  };
+}
+
+function getFolderBasePaths(folder: PageTree.Folder): string[] {
+  const bases = new Set<string>();
+  const fromMeta = normalizePath(folder.$ref?.metaFile)?.replace(/\/meta\.json$/, '');
+  if (fromMeta) bases.add(trimSlashes(fromMeta));
+
+  if (typeof folder.$id === 'string' && folder.$id.trim().length > 0) {
+    bases.add(trimSlashes(folder.$id));
+  }
+
+  if (folder.index?.url) bases.add(trimSlashes(folder.index.url));
+
+  const childDirs = folder.children
+    .map((child) => {
+      if (child.type !== 'page') return null;
+      const normalized = normalizePath(child.$ref?.file);
+      if (!normalized) return null;
+      const dir = normalized.includes('/')
+        ? normalized.slice(0, normalized.lastIndexOf('/'))
+        : '';
+      return trimSlashes(dir);
+    })
+    .filter((dir): dir is string => Boolean(dir));
+
+  const common = getCommonPathPrefix(childDirs);
+  if (common) bases.add(common);
+
+  return Array.from(bases).filter(Boolean);
+}
+
+function isFolderIndexCandidate(
+  child: PageTree.Item,
+  basePaths: string[],
+): boolean {
+  if (basePaths.length === 0) return false;
+  const normalizedFile = normalizePath(child.$ref?.file);
+  if (!normalizedFile || !normalizedFile.endsWith('index.mdx')) return false;
+
+  const fileBase = trimSlashes(
+    normalizedFile.replace(/\/index\.mdx$/, ''),
+  );
+  const urlBase = trimSlashes(child.url);
+
+  return basePaths.some(
+    (base) => base === fileBase || base === urlBase,
+  );
+}
+
+function normalizePath(value?: string | null) {
+  return value?.replace(/\\/g, '/').replace(/^\.\//, '');
+}
+
+function trimSlashes(value?: string | null) {
+  if (!value) return '';
+  return value.replace(/^\/+/, '').replace(/\/+$/, '');
+}
+
+function getCommonPathPrefix(paths: string[]): string | undefined {
+  if (paths.length === 0) return undefined;
+  const segments = paths.map((path) => trimSlashes(path).split('/'));
+  let prefix = segments[0];
+
+  for (const parts of segments.slice(1)) {
+    let i = 0;
+    while (i < prefix.length && i < parts.length && prefix[i] === parts[i]) {
+      i++;
+    }
+    prefix = prefix.slice(0, i);
+    if (prefix.length === 0) break;
+  }
+
+  return prefix.length > 0 ? prefix.join('/') : undefined;
+}
+
 export interface DocsLayoutProps extends BaseLayoutProps {
   tree: PageTree.Root;
   tabMode?: 'sidebar' | 'navbar';
@@ -180,22 +290,29 @@ export function DocsLayout(props: DocsLayoutProps) {
 
   const navMode = nav.mode ?? 'auto';
   const links = getLinks(props.links ?? [], props.githubUrl);
-  const treeWithIcons = useMemo(() => addFolderIcons(props.tree), [props.tree]);
+  const treeWithPromotedIndexes = useMemo(
+    () => promoteFolderIndexes(props.tree),
+    [props.tree],
+  );
+  const treeWithIcons = useMemo(
+    () => addFolderIcons(treeWithPromotedIndexes),
+    [treeWithPromotedIndexes],
+  );
   const tabs = useMemo(() => {
     if (Array.isArray(tabOptions)) {
       return tabOptions;
     }
 
-    if (typeof tabOptions === 'object') {
-      return getSidebarTabs(props.tree, tabOptions);
+    if (tabOptions && typeof tabOptions === 'object') {
+      return getSidebarTabs(treeWithPromotedIndexes, tabOptions);
     }
 
     if (tabOptions !== false) {
-      return getSidebarTabs(props.tree);
+      return getSidebarTabs(treeWithPromotedIndexes);
     }
 
     return [];
-  }, [tabOptions, props.tree]);
+  }, [tabOptions, treeWithPromotedIndexes]);
 
   function sidebar() {
     const {
@@ -403,7 +520,7 @@ function DocsNavbar({
 }) {
   const navMode = nav.mode ?? 'auto';
   const collapseButtonClass =
-    'inline-flex  p-2 top-7 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium text-fd-muted-foreground transition-colors duration-150 hover:bg-fd-card/80 hover:text-fd-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0';
+    'inline-flex p-2 top-7 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium text-fd-muted-foreground transition-colors duration-150 hover:bg-fd-card/80 hover:text-fd-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0';
 
   return (
     <Navbar
@@ -415,7 +532,7 @@ function DocsNavbar({
     >
       <div
         className={cn(
-          'flex border-b px-4 gap-2 flex-1 md:px-6',
+          'flex border-b items-center px-4 gap-2 flex-1 md:px-6',
           navMode === 'top' && 'ps-7',
         )}
       >

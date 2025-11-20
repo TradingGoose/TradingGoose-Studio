@@ -403,7 +403,7 @@ export function SidebarFolderTrigger({
       <span className="inline-flex items-center justify-center">
         {icon ?? (collapsed ? <span className="h-1.5 w-1.5 rounded-full bg-fd-muted-foreground" /> : null)}
       </span>
-      <span className={cn('truncate', collapsed && 'sr-only')}>
+      <span className={cn('truncate w-48', collapsed && 'sr-only')}>
         {label ?? children}
       </span>
       {!collapsed && (
