@@ -278,7 +278,7 @@ export function TeamManagement() {
     <div className='flex h-full flex-col px-6 pt-4 pb-4'>
       <div className='flex flex-1 flex-col gap-6 overflow-y-auto'>
         {error && (
-          <Alert variant='destructive' className='rounded-[8px]'>
+          <Alert variant='destructive' className='rounded-sm'>
             <AlertTitle>Error</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
@@ -289,7 +289,7 @@ export function TeamManagement() {
 
         {/* Team Billing Information (only show for Team Plan, not Enterprise) */}
         {hasTeamPlan && !hasEnterprisePlan && (
-          <div className='rounded-[8px] border bg-blue-50/50 p-4 shadow-xs dark:bg-blue-950/20'>
+          <div className='rounded-sm border bg-blue-50/50 p-4 shadow-xs dark:bg-blue-950/20'>
             <div className='space-y-3'>
               <h4 className='font-medium text-sm'>How Team Billing Works</h4>
               <ul className='ml-4 list-disc space-y-2 text-muted-foreground text-xs'>

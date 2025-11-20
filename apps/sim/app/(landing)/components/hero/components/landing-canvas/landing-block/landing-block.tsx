@@ -38,7 +38,7 @@ export const LandingBlock = React.memo(function LandingBlock({
 }: LandingBlockProps) {
   return (
     <div
-      className={`z-10 flex w-64 flex-col items-start gap-3 rounded-[14px] border border-[#E5E5E5] bg-[#FEFEFE] p-3 ${className ?? ''}`}
+      className={`z-10 flex w-64 flex-col items-start gap-3 rounded-lg border border-[#E5E5E5] bg-[#FEFEFE] p-3 ${className ?? ''}`}
       style={{
         boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
       }}
@@ -46,7 +46,7 @@ export const LandingBlock = React.memo(function LandingBlock({
       <div className='flex w-full items-center justify-between'>
         <div className='flex items-center gap-2.5'>
           <div
-            className='flex h-6 w-6 items-center justify-center rounded-[8px] text-white'
+            className='flex h-6 w-6 items-center justify-center rounded-sm text-white'
             style={{ backgroundColor: color as string }}
           >
             {icon}

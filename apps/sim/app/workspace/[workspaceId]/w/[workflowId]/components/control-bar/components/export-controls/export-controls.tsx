@@ -80,7 +80,7 @@ export function ExportControls({ disabled = false, variant = 'workspace' }: Expo
   const buttonClass =
     variant === 'widget'
       ? widgetHeaderIconButtonClassName()
-      : 'h-12 w-12 rounded-[11px] border bg-card text-card-foreground shadow-xs hover:bg-secondary'
+      : 'h-12 w-12 rounded-md border bg-card text-card-foreground shadow-xs hover:bg-secondary'
 
   return (
     <Tooltip>

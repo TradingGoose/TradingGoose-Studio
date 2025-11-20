@@ -57,7 +57,8 @@ export default function SSOForm() {
   const [email, setEmail] = useState('')
   const [emailErrors, setEmailErrors] = useState<string[]>([])
   const [showEmailValidationError, setShowEmailValidationError] = useState(false)
-  const [buttonClass, setButtonClass] = useState('auth-button-gradient')
+  const primaryButtonClasses =
+    'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
   const [callbackUrl, setCallbackUrl] = useState('/workspace')
 
   useEffect(() => {
@@ -89,31 +90,6 @@ export default function SSOForm() {
         setEmailErrors([errorMessages[error] || 'SSO authentication failed. Please try again.'])
         setShowEmailValidationError(true)
       }
-    }
-
-    const checkCustomBrand = () => {
-      const computedStyle = getComputedStyle(document.documentElement)
-      const brandAccent = computedStyle.getPropertyValue('--accent').trim()
-
-      if (brandAccent && brandAccent !== '#ffcc00') {
-        setButtonClass('auth-button-custom')
-      } else {
-        setButtonClass('auth-button-gradient')
-      }
-    }
-
-    checkCustomBrand()
-
-    window.addEventListener('resize', checkCustomBrand)
-    const observer = new MutationObserver(checkCustomBrand)
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['style', 'class'],
-    })
-
-    return () => {
-      window.removeEventListener('resize', checkCustomBrand)
-      observer.disconnect()
     }
   }, [searchParams])
 
@@ -206,10 +182,10 @@ export default function SSOForm() {
               value={email}
               onChange={handleEmailChange}
               className={cn(
-                'rounded-[10px] shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
+                'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                 showEmailValidationError &&
-                  emailErrors.length > 0 &&
-                  'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                emailErrors.length > 0 &&
+                'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
               )}
             />
             {showEmailValidationError && emailErrors.length > 0 && (
@@ -224,7 +200,7 @@ export default function SSOForm() {
 
         <Button
           type='submit'
-          className={`${buttonClass} flex w-full items-center justify-center gap-2 rounded-[10px] border font-medium text-[15px] text-white transition-all duration-200`}
+          className={primaryButtonClasses}
           disabled={isLoading}
         >
           {isLoading ? 'Redirecting to SSO provider...' : 'Continue with SSO'}
@@ -249,7 +225,7 @@ export default function SSOForm() {
             >
               <Button
                 variant='outline'
-                className='w-full rounded-[10px] shadow-sm hover:bg-gray-50'
+                className='w-full rounded-md shadow-sm hover:bg-gray-50'
                 type='button'
               >
                 Sign in with email
@@ -265,7 +241,7 @@ export default function SSOForm() {
           <span className='font-normal'>Don't have an account? </span>
           <Link
             href={`/signup${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ''}`}
-            className='font-medium text-[var(--accent)] underline-offset-4 transition hover:text-[var(--accent-hover)] hover:underline'
+            className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
           >
             Sign up
           </Link>

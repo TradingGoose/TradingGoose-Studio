@@ -271,7 +271,7 @@ export function WorkflowItem({
     <div className='mb-1'>
       <div
         className={clsx(
-          'group flex h-8 cursor-pointer items-center rounded-[8px] px-2 py-2 font-medium font-sans text-sm transition-colors',
+          'group flex h-8 cursor-pointer items-center rounded-sm px-2 py-2 font-medium font-sans text-sm transition-colors',
           active && !isDragOver ? 'bg-muted' : 'hover:bg-card',
           isSelected && selectedWorkflows.size > 1 && !active && !isDragOver ? 'bg-muted' : '',
           isDragging ? 'opacity-50' : '',
@@ -290,21 +290,13 @@ export function WorkflowItem({
           onClick={handleLinkClick}
           draggable={false}
         >
-          <div
-            className='mr-2 flex h-[14px] w-[14px] flex-shrink-0 items-center justify-center overflow-hidden'
-            style={{
-              backgroundColor: lightenColor(workflow.color, 60),
-              borderRadius: '4px',
-            }}
-          >
-            <div
-              className='h-[9px] w-[9px]'
-              style={{
-                backgroundColor: workflow.color,
-                borderRadius: '2.571px', // Maintains same ratio as outer div (4/14 = 2.571/9)
-              }}
+          <span className='flex items-center gap-2'>
+            <span
+              className='h-2.5 w-2.5 mr-2'
+              style={{ backgroundColor: workflow.color, boxShadow: `0 0 0 4px ${workflow.color}50`, borderRadius: '1px' }}
+              aria-hidden
             />
-          </div>
+          </span>
           {isEditing ? (
             <input
               ref={inputRef}
@@ -448,21 +440,21 @@ export function WorkflowItem({
                   variant='outline'
                   onClick={() => handleTemplateAction('keep')}
                   disabled={deleteState.isDeleting}
-                  className='h-9 flex-1 rounded-[8px]'
+                  className='h-9 flex-1 rounded-sm'
                 >
                   Keep templates
                 </Button>
                 <Button
                   onClick={() => handleTemplateAction('delete')}
                   disabled={deleteState.isDeleting}
-                  className='h-9 flex-1 rounded-[8px] bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+                  className='h-9 flex-1 rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
                 >
                   {deleteState.isDeleting ? 'Deleting...' : 'Delete templates'}
                 </Button>
               </div>
             ) : (
               <>
-                <AlertDialogCancel className='h-9 w-full rounded-[8px]' disabled={deleteState.isDeleting}>
+                <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={deleteState.isDeleting}>
                   Cancel
                 </AlertDialogCancel>
                 <Button
@@ -471,7 +463,7 @@ export function WorkflowItem({
                     handleDeleteWorkflow()
                   }}
                   disabled={deleteState.isDeleting}
-                  className='h-9 w-full rounded-[8px] bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+                  className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
                 >
                   {deleteState.isDeleting ? 'Deleting...' : 'Delete'}
                 </Button>

@@ -82,7 +82,7 @@ export function SocialLoginButtons({
   const githubButton = (
     <Button
       variant='outline'
-      className='w-full rounded-[10px] shadow-sm hover:bg-gray-50'
+      className='w-full rounded-md shadow-sm hover:bg-gray-50'
       disabled={!githubAvailable || isGithubLoading}
       onClick={signInWithGithub}
     >
@@ -94,7 +94,7 @@ export function SocialLoginButtons({
   const googleButton = (
     <Button
       variant='outline'
-      className='w-full rounded-[10px] shadow-sm hover:bg-gray-50'
+      className='w-full rounded-md shadow-sm hover:bg-gray-50'
       disabled={!googleAvailable || isGoogleLoading}
       onClick={signInWithGoogle}
     >

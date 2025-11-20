@@ -434,12 +434,12 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                               <Button
                                 variant='outline'
                                 role='combobox'
-                                className='h-10 w-20 rounded-[8px] border-border/50 p-0 transition-all duration-200 hover:border-border hover:bg-card/50'
+                                className='h-10 w-20 rounded-sm border-border/50 p-0 transition-all duration-200 hover:border-border hover:bg-card/50'
                               >
                                 <SelectedIconComponent className='h-4 w-4' />
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className='z-50 w-84 rounded-[8px] p-0' align='start'>
+                            <PopoverContent className='z-50 w-84 rounded-sm p-0' align='start'>
                               <div className='p-3'>
                                 <div className='grid max-h-80 grid-cols-8 gap-2 overflow-y-auto'>
                                   {icons.map((icon) => {
@@ -485,7 +485,7 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                               value={field.value}
                               onChange={field.onChange}
                               onBlur={field.onBlur}
-                              className='h-10 w-20 rounded-[8px]'
+                              className='h-10 w-20 rounded-sm'
                             />
                           </FormControl>
                           <FormMessage />
@@ -503,7 +503,7 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                         <FormControl>
                           <Input
                             placeholder='Enter template name'
-                            className='h-10 rounded-[8px]'
+                            className='h-10 rounded-sm'
                             {...field}
                           />
                         </FormControl>
@@ -524,7 +524,7 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                           <FormControl>
                             <Input
                               placeholder='Enter author name'
-                              className='h-10 rounded-[8px]'
+                              className='h-10 rounded-sm'
                               {...field}
                             />
                           </FormControl>
@@ -543,7 +543,7 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                           </FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                              <SelectTrigger className='h-10 rounded-[8px]'>
+                              <SelectTrigger className='h-10 rounded-sm'>
                                 <SelectValue placeholder='Select a category' />
                               </SelectTrigger>
                             </FormControl>
@@ -572,7 +572,7 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                         <FormControl>
                           <Textarea
                             placeholder='Describe what this template does...'
-                            className='min-h-[80px] resize-none rounded-[8px]'
+                            className='min-h-[80px] resize-none rounded-sm'
                             rows={3}
                             {...field}
                           />
@@ -594,7 +594,7 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                     variant='destructive'
                     onClick={() => setShowDeleteDialog(true)}
                     disabled={isSubmitting || isLoadingTemplate}
-                    className='h-9 rounded-[8px] px-4'
+                    className='h-9 rounded-sm px-4'
                   >
                     Delete
                   </Button>
@@ -603,7 +603,7 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                   type='submit'
                   disabled={isSubmitting || !isFormValid || isLoadingTemplate}
                   className={cn(
-                    'ml-auto h-9 rounded-[8px] px-4 font-[480]',
+                    'ml-auto h-9 rounded-sm px-4 font-[480]',
                     'bg-primary hover:bg-primary-hover',
                     'shadow-[0_0_0_0_var(--primary)] ',
                     'text-white transition-all duration-200',
@@ -636,11 +636,11 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter className='flex'>
-                <AlertDialogCancel className='h-9 w-full rounded-[8px]' disabled={isDeleting}>
+                <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={isDeleting}>
                   Cancel
                 </AlertDialogCancel>
                 <AlertDialogAction
-                  className='h-9 w-full rounded-[8px] bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+                  className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
                   disabled={isDeleting}
                   onClick={async () => {
                     if (!existingTemplate) return

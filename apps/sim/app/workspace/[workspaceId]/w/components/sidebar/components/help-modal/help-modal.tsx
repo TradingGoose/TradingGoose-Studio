@@ -384,7 +384,7 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
                     >
                       <SelectTrigger
                         id='type'
-                        className={cn('h-9 rounded-[8px]', errors.type && 'border-red-500')}
+                        className={cn('h-9 rounded-sm', errors.type && 'border-red-500')}
                       >
                         <SelectValue placeholder='Select a request type' />
                       </SelectTrigger>
@@ -407,7 +407,7 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
                       id='subject'
                       placeholder='Brief description of your request'
                       {...register('subject')}
-                      className={cn('h-9 rounded-[8px]', errors.subject && 'border-red-500')}
+                      className={cn('h-9 rounded-sm', errors.subject && 'border-red-500')}
                     />
                     {errors.subject && (
                       <p className='mt-1 text-red-500 text-sm'>{errors.subject.message}</p>
@@ -422,7 +422,7 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
                       placeholder='Please provide details about your request...'
                       rows={6}
                       {...register('message')}
-                      className={cn('rounded-[8px]', errors.message && 'border-red-500')}
+                      className={cn('rounded-sm', errors.message && 'border-red-500')}
                     />
                     {errors.message && (
                       <p className='mt-1 text-red-500 text-sm'>{errors.message.message}</p>

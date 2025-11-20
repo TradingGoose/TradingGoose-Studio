@@ -337,7 +337,7 @@ export function Credentials({ onOpenChange, registerCloseHandler }: CredentialsP
     <div className='relative flex h-full flex-col'>
       {/* Search Input */}
       <div className='px-6 pt-4 pb-2'>
-        <div className='flex h-9 w-56 items-center gap-2 rounded-[8px] border bg-transparent pr-2 pl-3'>
+        <div className='flex h-9 w-56 items-center gap-2 rounded-sm border bg-transparent pr-2 pl-3'>
           <Search className='h-4 w-4 flex-shrink-0 text-muted-foreground' strokeWidth={2} />
           <Input
             placeholder='Search services...'
@@ -353,7 +353,7 @@ export function Credentials({ onOpenChange, registerCloseHandler }: CredentialsP
         <div className='flex flex-col gap-6 pt-2 pb-6'>
           {/* Success message */}
           {authSuccess && (
-            <div className='rounded-[8px] border border-green-200 bg-green-50 p-4'>
+            <div className='rounded-sm border border-green-200 bg-green-50 p-4'>
               <div className='flex'>
                 <div className='flex-shrink-0'>
                   <Check className='h-5 w-5 text-green-400' />
@@ -369,7 +369,7 @@ export function Credentials({ onOpenChange, registerCloseHandler }: CredentialsP
 
           {/* Pending service message - only shown when coming from OAuth required modal */}
           {pendingService && showActionRequired && (
-            <div className='flex items-start gap-3 rounded-[8px] border border-primary/20 bg-[var(--primary)]/5 p-5 text-sm shadow-sm'>
+            <div className='flex items-start gap-3 rounded-sm border border-primary/20 bg-[var(--primary)]/5 p-5 text-sm shadow-sm'>
               <div className='mt-0.5 min-w-5'>
                 <ExternalLink className='h-4 w-4 text-muted-foreground' />
               </div>
@@ -428,12 +428,12 @@ export function Credentials({ onOpenChange, registerCloseHandler }: CredentialsP
                       key={service.id}
                       className={cn(
                         'flex items-center justify-between gap-4',
-                        pendingService === service.id && '-m-2 rounded-[8px] bg-[var(--primary)]/5 p-2'
+                        pendingService === service.id && '-m-2 rounded-sm bg-[var(--primary)]/5 p-2'
                       )}
                       ref={pendingService === service.id ? pendingServiceRef : undefined}
                     >
                       <div className='flex items-center gap-3'>
-                        <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-muted'>
+                        <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-muted'>
                           {typeof service.icon === 'function'
                             ? service.icon({ className: 'h-5 w-5' })
                             : service.icon}
@@ -503,7 +503,7 @@ function ConnectionSkeleton() {
   return (
     <div className='flex items-center justify-between gap-4'>
       <div className='flex items-center gap-3'>
-        <Skeleton className='h-10 w-10 rounded-[8px]' />
+        <Skeleton className='h-10 w-10 rounded-sm' />
         <div className='space-y-1'>
           <Skeleton className='h-5 w-24' />
           <Skeleton className='h-4 w-32' />

@@ -632,7 +632,7 @@ export function TriggerModal({
                             value={testUrl}
                             readOnly
                             className={cn(
-                              'h-9 cursor-text rounded-[8px] pr-20 font-mono text-xs',
+                              'h-9 cursor-text rounded-sm pr-20 font-mono text-xs',
                               'focus-visible:ring-2 focus-visible:ring-primary/20'
                             )}
                             onClick={(e) => (e.target as HTMLInputElement).select()}
@@ -710,7 +710,7 @@ export function TriggerModal({
                   onClick={handleDelete}
                   disabled={isDeleting || isSaving}
                   size='default'
-                  className='h-9 rounded-[8px]'
+                  className='h-9 rounded-sm'
                 >
                   {isDeleting ? (
                     <div className='mr-2 h-4 w-4 animate-spin rounded-full border-[1.5px] border-current border-t-transparent' />
@@ -726,7 +726,7 @@ export function TriggerModal({
                 variant='outline'
                 onClick={onClose}
                 size='default'
-                className='h-9 rounded-[8px]'
+                className='h-9 rounded-sm'
               >
                 Cancel
               </Button>
@@ -738,7 +738,7 @@ export function TriggerModal({
                   (!(hasConfigChanged || hasCredentialChanged) && !!triggerId)
                 }
                 className={cn(
-                  'w-[140px] rounded-[8px]',
+                  'w-[140px] rounded-sm',
                   isConfigValid() && (hasConfigChanged || hasCredentialChanged || !triggerId)
                     ? 'bg-primary hover:bg-[var(--primary)]/90'
                     : ''

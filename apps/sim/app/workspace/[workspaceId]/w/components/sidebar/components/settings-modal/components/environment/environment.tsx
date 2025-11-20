@@ -400,7 +400,7 @@ export function EnvironmentVariables({
             spellCheck='false'
             readOnly
             onFocus={(e) => e.target.removeAttribute('readOnly')}
-            className={`h-9 rounded-[8px] border-none px-3 font-normal text-sm ring-0 ring-offset-0 placeholder:text-muted-foreground focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 ${isConflict ? 'border border-red-500 bg-[#F6D2D2] outline-none ring-0 disabled:bg-[#F6D2D2] disabled:opacity-100 dark:bg-[#442929] disabled:dark:bg-[#442929]' : 'bg-muted'}`}
+            className={`h-9 rounded-sm border-none px-3 font-normal text-sm ring-0 ring-offset-0 placeholder:text-muted-foreground focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 ${isConflict ? 'border border-red-500 bg-[#F6D2D2] outline-none ring-0 disabled:bg-[#F6D2D2] disabled:opacity-100 dark:bg-[#442929] disabled:dark:bg-[#442929]' : 'bg-muted'}`}
           />
           <Input
             data-input-type='value'
@@ -424,7 +424,7 @@ export function EnvironmentVariables({
             autoCapitalize='off'
             spellCheck='false'
             readOnly={isConflict}
-            className={`allow-scroll h-9 rounded-[8px] border-none px-3 font-normal text-sm ring-0 ring-offset-0 placeholder:text-muted-foreground focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 ${isConflict ? 'cursor-not-allowed border border-red-500 bg-[#F6D2D2] outline-none ring-0 disabled:bg-[#F6D2D2] disabled:opacity-100 dark:bg-[#442929] disabled:dark:bg-[#442929]' : 'bg-muted'}`}
+            className={`allow-scroll h-9 rounded-sm border-none px-3 font-normal text-sm ring-0 ring-offset-0 placeholder:text-muted-foreground focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 ${isConflict ? 'cursor-not-allowed border border-red-500 bg-[#F6D2D2] outline-none ring-0 disabled:bg-[#F6D2D2] disabled:opacity-100 dark:bg-[#442929] disabled:dark:bg-[#442929]' : 'bg-muted'}`}
           />
           <div className='flex items-center justify-end gap-2'>
             <Tooltip>
@@ -441,7 +441,7 @@ export function EnvironmentVariables({
                       return filtered.length ? filtered : [createEmptyEnvVar()]
                     })
                   }}
-                  className='h-9 w-9 rounded-[8px] bg-muted p-0 text-muted-foreground hover:bg-card/70'
+                  className='h-9 w-9 rounded-sm bg-muted p-0 text-muted-foreground hover:bg-card/70'
                 >
                   <Share2 className='h-4 w-4' />
                 </Button>
@@ -454,7 +454,7 @@ export function EnvironmentVariables({
                   variant='ghost'
                   size='icon'
                   onClick={() => removeEnvVar(originalIndex)}
-                  className='h-9 w-9 rounded-[8px] bg-muted p-0 text-muted-foreground hover:bg-card/70'
+                  className='h-9 w-9 rounded-sm bg-muted p-0 text-muted-foreground hover:bg-card/70'
                 >
                   ×
                 </Button>
@@ -481,9 +481,9 @@ export function EnvironmentVariables({
       <div className='px-6 pt-4 pb-2'>
         {/* Search Input */}
         {isLoading ? (
-          <Skeleton className='h-9 w-56 rounded-[8px]' />
+          <Skeleton className='h-9 w-56 rounded-sm' />
         ) : (
-          <div className='flex h-9 w-56 items-center gap-2 rounded-[8px] border bg-transparent pr-2 pl-3'>
+          <div className='flex h-9 w-56 items-center gap-2 rounded-sm border bg-transparent pr-2 pl-3'>
             <Search className='h-4 w-4 flex-shrink-0 text-muted-foreground' strokeWidth={2} />
             <Input
               placeholder='Search variables...'
@@ -512,9 +512,9 @@ export function EnvironmentVariables({
               {/* Show 3 skeleton rows */}
               {[1, 2, 3].map((index) => (
                 <div key={index} className={`${GRID_COLS} items-center`}>
-                  <Skeleton className='h-9 rounded-[8px]' />
-                  <Skeleton className='h-9 rounded-[8px]' />
-                  <Skeleton className='h-9 w-9 rounded-[8px]' />
+                  <Skeleton className='h-9 rounded-sm' />
+                  <Skeleton className='h-9 rounded-sm' />
+                  <Skeleton className='h-9 w-9 rounded-sm' />
                 </div>
               ))}
             </>
@@ -542,7 +542,7 @@ export function EnvironmentVariables({
                           spellCheck='false'
                           readOnly
                           onFocus={(e) => e.target.removeAttribute('readOnly')}
-                          className='h-9 rounded-[8px] border-none bg-muted px-3 text-sm'
+                          className='h-9 rounded-sm border-none bg-muted px-3 text-sm'
                         />
                         <Input
                           value={value ? '•'.repeat(value.length) : ''}
@@ -551,7 +551,7 @@ export function EnvironmentVariables({
                           autoCorrect='off'
                           autoCapitalize='off'
                           spellCheck='false'
-                          className='h-9 rounded-[8px] border-none bg-muted px-3 text-sm'
+                          className='h-9 rounded-sm border-none bg-muted px-3 text-sm'
                         />
                         <div className='flex justify-end'>
                           <Tooltip>
@@ -566,7 +566,7 @@ export function EnvironmentVariables({
                                     return next
                                   })
                                 }}
-                                className='h-9 w-9 rounded-[8px] bg-muted p-0 text-muted-foreground hover:bg-card/70'
+                                className='h-9 w-9 rounded-sm bg-muted p-0 text-muted-foreground hover:bg-card/70'
                               >
                                 ×
                               </Button>
@@ -596,7 +596,7 @@ export function EnvironmentVariables({
                         spellCheck='false'
                         readOnly
                         onFocus={(e) => e.target.removeAttribute('readOnly')}
-                        className='h-9 rounded-[8px] border-none bg-muted px-3 text-sm'
+                        className='h-9 rounded-sm border-none bg-muted px-3 text-sm'
                       />
                       <Input
                         value={value ? '•'.repeat(value.length) : ''}
@@ -605,7 +605,7 @@ export function EnvironmentVariables({
                         autoCorrect='off'
                         autoCapitalize='off'
                         spellCheck='false'
-                        className='h-9 rounded-[8px] border-none bg-muted px-3 text-sm'
+                        className='h-9 rounded-sm border-none bg-muted px-3 text-sm'
                       />
                       <div className='flex justify-end'>
                         <Tooltip>
@@ -620,7 +620,7 @@ export function EnvironmentVariables({
                                   return next
                                 })
                               }}
-                              className='h-9 w-9 rounded-[8px] bg-muted p-0 text-muted-foreground hover:bg-card/70'
+                              className='h-9 w-9 rounded-sm bg-muted p-0 text-muted-foreground hover:bg-card/70'
                             >
                               ×
                             </Button>
@@ -662,15 +662,15 @@ export function EnvironmentVariables({
         <div className='flex w-full items-center justify-between px-6 py-4'>
           {isLoading ? (
             <>
-              <Skeleton className='h-9 w-[117px] rounded-[8px]' />
-              <Skeleton className='h-9 w-[108px] rounded-[8px]' />
+              <Skeleton className='h-9 w-[117px] rounded-sm' />
+              <Skeleton className='h-9 w-[108px] rounded-sm' />
             </>
           ) : (
             <>
               <Button
                 onClick={addEnvVar}
                 variant='ghost'
-                className='h-9 rounded-[8px] border bg-background px-3 shadow-xs hover:bg-card focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
+                className='h-9 rounded-sm border bg-background px-3 shadow-xs hover:bg-card focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
               >
                 <Plus className='h-4 w-4 stroke-[2px]' />
                 Add Variable
@@ -681,7 +681,7 @@ export function EnvironmentVariables({
                   <Button
                     onClick={handleSave}
                     disabled={!hasChanges || hasConflicts}
-                    className={`h-9 rounded-[8px] ${hasConflicts ? 'cursor-not-allowed opacity-50' : ''}`}
+                    className={`h-9 rounded-sm ${hasConflicts ? 'cursor-not-allowed opacity-50' : ''}`}
                   >
                     Save Changes
                   </Button>
@@ -708,7 +708,7 @@ export function EnvironmentVariables({
           <AlertDialogFooter className='flex'>
             <AlertDialogCancel
               onClick={handleCancel}
-              className='h-9 w-full rounded-[8px] bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+              className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
             >
               Discard Changes
             </AlertDialogCancel>
@@ -717,7 +717,7 @@ export function EnvironmentVariables({
                 <TooltipTrigger asChild>
                   <AlertDialogAction
                     disabled={true}
-                    className='h-9 w-full cursor-not-allowed rounded-[8px] bg-primary text-black opacity-50 transition-all duration-200'
+                    className='h-9 w-full cursor-not-allowed rounded-sm bg-primary text-black opacity-50 transition-all duration-200'
                   >
                     Save Changes
                   </AlertDialogAction>
@@ -727,7 +727,7 @@ export function EnvironmentVariables({
             ) : (
               <AlertDialogAction
                 onClick={handleSave}
-                className='h-9 w-full rounded-[8px] bg-primary text-black transition-all duration-200 hover:bg-[var(--primary)]/90'
+                className='h-9 w-full rounded-sm bg-primary text-black transition-all duration-200 hover:bg-[var(--primary)]/90'
               >
                 Save Changes
               </AlertDialogAction>

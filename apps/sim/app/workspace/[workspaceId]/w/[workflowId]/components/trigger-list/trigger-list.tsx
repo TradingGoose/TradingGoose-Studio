@@ -89,7 +89,7 @@ export function TriggerList({ onSelect, className }: TriggerListProps) {
     return (
       <div
         className={cn(
-          'flex h-10 w-[200px] flex-shrink-0 cursor-pointer items-center gap-[10px] rounded-[8px] border px-1.5 transition-all duration-200',
+          'flex h-10 w-[200px] flex-shrink-0 cursor-pointer items-center gap-[10px] rounded-sm border px-1.5 transition-all duration-200',
           'border-border/40 bg-background/60 hover:border-border hover:bg-secondary/80'
         )}
       >

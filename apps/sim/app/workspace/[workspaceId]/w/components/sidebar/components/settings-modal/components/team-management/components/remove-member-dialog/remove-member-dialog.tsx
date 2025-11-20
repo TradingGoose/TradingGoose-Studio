@@ -63,13 +63,13 @@ export function RemoveMemberDialog({
         )}
 
         <DialogFooter>
-          <Button variant='outline' onClick={onCancel} className='h-9 rounded-[8px]'>
+          <Button variant='outline' onClick={onCancel} className='h-9 rounded-sm'>
             Cancel
           </Button>
           <Button
             variant='destructive'
             onClick={() => onConfirmRemove(shouldReduceSeats)}
-            className='h-9 rounded-[8px] bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+            className='h-9 rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
           >
             {isSelfRemoval ? 'Leave Organization' : 'Remove'}
           </Button>

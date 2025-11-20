@@ -51,43 +51,14 @@ export default function EmailAuth({
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false)
   const [emailErrors, setEmailErrors] = useState<string[]>([])
   const [showEmailValidationError, setShowEmailValidationError] = useState(false)
-  const [buttonClass, setButtonClass] = useState('auth-button-gradient')
+  const primaryButtonClasses =
+    'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
 
   // OTP verification state
   const [showOtpVerification, setShowOtpVerification] = useState(false)
   const [otpValue, setOtpValue] = useState('')
   const [countdown, setCountdown] = useState(0)
   const [isResendDisabled, setIsResendDisabled] = useState(false)
-
-  useEffect(() => {
-    // Check if CSS variable has been customized
-    const checkCustomBrand = () => {
-      const computedStyle = getComputedStyle(document.documentElement)
-      const brandAccent = computedStyle.getPropertyValue('--accent').trim()
-
-      // Check if the CSS variable exists and is different from the default
-      if (brandAccent && brandAccent !== '#ffcc00') {
-        setButtonClass('auth-button-custom')
-      } else {
-        setButtonClass('auth-button-gradient')
-      }
-    }
-
-    checkCustomBrand()
-
-    // Also check on window resize or theme changes
-    window.addEventListener('resize', checkCustomBrand)
-    const observer = new MutationObserver(checkCustomBrand)
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['style', 'class'],
-    })
-
-    return () => {
-      window.removeEventListener('resize', checkCustomBrand)
-      observer.disconnect()
-    }
-  }, [])
 
   useEffect(() => {
     if (countdown > 0) {
@@ -277,10 +248,10 @@ export default function EmailAuth({
                         onChange={handleEmailChange}
                         onKeyDown={handleEmailKeyDown}
                         className={cn(
-                          'rounded-[10px] shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
+                          'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                           showEmailValidationError &&
-                            emailErrors.length > 0 &&
-                            'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                          emailErrors.length > 0 &&
+                          'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                         )}
                         autoFocus
                       />
@@ -296,7 +267,7 @@ export default function EmailAuth({
 
                   <Button
                     type='submit'
-                    className={`${buttonClass} flex w-full items-center justify-center gap-2 rounded-[10px] border font-medium text-[15px] text-white transition-all duration-200`}
+                    className={primaryButtonClasses}
                     disabled={isSendingOtp}
                   >
                     {isSendingOtp ? (
@@ -330,17 +301,17 @@ export default function EmailAuth({
                         disabled={isVerifyingOtp}
                         className={cn('gap-2', authError && 'otp-error')}
                       >
-                        <InputOTPGroup className='[&>div]:!rounded-[10px] gap-2'>
+                        <InputOTPGroup className='[&>div]:!rounded-md gap-2'>
                           {[0, 1, 2, 3, 4, 5].map((index) => (
                             <InputOTPSlot
                               key={index}
                               index={index}
                               className={cn(
-                                '!rounded-[10px] h-12 w-12 border bg-white text-center font-medium text-lg shadow-sm transition-all duration-200',
+                                '!rounded-md h-12 w-12 border bg-white text-center font-medium text-lg shadow-sm transition-all duration-200',
                                 'border-gray-300 hover:border-gray-400',
                                 'focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-100',
                                 authError &&
-                                  'border-red-500 focus:border-red-500 focus:ring-red-100'
+                                'border-red-500 focus:border-red-500 focus:ring-red-100'
                               )}
                             />
                           ))}
@@ -358,7 +329,7 @@ export default function EmailAuth({
 
                   <Button
                     onClick={() => handleVerifyOtp()}
-                    className={`${buttonClass} flex w-full items-center justify-center gap-2 rounded-[10px] border font-medium text-[15px] text-white transition-all duration-200`}
+                    className={primaryButtonClasses}
                     disabled={otpValue.length !== 6 || isVerifyingOtp}
                   >
                     {isVerifyingOtp ? 'Verifying...' : 'Verify Email'}
@@ -374,7 +345,7 @@ export default function EmailAuth({
                         </span>
                       ) : (
                         <button
-                          className='font-medium text-[var(--accent)] underline-offset-4 transition hover:text-[var(--accent-hover)] hover:underline'
+                          className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
                           onClick={handleResendOtp}
                           disabled={isVerifyingOtp || isResendDisabled}
                         >
@@ -391,7 +362,7 @@ export default function EmailAuth({
                         setOtpValue('')
                         setAuthError(null)
                       }}
-                      className='font-medium text-[var(--accent)] underline-offset-4 transition hover:text-[var(--accent-hover)] hover:underline'
+                      className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
                     >
                       Change email
                     </button>

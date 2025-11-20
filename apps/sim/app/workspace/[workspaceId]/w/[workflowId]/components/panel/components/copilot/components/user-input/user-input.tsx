@@ -53,7 +53,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { useCopilotStore } from '@/stores/copilot/store'
 import type { ChatContext } from '@/stores/copilot/types'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store'
+import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import { ContextUsagePill } from '../context-usage-pill/context-usage-pill'
 import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
@@ -2129,10 +2129,10 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     }, [showMentionMenu, openSubmenuFor, aggregatedActive, message])
 
     return (
-      <div ref={containerRef} className={cn('relative flex-none pb-3', className)}>
+      <div ref={containerRef} className={cn('relative flex-none', className)}>
         <div
           className={cn(
-            'relative rounded-[8px] border border-[#E5E5E5] bg-[#FFFFFF] px-3 py-1.5 shadow-xs transition-all duration-200 dark:border-[#414141] dark:bg-[var(--surface-elevated)]',
+            'relative rounded-sm border border-[#E5E5E5] bg-[#FFFFFF] px-3 py-1.5 shadow-xs transition-all duration-200 dark:border-[#414141] dark:bg-[var(--surface-elevated)]',
             isDragging &&
             'border-[var(--primary-hover)] bg-purple-50/50 dark:border-[var(--primary-hover)] dark:bg-purple-950/20'
           )}
@@ -2352,7 +2352,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                 >
                   <div
                     ref={mentionMenuRef}
-                    className='flex flex-col overflow-hidden rounded-[8px] border bg-popover p-1 text-foreground shadow-md'
+                    className='flex flex-col overflow-hidden rounded-sm border bg-popover p-1 text-foreground shadow-md'
                     style={{
                       maxHeight: mentionPortalStyle.maxHeight,
                       height: '100%',

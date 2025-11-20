@@ -175,7 +175,7 @@ export function MemberInvitationCard({
             }
           }}
           disabled={isInviting || !hasAvailableSeats}
-          className='h-9 shrink-0 rounded-[8px] text-sm'
+          className='h-9 shrink-0 rounded-sm text-sm'
         >
           {showWorkspaceInvite ? 'Hide' : 'Add'} Workspaces
         </Button>
@@ -183,7 +183,7 @@ export function MemberInvitationCard({
           size='sm'
           onClick={handleInviteClick}
           disabled={!inviteEmail || isInviting || !hasAvailableSeats}
-          className='h-9 shrink-0 rounded-[8px]'
+          className='h-9 shrink-0 rounded-sm'
         >
           {isInviting ? <ButtonSkeleton /> : null}
           {hasAvailableSeats ? 'Invite' : 'No Seats'}
@@ -281,7 +281,7 @@ export function MemberInvitationCard({
       )}
 
       {inviteSuccess && (
-        <Alert className='rounded-[8px] border-green-200 bg-green-50 text-green-800 dark:border-green-800/50 dark:bg-green-950/20 dark:text-green-300'>
+        <Alert className='rounded-sm border-green-200 bg-green-50 text-green-800 dark:border-green-800/50 dark:bg-green-950/20 dark:text-green-300'>
           <CheckCircle className='h-4 w-4 text-green-600 dark:text-green-400' />
           <AlertDescription>
             Invitation sent successfully

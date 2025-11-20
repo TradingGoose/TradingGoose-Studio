@@ -7,7 +7,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { GithubIcon } from '@/components/icons'
 import { useBrandConfig } from '@/lib/branding/branding'
-import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getFormattedGitHubStars } from '@/app/(landing)/actions/github'
 import { soehne } from '@/app/fonts/soehne/soehne'
@@ -106,9 +105,8 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
   return (
     <nav
       aria-label='Primary navigation'
-      className={`${soehne.className} flex w-full items-center justify-between px-4 ${
-        variant === 'auth' ? 'pt-[20px] sm:pt-[16.5px]' : 'pt-[12px] sm:pt-[8.5px]'
-      } pb-[21px] sm:px-8 md:px-[44px]`}
+      className={`${soehne.className} flex w-full items-center justify-between px-4 ${variant === 'auth' ? 'pt-[20px] sm:pt-[16.5px]' : 'pt-[12px] sm:pt-[8.5px]'
+        } pb-[21px] sm:px-8 md:px-[44px]`}
       itemScope
       itemType='https://schema.org/SiteNavigationElement'
     >
@@ -140,16 +138,16 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
             />
           )}
         </Link>
-        {/* Desktop Navigation Links - only show on landing and if hosted */}
-        {variant === 'landing' && isHosted && (
+        {/* Desktop Navigation Links - only show on landing */}
+        {variant === 'landing' && (
           <ul className='hidden items-center justify-center gap-[20px] pt-[4px] md:flex'>
             <NavLinks />
           </ul>
         )}
       </div>
 
-      {/* Auth Buttons - show only when hosted, regardless of variant */}
-      {!hideAuthButtons && isHosted && (
+      {/* Auth Buttons - show regardless of deployment */}
+      {!hideAuthButtons && (
         <div className='flex items-center justify-center gap-[16px] pt-[1.5px]'>
           <button
             onClick={handleLoginClick}
@@ -174,7 +172,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
             href='/signup'
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-            className='group inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#6F3DFA] bg-gradient-to-b from-[#8357FF] to-[#6F3DFA] py-[6px] pr-[10px] pl-[12px] text-[14px] text-white shadow-[inset_0_2px_4px_0_#9B77FF] transition-all sm:text-[16px]'
+            className='group inline-flex items-center justify-center gap-2 rounded-md border border-[#6F3DFA] bg-gradient-to-b from-[#8357FF] to-[#6F3DFA] py-[6px] pr-[10px] pl-[12px] text-[14px] text-white shadow-[inset_0_2px_4px_0_#9B77FF] transition-all sm:text-[16px]'
             aria-label='Get started with Sim - Sign up for free'
             prefetch={true}
           >

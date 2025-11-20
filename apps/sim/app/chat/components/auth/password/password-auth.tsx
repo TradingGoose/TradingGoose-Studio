@@ -1,6 +1,6 @@
 'use client'
 
-import { type KeyboardEvent, useEffect, useState } from 'react'
+import { type KeyboardEvent, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,37 +33,8 @@ export default function PasswordAuth({
   const [showPassword, setShowPassword] = useState(false)
   const [showValidationError, setShowValidationError] = useState(false)
   const [passwordErrors, setPasswordErrors] = useState<string[]>([])
-  const [buttonClass, setButtonClass] = useState('auth-button-gradient')
-
-  useEffect(() => {
-    // Check if CSS variable has been customized
-    const checkCustomBrand = () => {
-      const computedStyle = getComputedStyle(document.documentElement)
-      const brandAccent = computedStyle.getPropertyValue('--accent').trim()
-
-      // Check if the CSS variable exists and is different from the default
-      if (brandAccent && brandAccent !== '#ffcc00') {
-        setButtonClass('auth-button-custom')
-      } else {
-        setButtonClass('auth-button-gradient')
-      }
-    }
-
-    checkCustomBrand()
-
-    // Also check on window resize or theme changes
-    window.addEventListener('resize', checkCustomBrand)
-    const observer = new MutationObserver(checkCustomBrand)
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['style', 'class'],
-    })
-
-    return () => {
-      window.removeEventListener('resize', checkCustomBrand)
-      observer.disconnect()
-    }
-  }, [])
+  const primaryButtonClasses =
+    'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
 
   // Handle keyboard input for auth forms
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -170,10 +141,10 @@ export default function PasswordAuth({
                       onChange={handlePasswordChange}
                       onKeyDown={handleKeyDown}
                       className={cn(
-                        'rounded-[10px] pr-10 shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
+                        'rounded-md pr-10 shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                         showValidationError &&
-                          passwordErrors.length > 0 &&
-                          'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                        passwordErrors.length > 0 &&
+                        'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                       )}
                       autoFocus
                     />
@@ -198,7 +169,7 @@ export default function PasswordAuth({
 
               <Button
                 type='submit'
-                className={`${buttonClass} flex w-full items-center justify-center gap-2 rounded-[10px] border font-medium text-[15px] text-white transition-all duration-200`}
+                className={primaryButtonClasses}
                 disabled={isAuthenticating}
               >
                 {isAuthenticating ? 'Authenticating...' : 'Continue'}

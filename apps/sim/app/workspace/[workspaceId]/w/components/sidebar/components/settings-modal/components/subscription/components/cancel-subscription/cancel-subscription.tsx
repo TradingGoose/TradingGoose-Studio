@@ -161,7 +161,7 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
       await refresh()
       if (activeOrgId) {
         await loadOrganizationSubscription(activeOrgId)
-        await refreshOrganization().catch(() => {})
+        await refreshOrganization().catch(() => { })
       }
 
       setIsDialogOpen(false)
@@ -223,7 +223,7 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
           onClick={() => setIsDialogOpen(true)}
           disabled={isLoading}
           className={cn(
-            'h-8 rounded-[8px] font-medium text-xs transition-all duration-200',
+            'h-8 rounded-sm font-medium text-xs transition-all duration-200',
             error
               ? 'border-red-500 text-red-500 dark:border-red-500 dark:text-red-500'
               : isCancelAtPeriodEnd
@@ -245,8 +245,8 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
               {isCancelAtPeriodEnd
                 ? 'Your subscription is set to cancel at the end of the billing period. Would you like to keep your subscription active?'
                 : `You'll be redirected to Stripe to manage your subscription. You'll keep access until ${formatDate(
-                    periodEndDate
-                  )}, then downgrade to free plan.`}{' '}
+                  periodEndDate
+                )}, then downgrade to free plan.`}{' '}
               {!isCancelAtPeriodEnd && (
                 <span className='text-red-500 dark:text-red-500'>
                   This action cannot be undone.
@@ -257,7 +257,7 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
 
           {!isCancelAtPeriodEnd && (
             <div className='py-2'>
-              <div className='rounded-[8px] bg-muted/50 p-3 text-sm'>
+              <div className='rounded-sm bg-muted/50 p-3 text-sm'>
                 <ul className='space-y-1 text-muted-foreground text-xs'>
                   <li>• Keep all features until {formatDate(periodEndDate)}</li>
                   <li>• No more charges</li>
@@ -270,7 +270,7 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
 
           <AlertDialogFooter className='flex'>
             <AlertDialogCancel
-              className='h-9 w-full rounded-[8px]'
+              className='h-9 w-full rounded-sm'
               onClick={isCancelAtPeriodEnd ? () => setIsDialogOpen(false) : handleKeep}
               disabled={isLoading}
             >
@@ -283,7 +283,7 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
                 return (
                   <AlertDialogAction
                     onClick={handleKeep}
-                    className='h-9 w-full rounded-[8px] bg-green-500 text-white transition-all duration-200 hover:bg-green-600 dark:bg-green-500 dark:hover:bg-green-600'
+                    className='h-9 w-full rounded-sm bg-green-500 text-white transition-all duration-200 hover:bg-green-600 dark:bg-green-500 dark:hover:bg-green-600'
                     disabled={isLoading}
                   >
                     {isLoading ? 'Restoring...' : 'Restore Subscription'}
@@ -293,7 +293,7 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
               return (
                 <AlertDialogAction
                   onClick={handleCancel}
-                  className='h-9 w-full rounded-[8px] bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+                  className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
                   disabled={isLoading}
                 >
                   {isLoading ? 'Redirecting...' : 'Continue'}

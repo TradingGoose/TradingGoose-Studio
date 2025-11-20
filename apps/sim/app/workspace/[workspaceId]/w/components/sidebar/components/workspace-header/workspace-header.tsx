@@ -148,9 +148,9 @@ export const WorkspaceHeader = React.memo<WorkspaceHeaderProps>(
 
     // Main render - using h-12 to match control bar height
     return (
-      <div className='h-12 rounded-[10px] border bg-background shadow-xs'>
+      <div className='h-12 rounded-md border bg-background shadow-xs'>
         <div
-          className='flex h-full cursor-pointer items-center gap-1 rounded-[10px] pr-[10px] pl-3 transition-colors hover:bg-card/50'
+          className='flex h-full cursor-pointer items-center gap-1 rounded-md pr-[10px] pl-3 transition-colors hover:bg-card/50'
           onClick={handleHeaderClick}
         >
           {isClientLoading || isWorkspacesLoading ? renderLoadingState() : renderWorkspaceInfo()}

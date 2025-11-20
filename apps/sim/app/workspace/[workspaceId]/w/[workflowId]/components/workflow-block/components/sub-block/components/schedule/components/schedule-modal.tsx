@@ -562,7 +562,7 @@ export function ScheduleModal({
                   onClick={openDeleteConfirm}
                   disabled={isDeleting || isSaving}
                   size='default'
-                  className='h-9 rounded-[8px]'
+                  className='h-9 rounded-sm'
                 >
                   {isDeleting ? (
                     <div className='mr-2 h-4 w-4 animate-spin rounded-full border-[1.5px] border-current border-t-transparent' />
@@ -578,7 +578,7 @@ export function ScheduleModal({
                 variant='outline'
                 onClick={handleClose}
                 size='default'
-                className='h-9 rounded-[8px]'
+                className='h-9 rounded-sm'
               >
                 Cancel
               </Button>
@@ -586,7 +586,7 @@ export function ScheduleModal({
                 onClick={handleSave}
                 disabled={!hasChanges || isSaving}
                 className={cn(
-                  'w-[140px] rounded-[8px]',
+                  'w-[140px] rounded-sm',
                   hasChanges ? 'bg-primary hover:bg-[var(--primary)]/90' : ''
                 )}
                 size='sm'

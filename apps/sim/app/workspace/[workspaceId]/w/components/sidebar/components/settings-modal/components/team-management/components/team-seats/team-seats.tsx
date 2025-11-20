@@ -77,7 +77,7 @@ export function TeamSeats({
             value={selectedSeats.toString()}
             onValueChange={(value) => setSelectedSeats(Number.parseInt(value))}
           >
-            <SelectTrigger id='seats' className='rounded-[8px]'>
+            <SelectTrigger id='seats' className='rounded-sm'>
               <SelectValue placeholder='Select number of seats' />
             </SelectTrigger>
             <SelectContent>

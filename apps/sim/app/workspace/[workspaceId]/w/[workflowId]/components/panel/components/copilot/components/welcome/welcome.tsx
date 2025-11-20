@@ -69,7 +69,7 @@ export function CopilotWelcome({ onQuestionClick, mode = 'ask' }: CopilotWelcome
               key={idx}
               type='button'
               onClick={() => handleQuestionClick(question)}
-              className='w-full rounded-[10px] border bg-background/60 p-3 text-left transition-colors hover:bg-card focus:outline-none focus:ring-2 focus:ring-[var(--primary-hover)]/30'
+              className='w-full rounded-md border bg-background/60 p-3 text-left transition-colors hover:bg-card focus:outline-none focus:ring-2 focus:ring-[var(--primary-hover)]/30'
             >
               <div className='flex items-start gap-2'>
                 <div className='mt-0.5 flex h-6 w-6 items-center justify-center rounded bg-[color-mix(in_srgb,var(--primary-hover)_16%,transparent)] text-[var(--primary-hover)]'>

@@ -21,7 +21,7 @@ export function NavigationTabs({ tabs, activeTab, onTabClick, className }: Navig
           key={tab.id}
           onClick={() => onTabClick?.(tab.id)}
           className={cn(
-            'flex h-[38px] items-center gap-1 rounded-[14px] px-3 font-[440] font-sans text-muted-foreground text-sm transition-all duration-200',
+            'flex h-[38px] items-center gap-1 rounded-lg px-3 font-[440] font-sans text-muted-foreground text-sm transition-all duration-200',
             activeTab === tab.id ? 'bg-secondary' : 'bg-transparent hover:bg-secondary/50'
           )}
         >

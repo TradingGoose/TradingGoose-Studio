@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { AlertCircle, CheckCircle2, Mail, RotateCcw, ShieldX, UserPlus, Users2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -60,31 +59,9 @@ export function InviteStatusCard({
   isExpiredError = false,
 }: InviteStatusCardProps) {
   const router = useRouter()
-  const [buttonClass, setButtonClass] = useState('auth-button-gradient')
   const brandConfig = useBrandConfig()
-
-  useEffect(() => {
-    const checkCustomBrand = () => {
-      const computedStyle = getComputedStyle(document.documentElement)
-      const brandAccent = computedStyle.getPropertyValue('--accent').trim()
-      if (brandAccent && brandAccent !== '#ffcc00') {
-        setButtonClass('auth-button-custom')
-      } else {
-        setButtonClass('auth-button-gradient')
-      }
-    }
-    checkCustomBrand()
-    window.addEventListener('resize', checkCustomBrand)
-    const observer = new MutationObserver(checkCustomBrand)
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['style', 'class'],
-    })
-    return () => {
-      window.removeEventListener('resize', checkCustomBrand)
-      observer.disconnect()
-    }
-  }, [])
+  const primaryButtonClasses =
+    'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
 
   if (type === 'loading') {
     return (
@@ -132,7 +109,7 @@ export function InviteStatusCard({
           {isExpiredError && (
             <Button
               variant='outline'
-              className='w-full rounded-[10px] border-primary font-medium text-[15px] text-primary transition-colors duration-200 hover:bg-primary hover:text-black'
+              className='w-full rounded-md border-primary font-medium text-[15px] text-primary transition-colors duration-200 hover:bg-primary hover:text-black'
               onClick={() => router.push('/')}
             >
               <RotateCcw className='mr-2 h-4 w-4' />
@@ -146,10 +123,10 @@ export function InviteStatusCard({
               variant={action.variant || 'default'}
               className={
                 (action.variant || 'default') === 'default'
-                  ? `${buttonClass} flex w-full items-center justify-center gap-2 rounded-[10px] border font-medium text-[15px] text-white transition-all duration-200`
+                  ? primaryButtonClasses
                   : action.variant === 'outline'
-                    ? 'w-full rounded-[10px] border-primary font-medium text-[15px] text-primary transition-colors duration-200 hover:bg-primary hover:text-black'
-                    : 'w-full rounded-[10px] text-muted-foreground hover:bg-secondary hover:text-foreground'
+                    ? 'w-full rounded-md border-primary font-medium text-[15px] text-primary transition-colors duration-200 hover:bg-primary hover:text-black'
+                    : 'w-full rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground'
               }
               onClick={action.onClick}
               disabled={action.disabled || action.loading}

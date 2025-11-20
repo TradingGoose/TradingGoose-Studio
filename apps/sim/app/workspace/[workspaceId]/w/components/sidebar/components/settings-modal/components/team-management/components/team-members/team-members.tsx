@@ -225,7 +225,7 @@ export function TeamMembers({
                         variant='outline'
                         size='sm'
                         onClick={() => onRemoveMember(item.member)}
-                        className='h-8 w-8 rounded-[8px] p-0'
+                        className='h-8 w-8 rounded-sm p-0'
                       >
                         <UserX className='h-4 w-4' />
                       </Button>
@@ -243,7 +243,7 @@ export function TeamMembers({
                       size='sm'
                       onClick={() => handleCancelInvitation(item.invitation.id)}
                       disabled={cancellingInvitations.has(item.invitation.id)}
-                      className='h-8 w-8 rounded-[8px] p-0'
+                      className='h-8 w-8 rounded-sm p-0'
                     >
                       {cancellingInvitations.has(item.invitation.id) ? (
                         <span className='h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent' />

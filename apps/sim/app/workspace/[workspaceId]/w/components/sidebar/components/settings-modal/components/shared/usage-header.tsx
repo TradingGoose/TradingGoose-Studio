@@ -43,7 +43,7 @@ export function UsageHeader({
   const progress = progressValue ?? (limit > 0 ? Math.min((current / limit) * 100, 100) : 0)
 
   return (
-    <div className='rounded-[8px] border bg-background p-3 shadow-xs'>
+    <div className='rounded-sm border bg-background p-3 shadow-xs'>
       <div className='space-y-2'>
         <div className='flex items-center justify-between'>
           <div className='flex items-center gap-2'>

@@ -19,7 +19,7 @@ export const NavigationItem = ({ item }: NavigationItemProps) => {
   const isGrayHover = item.id === 'settings' || item.id === 'help'
 
   const content = item.disabled ? (
-    <div className='inline-flex h-[42px] w-[42px] cursor-not-allowed items-center justify-center gap-2 whitespace-nowrap rounded-[11px] border bg-card font-medium text-card-foreground text-sm opacity-50 ring-offset-background transition-colors [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0'>
+    <div className='inline-flex h-[42px] w-[42px] cursor-not-allowed items-center justify-center gap-2 whitespace-nowrap rounded-md border bg-card font-medium text-card-foreground text-sm opacity-50 ring-offset-background transition-colors [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0'>
       <item.icon className='h-4 w-4' />
     </div>
   ) : (
@@ -27,7 +27,7 @@ export const NavigationItem = ({ item }: NavigationItemProps) => {
       variant='outline'
       onClick={item.onClick}
       className={cn(
-        'h-[42px] w-[42px] rounded-[10px] border bg-background text-foreground shadow-xs transition-all duration-200',
+        'h-[42px] w-[42px] rounded-md border bg-background text-foreground shadow-xs transition-all duration-200',
         isGrayHover && 'hover:bg-secondary',
         !isGrayHover &&
         'hover:border-primary hover:bg-primary hover:text-black',
