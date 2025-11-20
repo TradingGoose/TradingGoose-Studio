@@ -8,7 +8,7 @@ import { Console } from '@/app/workspace/[workspaceId]/w/[workflowId]/components
 import {
   WorkflowStoreProvider,
   DEFAULT_WORKFLOW_CHANNEL_ID,
-} from '@/stores/workflows/workflow/store'
+} from '@/stores/workflows/workflow/store-client'
 
 interface WorkflowConsoleAppProps {
   workspaceId: string

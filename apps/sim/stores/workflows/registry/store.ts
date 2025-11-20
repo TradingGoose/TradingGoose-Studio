@@ -497,7 +497,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
         const { workflows } = get()
 
         // Check if workflow is already active for this channel AND has data loaded
-        const workflowStoreState = useWorkflowStore.getState()
+        const workflowStoreState = useWorkflowStore.getState(channelKey)
         const hasWorkflowData = Object.keys(workflowStoreState.blocks).length > 0
         const activeWorkflowIdForChannel = getActiveWorkflowIdFromState(get(), channelKey)
 
@@ -589,7 +589,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           error: null,
         }))
         syncPairContextForChannel(channelId, id)
-        useWorkflowStore.setState(workflowState)
+        useWorkflowStore.setStateForChannel(workflowState, channelKey)
         useSubBlockStore.getState().initializeFromWorkflow(id, (workflowState as any).blocks || {})
 
         window.dispatchEvent(

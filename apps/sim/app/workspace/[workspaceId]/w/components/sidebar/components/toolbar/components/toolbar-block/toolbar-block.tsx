@@ -3,7 +3,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useOptionalWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
 import type { BlockConfig } from '@/blocks/types'
 
 export type ToolbarBlockProps = {
@@ -59,7 +59,7 @@ export function ToolbarBlock({
       onDragStart={handleDragStart}
       onClick={handleClick}
       className={cn(
-        'group flex h-9 items-center gap-[10px] w-full rounded-[8px] p-2 transition-colors',
+        'group flex h-9 items-center gap-[10px] w-full rounded-sm p-2 transition-colors',
         disabled
           ? 'cursor-not-allowed opacity-60'
           : 'cursor-pointer hover:bg-card active:cursor-grabbing'

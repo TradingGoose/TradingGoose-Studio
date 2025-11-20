@@ -1,10 +1,11 @@
 import { getSessionCookie } from 'better-auth/cookies'
 import { type NextRequest, NextResponse } from 'next/server'
-import { isHosted } from './lib/environment'
 import { createLogger } from './lib/logs/console/logger'
 import { generateRuntimeCSP } from './lib/security/csp'
 
 const logger = createLogger('Middleware')
+
+const AUTH_ROUTES = new Set(['/login', '/signup'])
 
 const SUSPICIOUS_UA_PATTERNS = [
   /^\s*$/, // Empty user agents
@@ -14,65 +15,12 @@ const SUSPICIOUS_UA_PATTERNS = [
   /\b(sqlmap|nikto|gobuster|dirb|nmap)\b/i, // Known scanning tools
 ] as const
 
-/**
- * Handles authentication-based redirects for root paths
- */
-function handleRootPathRedirects(
-  request: NextRequest,
-  hasActiveSession: boolean
-): NextResponse | null {
-  const url = request.nextUrl
-
-  if (url.pathname !== '/') {
-    return null
+function buildLoginRedirect(request: NextRequest, callback?: string) {
+  const loginUrl = new URL('/login', request.url)
+  if (callback) {
+    loginUrl.searchParams.set('callbackUrl', callback)
   }
-
-  if (!isHosted) {
-    // Self-hosted: Always redirect based on session
-    if (hasActiveSession) {
-      return NextResponse.redirect(new URL('/workspace', request.url))
-    }
-    return NextResponse.redirect(new URL('/login', request.url))
-  }
-
-  // For root path, redirect authenticated users to workspace
-  // Unless they have a 'from' query parameter (e.g., ?from=nav, ?from=settings)
-  // This allows intentional navigation to the homepage from anywhere in the app
-  if (hasActiveSession) {
-    const from = url.searchParams.get('from')
-    if (!from) {
-      return NextResponse.redirect(new URL('/workspace', request.url))
-    }
-  }
-
-  return null
-}
-
-/**
- * Handles invitation link redirects for unauthenticated users
- */
-function handleInvitationRedirects(
-  request: NextRequest,
-  hasActiveSession: boolean
-): NextResponse | null {
-  if (!request.nextUrl.pathname.startsWith('/invite/')) {
-    return null
-  }
-
-  if (
-    !hasActiveSession &&
-    !request.nextUrl.pathname.endsWith('/login') &&
-    !request.nextUrl.pathname.endsWith('/signup') &&
-    !request.nextUrl.search.includes('callbackUrl')
-  ) {
-    const token = request.nextUrl.searchParams.get('token')
-    const inviteId = request.nextUrl.pathname.split('/').pop()
-    const callbackParam = encodeURIComponent(`/invite/${inviteId}${token ? `?token=${token}` : ''}`)
-    return NextResponse.redirect(
-      new URL(`/login?callbackUrl=${callbackParam}&invite_flow=true`, request.url)
-    )
-  }
-  return NextResponse.next()
+  return NextResponse.redirect(loginUrl)
 }
 
 /**
@@ -134,32 +82,29 @@ function handleSecurityFiltering(request: NextRequest): NextResponse | null {
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl
 
-  const sessionCookie = getSessionCookie(request)
-  const hasActiveSession = !!sessionCookie
+  const rawSessionCookie = getSessionCookie(request)
+  const sessionCookie = rawSessionCookie?.trim()
+  const hasActiveSession = Boolean(
+    sessionCookie &&
+      sessionCookie !== 'undefined' &&
+      sessionCookie !== 'null' &&
+      sessionCookie !== 'false'
+  )
 
-  const redirect = handleRootPathRedirects(request, hasActiveSession)
-  if (redirect) return redirect
-
-  if (url.pathname === '/login' || url.pathname === '/signup') {
-    if (hasActiveSession) {
-      return NextResponse.redirect(new URL('/workspace', request.url))
-    }
-    return NextResponse.next()
-  }
-
-  if (url.pathname.startsWith('/chat/')) {
-    return NextResponse.next()
-  }
-
-  if (url.pathname.startsWith('/workspace')) {
+  if (
+    url.pathname.startsWith('/workspace') ||
+    url.pathname === '/w' ||
+    url.pathname.startsWith('/w/')
+  ) {
     if (!hasActiveSession) {
-      return NextResponse.redirect(new URL('/login', request.url))
+      const callbackTarget = `${url.pathname}${url.search}`
+      return buildLoginRedirect(request, callbackTarget)
     }
-    return NextResponse.next()
   }
 
-  const invitationRedirect = handleInvitationRedirects(request, hasActiveSession)
-  if (invitationRedirect) return invitationRedirect
+  if (AUTH_ROUTES.has(url.pathname) && hasActiveSession) {
+    return NextResponse.redirect(new URL('/workspace', request.url))
+  }
 
   const workspaceInvitationRedirect = handleWorkspaceInvitationAPI(request, hasActiveSession)
   if (workspaceInvitationRedirect) return workspaceInvitationRedirect

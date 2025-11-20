@@ -1,6 +1,6 @@
 import type { Edge } from 'reactflow'
-import type { ReactNode } from 'react'
-import { create } from 'zustand'
+import type { StateCreator } from 'zustand'
+import { createStore, type StoreApi } from 'zustand/vanilla'
 import { devtools } from 'zustand/middleware'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBlockOutputs } from '@/lib/workflows/block-outputs'
@@ -39,20 +39,13 @@ const initialState = {
 
 export const DEFAULT_WORKFLOW_CHANNEL_ID = 'default'
 
-export function WorkflowStoreProvider({
-  channelId = DEFAULT_WORKFLOW_CHANNEL_ID,
-  children,
-}: {
-  channelId?: string
-  children: ReactNode
-}) {
-  void channelId // Reserved for future channel-scoped workflow store support
-  return children
-}
+type WorkflowStoreStateCreator = StateCreator<
+  WorkflowStore,
+  [['zustand/devtools', never]],
+  []
+>
 
-export const useWorkflowStore = create<WorkflowStore>()(
-  devtools(
-    (set, get) => ({
+const workflowStoreState: WorkflowStoreStateCreator = (set, get) => ({
       ...initialState,
 
       setNeedsRedeploymentFlag: (needsRedeployment: boolean) => {
@@ -1118,7 +1111,59 @@ export const useWorkflowStore = create<WorkflowStore>()(
       getDragStartPosition: () => {
         return get().dragStartPosition || null
       },
-    }),
-    { name: 'workflow-store' }
+    })
+
+const createWorkflowStore = (channelId: string): StoreApi<WorkflowStore> =>
+  createStore<WorkflowStore>()(
+    devtools(workflowStoreState, { name: `workflow-store-${channelId || 'global'}` })
   )
-)
+
+const resolveChannelKey = (channelId?: string) =>
+  channelId && channelId.trim().length > 0 ? channelId : DEFAULT_WORKFLOW_CHANNEL_ID
+
+const workflowStoreMap = new Map<string, StoreApi<WorkflowStore>>()
+
+export const getWorkflowStoreForChannel = (channelId?: string) => {
+  const key = resolveChannelKey(channelId)
+  if (!workflowStoreMap.has(key)) {
+    workflowStoreMap.set(key, createWorkflowStore(key))
+  }
+  return workflowStoreMap.get(key)!
+}
+
+export const getWorkflowStoreState = (channelId?: string) =>
+  getWorkflowStoreForChannel(channelId).getState()
+
+export const setWorkflowStoreState = (
+  partial: Parameters<StoreApi<WorkflowStore>['setState']>[0],
+  channelId?: string,
+  replace?: Parameters<StoreApi<WorkflowStore>['setState']>[1]
+) => getWorkflowStoreForChannel(channelId).setState(partial as any, replace)
+
+export const subscribeToWorkflowStore = (
+  listener: Parameters<StoreApi<WorkflowStore>['subscribe']>[0],
+  channelId?: string
+) => getWorkflowStoreForChannel(channelId).subscribe(listener)
+
+type SetStateParam = Parameters<StoreApi<WorkflowStore>['setState']>[0]
+type SetStateReplace = Parameters<StoreApi<WorkflowStore>['setState']>[1]
+type SubscribeParam = Parameters<StoreApi<WorkflowStore>['subscribe']>[0]
+
+type WorkflowStoreAccessor = {
+  getState: (channelId?: string) => WorkflowStore
+  setState: (partial: SetStateParam, replace?: SetStateReplace) => void
+  setStateForChannel: (
+    partial: SetStateParam,
+    channelId?: string,
+    replace?: SetStateReplace
+  ) => void
+  subscribe: (listener: SubscribeParam, channelId?: string) => () => void
+}
+
+export const useWorkflowStore: WorkflowStoreAccessor = {
+  getState: (channelId) => getWorkflowStoreState(channelId),
+  setState: (partial, replace) => setWorkflowStoreState(partial, undefined, replace),
+  setStateForChannel: (partial, channelId, replace) =>
+    setWorkflowStoreState(partial, channelId, replace),
+  subscribe: (listener, channelId) => subscribeToWorkflowStore(listener, channelId),
+}

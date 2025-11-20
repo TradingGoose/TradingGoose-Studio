@@ -16,7 +16,7 @@ import {
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { getUniqueBlockName, mergeSubblockState } from '@/stores/workflows/utils'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store'
+import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import type { BlockState } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('UndoRedo')

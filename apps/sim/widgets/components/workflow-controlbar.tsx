@@ -9,7 +9,7 @@ import { widgetHeaderControlClassName } from '@/widgets/components/widget-header
 import { isPairColor, type PairColor } from '@/widgets/pair-colors'
 import type { WidgetInstance } from '@/widgets/layout'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { WorkflowStoreProvider } from '@/stores/workflows/workflow/store'
+import { WorkflowStoreProvider } from '@/stores/workflows/workflow/store-client'
 
 const FALLBACK_TEXT_CLASS = widgetHeaderControlClassName('text-muted-foreground/80')
 

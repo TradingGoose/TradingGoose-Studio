@@ -10,7 +10,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { LandingPromptStorage } from '@/lib/browser-storage'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useCopilotStore } from '@/stores/copilot/store'
+import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
 import { useChatStore } from '@/stores/panel/chat/store'
 import { useConsoleStore } from '@/stores/panel/console/store'
 import { usePanelStore } from '@/stores/panel/store'
@@ -66,6 +66,7 @@ export function Panel() {
     validateCurrentChat,
     areChatsFresh,
   } = useCopilotStore()
+  const copilotStoreApi = useCopilotStoreApi()
 
   // Handle chat deletion
   const handleDeleteChat = useCallback(
@@ -318,31 +319,31 @@ export function Panel() {
   return (
     <>
       {/* Tab Selector - Always visible */}
-      <div className='fixed top-[76px] right-4 z-20 flex h-9 w-[308px] items-center gap-1 rounded-[14px] border bg-card px-[2.5px] py-1 shadow-xs'>
+      <div className='fixed top-[76px] right-4 z-20 flex h-9 w-[308px] items-center gap-1 rounded-lg border bg-card px-[2.5px] py-1 shadow-xs'>
         <button
           onClick={() => handleTabClick('copilot')}
-          className={`panel-tab-base inline-flex flex-1 cursor-pointer items-center justify-center rounded-[10px] border border-transparent py-1 font-[450] text-sm outline-none transition-colors duration-200 ${isOpen && activeTab === 'copilot' ? 'panel-tab-active' : 'panel-tab-inactive'
+          className={`panel-tab-base inline-flex flex-1 cursor-pointer items-center justify-center rounded-md border border-transparent py-1 font-[450] text-sm outline-none transition-colors duration-200 ${isOpen && activeTab === 'copilot' ? 'panel-tab-active' : 'panel-tab-inactive'
             }`}
         >
           Copilot
         </button>
         <button
           onClick={() => handleTabClick('console')}
-          className={`panel-tab-base inline-flex flex-1 cursor-pointer items-center justify-center rounded-[10px] border border-transparent py-1 font-[450] text-sm outline-none transition-colors duration-200 ${isOpen && activeTab === 'console' ? 'panel-tab-active' : 'panel-tab-inactive'
+          className={`panel-tab-base inline-flex flex-1 cursor-pointer items-center justify-center rounded-md border border-transparent py-1 font-[450] text-sm outline-none transition-colors duration-200 ${isOpen && activeTab === 'console' ? 'panel-tab-active' : 'panel-tab-inactive'
             }`}
         >
           Console
         </button>
         <button
           onClick={() => handleTabClick('chat')}
-          className={`panel-tab-base inline-flex flex-1 cursor-pointer items-center justify-center rounded-[10px] border border-transparent py-1 font-[450] text-sm outline-none transition-colors duration-200 ${isOpen && activeTab === 'chat' ? 'panel-tab-active' : 'panel-tab-inactive'
+          className={`panel-tab-base inline-flex flex-1 cursor-pointer items-center justify-center rounded-md border border-transparent py-1 font-[450] text-sm outline-none transition-colors duration-200 ${isOpen && activeTab === 'chat' ? 'panel-tab-active' : 'panel-tab-inactive'
             }`}
         >
           Chat
         </button>
         <button
           onClick={() => handleTabClick('variables')}
-          className={`panel-tab-base inline-flex flex-1 cursor-pointer items-center justify-center rounded-[10px] border border-transparent py-1 font-[450] text-sm outline-none transition-colors duration-200 ${isOpen && activeTab === 'variables' ? 'panel-tab-active' : 'panel-tab-inactive'
+          className={`panel-tab-base inline-flex flex-1 cursor-pointer items-center justify-center rounded-md border border-transparent py-1 font-[450] text-sm outline-none transition-colors duration-200 ${isOpen && activeTab === 'variables' ? 'panel-tab-active' : 'panel-tab-inactive'
             }`}
         >
           Variables
@@ -352,7 +353,7 @@ export function Panel() {
       {/* Panel Content - Only visible when isOpen is true */}
       {isOpen && (
         <div
-          className='fixed top-[124px] right-4 bottom-4 z-10 flex flex-col rounded-[14px] border bg-card shadow-xs'
+          className='fixed top-[124px] right-4 bottom-4 z-10 flex flex-col rounded-lg border bg-card shadow-xs'
           style={{ width: `${panelWidth}px` }}
         >
           {/* Invisible resize handle */}
@@ -476,7 +477,7 @@ export function Panel() {
                                             const updatedChats = chats.map((c) =>
                                               c.id === chat.id ? { ...c, title: newTitle } : c
                                             )
-                                            useCopilotStore.setState({ chats: updatedChats })
+                                            copilotStoreApi.setState({ chats: updatedChats })
 
                                             // Exit edit mode immediately
                                             setEditingChatId(null)

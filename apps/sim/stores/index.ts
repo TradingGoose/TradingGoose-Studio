@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useCopilotStore } from '@/stores/copilot/store'
+import { getCopilotStore, useCopilotStore } from '@/stores/copilot/store'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import { useExecutionStore } from '@/stores/execution/store'
 import { useConsoleStore } from '@/stores/panel/console/store'
@@ -224,7 +224,7 @@ export const resetAllStores = () => {
   })
   useExecutionStore.getState().reset()
   useConsoleStore.setState({ entries: [], isOpen: false })
-  useCopilotStore.setState({ messages: [], isSendingMessage: false, error: null })
+  getCopilotStore().setState({ messages: [], isSendingMessage: false, error: null })
   useCustomToolsStore.setState({ tools: {} })
   // Variables store has no tracking to reset; registry hydrates
   useSubscriptionStore.getState().reset() // Reset subscription store
@@ -238,7 +238,7 @@ export const logAllStores = () => {
     environment: useEnvironmentStore.getState(),
     execution: useExecutionStore.getState(),
     console: useConsoleStore.getState(),
-    copilot: useCopilotStore.getState(),
+    copilot: getCopilotStore().getState(),
     customTools: useCustomToolsStore.getState(),
     subBlock: useSubBlockStore.getState(),
     variables: useVariablesStore.getState(),

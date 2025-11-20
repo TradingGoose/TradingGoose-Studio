@@ -3,7 +3,7 @@ import { shallow } from 'zustand/shallow'
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
 import { SYSTEM_REFERENCE_PREFIXES } from '@/lib/workflows/references'
 import { normalizeBlockName } from '@/stores/workflows/utils'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store'
+import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import type { Loop, Parallel } from '@/stores/workflows/workflow/types'
 
 export function useAccessibleReferencePrefixes(blockId?: string | null): Set<string> | undefined {

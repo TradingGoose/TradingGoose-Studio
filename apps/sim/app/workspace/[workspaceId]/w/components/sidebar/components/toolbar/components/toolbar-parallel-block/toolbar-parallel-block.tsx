@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useOptionalWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { ParallelTool } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/subflows/parallel/parallel-config'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
 
 type ParallelToolbarItemProps = {
   disabled?: boolean
@@ -58,7 +58,7 @@ export default function ParallelToolbarItem({
       onDragStart={handleDragStart}
       onClick={handleClick}
       className={cn(
-        'group flex h-8 items-center gap-[10px] rounded-[8px] p-2 transition-colors',
+        'group flex h-8 items-center gap-[10px] rounded-sm p-2 transition-colors',
         disabled
           ? 'cursor-not-allowed opacity-60'
           : 'cursor-pointer hover:bg-card active:cursor-grabbing'

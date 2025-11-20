@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { getBlock } from '@/blocks'
 import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store'
+import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 
 interface OutputSelectProps {
   workflowId: string | null
@@ -409,7 +409,7 @@ export function OutputSelect({
       <button
         type='button'
         onClick={() => setIsOutputDropdownOpen(!isOutputDropdownOpen)}
-        className={`flex h-9 w-full items-center justify-between rounded-[8px] border px-3 py-1.5 font-normal text-sm shadow-xs transition-colors ${isOutputDropdownOpen
+        className={`flex h-9 w-full items-center justify-between rounded-sm border px-3 py-1.5 font-normal text-sm shadow-xs transition-colors ${isOutputDropdownOpen
           ? 'border-[#E5E5E5] bg-[#FFFFFF] text-muted-foreground dark:border-[#414141] dark:bg-[var(--surface-elevated)]'
           : 'border-[#E5E5E5] bg-[#FFFFFF] text-muted-foreground hover:text-muted-foreground dark:border-[#414141] dark:bg-[var(--surface-elevated)]'
           }`}
@@ -459,7 +459,7 @@ export function OutputSelect({
             className='mt-0'
             data-rs-scroll-lock-ignore
           >
-            <div className='overflow-hidden rounded-[8px] border border-[#E5E5E5] bg-[#FFFFFF] pt-1 shadow-xs dark:border-[#414141] dark:bg-[var(--surface-elevated)]'>
+            <div className='overflow-hidden rounded-sm border border-[#E5E5E5] bg-[#FFFFFF] pt-1 shadow-xs dark:border-[#414141] dark:bg-[var(--surface-elevated)]'>
               <div
                 className='overflow-y-auto overscroll-contain'
                 style={{ maxHeight: portalStyle.height }}

@@ -94,7 +94,7 @@ function WidgetSurfaceComponent({
 
   return (
     <div className='flex h-full max-h-full w-full max-w-full flex-1 basis-0 box-border min-h-0 min-w-0 p-1.5'>
-      <Card className='flex h-full max-h-full w-full max-w-full flex-1 min-h-0 flex-col overflow-hidden rounded-[10px] border border-border bg-background shadow-sm'>
+      <Card className='flex h-full max-h-full w-full max-w-full flex-1 min-h-0 flex-col overflow-hidden rounded-md border border-border bg-background shadow-sm'>
         <header className='border-b border-border/80 text-accent-foreground'>
           <div
             ref={headerScrollRef}

@@ -1,9 +1,10 @@
 import { useCallback, useRef, useState } from 'react'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
+import { getCopilotStore } from '@/stores/copilot/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store'
+import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { WorkflowDiffEngine } from './diff-engine'
 
@@ -135,8 +136,7 @@ export function useWorkflowDiff(): UseWorkflowDiffReturn {
       const currentState = workflowStore.getWorkflowState()
 
       // Get current copilot chat ID (if available)
-      const { useCopilotStore } = await import('@/stores/copilot/store')
-      const { currentChat, messages } = useCopilotStore.getState()
+      const { currentChat, messages } = getCopilotStore().getState()
 
       if (!currentChat?.id) {
         logger.warn('No active copilot chat for checkpoint creation')

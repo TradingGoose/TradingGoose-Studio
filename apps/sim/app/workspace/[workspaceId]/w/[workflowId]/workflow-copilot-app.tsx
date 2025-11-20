@@ -4,29 +4,26 @@ import { useSession } from '@/lib/auth-client'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { SocketProvider } from '@/contexts/socket-context'
 import { WorkflowRouteProvider } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
-import Workflow, { type WorkflowUIConfig } from '@/app/workspace/[workspaceId]/w/[workflowId]/workflow'
+import { Copilot } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/panel/components/copilot/copilot'
 import {
   WorkflowStoreProvider,
   DEFAULT_WORKFLOW_CHANNEL_ID,
 } from '@/stores/workflows/workflow/store-client'
+import { CopilotStoreProvider } from '@/stores/copilot/store'
 
-interface WorkflowEditorAppProps {
+interface WorkflowCopilotAppProps {
   workspaceId: string
   workflowId: string
-  ui?: WorkflowUIConfig
-  disableNavigation?: boolean
+  panelWidth: number
   channelId?: string
-  viewportBounds?: { x: number; y: number; width: number; height: number }
 }
 
-const WorkflowEditorApp = ({
+const WorkflowCopilotApp = ({
   workspaceId,
   workflowId,
-  ui,
-  disableNavigation,
+  panelWidth,
   channelId = DEFAULT_WORKFLOW_CHANNEL_ID,
-  viewportBounds,
-}: WorkflowEditorAppProps) => {
+}: WorkflowCopilotAppProps) => {
   const session = useSession()
 
   const user = session.data?.user
@@ -42,12 +39,11 @@ const WorkflowEditorApp = ({
       <SocketProvider user={user} workspaceId={workspaceId} workflowId={workflowId}>
         <WorkflowRouteProvider workspaceId={workspaceId} workflowId={workflowId} channelId={channelId}>
           <WorkflowStoreProvider channelId={channelId}>
-            <Workflow
-              channelId={channelId}
-              ui={ui}
-              disableNavigation={disableNavigation}
-              viewportBounds={viewportBounds}
-            />
+            <CopilotStoreProvider channelId={channelId}>
+              <div className='flex h-full w-full flex-col overflow-hidden bg-[hsl(var(--workflow-background))]'>
+                <Copilot panelWidth={panelWidth} />
+              </div>
+            </CopilotStoreProvider>
           </WorkflowStoreProvider>
         </WorkflowRouteProvider>
       </SocketProvider>
@@ -55,5 +51,5 @@ const WorkflowEditorApp = ({
   )
 }
 
-export default WorkflowEditorApp
-export { WorkflowEditorApp }
+export default WorkflowCopilotApp
+export { WorkflowCopilotApp }

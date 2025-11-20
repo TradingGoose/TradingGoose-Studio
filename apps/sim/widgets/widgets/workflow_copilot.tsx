@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { Activity } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import WorkflowConsoleApp from '@/app/workspace/[workspaceId]/w/[workflowId]/workflow-console-app'
+import WorkflowCopilotApp from '@/app/workspace/[workspaceId]/w/[workflowId]/workflow-copilot-app'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
+import { useWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 
-const WorkflowConsoleWidgetBody = ({
+const WorkflowCopilotWidgetBody = ({
   params,
   context,
   pairColor = 'gray',
@@ -13,9 +14,14 @@ const WorkflowConsoleWidgetBody = ({
   widget,
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
-  const workspaceId = context?.workspaceId
+  const { workspaceId, channelId, isLinkedToColorPair } = useWidgetChannel({
+    context,
+    pairColor,
+    widget,
+    panelId,
+    fallbackWidgetKey: 'workflow-copilot',
+  })
   const {
-    channelId,
     resolvedWorkflowId,
     hasLoadedWorkflows,
     loadError,
@@ -29,8 +35,9 @@ const WorkflowConsoleWidgetBody = ({
     panelId,
     params,
     onWidgetParamsChange,
-    fallbackWidgetKey: 'workflow-console',
-    loggerScope: 'workflow console widget',
+    fallbackWidgetKey: 'workflow-copilot',
+    loggerScope: 'workflow copilot widget',
+    activateWorkflow: isLinkedToColorPair,
   })
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [panelWidth, setPanelWidth] = useState(0)
@@ -74,11 +81,8 @@ const WorkflowConsoleWidgetBody = ({
   }
 
   return (
-    <div
-      ref={containerRef}
-      className='flex h-full w-full overflow-hidden bg-[hsl(var(--workflow-background))] px-3 py-2'
-    >
-      <WorkflowConsoleApp
+    <div ref={containerRef} className='flex h-full w-full overflow-hidden bg-[hsl(var(--workflow-background))] p-2'>
+      <WorkflowCopilotApp
         workspaceId={workspaceId}
         workflowId={resolvedWorkflowId}
         panelWidth={panelWidth || fallbackPanelWidth}
@@ -94,22 +98,15 @@ const WidgetStateMessage = ({ message }: { message: string }) => (
   </div>
 )
 
-export const workflowConsoleWidget: DashboardWidgetDefinition = {
-  key: 'workflow_console',
-  title: 'Workflow Console',
-  icon: Activity,
+export const workflowCopilotWidget: DashboardWidgetDefinition = {
+  key: 'workflow_copilot',
+  title: 'Workflow Copilot',
+  icon: Sparkles,
   category: 'utility',
-  description: 'Live workflow execution console with logs and streaming output.',
-  component: (props) => <WorkflowConsoleWidgetBody {...props} />,
-  renderHeader: ({ widget }) => {
-    const workflowId =
-      widget && widget.params && typeof widget.params === 'object' && 'workflowId' in widget.params
-        ? (widget.params.workflowId as string)
-        : 'default'
-
-    return {
-      left: <span className='text-xs font-medium text-accent-foreground'>Console</span>,
-      center: <span className='text-xs text-muted-foreground'>Workflow: {workflowId}</span>,
-    }
-  },
+  description: 'AI copilot experience tailored to the selected workflow.',
+  component: (props) => <WorkflowCopilotWidgetBody {...props} />,
+  renderHeader: () => ({
+    left: <span className='text-xs font-medium text-accent-foreground'>Copilot</span>,
+    center: <span className='text-xs text-muted-foreground'>Workflow assistance</span>,
+  }),
 }

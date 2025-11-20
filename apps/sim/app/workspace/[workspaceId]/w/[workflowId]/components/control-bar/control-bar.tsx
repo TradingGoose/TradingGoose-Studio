@@ -43,7 +43,7 @@ import { usePanelStore } from '@/stores/panel/store'
 import { useSubscriptionStore } from '@/stores/subscription/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store'
+import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import { useWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import {
@@ -74,9 +74,9 @@ interface ControlBarProps {
 type ControlBarVariant = 'workspace' | 'widget'
 
 const WORKSPACE_ICON_BUTTON_CLASS =
-  'h-12 w-12 rounded-[11px] border bg-card text-card-foreground shadow-xs hover:bg-secondary'
+  'h-12 w-12 rounded-md border bg-card text-card-foreground shadow-xs hover:bg-secondary'
 const WORKSPACE_ICON_BUTTON_DISABLED_CLASS =
-  'inline-flex h-12 w-12 cursor-not-allowed items-center justify-center rounded-[11px] border bg-card text-card-foreground opacity-50 shadow-xs transition-colors'
+  'inline-flex h-12 w-12 cursor-not-allowed items-center justify-center rounded-md border bg-card text-card-foreground opacity-50 shadow-xs transition-colors'
 
 const WIDGET_ICON_BUTTON_CLASS = widgetHeaderIconButtonClassName()
 const WIDGET_ICON_BUTTON_DISABLED_CLASS = cn(widgetHeaderIconButtonClassName(), 'cursor-not-allowed opacity-60')
@@ -87,7 +87,7 @@ const WORKSPACE_PRIMARY_BUTTON_CLASS = cn(
   'shadow-[0_0_0_0_var(--primary)] ',
   'transition-all duration-200',
   'text-black disabled:opacity-50 disabled:hover:bg-primary-hover disabled:hover:shadow-none',
-  'h-12 rounded-[11px] px-4 py-2'
+  'h-12 rounded-md px-4 py-2'
 )
 const WIDGET_PRIMARY_BUTTON_CLASS = cn(
   widgetHeaderIconButtonClassName(),
@@ -99,7 +99,7 @@ const WORKSPACE_DANGER_BUTTON_CLASS = cn(
   'bg-red-500 hover:bg-red-600',
   'shadow-[0_0_0_0_#ef4444] hover:shadow-[0_0_0_4px_rgba(239,68,68,0.15)]',
   'text-white transition-all duration-200',
-  'h-12 rounded-[11px] px-4 py-2'
+  'h-12 rounded-md px-4 py-2'
 )
 const WIDGET_DANGER_BUTTON_CLASS = cn(
   widgetHeaderIconButtonClassName(),
@@ -877,7 +877,7 @@ export function ControlBar({
     }
 
     return (
-      <div className='flex h-12 items-center gap-2 rounded-[11px] border border-red-500 bg-red-500 px-3 text-white shadow-xs'>
+      <div className='flex h-12 items-center gap-2 rounded-md border border-red-500 bg-red-500 px-3 text-white shadow-xs'>
         <Tooltip>
           <TooltipTrigger asChild>
             <WifiOff className='h-[18px] w-[18px] cursor-help' />
