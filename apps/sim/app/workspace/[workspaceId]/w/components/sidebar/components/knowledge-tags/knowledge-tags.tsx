@@ -470,7 +470,7 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
                   return (
                     <div key={index} className='mb-1'>
                       <div
-                        className={`cursor-pointer rounded-[10px] border bg-card transition-colors ${editingTagIndex === index ? 'space-y-2 p-2' : 'p-2'}`}
+                        className={`cursor-pointer rounded-md border bg-card transition-colors ${editingTagIndex === index ? 'space-y-2 p-2' : 'p-2'}`}
                         onClick={() => userPermissions.canEdit && toggleTagEditor(index)}
                       >
                         {/* Always show the tag display */}
@@ -621,7 +621,7 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
               </div>
 
               {documentTags.length === 0 && !isCreating && (
-                <div className='mb-1 rounded-[10px] border border-dashed bg-card p-3 text-center'>
+                <div className='mb-1 rounded-md border border-dashed bg-card p-3 text-center'>
                   <p className='text-muted-foreground text-xs'>No tags added yet.</p>
                 </div>
               )}
@@ -633,7 +633,7 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
                     variant='outline'
                     size='sm'
                     onClick={openTagCreator}
-                    className='w-full justify-start gap-2 rounded-[10px] border border-dashed bg-card text-muted-foreground hover:text-foreground'
+                    className='w-full justify-start gap-2 rounded-md border border-dashed bg-card text-muted-foreground hover:text-foreground'
                     disabled={
                       kbTagDefinitions.length >= MAX_TAG_SLOTS && availableDefinitions.length === 0
                     }
@@ -646,7 +646,7 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
 
               {/* Inline Tag Creation Form */}
               {isCreating && (
-                <div className='mb-1 w-full max-w-full space-y-2 rounded-[10px] border bg-card p-2'>
+                <div className='mb-1 w-full max-w-full space-y-2 rounded-md border bg-card p-2'>
                   <div className='space-y-1.5'>
                     <div className='flex items-center justify-between'>
                       <Label className='font-medium text-xs'>Tag Name</Label>

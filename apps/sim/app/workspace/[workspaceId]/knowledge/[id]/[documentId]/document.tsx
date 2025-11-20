@@ -1,7 +1,16 @@
 'use client'
 
 import { Suspense, startTransition, useCallback, useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight, Circle, CircleOff, FileText, Plus, Trash2 } from 'lucide-react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Circle,
+  CircleOff,
+  FileText,
+  Plus,
+  Search,
+  Trash2,
+} from 'lucide-react'
 import { useParams, useSearchParams } from 'next/navigation'
 import {
   Button,
@@ -19,7 +28,7 @@ import {
   EditChunkModal,
 } from '@/app/workspace/[workspaceId]/knowledge/[id]/[documentId]/components'
 import { ActionBar } from '@/app/workspace/[workspaceId]/knowledge/[id]/components'
-import { KnowledgeHeader, SearchInput } from '@/app/workspace/[workspaceId]/knowledge/components'
+import { KnowledgeHeader, PrimaryButton } from '@/app/workspace/[workspaceId]/knowledge/components'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useDocumentChunks } from '@/hooks/use-knowledge'
 import { type ChunkData, type DocumentData, useKnowledgeStore } from '@/stores/knowledge/store'
@@ -314,7 +323,7 @@ export function Document({
             onCheckedChange={(checked) => handleSelectChunk(chunk.id, checked as boolean)}
             disabled={!userPermissions.canEdit}
             aria-label={`Select chunk ${chunk.chunkIndex}`}
-            className='h-3.5 w-3.5 border-gray-300 focus-visible:ring-primary/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary[&>*]:h-3 [&>*]:w-3'
+            className='h-3.5 w-3.5 border-gray-300 focus-visible:ring-primary/20 data-[state=checked]:bg-primary[&>*]:h-3 data-[state=checked]:border-primary [&>*]:w-3'
             onClick={(e) => e.stopPropagation()}
           />
         </td>
@@ -444,6 +453,54 @@ export function Document({
     },
     { label: effectiveDocumentName },
   ]
+
+  const createChunkDisabled =
+    documentData?.processingStatus === 'failed' || userPermissions.canEdit !== true
+  const createChunkTooltip =
+    documentData?.processingStatus === 'failed'
+      ? 'Cannot create chunks for failed documents'
+      : userPermissions.canEdit !== true
+        ? 'Write permission required to create chunks'
+        : null
+
+  const headerCenterContent = (
+    <div className='flex w-full items-center gap-2 pt-1 sm:gap-3'>
+      <div className='relative max-w-md flex-1'>
+        <Search className='-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 z-10 h-4 w-4 text-muted-foreground' />
+        <input
+          type='text'
+          placeholder={
+            documentData?.processingStatus === 'completed'
+              ? 'Search chunks...'
+              : 'Document processing...'
+          }
+          value={searchQuery}
+          onChange={setSearchQuery}
+          disabled={documentData?.processingStatus !== 'completed'}
+          className='flex h-9 w-full rounded-md border border-input bg-background pr-9 pl-10 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm'
+          autoComplete='off'
+          autoCorrect='off'
+          autoCapitalize='off'
+          spellCheck={false}
+        />
+      </div>
+      <Tooltip>
+        <TooltipTrigger asChild disabled={!createChunkTooltip}>
+          <div>
+            <PrimaryButton
+              onClick={() => setIsCreateChunkModalOpen(true)}
+              disabled={createChunkDisabled}
+              className='h-9 rounded-sm px-3'
+            >
+              <Plus className='h-3.5 w-3.5' />
+              <span>Create Chunk</span>
+            </PrimaryButton>
+          </div>
+        </TooltipTrigger>
+        {createChunkTooltip && <TooltipContent>{createChunkTooltip}</TooltipContent>}
+      </Tooltip>
+    </div>
+  )
 
   const handleChunkClick = (chunk: ChunkData) => {
     setSelectedChunk(chunk)
@@ -658,55 +715,28 @@ export function Document({
   }
 
   return (
-    <div className='flex h-[100vh] flex-col '>
+    <div className='flex h-full min-h-0 flex-col'>
       {/* Fixed Header with Breadcrumbs */}
-      <KnowledgeHeader breadcrumbs={breadcrumbs} />
+      <KnowledgeHeader breadcrumbs={breadcrumbs} centerContent={headerCenterContent} />
 
-      <div className='flex flex-1 overflow-hidden'>
-        <div className='flex flex-1 flex-col overflow-hidden'>
+      <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
+        <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
           {/* Main Content */}
-          <div className='flex-1 overflow-auto'>
-            <div className='px-6 pb-6'>
-              {/* Search Section */}
-              <div className='mb-4 flex items-center justify-between pt-1'>
-                <SearchInput
-                  value={searchQuery}
-                  onChange={setSearchQuery}
-                  placeholder={
-                    documentData?.processingStatus === 'completed'
-                      ? 'Search chunks...'
-                      : 'Document processing...'
-                  }
-                  disabled={documentData?.processingStatus !== 'completed'}
-                  isLoading={isLoadingSearch}
-                />
+          <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
+            <div className='min-h-0 flex-1 overflow-auto'>
+              <div className='p-6 min-h-0 flex flex-1 flex-col'>
+                {/* Document Tag Entry moved to sidebar */}
 
-                <Button
-                  onClick={() => setIsCreateChunkModalOpen(true)}
-                  disabled={documentData?.processingStatus === 'failed' || !userPermissions.canEdit}
-                  size='sm'
-                  className='flex items-center gap-1 bg-primary font-[480] shadow-[0_0_0_0_var(--primary)] transition-all duration-200 hover:bg-primary-hover  disabled:cursor-not-allowed disabled:opacity-50'
-                >
-                  <Plus className='h-3.5 w-3.5' />
-                  <span>Create Chunk</span>
-                </Button>
-              </div>
+                {/* Error State for chunks */}
+                {combinedError && (
+                  <div className='mb-4 rounded-md border border-red-200 bg-red-50 p-4'>
+                    <p className='text-red-800 text-sm'>Error loading chunks: {combinedError}</p>
+                  </div>
+                )}
 
-              {/* Document Tag Entry moved to sidebar */}
-
-              {/* Error State for chunks */}
-              {combinedError && (
-                <div className='mb-4 rounded-md border border-red-200 bg-red-50 p-4'>
-                  <p className='text-red-800 text-sm'>Error loading chunks: {combinedError}</p>
-                </div>
-              )}
-
-              {
-                /* Table container */
-                <div className='flex flex-1 flex-col overflow-hidden'>
-                  {/* Table header - fixed */}
-                  <div className='sticky top-0 z-10 border-b bg-background'>
-                    <table className='w-full table-fixed'>
+                <div className='flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border-border border'>
+                  <div className='shrink-0 border-b bg-background'>
+                    <table className='w-full table-fixed bg-card/40'>
                       <colgroup>
                         <col className='w-[5%]' />
                         <col className='w-[8%]' />
@@ -726,7 +756,7 @@ export function Document({
                                 !userPermissions.canEdit
                               }
                               aria-label='Select all chunks'
-                              className='h-3.5 w-3.5 border-gray-300 focus-visible:ring-primary/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary[&>*]:h-3 [&>*]:w-3'
+                              className='h-3.5 w-3.5 border-gray-300 focus-visible:ring-primary/20 data-[state=checked]:bg-primary[&>*]:h-3 data-[state=checked]:border-primary [&>*]:w-3'
                             />
                           </th>
                           <th className='px-4 pt-2 pb-3 text-left font-medium'>
@@ -760,7 +790,7 @@ export function Document({
                   </div>
 
                   {/* Table body - scrollable */}
-                  <div className='flex-1 overflow-auto'>
+                  <div className='flex-1 min-h-0 overflow-auto' style={{ scrollbarGutter: 'stable' }}>
                     <table className='w-full table-fixed'>
                       <colgroup>
                         <col className='w-[5%]' />
@@ -837,7 +867,7 @@ export function Document({
                     </div>
                   )}
                 </div>
-              }
+              </div>
             </div>
           </div>
         </div>

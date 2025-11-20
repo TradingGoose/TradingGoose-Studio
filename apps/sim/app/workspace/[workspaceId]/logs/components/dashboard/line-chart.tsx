@@ -173,7 +173,7 @@ export function LineChart({
   return (
     <div
       ref={containerRef}
-      className='w-full  rounded-[11px] border bg-card p-4 shadow-sm'
+      className='w-full  rounded-md border bg-card p-4 shadow-sm'
     >
       <div className='mb-3 flex items-center justify-between'>
         <div className='flex items-center gap-3'>

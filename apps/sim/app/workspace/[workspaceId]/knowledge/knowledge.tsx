@@ -160,7 +160,7 @@ export function Knowledge() {
       <GlobalNavbarHeader left={headerLeftContent} right={headerRightContent} />
       <div className='flex h-screen flex-col'>
         <div className='flex flex-1 overflow-hidden'>
-          <div className='flex flex-1 flex-col overflow-hidden'>
+          <div className='flex flex-1 flex-col overflow-hidden rounded-lg border-border border'>
             {/* Main Content */}
             <div className='flex-1 overflow-auto'>
               <div className='p-6'>

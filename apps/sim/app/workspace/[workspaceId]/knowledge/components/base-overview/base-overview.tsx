@@ -91,7 +91,7 @@ export function BaseOverview({
 
   return (
     <Link href={href} prefetch={true}>
-      <div className='group flex cursor-pointer flex-col gap-3 rounded-md border bg-background p-4 transition-colors hover:bg-card'>
+      <div className='group flex cursor-pointer flex-col gap-3 rounded-md border bg-card/40 p-4 transition-colors hover:bg-card'>
         <div className='flex items-center gap-2'>
           <LibraryBig className='h-4 w-4 flex-shrink-0 text-muted-foreground' />
           <h3 className='truncate font-medium text-sm leading-tight'>{title}</h3>

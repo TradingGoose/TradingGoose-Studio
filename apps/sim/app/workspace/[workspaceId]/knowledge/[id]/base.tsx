@@ -673,7 +673,7 @@ export function KnowledgeBase({
     ]
 
     return (
-      <div className='flex h-[100vh] flex-col '>
+      <div className='flex h-full min-h-0 flex-col'>
         <KnowledgeHeader breadcrumbs={errorBreadcrumbs} />
         <div className='flex flex-1 items-center justify-center'>
           <div className='text-center'>
@@ -691,7 +691,7 @@ export function KnowledgeBase({
   }
 
   return (
-    <div className='flex h-[100vh] flex-col '>
+    <div className='flex h-full min-h-0 flex-col'>
       {/* Fixed Header with Breadcrumbs */}
       <KnowledgeHeader
         breadcrumbs={breadcrumbs}
@@ -702,11 +702,11 @@ export function KnowledgeBase({
         }}
       />
 
-      <div className='flex flex-1 overflow-hidden'>
-        <div className='flex flex-1 flex-col overflow-hidden'>
+      <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
+        <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
           {/* Main Content */}
-          <div className='flex-1 overflow-auto'>
-            <div className='px-6 pb-6'>
+          <div className='min-h-0 flex-1 overflow-auto'>
+            <div className='px-6 pb-6 min-h-0 flex flex-1 flex-col'>
               {/* Search and Filters Section */}
               <div className='mb-4 flex items-center justify-between pt-1'>
                 <SearchInput
@@ -743,9 +743,9 @@ export function KnowledgeBase({
               )}
 
               {/* Table container */}
-              <div className='flex flex-1 flex-col overflow-hidden'>
+              <div className='flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border-border border'>
                 {/* Table header - fixed */}
-                <div className='sticky top-0 z-10 overflow-x-auto border-b bg-background'>
+                <div className='shrink-0 overflow-x-auto border-b bg-background'>
                   <table className='w-full min-w-[700px] table-fixed'>
                     <colgroup>
                       <col className='w-[4%]' />
@@ -785,7 +785,7 @@ export function KnowledgeBase({
                 </div>
 
                 {/* Table body - scrollable */}
-                <div className='flex-1 overflow-auto'>
+                <div className='flex-1 min-h-0 overflow-auto' style={{ scrollbarGutter: 'stable' }}>
                   <table className='w-full min-w-[700px] table-fixed'>
                     <colgroup>
                       <col className='w-[4%]' />
@@ -885,8 +885,9 @@ export function KnowledgeBase({
                           return (
                             <tr
                               key={doc.id}
-                              className={`border-b transition-colors hover:bg-card/30 ${isSelected ? 'bg-accent/30' : ''
-                                } ${doc.processingStatus === 'completed' ? 'cursor-pointer' : 'cursor-default'}`}
+                              className={`border-b transition-colors hover:bg-card/30 ${isSelected ? 'bg-accent/30' : ''} ${
+                                doc.processingStatus === 'completed' ? 'cursor-pointer' : 'cursor-default'
+                              }`}
                               onClick={() => {
                                 if (doc.processingStatus === 'completed') {
                                   handleDocumentClick(doc.id)
@@ -1125,8 +1126,9 @@ export function KnowledgeBase({
                               key={page}
                               onClick={() => goToPage(page)}
                               disabled={isLoadingDocuments}
-                              className={`font-medium text-sm transition-colors hover:text-foreground disabled:opacity-50 ${page === currentPage ? 'text-foreground' : 'text-muted-foreground'
-                                }`}
+                              className={`font-medium text-sm transition-colors hover:text-foreground disabled:opacity-50 ${
+                                page === currentPage ? 'text-foreground' : 'text-muted-foreground'
+                              }`}
                             >
                               {page}
                             </button>
