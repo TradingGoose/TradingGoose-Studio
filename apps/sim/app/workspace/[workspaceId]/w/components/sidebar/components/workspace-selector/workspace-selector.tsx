@@ -308,7 +308,7 @@ export function WorkspaceSelector({
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className='flex h-8 items-center rounded-[8px] p-2 text-left'
+              className='flex h-8 items-center rounded-sm p-2 text-left'
               style={{ maxWidth: '206px' }}
             >
               <div className='flex min-w-0 flex-1 items-center text-left'>
@@ -334,7 +334,7 @@ export function WorkspaceSelector({
               onMouseLeave={() => setHoveredWorkspaceId(null)}
               onClick={(e) => handleWorkspaceClick(workspace, e)}
               className={cn(
-                'group flex h-8 cursor-pointer items-center rounded-[8px] p-2 text-left transition-colors',
+                'group flex h-8 cursor-pointer items-center rounded-sm p-2 text-left transition-colors',
                 activeWorkspace?.id === workspace.id ? 'bg-muted' : 'hover:bg-card'
               )}
               style={{ maxWidth: '206px' }}
@@ -434,7 +434,7 @@ export function WorkspaceSelector({
 
                       <AlertDialogFooter className='flex'>
                         <AlertDialogCancel
-                          className='h-9 w-full rounded-[8px]'
+                          className='h-9 w-full rounded-sm'
                           onClick={() => setLeaveConfirmationName('')}
                         >
                           Cancel
@@ -444,7 +444,7 @@ export function WorkspaceSelector({
                             confirmLeaveWorkspace(workspace)
                             setLeaveConfirmationName('')
                           }}
-                          className='h-9 w-full rounded-[8px] bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+                          className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
                           disabled={isLeaving || leaveConfirmationName !== workspace.name}
                         >
                           {isLeaving ? 'Leaving...' : 'Leave'}
@@ -482,7 +482,7 @@ export function WorkspaceSelector({
 
   return (
     <>
-      <div className='rounded-[10px] border bg-background shadow-xs'>
+      <div className='rounded-md border bg-background shadow-xs'>
         <div className='flex h-full flex-col p-2'>
           {/* Workspace List */}
           <div className='min-h-0 flex-1'>
@@ -500,7 +500,7 @@ export function WorkspaceSelector({
                 onClick={userPermissions.canAdmin ? () => setShowInviteMembers(true) : undefined}
                 disabled={!userPermissions.canAdmin}
                 className={cn(
-                  'h-8 flex-1 justify-center gap-2 rounded-[8px] font-medium text-muted-foreground text-xs transition-colors hover:bg-card hover:text-foreground',
+                  'h-8 flex-1 justify-center gap-2 rounded-sm font-medium text-muted-foreground text-xs transition-colors hover:bg-card hover:text-foreground',
                   !userPermissions.canAdmin && 'cursor-not-allowed opacity-50'
                 )}
               >
@@ -515,7 +515,7 @@ export function WorkspaceSelector({
               onClick={onCreateWorkspace}
               disabled={isCreating}
               className={cn(
-                'h-8 flex-1 justify-center gap-2 rounded-[8px] font-medium text-muted-foreground text-xs transition-colors hover:bg-card hover:text-foreground',
+                'h-8 flex-1 justify-center gap-2 rounded-sm font-medium text-muted-foreground text-xs transition-colors hover:bg-card hover:text-foreground',
                 isCreating && 'cursor-not-allowed'
               )}
             >
@@ -566,7 +566,7 @@ export function WorkspaceSelector({
             <div className='flex gap-2 py-2'>
               <Button
                 onClick={() => handleTemplateAction('keep')}
-                className='h-9 flex-1 rounded-[8px]'
+                className='h-9 flex-1 rounded-sm'
                 variant='outline'
                 disabled={isDeleting}
               >
@@ -574,7 +574,7 @@ export function WorkspaceSelector({
               </Button>
               <Button
                 onClick={() => handleTemplateAction('delete')}
-                className='h-9 flex-1 rounded-[8px] bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+                className='h-9 flex-1 rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
                 disabled={isDeleting}
               >
                 {isDeleting ? 'Deleting...' : 'Delete Templates'}
@@ -590,7 +590,7 @@ export function WorkspaceSelector({
                 value={deleteConfirmationName}
                 onChange={(e) => setDeleteConfirmationName(e.target.value)}
                 placeholder={workspaceToDelete?.name}
-                className='h-9 rounded-[8px]'
+                className='h-9 rounded-sm'
               />
             </div>
           )}
@@ -599,7 +599,7 @@ export function WorkspaceSelector({
             <AlertDialogFooter className='flex'>
               <Button
                 variant='outline'
-                className='h-9 w-full rounded-[8px]'
+                className='h-9 w-full rounded-sm'
                 onClick={() => {
                   resetDeleteState()
                   setIsDeleteDialogOpen(false)
@@ -612,7 +612,7 @@ export function WorkspaceSelector({
                   e.preventDefault()
                   handleDeleteClick()
                 }}
-                className='h-9 w-full rounded-[8px] bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+                className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
                 disabled={
                   isDeleting ||
                   deleteConfirmationName !== workspaceToDelete?.name ||

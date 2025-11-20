@@ -91,7 +91,7 @@ export function DeploymentControls({
   const buttonBaseClass =
     variant === 'widget'
       ? widgetHeaderIconButtonClassName()
-      : 'h-12 w-12 rounded-[11px] border bg-card text-card-foreground shadow-xs'
+      : 'h-12 w-12 rounded-md border bg-card text-card-foreground shadow-xs'
 
   return (
     <>

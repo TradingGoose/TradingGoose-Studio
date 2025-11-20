@@ -501,7 +501,7 @@ export function SSO() {
       <div className='flex-1 overflow-y-auto px-6 pt-4 pb-4'>
         <div className='space-y-6'>
           {error && (
-            <Alert variant='destructive' className='rounded-[8px]'>
+            <Alert variant='destructive' className='rounded-sm'>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
@@ -523,7 +523,7 @@ export function SSO() {
                         variant='outline'
                         size='sm'
                         onClick={() => handleReconfigure(provider)}
-                        className='rounded-[8px]'
+                        className='rounded-sm'
                       >
                         Reconfigure
                       </Button>
@@ -589,7 +589,7 @@ export function SSO() {
                       setShowConfigForm(false)
                       setIsEditing(false)
                     }}
-                    className='rounded-[8px]'
+                    className='rounded-sm'
                   >
                     ← Back to SSO Status
                   </Button>
@@ -601,7 +601,7 @@ export function SSO() {
                 {/* Provider Type Selection */}
                 <div className='space-y-1'>
                   <Label>Provider Type</Label>
-                  <div className='flex rounded-[10px] border border-input bg-background p-1'>
+                  <div className='flex rounded-md border border-input bg-background p-1'>
                     <button
                       type='button'
                       className={cn(
@@ -641,7 +641,7 @@ export function SSO() {
                     value={formData.providerId}
                     onChange={(e) => handleInputChange('providerId', e.target.value)}
                     className={cn(
-                      'w-full rounded-[10px] border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
+                      'w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                       showErrors &&
                       errors.providerId.length > 0 &&
                       'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
@@ -679,7 +679,7 @@ export function SSO() {
                     onFocus={(e) => e.target.removeAttribute('readOnly')}
                     onChange={(e) => handleInputChange('issuerUrl', e.target.value)}
                     className={cn(
-                      'rounded-[10px] shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
+                      'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                       showErrors &&
                       errors.issuerUrl.length > 0 &&
                       'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
@@ -708,7 +708,7 @@ export function SSO() {
                     onFocus={(e) => e.target.removeAttribute('readOnly')}
                     onChange={(e) => handleInputChange('domain', e.target.value)}
                     className={cn(
-                      'rounded-[10px] shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
+                      'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                       showErrors &&
                       errors.domain.length > 0 &&
                       'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
@@ -739,7 +739,7 @@ export function SSO() {
                         onFocus={(e) => e.target.removeAttribute('readOnly')}
                         onChange={(e) => handleInputChange('clientId', e.target.value)}
                         className={cn(
-                          'rounded-[10px] shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
+                          'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                           showErrors &&
                           errors.clientId.length > 0 &&
                           'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
@@ -772,7 +772,7 @@ export function SSO() {
                           onBlurCapture={() => setShowClientSecret(false)}
                           onChange={(e) => handleInputChange('clientSecret', e.target.value)}
                           className={cn(
-                            'rounded-[10px] pr-10 shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
+                            'rounded-md pr-10 shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                             showErrors &&
                             errors.clientSecret.length > 0 &&
                             'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
@@ -808,7 +808,7 @@ export function SSO() {
                         spellCheck={false}
                         onChange={(e) => handleInputChange('scopes', e.target.value)}
                         className={cn(
-                          'rounded-[10px] shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
+                          'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                           showErrors &&
                           errors.scopes.length > 0 &&
                           'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
@@ -838,7 +838,7 @@ export function SSO() {
                         spellCheck={false}
                         onChange={(e) => handleInputChange('entryPoint', e.target.value)}
                         className={cn(
-                          'rounded-[10px] shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
+                          'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                           showErrors &&
                           errors.entryPoint.length > 0 &&
                           'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
@@ -863,7 +863,7 @@ export function SSO() {
                         spellCheck={false}
                         onChange={(e) => handleInputChange('cert', e.target.value)}
                         className={cn(
-                          'min-h-[100px] w-full rounded-[10px] border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
+                          'min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                           showErrors &&
                           errors.cert.length > 0 &&
                           'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
@@ -912,7 +912,7 @@ export function SSO() {
                               autoCapitalize='none'
                               spellCheck={false}
                               onChange={(e) => handleInputChange('audience', e.target.value)}
-                              className='rounded-[10px] shadow-sm'
+                              className='rounded-md shadow-sm'
                             />
                             <p className='text-muted-foreground text-xs'>
                               The SAML audience restriction (optional, defaults to app URL)
@@ -930,7 +930,7 @@ export function SSO() {
                               autoCapitalize='none'
                               spellCheck={false}
                               onChange={(e) => handleInputChange('callbackUrl', e.target.value)}
-                              className='rounded-[10px] shadow-sm'
+                              className='rounded-md shadow-sm'
                             />
                             <p className='text-muted-foreground text-xs'>
                               Custom SAML callback URL (optional, auto-generated if empty)
@@ -965,7 +965,7 @@ export function SSO() {
                               autoCapitalize='none'
                               spellCheck={false}
                               onChange={(e) => handleInputChange('idpMetadata', e.target.value)}
-                              className='min-h-[100px] w-full rounded-[10px] border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100'
+                              className='min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100'
                               rows={4}
                             />
                             <p className='text-muted-foreground text-xs'>
@@ -981,7 +981,7 @@ export function SSO() {
 
                 <Button
                   type='submit'
-                  className='w-full rounded-[10px]'
+                  className='w-full rounded-md'
                   disabled={isLoading || hasAnyErrors(errors) || !isFormValid()}
                 >
                   {isLoading
@@ -1041,8 +1041,8 @@ function SsoSkeleton() {
           <div className='space-y-1'>
             <Skeleton className='h-4 w-28' />
             <div className='flex items-center gap-2'>
-              <Skeleton className='h-9 w-20 rounded-[8px]' />
-              <Skeleton className='h-9 w-20 rounded-[8px]' />
+              <Skeleton className='h-9 w-20 rounded-sm' />
+              <Skeleton className='h-9 w-20 rounded-sm' />
             </div>
             <Skeleton className='h-3 w-56' />
           </div>
@@ -1051,15 +1051,15 @@ function SsoSkeleton() {
           <div className='space-y-3'>
             <div className='space-y-1'>
               <Skeleton className='h-4 w-24' />
-              <Skeleton className='h-9 w-full rounded-[10px]' />
+              <Skeleton className='h-9 w-full rounded-md' />
             </div>
             <div className='space-y-1'>
               <Skeleton className='h-4 w-24' />
-              <Skeleton className='h-9 w-full rounded-[10px]' />
+              <Skeleton className='h-9 w-full rounded-md' />
             </div>
             <div className='space-y-1'>
               <Skeleton className='h-4 w-16' />
-              <Skeleton className='h-9 w-full rounded-[10px]' />
+              <Skeleton className='h-9 w-full rounded-md' />
             </div>
           </div>
 
@@ -1067,29 +1067,29 @@ function SsoSkeleton() {
           <div className='space-y-3'>
             <div className='space-y-1'>
               <Skeleton className='h-4 w-20' />
-              <Skeleton className='h-9 w-full rounded-[10px]' />
+              <Skeleton className='h-9 w-full rounded-md' />
             </div>
             <div className='space-y-1'>
               <Skeleton className='h-4 w-24' />
               <div className='relative'>
-                <Skeleton className='h-9 w-full rounded-[10px]' />
+                <Skeleton className='h-9 w-full rounded-md' />
                 <Skeleton className='-translate-y-1/2 absolute top-1/2 right-3 h-4 w-4 rounded' />
               </div>
             </div>
             <div className='space-y-1'>
               <Skeleton className='h-4 w-16' />
-              <Skeleton className='h-9 w-full rounded-[10px]' />
+              <Skeleton className='h-9 w-full rounded-md' />
             </div>
           </div>
 
           {/* Submit button */}
-          <Skeleton className='h-9 w-full rounded-[10px]' />
+          <Skeleton className='h-9 w-full rounded-md' />
 
           {/* Callback URL */}
           <div className='space-y-1'>
             <Skeleton className='h-4 w-20' />
             <div className='relative'>
-              <Skeleton className='h-9 w-full rounded-[10px]' />
+              <Skeleton className='h-9 w-full rounded-md' />
               <Skeleton className='-translate-y-1/2 absolute top-1/2 right-3 h-4 w-4 rounded' />
             </div>
           </div>

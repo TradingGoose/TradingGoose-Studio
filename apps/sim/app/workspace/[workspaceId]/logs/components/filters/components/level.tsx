@@ -29,7 +29,7 @@ export default function Level() {
         <Button
           variant='outline'
           size='sm'
-          className='w-full justify-between rounded-[10px] border-[#E5E5E5] bg-[#FFFFFF] font-normal text-sm dark:border-[#414141] dark:bg-[var(--surface-elevated)]'
+          className='w-full justify-between rounded-md border-[#E5E5E5] bg-[#FFFFFF] font-normal text-sm dark:border-[#414141] dark:bg-[var(--surface-elevated)]'
         >
           {getDisplayLabel()}
           <ChevronDown className='ml-2 h-4 w-4 text-muted-foreground' />

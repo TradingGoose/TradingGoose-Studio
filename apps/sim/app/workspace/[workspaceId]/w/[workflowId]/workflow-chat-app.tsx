@@ -8,7 +8,7 @@ import { Chat } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/pa
 import {
   WorkflowStoreProvider,
   DEFAULT_WORKFLOW_CHANNEL_ID,
-} from '@/stores/workflows/workflow/store'
+} from '@/stores/workflows/workflow/store-client'
 import { useState } from 'react'
 
 interface WorkflowChatAppProps {

@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { useBrandConfig } from '@/lib/branding/branding'
@@ -15,38 +14,9 @@ interface ChatErrorStateProps {
 
 export function ChatErrorState({ error, starCount }: ChatErrorStateProps) {
   const router = useRouter()
-  const [buttonClass, setButtonClass] = useState('auth-button-gradient')
   const brandConfig = useBrandConfig()
-
-  useEffect(() => {
-    // Check if CSS variable has been customized
-    const checkCustomBrand = () => {
-      const computedStyle = getComputedStyle(document.documentElement)
-      const brandAccent = computedStyle.getPropertyValue('--accent').trim()
-
-      // Check if the CSS variable exists and is different from the default
-      if (brandAccent && brandAccent !== '#ffcc00') {
-        setButtonClass('auth-button-custom')
-      } else {
-        setButtonClass('auth-button-gradient')
-      }
-    }
-
-    checkCustomBrand()
-
-    // Also check on window resize or theme changes
-    window.addEventListener('resize', checkCustomBrand)
-    const observer = new MutationObserver(checkCustomBrand)
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['style', 'class'],
-    })
-
-    return () => {
-      window.removeEventListener('resize', checkCustomBrand)
-      observer.disconnect()
-    }
-  }, [])
+  const primaryButtonClasses =
+    'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
 
   return (
     <div className='min-h-screen bg-white'>
@@ -71,7 +41,7 @@ export function ChatErrorState({ error, starCount }: ChatErrorStateProps) {
               <Button
                 type='button'
                 onClick={() => router.push('/workspace')}
-                className={`${buttonClass} flex w-full items-center justify-center gap-2 rounded-[10px] border font-medium text-[15px] text-white transition-all duration-200`}
+                className={primaryButtonClasses}
               >
                 Return to Workspace
               </Button>

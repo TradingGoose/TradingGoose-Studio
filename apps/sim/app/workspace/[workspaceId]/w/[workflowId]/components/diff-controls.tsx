@@ -2,11 +2,11 @@ import { memo, useCallback } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useCopilotStore } from '@/stores/copilot/store'
+import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
 import { useWorkflowDiffStore } from '@/stores/workflow-diff'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { mergeSubblockState } from '@/stores/workflows/utils'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store'
+import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 
 const logger = createLogger('DiffControls')
 
@@ -39,6 +39,8 @@ export const DiffControls = memo(function DiffControls() {
       []
     )
   )
+
+  const copilotStoreApi = useCopilotStoreApi()
 
   const { activeWorkflowId } = useWorkflowRegistry(
     useCallback((state) => ({ activeWorkflowId: state.activeWorkflowId }), [])
@@ -180,7 +182,7 @@ export const DiffControls = memo(function DiffControls() {
 
       // Update the copilot store immediately to show the checkpoint icon
       if (newCheckpoint && messageId) {
-        const { messageCheckpoints: currentCheckpoints } = useCopilotStore.getState()
+        const { messageCheckpoints: currentCheckpoints } = copilotStoreApi.getState()
         const existingCheckpoints = currentCheckpoints[messageId] || []
 
         const updatedCheckpoints = {
@@ -188,7 +190,7 @@ export const DiffControls = memo(function DiffControls() {
           [messageId]: [newCheckpoint, ...existingCheckpoints],
         }
 
-        useCopilotStore.setState({ messageCheckpoints: updatedCheckpoints })
+        copilotStoreApi.setState({ messageCheckpoints: updatedCheckpoints })
         logger.info('Updated copilot store with new checkpoint', {
           messageId,
           checkpointId: newCheckpoint.id,
@@ -218,7 +220,7 @@ export const DiffControls = memo(function DiffControls() {
 
       // Resolve target toolCallId for build/edit and update to terminal success state in the copilot store
       try {
-        const { toolCallsById, messages } = useCopilotStore.getState()
+        const { toolCallsById, messages } = copilotStoreApi.getState()
         let id: string | undefined
         outer: for (let mi = messages.length - 1; mi >= 0; mi--) {
           const m = messages[mi]
@@ -267,7 +269,7 @@ export const DiffControls = memo(function DiffControls() {
 
     // Resolve target toolCallId for build/edit and update to terminal rejected state in the copilot store
     try {
-      const { toolCallsById, messages } = useCopilotStore.getState()
+      const { toolCallsById, messages } = copilotStoreApi.getState()
       let id: string | undefined
       outer: for (let mi = messages.length - 1; mi >= 0; mi--) {
         const m = messages[mi]

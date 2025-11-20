@@ -1,6 +1,8 @@
 'use client'
 
-import { create } from 'zustand'
+import { createContext, useContext, useMemo, createElement, type ReactNode } from 'react'
+import { create, useStore } from 'zustand'
+import type { StoreApi } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { type CopilotChat, sendStreamingMessage } from '@/lib/copilot/api'
 import type {
@@ -1320,9 +1322,10 @@ const initialState = {
   contextUsage: null,
 }
 
-export const useCopilotStore = create<CopilotStore>()(
-  devtools((set, get) => ({
-    ...initialState,
+const createCopilotStoreInstance = () =>
+  create<CopilotStore>()(
+    devtools((set, get) => ({
+      ...initialState,
 
     // Basic mode controls
     setMode: (mode) => set({ mode }),
@@ -2385,10 +2388,69 @@ export const useCopilotStore = create<CopilotStore>()(
   }))
 )
 
+export const DEFAULT_COPILOT_CHANNEL_ID = 'default'
+
+const copilotStoreRegistry = new Map<string, StoreApi<CopilotStore>>()
+const defaultCopilotStore = createCopilotStoreInstance()
+copilotStoreRegistry.set(DEFAULT_COPILOT_CHANNEL_ID, defaultCopilotStore)
+
+export const getCopilotStore = (channelId = DEFAULT_COPILOT_CHANNEL_ID) => {
+  if (!copilotStoreRegistry.has(channelId)) {
+    copilotStoreRegistry.set(channelId, createCopilotStoreInstance())
+  }
+
+  return copilotStoreRegistry.get(channelId)!
+}
+
+const findStoreForToolCall = (toolCallId: string) => {
+  for (const store of copilotStoreRegistry.values()) {
+    if (store.getState().toolCallsById[toolCallId]) {
+      return store
+    }
+  }
+  return undefined
+}
+
+export const getCopilotStoreForToolCall = (toolCallId: string) =>
+  findStoreForToolCall(toolCallId) ?? defaultCopilotStore
+
+const CopilotStoreContext = createContext<StoreApi<CopilotStore> | null>(null)
+
+export function CopilotStoreProvider({
+  channelId = DEFAULT_COPILOT_CHANNEL_ID,
+  children,
+}: {
+  channelId?: string
+  children: ReactNode
+}) {
+  const store = useMemo(() => getCopilotStore(channelId), [channelId])
+
+  return createElement(CopilotStoreContext.Provider, { value: store }, children)
+}
+
+const identitySelector = (state: CopilotStore) => state
+
+export function useCopilotStore<T = CopilotStore>(
+  selector: (state: CopilotStore) => T = identitySelector,
+  equalityFn?: (a: T, b: T) => boolean
+) {
+  const store = useContext(CopilotStoreContext) ?? defaultCopilotStore
+  return useStore(store, selector, equalityFn)
+}
+
+export function useCopilotStoreApi(channelId?: string) {
+  const storeFromContext = useContext(CopilotStoreContext)
+  if (!channelId && storeFromContext) {
+    return storeFromContext
+  }
+  return getCopilotStore(channelId)
+}
+
 // Sync class-based tool instance state changes back into the store map
 try {
   registerToolStateSync((toolCallId: string, nextState: any) => {
-    const state = useCopilotStore.getState()
+    const targetStore = findStoreForToolCall(toolCallId) ?? defaultCopilotStore
+    const state = targetStore.getState()
     const current = state.toolCallsById[toolCallId]
     if (!current) return
     let mapped: ClientToolCallState = current.state
@@ -2434,6 +2496,6 @@ try {
         display: resolveToolDisplay(current.name, mapped, toolCallId, current.params),
       },
     }
-    useCopilotStore.setState({ toolCallsById: updated })
+    targetStore.setState({ toolCallsById: updated })
   })
 } catch {}

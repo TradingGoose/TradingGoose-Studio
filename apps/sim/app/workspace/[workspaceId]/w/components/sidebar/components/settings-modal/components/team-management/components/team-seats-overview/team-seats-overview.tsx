@@ -30,7 +30,7 @@ interface TeamSeatsOverviewProps {
 
 function TeamSeatsSkeleton() {
   return (
-    <div className='rounded-[8px] border bg-background p-3 shadow-xs'>
+    <div className='rounded-sm border bg-background p-3 shadow-xs'>
       <div className='space-y-2'>
         <div className='flex items-center justify-between'>
           <div className='flex items-center gap-2'>
@@ -45,8 +45,8 @@ function TeamSeatsSkeleton() {
         </div>
         <Skeleton className='h-2 w-full rounded' />
         <div className='flex gap-2 pt-1'>
-          <Skeleton className='h-8 flex-1 rounded-[8px]' />
-          <Skeleton className='h-8 flex-1 rounded-[8px]' />
+          <Skeleton className='h-8 flex-1 rounded-sm' />
+          <Skeleton className='h-8 flex-1 rounded-sm' />
         </div>
       </div>
     </div>
@@ -68,7 +68,7 @@ export function TeamSeatsOverview({
 
   if (!subscriptionData) {
     return (
-      <div className='rounded-[8px] border bg-background p-3 shadow-xs'>
+      <div className='rounded-sm border bg-background p-3 shadow-xs'>
         <div className='space-y-4 text-center'>
           <div className='mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100'>
             <Building2 className='h-6 w-6 text-amber-600' />
@@ -84,7 +84,7 @@ export function TeamSeatsOverview({
               onConfirmTeamUpgrade(2) // Start with 2 seats as default
             }}
             disabled={isLoading}
-            className='h-9 rounded-[8px]'
+            className='h-9 rounded-sm'
           >
             Set Up Team Subscription
           </Button>
@@ -94,7 +94,7 @@ export function TeamSeatsOverview({
   }
 
   return (
-    <div className='rounded-[8px] border bg-background p-3 shadow-xs'>
+    <div className='rounded-sm border bg-background p-3 shadow-xs'>
       <div className='space-y-2'>
         {/* Seats info and usage - matching team usage layout */}
         <div className='flex items-center justify-between'>
@@ -130,7 +130,7 @@ export function TeamSeatsOverview({
               size='sm'
               onClick={onReduceSeats}
               disabled={(subscriptionData.seats || 0) <= 1 || isLoading}
-              className='h-8 flex-1 rounded-[8px]'
+              className='h-8 flex-1 rounded-sm'
             >
               Remove Seat
             </Button>
@@ -138,7 +138,7 @@ export function TeamSeatsOverview({
               size='sm'
               onClick={onAddSeatDialog}
               disabled={isLoading}
-              className='h-8 flex-1 rounded-[8px]'
+              className='h-8 flex-1 rounded-sm'
             >
               Add Seat
             </Button>

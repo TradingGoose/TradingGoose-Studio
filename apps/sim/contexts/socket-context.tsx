@@ -355,7 +355,7 @@ export function SocketProvider({
           ] = await Promise.all([
             import('@/stores/operation-queue/store'),
             import('@/stores/workflows/registry/store'),
-            import('@/stores/workflows/workflow/store'),
+            import('@/stores/workflows/workflow/store-client'),
             import('@/stores/workflows/subblock/store'),
           ])
 

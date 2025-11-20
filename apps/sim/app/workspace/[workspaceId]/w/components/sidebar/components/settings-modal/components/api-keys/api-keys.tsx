@@ -46,7 +46,7 @@ interface ApiKeyDisplayProps {
 function ApiKeyDisplay({ apiKey }: ApiKeyDisplayProps) {
   const displayValue = apiKey.displayKey || apiKey.key
   return (
-    <div className='flex h-8 items-center rounded-[8px] bg-muted px-3'>
+    <div className='flex h-8 items-center rounded-sm bg-muted px-3'>
       <code className='font-mono text-foreground text-xs'>{displayValue}</code>
     </div>
   )
@@ -470,7 +470,7 @@ export function ApiKeys({ onOpenChange, registerCloseHandler }: ApiKeysProps) {
         <div className='flex w-full items-center justify-between px-6 py-4'>
           {isLoading ? (
             <>
-              <Skeleton className='h-9 w-[117px] rounded-[8px]' />
+              <Skeleton className='h-9 w-[117px] rounded-sm' />
               <div className='w-[108px]' />
             </>
           ) : (
@@ -482,7 +482,7 @@ export function ApiKeys({ onOpenChange, registerCloseHandler }: ApiKeysProps) {
                   setCreateError(null)
                 }}
                 variant='ghost'
-                className='h-9 rounded-[8px] border bg-background px-3 shadow-xs hover:bg-card focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
+                className='h-9 rounded-sm border bg-background px-3 shadow-xs hover:bg-card focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
               >
                 <Plus className='h-4 w-4 stroke-[2px]' />
                 Create Key
@@ -494,7 +494,7 @@ export function ApiKeys({ onOpenChange, registerCloseHandler }: ApiKeysProps) {
 
       {/* Create API Key Dialog */}
       <AlertDialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <AlertDialogContent className='rounded-[10px] sm:max-w-md'>
+        <AlertDialogContent className='rounded-md sm:max-w-md'>
           <AlertDialogHeader>
             <AlertDialogTitle>Create new API key</AlertDialogTitle>
             <AlertDialogDescription>
@@ -547,7 +547,7 @@ export function ApiKeys({ onOpenChange, registerCloseHandler }: ApiKeysProps) {
                   if (createError) setCreateError(null) // Clear error when user types
                 }}
                 placeholder='e.g., Development, Production'
-                className='h-9 rounded-[8px]'
+                className='h-9 rounded-sm'
                 autoFocus
               />
               {createError && <div className='text-red-600 text-sm'>{createError}</div>}
@@ -556,7 +556,7 @@ export function ApiKeys({ onOpenChange, registerCloseHandler }: ApiKeysProps) {
 
           <AlertDialogFooter className='flex'>
             <AlertDialogCancel
-              className='h-9 w-full rounded-[8px] border-border bg-background text-foreground hover:bg-card dark:border-border dark:bg-background dark:text-foreground dark:hover:bg-card/80'
+              className='h-9 w-full rounded-sm border-border bg-background text-foreground hover:bg-card dark:border-border dark:bg-background dark:text-foreground dark:hover:bg-card/80'
               onClick={() => {
                 setNewKeyName('')
                 setKeyType('personal')
@@ -567,7 +567,7 @@ export function ApiKeys({ onOpenChange, registerCloseHandler }: ApiKeysProps) {
             <Button
               type='button'
               onClick={handleCreateKey}
-              className='h-9 w-full rounded-[8px] bg-primary text-black hover:bg-[var(--primary)]/90 disabled:cursor-not-allowed disabled:opacity-50'
+              className='h-9 w-full rounded-sm bg-primary text-black hover:bg-[var(--primary)]/90 disabled:cursor-not-allowed disabled:opacity-50'
               disabled={
                 !newKeyName.trim() ||
                 isSubmittingCreate ||
@@ -591,7 +591,7 @@ export function ApiKeys({ onOpenChange, registerCloseHandler }: ApiKeysProps) {
           }
         }}
       >
-        <AlertDialogContent className='rounded-[10px] sm:max-w-md'>
+        <AlertDialogContent className='rounded-md sm:max-w-md'>
           <AlertDialogHeader>
             <AlertDialogTitle>Your API key has been created</AlertDialogTitle>
             <AlertDialogDescription>
@@ -623,7 +623,7 @@ export function ApiKeys({ onOpenChange, registerCloseHandler }: ApiKeysProps) {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent className='rounded-[10px] sm:max-w-md'>
+        <AlertDialogContent className='rounded-md sm:max-w-md'>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete API key?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -642,7 +642,7 @@ export function ApiKeys({ onOpenChange, registerCloseHandler }: ApiKeysProps) {
                 value={deleteConfirmationName}
                 onChange={(e) => setDeleteConfirmationName(e.target.value)}
                 placeholder='Type key name to confirm'
-                className='h-9 rounded-[8px]'
+                className='h-9 rounded-sm'
                 autoFocus
               />
             </div>
@@ -650,7 +650,7 @@ export function ApiKeys({ onOpenChange, registerCloseHandler }: ApiKeysProps) {
 
           <AlertDialogFooter className='flex'>
             <AlertDialogCancel
-              className='h-9 w-full rounded-[8px]'
+              className='h-9 w-full rounded-sm'
               onClick={() => {
                 setDeleteKey(null)
                 setDeleteConfirmationName('')
@@ -663,7 +663,7 @@ export function ApiKeys({ onOpenChange, registerCloseHandler }: ApiKeysProps) {
                 handleDeleteKey()
                 setDeleteConfirmationName('')
               }}
-              className='h-9 w-full rounded-[8px] bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+              className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
               disabled={!deleteKey || deleteConfirmationName !== deleteKey.name}
             >
               Delete
@@ -681,7 +681,7 @@ function ApiKeySkeleton() {
       <Skeleton className='h-4 w-32' /> {/* API key name */}
       <div className='flex items-center justify-between gap-4'>
         <div className='flex items-center gap-3'>
-          <Skeleton className='h-8 w-20 rounded-[8px]' /> {/* Key preview */}
+          <Skeleton className='h-8 w-20 rounded-sm' /> {/* Key preview */}
           <Skeleton className='h-4 w-24' /> {/* Last used */}
         </div>
         <Skeleton className='h-8 w-16' /> {/* Delete button */}

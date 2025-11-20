@@ -76,17 +76,35 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
         set({ isLoading: true, error: null })
 
         try {
-          // For now, update locally only - server updates would require a PATCH endpoint
+          const response = await fetch(`/api/mcp/servers/${id}?workspaceId=${workspaceId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates),
+          })
+
+          const data = await response.json()
+
+          if (!response.ok) {
+            throw new Error(data.error || 'Failed to update server')
+          }
+
+          const updatedServer = data.data?.server || null
+
           set((state) => ({
             servers: state.servers.map((server) =>
               server.id === id && server.workspaceId === workspaceId
-                ? { ...server, ...updates, updatedAt: new Date().toISOString() }
+                ? {
+                    ...server,
+                    ...(updatedServer || updates),
+                    updatedAt: updatedServer?.updatedAt || new Date().toISOString(),
+                  }
                 : server
             ),
             isLoading: false,
           }))
 
           logger.info(`Updated MCP server: ${id} in workspace: ${workspaceId}`)
+          return updatedServer
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Failed to update server'
           logger.error('Failed to update MCP server:', error)

@@ -283,7 +283,7 @@ export function KnowledgeBaseTags({ knowledgeBaseId }: KnowledgeBaseTagsProps) {
                 {/* Existing Tag Definitions */}
                 <div>
                   {kbTagDefinitions.length === 0 && !isCreating ? (
-                    <div className='mb-1 rounded-[10px] border border-dashed bg-card p-3 text-center'>
+                    <div className='mb-1 rounded-md border border-dashed bg-card p-3 text-center'>
                       <p className='text-muted-foreground text-xs'>
                         No tag definitions yet.
                         <br />
@@ -295,7 +295,7 @@ export function KnowledgeBaseTags({ knowledgeBaseId }: KnowledgeBaseTagsProps) {
                       const usage = getTagUsage(tag.displayName)
                       return (
                         <div key={tag.id} className='mb-1'>
-                          <div className='cursor-default rounded-[10px] border bg-card p-2 transition-colors'>
+                          <div className='cursor-default rounded-md border bg-card p-2 transition-colors'>
                             <div className='flex items-center justify-between text-sm'>
                               <div className='flex min-w-0 flex-1 items-center gap-2'>
                                 <div
@@ -351,7 +351,7 @@ export function KnowledgeBaseTags({ knowledgeBaseId }: KnowledgeBaseTagsProps) {
                       variant='outline'
                       size='sm'
                       onClick={openTagCreator}
-                      className='w-full justify-start gap-2 rounded-[10px] border border-dashed bg-card text-muted-foreground hover:text-foreground'
+                      className='w-full justify-start gap-2 rounded-md border border-dashed bg-card text-muted-foreground hover:text-foreground'
                       disabled={kbTagDefinitions.length >= MAX_TAG_SLOTS}
                     >
                       <Plus className='h-4 w-4' />
@@ -362,7 +362,7 @@ export function KnowledgeBaseTags({ knowledgeBaseId }: KnowledgeBaseTagsProps) {
 
                 {/* Inline Tag Creation Form */}
                 {isCreating && (
-                  <div className='mb-1 w-full max-w-full space-y-2 rounded-[10px] border bg-card p-2'>
+                  <div className='mb-1 w-full max-w-full space-y-2 rounded-md border bg-card p-2'>
                     <div className='space-y-1.5'>
                       <div className='flex items-center justify-between'>
                         <Label className='font-medium text-xs'>Tag Name</Label>
@@ -470,13 +470,13 @@ export function KnowledgeBaseTags({ knowledgeBaseId }: KnowledgeBaseTagsProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className='flex'>
-            <AlertDialogCancel className='h-9 w-full rounded-[8px]' disabled={isDeleting}>
+            <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={isDeleting}>
               Cancel
             </AlertDialogCancel>
             <Button
               onClick={confirmDeleteTag}
               disabled={isDeleting}
-              className='h-9 w-full rounded-[8px] bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+              className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
             >
               {isDeleting ? 'Deleting...' : 'Delete Tag'}
             </Button>

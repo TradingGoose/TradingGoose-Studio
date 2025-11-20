@@ -56,7 +56,7 @@ export interface McpServersActions {
     workspaceId: string,
     id: string,
     updates: Partial<McpServerWithStatus>
-  ) => Promise<void>
+  ) => Promise<McpServerWithStatus | null>
   deleteServer: (workspaceId: string, id: string) => Promise<void>
   refreshServer: (workspaceId: string, id: string) => Promise<void>
   clearError: () => void

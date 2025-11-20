@@ -50,7 +50,7 @@ export function TeamUsage({ hasAdminAccess }: TeamUsageProps) {
 
   if (isLoadingOrgBilling) {
     return (
-      <div className='rounded-[8px] border bg-background p-3 shadow-xs'>
+      <div className='rounded-sm border bg-background p-3 shadow-xs'>
         <div className='space-y-2'>
           <div className='flex items-center justify-between'>
             <div className='flex items-center gap-2'>
@@ -98,7 +98,7 @@ export function TeamUsage({ hasAdminAccess }: TeamUsageProps) {
     : subscription.isTeam
       ? 'Team'
       : (subscription.plan || 'Free').charAt(0).toUpperCase() +
-        (subscription.plan || 'Free').slice(1)
+      (subscription.plan || 'Free').slice(1)
 
   return (
     <UsageHeader

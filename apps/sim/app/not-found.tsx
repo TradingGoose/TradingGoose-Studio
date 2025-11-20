@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { useBrandConfig } from '@/lib/branding/branding'
@@ -9,9 +9,10 @@ import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
 
 export default function NotFound() {
-  const [buttonClass, setButtonClass] = useState('auth-button-gradient')
   const brandConfig = useBrandConfig()
   const router = useRouter()
+  const primaryButtonClasses =
+    'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
 
   useEffect(() => {
     const root = document.documentElement
@@ -22,29 +23,6 @@ export default function NotFound() {
     return () => {
       if (!hadLight) root.classList.remove('light')
       if (hadDark) root.classList.add('dark')
-    }
-  }, [])
-
-  useEffect(() => {
-    const checkCustomBrand = () => {
-      const computedStyle = getComputedStyle(document.documentElement)
-      const brandAccent = computedStyle.getPropertyValue('--accent').trim()
-      if (brandAccent && brandAccent !== '#ffcc00') {
-        setButtonClass('auth-button-custom')
-      } else {
-        setButtonClass('auth-button-gradient')
-      }
-    }
-    checkCustomBrand()
-    window.addEventListener('resize', checkCustomBrand)
-    const observer = new MutationObserver(checkCustomBrand)
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['style', 'class'],
-    })
-    return () => {
-      window.removeEventListener('resize', checkCustomBrand)
-      observer.disconnect()
     }
   }, [])
 
@@ -69,7 +47,7 @@ export default function NotFound() {
               <Button
                 type='button'
                 onClick={() => router.push('/')}
-                className={`${buttonClass} flex w-full items-center justify-center gap-2 rounded-[10px] border font-medium text-[15px] text-white transition-all duration-200`}
+                className={primaryButtonClasses}
               >
                 Return to Home
               </Button>

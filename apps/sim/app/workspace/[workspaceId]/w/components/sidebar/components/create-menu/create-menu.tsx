@@ -277,7 +277,7 @@ export function CreateMenu({ onCreateWorkflow, isCreatingWorkflow = false }: Cre
 
   // Styles
   const menuItemClassName =
-    'group flex h-8 w-full cursor-pointer items-center gap-2 rounded-[8px] px-2 py-2 font-medium font-sans text-muted-foreground text-sm outline-none hover:bg-card focus:bg-muted'
+    'group flex h-8 w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-2 font-medium font-sans text-muted-foreground text-sm outline-none hover:bg-card focus:bg-muted'
   const iconClassName = 'h-4 w-4 group-hover:text-foreground'
   const textClassName = 'group-hover:text-foreground'
 
@@ -285,7 +285,7 @@ export function CreateMenu({ onCreateWorkflow, isCreatingWorkflow = false }: Cre
     'fade-in-0 zoom-in-95 data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
     'data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2',
     'data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
-    'z-50 animate-in overflow-hidden rounded-[8px] border bg-popover p-1 text-popover-foreground shadow-md',
+    'z-50 animate-in overflow-hidden rounded-sm border bg-popover p-1 text-popover-foreground shadow-md',
     'data-[state=closed]:animate-out',
     'w-42'
   )
@@ -297,7 +297,7 @@ export function CreateMenu({ onCreateWorkflow, isCreatingWorkflow = false }: Cre
           <Button
             variant='ghost'
             size='icon'
-            className='h-8 w-8 shrink-0 rounded-[8px] border bg-background shadow-xs hover:bg-card focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
+            className='h-8 w-8 shrink-0 rounded-sm border bg-background shadow-xs hover:bg-card focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
             title='Create Workflow (Hover, right-click, or long press for more options)'
             disabled={isCreatingWorkflow}
             onClick={handleButtonClick}

@@ -778,13 +778,13 @@ export default function Dashboard() {
 
   const headerCenterContent = (
     <div className='flex flex-wrap items-center justify-center gap-3'>
-      <div className='inline-flex h-9 items-center rounded-[11px] border bg-card p-1 shadow-sm'>
+      <div className='inline-flex h-9 items-center rounded-md border bg-card p-1 shadow-sm'>
         <Button
           variant='ghost'
           size='sm'
           onClick={() => setLive((prev) => !prev)}
           className={cn(
-            'h-7 rounded-[8px] px-3 font-normal text-xs',
+            'h-7 rounded-sm px-3 font-normal text-xs',
             live
               ? 'bg-primary text-black shadow-[0_0_0_0_var(--primary)] hover:bg-primary-hover hover:text-black '
               : 'text-muted-foreground hover:text-foreground'
@@ -795,13 +795,13 @@ export default function Dashboard() {
         </Button>
       </div>
 
-      <div className='inline-flex h-9 items-center rounded-[11px] border bg-card p-1 shadow-sm'>
+      <div className='inline-flex h-9 items-center rounded-md border bg-card p-1 shadow-sm'>
         <Button
           variant='ghost'
           size='sm'
           onClick={() => setViewMode('logs')}
           className={cn(
-            'h-7 rounded-[8px] px-3 font-normal text-xs',
+            'h-7 rounded-sm px-3 font-normal text-xs',
             viewMode !== 'dashboard'
               ? 'bg-muted text-foreground'
               : 'text-muted-foreground hover:text-foreground'
@@ -815,7 +815,7 @@ export default function Dashboard() {
           size='sm'
           onClick={() => setViewMode('dashboard')}
           className={cn(
-            'h-7 rounded-[8px] px-3 font-normal text-xs',
+            'h-7 rounded-sm px-3 font-normal text-xs',
             viewMode === 'dashboard'
               ? 'bg-muted text-foreground'
               : 'text-muted-foreground hover:text-foreground'
@@ -836,7 +836,7 @@ export default function Dashboard() {
             variant='ghost'
             size='icon'
             onClick={handleRefresh}
-            className='h-9 rounded-[11px] hover:bg-secondary'
+            className='h-9 rounded-md hover:bg-secondary'
             disabled={isRefetching}
           >
             {isRefetching ? (

@@ -90,7 +90,7 @@ export function PlanCard({
   return (
     <article
       className={cn(
-        'relative flex rounded-[8px] border p-4 transition-colors hover:border-muted-foreground/20',
+        'relative flex rounded-sm border p-4 transition-colors hover:border-muted-foreground/20',
         isHorizontal ? 'flex-row items-center justify-between' : 'flex-col',
         className
       )}
@@ -107,10 +107,10 @@ export function PlanCard({
         <Button
           onClick={onButtonClick}
           className={cn(
-            'h-9 rounded-[8px] text-xs transition-colors',
+            'h-9 rounded-sm text-xs transition-colors',
             isHorizontal ? 'px-4' : 'w-full',
             isError &&
-              'border-red-500 bg-transparent text-red-500 hover:bg-red-500 hover:text-white dark:border-red-500 dark:text-red-500 dark:hover:bg-red-500'
+            'border-red-500 bg-transparent text-red-500 hover:bg-red-500 hover:text-white dark:border-red-500 dark:text-red-500 dark:hover:bg-red-500'
           )}
           variant={isError ? 'outline' : 'default'}
           aria-label={`${buttonText} ${name} plan`}

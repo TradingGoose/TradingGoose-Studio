@@ -95,7 +95,8 @@ function SignupFormContent({
   const [showEmailValidationError, setShowEmailValidationError] = useState(false)
   const [redirectUrl, setRedirectUrl] = useState('')
   const [isInviteFlow, setIsInviteFlow] = useState(false)
-  const [buttonClass, setButtonClass] = useState('auth-button-gradient')
+  const primaryButtonClasses =
+    'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
 
   const [name, setName] = useState('')
   const [nameErrors, setNameErrors] = useState<string[]>([])
@@ -120,31 +121,6 @@ function SignupFormContent({
     const inviteFlowParam = searchParams.get('invite_flow')
     if (inviteFlowParam === 'true') {
       setIsInviteFlow(true)
-    }
-
-    const checkCustomBrand = () => {
-      const computedStyle = getComputedStyle(document.documentElement)
-      const brandAccent = computedStyle.getPropertyValue('--accent').trim()
-
-      if (brandAccent && brandAccent !== '#ffcc00') {
-        setButtonClass('auth-button-custom')
-      } else {
-        setButtonClass('auth-button-gradient')
-      }
-    }
-
-    checkCustomBrand()
-
-    window.addEventListener('resize', checkCustomBrand)
-    const observer = new MutationObserver(checkCustomBrand)
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['style', 'class'],
-    })
-
-    return () => {
-      window.removeEventListener('resize', checkCustomBrand)
-      observer.disconnect()
     }
   }, [searchParams])
 
@@ -389,14 +365,13 @@ function SignupFormContent({
         const hasOnlySSO = ssoEnabled && !emailEnabled && !hasSocial
         return hasOnlySSO
       })() && (
-        <div className={`${inter.className} mt-8`}>
-          <SSOLoginButton
-            callbackURL={redirectUrl || '/workspace'}
-            variant='primary'
-            primaryClassName={buttonClass}
-          />
-        </div>
-      )}
+          <div className={`${inter.className} mt-8`}>
+            <SSOLoginButton
+              callbackURL={redirectUrl || '/workspace'}
+              variant='primary'
+            />
+          </div>
+        )}
 
       {/* Email/Password Form - show unless explicitly disabled */}
       {!isFalsy(getEnv('NEXT_PUBLIC_EMAIL_PASSWORD_SIGNUP_ENABLED')) && (
@@ -417,10 +392,10 @@ function SignupFormContent({
                 value={name}
                 onChange={handleNameChange}
                 className={cn(
-                  'rounded-[10px] shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
+                  'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                   showNameValidationError &&
-                    nameErrors.length > 0 &&
-                    'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                  nameErrors.length > 0 &&
+                  'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                 )}
               />
               {showNameValidationError && nameErrors.length > 0 && (
@@ -445,9 +420,9 @@ function SignupFormContent({
                 value={email}
                 onChange={handleEmailChange}
                 className={cn(
-                  'rounded-[10px] shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
+                  'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                   (emailError || (showEmailValidationError && emailErrors.length > 0)) &&
-                    'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                  'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                 )}
               />
               {showEmailValidationError && emailErrors.length > 0 && (
@@ -479,10 +454,10 @@ function SignupFormContent({
                   value={password}
                   onChange={handlePasswordChange}
                   className={cn(
-                    'rounded-[10px] pr-10 shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
+                    'rounded-md pr-10 shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                     showValidationError &&
-                      passwordErrors.length > 0 &&
-                      'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                    passwordErrors.length > 0 &&
+                    'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                   )}
                 />
                 <button
@@ -506,7 +481,7 @@ function SignupFormContent({
 
           <Button
             type='submit'
-            className={`${buttonClass} flex w-full items-center justify-center gap-2 rounded-[10px] border font-medium text-[15px] text-white transition-all duration-200`}
+            className={primaryButtonClasses}
             disabled={isLoading}
           >
             {isLoading ? 'Creating account...' : 'Create account'}
@@ -524,15 +499,15 @@ function SignupFormContent({
         const showDivider = (emailEnabled || hasOnlySSO) && showBottomSection
         return showDivider
       })() && (
-        <div className={`${inter.className} relative my-6 font-light`}>
-          <div className='absolute inset-0 flex items-center'>
-            <div className='auth-divider w-full border-t' />
+          <div className={`${inter.className} relative my-6 font-light`}>
+            <div className='absolute inset-0 flex items-center'>
+              <div className='auth-divider w-full border-t' />
+            </div>
+            <div className='relative flex justify-center text-sm'>
+              <span className='bg-white px-4 font-[340] text-muted-foreground'>Or continue with</span>
+            </div>
           </div>
-          <div className='relative flex justify-center text-sm'>
-            <span className='bg-white px-4 font-[340] text-muted-foreground'>Or continue with</span>
-          </div>
-        </div>
-      )}
+        )}
 
       {(() => {
         const ssoEnabled = isTruthy(getEnv('NEXT_PUBLIC_SSO_ENABLED'))
@@ -542,34 +517,33 @@ function SignupFormContent({
         const showBottomSection = hasSocial || (ssoEnabled && !hasOnlySSO)
         return showBottomSection
       })() && (
-        <div
-          className={cn(
-            inter.className,
-            isFalsy(getEnv('NEXT_PUBLIC_EMAIL_PASSWORD_SIGNUP_ENABLED')) ? 'mt-8' : undefined
-          )}
-        >
-          <SocialLoginButtons
-            githubAvailable={githubAvailable}
-            googleAvailable={googleAvailable}
-            callbackURL={redirectUrl || '/workspace'}
-            isProduction={isProduction}
-          >
-            {isTruthy(getEnv('NEXT_PUBLIC_SSO_ENABLED')) && (
-              <SSOLoginButton
-                callbackURL={redirectUrl || '/workspace'}
-                variant='outline'
-                primaryClassName={buttonClass}
-              />
+          <div
+            className={cn(
+              inter.className,
+              isFalsy(getEnv('NEXT_PUBLIC_EMAIL_PASSWORD_SIGNUP_ENABLED')) ? 'mt-8' : undefined
             )}
-          </SocialLoginButtons>
-        </div>
-      )}
+          >
+            <SocialLoginButtons
+              githubAvailable={githubAvailable}
+              googleAvailable={googleAvailable}
+              callbackURL={redirectUrl || '/workspace'}
+              isProduction={isProduction}
+            >
+              {isTruthy(getEnv('NEXT_PUBLIC_SSO_ENABLED')) && (
+                <SSOLoginButton
+                  callbackURL={redirectUrl || '/workspace'}
+                  variant='outline'
+                />
+              )}
+            </SocialLoginButtons>
+          </div>
+        )}
 
       <div className={`${inter.className} pt-6 text-center font-light text-[14px]`}>
         <span className='font-normal'>Already have an account? </span>
         <Link
           href={isInviteFlow ? `/login?invite_flow=true&callbackUrl=${redirectUrl}` : '/login'}
-          className='font-medium text-[var(--accent)] underline-offset-4 transition hover:text-[var(--accent-hover)] hover:underline'
+          className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
         >
           Sign in
         </Link>

@@ -150,7 +150,7 @@ export function TriggerConfigSection({
                 <Button
                   variant='outline'
                   role='combobox'
-                  className='h-9 w-full justify-between rounded-[8px] text-left font-normal'
+                  className='h-9 w-full justify-between rounded-sm text-left font-normal'
                 >
                   <div className='flex w-full items-center justify-between'>
                     {selectedValues.length > 0 ? (
@@ -234,7 +234,7 @@ export function TriggerConfigSection({
               placeholder={fieldDef.placeholder}
               value={value}
               onChange={(e) => onChange(fieldId, Number(e.target.value))}
-              className='h-9 rounded-[8px]'
+              className='h-9 rounded-sm'
             />
             {fieldDef.description && (
               <p className='text-muted-foreground text-sm'>{fieldDef.description}</p>
@@ -305,7 +305,7 @@ export function TriggerConfigSection({
                 value={value}
                 onChange={(e) => onChange(fieldId, e.target.value)}
                 className={cn(
-                  'h-9 rounded-[8px]',
+                  'h-9 rounded-sm',
                   isSecret ? 'pr-32' : '',
                   'focus-visible:ring-2 focus-visible:ring-primary/20',
                   !isSecret && 'text-transparent caret-foreground'
@@ -409,7 +409,7 @@ export function TriggerConfigSection({
               value={webhookUrl}
               readOnly
               className={cn(
-                'h-9 cursor-text rounded-[8px] pr-10 font-mono text-xs',
+                'h-9 cursor-text rounded-sm pr-10 font-mono text-xs',
                 'focus-visible:ring-2 focus-visible:ring-primary/20'
               )}
               onClick={(e) => (e.target as HTMLInputElement).select()}

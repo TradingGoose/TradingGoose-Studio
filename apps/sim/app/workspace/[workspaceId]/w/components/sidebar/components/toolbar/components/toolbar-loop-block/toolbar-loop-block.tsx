@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useOptionalWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { LoopTool } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/subflows/loop/loop-config'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
 
 type LoopToolbarItemProps = {
   disabled?: boolean
@@ -55,7 +55,7 @@ export default function LoopToolbarItem({ disabled = false, channelId }: LoopToo
       onDragStart={handleDragStart}
       onClick={handleClick}
       className={cn(
-        'group flex h-8 items-center gap-[10px] rounded-[8px] p-2 transition-colors',
+        'group flex h-8 items-center gap-[10px] rounded-sm p-2 transition-colors',
         disabled
           ? 'cursor-not-allowed opacity-60'
           : 'cursor-pointer hover:bg-card active:cursor-grabbing'

@@ -41,9 +41,9 @@ export default function WorkspacePage() {
 
               if (workspaceId) {
                 logger.info(
-                  `Redirecting workflow ${redirectWorkflowId} to workspace ${workspaceId}`
+                  `Redirecting workflow ${redirectWorkflowId} to workspace ${workspaceId} dashboard`
                 )
-                router.replace(`/workspace/${workspaceId}/w/${redirectWorkflowId}`)
+                router.replace(`/workspace/${workspaceId}/dashboard`)
                 return
               }
             }
@@ -79,8 +79,10 @@ export default function WorkspacePage() {
               const newWorkspace = createData.workspace
 
               if (newWorkspace?.id) {
-                logger.info(`Created default workspace: ${newWorkspace.id}`)
-                router.replace(`/workspace/${newWorkspace.id}/w`)
+                logger.info(
+                  `Created default workspace ${newWorkspace.id}, redirecting to dashboard`
+                )
+                router.replace(`/workspace/${newWorkspace.id}/dashboard`)
                 return
               }
             }
@@ -97,10 +99,10 @@ export default function WorkspacePage() {
 
         // Get the first workspace (they should be ordered by most recent)
         const firstWorkspace = workspaces[0]
-        logger.info(`Redirecting to first workspace: ${firstWorkspace.id}`)
+        logger.info(`Redirecting to workspace ${firstWorkspace.id} dashboard`)
 
         // Redirect to the first workspace
-        router.replace(`/workspace/${firstWorkspace.id}/w`)
+        router.replace(`/workspace/${firstWorkspace.id}/dashboard`)
       } catch (error) {
         logger.error('Error fetching workspaces for redirect:', error)
         // Don't redirect if there's an error - let the user stay on the page

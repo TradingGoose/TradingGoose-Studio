@@ -8,7 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { cn } from '@/lib/utils'
 import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store'
+import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import 'prismjs/components/prism-javascript'
 import 'prismjs/themes/prism.css'
 

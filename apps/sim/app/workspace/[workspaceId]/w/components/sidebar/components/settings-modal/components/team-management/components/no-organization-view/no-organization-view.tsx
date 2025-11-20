@@ -87,7 +87,7 @@ export function NoOrganizationView({
             </div>
 
             {error && (
-              <Alert variant='destructive' className='rounded-[8px]'>
+              <Alert variant='destructive' className='rounded-sm'>
                 <AlertTitle>Error</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
@@ -97,7 +97,7 @@ export function NoOrganizationView({
               <Button
                 onClick={onCreateOrganization}
                 disabled={!orgName || !orgSlug || isCreatingOrg}
-                className='h-9 rounded-[8px]'
+                className='h-9 rounded-sm'
               >
                 {isCreatingOrg && <RefreshCw className='mr-2 h-4 w-4 animate-spin' />}
                 Create Team Workspace
@@ -117,7 +117,7 @@ export function NoOrganizationView({
 
             <div className='space-y-4'>
               {error && (
-                <Alert variant='destructive' className='rounded-[8px]'>
+                <Alert variant='destructive' className='rounded-sm'>
                   <AlertTitle>Error</AlertTitle>
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
@@ -156,14 +156,14 @@ export function NoOrganizationView({
                   variant='outline'
                   onClick={() => setCreateOrgDialogOpen(false)}
                   disabled={isCreatingOrg}
-                  className='h-9 rounded-[8px]'
+                  className='h-9 rounded-sm'
                 >
                   Cancel
                 </Button>
                 <Button
                   onClick={onCreateOrganization}
                   disabled={isCreatingOrg || !orgName.trim()}
-                  className='h-9 rounded-[8px]'
+                  className='h-9 rounded-sm'
                 >
                   {isCreatingOrg && <RefreshCw className='mr-2 h-4 w-4 animate-spin' />}
                   Create Organization
@@ -193,7 +193,7 @@ export function NoOrganizationView({
             })
             window.dispatchEvent(event)
           }}
-          className='h-9 rounded-[8px]'
+          className='h-9 rounded-sm'
         >
           Upgrade to Team Plan
         </Button>

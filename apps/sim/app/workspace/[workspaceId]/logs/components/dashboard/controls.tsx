@@ -49,7 +49,7 @@ export function Controls({
             placeholder='Search workflows...'
             value={searchQuery}
             onChange={(e) => setSearchQuery?.(e.target.value)}
-            className='h-9 w-full rounded-[11px] border-[#E5E5E5] bg-[#FFFFFF] pr-10 pl-9 dark:border-[#414141] dark:bg-[var(--surface-elevated)]'
+            className='h-9 w-full rounded-md border-[#E5E5E5] bg-[#FFFFFF] pr-10 pl-9 dark:border-[#414141] dark:bg-[var(--surface-elevated)]'
           />
           {searchQuery && (
             <button
@@ -79,7 +79,7 @@ export function Controls({
               variant='ghost'
               size='icon'
               onClick={resetToNow}
-              className='h-9 rounded-[11px] hover:bg-secondary'
+              className='h-9 rounded-md hover:bg-secondary'
               disabled={isRefetching}
             >
               {isRefetching ? (
@@ -99,7 +99,7 @@ export function Controls({
               variant='ghost'
               size='icon'
               onClick={onExport}
-              className='h-9 rounded-[11px] hover:bg-secondary'
+              className='h-9 rounded-md hover:bg-secondary'
               aria-label='Export CSV'
             >
               <svg
@@ -120,13 +120,13 @@ export function Controls({
           <TooltipContent>Export CSV</TooltipContent>
         </Tooltip>
 
-        <div className='inline-flex h-9 items-center rounded-[11px] border bg-card p-1 shadow-sm'>
+        <div className='inline-flex h-9 items-center rounded-md border bg-card p-1 shadow-sm'>
           <Button
             variant='ghost'
             size='sm'
             onClick={() => setLive((v) => !v)}
             className={cn(
-              'h-7 rounded-[8px] px-3 font-normal text-xs',
+              'h-7 rounded-sm px-3 font-normal text-xs',
               live
                 ? 'bg-primary  shadow-[0_0_0_0_var(--primary)] hover:bg-primary-hover  '
                 : 'text-muted-foreground hover:text-foreground'
@@ -137,13 +137,13 @@ export function Controls({
           </Button>
         </div>
 
-        <div className='inline-flex h-9 items-center rounded-[11px] border bg-card p-1 shadow-sm'>
+        <div className='inline-flex h-9 items-center rounded-md border bg-card p-1 shadow-sm'>
           <Button
             variant='ghost'
             size='sm'
             onClick={() => setViewMode('logs')}
             className={cn(
-              'h-7 rounded-[8px] px-3 font-normal text-xs',
+              'h-7 rounded-sm px-3 font-normal text-xs',
               (viewMode as string) !== 'dashboard'
                 ? 'bg-muted text-foreground'
                 : 'text-muted-foreground hover:text-foreground'
@@ -157,7 +157,7 @@ export function Controls({
             size='sm'
             onClick={() => setViewMode('dashboard')}
             className={cn(
-              'h-7 rounded-[8px] px-3 font-normal text-xs',
+              'h-7 rounded-sm px-3 font-normal text-xs',
               (viewMode as string) === 'dashboard'
                 ? 'bg-muted text-foreground'
                 : 'text-muted-foreground hover:text-foreground'

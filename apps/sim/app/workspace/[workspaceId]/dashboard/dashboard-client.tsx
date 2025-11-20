@@ -617,7 +617,7 @@ export function DashboardClient({
           className='h-9 w-full rounded-md border bg-background pl-10 pr-3 text-sm'
         />
         {showDropdown && (
-          <div className='absolute left-0 top-full z-50 mt-2 w-full max-w-[420px] rounded-[10px] border border-border bg-background shadow-lg'>
+          <div className='absolute left-0 top-full z-50 mt-2 w-full max-w-[420px] rounded-md border border-border bg-background shadow-lg'>
             <div className='max-h-80 overflow-y-auto'>
               <div className='space-y-4 p-4'>
                 <DropdownSection
@@ -667,7 +667,7 @@ export function DashboardClient({
                       {filteredDocs.map((doc) => (
                         <button
                           key={doc.id}
-                          className='flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-left text-sm text-foreground transition hover:bg-card/50'
+                          className='flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm text-foreground transition hover:bg-card/50'
                           onClick={() => {
                             setIsSearchOpen(false)
                             setSearchQuery('')
@@ -1237,7 +1237,7 @@ function DropdownSection({
           return (
             <button
               key={item.id}
-              className='flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-left text-sm text-foreground transition hover:bg-card/50'
+              className='flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm text-foreground transition hover:bg-card/50'
               onClick={() => onSelect(item.href)}
             >
               {ItemIcon && <ItemIcon className='h-4 w-4 text-muted-foreground' />}

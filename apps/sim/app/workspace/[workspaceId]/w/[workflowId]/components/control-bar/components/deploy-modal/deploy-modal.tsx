@@ -25,7 +25,7 @@ import { ChatDeploy } from '@/app/workspace/[workspaceId]/w/[workflowId]/compone
 import { DeployedWorkflowModal } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/control-bar/components/deployment-controls/components/deployed-workflow-modal'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store'
+import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('DeployModal')

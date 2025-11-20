@@ -70,7 +70,7 @@ export function WorkspaceSwitcher({
               size='lg'
               className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
             >
-              <div className='flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary p-1.5 text-sidebar-primary-foreground'>
+              <div className='flex aspect-square size-8 items-center justify-center rounded-md bg-sidebar-primary p-1.5 text-sidebar-primary-foreground'>
                 {activeWorkspace ? (
                   <span className='font-semibold text-sm'>{getInitials(activeWorkspace.name)}</span>
                 ) : (
@@ -85,7 +85,7 @@ export function WorkspaceSwitcher({
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className='w-[var(--radix-dropdown-menu-trigger-width)] min-w-56 max-w-[calc(100vw-2rem)] rounded-[12px] border p-0 shadow-lg'
+            className='w-[var(--radix-dropdown-menu-trigger-width)] min-w-56 max-w-[calc(100vw-2rem)] rounded-md border p-0 shadow-lg'
             side='bottom'
             sideOffset={4}
             align='start'
@@ -96,11 +96,11 @@ export function WorkspaceSwitcher({
                   {isLoading ? (
                     <div className='space-y-2'>
                       {[0, 1, 2].map((index) => (
-                        <Skeleton key={index} className='h-8 w-full rounded-[8px]' />
+                        <Skeleton key={index} className='h-8 w-full rounded-sm' />
                       ))}
                     </div>
                   ) : workspaces.length === 0 ? (
-                    <div className='rounded-[10px] border border-dashed p-4 text-center text-muted-foreground text-sm'>
+                    <div className='rounded-md border border-dashed p-4 text-center text-muted-foreground text-sm'>
                       No workspaces yet. Create one to get started.
                     </div>
                   ) : (
@@ -114,7 +114,7 @@ export function WorkspaceSwitcher({
                           <div key={workspace.id}>
                             <div
                               className={cn(
-                                'group flex h-8 cursor-pointer items-center rounded-[8px] px-2 text-left text-sm transition-colors',
+                                'group flex h-8 cursor-pointer items-center rounded-sm px-2 text-left text-sm transition-colors',
                                 isActive ? 'bg-muted' : 'hover:bg-card'
                               )}
                               onMouseEnter={() => onHoverWorkspace(workspace.id)}
@@ -203,7 +203,7 @@ export function WorkspaceSwitcher({
               <div className='mt-2 flex items-center gap-2 border-t pt-2'>
                 <Button
                   variant='secondary'
-                  className='h-8 flex-1 justify-center gap-2 rounded-[8px] text-xs'
+                  className='h-8 flex-1 justify-center gap-2 rounded-sm text-xs'
                   onClick={() => (activeWorkspace ? onInviteWorkspace(activeWorkspace) : undefined)}
                   disabled={!activeWorkspace || activeWorkspace.permissions !== 'admin'}
                 >
@@ -212,7 +212,7 @@ export function WorkspaceSwitcher({
                 </Button>
                 <Button
                   variant='secondary'
-                  className='h-8 flex-1 justify-center gap-2 rounded-[8px] text-xs'
+                  className='h-8 flex-1 justify-center gap-2 rounded-sm text-xs'
                   onClick={() => onCreateWorkspace()}
                   disabled={isCreatingWorkspace}
                 >

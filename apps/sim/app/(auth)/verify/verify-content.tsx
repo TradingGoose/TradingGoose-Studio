@@ -58,34 +58,8 @@ function VerificationForm({
     setCountdown(30)
   }
 
-  const [buttonClass, setButtonClass] = useState('auth-button-gradient')
-
-  useEffect(() => {
-    const checkCustomBrand = () => {
-      const computedStyle = getComputedStyle(document.documentElement)
-      const brandAccent = computedStyle.getPropertyValue('--accent').trim()
-
-      if (brandAccent && brandAccent !== '#ffcc00') {
-        setButtonClass('auth-button-custom')
-      } else {
-        setButtonClass('auth-button-gradient')
-      }
-    }
-
-    checkCustomBrand()
-
-    window.addEventListener('resize', checkCustomBrand)
-    const observer = new MutationObserver(checkCustomBrand)
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['style', 'class'],
-    })
-
-    return () => {
-      window.removeEventListener('resize', checkCustomBrand)
-      observer.disconnect()
-    }
-  }, [])
+  const primaryButtonClasses =
+    'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
 
   return (
     <>
@@ -122,11 +96,11 @@ function VerificationForm({
                 disabled={isLoading}
                 className={cn('gap-2', isInvalidOtp && 'otp-error')}
               >
-                <InputOTPGroup className='[&>div]:!rounded-[10px] gap-2'>
+                <InputOTPGroup className='[&>div]:!rounded-md gap-2'>
                   <InputOTPSlot
                     index={0}
                     className={cn(
-                      '!rounded-[10px] h-12 w-12 border bg-white text-center font-medium text-lg shadow-sm transition-all duration-200',
+                      '!rounded-md h-12 w-12 border bg-white text-center font-medium text-lg shadow-sm transition-all duration-200',
                       'border-gray-300 hover:border-gray-400',
                       'focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-100',
                       isInvalidOtp && 'border-red-500 focus:border-red-500 focus:ring-red-100'
@@ -135,7 +109,7 @@ function VerificationForm({
                   <InputOTPSlot
                     index={1}
                     className={cn(
-                      '!rounded-[10px] h-12 w-12 border bg-white text-center font-medium text-lg shadow-sm transition-all duration-200',
+                      '!rounded-md h-12 w-12 border bg-white text-center font-medium text-lg shadow-sm transition-all duration-200',
                       'border-gray-300 hover:border-gray-400',
                       'focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-100',
                       isInvalidOtp && 'border-red-500 focus:border-red-500 focus:ring-red-100'
@@ -144,7 +118,7 @@ function VerificationForm({
                   <InputOTPSlot
                     index={2}
                     className={cn(
-                      '!rounded-[10px] h-12 w-12 border bg-white text-center font-medium text-lg shadow-sm transition-all duration-200',
+                      '!rounded-md h-12 w-12 border bg-white text-center font-medium text-lg shadow-sm transition-all duration-200',
                       'border-gray-300 hover:border-gray-400',
                       'focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-100',
                       isInvalidOtp && 'border-red-500 focus:border-red-500 focus:ring-red-100'
@@ -153,7 +127,7 @@ function VerificationForm({
                   <InputOTPSlot
                     index={3}
                     className={cn(
-                      '!rounded-[10px] h-12 w-12 border bg-white text-center font-medium text-lg shadow-sm transition-all duration-200',
+                      '!rounded-md h-12 w-12 border bg-white text-center font-medium text-lg shadow-sm transition-all duration-200',
                       'border-gray-300 hover:border-gray-400',
                       'focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-100',
                       isInvalidOtp && 'border-red-500 focus:border-red-500 focus:ring-red-100'
@@ -162,7 +136,7 @@ function VerificationForm({
                   <InputOTPSlot
                     index={4}
                     className={cn(
-                      '!rounded-[10px] h-12 w-12 border bg-white text-center font-medium text-lg shadow-sm transition-all duration-200',
+                      '!rounded-md h-12 w-12 border bg-white text-center font-medium text-lg shadow-sm transition-all duration-200',
                       'border-gray-300 hover:border-gray-400',
                       'focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-100',
                       isInvalidOtp && 'border-red-500 focus:border-red-500 focus:ring-red-100'
@@ -171,7 +145,7 @@ function VerificationForm({
                   <InputOTPSlot
                     index={5}
                     className={cn(
-                      '!rounded-[10px] h-12 w-12 border bg-white text-center font-medium text-lg shadow-sm transition-all duration-200',
+                      '!rounded-md h-12 w-12 border bg-white text-center font-medium text-lg shadow-sm transition-all duration-200',
                       'border-gray-300 hover:border-gray-400',
                       'focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-100',
                       isInvalidOtp && 'border-red-500 focus:border-red-500 focus:ring-red-100'
@@ -191,7 +165,7 @@ function VerificationForm({
 
           <Button
             onClick={verifyCode}
-            className={`${buttonClass} flex w-full items-center justify-center gap-2 rounded-[10px] border font-medium text-[15px] text-white transition-all duration-200`}
+            className={primaryButtonClasses}
             disabled={!isOtpComplete || isLoading}
           >
             {isLoading ? 'Verifying...' : 'Verify Email'}
@@ -207,7 +181,7 @@ function VerificationForm({
                   </span>
                 ) : (
                   <button
-                    className='font-medium text-[var(--accent)] underline-offset-4 transition hover:text-[var(--accent-hover)] hover:underline'
+                    className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
                     onClick={handleResend}
                     disabled={isLoading || isResendDisabled}
                   >
@@ -228,7 +202,7 @@ function VerificationForm({
                 }
                 router.push('/signup')
               }}
-              className='font-medium text-[var(--accent)] underline-offset-4 transition hover:text-[var(--accent-hover)] hover:underline'
+              className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
             >
               Back to signup
             </button>

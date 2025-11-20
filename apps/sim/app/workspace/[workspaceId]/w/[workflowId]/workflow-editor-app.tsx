@@ -8,7 +8,7 @@ import Workflow, { type WorkflowUIConfig } from '@/app/workspace/[workspaceId]/w
 import {
   WorkflowStoreProvider,
   DEFAULT_WORKFLOW_CHANNEL_ID,
-} from '@/stores/workflows/workflow/store'
+} from '@/stores/workflows/workflow/store-client'
 
 interface WorkflowEditorAppProps {
   workspaceId: string

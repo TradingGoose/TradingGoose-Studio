@@ -53,7 +53,7 @@ function SubscriptionSkeleton() {
       <div className='flex flex-col gap-2'>
         {/* Current Plan skeleton - matches usage indicator style */}
         <div className='mb-2'>
-          <div className='rounded-[8px] border bg-background p-3 shadow-xs'>
+          <div className='rounded-sm border bg-background p-3 shadow-xs'>
             <div className='space-y-2'>
               <div className='flex items-center justify-between'>
                 <div className='flex items-center gap-2'>
@@ -76,7 +76,7 @@ function SubscriptionSkeleton() {
           {/* Pro and Team skeleton grid */}
           <div className='grid grid-cols-2 gap-2'>
             {/* Pro Plan Card Skeleton */}
-            <div className='flex flex-col rounded-[8px] border p-4'>
+            <div className='flex flex-col rounded-sm border p-4'>
               <div className='mb-4'>
                 <Skeleton className='mb-2 h-5 w-8' />
                 <div className='flex items-baseline'>
@@ -102,11 +102,11 @@ function SubscriptionSkeleton() {
                   <Skeleton className='h-3 w-20' />
                 </div>
               </div>
-              <Skeleton className='h-9 w-full rounded-[8px]' />
+              <Skeleton className='h-9 w-full rounded-sm' />
             </div>
 
             {/* Team Plan Card Skeleton */}
-            <div className='flex flex-col rounded-[8px] border p-4'>
+            <div className='flex flex-col rounded-sm border p-4'>
               <div className='mb-4'>
                 <Skeleton className='mb-2 h-5 w-10' />
                 <div className='flex items-baseline'>
@@ -132,12 +132,12 @@ function SubscriptionSkeleton() {
                   <Skeleton className='h-3 w-28' />
                 </div>
               </div>
-              <Skeleton className='h-9 w-full rounded-[8px]' />
+              <Skeleton className='h-9 w-full rounded-sm' />
             </div>
           </div>
 
           {/* Enterprise skeleton - horizontal layout */}
-          <div className='flex items-center justify-between rounded-[8px] border p-4'>
+          <div className='flex items-center justify-between rounded-sm border p-4'>
             <div>
               <Skeleton className='mb-2 h-5 w-20' />
               <Skeleton className='mb-3 h-3 w-64' />
@@ -158,7 +158,7 @@ function SubscriptionSkeleton() {
                 </div>
               </div>
             </div>
-            <Skeleton className='h-9 w-16 rounded-[8px]' />
+            <Skeleton className='h-9 w-16 rounded-sm' />
           </div>
         </div>
       </div>
@@ -362,10 +362,10 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
             limit={
               subscription.isEnterprise || subscription.isTeam
                 ? organizationBillingData?.totalUsageLimit ||
-                  organizationBillingData?.minimumBillingAmount ||
-                  0
+                organizationBillingData?.minimumBillingAmount ||
+                0
                 : !subscription.isFree &&
-                    (permissions.canEditUsageLimit || permissions.showTeamMemberView)
+                  (permissions.canEditUsageLimit || permissions.showTeamMemberView)
                   ? usage.current // placeholder; rightContent will render UsageLimit
                   : usage.limit
             }
@@ -376,10 +376,10 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                 ? organizationBillingData?.totalUsageLimit &&
                   organizationBillingData.totalUsageLimit > 0
                   ? Math.round(
-                      (organizationBillingData.totalCurrentUsage /
-                        organizationBillingData.totalUsageLimit) *
-                        100
-                    )
+                    (organizationBillingData.totalCurrentUsage /
+                      organizationBillingData.totalUsageLimit) *
+                    100
+                  )
                   : 0
                 : Math.round(usage.percentUsed)
             }
@@ -405,7 +405,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
             }}
             rightContent={
               !subscription.isFree &&
-              (permissions.canEditUsageLimit || permissions.showTeamMemberView) ? (
+                (permissions.canEditUsageLimit || permissions.showTeamMemberView) ? (
                 <UsageLimit
                   ref={usageLimitRef}
                   currentLimit={
@@ -418,7 +418,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                   minimumLimit={
                     subscription.isTeam && isTeamAdmin
                       ? organizationBillingData?.minimumBillingAmount ||
-                        (subscription.isPro ? 20 : 40)
+                      (subscription.isPro ? 20 : 40)
                       : usageLimitData?.minimumLimit || (subscription.isPro ? 20 : 40)
                   }
                   context={subscription.isTeam && isTeamAdmin ? 'organization' : 'user'}

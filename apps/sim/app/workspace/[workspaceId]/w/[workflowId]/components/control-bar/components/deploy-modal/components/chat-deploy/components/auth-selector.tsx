@@ -81,7 +81,7 @@ export function AuthSelector({
           <Card
             key={type}
             className={cn(
-              'cursor-pointer overflow-hidden rounded-[8px] shadow-none transition-all duration-200 hover:bg-card/30',
+              'cursor-pointer overflow-hidden rounded-sm shadow-none transition-all duration-200 hover:bg-card/30',
               authType === type
                 ? 'border border-muted-foreground hover:bg-card'
                 : 'border border-input'
@@ -116,7 +116,7 @@ export function AuthSelector({
 
       {/* Auth Settings */}
       {authType === 'password' && (
-        <Card className='rounded-[8px] shadow-none'>
+        <Card className='rounded-sm shadow-none'>
           <CardContent className='p-4'>
             <h3 className='mb-2 font-medium text-sm'>Password Settings</h3>
 
@@ -140,7 +140,7 @@ export function AuthSelector({
                 value={password}
                 onChange={(e) => onPasswordChange(e.target.value)}
                 disabled={disabled}
-                className='h-10 rounded-[8px] pr-32'
+                className='h-10 rounded-sm pr-32'
                 required={!isExistingChat}
                 autoComplete='new-password'
               />
@@ -218,7 +218,7 @@ export function AuthSelector({
       )}
 
       {(authType === 'email' || authType === 'sso') && (
-        <Card className='rounded-[8px] shadow-none'>
+        <Card className='rounded-sm shadow-none'>
           <CardContent className='p-4'>
             <h3 className='mb-2 font-medium text-sm'>
               {authType === 'email' ? 'Email Access Settings' : 'SSO Access Settings'}
@@ -230,7 +230,7 @@ export function AuthSelector({
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
                 disabled={disabled}
-                className='h-10 flex-1 rounded-[8px]'
+                className='h-10 flex-1 rounded-sm'
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault()
@@ -242,7 +242,7 @@ export function AuthSelector({
                 type='button'
                 onClick={handleAddEmail}
                 disabled={!newEmail.trim() || disabled}
-                className='h-10 shrink-0 rounded-[8px]'
+                className='h-10 shrink-0 rounded-sm'
               >
                 <Plus className='h-4 w-4' />
                 Add
@@ -285,7 +285,7 @@ export function AuthSelector({
       )}
 
       {authType === 'public' && (
-        <Card className='rounded-[8px] shadow-none'>
+        <Card className='rounded-sm shadow-none'>
           <CardContent className='p-4'>
             <h3 className='mb-2 font-medium text-sm'>Public Access Settings</h3>
             <p className='text-muted-foreground text-xs'>

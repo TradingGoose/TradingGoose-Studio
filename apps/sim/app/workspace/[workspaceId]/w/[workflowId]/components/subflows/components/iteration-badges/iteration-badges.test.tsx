@@ -17,7 +17,7 @@ vi.mock('@/hooks/use-collaborative-workflow', () => ({
   useCollaborativeWorkflow: () => mockCollaborativeUpdates,
 }))
 
-vi.mock('@/stores/workflows/workflow/store', () => ({
+vi.mock('@/stores/workflows/workflow/store-client', () => ({
   useWorkflowStore: () => mockStoreData,
 }))
 

@@ -10,9 +10,7 @@ import {
   Copilot,
   Credentials,
   EnvironmentVariables,
-  FileUploads,
   General,
-  MCP,
   Privacy,
   SettingsNavigation,
   SSO,
@@ -43,7 +41,6 @@ type SettingsSection =
   | 'sso'
   | 'privacy'
   | 'copilot'
-  | 'mcp'
 
 export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>('general')
@@ -195,11 +192,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
             {activeSection === 'privacy' && (
               <div className='h-full'>
                 <Privacy />
-              </div>
-            )}
-            {activeSection === 'mcp' && (
-              <div className='h-full'>
-                <MCP />
               </div>
             )}
           </div>

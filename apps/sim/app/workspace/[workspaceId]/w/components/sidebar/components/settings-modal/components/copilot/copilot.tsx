@@ -252,7 +252,7 @@ export function Copilot() {
                 onClick={onGenerate}
                 variant='ghost'
                 size='sm'
-                className='h-8 rounded-[8px] border bg-background px-3 shadow-xs hover:bg-card focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
+                className='h-8 rounded-sm border bg-background px-3 shadow-xs hover:bg-card focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
                 disabled={isLoading}
               >
                 <Plus className='h-3.5 w-3.5 stroke-[2px]' />
@@ -276,7 +276,7 @@ export function Copilot() {
                   <div key={k.id} className='flex flex-col gap-2'>
                     <div className='flex items-center justify-between gap-4'>
                       <div className='flex items-center gap-3'>
-                        <div className='flex h-8 items-center rounded-[8px] bg-muted px-3'>
+                        <div className='flex h-8 items-center rounded-sm bg-muted px-3'>
                           <code className='font-mono text-foreground text-xs'>{k.displayKey}</code>
                         </div>
                       </div>
@@ -391,7 +391,7 @@ export function Copilot() {
           }
         }}
       >
-        <AlertDialogContent className='rounded-[10px] sm:max-w-lg'>
+        <AlertDialogContent className='rounded-md sm:max-w-lg'>
           <AlertDialogHeader>
             <AlertDialogTitle>Your API key has been created</AlertDialogTitle>
             <AlertDialogDescription>
@@ -425,7 +425,7 @@ export function Copilot() {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent className='rounded-[10px] sm:max-w-md'>
+        <AlertDialogContent className='rounded-md sm:max-w-md'>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete API key?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -436,7 +436,7 @@ export function Copilot() {
 
           <AlertDialogFooter className='flex'>
             <AlertDialogCancel
-              className='h-9 w-full rounded-[8px]'
+              className='h-9 w-full rounded-sm'
               onClick={() => setDeleteKey(null)}
             >
               Cancel
@@ -449,7 +449,7 @@ export function Copilot() {
                 setShowDeleteDialog(false)
                 setDeleteKey(null)
               }}
-              className='h-9 w-full rounded-[8px] bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+              className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
             >
               Delete
             </AlertDialogAction>
@@ -465,7 +465,7 @@ function CopilotKeySkeleton() {
     <div className='flex flex-col gap-2'>
       <div className='flex items-center justify-between gap-4'>
         <div className='flex items-center gap-3'>
-          <Skeleton className='h-8 w-20 rounded-[8px]' />
+          <Skeleton className='h-8 w-20 rounded-sm' />
         </div>
         <Skeleton className='h-8 w-14' />
       </div>

@@ -232,13 +232,13 @@ export function FolderItem({
             </AlertDialogHeader>
 
             <AlertDialogFooter className='flex'>
-              <AlertDialogCancel className='h-9 w-full rounded-[8px]' disabled={isDeleting}>
+              <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={isDeleting}>
                 Cancel
               </AlertDialogCancel>
               <AlertDialogAction
                 onClick={confirmDelete}
                 disabled={isDeleting}
-                className='h-9 w-full rounded-[8px] bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+                className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
               >
                 {isDeleting ? 'Deleting...' : 'Delete'}
               </AlertDialogAction>
@@ -254,7 +254,7 @@ export function FolderItem({
       <div className='mb-1' onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
         <div
           className={clsx(
-            'group flex h-8 w-full cursor-pointer items-center rounded-[8px] px-2 py-2 font-medium font-sans text-sm transition-colors hover:bg-card',
+            'group flex h-8 w-full cursor-pointer items-center rounded-sm px-2 py-2 font-medium font-sans text-sm transition-colors hover:bg-card',
             isDragging ? 'opacity-50' : '',
             isFirstItem ? 'mr-[36px]' : ''
           )}
@@ -351,13 +351,13 @@ export function FolderItem({
           </AlertDialogHeader>
 
           <AlertDialogFooter className='flex'>
-            <AlertDialogCancel className='h-9 w-full rounded-[8px]' disabled={isDeleting}>
+            <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={isDeleting}>
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
               disabled={isDeleting}
-              className='h-9 w-full rounded-[8px] bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+              className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
             >
               {isDeleting ? 'Deleting...' : 'Delete'}
             </AlertDialogAction>

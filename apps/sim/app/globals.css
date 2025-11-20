@@ -505,32 +505,6 @@ input[type="search"]::-ms-clear {
     animation: placeholder-pulse 1.5s ease-in-out infinite;
   }
 
-  /* Auth Button Styles - Default Gradient */
-  .auth-button-gradient {
-    background: linear-gradient(to bottom, #ffe460, #ffcc00) !important;
-    border-color: #ffcc00 !important;
-    box-shadow: inset 0 2px 4px 0 #ffd82f !important;
-  }
-
-  .auth-button-gradient:hover {
-    background: linear-gradient(to bottom, #ffe460, #ffcc00) !important;
-    opacity: 0.9;
-  }
-
-  /* Auth Button Styles - CSS Variable Based */
-  .auth-button-custom {
-    background: var(--accent) !important;
-    border-color: var(--accent) !important;
-    /* Remove purple shadow when using custom color */
-    box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.1) !important;
-  }
-
-  .auth-button-custom:hover {
-    background: var(--accent-hover, var(--accent)) !important;
-    border-color: var(--accent-hover, var(--accent)) !important;
-    opacity: 1;
-  }
-
   /* ==========================================================================
      KEYFRAME ANIMATIONS
      ========================================================================== */

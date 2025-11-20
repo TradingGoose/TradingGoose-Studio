@@ -105,7 +105,8 @@ export default function LoginPage({
   const [password, setPassword] = useState('')
   const [passwordErrors, setPasswordErrors] = useState<string[]>([])
   const [showValidationError, setShowValidationError] = useState(false)
-  const [buttonClass, setButtonClass] = useState('auth-button-gradient')
+  const primaryButtonClasses =
+    'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
 
   const [callbackUrl, setCallbackUrl] = useState('/workspace')
   const [isInviteFlow, setIsInviteFlow] = useState(false)
@@ -139,30 +140,6 @@ export default function LoginPage({
       setIsInviteFlow(inviteFlow)
     }
 
-    const checkCustomBrand = () => {
-      const computedStyle = getComputedStyle(document.documentElement)
-      const brandAccent = computedStyle.getPropertyValue('--accent').trim()
-
-      if (brandAccent && brandAccent !== '#ffcc00') {
-        setButtonClass('auth-button-custom')
-      } else {
-        setButtonClass('auth-button-gradient')
-      }
-    }
-
-    checkCustomBrand()
-
-    window.addEventListener('resize', checkCustomBrand)
-    const observer = new MutationObserver(checkCustomBrand)
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['style', 'class'],
-    })
-
-    return () => {
-      window.removeEventListener('resize', checkCustomBrand)
-      observer.disconnect()
-    }
   }, [searchParams])
 
   useEffect(() => {
@@ -393,7 +370,6 @@ export default function LoginPage({
           <SSOLoginButton
             callbackURL={callbackUrl}
             variant='primary'
-            primaryClassName={buttonClass}
           />
         </div>
       )}
@@ -417,10 +393,10 @@ export default function LoginPage({
                 value={email}
                 onChange={handleEmailChange}
                 className={cn(
-                  'rounded-[10px] shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
+                  'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                   showEmailValidationError &&
-                    emailErrors.length > 0 &&
-                    'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                  emailErrors.length > 0 &&
+                  'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                 )}
               />
               {showEmailValidationError && emailErrors.length > 0 && (
@@ -455,10 +431,10 @@ export default function LoginPage({
                   value={password}
                   onChange={handlePasswordChange}
                   className={cn(
-                    'rounded-[10px] pr-10 shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
+                    'rounded-md pr-10 shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                     showValidationError &&
-                      passwordErrors.length > 0 &&
-                      'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                    passwordErrors.length > 0 &&
+                    'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                   )}
                 />
                 <button
@@ -482,7 +458,7 @@ export default function LoginPage({
 
           <Button
             type='submit'
-            className={`${buttonClass} flex w-full items-center justify-center gap-2 rounded-[10px] border font-medium text-[15px] text-white transition-all duration-200`}
+            className={primaryButtonClasses}
             disabled={isLoading}
           >
             {isLoading ? 'Signing in...' : 'Sign in'}
@@ -514,7 +490,6 @@ export default function LoginPage({
               <SSOLoginButton
                 callbackURL={callbackUrl}
                 variant='outline'
-                primaryClassName={buttonClass}
               />
             )}
           </SocialLoginButtons>
@@ -527,7 +502,7 @@ export default function LoginPage({
           <span className='font-normal'>Don't have an account? </span>
           <Link
             href={isInviteFlow ? `/signup?invite_flow=true&callbackUrl=${callbackUrl}` : '/signup'}
-            className='font-medium text-[var(--accent)] underline-offset-4 transition hover:text-[var(--accent-hover)] hover:underline'
+            className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
           >
             Sign up
           </Link>
@@ -558,7 +533,7 @@ export default function LoginPage({
       </div>
 
       <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
-        <DialogContent className='auth-card auth-card-shadow max-w-[540px] rounded-[10px] border backdrop-blur-sm'>
+        <DialogContent className='auth-card auth-card-shadow max-w-[540px] rounded-md border backdrop-blur-sm'>
           <DialogHeader>
             <DialogTitle className='auth-text-primary font-semibold text-xl tracking-tight'>
               Reset Password
@@ -581,9 +556,9 @@ export default function LoginPage({
                 required
                 type='email'
                 className={cn(
-                  'rounded-[10px] shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
+                  'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                   resetStatus.type === 'error' &&
-                    'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                  'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                 )}
               />
               {resetStatus.type === 'error' && (
@@ -600,7 +575,7 @@ export default function LoginPage({
             <Button
               type='button'
               onClick={handleForgotPassword}
-              className={`${buttonClass} w-full rounded-[10px] border font-medium text-[15px] text-white transition-all duration-200`}
+              className={primaryButtonClasses}
               disabled={isSubmittingReset}
             >
               {isSubmittingReset ? 'Sending...' : 'Send Reset Link'}

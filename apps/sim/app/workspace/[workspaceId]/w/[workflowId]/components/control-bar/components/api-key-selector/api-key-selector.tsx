@@ -324,7 +324,7 @@ export function ApiKeySelector({
 
       {/* Create Key Dialog */}
       <AlertDialog open={isCreatingKey} onOpenChange={setIsCreatingKey}>
-        <AlertDialogContent className='rounded-[10px] sm:max-w-md'>
+        <AlertDialogContent className='rounded-md sm:max-w-md'>
           <AlertDialogHeader>
             <AlertDialogTitle>Create new API key</AlertDialogTitle>
             <AlertDialogDescription>
@@ -428,7 +428,7 @@ export function ApiKeySelector({
           }
         }}
       >
-        <AlertDialogContent className='rounded-[10px] sm:max-w-md'>
+        <AlertDialogContent className='rounded-md sm:max-w-md'>
           <AlertDialogHeader>
             <AlertDialogTitle>Your API key has been created</AlertDialogTitle>
             <AlertDialogDescription>

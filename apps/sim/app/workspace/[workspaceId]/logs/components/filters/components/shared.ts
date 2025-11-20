@@ -1,5 +1,5 @@
 export const filterButtonClass =
-  'w-full justify-between rounded-[10px] border-[#E5E5E5] bg-[#FFFFFF] font-normal text-sm dark:border-[#414141] dark:bg-[var(--surface-elevated)]'
+  'w-full justify-between rounded-md border-[#E5E5E5] bg-[#FFFFFF] font-normal text-sm dark:border-[#414141] dark:bg-[var(--surface-elevated)]'
 
 export const dropdownContentClass =
   'w-[200px] rounded-lg border-[#E5E5E5] bg-[#FFFFFF] p-0 shadow-xs dark:border-[#414141] dark:bg-[var(--surface-elevated)]'

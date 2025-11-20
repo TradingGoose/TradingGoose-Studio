@@ -18,7 +18,7 @@ import { useSubBlockValue } from '@/app/workspace/[workspaceId]/w/[workflowId]/c
 import { useAccessibleReferencePrefixes } from '@/app/workspace/[workspaceId]/w/[workflowId]/hooks/use-accessible-reference-prefixes'
 import { useTagSelection } from '@/hooks/use-tag-selection'
 import { normalizeBlockName } from '@/stores/workflows/utils'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store'
+import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 const logger = createLogger('ConditionInput')

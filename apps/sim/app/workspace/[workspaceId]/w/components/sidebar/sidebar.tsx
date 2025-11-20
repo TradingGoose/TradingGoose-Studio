@@ -921,7 +921,7 @@ export function Sidebar() {
           >
             <button
               onClick={() => setShowSearchModal(true)}
-              className='flex h-12 w-full cursor-pointer items-center gap-2 rounded-[10px] border bg-background pr-[10px] pl-3 shadow-xs transition-colors hover:bg-card/50'
+              className='flex h-12 w-full cursor-pointer items-center gap-2 rounded-md border bg-background pr-[10px] pl-3 shadow-xs transition-colors hover:bg-card/50'
             >
               <Search className='h-4 w-4 text-muted-foreground' strokeWidth={2} />
               <span className='flex h-8 flex-1 items-center px-0 text-muted-foreground text-sm leading-none'>
@@ -933,7 +933,7 @@ export function Sidebar() {
 
           {/* 4. Workflow Selector */}
           <div
-            className={`pointer-events-auto relative h-[212px] flex-shrink-0 rounded-[10px] border bg-background shadow-xs ${isSidebarCollapsed ? 'hidden' : ''
+            className={`pointer-events-auto relative h-[212px] flex-shrink-0 rounded-md border bg-background shadow-xs ${isSidebarCollapsed ? 'hidden' : ''
               }`}
           >
             <div className='px-2'>
@@ -962,7 +962,7 @@ export function Sidebar() {
 
       {/* Floating Toolbar - Only on workflow pages */}
       <div
-        className={`pointer-events-auto fixed left-4 z-50 w-56 rounded-[10px] border bg-background shadow-xs ${!isOnWorkflowPage || isSidebarCollapsed ? 'hidden' : ''
+        className={`pointer-events-auto fixed left-4 z-50 w-56 rounded-md border bg-background shadow-xs ${!isOnWorkflowPage || isSidebarCollapsed ? 'hidden' : ''
           }`}
         style={{
           top: `${toolbarTop}px`,
@@ -977,7 +977,7 @@ export function Sidebar() {
 
       {/* Floating Logs Filters - Only on logs page */}
       <div
-        className={`pointer-events-auto fixed left-4 z-50 w-56 rounded-[10px] border bg-background shadow-xs ${!isOnLogsPage || isSidebarCollapsed ? 'hidden' : ''
+        className={`pointer-events-auto fixed left-4 z-50 w-56 rounded-md border bg-background shadow-xs ${!isOnLogsPage || isSidebarCollapsed ? 'hidden' : ''
           }`}
         style={{
           top: `${toolbarTop}px`,
@@ -989,7 +989,7 @@ export function Sidebar() {
 
       {/* Floating Knowledge Tags - Only on knowledge pages */}
       <div
-        className={`pointer-events-auto fixed left-4 z-50 w-56 rounded-[10px] border bg-background shadow-xs ${!isOnKnowledgePage || isSidebarCollapsed || !knowledgeBaseId ? 'hidden' : ''
+        className={`pointer-events-auto fixed left-4 z-50 w-56 rounded-md border bg-background shadow-xs ${!isOnKnowledgePage || isSidebarCollapsed || !knowledgeBaseId ? 'hidden' : ''
           }`}
         style={{
           top: `${toolbarTop}px`,

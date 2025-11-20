@@ -108,8 +108,8 @@ function FolderSection({
         'relative',
         isDragOver &&
         (isInvalidDrop
-          ? 'before:pointer-events-none before:absolute before:inset-0 before:rounded-[8px] before:border before:border-destructive/50 before:bg-destructive/15'
-          : 'before:pointer-events-none before:absolute before:inset-0 before:rounded-[8px] before:border before:border-muted-foreground/50 before:bg-muted/20')
+          ? 'before:pointer-events-none before:absolute before:inset-0 before:rounded-sm before:border before:border-destructive/50 before:bg-destructive/15'
+          : 'before:pointer-events-none before:absolute before:inset-0 before:rounded-sm before:border before:border-muted-foreground/50 before:bg-muted/20')
       )}
     >
       {/* Render folder */}
@@ -577,8 +577,8 @@ export function FolderTree({
           'relative flex-1 ',
           rootDragOver &&
           (rootInvalidDrop
-            ? 'before:pointer-events-none before:absolute before:inset-0 before:rounded-[8px] before:border before:border-destructive/50 before:bg-destructive/15'
-            : 'before:pointer-events-none before:absolute before:inset-0 before:rounded-[8px] before:border before:border-muted-foreground/50 before:bg-muted/20'),
+            ? 'before:pointer-events-none before:absolute before:inset-0 before:rounded-sm before:border before:border-destructive/50 before:bg-destructive/15'
+            : 'before:pointer-events-none before:absolute before:inset-0 before:rounded-sm before:border before:border-muted-foreground/50 before:bg-muted/20'),
           // Ensure minimum height for drag target when empty
           rootWorkflows.length === 0 ? 'min-h-8' : ''
         )}

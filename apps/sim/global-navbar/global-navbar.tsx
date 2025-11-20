@@ -23,11 +23,14 @@ import { GlobalNavbarHeaderProvider } from './header-context'
 import type { NavSection, Workspace } from './types'
 import { createNavSections, createWorkspaceNav, getWorkspaceIdFromPath } from './utils'
 
+const AUTH_ROUTE_PREFIXES = ['/login', '/signup', '/reset-password', '/verify', '/sso'] as const
+const LANDING_ROUTE_PREFIXES = ['/privacy', '/terms', '/careers', '/blog'] as const
+
 export function GlobalNavbar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? '/'
   const router = useRouter()
   const brand = React.useMemo(() => getBrandConfig(), [])
-  const { data: sessionData } = useSession()
+  const { data: sessionData, isPending: isSessionLoading } = useSession()
   const workspaceId = React.useMemo(() => getWorkspaceIdFromPath(pathname), [pathname])
   const workspaceNavItems = React.useMemo(() => createWorkspaceNav(workspaceId), [workspaceId])
   const navMain = React.useMemo<NavSection[]>(
@@ -56,19 +59,83 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
   const [isDeletingWorkspace, setIsDeletingWorkspace] = React.useState(false)
   const [deleteError, setDeleteError] = React.useState<string | null>(null)
 
+  const isAuthenticated = Boolean(sessionData?.user?.id)
+  const isAuthRoute = React.useMemo(
+    () => AUTH_ROUTE_PREFIXES.some((route) => pathname.startsWith(route)),
+    [pathname]
+  )
+  const isLandingRoute = React.useMemo(
+    () => pathname === '/' || LANDING_ROUTE_PREFIXES.some((route) => pathname.startsWith(route)),
+    [pathname]
+  )
+  const shouldHideNavbar = (isAuthRoute && (!isAuthenticated || isSessionLoading)) || isLandingRoute
+
   const userName = sessionData?.user?.name ?? brand.name
   const userEmail = sessionData?.user?.email ?? brand.supportEmail ?? 'help@sim.ai'
   const userAvatar = sessionData?.user?.image ?? brand.logoUrl
 
+  const createDefaultWorkspace = React.useCallback(async () => {
+    try {
+      const response = await fetch('/api/workspaces', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'My Workspace' }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create default workspace')
+      }
+
+      const data = await response.json()
+      const newWorkspace = data.workspace as Workspace | undefined
+
+      if (!newWorkspace) {
+        throw new Error('Workspace payload missing from response')
+      }
+
+      const normalizedWorkspace: Workspace = {
+        ...newWorkspace,
+        permissions: newWorkspace.permissions ?? 'admin',
+        role: newWorkspace.role ?? 'owner',
+      }
+
+      return normalizedWorkspace
+    } catch (error) {
+      console.error('Error creating default workspace:', error)
+      return null
+    }
+  }, [])
+
   const fetchWorkspaces = React.useCallback(async () => {
+    if (shouldHideNavbar || isSessionLoading) {
+      return
+    }
+
+    if (!isAuthenticated) {
+      setWorkspaces([])
+      setActiveWorkspace(null)
+      setIsWorkspacesLoading(false)
+      return
+    }
+
     setIsWorkspacesLoading(true)
     try {
       const response = await fetch('/api/workspaces')
       if (!response.ok) {
-        throw new Error('Failed to fetch workspaces')
+        setWorkspaces([])
+        setActiveWorkspace(null)
+        return
       }
       const data = await response.json()
-      const items = (data.workspaces ?? []) as Workspace[]
+      let items = (data.workspaces ?? []) as Workspace[]
+
+      if (items.length === 0) {
+        const createdWorkspace = await createDefaultWorkspace()
+        if (createdWorkspace) {
+          items = [createdWorkspace]
+        }
+      }
+
       setWorkspaces(items)
 
       if (workspaceId) {
@@ -84,11 +151,14 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
     } finally {
       setIsWorkspacesLoading(false)
     }
-  }, [workspaceId])
+  }, [workspaceId, isAuthenticated, isSessionLoading, createDefaultWorkspace, shouldHideNavbar])
 
   React.useEffect(() => {
+    if (shouldHideNavbar) {
+      return
+    }
     fetchWorkspaces()
-  }, [fetchWorkspaces])
+  }, [fetchWorkspaces, shouldHideNavbar])
 
   const handleSwitchWorkspace = React.useCallback(
     async (workspace: Workspace) => {
@@ -260,6 +330,10 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
       setIsDeletingWorkspace(false)
     }
   }, [workspaceToDelete, fetchWorkspaces, activeWorkspace?.id, handleDeleteDialogChange])
+
+  if (shouldHideNavbar) {
+    return <GlobalNavbarHeaderProvider>{children}</GlobalNavbarHeaderProvider>
+  }
 
   return (
     <GlobalNavbarHeaderProvider>

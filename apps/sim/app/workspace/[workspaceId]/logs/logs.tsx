@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { AlertCircle, Info, Loader2, Map as MapIcon, RefreshCw } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
 import { parseQuery, queryToApiParams } from '@/lib/logs/query-parser'
@@ -90,6 +91,7 @@ export default function Logs() {
   const [selectedLog, setSelectedLog] = useState<WorkflowLog | null>(null)
   const [selectedLogIndex, setSelectedLogIndex] = useState<number>(-1)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [panelLayout, setPanelLayout] = useState<number[] | null>(null)
   const [isDetailsLoading, setIsDetailsLoading] = useState(false)
   const detailsCacheRef = useRef<Map<string, any>>(new Map())
   const detailsAbortRef = useRef<AbortController | null>(null)
@@ -709,13 +711,13 @@ export default function Logs() {
 
   const headerCenterContent = isDashboardView ? null : (
     <div className='flex flex-wrap items-center justify-center gap-3'>
-      <div className='inline-flex h-9 items-center rounded-[11px] border bg-card p-1 shadow-sm'>
+      <div className='inline-flex h-9 items-center rounded-md border bg-card p-1 shadow-sm'>
         <Button
           variant='ghost'
           size='sm'
           onClick={() => setIsLive((prev) => !prev)}
           className={cn(
-            'h-7 rounded-[8px] px-3 font-normal text-xs',
+            'h-7 rounded-sm px-3 font-normal text-xs',
             isLive
               ? 'bg-primary text-black shadow-[0_0_0_0_var(--primary)] hover:bg-primary-hover hover:text-black '
               : 'text-muted-foreground hover:text-foreground'
@@ -726,13 +728,13 @@ export default function Logs() {
         </Button>
       </div>
 
-      <div className='inline-flex h-9 items-center rounded-[11px] border bg-card p-1 shadow-sm'>
+      <div className='inline-flex h-9 items-center rounded-md border bg-card p-1 shadow-sm'>
         <Button
           variant='ghost'
           size='sm'
           onClick={() => setViewMode('logs')}
           className={cn(
-            'h-7 rounded-[8px] px-3 font-normal text-xs',
+            'h-7 rounded-sm px-3 font-normal text-xs',
             viewMode !== 'dashboard'
               ? 'bg-muted text-foreground'
               : 'text-muted-foreground hover:text-foreground'
@@ -746,7 +748,7 @@ export default function Logs() {
           size='sm'
           onClick={() => setViewMode('dashboard')}
           className={cn(
-            'h-7 rounded-[8px] px-3 font-normal text-xs',
+            'h-7 rounded-sm px-3 font-normal text-xs',
             viewMode === 'dashboard'
               ? 'bg-muted text-foreground'
               : 'text-muted-foreground hover:text-foreground'
@@ -767,7 +769,7 @@ export default function Logs() {
             variant='ghost'
             size='icon'
             onClick={handleRefresh}
-            className='h-9 rounded-[11px] hover:bg-secondary'
+            className='h-9 rounded-md hover:bg-secondary'
             disabled={isRefreshing}
           >
             {isRefreshing ? (
@@ -787,7 +789,7 @@ export default function Logs() {
             variant='ghost'
             size='icon'
             onClick={handleExport}
-            className='h-9 rounded-[11px] hover:bg-secondary'
+            className='h-9 rounded-md hover:bg-secondary'
             aria-label='Export CSV'
           >
             <svg
@@ -810,181 +812,243 @@ export default function Logs() {
     </div>
   )
 
-  const logsLayout = (
-    <div className='flex h-full min-w-0 flex-col'>
-      <style jsx global>
-        {selectedRowAnimation}
-      </style>
-      <div className='flex min-w-0 flex-1 overflow-hidden'>
-        <div className='flex flex-1 flex-col overflow-auto p-6'>
-          <div className='mb-6 sm:hidden'>
-            <TooltipProvider>
-              <Timeline />
-            </TooltipProvider>
-          </div>
+  const tableContent = (
+    <div className='flex h-full min-h-0 max-h-full flex-1 min-w-0 overflow-hidden'>
+      <div className='flex h-full min-h-0 max-h-full flex-1 flex-col overflow-hidden'>
+        <div className=' sm:hidden'>
+          <TooltipProvider>
+            <Timeline />
+          </TooltipProvider>
+        </div>
 
-          <div className='flex flex-1 flex-col overflow-hidden'>
-            <div className='w-full overflow-x-auto'>
-              <div>
-                <div className='border-border border-b'>
-                  <div className='grid min-w-[600px] grid-cols-[120px_80px_120px_120px] gap-2 px-2 pb-3 md:grid-cols-[140px_90px_140px_120px] md:gap-3 lg:min-w-0 lg:grid-cols-[160px_100px_160px_120px] lg:gap-4 xl:grid-cols-[160px_100px_160px_120px_120px_100px]'>
-                    <div className='font-[480] font-sans text-[13px] text-muted-foreground leading-normal'>
-                      Time
-                    </div>
-                    <div className='font-[480] font-sans text-[13px] text-muted-foreground leading-normal'>
-                      Status
-                    </div>
-                    <div className='font-[480] font-sans text-[13px] text-muted-foreground leading-normal'>
-                      Workflow
-                    </div>
-                    <div className='font-[480] font-sans text-[13px] text-muted-foreground leading-normal'>
-                      Cost
-                    </div>
-                    <div className='hidden font-[480] font-sans text-[13px] text-muted-foreground leading-normal xl:block'>
-                      Trigger
-                    </div>
-
-                    <div className='hidden font-[480] font-sans text-[13px] text-muted-foreground leading-normal xl:block'>
-                      Duration
-                    </div>
-                  </div>
+        <div className='flex h-full min-h-0 max-h-full flex-1 flex-col overflow-hidden'>
+          <div className='w-full h-full min-h-0 max-h-full overflow-x-auto'>
+            <div className='min-w-0 min-h-0 h-full max-h-full'>
+              <div className='flex h-full min-h-0 max-h-full flex-1 flex-col overflow-hidden rounded-lg border-border border'>
+                <div className='shrink-0 border-b bg-card/40'>
+                  <table className='w-full table-fixed'>
+                    <colgroup>
+                      <col className='w-[28%]' />
+                      <col className='w-[12%]' />
+                      <col className='w-[30%]' />
+                      <col className='w-[15%]' />
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th className='px-4 pt-2 pb-3 text-left font-medium'>
+                          <span className='text-muted-foreground text-xs leading-none'>Time</span>
+                        </th>
+                        <th className='px-4 pt-2 pb-3 text-left font-medium'>
+                          <span className='text-muted-foreground text-xs leading-none'>Status</span>
+                        </th>
+                        <th className='px-4 pt-2 pb-3 text-left font-medium'>
+                          <span className='text-muted-foreground text-xs leading-none'>
+                            Workflow
+                          </span>
+                        </th>
+                        <th className='px-4 pt-2 pb-3 text-left font-medium'>
+                          <span className='text-muted-foreground text-xs leading-none'>Cost</span>
+                        </th>
+                        <th className='hidden px-4 pt-2 pb-3 text-left font-medium xl:table-cell'>
+                          <span className='text-muted-foreground text-xs leading-none'>Trigger</span>
+                        </th>
+                        <th className='hidden px-4 pt-2 pb-3 text-left font-medium xl:table-cell'>
+                          <span className='text-muted-foreground text-xs leading-none'>Duration</span>
+                        </th>
+                      </tr>
+                    </thead>
+                  </table>
                 </div>
-              </div>
-            </div>
 
-            <div className='flex-1 overflow-auto' ref={scrollContainerRef}>
-              {loading && page === 1 ? (
-                <div className='flex h-full items-center justify-center'>
-                  <div className='flex items-center gap-2 text-muted-foreground'>
-                    <Loader2 className='h-5 w-5 animate-spin' />
-                    <span className='text-sm'>Loading logs...</span>
-                  </div>
-                </div>
-              ) : error ? (
-                <div className='flex h-full items-center justify-center'>
-                  <div className='flex items-center gap-2 text-destructive'>
-                    <AlertCircle className='h-5 w-5' />
-                    <span className='text-sm'>Error: {error}</span>
-                  </div>
-                </div>
-              ) : logs.length === 0 ? (
-                <div className='flex h-full items-center justify-center'>
-                  <div className='flex items-center gap-2 text-muted-foreground'>
-                    <Info className='h-5 w-5' />
-                    <span className='text-sm'>No logs found</span>
-                  </div>
-                </div>
-              ) : (
-                <div className='pb-4'>
-                  {logs.map((log) => {
-                    const formattedDate = formatDate(log.createdAt)
-                    const isSelected = selectedLog?.id === log.id
+                <div
+                  className='flex-1 h-full min-h-0 max-h-full overflow-auto'
+                  ref={scrollContainerRef}
+                  style={{ scrollbarGutter: 'stable' }}
+                >
+                  {loading && page === 1 ? (
+                    <div className='flex h-full items-center justify-center p-5'>
+                      <div className='flex items-center gap-2 text-muted-foreground'>
+                        <Loader2 className='h-5 w-5 animate-spin' />
+                        <span className='text-sm'>Loading logs...</span>
+                      </div>
+                    </div>
+                  ) : error ? (
+                    <div className='flex h-full items-center justify-center'>
+                      <div className='flex items-center gap-2 text-destructive'>
+                        <AlertCircle className='h-5 w-5' />
+                        <span className='text-sm'>Error: {error}</span>
+                      </div>
+                    </div>
+                  ) : logs.length === 0 ? (
+                    <div className='flex h-full items-center justify-center'>
+                      <div className='flex items-center gap-2 text-muted-foreground'>
+                        <Info className='h-5 w-5' />
+                        <span className='text-sm'>No logs found</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <table className='w-full table-fixed'>
+                      <colgroup>
+                        <col className='w-[28%]' />
+                        <col className='w-[12%]' />
+                        <col className='w-[30%]' />
+                        <col className='w-[15%]' />
+                      </colgroup>
+                      <tbody>
+                        {logs.map((log) => {
+                          const formattedDate = formatDate(log.createdAt)
+                          const isSelected = selectedLog?.id === log.id
 
-                    return (
-                      <div
-                        key={log.id}
-                        ref={isSelected ? selectedRowRef : null}
-                        className={`cursor-pointer border-border border-b transition-all duration-200 ${isSelected ? 'bg-accent/40' : 'hover:bg-card/20'
-                          }`}
-                        onClick={() => handleLogClick(log)}
-                      >
-                        <div className='grid min-w-[600px] grid-cols-[120px_80px_120px_120px] items-center gap-2 px-2 py-4 md:grid-cols-[140px_90px_140px_120px] md:gap-3 lg:min-w-0 lg:grid-cols-[160px_100px_160px_120px] lg:gap-4 xl:grid-cols-[160px_100px_160px_120px_120px_100px]'>
-                          <div>
-                            <div className='text-[13px]'>
-                              <span className='font-sm text-muted-foreground'>
-                                {formattedDate.compactDate}
-                              </span>
-                              <span
-                                style={{ marginLeft: '8px' }}
-                                className='hidden font-medium sm:inline'
-                              >
-                                {formattedDate.compactTime}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div>
-                            <div
+                          return (
+                            <tr
+                              key={log.id}
+                              ref={isSelected ? selectedRowRef : null}
                               className={cn(
-                                'inline-flex items-center rounded-[8px] px-[6px] py-[2px] font-medium text-xs transition-all duration-200 lg:px-[8px]',
-                                log.level === 'error'
-                                  ? 'bg-red-500 text-white'
-                                  : 'bg-secondary text-card-foreground'
+                                'cursor-pointer border-b transition-colors hover:bg-card/30',
+                                isSelected && 'selected-row bg-accent/40'
                               )}
+                              onClick={() => handleLogClick(log)}
                             >
-                              {log.level}
-                            </div>
-                          </div>
-
-                          <div className='min-w-0'>
-                            <div className='truncate font-medium text-[13px]'>
-                              {log.workflow?.name || 'Unknown Workflow'}
-                            </div>
-                          </div>
-
-                          <div>
-                            <div className='font-medium text-muted-foreground text-xs'>
-                              {typeof (log as any)?.cost?.total === 'number'
-                                ? `$${((log as any).cost.total as number).toFixed(4)}`
-                                : '—'}
-                            </div>
-                          </div>
-
-                          <div className='hidden xl:block'>
-                            {log.trigger ? (
-                              <div
-                                className={cn(
-                                  'inline-flex items-center rounded-[8px] px-[6px] py-[2px] font-medium text-xs transition-all duration-200 lg:px-[8px]',
-                                  log.trigger.toLowerCase() === 'manual'
-                                    ? 'bg-secondary text-card-foreground'
-                                    : 'text-white'
+                              <td className='px-4 py-3'>
+                                <div className='text-[13px]'>
+                                  <span className='font-sm text-muted-foreground'>
+                                    {formattedDate.compactDate}
+                                  </span>
+                                  <span
+                                    className='hidden font-medium sm:inline'
+                                    style={{ marginLeft: '8px' }}
+                                  >
+                                    {formattedDate.compactTime}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className='px-4 py-3'>
+                                <div
+                                  className={cn(
+                                    'inline-flex items-center rounded-sm px-[6px] py-[2px] font-medium text-xs transition-all duration-200 lg:px-[8px]',
+                                    log.level === 'error'
+                                      ? 'bg-red-500 text-white'
+                                      : 'bg-secondary text-card-foreground'
+                                  )}
+                                >
+                                  {log.level}
+                                </div>
+                              </td>
+                              <td className='px-4 py-3'>
+                                <div className='truncate font-medium text-[13px]'>
+                                  {log.workflow?.name || 'Unknown Workflow'}
+                                </div>
+                              </td>
+                              <td className='px-4 py-3'>
+                                <div className='font-medium text-muted-foreground text-xs'>
+                                  {typeof (log as any)?.cost?.total === 'number'
+                                    ? `$${((log as any).cost.total as number).toFixed(4)}`
+                                    : '—'}
+                                </div>
+                              </td>
+                              <td className='hidden px-4 py-3 xl:table-cell'>
+                                {log.trigger ? (
+                                  <div
+                                    className={cn(
+                                      'inline-flex items-center rounded-sm px-[6px] py-[2px] font-medium text-xs transition-all duration-200 lg:px-[8px]',
+                                      log.trigger.toLowerCase() === 'manual'
+                                        ? 'bg-secondary text-card-foreground'
+                                        : 'text-white'
+                                    )}
+                                    style={
+                                      log.trigger.toLowerCase() === 'manual'
+                                        ? undefined
+                                        : { backgroundColor: getTriggerColor(log.trigger) }
+                                    }
+                                  >
+                                    {log.trigger}
+                                  </div>
+                                ) : (
+                                  <div className='text-muted-foreground text-xs'>—</div>
                                 )}
-                                style={
-                                  log.trigger.toLowerCase() === 'manual'
-                                    ? undefined
-                                    : { backgroundColor: getTriggerColor(log.trigger) }
-                                }
+                              </td>
+                              <td className='hidden px-4 py-3 text-muted-foreground text-xs xl:table-cell'>
+                                {log.duration || '—'}
+                              </td>
+                            </tr>
+                          )
+                        })}
+
+                        {hasMore && (
+                          <tr>
+                            <td colSpan={6} className='px-4 py-4'>
+                              <div
+                                ref={loaderRef}
+                                className='flex items-center justify-center gap-2 text-muted-foreground'
                               >
-                                {log.trigger}
+                                {isFetchingMore ? (
+                                  <>
+                                    <Loader2 className='h-4 w-4 animate-spin' />
+                                    <span className='text-sm'>Loading more...</span>
+                                  </>
+                                ) : (
+                                  <span className='text-sm'>Scroll to load more</span>
+                                )}
                               </div>
-                            ) : (
-                              <div className='text-muted-foreground text-xs'>—</div>
-                            )}
-                          </div>
-
-                          <div className='hidden xl:block'>
-                            <div className='text-muted-foreground text-xs'>
-                              {log.duration || '—'}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-
-                  {hasMore && (
-                    <div className='flex items-center justify-center py-4'>
-                      <div
-                        ref={loaderRef}
-                        className='flex items-center gap-2 text-muted-foreground'
-                      >
-                        {isFetchingMore ? (
-                          <>
-                            <Loader2 className='h-4 w-4 animate-spin' />
-                            <span className='text-sm'>Loading more...</span>
-                          </>
-                        ) : (
-                          <span className='text-sm'>Scroll to load more</span>
+                            </td>
+                          </tr>
                         )}
-                      </div>
-                    </div>
+                      </tbody>
+                    </table>
                   )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </div>
       </div>
+    </div>
+  )
+
+  const showDetailsPanel = isSidebarOpen && !!selectedLog
+  const leftPanelSize = panelLayout?.[0] ?? 60
+  const rightPanelSize = panelLayout?.[1] ?? 40
+
+  const logsLayout = (
+    <div className='flex h-full min-h-0 max-h-full min-w-0 flex-col overflow-hidden'>
+      <style jsx global>
+        {selectedRowAnimation}
+      </style>
+      {showDetailsPanel ? (
+        <ResizablePanelGroup
+          direction='horizontal'
+          className='flex flex-1 min-h-0 min-w-0 overflow-hidden'
+          onLayout={(sizes) => setPanelLayout(sizes)}
+        >
+          <ResizablePanel
+            order={1}
+            defaultSize={leftPanelSize}
+            minSize={50}
+            className='flex h-full min-h-0 max-h-full min-w-0 flex-col p-1.5 overflow-hidden'
+          >
+            {tableContent}
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel
+            order={2}
+            defaultSize={rightPanelSize}
+            minSize={20}
+            className='min-h-0 min-w-0 overflow-auto'
+          >
+            <Sidebar
+              log={selectedLog}
+              isOpen={isSidebarOpen}
+              onClose={handleCloseSidebar}
+              onNavigateNext={handleNavigateNext}
+              onNavigatePrev={handleNavigatePrev}
+              hasNext={selectedLogIndex < logs.length - 1}
+              hasPrev={selectedLogIndex > 0}
+            />
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      ) : (
+        tableContent
+      )}
     </div>
   )
 
@@ -998,26 +1062,19 @@ export default function Logs() {
 
   if (isDashboardView) {
     return (
-      <>
+      <div className='flex h-full min-h-0 flex-col'>
         {header}
-        <Dashboard />
-      </>
+        <div className='min-h-0 flex-1 overflow-hidden'>
+          <Dashboard />
+        </div>
+      </div>
     )
   }
 
   return (
-    <>
+    <div className='flex h-full min-h-0 flex-col'>
       {header}
-      {logsLayout}
-      <Sidebar
-        log={selectedLog}
-        isOpen={isSidebarOpen}
-        onClose={handleCloseSidebar}
-        onNavigateNext={handleNavigateNext}
-        onNavigatePrev={handleNavigatePrev}
-        hasNext={selectedLogIndex < logs.length - 1}
-        hasPrev={selectedLogIndex > 0}
-      />
-    </>
+      <div className='min-h-0 flex-1 overflow-hidden'>{logsLayout}</div>
+    </div>
   )
 }

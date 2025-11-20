@@ -47,7 +47,7 @@ import { useGeneralStore } from '@/stores/settings/general/store'
 import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
 import { hasWorkflowsInitiallyLoaded, useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { getUniqueBlockName } from '@/stores/workflows/utils'
-import { useWorkflowStore, DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store'
+import { useWorkflowStore, DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
 
 const logger = createLogger('Workflow')
 

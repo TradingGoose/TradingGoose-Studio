@@ -15,11 +15,15 @@ import type { BlockConfig, SubBlockConfig, SubBlockType } from '@/blocks/types'
 import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
 import { useExecutionStore } from '@/stores/execution/store'
 import { useWorkflowDiffStore } from '@/stores/workflow-diff'
+import type { WorkflowRegistry } from '@/stores/workflows/registry/types'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { mergeSubblockState } from '@/stores/workflows/utils'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store'
-import { useWorkflowId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
+import { useWorkflowStore, DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
+import {
+  useOptionalWorkflowRoute,
+  useWorkflowId,
+} from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useCurrentWorkflow } from '../../hooks'
 import { ActionBar } from './components/action-bar/action-bar'
 import { ConnectionBlocks } from './components/connection-blocks/connection-blocks'
@@ -99,6 +103,25 @@ export const WorkflowBlock = memo(
     const isDeletedBlock = !isShowingDiff && diffAnalysis?.deleted_blocks?.includes(id)
 
     // Removed debug logging for performance
+    const workflowRoute = useOptionalWorkflowRoute()
+    const workflowChannelId = workflowRoute?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
+
+    const resolveActiveWorkflowId = useCallback(
+      (state?: WorkflowRegistry) => {
+        const sourceState = state ?? useWorkflowRegistry.getState()
+        if (typeof sourceState.getActiveWorkflowId === 'function') {
+          return sourceState.getActiveWorkflowId(workflowChannelId)
+        }
+
+        if (workflowChannelId && workflowChannelId !== DEFAULT_WORKFLOW_CHANNEL_ID) {
+          return sourceState.activeWorkflowIds?.[workflowChannelId] ?? null
+        }
+
+        return sourceState.activeWorkflowId
+      },
+      [workflowChannelId]
+    )
+
     // Optimized: Single store subscription for all block properties
     const {
       storeHorizontalHandles,
@@ -144,7 +167,7 @@ export const WorkflowBlock = memo(
       : (storeBlockLayout?.measuredWidth ?? 0)
 
     // Get per-block webhook status by checking if webhook is configured
-    const activeWorkflowId = useWorkflowRegistry((state) => state.activeWorkflowId)
+    const activeWorkflowId = useWorkflowRegistry(resolveActiveWorkflowId)
 
     // Optimized: Single SubBlockStore subscription for webhook info
     const blockWebhookStatus = useSubBlockStore(
@@ -204,7 +227,7 @@ export const WorkflowBlock = memo(
     // Clear credential-dependent fields when credential changes
     const prevCredRef = useRef<string | undefined>(undefined)
     useEffect(() => {
-      const activeWorkflowId = useWorkflowRegistry.getState().activeWorkflowId
+      const activeWorkflowId = resolveActiveWorkflowId()
       if (!activeWorkflowId) return
       const current = useSubBlockStore.getState().workflowValues[activeWorkflowId]?.[id]
       if (!current) return
@@ -215,7 +238,7 @@ export const WorkflowBlock = memo(
         const dependentKeys = keys.filter((k) => k !== 'credential')
         dependentKeys.forEach((k) => collaborativeSetSubblockValue(id, k, ''))
       }
-    }, [id, collaborativeSetSubblockValue])
+    }, [id, collaborativeSetSubblockValue, resolveActiveWorkflowId])
 
     // Workflow store actions
     const updateBlockLayoutMetrics = useWorkflowStore((state) => state.updateBlockLayoutMetrics)
@@ -464,7 +487,7 @@ export const WorkflowBlock = memo(
         stateToUse = currentBlock.subBlocks || {}
       } else {
         // In normal mode, use merged state
-        const blocks = useWorkflowStore.getState().blocks
+        const blocks = useWorkflowStore.getState(workflowChannelId).blocks
         const mergedState = mergeSubblockState(blocks, activeWorkflowId || undefined, id)[id]
         stateToUse = mergedState?.subBlocks || {}
       }

@@ -541,12 +541,12 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
                           <div className='flex flex-col gap-2'>
                             <div className='flex items-center justify-between gap-4'>
                               <div className='flex flex-1 items-center gap-3'>
-                                <Skeleton className='h-8 w-[250px] rounded-[8px]' /> {/* URL */}
+                                <Skeleton className='h-8 w-[250px] rounded-sm' /> {/* URL */}
                               </div>
                               <div className='flex items-center gap-2'>
-                                <Skeleton className='h-9 w-9 rounded-[8px]' /> {/* Test */}
-                                <Skeleton className='h-9 w-9 rounded-[8px]' /> {/* Edit */}
-                                <Skeleton className='h-9 w-9 rounded-[8px]' /> {/* Delete */}
+                                <Skeleton className='h-9 w-9 rounded-sm' /> {/* Test */}
+                                <Skeleton className='h-9 w-9 rounded-sm' /> {/* Edit */}
+                                <Skeleton className='h-9 w-9 rounded-sm' /> {/* Delete */}
                               </div>
                             </div>
                             <div className='flex flex-wrap items-center gap-2 text-xs'>
@@ -583,7 +583,7 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
                           <div className='flex flex-col gap-2'>
                             <div className='flex items-center justify-between gap-4'>
                               <div className='flex flex-1 items-center gap-3'>
-                                <div className='flex h-8 max-w-[400px] items-center overflow-hidden rounded-[8px] bg-muted px-3'>
+                                <div className='flex h-8 max-w-[400px] items-center overflow-hidden rounded-sm bg-muted px-3'>
                                   <code className='scrollbar-hide overflow-x-auto whitespace-nowrap font-mono text-foreground text-xs'>
                                     {webhook.url}
                                   </code>
@@ -765,7 +765,7 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
 
                   {/* General errors */}
                   {fieldErrors.general && fieldErrors.general.length > 0 && (
-                    <div className='rounded-[8px] border border-red-200 bg-red-50 p-4 dark:border-red-800/50 dark:bg-red-950/20'>
+                    <div className='rounded-sm border border-red-200 bg-red-50 p-4 dark:border-red-800/50 dark:bg-red-950/20'>
                       <div className='flex items-start gap-2'>
                         <AlertCircle className='mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400' />
                         <div className='space-y-1 text-red-800 text-sm dark:text-red-300'>
@@ -791,7 +791,7 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
                           setNewWebhook({ ...newWebhook, url: e.target.value })
                           setFieldErrors({ ...fieldErrors, url: undefined })
                         }}
-                        className='h-9 rounded-[8px]'
+                        className='h-9 rounded-sm'
                         autoComplete='off'
                         autoCorrect='off'
                         autoCapitalize='off'
@@ -824,7 +824,7 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
                             setNewWebhook({ ...newWebhook, secret: e.target.value })
                             setFieldErrors({ ...fieldErrors, general: undefined })
                           }}
-                          className='h-9 rounded-[8px] pr-32'
+                          className='h-9 rounded-sm pr-32'
                           autoComplete='new-password'
                           autoCorrect='off'
                           autoCapitalize='off'
@@ -1088,7 +1088,7 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
           <div className='flex w-full items-center justify-between border-t px-6 py-4'>
             {showForm ? (
               <>
-                <Button variant='outline' onClick={cancelEdit} className='h-9 rounded-[8px]'>
+                <Button variant='outline' onClick={cancelEdit} className='h-9 rounded-sm'>
                   Back
                 </Button>
                 <Button
@@ -1100,7 +1100,7 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
                     newWebhook.triggerFilter.length === 0 ||
                     (!!editingWebhookId && !hasChanges())
                   }
-                  className='h-9 rounded-[8px] bg-primary font-[480]  shadow-[0_0_0_0_var(--primary)] transition-all duration-200 hover:bg-primary-hover  disabled:opacity-50 disabled:hover:shadow-none'
+                  className='h-9 rounded-sm bg-primary font-[480]  shadow-[0_0_0_0_var(--primary)] transition-all duration-200 hover:bg-primary-hover  disabled:opacity-50 disabled:hover:shadow-none'
                 >
                   {isCreating ? (
                     <>{editingWebhookId ? 'Updating...' : 'Creating...'}</>
@@ -1111,7 +1111,7 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
               </>
             ) : isLoading ? (
               <>
-                <Skeleton className='h-9 w-[117px] rounded-[8px]' />
+                <Skeleton className='h-9 w-[117px] rounded-sm' />
                 <div />
               </>
             ) : (
@@ -1121,7 +1121,7 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
                     setSearchTerm('')
                     setShowForm(true)
                   }}
-                  className='h-9 rounded-[8px] bg-primary px-3 font-[480] text-white shadow-[0_0_0_0_var(--primary)] transition-all duration-200 hover:bg-primary-hover '
+                  className='h-9 rounded-sm bg-primary px-3 font-[480] text-white shadow-[0_0_0_0_var(--primary)] transition-all duration-200 hover:bg-primary-hover '
                 >
                   <Plus className='h-4 w-4 stroke-[2px]' />
                   Add Webhook
@@ -1144,13 +1144,13 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className='flex'>
-            <AlertDialogCancel className='h-9 w-full rounded-[8px]' disabled={isDeleting}>
+            <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={isDeleting}>
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDeleteWebhook}
               disabled={isDeleting}
-              className='h-9 w-full rounded-[8px] bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+              className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
             >
               {isDeleting ? 'Deleting...' : 'Delete'}
             </AlertDialogAction>

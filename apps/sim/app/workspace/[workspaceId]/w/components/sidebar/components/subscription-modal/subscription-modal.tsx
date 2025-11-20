@@ -148,7 +148,7 @@ export function SubscriptionModal({ open, onOpenChange }: SubscriptionModalProps
               {plans.slice(0, 3).map((plan) => (
                 <div
                   key={plan.name}
-                  className={cn('relative flex flex-col rounded-[10px] border p-6')}
+                  className={cn('relative flex flex-col rounded-md border p-6')}
                 >
                   {/* Plan Header */}
                   <div className='mb-6'>
@@ -180,19 +180,19 @@ export function SubscriptionModal({ open, onOpenChange }: SubscriptionModalProps
                   {/* Action Button */}
                   <div className='mt-auto'>
                     {plan.isActive ? (
-                      <Button variant='secondary' className='w-full rounded-[8px]' disabled>
+                      <Button variant='secondary' className='w-full rounded-sm' disabled>
                         Current plan
                       </Button>
                     ) : plan.action ? (
                       <Button
                         onClick={plan.action}
-                        className='w-full rounded-[8px]'
+                        className='w-full rounded-sm'
                         variant='default'
                       >
                         Upgrade
                       </Button>
                     ) : (
-                      <Button variant='outline' className='w-full rounded-[8px]' disabled>
+                      <Button variant='outline' className='w-full rounded-sm' disabled>
                         {plan.name === 'Free' ? 'Basic plan' : 'Upgrade'}
                       </Button>
                     )}
@@ -204,7 +204,7 @@ export function SubscriptionModal({ open, onOpenChange }: SubscriptionModalProps
             {/* Enterprise Plan - Full Width */}
             <div
               className={cn(
-                'relative flex flex-col rounded-[10px] border p-6 md:flex-row md:items-center md:justify-between',
+                'relative flex flex-col rounded-md border p-6 md:flex-row md:items-center md:justify-between',
                 plans[3].isActive && 'border-gray-400'
               )}
             >
@@ -236,19 +236,19 @@ export function SubscriptionModal({ open, onOpenChange }: SubscriptionModalProps
               {/* Right Side - Button */}
               <div className='md:ml-auto md:w-[200px]'>
                 {plans[3].isActive ? (
-                  <Button variant='secondary' className='w-full rounded-[8px]' disabled>
+                  <Button variant='secondary' className='w-full rounded-sm' disabled>
                     Current plan
                   </Button>
                 ) : plans[3].action ? (
                   <Button
                     onClick={plans[3].action}
-                    className='w-full rounded-[8px]'
+                    className='w-full rounded-sm'
                     variant='default'
                   >
                     Contact us
                   </Button>
                 ) : (
-                  <Button className='w-full rounded-[8px]' variant='default' disabled>
+                  <Button className='w-full rounded-sm' variant='default' disabled>
                     Contact us
                   </Button>
                 )}

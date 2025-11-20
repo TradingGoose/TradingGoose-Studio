@@ -17,9 +17,9 @@ import type {
   MessageFileAttachment,
   UserInputRef,
 } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/panel/components/copilot/components/user-input/user-input'
+import { useWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { usePreviewStore } from '@/stores/copilot/preview-store'
-import { useCopilotStore } from '@/stores/copilot/store'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
 
 const logger = createLogger('Copilot')
 
@@ -67,7 +67,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(({ panelWidth }, ref
   const [userHasScrolledDuringStream, setUserHasScrolledDuringStream] = useState(false)
   const isUserScrollingRef = useRef(false) // Track if scroll event is user-initiated
 
-  const { activeWorkflowId } = useWorkflowRegistry()
+  const { workflowId: activeWorkflowId } = useWorkflowRoute()
 
   // Use preview store to track seen previews
   const { isToolCallSeen, markToolCallAsSeen } = usePreviewStore()
@@ -98,6 +98,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(({ panelWidth }, ref
     currentChat,
     fetchContextUsage,
   } = useCopilotStore()
+  const copilotStoreApi = useCopilotStoreApi()
 
   // Load user's enabled models on mount
   useEffect(() => {
@@ -365,7 +366,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(({ panelWidth }, ref
       const completedTodos = planTodos.filter((todo) => todo.completed === true)
       if (completedTodos.length !== planTodos.length) {
         // Only update if there are uncompleted todos to remove
-        const store = useCopilotStore.getState()
+        const store = copilotStoreApi.getState()
         store.setPlanTodos(completedTodos)
       }
     }
@@ -442,7 +443,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(({ panelWidth }, ref
 
       // Clear todos when sending a new message
       if (showPlanTodos) {
-        const store = useCopilotStore.getState()
+        const store = copilotStoreApi.getState()
         store.setPlanTodos([])
       }
 
@@ -565,7 +566,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(({ panelWidth }, ref
                 todos={planTodos}
                 collapsed={todosCollapsed}
                 onClose={() => {
-                  const store = useCopilotStore.getState()
+                  const store = copilotStoreApi.getState()
                   store.setPlanTodos([])
                 }}
               />

@@ -45,10 +45,10 @@ export function DocumentLoading({
       <KnowledgeHeader breadcrumbs={breadcrumbs} />
 
       <div className='flex flex-1 overflow-hidden'>
-        <div className='flex flex-1 flex-col overflow-hidden'>
+        <div className='flex flex-1 flex-col overflow-hidden rounded-lg border-border border'>
           {/* Main Content */}
           <div className='flex-1 overflow-auto'>
-            <div className='px-6 pb-6'>
+            <div className='p-6'>
               {/* Search Section */}
               <div className='mb-4 flex items-center justify-between pt-1'>
                 <div className='relative max-w-md'>

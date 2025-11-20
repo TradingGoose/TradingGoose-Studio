@@ -10,7 +10,7 @@ const SkeletonControlBar = () => {
       {/* Delete Button */}
       <Button
         variant='outline'
-        className='h-12 w-12 cursor-not-allowed rounded-[11px] border-[hsl(var(--card-border))] bg-[hsl(var(--card-background))] text-[hsl(var(--card-text))] opacity-50 shadow-xs hover:border-[hsl(var(--card-border))] hover:bg-[hsl(var(--card-background))]'
+        className='h-12 w-12 cursor-not-allowed rounded-md border-[hsl(var(--card-border))] bg-[hsl(var(--card-background))] text-[hsl(var(--card-text))] opacity-50 shadow-xs hover:border-[hsl(var(--card-border))] hover:bg-[hsl(var(--card-background))]'
         disabled
       >
         <Trash2 className='h-5 w-5' />
@@ -19,7 +19,7 @@ const SkeletonControlBar = () => {
       {/* Duplicate Button */}
       <Button
         variant='outline'
-        className='h-12 w-12 cursor-not-allowed rounded-[11px] border-[hsl(var(--card-border))] bg-[hsl(var(--card-background))] text-[hsl(var(--card-text))] opacity-50 shadow-xs hover:border-[hsl(var(--card-border))] hover:bg-[hsl(var(--card-background))] hover:bg-gray-100'
+        className='h-12 w-12 cursor-not-allowed rounded-md border-[hsl(var(--card-border))] bg-[hsl(var(--card-background))] text-[hsl(var(--card-text))] opacity-50 shadow-xs hover:border-[hsl(var(--card-border))] hover:bg-[hsl(var(--card-background))] hover:bg-gray-100'
         disabled
       >
         <Copy className='h-5 w-5' />
@@ -28,7 +28,7 @@ const SkeletonControlBar = () => {
       {/* Auto Layout Button */}
       <Button
         variant='outline'
-        className='h-12 w-12 cursor-not-allowed rounded-[11px] border-[hsl(var(--card-border))] bg-[hsl(var(--card-background))] text-[hsl(var(--card-text))] opacity-50 shadow-xs hover:border-[hsl(var(--card-border))] hover:bg-[hsl(var(--card-background))] hover:bg-gray-100'
+        className='h-12 w-12 cursor-not-allowed rounded-md border-[hsl(var(--card-border))] bg-[hsl(var(--card-background))] text-[hsl(var(--card-text))] opacity-50 shadow-xs hover:border-[hsl(var(--card-border))] hover:bg-[hsl(var(--card-background))] hover:bg-gray-100'
         disabled
       >
         <Layers className='h-5 w-5' />
@@ -37,7 +37,7 @@ const SkeletonControlBar = () => {
       {/* Debug Mode Button */}
       <Button
         variant='outline'
-        className='h-12 w-12 cursor-not-allowed rounded-[11px] border-[hsl(var(--card-border))] bg-[hsl(var(--card-background))] text-[hsl(var(--card-text))] opacity-50 shadow-xs hover:border-[hsl(var(--card-border))] hover:bg-[hsl(var(--card-background))] hover:bg-gray-100'
+        className='h-12 w-12 cursor-not-allowed rounded-md border-[hsl(var(--card-border))] bg-[hsl(var(--card-background))] text-[hsl(var(--card-text))] opacity-50 shadow-xs hover:border-[hsl(var(--card-border))] hover:bg-[hsl(var(--card-background))] hover:bg-gray-100'
         disabled
       >
         <Bug className='h-5 w-5' />
@@ -46,7 +46,7 @@ const SkeletonControlBar = () => {
       {/* Deploy Button */}
       <Button
         variant='outline'
-        className='h-12 w-12 cursor-not-allowed rounded-[11px] border-[hsl(var(--card-border))] bg-[hsl(var(--card-background))] text-[hsl(var(--card-text))] opacity-50 shadow-xs hover:border-[hsl(var(--card-border))] hover:bg-[hsl(var(--card-background))] hover:bg-gray-100'
+        className='h-12 w-12 cursor-not-allowed rounded-md border-[hsl(var(--card-border))] bg-[hsl(var(--card-background))] text-[hsl(var(--card-text))] opacity-50 shadow-xs hover:border-[hsl(var(--card-border))] hover:bg-[hsl(var(--card-background))] hover:bg-gray-100'
         disabled
       >
         <Rocket className='h-5 w-5' />
@@ -54,7 +54,7 @@ const SkeletonControlBar = () => {
 
       {/* Run Button */}
       <Button
-        className='h-12 cursor-not-allowed gap-2 rounded-[11px] bg-primary px-4 py-2 font-medium text-white shadow-[0_0_0_0_var(--primary)] transition-all duration-200 hover:bg-primary-hover  disabled:opacity-50 disabled:hover:bg-primary disabled:hover:shadow-none'
+        className='h-12 cursor-not-allowed gap-2 rounded-md bg-primary px-4 py-2 font-medium text-white shadow-[0_0_0_0_var(--primary)] transition-all duration-200 hover:bg-primary-hover  disabled:opacity-50 disabled:hover:bg-primary disabled:hover:shadow-none'
         disabled
       >
         <Play className='h-3.5 w-3.5 fill-current stroke-current' />

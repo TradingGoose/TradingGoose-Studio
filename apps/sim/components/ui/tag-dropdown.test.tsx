@@ -113,7 +113,7 @@ vi.mock('@/lib/get-block', () => ({
   }),
 }))
 
-vi.mock('@/stores/workflows/workflow/store', () => ({
+vi.mock('@/stores/workflows/workflow/store-client', () => ({
   useWorkflowStore: vi.fn(() => ({
     blocks: {},
     edges: [],

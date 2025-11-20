@@ -116,7 +116,7 @@ export function WorkflowDetails({
   }, [onLoadMore, hasMore, isLoadingMore])
 
   return (
-    <div className='mt-1  rounded-[11px] border bg-card shadow-sm'>
+    <div className='mt-1  rounded-lg border bg-card shadow-sm'>
       <div className='border-b bg-muted/30 px-4 py-2.5'>
         <div className='flex items-center justify-between'>
           <div className='flex items-center gap-2'>
@@ -134,15 +134,15 @@ export function WorkflowDetails({
             </button>
           </div>
           <div className='flex items-center gap-2'>
-            <div className='inline-flex h-7 items-center gap-2 rounded-[10px] border px-2.5'>
+            <div className='inline-flex h-7 items-center gap-2 rounded-md border px-2.5'>
               <span className='text-[11px] text-muted-foreground'>Executions</span>
               <span className='font-[500] text-sm leading-none'>{overview.total}</span>
             </div>
-            <div className='inline-flex h-7 items-center gap-2 rounded-[10px] border px-2.5'>
+            <div className='inline-flex h-7 items-center gap-2 rounded-md border px-2.5'>
               <span className='text-[11px] text-muted-foreground'>Success</span>
               <span className='font-[500] text-sm leading-none'>{overview.rate.toFixed(1)}%</span>
             </div>
-            <div className='inline-flex h-7 items-center gap-2 rounded-[10px] border px-2.5'>
+            <div className='inline-flex h-7 items-center gap-2 rounded-md border px-2.5'>
               <span className='text-[11px] text-muted-foreground'>Failures</span>
               <span className='font-[500] text-sm leading-none'>{overview.failures}</span>
             </div>
@@ -170,7 +170,7 @@ export function WorkflowDetails({
                     })
                     : 'Selected segment'
                 return (
-                  <div className='mb-4 flex items-center justify-between rounded-[10px] border bg-muted/30 px-3 py-2 text-[13px] text-foreground'>
+                  <div className='mb-4 flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2 text-[13px] text-foreground'>
                     <div className='flex items-center gap-2'>
                       <div className='h-1.5 w-1.5 rounded-full bg-primary ring-2 ring-primary/30' />
                       <span className='font-medium'>
@@ -347,7 +347,7 @@ export function WorkflowDetails({
                             <div>
                               <div
                                 className={cn(
-                                  'inline-flex items-center rounded-[8px] px-[6px] py-[2px] font-[400] text-xs transition-all duration-200 lg:px-[8px]',
+                                  'inline-flex items-center rounded-sm px-[6px] py-[2px] font-[400] text-xs transition-all duration-200 lg:px-[8px]',
                                   log.level === 'error'
                                     ? 'bg-red-500 text-white'
                                     : 'bg-secondary text-card-foreground'
@@ -361,7 +361,7 @@ export function WorkflowDetails({
                               {log.trigger ? (
                                 <div
                                   className={cn(
-                                    'inline-flex items-center rounded-[8px] px-[6px] py-[2px] font-[400] text-xs transition-all duration-200 lg:px-[8px]',
+                                    'inline-flex items-center rounded-sm px-[6px] py-[2px] font-[400] text-xs transition-all duration-200 lg:px-[8px]',
                                     log.trigger.toLowerCase() === 'manual'
                                       ? 'bg-secondary text-card-foreground'
                                       : 'text-white'

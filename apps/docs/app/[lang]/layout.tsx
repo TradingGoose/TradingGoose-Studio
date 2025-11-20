@@ -1,19 +1,14 @@
 import type { ReactNode } from 'react'
 import { defineI18nUI } from 'fumadocs-ui/i18n'
-import { DocsLayout } from 'fumadocs-ui/layouts/docs'
+import { DocsLayout } from '@/components/layout/docs'
 import { RootProvider } from 'fumadocs-ui/provider/next'
 import { Geist_Mono, Inter } from 'next/font/google'
 import Image from 'next/image'
-import {
-  SidebarFolder,
-  SidebarItem,
-  SidebarSeparator,
-} from '@/components/docs-layout/sidebar-components'
-import { Navbar } from '@/components/navbar/navbar'
+import { notFound } from 'next/navigation'
+import { Analytics } from '@vercel/analytics/next'
+import '../global.css'
 import { i18n } from '@/lib/i18n'
 import { source } from '@/lib/source'
-import '../global.css'
-import { Analytics } from '@vercel/analytics/next'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -53,8 +48,27 @@ type LayoutProps = {
   params: Promise<{ lang: string }>
 }
 
+function isSupportedLang(
+  lang: string,
+): lang is (typeof i18n.languages)[number] {
+  return i18n.languages.includes(lang as (typeof i18n.languages)[number])
+}
+
 export default async function Layout({ children, params }: LayoutProps) {
   const { lang } = await params
+
+  if (!isSupportedLang(lang)) {
+    notFound()
+  }
+  const locale = lang
+
+  const tree =
+    source.pageTree[locale] ??
+    (i18n.defaultLanguage ? source.pageTree[i18n.defaultLanguage] : undefined) ??
+    Object.values(source.pageTree)[0]
+  if (!tree) {
+    notFound()
+  }
 
   const structuredData = {
     '@context': 'https://schema.org',
@@ -72,7 +86,7 @@ export default async function Layout({ children, params }: LayoutProps) {
         url: 'https://docs.sim.ai/static/logo.png',
       },
     },
-    inLanguage: lang,
+    inLanguage: locale,
     potentialAction: {
       '@type': 'SearchAction',
       target: {
@@ -85,7 +99,7 @@ export default async function Layout({ children, params }: LayoutProps) {
 
   return (
     <html
-      lang={lang}
+      lang={locale}
       className={`${inter.variable} ${geistMono.variable}`}
       suppressHydrationWarning
     >
@@ -96,12 +110,12 @@ export default async function Layout({ children, params }: LayoutProps) {
         />
       </head>
       <body className='flex min-h-screen flex-col font-sans'>
-        <RootProvider i18n={provider(lang)}>
-          <Navbar />
+        <RootProvider i18n={provider(locale)}>
           <DocsLayout
-            tree={source.pageTree[lang]}
+            tree={tree}
+            i18n
             themeSwitch={{
-              enabled: false,
+              enabled: true,
             }}
             nav={{
               title: (
@@ -116,18 +130,7 @@ export default async function Layout({ children, params }: LayoutProps) {
               ),
             }}
             sidebar={{
-              defaultOpenLevel: 0,
-              collapsible: false,
-              footer: null,
-              banner: null,
-              components: {
-                Item: SidebarItem,
-                Folder: SidebarFolder,
-                Separator: SidebarSeparator,
-              },
-            }}
-            containerProps={{
-              className: '!pt-10',
+              collapsible: true,
             }}
           >
             {children}

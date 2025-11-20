@@ -85,7 +85,7 @@ interface PendingInvitation {
 const EmailTag = React.memo<EmailTagProps>(({ email, onRemove, disabled, isInvalid, isSent }) => (
   <div
     className={cn(
-      'flex w-auto items-center gap-1 rounded-[8px] border px-2 py-0.5 text-sm',
+      'flex w-auto items-center gap-1 rounded-sm border px-2 py-0.5 text-sm',
       isInvalid
         ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400'
         : 'border bg-muted text-muted-foreground'
@@ -265,7 +265,7 @@ const PermissionsTable = ({
     return (
       <div className='space-y-4'>
         <h3 className='font-medium text-sm'>Member Permissions</h3>
-        <div className='rounded-[8px] border bg-card'>
+        <div className='rounded-sm border bg-card'>
           <div className='flex items-center justify-center py-12'>
             <div className='flex items-center space-x-2 text-muted-foreground'>
               <Loader2 className='h-5 w-5 animate-spin' />
@@ -322,7 +322,7 @@ const PermissionsTable = ({
                   <div className='flex items-center gap-2'>
                     <span className='font-medium text-card-foreground text-sm'>{user.email}</span>
                     {isPendingInvitation && (
-                      <span className='inline-flex items-center gap-1 rounded-[8px] bg-gray-100 px-2 py-1 font-medium text-gray-700 text-xs dark:bg-gray-800 dark:text-gray-300'>
+                      <span className='inline-flex items-center gap-1 rounded-sm bg-gray-100 px-2 py-1 font-medium text-gray-700 text-xs dark:bg-gray-800 dark:text-gray-300'>
                         {resendingInvitationIds &&
                           user.invitationId &&
                           resendingInvitationIds[user.invitationId] ? (
@@ -340,7 +340,7 @@ const PermissionsTable = ({
                       </span>
                     )}
                     {hasChanges && (
-                      <span className='inline-flex items-center rounded-[8px] bg-gray-100 px-2 py-1 font-medium text-gray-700 text-xs dark:bg-gray-800 dark:text-gray-300'>
+                      <span className='inline-flex items-center rounded-sm bg-gray-100 px-2 py-1 font-medium text-gray-700 text-xs dark:bg-gray-800 dark:text-gray-300'>
                         Modified
                       </span>
                     )}
@@ -1068,7 +1068,7 @@ export function InviteModal({ open, onOpenChange, workspaceName }: InviteModalPr
               <label htmlFor='emails' className='font-medium text-sm'>
                 Email Addresses
               </label>
-              <div className='scrollbar-hide flex max-h-32 min-h-9 flex-wrap items-center gap-x-2 gap-y-1 overflow-y-auto rounded-[8px] border px-2 py-1 focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background'>
+              <div className='scrollbar-hide flex max-h-32 min-h-9 flex-wrap items-center gap-x-2 gap-y-1 overflow-y-auto rounded-sm border px-2 py-1 focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background'>
                 {invalidEmails.map((email, index) => (
                   <EmailTag
                     key={`invalid-${index}`}
@@ -1145,7 +1145,7 @@ export function InviteModal({ open, onOpenChange, workspaceName }: InviteModalPr
                   variant='outline'
                   disabled={isSaving || isSubmitting}
                   onClick={handleRestoreChanges}
-                  className='h-9 gap-2 rounded-[8px] font-medium'
+                  className='h-9 gap-2 rounded-sm font-medium'
                 >
                   Restore Changes
                 </Button>
@@ -1154,7 +1154,7 @@ export function InviteModal({ open, onOpenChange, workspaceName }: InviteModalPr
                   variant='outline'
                   disabled={isSaving || isSubmitting}
                   onClick={handleSaveChanges}
-                  className='h-9 gap-2 rounded-[8px] font-medium'
+                  className='h-9 gap-2 rounded-sm font-medium'
                 >
                   {isSaving && <Loader2 className='h-4 w-4 animate-spin' />}
                   Save Changes
@@ -1169,7 +1169,7 @@ export function InviteModal({ open, onOpenChange, workspaceName }: InviteModalPr
                 !userPerms.canAdmin || isSubmitting || isSaving || !workspaceId || !hasNewInvites
               }
               className={cn(
-                'ml-auto flex h-9 items-center justify-center gap-2 rounded-[8px] px-4 py-2 font-medium transition-all duration-200',
+                'ml-auto flex h-9 items-center justify-center gap-2 rounded-sm px-4 py-2 font-medium transition-all duration-200',
                 'bg-primary text-black shadow-[0_0_0_0_var(--primary)] hover:bg-primary-hover hover:shadow-[0_0_0_4px_rgba(112,31,252,0.15)] disabled:opacity-50 disabled:hover:bg-primary disabled:hover:shadow-none'
               )}
             >
@@ -1194,7 +1194,7 @@ export function InviteModal({ open, onOpenChange, workspaceName }: InviteModalPr
           </AlertDialogHeader>
           <AlertDialogFooter className='flex'>
             <AlertDialogCancel
-              className='h-9 w-full rounded-[8px]'
+              className='h-9 w-full rounded-sm'
               onClick={handleRemoveMemberCancel}
               disabled={isRemovingMember}
             >
@@ -1203,7 +1203,7 @@ export function InviteModal({ open, onOpenChange, workspaceName }: InviteModalPr
             <AlertDialogAction
               onClick={handleRemoveMemberConfirm}
               disabled={isRemovingMember}
-              className='h-9 w-full gap-2 rounded-[8px] bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+              className='h-9 w-full gap-2 rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
             >
               {isRemovingMember && <Loader2 className='h-4 w-4 animate-spin' />}
               Remove Member
@@ -1225,7 +1225,7 @@ export function InviteModal({ open, onOpenChange, workspaceName }: InviteModalPr
           </AlertDialogHeader>
           <AlertDialogFooter className='flex'>
             <AlertDialogCancel
-              className='h-9 w-full rounded-[8px]'
+              className='h-9 w-full rounded-sm'
               onClick={handleRemoveInvitationCancel}
               disabled={isRemovingInvitation}
             >
@@ -1234,7 +1234,7 @@ export function InviteModal({ open, onOpenChange, workspaceName }: InviteModalPr
             <AlertDialogAction
               onClick={handleRemoveInvitationConfirm}
               disabled={isRemovingInvitation}
-              className='h-9 w-full gap-2 rounded-[8px] bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+              className='h-9 w-full gap-2 rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
             >
               {isRemovingInvitation && <Loader2 className='h-4 w-4 animate-spin' />}
               Cancel Invitation

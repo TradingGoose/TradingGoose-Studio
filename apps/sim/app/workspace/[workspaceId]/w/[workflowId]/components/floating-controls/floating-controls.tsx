@@ -43,7 +43,7 @@ export function FloatingControls() {
 
   return (
     <div className='-translate-x-1/2 fixed bottom-6 left-1/2 z-10'>
-      <div className='flex items-center gap-1 rounded-[14px] border bg-card/95 p-1 shadow-lg backdrop-blur-sm'>
+      <div className='flex items-center gap-1 rounded-lg border bg-card/95 p-1 shadow-lg backdrop-blur-sm'>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -52,7 +52,7 @@ export function FloatingControls() {
               onClick={handleZoomOut}
               disabled={currentZoom <= 10}
               className={cn(
-                'h-9 w-9 rounded-[10px]',
+                'h-9 w-9 rounded-md',
                 'hover:bg-card/80',
                 'disabled:cursor-not-allowed disabled:opacity-50'
               )}
@@ -75,7 +75,7 @@ export function FloatingControls() {
               onClick={handleZoomIn}
               disabled={currentZoom >= 200}
               className={cn(
-                'h-9 w-9 rounded-[10px]',
+                'h-9 w-9 rounded-md',
                 'hover:bg-card/80',
                 'disabled:cursor-not-allowed disabled:opacity-50'
               )}
@@ -96,7 +96,7 @@ export function FloatingControls() {
               onClick={undo}
               disabled={undoRedoSizes.undoSize === 0}
               className={cn(
-                'h-9 w-9 rounded-[10px]',
+                'h-9 w-9 rounded-md',
                 'hover:bg-card/80',
                 'disabled:cursor-not-allowed disabled:opacity-50'
               )}
@@ -120,7 +120,7 @@ export function FloatingControls() {
               onClick={redo}
               disabled={undoRedoSizes.redoSize === 0}
               className={cn(
-                'h-9 w-9 rounded-[10px]',
+                'h-9 w-9 rounded-md',
                 'hover:bg-card/80',
                 'disabled:cursor-not-allowed disabled:opacity-50'
               )}

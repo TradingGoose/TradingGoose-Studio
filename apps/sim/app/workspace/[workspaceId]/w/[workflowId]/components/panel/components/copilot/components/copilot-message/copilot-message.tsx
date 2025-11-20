@@ -33,7 +33,7 @@ import {
   type UserInputRef,
 } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/panel/components/copilot/components/user-input/user-input'
 import { usePreviewStore } from '@/stores/copilot/preview-store'
-import { useCopilotStore } from '@/stores/copilot/store'
+import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
 import type { CopilotMessage as CopilotMessageType } from '@/stores/copilot/types'
 
 const logger = createLogger('CopilotMessage')
@@ -94,6 +94,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       mode,
       setMode,
     } = useCopilotStore()
+    const copilotStoreApi = useCopilotStoreApi()
 
     // Get preview store for accessing workflow YAML after rejection
     const { getPreviewByToolCall, getLatestPendingPreview } = usePreviewStore()
@@ -292,19 +293,19 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
           await revertToCheckpoint(latestCheckpoint.id)
 
           // Remove the used checkpoint from the store
-          const { messageCheckpoints: currentCheckpoints } = useCopilotStore.getState()
+          const { messageCheckpoints: currentCheckpoints } = copilotStoreApi.getState()
           const updatedCheckpoints = {
             ...currentCheckpoints,
             [message.id]: messageCheckpoints.slice(1), // Remove the first (used) checkpoint
           }
-          useCopilotStore.setState({ messageCheckpoints: updatedCheckpoints })
+          copilotStoreApi.setState({ messageCheckpoints: updatedCheckpoints })
 
           // Truncate all messages after this point
           const currentMessages = messages
           const revertIndex = currentMessages.findIndex((m) => m.id === message.id)
           if (revertIndex !== -1) {
             const truncatedMessages = currentMessages.slice(0, revertIndex + 1)
-            useCopilotStore.setState({ messages: truncatedMessages })
+            copilotStoreApi.setState({ messages: truncatedMessages })
 
             // Update DB to remove messages after this point
             if (currentChat?.id) {
@@ -445,7 +446,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
         }
 
         // Show the updated message immediately to prevent disappearing
-        useCopilotStore.setState({ messages: [...truncatedMessages, updatedMessage] })
+        copilotStoreApi.setState({ messages: [...truncatedMessages, updatedMessage] })
 
         // If we have a current chat, update the DB to remove messages after this point
         if (currentChat?.id) {
@@ -542,12 +543,12 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
               await revertToCheckpoint(latestCheckpoint.id)
 
               // Remove the used checkpoint from the store
-              const { messageCheckpoints: currentCheckpoints } = useCopilotStore.getState()
+              const { messageCheckpoints: currentCheckpoints } = copilotStoreApi.getState()
               const updatedCheckpoints = {
                 ...currentCheckpoints,
                 [message.id]: messageCheckpoints.slice(1),
               }
-              useCopilotStore.setState({ messageCheckpoints: updatedCheckpoints })
+              copilotStoreApi.setState({ messageCheckpoints: updatedCheckpoints })
 
               logger.info('Reverted to checkpoint before editing message', {
                 messageId: message.id,
@@ -784,12 +785,12 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
                             // Remove the used checkpoint from the store
                             const { messageCheckpoints: currentCheckpoints } =
-                              useCopilotStore.getState()
+                              copilotStoreApi.getState()
                             const updatedCheckpoints = {
                               ...currentCheckpoints,
                               [message.id]: messageCheckpoints.slice(1), // Remove the first (used) checkpoint
                             }
-                            useCopilotStore.setState({ messageCheckpoints: updatedCheckpoints })
+                            copilotStoreApi.setState({ messageCheckpoints: updatedCheckpoints })
 
                             logger.info('Reverted to checkpoint before editing message', {
                               messageId: message.id,
@@ -911,7 +912,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 onClick={handleMessageClick}
                 onMouseEnter={() => setIsHoveringMessage(true)}
                 onMouseLeave={() => setIsHoveringMessage(false)}
-                className='group relative cursor-text rounded-[8px] border border-[#E5E5E5] bg-[#FFFFFF] px-3 py-1.5 shadow-xs transition-all duration-200 hover:border-[#D0D0D0] dark:border-[#414141] dark:bg-[var(--surface-elevated)] dark:hover:border-[#525252]'
+                className='group relative cursor-text rounded-sm border border-[#E5E5E5] bg-[#FFFFFF] px-3 py-1.5 shadow-xs transition-all duration-200 hover:border-[#D0D0D0] dark:border-[#414141] dark:bg-[var(--surface-elevated)] dark:hover:border-[#525252]'
               >
                 <div
                   ref={messageContentRef}
