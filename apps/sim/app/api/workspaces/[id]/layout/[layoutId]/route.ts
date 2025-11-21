@@ -1,7 +1,7 @@
-import { NextResponse, type NextRequest } from 'next/server'
-import { and, eq } from 'drizzle-orm'
 import { db } from '@sim/db'
 import { layoutMap } from '@sim/db/schema'
+import { and, eq } from 'drizzle-orm'
+import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 
 export async function PATCH(
@@ -36,7 +36,13 @@ export async function PATCH(
   const [existing] = await db
     .select({ id: layoutMap.id })
     .from(layoutMap)
-    .where(and(eq(layoutMap.id, layoutId), eq(layoutMap.workspaceId, workspaceId), eq(layoutMap.userId, userId)))
+    .where(
+      and(
+        eq(layoutMap.id, layoutId),
+        eq(layoutMap.workspaceId, workspaceId),
+        eq(layoutMap.userId, userId)
+      )
+    )
     .limit(1)
 
   if (!existing) {
@@ -46,7 +52,13 @@ export async function PATCH(
   await db
     .update(layoutMap)
     .set({ name: trimmed, updatedAt: new Date() })
-    .where(and(eq(layoutMap.id, layoutId), eq(layoutMap.workspaceId, workspaceId), eq(layoutMap.userId, userId)))
+    .where(
+      and(
+        eq(layoutMap.id, layoutId),
+        eq(layoutMap.workspaceId, workspaceId),
+        eq(layoutMap.userId, userId)
+      )
+    )
 
   return NextResponse.json({ success: true })
 }
@@ -67,7 +79,13 @@ export async function DELETE(
   const [existing] = await db
     .select({ id: layoutMap.id, isActive: layoutMap.isActive })
     .from(layoutMap)
-    .where(and(eq(layoutMap.id, layoutId), eq(layoutMap.workspaceId, workspaceId), eq(layoutMap.userId, userId)))
+    .where(
+      and(
+        eq(layoutMap.id, layoutId),
+        eq(layoutMap.workspaceId, workspaceId),
+        eq(layoutMap.userId, userId)
+      )
+    )
     .limit(1)
 
   if (!existing) {
@@ -80,7 +98,13 @@ export async function DELETE(
 
   await db
     .delete(layoutMap)
-    .where(and(eq(layoutMap.id, layoutId), eq(layoutMap.workspaceId, workspaceId), eq(layoutMap.userId, userId)))
+    .where(
+      and(
+        eq(layoutMap.id, layoutId),
+        eq(layoutMap.workspaceId, workspaceId),
+        eq(layoutMap.userId, userId)
+      )
+    )
 
   return NextResponse.json({ success: true })
 }

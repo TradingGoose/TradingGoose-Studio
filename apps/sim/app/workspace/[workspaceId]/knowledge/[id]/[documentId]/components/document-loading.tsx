@@ -2,10 +2,10 @@
 
 import { Plus, Search } from 'lucide-react'
 import { useParams } from 'next/navigation'
-import { Button } from '@/components/ui/button'
 import {
   ChunkTableSkeleton,
   KnowledgeHeader,
+  PrimaryButton,
 } from '@/app/workspace/[workspaceId]/knowledge/components'
 
 interface DocumentLoadingProps {
@@ -39,42 +39,54 @@ export function DocumentLoading({
     },
   ]
 
-  return (
-    <div className='flex h-[100vh] flex-col '>
-      {/* Header with Breadcrumbs */}
-      <KnowledgeHeader breadcrumbs={breadcrumbs} />
+  const headerCenterContent = (
+    <div className='flex w-full items-center gap-2 pt-1 sm:gap-3'>
+      <div className='relative max-w-md flex-1'>
+        <Search className='-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 z-10 h-4 w-4 text-muted-foreground' />
+        <input
+          type='text'
+          placeholder='Search chunks...'
+          value=''
+          disabled
+          className='flex h-9 w-full rounded-md border border-input bg-background pr-9 pl-10 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm'
+          autoComplete='off'
+          autoCorrect='off'
+          autoCapitalize='off'
+          spellCheck={false}
+        />
+      </div>
+      <PrimaryButton disabled className='h-9 rounded-sm px-3'>
+        <Plus className='h-3.5 w-3.5' />
+        <span>Create Chunk</span>
+      </PrimaryButton>
+    </div>
+  )
 
-      <div className='flex flex-1 overflow-hidden'>
-        <div className='flex flex-1 flex-col overflow-hidden rounded-lg border-border border'>
-          {/* Main Content */}
-          <div className='flex-1 overflow-auto'>
-            <div className='p-6'>
-              {/* Search Section */}
-              <div className='mb-4 flex items-center justify-between pt-1'>
-                <div className='relative max-w-md'>
-                  <div className='relative flex items-center'>
-                    <Search className='-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 h-[18px] w-[18px] transform text-muted-foreground' />
-                    <input
-                      type='text'
-                      placeholder='Search chunks...'
-                      disabled
-                      className='h-10 w-full rounded-md border bg-background px-9 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:font-medium file:text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
-                    />
+  return (
+    <div className='flex h-full min-h-0 flex-col'>
+      <KnowledgeHeader breadcrumbs={breadcrumbs} centerContent={headerCenterContent} />
+
+      <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
+        <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
+          <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
+            <div className='min-h-0 flex-1 overflow-auto'>
+              <div className='flex min-h-0 flex-1 flex-col p-6'>
+                <div className='flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border'>
+                  <ChunkTableSkeleton isSidebarCollapsed={false} rowCount={8} />
+
+                  <div className='flex items-center justify-center border-t bg-background px-6 py-4'>
+                    <div className='flex items-center gap-1'>
+                      <div className='h-8 w-8 animate-pulse rounded-md bg-muted' />
+                      <div className='mx-4 flex items-center gap-6'>
+                        {Array.from({ length: 5 }).map((_, idx) => (
+                          <div key={idx} className='h-4 w-5 animate-pulse rounded bg-muted' />
+                        ))}
+                      </div>
+                      <div className='h-8 w-8 animate-pulse rounded-md bg-muted' />
+                    </div>
                   </div>
                 </div>
-
-                <Button
-                  disabled
-                  size='sm'
-                  className='flex items-center gap-1 bg-primary font-[480] text-muted-foreground shadow-[0_0_0_0_var(--primary)] transition-all duration-200 hover:bg-primary-hover  disabled:opacity-50'
-                >
-                  <Plus className='h-3.5 w-3.5' />
-                  <span>Create Chunk</span>
-                </Button>
               </div>
-
-              {/* Table container */}
-              <ChunkTableSkeleton isSidebarCollapsed={false} rowCount={8} />
             </div>
           </div>
         </div>

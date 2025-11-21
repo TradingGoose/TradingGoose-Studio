@@ -456,7 +456,7 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                                           'flex h-8 w-8 items-center justify-center rounded-md border border-border/40 transition-all duration-200',
                                           'hover:scale-105 hover:border-border hover:bg-card/50 active:scale-95',
                                           field.value === icon.value &&
-                                          'border-primary/30 bg-[var(--primary)]/10 text-primary'
+                                            'border-primary/30 bg-[var(--primary)]/10 text-primary'
                                         )}
                                       >
                                         <IconComponent className='h-4 w-4' />

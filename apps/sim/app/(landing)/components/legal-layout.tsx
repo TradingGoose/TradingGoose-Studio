@@ -12,7 +12,7 @@ interface LegalLayoutProps {
 
 export default function LegalLayout({ title, children }: LegalLayoutProps) {
   return (
-    <main className={`${soehne.className} min-h-screen bg-white text-gray-900`}>
+    <main className={`${soehne.className} min-h-screen text-gray-900`}>
       {/* Header - Nav handles all conditional logic */}
       <Nav variant='legal' />
 

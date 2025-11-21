@@ -1,38 +1,32 @@
 'use client'
 
-import {
-  useCallback,
-  useMemo,
-  useState,
-  type KeyboardEvent,
-  type ReactNode,
-} from 'react'
-import { Search, ChevronDown } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { type KeyboardEvent, type ReactNode, useCallback, useMemo, useState } from 'react'
+import { ChevronDown, Search } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import {
-  widgetHeaderControlClassName,
-  widgetHeaderMenuContentClassName,
-  widgetHeaderMenuTextClassName,
-} from '@/widgets/components/widget-header-control'
-import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { cn } from '@/lib/utils'
 import {
   getBlocksForSidebar,
   getTriggersForSidebar,
   hasTriggerCapability,
 } from '@/lib/workflows/trigger-utils'
+import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { ToolbarBlock } from '@/app/workspace/[workspaceId]/w/components/sidebar/components/toolbar/components/toolbar-block/toolbar-block'
 import LoopToolbarItem from '@/app/workspace/[workspaceId]/w/components/sidebar/components/toolbar/components/toolbar-loop-block/toolbar-loop-block'
 import ParallelToolbarItem from '@/app/workspace/[workspaceId]/w/components/sidebar/components/toolbar/components/toolbar-parallel-block/toolbar-parallel-block'
 import type { BlockConfig } from '@/blocks/types'
+import {
+  widgetHeaderControlClassName,
+  widgetHeaderMenuContentClassName,
+  widgetHeaderMenuTextClassName,
+} from '@/widgets/components/widget-header-control'
 
 interface WorkflowToolbarProps {
   workspaceId?: string
@@ -86,7 +80,7 @@ function useToolbarList(searchQuery: string, mode: 'blocks' | 'triggers'): Toolb
 
 export function WorkflowToolbar({ workspaceId, channelId }: WorkflowToolbarProps) {
   if (!workspaceId) {
-    return <span className='text-xs text-muted-foreground'>{FALLBACK_TEXT}</span>
+    return <span className='text-muted-foreground text-xs'>{FALLBACK_TEXT}</span>
   }
 
   return (
@@ -192,14 +186,14 @@ function ToolbarDropdown({
         onWheel={(event) => event.stopPropagation()}
       >
         <div className='flex h-full max-h-[inherit] flex-col'>
-          <div className='border-b border-border/70 p-2'>
-            <div className='flex items-center gap-2 rounded-md border bg-background px-2 py-1.5 text-sm text-muted-foreground'>
+          <div className='border-border/70 border-b p-2'>
+            <div className='flex items-center gap-2 rounded-md border bg-background px-2 py-1.5 text-muted-foreground text-sm'>
               <Search className='h-3.5 w-3.5 shrink-0' />
               <Input
                 value={searchValue}
                 onChange={(event) => onSearchChange(event.target.value)}
                 placeholder={`Search ${label.toLowerCase()}...`}
-                className='h-6 border-0 bg-transparent px-0 text-xs text-foreground placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
+                className='h-6 border-0 bg-transparent px-0 text-foreground text-xs placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
                 onKeyDown={handleSearchInputKeyDown}
                 autoComplete='off'
                 autoCorrect='off'
@@ -207,7 +201,7 @@ function ToolbarDropdown({
               />
             </div>
           </div>
-          <div className='min-h-0 flex-1 overflow-hidden h-full'>{children}</div>
+          <div className='h-full min-h-0 flex-1 overflow-hidden'>{children}</div>
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -240,7 +234,7 @@ function ToolbarDropdownContent({
       onWheelCapture={(event) => event.stopPropagation()}
     >
       {!hasResults && (
-        <p className='px-2 py-4 text-center text-xs text-muted-foreground'>No {mode} found.</p>
+        <p className='px-2 py-4 text-center text-muted-foreground text-xs'>No {mode} found.</p>
       )}
 
       {regularBlocks.length > 0 && (

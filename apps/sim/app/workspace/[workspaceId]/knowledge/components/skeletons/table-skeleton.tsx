@@ -105,7 +105,7 @@ export function DocumentTableSkeleton({
   rowCount?: number
 }) {
   return (
-    <div className='flex h-full min-h-0 max-h-full flex-1 flex-col overflow-hidden'>
+    <div className='flex h-full max-h-full min-h-0 flex-1 flex-col overflow-hidden'>
       <div className='shrink-0 overflow-x-auto border-b bg-card/40'>
         <table className='w-full min-w-[700px] table-fixed'>
           <colgroup>
@@ -149,7 +149,7 @@ export function DocumentTableSkeleton({
         </table>
       </div>
 
-      <div className='flex-1 min-h-0 overflow-auto' style={{ scrollbarGutter: 'stable' }}>
+      <div className='min-h-0 flex-1 overflow-auto' style={{ scrollbarGutter: 'stable' }}>
         <table className='w-full min-w-[700px] table-fixed'>
           <colgroup>
             <col className='w-[4%]' />
@@ -180,7 +180,7 @@ export function ChunkTableSkeleton({
   rowCount?: number
 }) {
   return (
-    <div className='flex h-full min-h-0 max-h-full flex-1 flex-col overflow-hidden'>
+    <div className='flex h-full max-h-full min-h-0 flex-1 flex-col overflow-hidden'>
       <div className='shrink-0 border-b bg-background'>
         <table className='w-full table-fixed bg-card/40'>
           <colgroup>
@@ -216,7 +216,7 @@ export function ChunkTableSkeleton({
         </table>
       </div>
 
-      <div className='flex-1 min-h-0 overflow-auto' style={{ scrollbarGutter: 'stable' }}>
+      <div className='min-h-0 flex-1 overflow-auto' style={{ scrollbarGutter: 'stable' }}>
         <table className='w-full table-fixed'>
           <colgroup>
             <col className='w-[5%]' />

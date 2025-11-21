@@ -15,8 +15,8 @@ import { Button } from '@/components/ui/button'
 import { createLogger } from '@/lib/logs/console/logger'
 import { WebhookModal } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-block/components/sub-block/components/webhook/components'
 import { useSubBlockValue } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
+import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 
 const logger = createLogger('WebhookConfig')
 
@@ -485,13 +485,13 @@ export function WebhookConfig({
       // Update previous provider to the new provider
       setPreviousProvider(webhookProvider)
 
-        // Delete existing webhook AFTER clearing the path to prevent race condition
-        // The webhook check useEffect won't restore the path if we clear it first
-        // Execute deletion asynchronously but don't block the UI
+      // Delete existing webhook AFTER clearing the path to prevent race condition
+      // The webhook check useEffect won't restore the path if we clear it first
+      // Execute deletion asynchronously but don't block the UI
 
-        ; (async () => {
-          await deleteExistingWebhook()
-        })()
+      ;(async () => {
+        await deleteExistingWebhook()
+      })()
     }
   }, [webhookProvider, previousProvider, blockId, webhookId, isPreview])
 

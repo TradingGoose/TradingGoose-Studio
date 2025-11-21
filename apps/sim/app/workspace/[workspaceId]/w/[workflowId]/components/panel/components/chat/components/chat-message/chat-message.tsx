@@ -94,10 +94,11 @@ export function ChatMessage({ message }: ChatMessageProps) {
                 return (
                   <div
                     key={attachment.id}
-                    className={`relative overflow-hidden rounded-md border border-border/50 bg-muted/20 ${attachment.dataUrl?.trim() && attachment.dataUrl.startsWith('data:')
+                    className={`relative overflow-hidden rounded-md border border-border/50 bg-muted/20 ${
+                      attachment.dataUrl?.trim() && attachment.dataUrl.startsWith('data:')
                         ? 'cursor-pointer'
                         : ''
-                      } ${isImage ? 'h-16 w-16' : 'flex h-16 min-w-[120px] max-w-[200px] items-center gap-2 px-2'}`}
+                    } ${isImage ? 'h-16 w-16' : 'flex h-16 min-w-[120px] max-w-[200px] items-center gap-2 px-2'}`}
                     onClick={(e) => {
                       const validDataUrl = attachment.dataUrl?.trim()
                       if (validDataUrl?.startsWith('data:')) {
@@ -126,8 +127,8 @@ export function ChatMessage({ message }: ChatMessageProps) {
                     }}
                   >
                     {isImage &&
-                      attachment.dataUrl?.trim() &&
-                      attachment.dataUrl.startsWith('data:') ? (
+                    attachment.dataUrl?.trim() &&
+                    attachment.dataUrl.startsWith('data:') ? (
                       <img
                         src={attachment.dataUrl}
                         alt={attachment.name}

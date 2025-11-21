@@ -48,6 +48,7 @@ export function Knowledge() {
   const { knowledgeBases, isLoading, error, addKnowledgeBase, refreshList } =
     useKnowledgeBasesList(workspaceId)
   const userPermissions = useUserPermissionsContext()
+  const canManageKnowledgeBases = userPermissions.canEdit === true
 
   const [searchQuery, setSearchQuery] = useState('')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -84,6 +85,7 @@ export function Knowledge() {
     description: kb.description || 'No description provided',
     createdAt: kb.createdAt,
     updatedAt: kb.updatedAt,
+    workspaceId: kb.workspaceId || null,
   })
 
   const headerLeftContent = (
@@ -140,10 +142,10 @@ export function Knowledge() {
 
       <Tooltip>
         <TooltipTrigger asChild>
-          <PrimaryButton
-            onClick={() => setIsCreateModalOpen(true)}
-            disabled={userPermissions.canEdit !== true}
-          >
+                          <PrimaryButton
+                            onClick={() => setIsCreateModalOpen(true)}
+                            disabled={!canManageKnowledgeBases}
+                          >
             <Plus className='h-3.5 w-3.5' />
             <span>Create</span>
           </PrimaryButton>
@@ -158,11 +160,10 @@ export function Knowledge() {
   return (
     <>
       <GlobalNavbarHeader left={headerLeftContent} right={headerRightContent} />
-      <div className='flex h-screen flex-col'>
-        <div className='flex flex-1 overflow-hidden'>
-          <div className='flex flex-1 flex-col overflow-hidden rounded-lg border-border border'>
-            {/* Main Content */}
-            <div className='flex-1 overflow-auto'>
+      <div className='flex h-full min-h-0 flex-col'>
+        <div className='flex min-h-0 min-w-0 flex-1 overflow-hidden p-1'>
+          <div className='flex min-h-0 flex-1 flex-col overflow-hidden '>
+            <div className='min-h-0 flex-1 overflow-auto'>
               <div className='p-6'>
                 {/* Error State */}
                 {error && (
@@ -199,7 +200,7 @@ export function Knowledge() {
                           onClick={
                             userPermissions.canEdit === true
                               ? () => setIsCreateModalOpen(true)
-                              : () => { }
+                              : () => {}
                           }
                           icon={<LibraryBig className='h-4 w-4 text-muted-foreground' />}
                         />
@@ -224,6 +225,8 @@ export function Knowledge() {
                             description={displayData.description}
                             createdAt={displayData.createdAt}
                             updatedAt={displayData.updatedAt}
+                            assignedWorkspaceId={displayData.workspaceId}
+                            canEdit={canManageKnowledgeBases}
                           />
                         )
                       })

@@ -146,10 +146,7 @@ export function SubscriptionModal({ open, onOpenChange }: SubscriptionModalProps
             {/* Main Plans Grid - Free, Pro, Team */}
             <div className='grid grid-cols-1 gap-6 md:grid-cols-3'>
               {plans.slice(0, 3).map((plan) => (
-                <div
-                  key={plan.name}
-                  className={cn('relative flex flex-col rounded-md border p-6')}
-                >
+                <div key={plan.name} className={cn('relative flex flex-col rounded-md border p-6')}>
                   {/* Plan Header */}
                   <div className='mb-6'>
                     <h3 className='mb-3 font-semibold text-lg'>{plan.name}</h3>
@@ -184,11 +181,7 @@ export function SubscriptionModal({ open, onOpenChange }: SubscriptionModalProps
                         Current plan
                       </Button>
                     ) : plan.action ? (
-                      <Button
-                        onClick={plan.action}
-                        className='w-full rounded-sm'
-                        variant='default'
-                      >
+                      <Button onClick={plan.action} className='w-full rounded-sm' variant='default'>
                         Upgrade
                       </Button>
                     ) : (
@@ -240,11 +233,7 @@ export function SubscriptionModal({ open, onOpenChange }: SubscriptionModalProps
                     Current plan
                   </Button>
                 ) : plans[3].action ? (
-                  <Button
-                    onClick={plans[3].action}
-                    className='w-full rounded-sm'
-                    variant='default'
-                  >
+                  <Button onClick={plans[3].action} className='w-full rounded-sm' variant='default'>
                     Contact us
                   </Button>
                 ) : (

@@ -15,10 +15,10 @@ import {
 import { useDependsOnGate } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-block/components/sub-block/hooks/use-depends-on-gate'
 import { useForeignCredential } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-block/components/sub-block/hooks/use-foreign-credential'
 import { useSubBlockValue } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
+import { useWorkflowId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { useWorkflowId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 interface FileSelectorInputProps {
   blockId: string

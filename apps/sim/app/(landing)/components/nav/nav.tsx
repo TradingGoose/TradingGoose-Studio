@@ -46,7 +46,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
   const handleLoginClick = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault()
-      router.push('/login')
+      router.push('/login?reauth=1')
     },
     [router]
   )
@@ -153,7 +153,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
             onClick={handleLoginClick}
             onMouseEnter={() => setIsLoginHovered(true)}
             onMouseLeave={() => setIsLoginHovered(false)}
-            className='group hidden text-[#2E2E2E] text-[16px] transition-colors hover:text-foreground md:block'
+            className='group hidden text-[16px] text-foreground/60 transition-colors hover:text-foreground md:block'
             type='button'
             aria-label='Log in to your account'
           >
@@ -172,7 +172,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
             href='/signup'
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-            className='group inline-flex items-center justify-center gap-2 rounded-md border border-[#6F3DFA] bg-gradient-to-b from-[#8357FF] to-[#6F3DFA] py-[6px] pr-[10px] pl-[12px] text-[14px] text-white shadow-[inset_0_2px_4px_0_#9B77FF] transition-all sm:text-[16px]'
+            className='group inline-flex items-center justify-center gap-2 rounded-sm bg-primary py-[6px] pr-[10px] pl-[12px] text-[14px] text-black transition-all hover:bg-primary-hover sm:text-[16px]'
             aria-label='Get started with Sim - Sign up for free'
             prefetch={true}
           >

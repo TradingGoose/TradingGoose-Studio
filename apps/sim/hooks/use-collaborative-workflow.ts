@@ -3,10 +3,10 @@ import type { Edge } from 'reactflow'
 import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBlockOutputs } from '@/lib/workflows/block-outputs'
+import { useOptionalWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { getBlock } from '@/blocks'
 import { resolveOutputType } from '@/blocks/utils'
 import { useSocket } from '@/contexts/socket-context'
-import { useOptionalWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useUndoRedo } from '@/hooks/use-undo-redo'
 import { registerEmitFunctions, useOperationQueue } from '@/stores/operation-queue/store'
 import { useVariablesStore } from '@/stores/panel/variables/store'
@@ -15,7 +15,10 @@ import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { getUniqueBlockName, mergeSubblockState } from '@/stores/workflows/utils'
-import { useWorkflowStore, DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
+import {
+  DEFAULT_WORKFLOW_CHANNEL_ID,
+  useWorkflowStore,
+} from '@/stores/workflows/workflow/store-client'
 import type { BlockState, Position } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('CollaborativeWorkflow')

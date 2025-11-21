@@ -232,9 +232,9 @@ export function TraceSpans({ traceSpans, totalDuration = 0, onExpansionChange }:
           const normalizedSpan = normalizeChildWorkflowSpan(span)
           const hasSubItems = Boolean(
             (normalizedSpan.children && normalizedSpan.children.length > 0) ||
-            (normalizedSpan.toolCalls && normalizedSpan.toolCalls.length > 0) ||
-            normalizedSpan.input ||
-            normalizedSpan.output
+              (normalizedSpan.toolCalls && normalizedSpan.toolCalls.length > 0) ||
+              normalizedSpan.input ||
+              normalizedSpan.output
           )
 
           // Calculate gap from previous span (for sequential execution visualization)

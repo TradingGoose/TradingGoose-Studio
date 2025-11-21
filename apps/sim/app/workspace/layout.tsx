@@ -1,22 +1,6 @@
-'use client'
+import type React from 'react'
+import WorkspaceLayoutClient from './layout-client'
 
-import { useSession } from '@/lib/auth-client'
-import { SocketProvider } from '@/contexts/socket-context'
-
-interface WorkspaceRootLayoutProps {
-  children: React.ReactNode
-}
-
-export default function WorkspaceRootLayout({ children }: WorkspaceRootLayoutProps) {
-  const session = useSession()
-
-  const user = session.data?.user
-    ? {
-      id: session.data.user.id,
-      name: session.data.user.name ?? undefined,
-      email: session.data.user.email,
-    }
-    : undefined
-
-  return <SocketProvider user={user}>{children}</SocketProvider>
+export default function WorkspaceRootLayout({ children }: { children: React.ReactNode }) {
+  return <WorkspaceLayoutClient>{children}</WorkspaceLayoutClient>
 }

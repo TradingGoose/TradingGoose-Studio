@@ -13,7 +13,7 @@ import type {
 import { getNextWorkflowColor } from '@/stores/workflows/registry/utils'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store'
-import { isPairColor, PAIR_COLORS } from '@/widgets/pair-colors'
+import { isPairColor, type PAIR_COLORS } from '@/widgets/pair-colors'
 
 const logger = createLogger('WorkflowRegistry')
 
@@ -44,7 +44,9 @@ const syncPairContextForChannel = (channelId: string | undefined, workflowId: st
   })
 }
 
-const syncRegistryFromPairContexts = (contexts: ReturnType<typeof usePairColorStore.getState>['contexts']) => {
+const syncRegistryFromPairContexts = (
+  contexts: ReturnType<typeof usePairColorStore.getState>['contexts']
+) => {
   const updates: Record<string, string> = {}
   const removals = new Set<string>()
 
@@ -80,11 +82,13 @@ const getActiveWorkflowIdFromState = (
 ): string | null => {
   const channelKey = resolveChannelId(channelId)
   if (channelId) {
-    return state.loadedWorkflowIds[channelKey] ? state.activeWorkflowIds[channelKey] ?? null : null
+    return state.loadedWorkflowIds[channelKey]
+      ? (state.activeWorkflowIds[channelKey] ?? null)
+      : null
   }
 
   return state.loadedWorkflowIds[DEFAULT_WORKFLOW_CHANNEL_ID]
-    ? state.activeWorkflowIds[DEFAULT_WORKFLOW_CHANNEL_ID] ?? state.activeWorkflowId
+    ? (state.activeWorkflowIds[DEFAULT_WORKFLOW_CHANNEL_ID] ?? state.activeWorkflowId)
     : null
 }
 
@@ -507,9 +511,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           hasWorkflowData
 
         if (shouldSkip && get().loadedWorkflowIds[channelKey]) {
-          logger.info(
-            `Already active workflow ${id} on channel ${channelKey}, skipping switch`
-          )
+          logger.info(`Already active workflow ${id} on channel ${channelKey}, skipping switch`)
           return
         }
 

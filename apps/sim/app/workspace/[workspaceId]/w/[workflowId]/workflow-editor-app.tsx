@@ -2,12 +2,14 @@
 
 import { useSession } from '@/lib/auth-client'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
-import { SocketProvider } from '@/contexts/socket-context'
 import { WorkflowRouteProvider } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
-import Workflow, { type WorkflowUIConfig } from '@/app/workspace/[workspaceId]/w/[workflowId]/workflow'
+import Workflow, {
+  type WorkflowUIConfig,
+} from '@/app/workspace/[workspaceId]/w/[workflowId]/workflow'
+import { SocketProvider } from '@/contexts/socket-context'
 import {
-  WorkflowStoreProvider,
   DEFAULT_WORKFLOW_CHANNEL_ID,
+  WorkflowStoreProvider,
 } from '@/stores/workflows/workflow/store-client'
 
 interface WorkflowEditorAppProps {
@@ -40,7 +42,11 @@ const WorkflowEditorApp = ({
   return (
     <Providers workspaceId={workspaceId}>
       <SocketProvider user={user} workspaceId={workspaceId} workflowId={workflowId}>
-        <WorkflowRouteProvider workspaceId={workspaceId} workflowId={workflowId} channelId={channelId}>
+        <WorkflowRouteProvider
+          workspaceId={workspaceId}
+          workflowId={workflowId}
+          channelId={channelId}
+        >
           <WorkflowStoreProvider channelId={channelId}>
             <Workflow
               channelId={channelId}

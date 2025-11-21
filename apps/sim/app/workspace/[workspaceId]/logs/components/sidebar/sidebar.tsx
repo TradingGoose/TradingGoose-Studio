@@ -124,19 +124,21 @@ const BlockContentDisplay = ({
         <div className='mb-2 flex space-x-1'>
           <button
             onClick={() => setActiveTab('output')}
-            className={`rounded-md px-3 py-1 text-xs transition-colors ${activeTab === 'output'
-              ? 'bg-secondary text-foreground'
-              : 'text-muted-foreground hover:bg-secondary/50'
-              }`}
+            className={`rounded-md px-3 py-1 text-xs transition-colors ${
+              activeTab === 'output'
+                ? 'bg-secondary text-foreground'
+                : 'text-muted-foreground hover:bg-secondary/50'
+            }`}
           >
             Output
           </button>
           <button
             onClick={() => setActiveTab('input')}
-            className={`rounded-md px-3 py-1 text-xs transition-colors ${activeTab === 'input'
-              ? 'bg-secondary text-foreground'
-              : 'text-muted-foreground hover:bg-secondary/50'
-              }`}
+            className={`rounded-md px-3 py-1 text-xs transition-colors ${
+              activeTab === 'input'
+                ? 'bg-secondary text-foreground'
+                : 'text-muted-foreground hover:bg-secondary/50'
+            }`}
           >
             Input
           </button>
@@ -288,11 +290,10 @@ export function Sidebar({
   }
 
   return (
-    <div className='flex h-full min-h-0 min-w-0 flex-col p-1.5'>
-
-      <div className=' border-border border rounded-lg overflow-auto' >
+    <div className='flex h-full min-h-0 min-w-0 flex-col p-1'>
+      <div className='flex h-full min-h-0 flex-col rounded-lg border border-border'>
         {/* Header */}
-        <div className='flex items-center sticky top-0 bg-background border-b z-[9] justify-between px-3 pt-3 pb-1 '>
+        <div className='z-[9] flex items-center justify-between border-b bg-background px-3 pt-3 pb-1'>
           <h2 className='font-[450] text-base text-card-foreground'>Log Details</h2>
           <div className='flex items-center gap-2'>
             <TooltipProvider>
@@ -344,9 +345,9 @@ export function Sidebar({
         </div>
 
         {/* Content */}
-        <div className='flex-1 overflow-hidden px-3'>
-          <ScrollArea className='h-full w-full overflow-y-auto' ref={scrollAreaRef}>
-            <div className='w-full space-y-4 pr-3 py-4'>
+        <div className='min-h-0 flex-1 px-1'>
+          <ScrollArea ref={scrollAreaRef} className='h-full w-full overflow-y-auto'>
+            <div className='w-full space-y-4 px-3 py-4'>
               {/* Timestamp */}
               <div>
                 <h3 className='mb-1 font-medium text-muted-foreground text-xs'>Timestamp</h3>
@@ -463,9 +464,7 @@ export function Sidebar({
               {/* Frozen Canvas Button - only show for workflow execution logs with execution ID */}
               {isWorkflowExecutionLog && log.executionId && (
                 <div>
-                  <h3 className='mb-1 font-medium text-muted-foreground text-xs'>
-                    Workflow State
-                  </h3>
+                  <h3 className='mb-1 font-medium text-muted-foreground text-xs'>Workflow State</h3>
                   <Button
                     variant='ghost'
                     size='sm'
@@ -509,9 +508,7 @@ export function Sidebar({
               {/* Cost Information (moved to bottom) */}
               {hasCostInfo && (
                 <div>
-                  <h3 className='mb-1 font-medium text-muted-foreground text-xs'>
-                    Cost Breakdown
-                  </h3>
+                  <h3 className='mb-1 font-medium text-muted-foreground text-xs'>Cost Breakdown</h3>
                   <div className='overflow-hidden rounded-md border'>
                     <div className='space-y-2 p-3'>
                       <div className='flex items-center justify-between'>
@@ -621,6 +618,6 @@ export function Sidebar({
           />
         )}
       </div>
-    </div >
+    </div>
   )
 }

@@ -110,7 +110,7 @@ export default function MarkdownRenderer({ content }: { content: string }) {
       </thead>
     ),
     tbody: ({ children }: React.HTMLAttributes<HTMLTableSectionElement>) => (
-      <tbody className='divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-900'>
+      <tbody className='divide-y divide-gray-200 dark:divide-gray-700 dark:bg-gray-900'>
         {children}
       </tbody>
     ),

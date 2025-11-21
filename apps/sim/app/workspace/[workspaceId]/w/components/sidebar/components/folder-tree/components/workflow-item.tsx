@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { Pencil, Trash2 } from 'lucide-react'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
+import { shallow } from 'zustand/shallow'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -14,6 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
@@ -21,7 +22,6 @@ import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/con
 import { useFolderStore, useIsWorkflowSelected } from '@/stores/folders/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
-import { shallow } from 'zustand/shallow'
 
 const logger = createLogger('WorkflowItem')
 
@@ -200,7 +200,14 @@ export function WorkflowItem({
       logger.error('Error deleting workflow:', error)
       setDeleteState((prev) => ({ ...prev, isDeleting: false }))
     }
-  }, [checkPublishedTemplates, isMarketplace, removeWorkflow, resetDeleteState, userPermissions.canEdit, workflow.id])
+  }, [
+    checkPublishedTemplates,
+    isMarketplace,
+    removeWorkflow,
+    resetDeleteState,
+    userPermissions.canEdit,
+    workflow.id,
+  ])
 
   const handleTemplateAction = useCallback(
     async (action: 'keep' | 'delete') => {
@@ -292,8 +299,11 @@ export function WorkflowItem({
         >
           <span className='flex items-center gap-2'>
             <span
-              className='h-2.5 w-2.5 mr-2'
-              style={{ backgroundColor: workflow.color, boxShadow: `0 0 0 4px ${workflow.color}50`, borderRadius: '1px' }}
+              className='mr-2 h-2.5 w-2.5 rounded-xs'
+              style={{
+                backgroundColor: workflow.color,
+                boxShadow: `0 0 0 4px ${workflow.color}50`,
+              }}
               aria-hidden
             />
           </span>
@@ -428,7 +438,9 @@ export function WorkflowItem({
               <AlertDialogDescription>
                 Deleting this workflow will permanently remove all associated blocks, executions,
                 and configuration.{' '}
-                <span className='text-red-500 dark:text-red-500'>This action cannot be undone.</span>
+                <span className='text-red-500 dark:text-red-500'>
+                  This action cannot be undone.
+                </span>
               </AlertDialogDescription>
             )}
           </AlertDialogHeader>
@@ -454,7 +466,10 @@ export function WorkflowItem({
               </div>
             ) : (
               <>
-                <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={deleteState.isDeleting}>
+                <AlertDialogCancel
+                  className='h-9 w-full rounded-sm'
+                  disabled={deleteState.isDeleting}
+                >
                   Cancel
                 </AlertDialogCancel>
                 <Button

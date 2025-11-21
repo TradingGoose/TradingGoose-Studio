@@ -97,7 +97,7 @@ export default function PasswordAuth({
   }
 
   return (
-    <div className='bg-white'>
+    <div className=' '>
       <Nav variant='auth' />
       <div className='flex min-h-[calc(100vh-120px)] items-center justify-center px-4'>
         <div className='w-full max-w-[410px]'>
@@ -105,7 +105,7 @@ export default function PasswordAuth({
             {/* Header */}
             <div className='space-y-1 text-center'>
               <h1
-                className={`${soehne.className} font-medium text-[32px] text-black tracking-tight`}
+                className={`${soehne.className} font-medium text-[32px] tracking-tight`}
               >
                 Password Required
               </h1>
@@ -167,11 +167,7 @@ export default function PasswordAuth({
                 </div>
               </div>
 
-              <Button
-                type='submit'
-                className={primaryButtonClasses}
-                disabled={isAuthenticating}
-              >
+              <Button type='submit' className={primaryButtonClasses} disabled={isAuthenticating}>
                 {isAuthenticating ? 'Authenticating...' : 'Continue'}
               </Button>
             </form>

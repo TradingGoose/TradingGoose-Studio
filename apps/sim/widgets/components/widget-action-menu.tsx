@@ -1,20 +1,20 @@
 'use client'
 
+import { useState } from 'react'
 import { EllipsisVertical, SquareSplitHorizontal, SquareSplitVertical, X } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { cn } from '@/lib/utils'
 import {
   widgetHeaderIconButtonClassName,
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/widgets/components/widget-header-control'
-import { useState } from 'react'
 
 interface WidgetActionMenuProps {
   onSplitVertical?: () => void

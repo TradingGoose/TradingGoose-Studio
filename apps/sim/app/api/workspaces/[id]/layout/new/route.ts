@@ -1,15 +1,16 @@
 import { randomUUID } from 'crypto'
-import { NextResponse, type NextRequest } from 'next/server'
-import { asc, and, eq } from 'drizzle-orm'
-import { createDefaultColorPairsState, createDefaultLayoutState, serializeLayout } from '@/widgets/layout'
 import { db } from '@sim/db'
 import { layoutMap } from '@sim/db/schema'
+import { and, asc, eq } from 'drizzle-orm'
+import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
+import {
+  createDefaultColorPairsState,
+  createDefaultLayoutState,
+  serializeLayout,
+} from '@/widgets/layout'
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: workspaceId } = await params
   const session = await getSession()
 

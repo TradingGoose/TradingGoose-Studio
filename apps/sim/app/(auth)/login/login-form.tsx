@@ -139,7 +139,6 @@ export default function LoginPage({
       const inviteFlow = searchParams.get('invite_flow') === 'true'
       setIsInviteFlow(inviteFlow)
     }
-
   }, [searchParams])
 
   useEffect(() => {
@@ -356,7 +355,7 @@ export default function LoginPage({
   return (
     <>
       <div className='space-y-1 text-center'>
-        <h1 className={`${soehne.className} font-medium text-[32px] text-black tracking-tight`}>
+        <h1 className={`${soehne.className} font-medium text-[32px] tracking-tight`}>
           Sign in
         </h1>
         <p className={`${inter.className} font-[380] text-[16px] text-muted-foreground`}>
@@ -367,10 +366,7 @@ export default function LoginPage({
       {/* SSO Login Button (primary top-only when it is the only method) */}
       {showTopSSO && (
         <div className={`${inter.className} mt-8`}>
-          <SSOLoginButton
-            callbackURL={callbackUrl}
-            variant='primary'
-          />
+          <SSOLoginButton callbackURL={callbackUrl} variant='primary' />
         </div>
       )}
 
@@ -456,11 +452,7 @@ export default function LoginPage({
             </div>
           </div>
 
-          <Button
-            type='submit'
-            className={primaryButtonClasses}
-            disabled={isLoading}
-          >
+          <Button type='submit' className={primaryButtonClasses} disabled={isLoading}>
             {isLoading ? 'Signing in...' : 'Sign in'}
           </Button>
         </form>
@@ -473,7 +465,7 @@ export default function LoginPage({
             <div className='auth-divider w-full border-t' />
           </div>
           <div className='relative flex justify-center text-sm'>
-            <span className='bg-white px-4 font-[340] text-muted-foreground'>Or continue with</span>
+            <span className=' px-4 font-[340] text-muted-foreground'>Or continue with</span>
           </div>
         </div>
       )}
@@ -487,10 +479,7 @@ export default function LoginPage({
             callbackURL={callbackUrl}
           >
             {ssoEnabled && !hasOnlySSO && (
-              <SSOLoginButton
-                callbackURL={callbackUrl}
-                variant='outline'
-              />
+              <SSOLoginButton callbackURL={callbackUrl} variant='outline' />
             )}
           </SocialLoginButtons>
         </div>

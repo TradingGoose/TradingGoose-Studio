@@ -25,24 +25,26 @@ export const WorkflowEditorProvider = ({ children }: { children: React.ReactNode
   )
 }
 
-const Workflow = React.memo(({ ui, disableNavigation, channelId, viewportBounds }: WorkflowProps) => {
-  const layoutUI = useWorkflowUIConfig()
-  const mergedUI = useMemo<WorkflowCanvasUIConfig | undefined>(() => {
-    if (!ui && !layoutUI) return ui
-    return { ...layoutUI, ...ui }
-  }, [layoutUI, ui])
+const Workflow = React.memo(
+  ({ ui, disableNavigation, channelId, viewportBounds }: WorkflowProps) => {
+    const layoutUI = useWorkflowUIConfig()
+    const mergedUI = useMemo<WorkflowCanvasUIConfig | undefined>(() => {
+      if (!ui && !layoutUI) return ui
+      return { ...layoutUI, ...ui }
+    }, [layoutUI, ui])
 
-  return (
-    <WorkflowEditorProvider>
-      <WorkflowCanvas
-        channelId={channelId}
-        ui={mergedUI}
-        disableNavigation={disableNavigation}
-        viewportBounds={viewportBounds}
-      />
-    </WorkflowEditorProvider>
-  )
-})
+    return (
+      <WorkflowEditorProvider>
+        <WorkflowCanvas
+          channelId={channelId}
+          ui={mergedUI}
+          disableNavigation={disableNavigation}
+          viewportBounds={viewportBounds}
+        />
+      </WorkflowEditorProvider>
+    )
+  }
+)
 
 Workflow.displayName = 'Workflow'
 

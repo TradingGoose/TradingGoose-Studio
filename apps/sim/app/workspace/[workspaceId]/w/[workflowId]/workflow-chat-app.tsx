@@ -1,15 +1,15 @@
 'use client'
 
+import { useState } from 'react'
 import { useSession } from '@/lib/auth-client'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
-import { SocketProvider } from '@/contexts/socket-context'
-import { WorkflowRouteProvider } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { Chat } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/panel/components/chat/chat'
+import { WorkflowRouteProvider } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
+import { SocketProvider } from '@/contexts/socket-context'
 import {
-  WorkflowStoreProvider,
   DEFAULT_WORKFLOW_CHANNEL_ID,
+  WorkflowStoreProvider,
 } from '@/stores/workflows/workflow/store-client'
-import { useState } from 'react'
 
 interface WorkflowChatAppProps {
   workspaceId: string
@@ -27,19 +27,27 @@ const WorkflowChatApp = ({
 
   const user = session.data?.user
     ? {
-      id: session.data.user.id,
-      name: session.data.user.name ?? undefined,
-      email: session.data.user.email,
-    }
+        id: session.data.user.id,
+        name: session.data.user.name ?? undefined,
+        email: session.data.user.email,
+      }
     : undefined
 
   return (
     <Providers workspaceId={workspaceId}>
       <SocketProvider user={user} workspaceId={workspaceId} workflowId={workflowId}>
-        <WorkflowRouteProvider workspaceId={workspaceId} workflowId={workflowId} channelId={channelId}>
+        <WorkflowRouteProvider
+          workspaceId={workspaceId}
+          workflowId={workflowId}
+          channelId={channelId}
+        >
           <WorkflowStoreProvider channelId={channelId}>
             <div className='flex h-full w-full flex-col overflow-y-auto bg-[hsl(var(--workflow-background))]'>
-              <Chat chatMessage={chatMessage} setChatMessage={setChatMessage} hideScrollbar={false} />
+              <Chat
+                chatMessage={chatMessage}
+                setChatMessage={setChatMessage}
+                hideScrollbar={false}
+              />
             </div>
           </WorkflowStoreProvider>
         </WorkflowRouteProvider>

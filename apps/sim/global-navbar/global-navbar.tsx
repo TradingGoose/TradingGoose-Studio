@@ -11,6 +11,7 @@ import {
   SidebarProvider,
   SidebarRail,
 } from '@/components/ui/sidebar'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useSession } from '@/lib/auth-client'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { generateWorkspaceName } from '@/lib/naming'
@@ -68,7 +69,9 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
     () => pathname === '/' || LANDING_ROUTE_PREFIXES.some((route) => pathname.startsWith(route)),
     [pathname]
   )
-  const shouldHideNavbar = (isAuthRoute && (!isAuthenticated || isSessionLoading)) || isLandingRoute
+  const isSidebarRoute = React.useMemo(() => navMain.some((item) => item.isActive), [navMain])
+  const shouldRenderNavbar = isSidebarRoute && !isLandingRoute && !isAuthRoute
+  const shouldShowSkeleton = shouldRenderNavbar && isSessionLoading
 
   const userName = sessionData?.user?.name ?? brand.name
   const userEmail = sessionData?.user?.email ?? brand.supportEmail ?? 'help@sim.ai'
@@ -107,7 +110,7 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
   }, [])
 
   const fetchWorkspaces = React.useCallback(async () => {
-    if (shouldHideNavbar || isSessionLoading) {
+    if (!shouldRenderNavbar || isSessionLoading) {
       return
     }
 
@@ -151,14 +154,14 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
     } finally {
       setIsWorkspacesLoading(false)
     }
-  }, [workspaceId, isAuthenticated, isSessionLoading, createDefaultWorkspace, shouldHideNavbar])
+  }, [workspaceId, isAuthenticated, isSessionLoading, createDefaultWorkspace, shouldRenderNavbar])
 
   React.useEffect(() => {
-    if (shouldHideNavbar) {
+    if (!shouldRenderNavbar) {
       return
     }
     fetchWorkspaces()
-  }, [fetchWorkspaces, shouldHideNavbar])
+  }, [fetchWorkspaces, shouldRenderNavbar])
 
   const handleSwitchWorkspace = React.useCallback(
     async (workspace: Workspace) => {
@@ -331,7 +334,59 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
     }
   }, [workspaceToDelete, fetchWorkspaces, activeWorkspace?.id, handleDeleteDialogChange])
 
-  if (shouldHideNavbar) {
+  if (!shouldRenderNavbar) {
+    return <GlobalNavbarHeaderProvider>{children}</GlobalNavbarHeaderProvider>
+  }
+
+  if (shouldShowSkeleton) {
+    return (
+      <GlobalNavbarHeaderProvider>
+        <div className='flex h-screen w-screen max-w-[100vw] overflow-hidden bg-background'>
+          <SidebarProvider defaultOpen className='flex h-full min-h-0 w-full overflow-hidden'>
+            <Sidebar collapsible='icon'>
+              <SidebarHeader className='p-4'>
+                <div className='space-y-2'>
+                  <Skeleton className='h-6 w-3/4' />
+                  <Skeleton className='h-4 w-1/2' />
+                </div>
+              </SidebarHeader>
+              <SidebarContent className='space-y-2 p-4'>
+                {[...Array(5)].map((_, index) => (
+                  <Skeleton key={index} className='h-9 w-full rounded-sm' />
+                ))}
+              </SidebarContent>
+              <SidebarFooter className='p-4'>
+                <div className='flex items-center gap-2'>
+                  <Skeleton className='h-10 w-10 rounded-full' />
+                  <div className='space-y-1'>
+                    <Skeleton className='h-4 w-24' />
+                    <Skeleton className='h-3 w-16' />
+                  </div>
+                </div>
+              </SidebarFooter>
+              <SidebarRail />
+            </Sidebar>
+            <SidebarInset className='flex h-full min-h-0 flex-1 overflow-hidden bg-background'>
+              <div className='flex h-full min-h-0 flex-col bg-background'>
+                <div className='border-b px-6 py-4'>
+                  <Skeleton className='h-6 w-64' />
+                </div>
+                <div className='min-h-0 flex-1 overflow-hidden p-6'>
+                  <div className='space-y-3'>
+                    <Skeleton className='h-4 w-1/3' />
+                    <Skeleton className='h-4 w-1/4' />
+                    <Skeleton className='h-4 w-1/2' />
+                  </div>
+                </div>
+              </div>
+            </SidebarInset>
+          </SidebarProvider>
+        </div>
+      </GlobalNavbarHeaderProvider>
+    )
+  }
+
+  if (!isAuthenticated) {
     return <GlobalNavbarHeaderProvider>{children}</GlobalNavbarHeaderProvider>
   }
 
@@ -384,7 +439,7 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
                 pageTitle={activeNavItem?.title}
                 pageIcon={activeNavItem?.icon}
               />
-              <div className='min-h-0 flex-1 overflow-hidden p-1.5'>
+              <div className='min-h-0 flex-1 overflow-hidden p-1'>
                 <div className='h-full w-full overflow-auto'>{children}</div>
               </div>
             </div>

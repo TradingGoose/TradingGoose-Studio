@@ -1,20 +1,7 @@
 'use client'
 
-import { LibraryBig, MoreHorizontal, Trash2 } from 'lucide-react'
+import { LibraryBig } from 'lucide-react'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { WorkspaceSelector } from '@/app/workspace/[workspaceId]/knowledge/components'
-import {
-  commandListClass,
-  dropdownContentClass,
-  filterButtonClass,
-} from '@/app/workspace/[workspaceId]/knowledge/components/shared'
 import { GlobalNavbarHeader } from '@/global-navbar'
 
 interface BreadcrumbItem {
@@ -29,23 +16,14 @@ const HEADER_STYLES = {
   link: 'group flex items-center gap-2 font-medium text-sm transition-colors hover:text-muted-foreground',
   label: 'font-medium text-sm',
   separator: 'text-muted-foreground',
-  actionsContainer: 'flex items-center gap-2',
 } as const
-
-interface KnowledgeHeaderOptions {
-  knowledgeBaseId?: string
-  currentWorkspaceId?: string | null
-  onWorkspaceChange?: (workspaceId: string | null) => void
-  onDeleteKnowledgeBase?: () => void
-}
 
 interface KnowledgeHeaderProps {
   breadcrumbs: BreadcrumbItem[]
-  options?: KnowledgeHeaderOptions
   centerContent?: React.ReactNode
 }
 
-export function KnowledgeHeader({ breadcrumbs, options, centerContent }: KnowledgeHeaderProps) {
+export function KnowledgeHeader({ breadcrumbs, centerContent }: KnowledgeHeaderProps) {
   const breadcrumbContent = (
     <div className='flex w-full flex-1 items-center gap-3'>
       <div className={HEADER_STYLES.breadcrumbsWrapper}>
@@ -80,56 +58,7 @@ export function KnowledgeHeader({ breadcrumbs, options, centerContent }: Knowled
     </div>
   )
 
-  const actionsContent =
-    options && (options.knowledgeBaseId || options.onDeleteKnowledgeBase) ? (
-      <div className={HEADER_STYLES.actionsContainer}>
-        {options.knowledgeBaseId && (
-          <WorkspaceSelector
-            knowledgeBaseId={options.knowledgeBaseId}
-            currentWorkspaceId={options.currentWorkspaceId || null}
-            onWorkspaceChange={options.onWorkspaceChange}
-          />
-        )}
-
-        {options.onDeleteKnowledgeBase && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant='outline'
-                size='sm'
-                className={filterButtonClass}
-                aria-label='Knowledge base actions menu'
-              >
-                <MoreHorizontal className='h-4 w-4' />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align='end'
-              side='bottom'
-              avoidCollisions={false}
-              sideOffset={4}
-              className={dropdownContentClass}
-            >
-              <div className={`${commandListClass} py-1`}>
-                <DropdownMenuItem
-                  onClick={options.onDeleteKnowledgeBase}
-                  className='flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 font-[380] text-red-600 text-sm hover:bg-secondary/50 focus:bg-secondary/50 focus:text-red-600'
-                >
-                  <Trash2 className='h-4 w-4' />
-                  Delete Knowledge Base
-                </DropdownMenuItem>
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
-    ) : null
-
   return (
-    <GlobalNavbarHeader
-      left={breadcrumbContent}
-      center={centerContent}
-      right={actionsContent ?? undefined}
-    />
+    <GlobalNavbarHeader left={breadcrumbContent} center={centerContent} />
   )
 }

@@ -48,7 +48,7 @@ export function RemoveMemberDialog({
               <input
                 type='checkbox'
                 id='reduce-seats'
-                className='rounded-[4px]'
+                className='rounded-sm'
                 checked={shouldReduceSeats}
                 onChange={(e) => onShouldReduceSeatsChange(e.target.checked)}
               />

@@ -1,27 +1,27 @@
 'use client'
 
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertCircle, ArrowDown, ArrowUp, File, FileText, Image, Paperclip, X } from 'lucide-react'
+import { AlertCircle, ArrowUp, File, FileText, Image, Paperclip, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { createLogger } from '@/lib/logs/console/logger'
-import { cn } from '@/lib/utils'
 import {
   extractBlockIdFromOutputId,
   extractPathFromOutputId,
   parseOutputContentSafely,
 } from '@/lib/response-format'
+import { cn } from '@/lib/utils'
 import {
   ChatMessage,
   OutputSelect,
 } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/panel/components/chat/components'
+import { useWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useWorkflowExecution } from '@/app/workspace/[workspaceId]/w/[workflowId]/hooks/use-workflow-execution'
 import type { BlockLog, ExecutionResult } from '@/executor/types'
 import { useExecutionStore } from '@/stores/execution/store'
 import { useChatStore } from '@/stores/panel/chat/store'
 import { useConsoleStore } from '@/stores/panel/console/store'
-import { useWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 const logger = createLogger('ChatPanel')
 
@@ -569,7 +569,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
           ) : (
             <div ref={scrollAreaRef} className='h-full'>
               <ScrollArea
-                className={cn('h-full pb-2 px-3', !hideScrollbar)}
+                className={cn('h-full px-3 pb-2', !hideScrollbar)}
                 hideScrollbar={hideScrollbar}
               >
                 <div className='space-y-2'>
@@ -581,7 +581,6 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
               </ScrollArea>
             </div>
           )}
-
         </div>
 
         {/* Input section - Fixed height */}
@@ -679,10 +678,11 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
 
           {/* Combined input container matching copilot style */}
           <div
-            className={`rounded-sm border border-[#E5E5E5] bg-[#FFFFFF] p-2 shadow-xs transition-all duration-200 dark:border-[#414141] dark:bg-[var(--surface-elevated)] ${isDragOver
-              ? 'border-[var(--primary-hover)] bg-purple-50/50 dark:border-[var(--primary-hover)] dark:bg-purple-950/20'
-              : ''
-              }`}
+            className={`rounded-md border border-[#E5E5E5] bg-[#FFFFFF] p-2 shadow-xs transition-all duration-200 dark:border-[#414141] dark:bg-[var(--surface-elevated)] ${
+              isDragOver
+                ? 'border-[var(--primary-hover)] bg-purple-50/50 dark:border-[var(--primary-hover)] dark:bg-purple-950/20'
+                : ''
+            }`}
           >
             {/* File thumbnails */}
             {chatFiles.length > 0 && (
@@ -716,10 +716,11 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
                   return (
                     <div
                       key={file.id}
-                      className={`group relative overflow-hidden rounded-md border border-border/50 bg-muted/20 ${previewUrl
-                        ? 'h-16 w-16'
-                        : 'flex h-16 min-w-[120px] max-w-[200px] items-center gap-2 px-2'
-                        }`}
+                      className={`group relative overflow-hidden rounded-md border border-border/50 bg-muted/20 ${
+                        previewUrl
+                          ? 'h-16 w-16'
+                          : 'flex h-16 min-w-[120px] max-w-[200px] items-center gap-2 px-2'
+                      }`}
                     >
                       {previewUrl ? (
                         <img

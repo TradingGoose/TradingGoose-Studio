@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Sparkles } from 'lucide-react'
-import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import WorkflowCopilotApp from '@/app/workspace/[workspaceId]/w/[workflowId]/workflow-copilot-app'
-import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import { useWidgetChannel } from '@/widgets/hooks/use-widget-channel'
+import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
+import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 
 const WorkflowCopilotWidgetBody = ({
   params,
@@ -81,7 +81,10 @@ const WorkflowCopilotWidgetBody = ({
   }
 
   return (
-    <div ref={containerRef} className='flex h-full w-full overflow-hidden bg-[hsl(var(--workflow-background))] p-2'>
+    <div
+      ref={containerRef}
+      className='flex h-full w-full overflow-hidden bg-[hsl(var(--workflow-background))] p-2'
+    >
       <WorkflowCopilotApp
         workspaceId={workspaceId}
         workflowId={resolvedWorkflowId}
@@ -93,7 +96,7 @@ const WorkflowCopilotWidgetBody = ({
 }
 
 const WidgetStateMessage = ({ message }: { message: string }) => (
-  <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))] px-4 text-center text-xs text-muted-foreground'>
+  <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))] px-4 text-center text-muted-foreground text-xs'>
     {message}
   </div>
 )
@@ -106,7 +109,7 @@ export const workflowCopilotWidget: DashboardWidgetDefinition = {
   description: 'AI copilot experience tailored to the selected workflow.',
   component: (props) => <WorkflowCopilotWidgetBody {...props} />,
   renderHeader: () => ({
-    left: <span className='text-xs font-medium text-accent-foreground'>Copilot</span>,
-    center: <span className='text-xs text-muted-foreground'>Workflow assistance</span>,
+    left: <span className='font-medium text-accent-foreground text-xs'>Copilot</span>,
+    center: <span className='text-muted-foreground text-xs'>Workflow assistance</span>,
   }),
 }

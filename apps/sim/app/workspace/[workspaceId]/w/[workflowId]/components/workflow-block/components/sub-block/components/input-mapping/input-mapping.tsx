@@ -334,7 +334,7 @@ function InputMappingField({
           ref={inputRef}
           className={cn(
             'allow-scroll h-9 w-full overflow-auto text-transparent caret-foreground placeholder:text-muted-foreground/50',
-            'border border-input bg-white transition-colors duration-200 dark:border-input/60 dark:bg-background',
+            'border border-input transition-colors duration-200 dark:border-input/60 dark:bg-background',
             dragHighlight && 'ring-2 ring-blue-500 ring-offset-2',
             isConnecting && 'ring-2 ring-blue-500 ring-offset-2'
           )}

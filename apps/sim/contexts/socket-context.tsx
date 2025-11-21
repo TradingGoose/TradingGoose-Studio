@@ -528,7 +528,9 @@ export function SocketProvider({
 
     // Leave current workflow first if we're in one
     if (currentWorkflowId) {
-      logger.info(`Leaving current workflow ${currentWorkflowId} before joining ${resolvedWorkflowId}`)
+      logger.info(
+        `Leaving current workflow ${currentWorkflowId} before joining ${resolvedWorkflowId}`
+      )
       socket.emit('leave-workflow')
     }
 

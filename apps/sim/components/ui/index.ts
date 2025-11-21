@@ -117,25 +117,6 @@ export {
   SheetTitle,
   SheetTrigger,
 } from './sheet'
-export { Skeleton } from './skeleton'
-export { Slider } from './slider'
-export { Switch } from './switch'
-export {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableFooter,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from './table'
-export { Tabs, TabsContent, TabsList, TabsTrigger } from './tabs'
-export { checkTagTrigger, TagDropdown } from './tag-dropdown'
-export { Textarea } from './textarea'
-export { Toggle, toggleVariants } from './toggle'
-export { ToolCallCompletion, ToolCallExecution } from './tool-call'
-export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip'
 export {
   Sidebar,
   SidebarContent,
@@ -162,3 +143,22 @@ export {
   SidebarTrigger,
   useSidebar,
 } from './sidebar'
+export { Skeleton } from './skeleton'
+export { Slider } from './slider'
+export { Switch } from './switch'
+export {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from './table'
+export { Tabs, TabsContent, TabsList, TabsTrigger } from './tabs'
+export { checkTagTrigger, TagDropdown } from './tag-dropdown'
+export { Textarea } from './textarea'
+export { Toggle, toggleVariants } from './toggle'
+export { ToolCallCompletion, ToolCallExecution } from './tool-call'
+export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip'

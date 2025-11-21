@@ -20,39 +20,39 @@ export function CopilotWelcome({ onQuestionClick, mode = 'ask' }: CopilotWelcome
   const capabilities =
     mode === 'agent'
       ? [
-        {
-          title: 'Build & edit workflows',
-          question: 'Help me build a workflow',
-          Icon: Workflow,
-        },
-        {
-          title: 'Optimize workflows',
-          question: 'Help me optimize my workflow',
-          Icon: Blocks,
-        },
-        {
-          title: 'Debug workflows',
-          question: 'Help me debug my workflow',
-          Icon: LibraryBig,
-        },
-      ]
+          {
+            title: 'Build & edit workflows',
+            question: 'Help me build a workflow',
+            Icon: Workflow,
+          },
+          {
+            title: 'Optimize workflows',
+            question: 'Help me optimize my workflow',
+            Icon: Blocks,
+          },
+          {
+            title: 'Debug workflows',
+            question: 'Help me debug my workflow',
+            Icon: LibraryBig,
+          },
+        ]
       : [
-        {
-          title: 'Understand my workflow',
-          question: 'What does my workflow do?',
-          Icon: Workflow,
-        },
-        {
-          title: 'Discover tools',
-          question: 'What tools are available?',
-          Icon: Blocks,
-        },
-        {
-          title: 'Get started',
-          question: 'How do I create a workflow?',
-          Icon: LibraryBig,
-        },
-      ]
+          {
+            title: 'Understand my workflow',
+            question: 'What does my workflow do?',
+            Icon: Workflow,
+          },
+          {
+            title: 'Discover tools',
+            question: 'What tools are available?',
+            Icon: Blocks,
+          },
+          {
+            title: 'Get started',
+            question: 'How do I create a workflow?',
+            Icon: LibraryBig,
+          },
+        ]
 
   return (
     <div className='relative h-full w-full overflow-hidden px-4 pt-8 pb-6'>

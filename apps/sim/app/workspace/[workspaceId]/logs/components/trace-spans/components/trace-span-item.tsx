@@ -90,8 +90,7 @@ export function TraceSpanItem({
     if (hasNestedItems) {
       return expanded ? <ChevronDown className='h-4 w-4' /> : <ChevronRight className='h-4 w-4' />
     }
-    if (type === 'agent')
-      return <AgentIcon className='h-3 w-3 text-[var(--primary-hover)]' />
+    if (type === 'agent') return <AgentIcon className='h-3 w-3 text-[var(--primary-hover)]' />
     if (type === 'evaluator') return <ChartBarIcon className='h-3 w-3 text-[#2FA1FF]' />
     if (type === 'condition') return <ConditionalIcon className='h-3 w-3 text-[#FF972F]' />
     if (type === 'router') return <ConnectIcon className='h-3 w-3 text-[#2FA1FF]' />
@@ -154,7 +153,7 @@ export function TraceSpanItem({
       const block = getBlock(type)
       const color = (block as { bgColor?: string } | null)?.bgColor
       if (color) return color as string
-    } catch { }
+    } catch {}
     return getSpanColor(type)
   }
   const spanColor = getBlockColor(span.type)
@@ -399,7 +398,7 @@ export function TraceSpanItem({
                           formatCostFn = require('@/providers/utils').formatCost as (
                             v: number
                           ) => string
-                        } catch { }
+                        } catch {}
                         return (
                           <div className='space-y-0.5'>
                             {typeof input === 'number' && (
@@ -612,7 +611,7 @@ export function TraceSpanItem({
               })()}
               {hoveredPercent != null && (
                 <div
-                  className='pointer-events-none absolute top-[-10px] bottom-[-10px] w-px bg-black/30 dark:bg-white/45'
+                  className='dark: /45 pointer-events-none absolute top-[-10px] bottom-[-10px] w-px bg-black/30'
                   style={{ left: `${Math.max(0, Math.min(100, hoveredPercent))}%`, zIndex: 12 }}
                 />
               )}
@@ -639,9 +638,9 @@ export function TraceSpanItem({
 
                 const childHasSubItems = Boolean(
                   (enrichedChildSpan.children && enrichedChildSpan.children.length > 0) ||
-                  (enrichedChildSpan.toolCalls && enrichedChildSpan.toolCalls.length > 0) ||
-                  enrichedChildSpan.input ||
-                  enrichedChildSpan.output
+                    (enrichedChildSpan.toolCalls && enrichedChildSpan.toolCalls.length > 0) ||
+                    enrichedChildSpan.input ||
+                    enrichedChildSpan.output
                 )
 
                 let childGapMs = 0

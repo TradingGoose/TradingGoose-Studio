@@ -286,28 +286,28 @@ export function ApiKeySelector({
 
             {((apiKeysData && apiKeysData.personal.length > 0) ||
               (!apiKeysData && apiKeys.length > 0)) && (
-                <SelectGroup>
-                  <SelectLabel className='px-3 py-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide'>
-                    Personal
-                  </SelectLabel>
-                  {(apiKeysData ? apiKeysData.personal : apiKeys).map((apiKey) => (
-                    <SelectItem
-                      key={apiKey.id}
-                      value={apiKey.id}
-                      className='my-0.5 flex cursor-pointer items-center rounded-sm px-3 py-2.5 data-[state=checked]:bg-muted [&>span.absolute]:hidden'
-                    >
-                      <div className='flex w-full items-center'>
-                        <div className='flex w-full items-center justify-between'>
-                          <span className='mr-2 truncate text-sm'>{apiKey.name}</span>
-                          <span className='mt-[1px] flex-shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-muted-foreground text-xs'>
-                            {apiKey.displayKey || apiKey.key}
-                          </span>
-                        </div>
+              <SelectGroup>
+                <SelectLabel className='px-3 py-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide'>
+                  Personal
+                </SelectLabel>
+                {(apiKeysData ? apiKeysData.personal : apiKeys).map((apiKey) => (
+                  <SelectItem
+                    key={apiKey.id}
+                    value={apiKey.id}
+                    className='my-0.5 flex cursor-pointer items-center rounded-sm px-3 py-2.5 data-[state=checked]:bg-muted [&>span.absolute]:hidden'
+                  >
+                    <div className='flex w-full items-center'>
+                      <div className='flex w-full items-center justify-between'>
+                        <span className='mr-2 truncate text-sm'>{apiKey.name}</span>
+                        <span className='mt-[1px] flex-shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-muted-foreground text-xs'>
+                          {apiKey.displayKey || apiKey.key}
+                        </span>
                       </div>
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              )}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            )}
 
             {!apiKeysData && apiKeys.length === 0 && (
               <div className='px-3 py-2 text-muted-foreground text-sm'>No API keys available</div>
@@ -439,7 +439,7 @@ export function ApiKeySelector({
 
           {newKey && (
             <div className='relative'>
-              <div className='flex h-9 items-center rounded-[6px] border-none bg-muted px-3 pr-10'>
+              <div className='flex h-9 items-center rounded-md border-none bg-muted px-3 pr-10'>
                 <code className='flex-1 truncate font-mono text-foreground text-sm'>
                   {newKey.key}
                 </code>
@@ -447,7 +447,7 @@ export function ApiKeySelector({
               <Button
                 variant='ghost'
                 size='icon'
-                className='-translate-y-1/2 absolute top-1/2 right-1 h-7 w-7 rounded-[4px] text-muted-foreground hover:bg-card hover:text-foreground'
+                className='-translate-y-1/2 absolute top-1/2 right-1 h-7 w-7 rounded-sm text-muted-foreground hover:bg-card hover:text-foreground'
                 onClick={handleCopyKey}
               >
                 {copySuccess ? <Check className='h-3.5 w-3.5' /> : <Copy className='h-3.5 w-3.5' />}

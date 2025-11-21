@@ -11,19 +11,22 @@ import { parseCronToHumanReadable } from '@/lib/schedules/utils'
 import { cn, validateName } from '@/lib/utils'
 import { type DiffStatus, hasDiffStatus } from '@/lib/workflows/diff/types'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import type { BlockConfig, SubBlockConfig, SubBlockType } from '@/blocks/types'
-import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
-import { useExecutionStore } from '@/stores/execution/store'
-import { useWorkflowDiffStore } from '@/stores/workflow-diff'
-import type { WorkflowRegistry } from '@/stores/workflows/registry/types'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { mergeSubblockState } from '@/stores/workflows/utils'
-import { useWorkflowStore, DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
 import {
   useOptionalWorkflowRoute,
   useWorkflowId,
 } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
+import type { BlockConfig, SubBlockConfig, SubBlockType } from '@/blocks/types'
+import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
+import { useExecutionStore } from '@/stores/execution/store'
+import { useWorkflowDiffStore } from '@/stores/workflow-diff'
+import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import type { WorkflowRegistry } from '@/stores/workflows/registry/types'
+import { useSubBlockStore } from '@/stores/workflows/subblock/store'
+import { mergeSubblockState } from '@/stores/workflows/utils'
+import {
+  DEFAULT_WORKFLOW_CHANNEL_ID,
+  useWorkflowStore,
+} from '@/stores/workflows/workflow/store-client'
 import { useCurrentWorkflow } from '../../hooks'
 import { ActionBar } from './components/action-bar/action-bar'
 import { ConnectionBlocks } from './components/connection-blocks/connection-blocks'
@@ -539,9 +542,9 @@ export const WorkflowBlock = memo(
         // Check if the condition value is an array
         const isValueMatch = Array.isArray(actualCondition.value)
           ? fieldValue != null &&
-          (actualCondition.not
-            ? !actualCondition.value.includes(fieldValue as string | number | boolean)
-            : actualCondition.value.includes(fieldValue as string | number | boolean))
+            (actualCondition.not
+              ? !actualCondition.value.includes(fieldValue as string | number | boolean)
+              : actualCondition.value.includes(fieldValue as string | number | boolean))
           : actualCondition.not
             ? fieldValue !== actualCondition.value
             : fieldValue === actualCondition.value
@@ -551,9 +554,9 @@ export const WorkflowBlock = memo(
           !actualCondition.and ||
           (Array.isArray(actualCondition.and.value)
             ? andFieldValue != null &&
-            (actualCondition.and.not
-              ? !actualCondition.and.value.includes(andFieldValue as string | number | boolean)
-              : actualCondition.and.value.includes(andFieldValue as string | number | boolean))
+              (actualCondition.and.not
+                ? !actualCondition.and.value.includes(andFieldValue as string | number | boolean)
+                : actualCondition.and.value.includes(andFieldValue as string | number | boolean))
             : actualCondition.and.not
               ? andFieldValue !== actualCondition.and.value
               : andFieldValue === actualCondition.and.value)
@@ -743,7 +746,7 @@ export const WorkflowBlock = memo(
             // Diff highlighting
             diffStatus === 'new' && 'bg-green-50/50 ring-2 ring-green-500 dark:bg-green-900/10',
             diffStatus === 'edited' &&
-            'bg-orange-50/50 ring-2 ring-orange-500 dark:bg-orange-900/10',
+              'bg-orange-50/50 ring-2 ring-orange-500 dark:bg-orange-900/10',
             // Deleted block highlighting (in original workflow)
             isDeletedBlock && 'bg-red-50/50 ring-2 ring-red-500 dark:bg-red-900/10',
             'z-[20]'
@@ -775,7 +778,7 @@ export const WorkflowBlock = memo(
               id='target'
               className={cn(
                 horizontalHandles ? '!w-[7px] !h-5' : '!w-5 !h-[7px]',
-                '!bg-slate-300 dark:!bg-slate-500 !rounded-[2px] !border-none',
+                '!bg-slate-300 dark:!bg-slate-500 !rounded-xs !border-none',
                 '!z-[30]',
                 'group-hover:!shadow-[0_0_0_3px_rgba(156,163,175,0.15)]',
                 horizontalHandles
@@ -971,8 +974,8 @@ export const WorkflowBlock = memo(
                         'h-7 p-1 text-gray-500',
                         displayAdvancedMode && 'text-primary',
                         !userPermissions.canEdit &&
-                        !currentWorkflow.isDiffMode &&
-                        'cursor-not-allowed opacity-50'
+                          !currentWorkflow.isDiffMode &&
+                          'cursor-not-allowed opacity-50'
                       )}
                       disabled={!userPermissions.canEdit && !currentWorkflow.isDiffMode}
                     >
@@ -1009,8 +1012,8 @@ export const WorkflowBlock = memo(
                         'h-7 p-1 text-gray-500',
                         displayTriggerMode && 'text-[#22C55E]',
                         !userPermissions.canEdit &&
-                        !currentWorkflow.isDiffMode &&
-                        'cursor-not-allowed opacity-50'
+                          !currentWorkflow.isDiffMode &&
+                          'cursor-not-allowed opacity-50'
                       )}
                       disabled={!userPermissions.canEdit && !currentWorkflow.isDiffMode}
                     >
@@ -1067,8 +1070,8 @@ export const WorkflowBlock = memo(
                                 <div key={key} className='mb-1'>
                                   <span className='text-muted-foreground'>{key}</span>{' '}
                                   {typeof value === 'object' &&
-                                    value !== null &&
-                                    'type' in value ? (
+                                  value !== null &&
+                                  'type' in value ? (
                                     // New format: { type: 'string', description: '...' }
                                     <span className='text-green-500'>{value.type}</span>
                                   ) : typeof value === 'object' && value !== null ? (
@@ -1115,8 +1118,8 @@ export const WorkflowBlock = memo(
                       className={cn(
                         'h-7 p-1 text-gray-500',
                         !userPermissions.canEdit &&
-                        !currentWorkflow.isDiffMode &&
-                        'cursor-not-allowed opacity-50'
+                          !currentWorkflow.isDiffMode &&
+                          'cursor-not-allowed opacity-50'
                       )}
                       disabled={!userPermissions.canEdit && !currentWorkflow.isDiffMode}
                     >
@@ -1202,7 +1205,7 @@ export const WorkflowBlock = memo(
                 id='source'
                 className={cn(
                   horizontalHandles ? '!w-[7px] !h-5' : '!w-5 !h-[7px]',
-                  '!bg-slate-300 dark:!bg-slate-500 !rounded-[2px] !border-none',
+                  '!bg-slate-300 dark:!bg-slate-500 !rounded-xs !border-none',
                   '!z-[30]',
                   'group-hover:!shadow-[0_0_0_3px_rgba(156,163,175,0.15)]',
                   horizontalHandles
@@ -1232,7 +1235,7 @@ export const WorkflowBlock = memo(
                   id='error'
                   className={cn(
                     horizontalHandles ? '!w-[7px] !h-5' : '!w-5 !h-[7px]',
-                    '!bg-red-400 dark:!bg-red-500 !rounded-[2px] !border-none',
+                    '!bg-red-400 dark:!bg-red-500 !rounded-xs !border-none',
                     '!z-[30]',
                     'group-hover:!shadow-[0_0_0_3px_rgba(248,113,113,0.15)]',
                     horizontalHandles
@@ -1245,17 +1248,17 @@ export const WorkflowBlock = memo(
                     position: 'absolute',
                     ...(horizontalHandles
                       ? {
-                        right: '-8px',
-                        top: 'auto',
-                        bottom: '30px',
-                        transform: 'translateY(0)',
-                      }
+                          right: '-8px',
+                          top: 'auto',
+                          bottom: '30px',
+                          transform: 'translateY(0)',
+                        }
                       : {
-                        bottom: '-7px',
-                        left: 'auto',
-                        right: '30px',
-                        transform: 'translateX(0)',
-                      }),
+                          bottom: '-7px',
+                          left: 'auto',
+                          right: '30px',
+                          transform: 'translateX(0)',
+                        }),
                   }}
                   data-nodeid={id}
                   data-handleid='error'

@@ -10,11 +10,11 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { WandPromptBar } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/wand-prompt-bar/wand-prompt-bar'
 import { useSubBlockValue } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useAccessibleReferencePrefixes } from '@/app/workspace/[workspaceId]/w/[workflowId]/hooks/use-accessible-reference-prefixes'
 import { useWand } from '@/app/workspace/[workspaceId]/w/[workflowId]/hooks/use-wand'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useTagSelection } from '@/hooks/use-tag-selection'
-import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 const logger = createLogger('ShortInput')
 
@@ -54,21 +54,21 @@ export function ShortInput({
   // Wand functionality (only if wandConfig is enabled)
   const wandHook = config.wandConfig?.enabled
     ? useWand({
-      wandConfig: config.wandConfig,
-      currentValue: localContent,
-      onStreamStart: () => {
-        // Clear the content when streaming starts
-        setLocalContent('')
-      },
-      onStreamChunk: (chunk) => {
-        // Update local content with each chunk as it arrives
-        setLocalContent((current) => current + chunk)
-      },
-      onGeneratedContent: (content) => {
-        // Final content update
-        setLocalContent(content)
-      },
-    })
+        wandConfig: config.wandConfig,
+        currentValue: localContent,
+        onStreamStart: () => {
+          // Clear the content when streaming starts
+          setLocalContent('')
+        },
+        onStreamChunk: (chunk) => {
+          // Update local content with each chunk as it arrives
+          setLocalContent((current) => current + chunk)
+        },
+        onGeneratedContent: (content) => {
+          // Final content update
+          setLocalContent(content)
+        },
+      })
     : null
   // State management - useSubBlockValue with explicit streaming control
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlockId, false, {
@@ -364,7 +364,7 @@ export function ShortInput({
         onCancel={
           wandHook?.isStreaming
             ? wandHook?.cancelGeneration
-            : wandHook?.hidePromptInline || (() => { })
+            : wandHook?.hidePromptInline || (() => {})
         }
         onChange={(value: string) => wandHook?.updatePromptValue?.(value)}
         placeholder={config.wandConfig?.placeholder || 'Describe what you want to generate...'}
@@ -376,8 +376,8 @@ export function ShortInput({
           className={cn(
             'allow-scroll w-full overflow-auto text-transparent caret-foreground [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground/50 [&::-webkit-scrollbar]:hidden',
             isConnecting &&
-            config?.connectionDroppable !== false &&
-            'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500'
+              config?.connectionDroppable !== false &&
+              'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500'
           )}
           placeholder={placeholder ?? ''}
           type='text'
@@ -426,9 +426,9 @@ export function ShortInput({
             {password && !isFocused
               ? '•'.repeat(value?.toString().length ?? 0)
               : formatDisplayText(value?.toString() ?? '', {
-                accessiblePrefixes,
-                highlightAll: !accessiblePrefixes,
-              })}
+                  accessiblePrefixes,
+                  highlightAll: !accessiblePrefixes,
+                })}
           </div>
         </div>
 

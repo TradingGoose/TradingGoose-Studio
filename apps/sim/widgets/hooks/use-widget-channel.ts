@@ -22,9 +22,7 @@ export const resolveWidgetChannel = ({
   const widgetKey = widget?.key ?? fallbackWidgetKey
   const normalizedPanelId = panelId && panelId.trim().length > 0 ? panelId : 'panel'
   const channelId =
-    resolvedPairColor !== 'gray'
-      ? `pair-${resolvedPairColor}`
-      : `${widgetKey}-${normalizedPanelId}`
+    resolvedPairColor !== 'gray' ? `pair-${resolvedPairColor}` : `${widgetKey}-${normalizedPanelId}`
 
   return {
     resolvedPairColor,

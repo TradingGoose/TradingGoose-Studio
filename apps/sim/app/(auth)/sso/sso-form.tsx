@@ -156,7 +156,7 @@ export default function SSOForm() {
   return (
     <>
       <div className='space-y-1 text-center'>
-        <h1 className={`${soehne.className} font-medium text-[32px] text-black tracking-tight`}>
+        <h1 className={`${soehne.className} font-medium text-[32px] tracking-tight`}>
           Sign in with SSO
         </h1>
         <p className={`${inter.className} font-[380] text-[16px] text-muted-foreground`}>
@@ -198,11 +198,7 @@ export default function SSOForm() {
           </div>
         </div>
 
-        <Button
-          type='submit'
-          className={primaryButtonClasses}
-          disabled={isLoading}
-        >
+        <Button type='submit' className={primaryButtonClasses} disabled={isLoading}>
           {isLoading ? 'Redirecting to SSO provider...' : 'Continue with SSO'}
         </Button>
       </form>
@@ -215,7 +211,7 @@ export default function SSOForm() {
               <div className='auth-divider w-full border-t' />
             </div>
             <div className='relative flex justify-center text-sm'>
-              <span className='bg-white px-4 font-[340] text-muted-foreground'>Or</span>
+              <span className=' px-4 font-[340] text-muted-foreground'>Or</span>
             </div>
           </div>
 

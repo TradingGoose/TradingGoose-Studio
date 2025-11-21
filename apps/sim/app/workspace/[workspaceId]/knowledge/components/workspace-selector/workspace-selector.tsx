@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Check, ChevronDown } from 'lucide-react'
+import { AlertTriangle, Check, ChevronDown, CopyPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -31,6 +31,7 @@ interface WorkspaceSelectorProps {
   currentWorkspaceId: string | null
   onWorkspaceChange?: (workspaceId: string | null) => void
   disabled?: boolean
+  variant?: 'default' | 'compact'
 }
 
 export function WorkspaceSelector({
@@ -38,6 +39,7 @@ export function WorkspaceSelector({
   currentWorkspaceId,
   onWorkspaceChange,
   disabled = false,
+  variant = 'default',
 }: WorkspaceSelectorProps) {
   const { updateKnowledgeBase } = useKnowledgeStore()
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
@@ -120,6 +122,44 @@ export function WorkspaceSelector({
 
   const currentWorkspace = workspaces.find((ws) => ws.id === currentWorkspaceId)
   const hasWorkspace = !!currentWorkspaceId
+  const isCompact = variant === 'compact'
+  const copyTooltip = 'Copy to workspace'
+
+  const compactButtonClasses =
+    'inline-flex h-7 w-7 items-center justify-center gap-2 rounded-md p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
+
+  const triggerButton = (
+    <DropdownMenuTrigger asChild>
+      {isCompact ? (
+        <button
+          type='button'
+          className={compactButtonClasses}
+          disabled={disabled || isLoading || isUpdating}
+          aria-label='Copy knowledge base to workspace'
+        >
+          <CopyPlus className='h-3.5 w-3.5' />
+        </button>
+      ) : (
+        <Button
+          type='button'
+          variant='outline'
+          size='sm'
+          disabled={disabled || isLoading || isUpdating}
+          className={filterButtonClass}
+          aria-label={isCompact ? 'Copy knowledge base to workspace' : undefined}
+        >
+          <span className='truncate'>
+            {isLoading
+              ? 'Loading...'
+              : isUpdating
+                ? 'Updating...'
+                : currentWorkspace?.name || 'No workspace'}
+          </span>
+          <ChevronDown className='ml-2 h-4 w-4 text-muted-foreground' />
+        </Button>
+      )}
+    </DropdownMenuTrigger>
+  )
 
   return (
     <div className='flex items-center gap-2'>
@@ -135,23 +175,14 @@ export function WorkspaceSelector({
 
       {/* Workspace selector dropdown */}
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant='outline'
-            size='sm'
-            disabled={disabled || isLoading || isUpdating}
-            className={filterButtonClass}
-          >
-            <span className='truncate'>
-              {isLoading
-                ? 'Loading...'
-                : isUpdating
-                  ? 'Updating...'
-                  : currentWorkspace?.name || 'No workspace'}
-            </span>
-            <ChevronDown className='ml-2 h-4 w-4 text-muted-foreground' />
-          </Button>
-        </DropdownMenuTrigger>
+        {isCompact ? (
+          <Tooltip>
+            <TooltipTrigger asChild>{triggerButton}</TooltipTrigger>
+            <TooltipContent side='top'>{copyTooltip}</TooltipContent>
+          </Tooltip>
+        ) : (
+          triggerButton
+        )}
         <DropdownMenuContent
           align='end'
           side='bottom'

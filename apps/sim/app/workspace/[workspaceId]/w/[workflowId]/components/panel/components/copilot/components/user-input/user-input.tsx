@@ -51,11 +51,11 @@ import {
 import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useCopilotStore } from '@/stores/copilot/store'
 import type { ChatContext } from '@/stores/copilot/types'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import { ContextUsagePill } from '../context-usage-pill/context-usage-pill'
-import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 const logger = createLogger('CopilotUserInput')
 
@@ -239,7 +239,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     // Use controlled value if provided, otherwise use internal state
     const message = controlledValue !== undefined ? controlledValue : internalMessage
     const setMessage =
-      controlledValue !== undefined ? onControlledChange || (() => { }) : setInternalMessage
+      controlledValue !== undefined ? onControlledChange || (() => {}) : setInternalMessage
 
     // Load workflows on mount if we have a workflowId
     useEffect(() => {
@@ -639,11 +639,11 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
             prev.map((f) =>
               f.id === tempFile.id
                 ? {
-                  ...f,
-                  path: presignedData.fileInfo.path,
-                  key: presignedData.fileInfo.key, // Store the actual storage key
-                  uploading: false,
-                }
+                    ...f,
+                    path: presignedData.fileInfo.path,
+                    key: presignedData.fileInfo.key, // Store the actual storage key
+                    uploading: false,
+                  }
                 : f
             )
           )
@@ -739,25 +739,25 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
         const aggregatedList =
           !openSubmenuFor && mainQ.length > 0
             ? [
-              ...workflowBlocks
-                .filter((b) => (b.name || b.id).toLowerCase().includes(mainQ))
-                .map((b) => ({ type: 'Workflow Blocks' as const, value: b })),
-              ...workflows
-                .filter((w) => (w.name || 'Untitled Workflow').toLowerCase().includes(mainQ))
-                .map((w) => ({ type: 'Workflows' as const, value: w })),
-              ...blocksList
-                .filter((b) => (b.name || b.id).toLowerCase().includes(mainQ))
-                .map((b) => ({ type: 'Blocks' as const, value: b })),
-              ...knowledgeBases
-                .filter((k) => (k.name || 'Untitled').toLowerCase().includes(mainQ))
-                .map((k) => ({ type: 'Knowledge' as const, value: k })),
-              ...templatesList
-                .filter((t) => (t.name || 'Untitled Template').toLowerCase().includes(mainQ))
-                .map((t) => ({ type: 'Templates' as const, value: t })),
-              ...pastChats
-                .filter((c) => (c.title || 'Untitled Chat').toLowerCase().includes(mainQ))
-                .map((c) => ({ type: 'Chats' as const, value: c })),
-            ]
+                ...workflowBlocks
+                  .filter((b) => (b.name || b.id).toLowerCase().includes(mainQ))
+                  .map((b) => ({ type: 'Workflow Blocks' as const, value: b })),
+                ...workflows
+                  .filter((w) => (w.name || 'Untitled Workflow').toLowerCase().includes(mainQ))
+                  .map((w) => ({ type: 'Workflows' as const, value: w })),
+                ...blocksList
+                  .filter((b) => (b.name || b.id).toLowerCase().includes(mainQ))
+                  .map((b) => ({ type: 'Blocks' as const, value: b })),
+                ...knowledgeBases
+                  .filter((k) => (k.name || 'Untitled').toLowerCase().includes(mainQ))
+                  .map((k) => ({ type: 'Knowledge' as const, value: k })),
+                ...templatesList
+                  .filter((t) => (t.name || 'Untitled Template').toLowerCase().includes(mainQ))
+                  .map((t) => ({ type: 'Templates' as const, value: t })),
+                ...pastChats
+                  .filter((c) => (c.title || 'Untitled Chat').toLowerCase().includes(mainQ))
+                  .map((c) => ({ type: 'Chats' as const, value: c })),
+              ]
             : []
 
         if (openSubmenuFor === 'Chats' && pastChats.length > 0) {
@@ -2132,9 +2132,9 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       <div ref={containerRef} className={cn('relative flex-none', className)}>
         <div
           className={cn(
-            'relative rounded-sm border border-[#E5E5E5] bg-[#FFFFFF] px-3 py-1.5 shadow-xs transition-all duration-200 dark:border-[#414141] dark:bg-[var(--surface-elevated)]',
+            'relative rounded-md border border-[#E5E5E5] bg-[#FFFFFF] px-3 py-1.5 shadow-xs transition-all duration-200 dark:border-[#414141] dark:bg-[var(--surface-elevated)]',
             isDragging &&
-            'border-[var(--primary-hover)] bg-purple-50/50 dark:border-[var(--primary-hover)] dark:bg-purple-950/20'
+              'border-[var(--primary-hover)] bg-purple-50/50 dark:border-[var(--primary-hover)] dark:bg-purple-950/20'
           )}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
@@ -2400,7 +2400,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={chat.id}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-card/60',
+                                        'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2447,7 +2447,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={wf.id}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-card/60',
+                                        'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2492,7 +2492,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={kb.id}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-card/60',
+                                        'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2532,7 +2532,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={blk.id}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-card/60',
+                                        'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2544,7 +2544,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       }}
                                     >
                                       <div
-                                        className='relative flex h-4 w-4 items-center justify-center rounded-[3px]'
+                                        className='relative flex h-4 w-4 items-center justify-center rounded-xs'
                                         style={{ backgroundColor: blk.bgColor || '#6B7280' }}
                                       >
                                         {blk.iconComponent && (
@@ -2579,7 +2579,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={blk.id}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-card/60',
+                                        'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2591,7 +2591,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       }}
                                     >
                                       <div
-                                        className='relative flex h-4 w-4 items-center justify-center rounded-[3px]'
+                                        className='relative flex h-4 w-4 items-center justify-center rounded-xs'
                                         style={{ backgroundColor: blk.bgColor || '#6B7280' }}
                                       >
                                         {blk.iconComponent && (
@@ -2626,7 +2626,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={tpl.id}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-card/60',
+                                        'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2672,7 +2672,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={log.id}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-card/60',
+                                        'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2796,7 +2796,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={`${item.type}-${item.id}`}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex cursor-default items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-card/60',
+                                        'flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2839,7 +2839,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       ) : item.type === 'Blocks' ? (
                                         <>
                                           <div
-                                            className='relative flex h-4 w-4 items-center justify-center rounded-[3px]'
+                                            className='relative flex h-4 w-4 items-center justify-center rounded-xs'
                                             style={{
                                               backgroundColor:
                                                 (item.value as any).bgColor || '#6B7280',
@@ -2859,7 +2859,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       ) : item.type === 'Workflow Blocks' ? (
                                         <>
                                           <div
-                                            className='relative flex h-4 w-4 items-center justify-center rounded-[3px]'
+                                            className='relative flex h-4 w-4 items-center justify-center rounded-xs'
                                             style={{
                                               backgroundColor:
                                                 (item.value as any).bgColor || '#6B7280',
@@ -2932,7 +2932,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                   key={label}
                                   data-idx={idx}
                                   className={cn(
-                                    'flex cursor-default items-center justify-between gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-card/60',
+                                    'flex cursor-default items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
                                     !inAggregated && mentionActiveIndex === idx && 'bg-muted'
                                   )}
                                   role='menuitem'
@@ -3072,7 +3072,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                         key={`${item.type}-${(item.value as any).id}`}
                                         data-idx={filteredLen + idx}
                                         className={cn(
-                                          'flex cursor-default items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-card/60',
+                                          'flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
                                           inAggregated && submenuActiveIndex === idx && 'bg-muted'
                                         )}
                                         role='menuitem'
@@ -3133,7 +3133,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                         ) : item.type === 'Blocks' ? (
                                           <>
                                             <div
-                                              className='relative flex h-4 w-4 items-center justify-center rounded-[3px]'
+                                              className='relative flex h-4 w-4 items-center justify-center rounded-xs'
                                               style={{
                                                 backgroundColor:
                                                   (item.value as any).bgColor || '#6B7280',
@@ -3153,7 +3153,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                         ) : item.type === 'Workflow Blocks' ? (
                                           <>
                                             <div
-                                              className='relative flex h-4 w-4 items-center justify-center rounded-[3px]'
+                                              className='relative flex h-4 w-4 items-center justify-center rounded-xs'
                                               style={{
                                                 backgroundColor:
                                                   (item.value as any).bgColor || '#6B7280',

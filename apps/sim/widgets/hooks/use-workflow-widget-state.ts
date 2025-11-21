@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { shallow } from 'zustand/shallow'
-import type { WidgetComponentProps } from '@/widgets/types'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { hasWorkflowsInitiallyLoaded, useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import type { PairColor } from '@/widgets/pair-colors'
+import type { WidgetComponentProps } from '@/widgets/types'
 
 type UseWorkflowWidgetStateOptions = Pick<
   WidgetComponentProps,
@@ -128,9 +128,7 @@ export const useWorkflowWidgetState = ({
     }
 
     const pairWorkflowId =
-      resolvedPairColor !== 'gray' &&
-      pairContext.workflowId &&
-      workflowMap[pairContext.workflowId]
+      resolvedPairColor !== 'gray' && pairContext.workflowId && workflowMap[pairContext.workflowId]
         ? pairContext.workflowId
         : null
 
@@ -167,12 +165,11 @@ export const useWorkflowWidgetState = ({
 
     let cancelled = false
 
-    setActiveWorkflow({ workflowId: resolvedWorkflowId, channelId })
-      .catch((error) => {
-        if (!cancelled) {
-          console.error(`Failed to activate workflow for ${loggerScope}`, error)
-        }
-      })
+    setActiveWorkflow({ workflowId: resolvedWorkflowId, channelId }).catch((error) => {
+      if (!cancelled) {
+        console.error(`Failed to activate workflow for ${loggerScope}`, error)
+      }
+    })
 
     return () => {
       cancelled = true

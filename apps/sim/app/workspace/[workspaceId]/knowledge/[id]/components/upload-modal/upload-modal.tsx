@@ -179,10 +179,11 @@ export function UploadModal({
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`relative flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed p-8 text-center transition-colors ${isDragging
-                  ? 'border-primary bg-[var(--primary)]/5'
-                  : 'border-muted-foreground/25 hover:border-muted-foreground/40 hover:bg-card/10'
-                  }`}
+                className={`relative flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
+                  isDragging
+                    ? 'border-primary bg-[var(--primary)]/5'
+                    : 'border-muted-foreground/25 hover:border-muted-foreground/40 hover:bg-card/10'
+                }`}
               >
                 <input
                   ref={fileInputRef}
@@ -209,10 +210,11 @@ export function UploadModal({
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
-                  className={`cursor-pointer rounded-md border border-dashed p-3 text-center transition-colors ${isDragging
-                    ? 'border-primary bg-[var(--primary)]/5'
-                    : 'border-muted-foreground/25 hover:border-muted-foreground/40'
-                    }`}
+                  className={`cursor-pointer rounded-md border border-dashed p-3 text-center transition-colors ${
+                    isDragging
+                      ? 'border-primary bg-[var(--primary)]/5'
+                      : 'border-muted-foreground/25 hover:border-muted-foreground/40'
+                  }`}
                 >
                   <input
                     ref={fileInputRef}

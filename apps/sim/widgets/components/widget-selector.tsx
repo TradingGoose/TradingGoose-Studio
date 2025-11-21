@@ -1,6 +1,14 @@
 'use client'
 
-import { useState, cloneElement, isValidElement, memo, useMemo, type MouseEvent, type ReactElement } from 'react'
+import {
+  cloneElement,
+  isValidElement,
+  type MouseEvent,
+  memo,
+  type ReactElement,
+  useMemo,
+  useState,
+} from 'react'
 import { ChevronDown } from 'lucide-react'
 import {
   DropdownMenu,
@@ -12,8 +20,8 @@ import { cn } from '@/lib/utils'
 import {
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
-  widgetHeaderMenuItemClassName,
   widgetHeaderMenuIconClassName,
+  widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/widgets/components/widget-header-control'
 import { getWidgetCategories, getWidgetDefinition } from '@/widgets/registry'
@@ -23,7 +31,10 @@ interface WidgetSelectorProps {
   currentKey?: string | null
   onSelect?: (widgetKey: string) => void
   disabled?: boolean
-  renderTrigger?: (options: { disabled: boolean; currentDefinition?: DashboardWidgetDefinition }) => ReactElement
+  renderTrigger?: (options: {
+    disabled: boolean
+    currentDefinition?: DashboardWidgetDefinition
+  }) => ReactElement
 }
 
 type TriggerElementProps = {
@@ -35,7 +46,12 @@ type TriggerElementProps = {
 
 const categories = getWidgetCategories()
 
-function WidgetSelectorComponent({ currentKey, onSelect, disabled, renderTrigger }: WidgetSelectorProps) {
+function WidgetSelectorComponent({
+  currentKey,
+  onSelect,
+  disabled,
+  renderTrigger,
+}: WidgetSelectorProps) {
   const currentDefinition: DashboardWidgetDefinition | undefined = useMemo(() => {
     if (!currentKey) return getWidgetDefinition('empty')
     return getWidgetDefinition(currentKey) ?? getWidgetDefinition('empty')
@@ -50,11 +66,9 @@ function WidgetSelectorComponent({ currentKey, onSelect, disabled, renderTrigger
       disabled={triggerDisabled}
       className={widgetHeaderControlClassName('font-semibold')}
     >
-      <span className='flex items-center gap-2 hover:text-foreground text-muted-foreground'>
+      <span className='flex items-center gap-2 text-muted-foreground hover:text-foreground'>
         <span className=' '>
-          {CurrentIcon ? (
-            <CurrentIcon className='h-3.5 w-3.5 ' aria-hidden='true' />
-          ) : null}
+          {CurrentIcon ? <CurrentIcon className='h-3.5 w-3.5 ' aria-hidden='true' /> : null}
         </span>
         <ChevronDown className='h-3.5 w-3.5 ' aria-hidden='true' />
       </span>
@@ -71,33 +85,26 @@ function WidgetSelectorComponent({ currentKey, onSelect, disabled, renderTrigger
   const triggerContent = customTrigger ?? defaultTrigger
   const triggerElement = isValidElement<TriggerElementProps>(triggerContent)
     ? cloneElement(triggerContent, {
-      disabled: triggerDisabled || triggerContent.props.disabled,
-      'aria-disabled': triggerDisabled || triggerContent.props.disabled ? true : undefined,
-      onClick: (event: MouseEvent) => {
-        triggerContent.props.onClick?.(event)
-        if (!triggerDisabled) {
-          setOpen((prev) => !prev)
-        }
-      },
-    })
+        disabled: triggerDisabled || triggerContent.props.disabled,
+        'aria-disabled': triggerDisabled || triggerContent.props.disabled ? true : undefined,
+        onClick: (event: MouseEvent) => {
+          triggerContent.props.onClick?.(event)
+          if (!triggerDisabled) {
+            setOpen((prev) => !prev)
+          }
+        },
+      })
     : triggerContent
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild>
-        {triggerElement}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        sideOffset={6}
-        className={cn(widgetHeaderMenuContentClassName, ' p-2')}
-      >
+      <DropdownMenuTrigger asChild>{triggerElement}</DropdownMenuTrigger>
+      <DropdownMenuContent sideOffset={6} className={cn(widgetHeaderMenuContentClassName, ' p-2')}>
         <div className='grid md:grid-cols-3'>
           {categories.map((category) => (
             <div key={category.key} className=''>
               <div>
-                <p className='text-xs font-semibold uppercase tracking-wide '>
-                  {category.title}
-                </p>
+                <p className='font-semibold text-xs uppercase tracking-wide '>{category.title}</p>
               </div>
               <div className='space-y-1'>
                 {category.widgets.map((widget) => (

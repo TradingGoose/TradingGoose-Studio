@@ -722,12 +722,7 @@ export function TriggerModal({
               )}
             </div>
             <div className='flex gap-2'>
-              <Button
-                variant='outline'
-                onClick={onClose}
-                size='default'
-                className='h-9 rounded-sm'
-              >
+              <Button variant='outline' onClick={onClose} size='default' className='h-9 rounded-sm'>
                 Cancel
               </Button>
               <Button

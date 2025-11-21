@@ -5,7 +5,7 @@ import { Badge, Progress } from '@/components/ui'
 import { cn } from '@/lib/utils'
 
 const GRADIENT_BADGE_STYLES =
-  'gradient-text h-[1.125rem] rounded-[6px] border-gradient-primary/20 bg-gradient-to-b from-gradient-primary via-gradient-secondary to-gradient-primary px-2 py-0 font-medium text-xs cursor-pointer'
+  'gradient-text h-[1.125rem] rounded-md border-gradient-primary/20 bg-gradient-to-b from-gradient-primary via-gradient-secondary to-gradient-primary px-2 py-0 font-medium text-xs cursor-pointer'
 
 interface UsageHeaderProps {
   title: string
@@ -82,11 +82,11 @@ export function UsageHeader({
         <Progress
           value={isBlocked ? 100 : progress}
           className='h-2'
-          indicatorClassName='bg-black dark:bg-white'
+          indicatorClassName='bg-black dark: '
         />
 
         {isBlocked && (
-          <div className='flex items-center justify-between rounded-[6px] bg-destructive/10 px-2 py-1'>
+          <div className='flex items-center justify-between rounded-md bg-destructive/10 px-2 py-1'>
             <span className='text-destructive text-xs'>
               Payment failed. Please update your payment method.
             </span>

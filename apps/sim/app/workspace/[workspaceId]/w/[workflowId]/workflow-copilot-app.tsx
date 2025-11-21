@@ -2,14 +2,14 @@
 
 import { useSession } from '@/lib/auth-client'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
-import { SocketProvider } from '@/contexts/socket-context'
-import { WorkflowRouteProvider } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { Copilot } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/panel/components/copilot/copilot'
-import {
-  WorkflowStoreProvider,
-  DEFAULT_WORKFLOW_CHANNEL_ID,
-} from '@/stores/workflows/workflow/store-client'
+import { WorkflowRouteProvider } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
+import { SocketProvider } from '@/contexts/socket-context'
 import { CopilotStoreProvider } from '@/stores/copilot/store'
+import {
+  DEFAULT_WORKFLOW_CHANNEL_ID,
+  WorkflowStoreProvider,
+} from '@/stores/workflows/workflow/store-client'
 
 interface WorkflowCopilotAppProps {
   workspaceId: string
@@ -37,7 +37,11 @@ const WorkflowCopilotApp = ({
   return (
     <Providers workspaceId={workspaceId}>
       <SocketProvider user={user} workspaceId={workspaceId} workflowId={workflowId}>
-        <WorkflowRouteProvider workspaceId={workspaceId} workflowId={workflowId} channelId={channelId}>
+        <WorkflowRouteProvider
+          workspaceId={workspaceId}
+          workflowId={workflowId}
+          channelId={channelId}
+        >
           <WorkflowStoreProvider channelId={channelId}>
             <CopilotStoreProvider channelId={channelId}>
               <div className='flex h-full w-full flex-col overflow-hidden bg-[hsl(var(--workflow-background))]'>

@@ -41,10 +41,7 @@ export const TodoList = memo(function TodoList({
 
   return (
     <div
-      className={cn(
-        'border-gray-200 border-t bg-white dark:border-gray-700 dark:bg-gray-900',
-        className
-      )}
+      className={cn('border-gray-200 border-t dark:border-gray-700 dark:bg-gray-900', className)}
     >
       {/* Header */}
       <div className='flex items-center justify-between border-gray-100 border-b px-3 py-2 dark:border-gray-800'>

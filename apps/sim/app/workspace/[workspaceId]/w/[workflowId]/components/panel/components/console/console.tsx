@@ -2,10 +2,10 @@
 
 import { useMemo } from 'react'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { ConsoleEntry } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/panel/components/console/components'
 import { cn } from '@/lib/utils'
-import { useConsoleStore } from '@/stores/panel/console/store'
+import { ConsoleEntry } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/panel/components/console/components'
 import { useWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
+import { useConsoleStore } from '@/stores/panel/console/store'
 
 interface ConsoleProps {
   panelWidth: number
@@ -28,7 +28,7 @@ export function Console({ panelWidth, hideScrollbar = true }: ConsoleProps) {
         </div>
       ) : (
         <ScrollArea
-          className={cn('h-full pb-2 px-2', !hideScrollbar && 'pr-2')}
+          className={cn('h-full px-2 pb-2', !hideScrollbar && 'pr-2')}
           hideScrollbar={hideScrollbar}
         >
           <div className={cn('space-y-3', !hideScrollbar && 'pr-1')}>

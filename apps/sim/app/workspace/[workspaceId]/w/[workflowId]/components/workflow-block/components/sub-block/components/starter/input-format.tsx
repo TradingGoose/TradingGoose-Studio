@@ -311,7 +311,7 @@ export function FieldFormat({
                       onChange={(e) => updateField(field.id, 'name', e.target.value)}
                       placeholder={placeholder}
                       disabled={isPreview || disabled}
-                      className='h-9 border border-input bg-white placeholder:text-muted-foreground/50 dark:border-input/60 dark:bg-background'
+                      className='h-9 border border-input placeholder:text-muted-foreground/50 dark:border-input/60 dark:bg-background'
                     />
                   </div>
 
@@ -421,7 +421,7 @@ export function FieldFormat({
                             }
                             disabled={isPreview || disabled}
                             className={cn(
-                              'min-h-[120px] border border-input bg-white font-mono text-sm placeholder:text-muted-foreground/50 dark:border-input/60 dark:bg-background',
+                              'min-h-[120px] border border-input font-mono text-sm placeholder:text-muted-foreground/50 dark:border-input/60 dark:bg-background',
                               dragHighlight[field.id] && 'ring-2 ring-blue-500 ring-offset-2',
                               isConnecting &&
                                 config?.connectionDroppable !== false &&
@@ -459,7 +459,7 @@ export function FieldFormat({
                               placeholder={valuePlaceholder}
                               disabled={isPreview || disabled}
                               className={cn(
-                                'allow-scroll h-9 w-full overflow-auto border border-input bg-white text-transparent caret-foreground placeholder:text-muted-foreground/50 dark:border-input/60 dark:bg-background',
+                                'allow-scroll h-9 w-full overflow-auto border border-input text-transparent caret-foreground placeholder:text-muted-foreground/50 dark:border-input/60 dark:bg-background',
                                 dragHighlight[field.id] && 'ring-2 ring-blue-500 ring-offset-2',
                                 isConnecting &&
                                   config?.connectionDroppable !== false &&

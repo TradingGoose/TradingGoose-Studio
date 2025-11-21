@@ -16,12 +16,7 @@ import {
   X,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import {
-  Button,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui'
+import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui'
 import { useSession } from '@/lib/auth-client'
 import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -33,6 +28,7 @@ import {
   TemplateModal,
   WebhookSettings,
 } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/control-bar/components'
+import { useWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useWorkflowExecution } from '@/app/workspace/[workspaceId]/w/[workflowId]/hooks/use-workflow-execution'
 import {
   getKeyboardShortcutText,
@@ -44,12 +40,8 @@ import { useSubscriptionStore } from '@/stores/subscription/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
-import { useWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
-import {
-  widgetHeaderControlClassName,
-  widgetHeaderIconButtonClassName,
-} from '@/widgets/components/widget-header-control'
+import { widgetHeaderIconButtonClassName } from '@/widgets/components/widget-header-control'
 
 const logger = createLogger('ControlBar')
 
@@ -79,7 +71,10 @@ const WORKSPACE_ICON_BUTTON_DISABLED_CLASS =
   'inline-flex h-12 w-12 cursor-not-allowed items-center justify-center rounded-md border bg-card text-card-foreground opacity-50 shadow-xs transition-colors'
 
 const WIDGET_ICON_BUTTON_CLASS = widgetHeaderIconButtonClassName()
-const WIDGET_ICON_BUTTON_DISABLED_CLASS = cn(widgetHeaderIconButtonClassName(), 'cursor-not-allowed opacity-60')
+const WIDGET_ICON_BUTTON_DISABLED_CLASS = cn(
+  widgetHeaderIconButtonClassName(),
+  'cursor-not-allowed opacity-60'
+)
 
 const WORKSPACE_PRIMARY_BUTTON_CLASS = cn(
   'gap-2 font-medium',
@@ -111,9 +106,7 @@ const getIconButtonClass = (variant: ControlBarVariant, extra?: string) =>
 
 const getDisabledIconButtonClass = (variant: ControlBarVariant, extra?: string) =>
   cn(
-    variant === 'widget'
-      ? WIDGET_ICON_BUTTON_DISABLED_CLASS
-      : WORKSPACE_ICON_BUTTON_DISABLED_CLASS,
+    variant === 'widget' ? WIDGET_ICON_BUTTON_DISABLED_CLASS : WORKSPACE_ICON_BUTTON_DISABLED_CLASS,
     extra
   )
 
@@ -639,13 +632,9 @@ export function ControlBar({
     const isControlDisabled = pendingCount === 0
 
     const debugButtonClass = cn(
-      getIconButtonClass(
-        variant,
-        'bg-primary  hover:bg-primary-hover'
-      ),
+      getIconButtonClass(variant, 'bg-primary  hover:bg-primary-hover'),
       'font-semibold transition-all duration-200',
-      variant === 'workspace' &&
-      'shadow-[0_0_0_0_var(--primary)] ',
+      variant === 'workspace' && 'shadow-[0_0_0_0_var(--primary)] ',
       'disabled:opacity-50'
     )
 
@@ -765,7 +754,9 @@ export function ControlBar({
       <Tooltip>
         <TooltipTrigger asChild>
           {isDisabled ? (
-            <div className={cn(getDisabledIconButtonClass(variant), isDebugging && 'text-amber-500')}>
+            <div
+              className={cn(getDisabledIconButtonClass(variant), isDebugging && 'text-amber-500')}
+            >
               <Bug className='h-4 w-4' />
             </div>
           ) : (
@@ -794,10 +785,7 @@ export function ControlBar({
       return (
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              className={getDangerButtonClass(variant)}
-              onClick={handleCancelExecution}
-            >
+            <Button className={getDangerButtonClass(variant)} onClick={handleCancelExecution}>
               <X className={cn('h-3.5 w-3.5')} />
             </Button>
           </TooltipTrigger>
@@ -888,7 +876,7 @@ export function ControlBar({
           variant='ghost'
           size='sm'
           onClick={handleRefresh}
-          className='h-8 bg-white px-2 text-red-500 hover:bg-red-50'
+          className='h-8 px-2 text-red-500 hover:bg-red-50'
         >
           <RefreshCw className='h-3 w-3' />
         </Button>

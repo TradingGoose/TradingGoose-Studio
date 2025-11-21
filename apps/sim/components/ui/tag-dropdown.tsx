@@ -1404,8 +1404,8 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                           'hover:bg-card hover:text-accent-foreground',
                           'focus:bg-accent focus:text-accent-foreground focus:outline-none',
                           tagIndex === selectedIndex &&
-                          tagIndex >= 0 &&
-                          'bg-accent text-accent-foreground'
+                            tagIndex >= 0 &&
+                            'bg-accent text-accent-foreground'
                         )}
                         {...createTagEventHandlers(
                           tag,

@@ -84,7 +84,12 @@ export function useSidebarResize({
   )
 
   const calculateWidth = React.useCallback(
-    (event: MouseEvent, initialX: number, initialWidth: number, currentRailRect: DOMRect | null) => {
+    (
+      event: MouseEvent,
+      initialX: number,
+      initialWidth: number,
+      currentRailRect: DOMRect | null
+    ) => {
       if (isNested && currentRailRect) {
         const deltaX = event.clientX - initialX
         if (direction === 'left') {
@@ -227,7 +232,10 @@ export function useSidebarResize({
           )
 
           const clampedWidth = Math.max(minWidthPx, Math.min(maxWidthPx, initialWidth))
-          const formattedWidth = formatWidth(unit === 'rem' ? clampedWidth / 16 : clampedWidth, unit)
+          const formattedWidth = formatWidth(
+            unit === 'rem' ? clampedWidth / 16 : clampedWidth,
+            unit
+          )
           onResize(formattedWidth)
           persistWidth(formattedWidth)
 
@@ -243,12 +251,7 @@ export function useSidebarResize({
         return
       }
 
-      const newWidthPx = calculateWidth(
-        event,
-        startX.current,
-        startWidth.current,
-        currentRailRect
-      )
+      const newWidthPx = calculateWidth(event, startX.current, startWidth.current, currentRailRect)
 
       const clampedWidthPx = Math.max(minWidthPx, Math.min(maxWidthPx, newWidthPx))
       const newWidth = unit === 'rem' ? clampedWidthPx / 16 : clampedWidthPx

@@ -67,11 +67,7 @@ export function RequestResetForm({
         )}
       </div>
 
-      <Button
-        type='submit'
-        disabled={isSubmitting}
-        className={primaryButtonClasses}
-      >
+      <Button type='submit' disabled={isSubmitting} className={primaryButtonClasses}>
         {isSubmitting ? 'Sending...' : 'Send Reset Link'}
       </Button>
     </form>
@@ -140,7 +136,7 @@ export function SetNewPasswordForm({
               className={cn(
                 'rounded-md pr-10 shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                 validationMessage &&
-                'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                  'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
               )}
             />
             <button
@@ -172,7 +168,7 @@ export function SetNewPasswordForm({
               className={cn(
                 'rounded-md pr-10 shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                 validationMessage &&
-                'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                  'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
               )}
             />
             <button
@@ -204,11 +200,7 @@ export function SetNewPasswordForm({
         )}
       </div>
 
-      <Button
-        disabled={isSubmitting || !token}
-        type='submit'
-        className={primaryButtonClasses}
-      >
+      <Button disabled={isSubmitting || !token} type='submit' className={primaryButtonClasses}>
         {isSubmitting ? 'Resetting...' : 'Reset Password'}
       </Button>
     </form>

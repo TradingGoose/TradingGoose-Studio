@@ -161,7 +161,7 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
       await refresh()
       if (activeOrgId) {
         await loadOrganizationSubscription(activeOrgId)
-        await refreshOrganization().catch(() => { })
+        await refreshOrganization().catch(() => {})
       }
 
       setIsDialogOpen(false)
@@ -245,8 +245,8 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
               {isCancelAtPeriodEnd
                 ? 'Your subscription is set to cancel at the end of the billing period. Would you like to keep your subscription active?'
                 : `You'll be redirected to Stripe to manage your subscription. You'll keep access until ${formatDate(
-                  periodEndDate
-                )}, then downgrade to free plan.`}{' '}
+                    periodEndDate
+                  )}, then downgrade to free plan.`}{' '}
               {!isCancelAtPeriodEnd && (
                 <span className='text-red-500 dark:text-red-500'>
                   This action cannot be undone.

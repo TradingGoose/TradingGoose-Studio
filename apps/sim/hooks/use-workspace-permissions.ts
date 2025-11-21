@@ -1,8 +1,9 @@
-"use client"
+'use client'
 
 import { useCallback, useEffect } from 'react'
-import { create } from 'zustand'
 import type { permissionTypeEnum } from '@sim/db/schema'
+import { create } from 'zustand'
+import { handleAuthError } from '@/lib/auth/auth-error-handler'
 import { createLogger } from '@/lib/logs/console/logger'
 import { API_ENDPOINTS } from '@/stores/constants'
 
@@ -98,6 +99,7 @@ const useWorkspacePermissionsStore = create<WorkspacePermissionsStoreState>((set
             throw new Error('Workspace not found or access denied')
           }
           if (response.status === 401) {
+            await handleAuthError('workspace-permissions')
             throw new Error('Authentication required')
           }
           throw new Error(`Failed to fetch permissions: ${response.statusText}`)

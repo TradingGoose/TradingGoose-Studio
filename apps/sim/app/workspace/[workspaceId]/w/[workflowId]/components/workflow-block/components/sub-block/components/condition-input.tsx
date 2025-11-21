@@ -15,11 +15,11 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { isLikelyReferenceSegment, SYSTEM_REFERENCE_PREFIXES } from '@/lib/workflows/references'
 import { useSubBlockValue } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useAccessibleReferencePrefixes } from '@/app/workspace/[workspaceId]/w/[workflowId]/hooks/use-accessible-reference-prefixes'
 import { useTagSelection } from '@/hooks/use-tag-selection'
 import { normalizeBlockName } from '@/stores/workflows/utils'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
-import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 const logger = createLogger('ConditionInput')
 
@@ -640,7 +640,7 @@ export function ConditionInput({
               key={`${block.id}-${index}`}
               className={cn(
                 '!w-[7px] !h-5',
-                '!bg-slate-300 dark:!bg-slate-500 !rounded-[2px] !border-none',
+                '!bg-slate-300 dark:!bg-slate-500 !rounded-xs !border-none',
                 '!z-[30]',
                 'group-hover:!shadow-[0_0_0_3px_rgba(156,163,175,0.15)]',
                 'hover:!w-[10px] hover:!right-[-28px] hover:!rounded-r-full hover:!rounded-l-none',

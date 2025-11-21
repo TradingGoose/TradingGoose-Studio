@@ -19,9 +19,9 @@ import { Dialog, DialogOverlay, DialogPortal, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input'
 import { useBrandConfig } from '@/lib/branding/branding'
 import { cn } from '@/lib/utils'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { getKeyboardShortcutText } from '@/app/workspace/[workspaceId]/w/hooks/use-keyboard-shortcuts'
 import { getAllBlocks } from '@/blocks'
-import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { type NavigationSection, useSearchNavigation } from './hooks/use-search-navigation'
 
 interface SearchModalProps {
@@ -565,7 +565,7 @@ export function SearchModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPortal>
         <DialogOverlay
-          className='bg-white/50 dark:bg-black/50'
+          className=' /50 dark:bg-black/50'
           style={{ backdropFilter: 'blur(1.5px)' }}
         />
         <DialogPrimitive.Content className='data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] fixed top-[50%] left-[50%] z-50 flex h-[580px] w-[700px] translate-x-[-50%] translate-y-[-50%] flex-col gap-0 overflow-hidden rounded-md border border-border bg-background p-0 focus:outline-none focus-visible:outline-none data-[state=closed]:animate-out data-[state=open]:animate-in'>
@@ -608,14 +608,15 @@ export function SearchModal({
                         key={block.id}
                         onClick={() => handleBlockClick(block.type)}
                         data-nav-item={`blocks-${index}`}
-                        className={`flex h-auto w-[180px] flex-shrink-0 cursor-pointer flex-col items-start gap-2 rounded-sm border p-3 transition-all duration-200 ${isItemSelected('blocks', index)
-                          ? 'border-border bg-secondary/80'
-                          : 'border-border/40 bg-background/60 hover:border-border hover:bg-secondary/80'
-                          }`}
+                        className={`flex h-auto w-[180px] flex-shrink-0 cursor-pointer flex-col items-start gap-2 rounded-sm border p-3 transition-all duration-200 ${
+                          isItemSelected('blocks', index)
+                            ? 'border-border bg-secondary/80'
+                            : 'border-border/40 bg-background/60 hover:border-border hover:bg-secondary/80'
+                        }`}
                       >
                         <div className='flex items-center gap-2'>
                           <div
-                            className='flex h-5 w-5 items-center justify-center rounded-[4px]'
+                            className='flex h-5 w-5 items-center justify-center rounded-sm'
                             style={{ backgroundColor: block.bgColor }}
                           >
                             <block.icon className='!h-3.5 !w-3.5 text-white' />
@@ -653,14 +654,15 @@ export function SearchModal({
                         key={trigger.id}
                         onClick={() => handleBlockClick(trigger.type)}
                         data-nav-item={`triggers-${index}`}
-                        className={`flex h-auto w-[180px] flex-shrink-0 cursor-pointer flex-col items-start gap-2 rounded-sm border p-3 transition-all duration-200 ${isItemSelected('triggers', index)
-                          ? 'border-border bg-secondary/80'
-                          : 'border-border/40 bg-background/60 hover:border-border hover:bg-secondary/80'
-                          }`}
+                        className={`flex h-auto w-[180px] flex-shrink-0 cursor-pointer flex-col items-start gap-2 rounded-sm border p-3 transition-all duration-200 ${
+                          isItemSelected('triggers', index)
+                            ? 'border-border bg-secondary/80'
+                            : 'border-border/40 bg-background/60 hover:border-border hover:bg-secondary/80'
+                        }`}
                       >
                         <div className='flex items-center gap-2'>
                           <div
-                            className='flex h-5 w-5 items-center justify-center rounded-[4px]'
+                            className='flex h-5 w-5 items-center justify-center rounded-sm'
                             style={{ backgroundColor: trigger.bgColor }}
                           >
                             <trigger.icon className='!h-3.5 !w-3.5 text-white' />
@@ -698,14 +700,15 @@ export function SearchModal({
                         key={tool.id}
                         onClick={() => handleBlockClick(tool.type)}
                         data-nav-item={`tools-${index}`}
-                        className={`flex h-auto w-[180px] flex-shrink-0 cursor-pointer flex-col items-start gap-2 rounded-sm border p-3 transition-all duration-200 ${isItemSelected('tools', index)
-                          ? 'border-border bg-secondary/80'
-                          : 'border-border/40 bg-background/60 hover:border-border hover:bg-secondary/80'
-                          }`}
+                        className={`flex h-auto w-[180px] flex-shrink-0 cursor-pointer flex-col items-start gap-2 rounded-sm border p-3 transition-all duration-200 ${
+                          isItemSelected('tools', index)
+                            ? 'border-border bg-secondary/80'
+                            : 'border-border/40 bg-background/60 hover:border-border hover:bg-secondary/80'
+                        }`}
                       >
                         <div className='flex items-center gap-2'>
                           <div
-                            className='flex h-5 w-5 items-center justify-center rounded-[4px]'
+                            className='flex h-5 w-5 items-center justify-center rounded-sm'
                             style={{ backgroundColor: tool.bgColor }}
                           >
                             <tool.icon className='!h-3.5 !w-3.5 text-white' />
@@ -750,10 +753,11 @@ export function SearchModal({
                                   : handleNavigationClick(workspace.href)
                               }
                               data-nav-item={`list-${globalIndex}`}
-                              className={`flex h-10 w-full items-center gap-3 rounded-sm px-3 py-2 transition-colors focus:outline-none ${isItemSelected('list', globalIndex)
-                                ? 'bg-accent text-accent-foreground'
-                                : 'hover:bg-card/60 focus:bg-accent/60'
-                                }`}
+                              className={`flex h-10 w-full items-center gap-3 rounded-sm px-3 py-2 transition-colors focus:outline-none ${
+                                isItemSelected('list', globalIndex)
+                                  ? 'bg-accent text-accent-foreground'
+                                  : 'hover:bg-card/60 focus:bg-accent/60'
+                              }`}
                             >
                               <div className='flex h-5 w-5 items-center justify-center'>
                                 <Building2 className='h-4 w-4 text-muted-foreground' />
@@ -787,10 +791,11 @@ export function SearchModal({
                                   : handleNavigationClick(workflow.href)
                               }
                               data-nav-item={`list-${globalIndex}`}
-                              className={`flex h-10 w-full items-center gap-3 rounded-sm px-3 py-2 transition-colors focus:outline-none ${isItemSelected('list', globalIndex)
-                                ? 'bg-accent text-accent-foreground'
-                                : 'hover:bg-card/60 focus:bg-accent/60'
-                                }`}
+                              className={`flex h-10 w-full items-center gap-3 rounded-sm px-3 py-2 transition-colors focus:outline-none ${
+                                isItemSelected('list', globalIndex)
+                                  ? 'bg-accent text-accent-foreground'
+                                  : 'hover:bg-card/60 focus:bg-accent/60'
+                              }`}
                             >
                               <div className='flex h-5 w-5 items-center justify-center'>
                                 <Workflow className='h-4 w-4 text-muted-foreground' />
@@ -823,10 +828,11 @@ export function SearchModal({
                                 kb.isCurrent ? onOpenChange(false) : handleNavigationClick(kb.href)
                               }
                               data-nav-item={`list-${globalIndex}`}
-                              className={`flex h-10 w-full items-center gap-3 rounded-sm px-3 py-2 transition-colors focus:outline-none ${isItemSelected('list', globalIndex)
-                                ? 'bg-accent text-accent-foreground'
-                                : 'hover:bg-card/60 focus:bg-accent/60'
-                                }`}
+                              className={`flex h-10 w-full items-center gap-3 rounded-sm px-3 py-2 transition-colors focus:outline-none ${
+                                isItemSelected('list', globalIndex)
+                                  ? 'bg-accent text-accent-foreground'
+                                  : 'hover:bg-card/60 focus:bg-accent/60'
+                              }`}
                             >
                               <div className='flex h-5 w-5 items-center justify-center'>
                                 <LibraryBig className='h-4 w-4 text-muted-foreground' />
@@ -860,10 +866,11 @@ export function SearchModal({
                               key={page.id}
                               onClick={() => handlePageClick(page.href)}
                               data-nav-item={`list-${globalIndex}`}
-                              className={`flex h-10 w-full items-center gap-3 rounded-sm px-3 py-2 transition-colors focus:outline-none ${isItemSelected('list', globalIndex)
-                                ? 'bg-accent text-accent-foreground'
-                                : 'hover:bg-card/60 focus:bg-accent/60'
-                                }`}
+                              className={`flex h-10 w-full items-center gap-3 rounded-sm px-3 py-2 transition-colors focus:outline-none ${
+                                isItemSelected('list', globalIndex)
+                                  ? 'bg-accent text-accent-foreground'
+                                  : 'hover:bg-card/60 focus:bg-accent/60'
+                              }`}
                             >
                               <div className='flex h-5 w-5 items-center justify-center'>
                                 <page.icon className='h-4 w-4 text-muted-foreground' />
@@ -898,10 +905,11 @@ export function SearchModal({
                               key={doc.id}
                               onClick={() => handleDocsClick(doc.href)}
                               data-nav-item={`list-${globalIndex}`}
-                              className={`flex h-10 w-full items-center gap-3 rounded-sm px-3 py-2 transition-colors focus:outline-none ${isItemSelected('list', globalIndex)
-                                ? 'bg-accent text-accent-foreground'
-                                : 'hover:bg-card/60 focus:bg-accent/60'
-                                }`}
+                              className={`flex h-10 w-full items-center gap-3 rounded-sm px-3 py-2 transition-colors focus:outline-none ${
+                                isItemSelected('list', globalIndex)
+                                  ? 'bg-accent text-accent-foreground'
+                                  : 'hover:bg-card/60 focus:bg-accent/60'
+                              }`}
                             >
                               <div className='flex h-5 w-5 items-center justify-center'>
                                 <doc.icon className='h-4 w-4 text-muted-foreground' />

@@ -99,7 +99,7 @@ interface FooterProps {
 
 export default function Footer({ fullWidth = false }: FooterProps) {
   return (
-    <footer className={`${inter.className} relative w-full overflow-hidden bg-white`}>
+    <footer className={`${inter.className} relative w-full overflow-hidden `}>
       <div
         className={
           fullWidth

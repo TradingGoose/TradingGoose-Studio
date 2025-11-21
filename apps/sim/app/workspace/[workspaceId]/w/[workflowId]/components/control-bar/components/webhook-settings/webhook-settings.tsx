@@ -397,9 +397,9 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
       newWebhook.includeRateLimits !== (originalWebhook.includeRateLimits || false) ||
       newWebhook.includeUsageData !== (originalWebhook.includeUsageData || false) ||
       JSON.stringify([...newWebhook.levelFilter].sort()) !==
-      JSON.stringify([...originalWebhook.levelFilter].sort()) ||
+        JSON.stringify([...originalWebhook.levelFilter].sort()) ||
       JSON.stringify([...newWebhook.triggerFilter].sort()) !==
-      JSON.stringify([...originalWebhook.triggerFilter].sort()) ||
+        JSON.stringify([...originalWebhook.triggerFilter].sort()) ||
       newWebhook.secret !== ''
     )
   }
@@ -536,7 +536,7 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
                       {/* Show 2 skeleton webhooks */}
                       {[1, 2].map((index) => (
                         <div key={index} className='flex flex-col gap-2'>
-                          <Skeleton className='h-[14px] w-[65px] rounded-[4px]' />{' '}
+                          <Skeleton className='h-[14px] w-[65px] rounded-sm' />{' '}
                           {/* WEBHOOK 1/2 label */}
                           <div className='flex flex-col gap-2'>
                             <div className='flex items-center justify-between gap-4'>
@@ -714,28 +714,28 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
                                 webhook.includeTraceSpans ||
                                 webhook.includeRateLimits ||
                                 webhook.includeUsageData) && (
-                                  <>
-                                    <span className='text-muted-foreground'>•</span>
-                                    {webhook.includeFinalOutput && (
-                                      <span className='rounded-md bg-muted px-1.5 py-0.5'>
-                                        output
-                                      </span>
-                                    )}
-                                    {webhook.includeTraceSpans && (
-                                      <span className='rounded-md bg-muted px-1.5 py-0.5'>
-                                        traces
-                                      </span>
-                                    )}
-                                    {webhook.includeRateLimits && (
-                                      <span className='rounded-md bg-muted px-1.5 py-0.5'>
-                                        limits
-                                      </span>
-                                    )}
-                                    {webhook.includeUsageData && (
-                                      <span className='rounded-md bg-muted px-1.5 py-0.5'>usage</span>
-                                    )}
-                                  </>
-                                )}
+                                <>
+                                  <span className='text-muted-foreground'>•</span>
+                                  {webhook.includeFinalOutput && (
+                                    <span className='rounded-md bg-muted px-1.5 py-0.5'>
+                                      output
+                                    </span>
+                                  )}
+                                  {webhook.includeTraceSpans && (
+                                    <span className='rounded-md bg-muted px-1.5 py-0.5'>
+                                      traces
+                                    </span>
+                                  )}
+                                  {webhook.includeRateLimits && (
+                                    <span className='rounded-md bg-muted px-1.5 py-0.5'>
+                                      limits
+                                    </span>
+                                  )}
+                                  {webhook.includeUsageData && (
+                                    <span className='rounded-md bg-muted px-1.5 py-0.5'>usage</span>
+                                  )}
+                                </>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1100,7 +1100,7 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
                     newWebhook.triggerFilter.length === 0 ||
                     (!!editingWebhookId && !hasChanges())
                   }
-                  className='h-9 rounded-sm bg-primary font-[480]  shadow-[0_0_0_0_var(--primary)] transition-all duration-200 hover:bg-primary-hover  disabled:opacity-50 disabled:hover:shadow-none'
+                  className='h-9 rounded-sm bg-primary font-[480] shadow-[0_0_0_0_var(--primary)] transition-all duration-200 hover:bg-primary-hover disabled:opacity-50 disabled:hover:shadow-none'
                 >
                   {isCreating ? (
                     <>{editingWebhookId ? 'Updating...' : 'Creating...'}</>

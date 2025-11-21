@@ -107,7 +107,7 @@ export default function SSOAuth({
   }
 
   return (
-    <div className='bg-white'>
+    <div className=' '>
       <Nav variant='auth' />
       <div className='flex min-h-[calc(100vh-120px)] items-center justify-center px-4'>
         <div className='w-full max-w-[410px]'>
@@ -115,7 +115,7 @@ export default function SSOAuth({
             {/* Header */}
             <div className='space-y-1 text-center'>
               <h1
-                className={`${soehne.className} font-medium text-[32px] text-black tracking-tight`}
+                className={`${soehne.className} font-medium text-[32px] tracking-tight`}
               >
                 SSO Authentication
               </h1>
@@ -167,11 +167,7 @@ export default function SSOAuth({
                 </div>
               </div>
 
-              <Button
-                type='submit'
-                className={primaryButtonClasses}
-                disabled={isLoading}
-              >
+              <Button type='submit' className={primaryButtonClasses} disabled={isLoading}>
                 {isLoading ? 'Redirecting to SSO...' : 'Continue with SSO'}
               </Button>
             </form>

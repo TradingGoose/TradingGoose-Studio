@@ -231,8 +231,8 @@ export function Document({
     }
   }, [hasPrevPage, currentPage, goToPage])
 
-  const refreshChunks = showingSearch ? async () => { } : initialRefreshChunks
-  const updateChunk = showingSearch ? (id: string, updates: any) => { } : initialUpdateChunk
+  const refreshChunks = showingSearch ? async () => {} : initialRefreshChunks
+  const updateChunk = showingSearch ? (id: string, updates: any) => {} : initialUpdateChunk
 
   const [documentData, setDocumentData] = useState<DocumentData | null>(null)
   const [isLoadingDocument, setIsLoadingDocument] = useState(true)
@@ -475,7 +475,7 @@ export function Document({
               : 'Document processing...'
           }
           value={searchQuery}
-          onChange={setSearchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
           disabled={documentData?.processingStatus !== 'completed'}
           className='flex h-9 w-full rounded-md border border-input bg-background pr-9 pl-10 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm'
           autoComplete='off'
@@ -697,7 +697,7 @@ export function Document({
     ]
 
     return (
-      <div className='flex h-[100vh] flex-col '>
+      <div className='flex h-full min-h-0 flex-col'>
         <KnowledgeHeader breadcrumbs={errorBreadcrumbs} />
         <div className='flex flex-1 items-center justify-center'>
           <div className='text-center'>
@@ -715,27 +715,25 @@ export function Document({
   }
 
   return (
-    <div className='flex h-full min-h-0 flex-col'>
-      {/* Fixed Header with Breadcrumbs */}
-      <KnowledgeHeader breadcrumbs={breadcrumbs} centerContent={headerCenterContent} />
+    <>
+      <div className='flex h-full min-h-0 flex-col'>
+        <KnowledgeHeader breadcrumbs={breadcrumbs} centerContent={headerCenterContent} />
 
-      <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
-        <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
-          {/* Main Content */}
-          <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
-            <div className='min-h-0 flex-1 overflow-auto'>
-              <div className='p-6 min-h-0 flex flex-1 flex-col'>
-                {/* Document Tag Entry moved to sidebar */}
+        <div className='flex h-full min-h-0 flex-1 flex-col overflow-hidden'>
+          <div className='flex h-full min-h-0 flex-1 flex-col overflow-hidden'>
+            <div className='flex h-full min-h-0 flex-1 flex-col'>
+              {/* Document Tag Entry moved to sidebar */}
 
-                {/* Error State for chunks */}
-                {combinedError && (
-                  <div className='mb-4 rounded-md border border-red-200 bg-red-50 p-4'>
-                    <p className='text-red-800 text-sm'>Error loading chunks: {combinedError}</p>
-                  </div>
-                )}
+              {/* Error State for chunks */}
+              {combinedError && (
+                <div className='mb-4 rounded-md border border-red-200 bg-red-50 p-4'>
+                  <p className='text-red-800 text-sm'>Error loading chunks: {combinedError}</p>
+                </div>
+              )}
 
-                <div className='flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border-border border'>
-                  <div className='shrink-0 border-b bg-background'>
+              <div className='flex h-full min-h-0 min-w-0 flex-1 overflow-hidden p-1'>
+                <div className='flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border'>
+                  <div className='shrink-0 border-b bg-card/40'>
                     <table className='w-full table-fixed bg-card/40'>
                       <colgroup>
                         <col className='w-[5%]' />
@@ -790,7 +788,10 @@ export function Document({
                   </div>
 
                   {/* Table body - scrollable */}
-                  <div className='flex-1 min-h-0 overflow-auto' style={{ scrollbarGutter: 'stable' }}>
+                  <div
+                    className='min-h-0 flex-1 overflow-auto'
+                    style={{ scrollbarGutter: 'stable' }}
+                  >
                     <table className='w-full table-fixed'>
                       <colgroup>
                         <col className='w-[5%]' />
@@ -845,8 +846,9 @@ export function Document({
                                 key={page}
                                 onClick={() => goToPage(page)}
                                 disabled={false}
-                                className={`font-medium text-sm transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 ${page === currentPage ? 'text-foreground' : 'text-muted-foreground'
-                                  }`}
+                                className={`font-medium text-sm transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 ${
+                                  page === currentPage ? 'text-foreground' : 'text-muted-foreground'
+                                }`}
                               >
                                 {page}
                               </button>
@@ -873,7 +875,6 @@ export function Document({
         </div>
       </div>
 
-      {/* Edit Chunk Modal */}
       <EditChunkModal
         chunk={selectedChunk}
         document={documentData}
@@ -910,7 +911,6 @@ export function Document({
         }}
       />
 
-      {/* Create Chunk Modal */}
       <CreateChunkModal
         open={isCreateChunkModalOpen}
         onOpenChange={setIsCreateChunkModalOpen}
@@ -919,7 +919,6 @@ export function Document({
         onChunkCreated={handleChunkCreated}
       />
 
-      {/* Delete Chunk Modal */}
       <DeleteChunkModal
         chunk={chunkToDelete}
         knowledgeBaseId={knowledgeBaseId}
@@ -929,7 +928,6 @@ export function Document({
         onChunkDeleted={handleChunkDeleted}
       />
 
-      {/* Bulk Action Bar */}
       <ActionBar
         selectedCount={selectedChunks.size}
         onEnable={disabledCount > 0 ? handleBulkEnable : undefined}
@@ -939,6 +937,6 @@ export function Document({
         disabledCount={disabledCount}
         isLoading={isBulkOperating}
       />
-    </div>
+    </>
   )
 }

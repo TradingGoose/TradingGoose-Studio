@@ -1,4 +1,4 @@
-import { Files, Frame, LibraryBig, Map as MapIcon, Server } from 'lucide-react'
+import { Files, Frame, KeyRound, LibraryBig, Map as MapIcon, Server } from 'lucide-react'
 import type { NavItemLink, NavSection } from './types'
 
 export function getWorkspaceIdFromPath(path: string) {
@@ -21,6 +21,7 @@ export function createWorkspaceNav(workspaceId?: string): NavItemLink[] {
     { title: 'Dashboard', url: `${base}/dashboard`, icon: Frame },
     { title: 'Knowledge', url: `${base}/knowledge`, icon: LibraryBig },
     { title: 'Files', url: `${base}/files`, icon: Files },
+    { title: 'API Keys', url: `${base}/api-keys`, icon: KeyRound },
     { title: 'Logs', url: `${base}/logs`, icon: MapIcon },
     { title: 'MCP Servers', url: `${base}/mcp`, icon: Server },
   ]

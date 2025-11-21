@@ -98,7 +98,7 @@ export function TeamUsage({ hasAdminAccess }: TeamUsageProps) {
     : subscription.isTeam
       ? 'Team'
       : (subscription.plan || 'Free').charAt(0).toUpperCase() +
-      (subscription.plan || 'Free').slice(1)
+        (subscription.plan || 'Free').slice(1)
 
   return (
     <UsageHeader

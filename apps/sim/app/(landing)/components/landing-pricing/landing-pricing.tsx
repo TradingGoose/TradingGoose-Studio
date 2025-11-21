@@ -127,8 +127,8 @@ function PricingCard({
             : 'sm:border-[#E7E4EF] sm:border-r-2 sm:last:border-r-0',
         !tier.featured && !isBeforeFeatured && 'lg:[&:nth-child(4n)]:border-r-0',
         !tier.featured &&
-        !isBeforeFeatured &&
-        'sm:[&:nth-child(2n)]:border-r-0 lg:[&:nth-child(2n)]:border-r-2',
+          !isBeforeFeatured &&
+          'sm:[&:nth-child(2n)]:border-r-0 lg:[&:nth-child(2n)]:border-r-2',
         tier.featured ? 'z-10 bg-gradient-to-b from-[#8357FF] to-[#6F3DFA] text-white' : ''
       )}
     >

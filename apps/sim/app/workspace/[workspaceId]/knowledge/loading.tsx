@@ -16,7 +16,7 @@ export default function KnowledgeLoading() {
       <KnowledgeHeader breadcrumbs={breadcrumbs} />
 
       <div className='flex flex-1 overflow-hidden'>
-        <div className='flex flex-1 flex-col overflow-hidden rounded-lg border-border border'>
+        <div className='flex flex-1 flex-col overflow-hidden rounded-lg border border-border'>
           {/* Main Content */}
           <div className='flex-1 overflow-auto'>
             <div className='p-6'>
@@ -37,7 +37,7 @@ export default function KnowledgeLoading() {
                 <Button
                   disabled
                   size='sm'
-                  className='flex items-center gap-1 bg-primary font-[480] text-muted-foreground shadow-[0_0_0_0_var(--primary)] transition-all duration-200 hover:bg-primary-hover  disabled:opacity-50'
+                  className='flex items-center gap-1 bg-primary font-[480] text-muted-foreground shadow-[0_0_0_0_var(--primary)] transition-all duration-200 hover:bg-primary-hover disabled:opacity-50'
                 >
                   <Plus className='h-3.5 w-3.5' />
                   <span>Create</span>

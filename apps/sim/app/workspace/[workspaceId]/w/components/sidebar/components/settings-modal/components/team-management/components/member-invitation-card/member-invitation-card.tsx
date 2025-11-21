@@ -195,7 +195,7 @@ export function MemberInvitationCard({
           <div className='flex items-center justify-between'>
             <div className='flex items-center gap-2'>
               <h5 className='font-medium text-xs'>Workspace Access</h5>
-              <Badge variant='outline' className='h-[1.125rem] rounded-[6px] px-2 py-0 text-xs'>
+              <Badge variant='outline' className='h-[1.125rem] rounded-md px-2 py-0 text-xs'>
                 Optional
               </Badge>
             </div>
@@ -247,7 +247,7 @@ export function MemberInvitationCard({
                         {workspace.isOwner && (
                           <Badge
                             variant='outline'
-                            className='h-[1.125rem] rounded-[6px] px-2 py-0 text-xs'
+                            className='h-[1.125rem] rounded-md px-2 py-0 text-xs'
                           >
                             Owner
                           </Badge>

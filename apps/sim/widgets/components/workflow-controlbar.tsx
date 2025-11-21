@@ -2,18 +2,22 @@
 
 import { useMemo } from 'react'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { ControlBar } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/control-bar/control-bar'
 import { WorkflowRouteProvider } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
-import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { widgetHeaderControlClassName } from '@/widgets/components/widget-header-control'
-import { isPairColor, type PairColor } from '@/widgets/pair-colors'
-import type { WidgetInstance } from '@/widgets/layout'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { WorkflowStoreProvider } from '@/stores/workflows/workflow/store-client'
+import { widgetHeaderControlClassName } from '@/widgets/components/widget-header-control'
+import type { WidgetInstance } from '@/widgets/layout'
+import { isPairColor, type PairColor } from '@/widgets/pair-colors'
 
 const FALLBACK_TEXT_CLASS = widgetHeaderControlClassName('text-muted-foreground/80')
 
-export const getWorkflowWidgetChannelId = (pairColor: PairColor, widgetKey: string, panelId?: string) => {
+export const getWorkflowWidgetChannelId = (
+  pairColor: PairColor,
+  widgetKey: string,
+  panelId?: string
+) => {
   if (pairColor !== 'gray') {
     return `pair-${pairColor}`
   }
@@ -26,7 +30,11 @@ interface WorkflowWidgetControlBarProps {
   panelId?: string
 }
 
-export function WorkflowWidgetControlBar({ workspaceId, widget, panelId }: WorkflowWidgetControlBarProps) {
+export function WorkflowWidgetControlBar({
+  workspaceId,
+  widget,
+  panelId,
+}: WorkflowWidgetControlBarProps) {
   if (!workspaceId) {
     return <span className={FALLBACK_TEXT_CLASS}>Controls unavailable</span>
   }
@@ -51,7 +59,11 @@ export function WorkflowWidgetControlBar({ workspaceId, widget, panelId }: Workf
   return (
     <TooltipProvider delayDuration={100}>
       <WorkspacePermissionsProvider workspaceId={workspaceId}>
-        <WorkflowRouteProvider workspaceId={workspaceId} workflowId={activeWorkflowId} channelId={channelId}>
+        <WorkflowRouteProvider
+          workspaceId={workspaceId}
+          workflowId={activeWorkflowId}
+          channelId={channelId}
+        >
           <WorkflowStoreProvider channelId={channelId}>
             <ControlBar
               variant='widget'

@@ -3,8 +3,8 @@ import type {
   WidgetCategoryDefinition,
   WidgetCategoryGroup,
 } from '@/widgets/types'
-import { emptyWidget } from '@/widgets/widgets/empty'
 import { workflowEditorWidget } from '@/widgets/widgets/editor_workflow'
+import { emptyWidget } from '@/widgets/widgets/empty'
 import { chatWidget } from '@/widgets/widgets/workflow_chat'
 import { workflowConsoleWidget } from '@/widgets/widgets/workflow_console'
 import { workflowCopilotWidget } from '@/widgets/widgets/workflow_copilot'
@@ -34,15 +34,19 @@ const widgetRegistry: Record<string, DashboardWidgetDefinition> = {
   workflow_list: workflowListWidget,
 }
 
-export const getWidgetDefinition = (key: string): DashboardWidgetDefinition | undefined => widgetRegistry[key]
+export const getWidgetDefinition = (key: string): DashboardWidgetDefinition | undefined =>
+  widgetRegistry[key]
 
 export const getAllWidgets = (): DashboardWidgetDefinition[] => Object.values(widgetRegistry)
 
 export const getWidgetCategories = (): WidgetCategoryGroup[] => {
-  const categoryMap = widgetCategoryConfig.reduce<Record<string, WidgetCategoryGroup>>((acc, category) => {
-    acc[category.key] = { ...category, widgets: [] }
-    return acc
-  }, {})
+  const categoryMap = widgetCategoryConfig.reduce<Record<string, WidgetCategoryGroup>>(
+    (acc, category) => {
+      acc[category.key] = { ...category, widgets: [] }
+      return acc
+    },
+    {}
+  )
 
   for (const widget of Object.values(widgetRegistry)) {
     const category = categoryMap[widget.category]
@@ -54,4 +58,5 @@ export const getWidgetCategories = (): WidgetCategoryGroup[] => {
   return widgetCategoryConfig.map((category) => categoryMap[category.key])
 }
 
-export const isValidWidgetKey = (key: string): key is keyof typeof widgetRegistry => key in widgetRegistry
+export const isValidWidgetKey = (key: string): key is keyof typeof widgetRegistry =>
+  key in widgetRegistry

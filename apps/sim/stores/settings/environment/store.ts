@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { handleAuthError } from '@/lib/auth/auth-error-handler'
 import { createLogger } from '@/lib/logs/console/logger'
 import { API_ENDPOINTS } from '@/stores/constants'
 import type { EnvironmentStore, EnvironmentVariable } from '@/stores/settings/environment/types'
@@ -17,6 +18,9 @@ export const useEnvironmentStore = create<EnvironmentStore>()((set, get) => ({
       const response = await fetch(API_ENDPOINTS.ENVIRONMENT)
 
       if (!response.ok) {
+        if (response.status === 401) {
+          await handleAuthError('environment-store:load')
+        }
         throw new Error(`Failed to load environment variables: ${response.statusText}`)
       }
 
@@ -73,6 +77,9 @@ export const useEnvironmentStore = create<EnvironmentStore>()((set, get) => ({
       })
 
       if (!response.ok) {
+        if (response.status === 401) {
+          await handleAuthError('environment-store:save')
+        }
         throw new Error(`Failed to save environment variables: ${response.statusText}`)
       }
 
@@ -94,6 +101,9 @@ export const useEnvironmentStore = create<EnvironmentStore>()((set, get) => ({
 
       const response = await fetch(API_ENDPOINTS.WORKSPACE_ENVIRONMENT(workspaceId))
       if (!response.ok) {
+        if (response.status === 401) {
+          await handleAuthError('environment-store:load-workspace')
+        }
         throw new Error(`Failed to load workspace environment: ${response.statusText}`)
       }
 
@@ -120,6 +130,9 @@ export const useEnvironmentStore = create<EnvironmentStore>()((set, get) => ({
         body: JSON.stringify({ variables }),
       })
       if (!response.ok) {
+        if (response.status === 401) {
+          await handleAuthError('environment-store:upsert-workspace')
+        }
         throw new Error(`Failed to update workspace environment: ${response.statusText}`)
       }
       set({ isLoading: false })
@@ -138,6 +151,9 @@ export const useEnvironmentStore = create<EnvironmentStore>()((set, get) => ({
         body: JSON.stringify({ keys }),
       })
       if (!response.ok) {
+        if (response.status === 401) {
+          await handleAuthError('environment-store:remove-keys')
+        }
         throw new Error(`Failed to remove workspace environment keys: ${response.statusText}`)
       }
       set({ isLoading: false })

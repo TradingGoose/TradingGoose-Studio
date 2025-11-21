@@ -5,8 +5,7 @@ function normalizeHexColor(hexColor: string): string {
   }
 
   if (normalized.length === 4) {
-    normalized =
-      `#${normalized[1]}${normalized[1]}${normalized[2]}${normalized[2]}${normalized[3]}${normalized[3]}`
+    normalized = `#${normalized[1]}${normalized[1]}${normalized[2]}${normalized[2]}${normalized[3]}${normalized[3]}`
   }
 
   return normalized

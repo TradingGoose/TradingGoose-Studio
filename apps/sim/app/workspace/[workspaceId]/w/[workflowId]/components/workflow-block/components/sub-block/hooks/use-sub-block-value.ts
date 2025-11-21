@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { isEqual } from 'lodash'
 import { createLogger } from '@/lib/logs/console/logger'
+import { useOptionalWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
 import { getProviderFromModel } from '@/providers/utils'
 import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { useWorkflowStore, DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
-import { useOptionalWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
+import {
+  DEFAULT_WORKFLOW_CHANNEL_ID,
+  useWorkflowStore,
+} from '@/stores/workflows/workflow/store-client'
 
 const logger = createLogger('SubBlockValue')
 
@@ -189,8 +192,8 @@ export function useSubBlockValue<T = any>(
         ) {
           const currentApiKeyValue =
             currentActiveWorkflowId != null
-              ? useSubBlockStore.getState().workflowValues[currentActiveWorkflowId]?.[blockId]?.apiKey ??
-                null
+              ? (useSubBlockStore.getState().workflowValues[currentActiveWorkflowId]?.[blockId]
+                  ?.apiKey ?? null)
               : null
           if (currentApiKeyValue && currentApiKeyValue !== '') {
             const oldModelValue = storeValue as string

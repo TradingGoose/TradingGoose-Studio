@@ -202,7 +202,7 @@ export default function EmailAuth({
   }
 
   return (
-    <div className='bg-white'>
+    <div className=' '>
       <Nav variant='auth' />
       <div className='flex min-h-[calc(100vh-120px)] items-center justify-center px-4'>
         <div className='w-full max-w-[410px]'>
@@ -210,7 +210,7 @@ export default function EmailAuth({
             {/* Header */}
             <div className='space-y-1 text-center'>
               <h1
-                className={`${soehne.className} font-medium text-[32px] text-black tracking-tight`}
+                className={`${soehne.className} font-medium text-[32px] tracking-tight`}
               >
                 {showOtpVerification ? 'Verify Your Email' : 'Email Verification'}
               </h1>
@@ -265,11 +265,7 @@ export default function EmailAuth({
                     </div>
                   </div>
 
-                  <Button
-                    type='submit'
-                    className={primaryButtonClasses}
-                    disabled={isSendingOtp}
-                  >
+                  <Button type='submit' className={primaryButtonClasses} disabled={isSendingOtp}>
                     {isSendingOtp ? (
                       <>
                         <Loader2 className='mr-2 h-4 w-4 animate-spin' />
@@ -307,7 +303,7 @@ export default function EmailAuth({
                               key={index}
                               index={index}
                               className={cn(
-                                '!rounded-md h-12 w-12 border bg-white text-center font-medium text-lg shadow-sm transition-all duration-200',
+                                '!rounded-md h-12 w-12 border text-center font-medium text-lg shadow-sm transition-all duration-200',
                                 'border-gray-300 hover:border-gray-400',
                                 'focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-100',
                                 authError &&

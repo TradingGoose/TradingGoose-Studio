@@ -2,7 +2,6 @@
 
 import { useMemo } from 'react'
 import { usePathname } from 'next/navigation'
-import { Sidebar } from '@/app/workspace/[workspaceId]/w/components/sidebar/sidebar'
 
 interface WorkspaceShellProps {
   children: React.ReactNode
@@ -20,10 +19,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
 
   return (
     <div className='flex min-h-screen w-full'>
-      {!shouldHideSidebar && (
-        <div className='z-20'>
-        </div>
-      )}
+      {!shouldHideSidebar && <div className='z-20'></div>}
       <div className='flex flex-1 flex-col'>{children}</div>
     </div>
   )

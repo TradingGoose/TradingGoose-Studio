@@ -169,12 +169,12 @@ export default function Templates({ initialTemplates, currentUserId }: Templates
     // Only include "Your templates" tab if user has created or starred templates
     ...(yourTemplatesCount > 0 || loading
       ? [
-        {
-          id: 'your',
-          label: 'Your templates',
-          count: loading ? 8 : getTemplatesByCategory('your').length,
-        },
-      ]
+          {
+            id: 'your',
+            label: 'Your templates',
+            count: loading ? 8 : getTemplatesByCategory('your').length,
+          },
+        ]
       : []),
     {
       id: 'recent',
@@ -291,8 +291,8 @@ export default function Templates({ initialTemplates, currentUserId }: Templates
               {loading
                 ? renderSkeletonCards()
                 : getTemplatesByCategory('marketing').map((template) =>
-                  renderTemplateCard(template)
-                )}
+                    renderTemplateCard(template)
+                  )}
             </div>
           </div>
 
@@ -351,8 +351,8 @@ export default function Templates({ initialTemplates, currentUserId }: Templates
               {loading
                 ? renderSkeletonCards()
                 : getTemplatesByCategory('artificial-intelligence').map((template) =>
-                  renderTemplateCard(template)
-                )}
+                    renderTemplateCard(template)
+                  )}
             </div>
           </div>
 

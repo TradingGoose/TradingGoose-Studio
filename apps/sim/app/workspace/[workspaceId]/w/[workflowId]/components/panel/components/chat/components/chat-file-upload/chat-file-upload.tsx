@@ -224,7 +224,7 @@ export function ChatFileUpload({
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
-          <div className='rounded-lg bg-white p-4 shadow-lg'>
+          <div className='rounded-lg p-4 shadow-lg'>
             <p className='font-medium text-blue-600'>Drop files here to attach</p>
           </div>
         </div>

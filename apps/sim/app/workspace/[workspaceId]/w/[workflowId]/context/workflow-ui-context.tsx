@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useMemo, type ReactNode } from 'react'
+import { createContext, type ReactNode, useContext, useMemo } from 'react'
 import type { WorkflowCanvasUIConfig } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-editor/workflow-canvas'
 
 const DEFAULT_UI_CONFIG: WorkflowCanvasUIConfig = {
@@ -21,7 +21,11 @@ interface WorkflowUIConfigProviderProps {
 
 export function WorkflowUIConfigProvider({ value, children }: WorkflowUIConfigProviderProps) {
   const mergedValue = useMemo(() => ({ ...DEFAULT_UI_CONFIG, ...value }), [value])
-  return <WorkflowUIConfigContext.Provider value={mergedValue}>{children}</WorkflowUIConfigContext.Provider>
+  return (
+    <WorkflowUIConfigContext.Provider value={mergedValue}>
+      {children}
+    </WorkflowUIConfigContext.Provider>
+  )
 }
 
 export function useWorkflowUIConfig(): WorkflowCanvasUIConfig {

@@ -1,13 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { cn } from '@/lib/utils'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { cn } from '@/lib/utils'
 import {
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
@@ -42,8 +42,8 @@ export function PairColorDropdown({ color, onChange }: PairColorDropdownProps) {
         >
           <span className='flex items-center gap-2'>
             <span
-              className='h-2.5 w-2.5'
-              style={{ backgroundColor: meta.hex, boxShadow: `0 0 0 4px ${meta.hex}50`, borderRadius: '1px' }}
+              className='h-2.5 w-2.5 rounded-xs'
+              style={{ backgroundColor: meta.hex, boxShadow: `0 0 0 4px ${meta.hex}50` }}
               aria-hidden
             />
           </span>
@@ -54,7 +54,6 @@ export function PairColorDropdown({ color, onChange }: PairColorDropdownProps) {
         avoidCollisions
         collisionPadding={12}
         className={cn(widgetHeaderMenuContentClassName, 'min-w-[180px]')}
-
       >
         {PAIR_COLOR_OPTIONS.map((option) => (
           <DropdownMenuItem
@@ -70,9 +69,10 @@ export function PairColorDropdown({ color, onChange }: PairColorDropdownProps) {
           >
             <span className='flex items-center gap-3'>
               <span
-                className='h-2.5 w-2.5 rounded-sm'
+                className='h-2.5 w-2.5 rounded-xs'
                 style={{
-                  backgroundColor: option.hex, boxShadow: `0 0 0 4px ${option.hex}50`, borderRadius: '1px'
+                  backgroundColor: option.hex,
+                  boxShadow: `0 0 0 4px ${option.hex}50`,
                 }}
                 aria-hidden
               />

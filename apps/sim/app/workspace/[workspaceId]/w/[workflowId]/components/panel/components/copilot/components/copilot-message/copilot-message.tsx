@@ -831,8 +831,8 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
               {/* Context chips displayed above the message box */}
               {(Array.isArray((message as any).contexts) && (message as any).contexts.length > 0) ||
-                (Array.isArray(message.contentBlocks) &&
-                  (message.contentBlocks as any[]).some((b: any) => b?.type === 'contexts')) ? (
+              (Array.isArray(message.contentBlocks) &&
+                (message.contentBlocks as any[]).some((b: any) => b?.type === 'contexts')) ? (
                 <div className='mb-1.5 flex flex-wrap gap-1.5'>
                   {(() => {
                     const direct = Array.isArray((message as any).contexts)

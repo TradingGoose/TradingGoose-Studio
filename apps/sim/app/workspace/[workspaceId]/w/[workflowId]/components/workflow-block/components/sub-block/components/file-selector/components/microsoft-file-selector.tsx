@@ -243,11 +243,11 @@ export function MicrosoftFileSelector({
             size: file.size?.toString(),
             owners: file.createdBy
               ? [
-                {
-                  displayName: file.createdBy.user?.displayName || 'Unknown',
-                  emailAddress: file.createdBy.user?.email || '',
-                },
-              ]
+                  {
+                    displayName: file.createdBy.user?.displayName || 'Unknown',
+                    emailAddress: file.createdBy.user?.email || '',
+                  },
+                ]
               : [],
           }
           setSelectedFile(fileInfo)
@@ -734,10 +734,10 @@ export function MicrosoftFileSelector({
   const filteredTasks: SelectableItem[] =
     serviceId === 'microsoft-planner'
       ? plannerTasks.filter((task) => {
-        const title = task.title || ''
-        const query = searchQuery || ''
-        return title.toLowerCase().includes(query.toLowerCase())
-      })
+          const title = task.title || ''
+          const query = searchQuery || ''
+          return title.toLowerCase().includes(query.toLowerCase())
+        })
       : availableFiles
 
   const canShowPreview = !!(
@@ -903,11 +903,11 @@ export function MicrosoftFileSelector({
                               {getFileIcon(
                                 isPlannerTask
                                   ? {
-                                    ...fileInfo,
-                                    id: plannerTask.id || '',
-                                    name: plannerTask.title,
-                                    mimeType: 'planner/task',
-                                  }
+                                      ...fileInfo,
+                                      id: plannerTask.id || '',
+                                      name: plannerTask.title,
+                                      mimeType: 'planner/task',
+                                    }
                                   : fileInfo,
                                 'sm'
                               )}

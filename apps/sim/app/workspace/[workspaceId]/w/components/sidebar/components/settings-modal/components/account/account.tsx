@@ -305,8 +305,9 @@ export function Account(_props: AccountProps) {
                         alt={name || 'User'}
                         width={48}
                         height={48}
-                        className={`h-full w-full object-cover transition-opacity duration-300 ${isUploadingProfilePicture ? 'opacity-50' : 'opacity-100'
-                          }`}
+                        className={`h-full w-full object-cover transition-opacity duration-300 ${
+                          isUploadingProfilePicture ? 'opacity-50' : 'opacity-100'
+                        }`}
                       />
                     ) : (
                       <AgentIcon className='h-6 w-6 text-white' />
@@ -315,10 +316,11 @@ export function Account(_props: AccountProps) {
 
                   {/* Upload overlay */}
                   <div
-                    className={`absolute inset-0 flex items-center justify-center rounded-full bg-black/50 transition-opacity ${isUploadingProfilePicture
+                    className={`absolute inset-0 flex items-center justify-center rounded-full bg-black/50 transition-opacity ${
+                      isUploadingProfilePicture
                         ? 'opacity-100'
                         : 'opacity-0 group-hover:opacity-100'
-                      }`}
+                    }`}
                   >
                     {isUploadingProfilePicture ? (
                       <div className='h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent' />
@@ -395,12 +397,13 @@ export function Account(_props: AccountProps) {
                 <span className='text-base'>••••••••</span>
                 <Button
                   variant='ghost'
-                  className={`h-auto p-0 font-normal text-sm transition-colors hover:bg-transparent ${resetPasswordMessage
+                  className={`h-auto p-0 font-normal text-sm transition-colors hover:bg-transparent ${
+                    resetPasswordMessage
                       ? resetPasswordMessage.type === 'success'
                         ? 'text-green-500 hover:text-green-600'
                         : 'text-destructive hover:text-destructive/80'
                       : 'text-muted-foreground hover:text-foreground'
-                    }`}
+                  }`}
                   onClick={handleResetPassword}
                   disabled={isResettingPassword}
                 >

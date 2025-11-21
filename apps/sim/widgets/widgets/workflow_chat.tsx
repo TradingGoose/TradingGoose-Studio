@@ -1,8 +1,8 @@
 import { MessageCircle } from 'lucide-react'
-import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import WorkflowChatApp from '@/app/workspace/[workspaceId]/w/[workflowId]/workflow-chat-app'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
+import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 
 const ChatWidgetBody = ({
   params,
@@ -58,13 +58,17 @@ const ChatWidgetBody = ({
 
   return (
     <div className='flex h-full w-full overflow-hidden bg-[hsl(var(--workflow-background))]'>
-      <WorkflowChatApp workspaceId={workspaceId} workflowId={resolvedWorkflowId} channelId={channelId} />
+      <WorkflowChatApp
+        workspaceId={workspaceId}
+        workflowId={resolvedWorkflowId}
+        channelId={channelId}
+      />
     </div>
   )
 }
 
 const WidgetStateMessage = ({ message }: { message: string }) => (
-  <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))] px-4 text-center text-xs text-muted-foreground'>
+  <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))] px-4 text-center text-muted-foreground text-xs'>
     {message}
   </div>
 )
@@ -78,15 +82,15 @@ export const chatWidget: DashboardWidgetDefinition = {
   component: (props) => <ChatWidgetBody {...props} />,
   renderHeader: ({ widget }) => {
     const workflowId =
-      widget && widget.params && typeof widget.params === 'object' && 'workflowId' in widget.params
+      widget?.params && typeof widget.params === 'object' && 'workflowId' in widget.params
         ? (widget.params.workflowId as string)
         : 'default'
 
     return {
-      left: <span className='text-xs font-medium text-accent-foreground'>Chat</span>,
-      center: <span className='text-xs text-muted-foreground'>Idle</span>,
+      left: <span className='font-medium text-accent-foreground text-xs'>Chat</span>,
+      center: <span className='text-muted-foreground text-xs'>Idle</span>,
       right: (
-        <button className='rounded-md border border-border px-2 py-1 text-xs font-medium text-accent-foreground hover:bg-card/20'>
+        <button className='rounded-md border border-border px-2 py-1 font-medium text-accent-foreground text-xs hover:bg-card/20'>
           New chat
         </button>
       ),

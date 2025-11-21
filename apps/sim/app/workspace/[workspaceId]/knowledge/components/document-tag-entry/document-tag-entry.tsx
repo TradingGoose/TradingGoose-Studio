@@ -226,24 +226,24 @@ export function DocumentTagEntry({
         const updatedTags =
           editingTagIndex !== null
             ? tags.map((tag, index) =>
-              index === editingTagIndex
-                ? {
-                  ...tag,
+                index === editingTagIndex
+                  ? {
+                      ...tag,
+                      displayName: editForm.displayName,
+                      fieldType: editForm.fieldType,
+                      value: editForm.value,
+                    }
+                  : tag
+              )
+            : [
+                ...tags,
+                {
+                  slot: targetSlot,
                   displayName: editForm.displayName,
                   fieldType: editForm.fieldType,
                   value: editForm.value,
-                }
-                : tag
-            )
-            : [
-              ...tags,
-              {
-                slot: targetSlot,
-                displayName: editForm.displayName,
-                fieldType: editForm.fieldType,
-                value: editForm.value,
-              },
-            ]
+                },
+              ]
         await onSave(updatedTags)
       }
 

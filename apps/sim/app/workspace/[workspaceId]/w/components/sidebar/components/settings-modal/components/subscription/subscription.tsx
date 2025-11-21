@@ -35,7 +35,7 @@ const CONSTANTS = {
 
 const STYLES = {
   GRADIENT_BADGE:
-    'gradient-text h-[1.125rem] rounded-[6px] border-gradient-primary/20 bg-gradient-to-b from-gradient-primary via-gradient-secondary to-gradient-primary px-2 py-0 font-medium text-xs cursor-pointer',
+    'gradient-text h-[1.125rem] rounded-md border-gradient-primary/20 bg-gradient-to-b from-gradient-primary via-gradient-secondary to-gradient-primary px-2 py-0 font-medium text-xs cursor-pointer',
 } as const
 
 type TargetPlan = 'pro' | 'team'
@@ -362,10 +362,10 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
             limit={
               subscription.isEnterprise || subscription.isTeam
                 ? organizationBillingData?.totalUsageLimit ||
-                organizationBillingData?.minimumBillingAmount ||
-                0
+                  organizationBillingData?.minimumBillingAmount ||
+                  0
                 : !subscription.isFree &&
-                  (permissions.canEditUsageLimit || permissions.showTeamMemberView)
+                    (permissions.canEditUsageLimit || permissions.showTeamMemberView)
                   ? usage.current // placeholder; rightContent will render UsageLimit
                   : usage.limit
             }
@@ -376,10 +376,10 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                 ? organizationBillingData?.totalUsageLimit &&
                   organizationBillingData.totalUsageLimit > 0
                   ? Math.round(
-                    (organizationBillingData.totalCurrentUsage /
-                      organizationBillingData.totalUsageLimit) *
-                    100
-                  )
+                      (organizationBillingData.totalCurrentUsage /
+                        organizationBillingData.totalUsageLimit) *
+                        100
+                    )
                   : 0
                 : Math.round(usage.percentUsed)
             }
@@ -405,7 +405,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
             }}
             rightContent={
               !subscription.isFree &&
-                (permissions.canEditUsageLimit || permissions.showTeamMemberView) ? (
+              (permissions.canEditUsageLimit || permissions.showTeamMemberView) ? (
                 <UsageLimit
                   ref={usageLimitRef}
                   currentLimit={
@@ -418,7 +418,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                   minimumLimit={
                     subscription.isTeam && isTeamAdmin
                       ? organizationBillingData?.minimumBillingAmount ||
-                      (subscription.isPro ? 20 : 40)
+                        (subscription.isPro ? 20 : 40)
                       : usageLimitData?.minimumLimit || (subscription.isPro ? 20 : 40)
                   }
                   context={subscription.isTeam && isTeamAdmin ? 'organization' : 'user'}

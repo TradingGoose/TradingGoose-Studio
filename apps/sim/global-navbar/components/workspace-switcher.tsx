@@ -1,11 +1,6 @@
 'use client'
 import { ChevronsUpDown, Loader2, Pencil, Plus, Sparkles, Trash2, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from './resizable-dropdown'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
@@ -13,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import type { Workspace } from '../types'
 import { getInitials } from '../utils'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from './resizable-dropdown'
 
 interface WorkspaceSwitcherProps {
   activeWorkspace: Workspace | null

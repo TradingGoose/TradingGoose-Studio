@@ -6,6 +6,25 @@ import { generateRuntimeCSP } from './lib/security/csp'
 const logger = createLogger('Middleware')
 
 const AUTH_ROUTES = new Set(['/login', '/signup'])
+const AUTH_COOKIE_KEYS = [
+  'better-auth.session_token',
+  'better-auth.session_data',
+  'better-auth.dont_remember',
+  '__Secure-better-auth.session_token',
+  '__Secure-better-auth.session_data',
+  '__Secure-better-auth.dont_remember',
+]
+
+function clearAuthCookies(response: NextResponse) {
+  AUTH_COOKIE_KEYS.forEach((name) => {
+    response.cookies.set({
+      name,
+      value: '',
+      maxAge: 0,
+      path: '/',
+    })
+  })
+}
 
 const SUSPICIOUS_UA_PATTERNS = [
   /^\s*$/, // Empty user agents
@@ -102,8 +121,18 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (AUTH_ROUTES.has(url.pathname) && hasActiveSession) {
-    return NextResponse.redirect(new URL('/workspace', request.url))
+  const reauth = url.searchParams.get('reauth') === '1'
+
+  if (AUTH_ROUTES.has(url.pathname)) {
+    if (reauth) {
+      const response = NextResponse.next()
+      clearAuthCookies(response)
+      return response
+    }
+
+    if (hasActiveSession) {
+      return NextResponse.redirect(new URL('/workspace', request.url))
+    }
   }
 
   const workspaceInvitationRedirect = handleWorkspaceInvitationAPI(request, hasActiveSession)

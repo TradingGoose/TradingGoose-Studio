@@ -234,7 +234,7 @@ export default function Logs() {
           if (e?.name === 'AbortError') return
         }
       })
-    ).catch(() => { })
+    ).catch(() => {})
   }
 
   const handleNavigateNext = useCallback(() => {
@@ -289,7 +289,7 @@ export default function Logs() {
               if (e?.name === 'AbortError') return
             }
           })
-        ).catch(() => { })
+        ).catch(() => {})
       }
     }
   }, [selectedLogIndex, logs])
@@ -346,7 +346,7 @@ export default function Logs() {
               if (e?.name === 'AbortError') return
             }
           })
-        ).catch(() => { })
+        ).catch(() => {})
       }
     }
   }, [selectedLogIndex, logs])
@@ -813,18 +813,18 @@ export default function Logs() {
   )
 
   const tableContent = (
-    <div className='flex h-full min-h-0 max-h-full flex-1 min-w-0 overflow-hidden'>
-      <div className='flex h-full min-h-0 max-h-full flex-1 flex-col overflow-hidden'>
+    <div className='flex h-full max-h-full min-h-0 min-w-0 flex-1 overflow-hidden p-1'>
+      <div className='flex h-full max-h-full min-h-0 flex-1 flex-col overflow-hidden'>
         <div className=' sm:hidden'>
           <TooltipProvider>
             <Timeline />
           </TooltipProvider>
         </div>
 
-        <div className='flex h-full min-h-0 max-h-full flex-1 flex-col overflow-hidden'>
-          <div className='w-full h-full min-h-0 max-h-full overflow-x-auto'>
-            <div className='min-w-0 min-h-0 h-full max-h-full'>
-              <div className='flex h-full min-h-0 max-h-full flex-1 flex-col overflow-hidden rounded-lg border-border border'>
+        <div className='flex h-full max-h-full min-h-0 flex-1 flex-col overflow-hidden'>
+          <div className='h-full max-h-full min-h-0 w-full overflow-x-auto'>
+            <div className='h-full max-h-full min-h-0 min-w-0'>
+              <div className='flex h-full max-h-full min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border'>
                 <div className='shrink-0 border-b bg-card/40'>
                   <table className='w-full table-fixed'>
                     <colgroup>
@@ -850,10 +850,14 @@ export default function Logs() {
                           <span className='text-muted-foreground text-xs leading-none'>Cost</span>
                         </th>
                         <th className='hidden px-4 pt-2 pb-3 text-left font-medium xl:table-cell'>
-                          <span className='text-muted-foreground text-xs leading-none'>Trigger</span>
+                          <span className='text-muted-foreground text-xs leading-none'>
+                            Trigger
+                          </span>
                         </th>
                         <th className='hidden px-4 pt-2 pb-3 text-left font-medium xl:table-cell'>
-                          <span className='text-muted-foreground text-xs leading-none'>Duration</span>
+                          <span className='text-muted-foreground text-xs leading-none'>
+                            Duration
+                          </span>
                         </th>
                       </tr>
                     </thead>
@@ -861,7 +865,7 @@ export default function Logs() {
                 </div>
 
                 <div
-                  className='flex-1 h-full min-h-0 max-h-full overflow-auto'
+                  className='h-full max-h-full min-h-0 flex-1 overflow-auto'
                   ref={scrollContainerRef}
                   style={{ scrollbarGutter: 'stable' }}
                 >
@@ -1010,21 +1014,21 @@ export default function Logs() {
   const rightPanelSize = panelLayout?.[1] ?? 40
 
   const logsLayout = (
-    <div className='flex h-full min-h-0 max-h-full min-w-0 flex-col overflow-hidden'>
+    <div className='flex h-full max-h-full min-h-0 min-w-0 flex-col overflow-hidden'>
       <style jsx global>
         {selectedRowAnimation}
       </style>
       {showDetailsPanel ? (
         <ResizablePanelGroup
           direction='horizontal'
-          className='flex flex-1 min-h-0 min-w-0 overflow-hidden'
+          className='flex min-h-0 min-w-0 flex-1 overflow-hidden'
           onLayout={(sizes) => setPanelLayout(sizes)}
         >
           <ResizablePanel
             order={1}
             defaultSize={leftPanelSize}
             minSize={50}
-            className='flex h-full min-h-0 max-h-full min-w-0 flex-col p-1.5 overflow-hidden'
+            className='flex h-full max-h-full min-h-0 min-w-0 flex-col overflow-hidden'
           >
             {tableContent}
           </ResizablePanel>

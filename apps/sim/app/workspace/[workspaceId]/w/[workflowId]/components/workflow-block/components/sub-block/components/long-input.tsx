@@ -10,11 +10,11 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { WandPromptBar } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/wand-prompt-bar/wand-prompt-bar'
 import { useSubBlockValue } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useAccessibleReferencePrefixes } from '@/app/workspace/[workspaceId]/w/[workflowId]/hooks/use-accessible-reference-prefixes'
 import { useWand } from '@/app/workspace/[workspaceId]/w/[workflowId]/hooks/use-wand'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useTagSelection } from '@/hooks/use-tag-selection'
-import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 const logger = createLogger('LongInput')
 
@@ -57,21 +57,21 @@ export function LongInput({
   // Wand functionality (only if wandConfig is enabled) - define early to get streaming state
   const wandHook = config.wandConfig?.enabled
     ? useWand({
-      wandConfig: config.wandConfig,
-      currentValue: localContent,
-      onStreamStart: () => {
-        // Clear the content when streaming starts
-        setLocalContent('')
-      },
-      onStreamChunk: (chunk) => {
-        // Update local content with each chunk as it arrives
-        setLocalContent((current) => current + chunk)
-      },
-      onGeneratedContent: (content) => {
-        // Final content update (fallback)
-        setLocalContent(content)
-      },
-    })
+        wandConfig: config.wandConfig,
+        currentValue: localContent,
+        onStreamStart: () => {
+          // Clear the content when streaming starts
+          setLocalContent('')
+        },
+        onStreamChunk: (chunk) => {
+          // Update local content with each chunk as it arrives
+          setLocalContent((current) => current + chunk)
+        },
+        onGeneratedContent: (content) => {
+          // Final content update (fallback)
+          setLocalContent(content)
+        },
+      })
     : null
 
   // State management - useSubBlockValue with explicit streaming control
@@ -369,8 +369,8 @@ export function LongInput({
           className={cn(
             'allow-scroll min-h-full w-full resize-none text-transparent caret-foreground placeholder:text-muted-foreground/50',
             isConnecting &&
-            config?.connectionDroppable !== false &&
-            'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500',
+              config?.connectionDroppable !== false &&
+              'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500',
             wandHook?.isStreaming && 'pointer-events-none cursor-not-allowed opacity-50'
           )}
           rows={rows ?? DEFAULT_ROWS}

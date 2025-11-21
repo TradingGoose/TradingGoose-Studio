@@ -755,7 +755,7 @@ export const layoutMap = pgTable(
       table.workspaceId,
       table.userId,
       table.isActive
-    )
+    ),
   })
 )
 

@@ -145,9 +145,9 @@ export function ChatDeploy({
                 chatDetail.customizations?.welcomeMessage || 'Hi there! How can I help you today?',
               selectedOutputBlocks: Array.isArray(chatDetail.outputConfigs)
                 ? chatDetail.outputConfigs.map(
-                  (config: { blockId: string; path: string }) =>
-                    `${config.blockId}_${config.path}`
-                )
+                    (config: { blockId: string; path: string }) =>
+                      `${config.blockId}_${config.path}`
+                  )
                 : [],
             })
 

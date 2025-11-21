@@ -402,13 +402,13 @@ export function Copilot() {
 
           {newKey && (
             <div className='relative'>
-              <div className='flex h-9 items-center rounded-[6px] border-none bg-muted px-3 pr-8'>
+              <div className='flex h-9 items-center rounded-md border-none bg-muted px-3 pr-8'>
                 <code className='flex-1 truncate font-mono text-foreground text-sm'>{newKey}</code>
               </div>
               <Button
                 variant='ghost'
                 size='icon'
-                className='-translate-y-1/2 absolute top-1/2 right-2 h-4 w-4 rounded-[4px] p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
+                className='-translate-y-1/2 absolute top-1/2 right-2 h-4 w-4 rounded-sm p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
                 onClick={() => onCopy(newKey)}
               >
                 {newKeyCopySuccess ? (
@@ -435,10 +435,7 @@ export function Copilot() {
           </AlertDialogHeader>
 
           <AlertDialogFooter className='flex'>
-            <AlertDialogCancel
-              className='h-9 w-full rounded-sm'
-              onClick={() => setDeleteKey(null)}
-            >
+            <AlertDialogCancel className='h-9 w-full rounded-sm' onClick={() => setDeleteKey(null)}>
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction

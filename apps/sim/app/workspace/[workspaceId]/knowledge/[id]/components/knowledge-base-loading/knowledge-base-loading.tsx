@@ -1,11 +1,12 @@
 'use client'
 
-import { Search } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useParams } from 'next/navigation'
-import { Button } from '@/components/ui/button'
 import {
   DocumentTableSkeleton,
   KnowledgeHeader,
+  PrimaryButton,
+  SearchInput,
 } from '@/app/workspace/[workspaceId]/knowledge/components'
 
 interface KnowledgeBaseLoadingProps {
@@ -28,45 +29,35 @@ export function KnowledgeBaseLoading({ knowledgeBaseName }: KnowledgeBaseLoading
     },
   ]
 
+  const headerCenterContent = (
+    <div className='flex flex-wrap items-center justify-between gap-3 pt-1'>
+      <SearchInput
+        value=''
+        onChange={() => {}}
+        placeholder='Search documents...'
+        disabled
+        className='min-w-[220px] flex-1'
+      />
+      <div className='flex items-center gap-2'>
+        <PrimaryButton disabled>
+          <Plus className='h-3.5 w-3.5' />
+          Add Documents
+        </PrimaryButton>
+      </div>
+    </div>
+  )
+
   return (
-    <div className='flex h-[100vh] flex-col '>
-      {/* Fixed Header with Breadcrumbs */}
-      <KnowledgeHeader breadcrumbs={breadcrumbs} />
+    <div className='flex h-full min-h-0 flex-col'>
+      <KnowledgeHeader breadcrumbs={breadcrumbs} centerContent={headerCenterContent} />
 
-      <div className='flex flex-1 overflow-hidden'>
-        <div className='flex flex-1 flex-col overflow-hidden'>
-          {/* Main Content */}
-          <div className='flex-1 overflow-auto'>
-            <div className='px-6'>
-              {/* Search and Create Section */}
-              <div className='mb-4 flex items-center justify-between pt-1'>
-                <div className='relative max-w-md flex-1'>
-                  <div className='relative flex items-center'>
-                    <Search className='-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 h-[18px] w-[18px] transform text-muted-foreground' />
-                    <input
-                      type='text'
-                      placeholder='Search documents...'
-                      disabled
-                      className='h-10 w-full rounded-md border bg-background px-9 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:font-medium file:text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
-                    />
-                  </div>
-                </div>
-
-                <div className='flex items-center gap-3'>
-                  {/* Add Documents Button - disabled state */}
-                  <Button
-                    disabled
-                    size='sm'
-                    className='flex items-center gap-1 bg-primary font-[480] text-muted-foreground shadow-[0_0_0_0_var(--primary)] transition-all duration-200 hover:bg-primary-hover  disabled:opacity-50'
-                  >
-                    <div className='h-3.5 w-3.5 animate-pulse rounded bg-[var(--primary)]-foreground/30' />
-                    <span>Add Documents</span>
-                  </Button>
-                </div>
+      <div className='flex h-full min-h-0 flex-1 flex-col overflow-hidden'>
+        <div className='flex h-full min-h-0 flex-1 flex-col overflow-hidden'>
+          <div className='flex h-full min-h-0 flex-1 flex-col '>
+            <div className='flex h-full min-h-0 min-w-0 flex-1 overflow-hidden p-1'>
+              <div className='flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border'>
+                <DocumentTableSkeleton isSidebarCollapsed={false} rowCount={8} />
               </div>
-
-              {/* Table container */}
-              <DocumentTableSkeleton isSidebarCollapsed={false} rowCount={8} />
             </div>
           </div>
         </div>

@@ -19,9 +19,10 @@ export function getBaseUrl(): string {
       process.env.NEXT_PUBLIC_VERCEL_URL.trim() !== ''
     ) {
       const vercelUrl = process.env.NEXT_PUBLIC_VERCEL_URL
-      baseUrl = vercelUrl.startsWith('http://') || vercelUrl.startsWith('https://')
-        ? vercelUrl
-        : `https://${vercelUrl}`
+      baseUrl =
+        vercelUrl.startsWith('http://') || vercelUrl.startsWith('https://')
+          ? vercelUrl
+          : `https://${vercelUrl}`
     } else {
       baseUrl = isProd ? 'https://sim.ai' : 'http://localhost:3000'
     }

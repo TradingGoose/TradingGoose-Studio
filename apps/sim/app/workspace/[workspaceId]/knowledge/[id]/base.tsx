@@ -17,16 +17,6 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { SearchHighlight } from '@/components/ui/search-highlight'
@@ -46,7 +36,7 @@ import {
 } from '@/app/workspace/[workspaceId]/knowledge/components'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useKnowledgeBase, useKnowledgeBaseDocuments } from '@/hooks/use-knowledge'
-import { type DocumentData, useKnowledgeStore } from '@/stores/knowledge/store'
+import { type DocumentData } from '@/stores/knowledge/store'
 
 const logger = createLogger('KnowledgeBase')
 
@@ -104,15 +94,15 @@ const getStatusDisplay = (doc: DocumentData) => {
     case 'completed':
       return doc.enabled
         ? {
-          text: 'Enabled',
-          className:
-            'inline-flex items-center rounded-md bg-green-100 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400',
-        }
+            text: 'Enabled',
+            className:
+              'inline-flex items-center rounded-md bg-green-100 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400',
+          }
         : {
-          text: 'Disabled',
-          className:
-            'inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-        }
+            text: 'Disabled',
+            className:
+              'inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+          }
     default:
       return {
         text: 'Unknown',
@@ -126,7 +116,6 @@ export function KnowledgeBase({
   id,
   knowledgeBaseName: passedKnowledgeBaseName,
 }: KnowledgeBaseProps) {
-  const { removeKnowledgeBase } = useKnowledgeStore()
   const userPermissions = useUserPermissionsContext()
   const params = useParams()
   const workspaceId = params.workspaceId as string
@@ -140,9 +129,7 @@ export function KnowledgeBase({
   }, [])
 
   const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set())
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
   const [isBulkOperating, setIsBulkOperating] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [sortBy, setSortBy] = useState<DocumentSortField>('uploadedAt')
@@ -245,19 +232,16 @@ export function KnowledgeBase({
 
     const refreshInterval = setInterval(async () => {
       try {
-        // Only refresh if we're not in the middle of other operations
-        if (!isDeleting) {
-          // Check for dead processes before refreshing
-          await checkForDeadProcesses()
-          await refreshDocuments()
-        }
+        // Check for dead processes before refreshing
+        await checkForDeadProcesses()
+        await refreshDocuments()
       } catch (error) {
         logger.error('Error refreshing documents:', error)
       }
     }, 3000) // Refresh every 3 seconds
 
     return () => clearInterval(refreshInterval)
-  }, [documents, refreshDocuments, isDeleting])
+  }, [documents, refreshDocuments])
 
   // Check for documents stuck in processing due to dead processes
   const checkForDeadProcesses = async () => {
@@ -471,35 +455,6 @@ export function KnowledgeBase({
     router.push(`/workspace/${workspaceId}/knowledge/${id}/${docId}?${urlParams.toString()}`)
   }
 
-  const handleDeleteKnowledgeBase = async () => {
-    if (!knowledgeBase) return
-
-    try {
-      setIsDeleting(true)
-
-      const response = await fetch(`/api/knowledge/${id}`, {
-        method: 'DELETE',
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to delete knowledge base')
-      }
-
-      const result = await response.json()
-
-      if (result.success) {
-        // Remove from store and redirect to knowledge bases list
-        removeKnowledgeBase(id)
-        router.push(`/workspace/${workspaceId}/knowledge`)
-      } else {
-        throw new Error(result.error || 'Failed to delete knowledge base')
-      }
-    } catch (err) {
-      logger.error('Error deleting knowledge base:', err)
-      setIsDeleting(false)
-    }
-  }
-
   const handleAddDocuments = () => {
     setShowUploadModal(true)
   }
@@ -653,6 +608,37 @@ export function KnowledgeBase({
     },
   ]
 
+  const headerCenterContent = (
+    <div className='flex flex-wrap items-center justify-between gap-3 pt-1'>
+      <SearchInput
+        value={searchQuery}
+        onChange={handleSearchChange}
+        placeholder='Search documents...'
+        isLoading={isLoadingDocuments}
+        className='min-w-[220px] flex-1'
+      />
+
+      <div className='flex items-center gap-2'>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span>
+              <PrimaryButton
+                onClick={handleAddDocuments}
+                disabled={userPermissions.canEdit !== true}
+              >
+                <Plus className='h-3.5 w-3.5' />
+                Add Documents
+              </PrimaryButton>
+            </span>
+          </TooltipTrigger>
+          {userPermissions.canEdit !== true && (
+            <TooltipContent>Write permission required to add documents</TooltipContent>
+          )}
+        </Tooltip>
+      </div>
+    </div>
+  )
+
   // Show loading component while data is being fetched initially
   if ((isLoadingKnowledgeBase || isLoadingDocuments) && !knowledgeBase && documents.length === 0) {
     return <KnowledgeBaseLoading knowledgeBaseName={knowledgeBaseName} />
@@ -691,50 +677,13 @@ export function KnowledgeBase({
   }
 
   return (
-    <div className='flex h-full min-h-0 flex-col'>
-      {/* Fixed Header with Breadcrumbs */}
-      <KnowledgeHeader
-        breadcrumbs={breadcrumbs}
-        options={{
-          knowledgeBaseId: id,
-          currentWorkspaceId: knowledgeBase?.workspaceId || null,
-          onDeleteKnowledgeBase: () => setShowDeleteDialog(true),
-        }}
-      />
+    <>
+      <div className='flex h-full min-h-0 flex-col'>
+        <KnowledgeHeader breadcrumbs={breadcrumbs} centerContent={headerCenterContent} />
 
-      <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
-        <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
-          {/* Main Content */}
-          <div className='min-h-0 flex-1 overflow-auto'>
-            <div className='px-6 pb-6 min-h-0 flex flex-1 flex-col'>
-              {/* Search and Filters Section */}
-              <div className='mb-4 flex items-center justify-between pt-1'>
-                <SearchInput
-                  value={searchQuery}
-                  onChange={handleSearchChange}
-                  placeholder='Search documents...'
-                  isLoading={isLoadingDocuments}
-                />
-
-                <div className='flex items-center gap-2'>
-                  {/* Add Documents Button */}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <PrimaryButton
-                        onClick={handleAddDocuments}
-                        disabled={userPermissions.canEdit !== true}
-                      >
-                        <Plus className='h-3.5 w-3.5' />
-                        Add Documents
-                      </PrimaryButton>
-                    </TooltipTrigger>
-                    {userPermissions.canEdit !== true && (
-                      <TooltipContent>Write permission required to add documents</TooltipContent>
-                    )}
-                  </Tooltip>
-                </div>
-              </div>
-
+        <div className='flex h-full min-h-0 flex-1 flex-col overflow-hidden'>
+          <div className='flex h-full min-h-0 flex-1 flex-col overflow-hidden'>
+            <div className='flex h-full min-h-0 flex-1 flex-col'>
               {/* Error State for documents */}
               {error && !isLoadingKnowledgeBase && (
                 <div className='mb-4 rounded-md border border-red-200 bg-red-50 p-4'>
@@ -742,266 +691,292 @@ export function KnowledgeBase({
                 </div>
               )}
 
-              {/* Table container */}
-              <div className='flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border-border border'>
-                {/* Table header - fixed */}
-                <div className='shrink-0 overflow-x-auto border-b bg-background'>
-                  <table className='w-full min-w-[700px] table-fixed'>
-                    <colgroup>
-                      <col className='w-[4%]' />
-                      <col className='w-[24%]' />
-                      <col className='w-[8%]' />
-                      <col className='w-[8%]' />
-                      <col className='hidden w-[8%] lg:table-column' />
-                      <col className='w-[16%]' />
-                      <col className='w-[12%]' />
-                      <col className='w-[14%]' />
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th className='px-4 pt-2 pb-3 text-left font-medium'>
-                          <Checkbox
-                            checked={isAllSelected}
-                            onCheckedChange={handleSelectAll}
-                            disabled={!userPermissions.canEdit}
-                            aria-label='Select all documents'
-                            className='h-3.5 w-3.5 border-gray-300 focus-visible:ring-primary/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary[&>*]:h-3 [&>*]:w-3'
-                          />
-                        </th>
-                        {renderSortableHeader('filename', 'Name')}
-                        {renderSortableHeader('fileSize', 'Size')}
-                        {renderSortableHeader('tokenCount', 'Tokens')}
-                        {renderSortableHeader('chunkCount', 'Chunks', 'hidden lg:table-cell')}
-                        {renderSortableHeader('uploadedAt', 'Uploaded')}
-                        {renderSortableHeader('processingStatus', 'Status')}
-                        <th className='px-4 pt-2 pb-3 text-left font-medium'>
-                          <span className='text-muted-foreground text-xs leading-none'>
-                            Actions
-                          </span>
-                        </th>
-                      </tr>
-                    </thead>
-                  </table>
-                </div>
-
-                {/* Table body - scrollable */}
-                <div className='flex-1 min-h-0 overflow-auto' style={{ scrollbarGutter: 'stable' }}>
-                  <table className='w-full min-w-[700px] table-fixed'>
-                    <colgroup>
-                      <col className='w-[4%]' />
-                      <col className='w-[24%]' />
-                      <col className='w-[8%]' />
-                      <col className='w-[8%]' />
-                      <col className='hidden w-[8%] lg:table-column' />
-                      <col className='w-[16%]' />
-                      <col className='w-[12%]' />
-                      <col className='w-[14%]' />
-                    </colgroup>
-                    <tbody>
-                      {documents.length === 0 && !isLoadingDocuments ? (
-                        <tr className='border-b transition-colors hover:bg-card/30'>
-                          {/* Select column */}
-                          <td className='px-4 py-3'>
-                            <div className='h-3.5 w-3.5' />
-                          </td>
-
-                          {/* Name column */}
-                          <td className='px-4 py-3'>
-                            <div className='flex items-center gap-2'>
-                              <FileText className='h-6 w-5 text-muted-foreground' />
-                              <span className='text-muted-foreground text-sm italic'>
-                                {totalItems === 0
-                                  ? 'No documents yet'
-                                  : 'No documents match your search'}
-                              </span>
-                            </div>
-                          </td>
-
-                          {/* Size column */}
-                          <td className='px-4 py-3'>
-                            <div className='text-muted-foreground text-xs'>—</div>
-                          </td>
-
-                          {/* Tokens column */}
-                          <td className='px-4 py-3'>
-                            <div className='text-muted-foreground text-xs'>—</div>
-                          </td>
-
-                          {/* Chunks column - hidden on small screens */}
-                          <td className='hidden px-4 py-3 lg:table-cell'>
-                            <div className='text-muted-foreground text-xs'>—</div>
-                          </td>
-
-                          {/* Upload Time column */}
-                          <td className='px-4 py-3'>
-                            <div className='text-muted-foreground text-xs'>—</div>
-                          </td>
-
-                          {/* Status column */}
-                          <td className='px-4 py-3'>
-                            <div className='text-muted-foreground text-xs'>—</div>
-                          </td>
-
-                          {/* Actions column */}
-                          <td className='px-4 py-3'>
-                            <div className='text-muted-foreground text-xs'>—</div>
-                          </td>
+              <div className='flex h-full min-h-0 min-w-0 flex-1 overflow-hidden p-1'>
+                <div className='flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border'>
+                  <div className='shrink-0 overflow-x-auto border-b bg-card/40'>
+                    <table className='w-full min-w-[700px] table-fixed'>
+                      <colgroup>
+                        <col className='w-[4%]' />
+                        <col className='w-[24%]' />
+                        <col className='w-[8%]' />
+                        <col className='w-[8%]' />
+                        <col className='hidden w-[8%] lg:table-column' />
+                        <col className='w-[16%]' />
+                        <col className='w-[12%]' />
+                        <col className='w-[14%]' />
+                      </colgroup>
+                      <thead>
+                        <tr>
+                          <th className='px-4 pt-2 pb-3 text-left font-medium'>
+                            <Checkbox
+                              checked={isAllSelected}
+                              onCheckedChange={handleSelectAll}
+                              disabled={!userPermissions.canEdit}
+                              aria-label='Select all documents'
+                              className='h-3.5 w-3.5 border-gray-300 focus-visible:ring-primary/20 data-[state=checked]:bg-primary[&>*]:h-3 data-[state=checked]:border-primary [&>*]:w-3'
+                            />
+                          </th>
+                          {renderSortableHeader('filename', 'Name')}
+                          {renderSortableHeader('fileSize', 'Size')}
+                          {renderSortableHeader('tokenCount', 'Tokens')}
+                          {renderSortableHeader('chunkCount', 'Chunks', 'hidden lg:table-cell')}
+                          {renderSortableHeader('uploadedAt', 'Uploaded')}
+                          {renderSortableHeader('processingStatus', 'Status')}
+                          <th className='px-4 pt-2 pb-3 text-left font-medium'>
+                            <span className='text-muted-foreground text-xs leading-none'>
+                              Actions
+                            </span>
+                          </th>
                         </tr>
-                      ) : isLoadingDocuments && documents.length === 0 ? (
-                        Array.from({ length: 5 }).map((_, index) => (
-                          <tr key={`loading-${index}`} className='border-b transition-colors'>
+                      </thead>
+                    </table>
+                  </div>
+
+                  <div
+                    className='min-h-0 flex-1 overflow-auto'
+                    style={{ scrollbarGutter: 'stable' }}
+                  >
+                    <table className='w-full min-w-[700px] table-fixed'>
+                      <colgroup>
+                        <col className='w-[4%]' />
+                        <col className='w-[24%]' />
+                        <col className='w-[8%]' />
+                        <col className='w-[8%]' />
+                        <col className='hidden w-[8%] lg:table-column' />
+                        <col className='w-[16%]' />
+                        <col className='w-[12%]' />
+                        <col className='w-[14%]' />
+                      </colgroup>
+                      <tbody>
+                        {documents.length === 0 && !isLoadingDocuments ? (
+                          <tr className='border-b transition-colors hover:bg-card/30'>
+                            {/* Select column */}
                             <td className='px-4 py-3'>
-                              <div className='h-3.5 w-3.5 animate-pulse rounded bg-muted' />
+                              <div className='h-3.5 w-3.5' />
                             </td>
+
+                            {/* Name column */}
                             <td className='px-4 py-3'>
-                              <div className='h-4 w-32 animate-pulse rounded bg-muted' />
+                              <div className='flex items-center gap-2'>
+                                <FileText className='h-6 w-5 text-muted-foreground' />
+                                <span className='text-muted-foreground text-sm italic'>
+                                  {totalItems === 0
+                                    ? 'No documents yet'
+                                    : 'No documents match your search'}
+                                </span>
+                              </div>
                             </td>
+
+                            {/* Size column */}
                             <td className='px-4 py-3'>
-                              <div className='h-4 w-16 animate-pulse rounded bg-muted' />
+                              <div className='text-muted-foreground text-xs'>—</div>
                             </td>
+
+                            {/* Tokens column */}
                             <td className='px-4 py-3'>
-                              <div className='h-4 w-12 animate-pulse rounded bg-muted' />
+                              <div className='text-muted-foreground text-xs'>—</div>
                             </td>
+
+                            {/* Chunks column - hidden on small screens */}
                             <td className='hidden px-4 py-3 lg:table-cell'>
-                              <div className='h-4 w-12 animate-pulse rounded bg-muted' />
+                              <div className='text-muted-foreground text-xs'>—</div>
                             </td>
+
+                            {/* Upload Time column */}
                             <td className='px-4 py-3'>
-                              <div className='h-4 w-20 animate-pulse rounded bg-muted' />
+                              <div className='text-muted-foreground text-xs'>—</div>
                             </td>
+
+                            {/* Status column */}
                             <td className='px-4 py-3'>
-                              <div className='h-4 w-16 animate-pulse rounded bg-muted' />
+                              <div className='text-muted-foreground text-xs'>—</div>
                             </td>
+
+                            {/* Actions column */}
                             <td className='px-4 py-3'>
-                              <div className='h-4 w-20 animate-pulse rounded bg-muted' />
+                              <div className='text-muted-foreground text-xs'>—</div>
                             </td>
                           </tr>
-                        ))
-                      ) : (
-                        documents.map((doc) => {
-                          const isSelected = selectedDocuments.has(doc.id)
-                          const statusDisplay = getStatusDisplay(doc)
-                          // const processingTime = getProcessingTime(doc)
-
-                          return (
-                            <tr
-                              key={doc.id}
-                              className={`border-b transition-colors hover:bg-card/30 ${isSelected ? 'bg-accent/30' : ''} ${
-                                doc.processingStatus === 'completed' ? 'cursor-pointer' : 'cursor-default'
-                              }`}
-                              onClick={() => {
-                                if (doc.processingStatus === 'completed') {
-                                  handleDocumentClick(doc.id)
-                                }
-                              }}
-                            >
-                              {/* Select column */}
+                        ) : isLoadingDocuments && documents.length === 0 ? (
+                          Array.from({ length: 5 }).map((_, index) => (
+                            <tr key={`loading-${index}`} className='border-b transition-colors'>
                               <td className='px-4 py-3'>
-                                <Checkbox
-                                  checked={isSelected}
-                                  onCheckedChange={(checked) =>
-                                    handleSelectDocument(doc.id, checked as boolean)
-                                  }
-                                  disabled={!userPermissions.canEdit}
-                                  onClick={(e) => e.stopPropagation()}
-                                  aria-label={`Select ${doc.filename}`}
-                                  className='h-3.5 w-3.5 border-gray-300 focus-visible:ring-primary/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary[&>*]:h-3 [&>*]:w-3'
-                                />
+                                <div className='h-3.5 w-3.5 animate-pulse rounded bg-muted' />
                               </td>
-
-                              {/* Name column */}
                               <td className='px-4 py-3'>
-                                <div className='flex items-center gap-2'>
-                                  {getFileIcon(doc.mimeType, doc.filename)}
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <span className='block truncate text-sm' title={doc.filename}>
-                                        <SearchHighlight
-                                          text={doc.filename}
-                                          searchQuery={searchQuery}
-                                        />
-                                      </span>
-                                    </TooltipTrigger>
-                                    <TooltipContent side='top'>{doc.filename}</TooltipContent>
-                                  </Tooltip>
-                                </div>
+                                <div className='h-4 w-32 animate-pulse rounded bg-muted' />
                               </td>
-
-                              {/* Size column */}
                               <td className='px-4 py-3'>
-                                <div className='text-muted-foreground text-xs'>
-                                  {formatFileSize(doc.fileSize)}
-                                </div>
+                                <div className='h-4 w-16 animate-pulse rounded bg-muted' />
                               </td>
-
-                              {/* Tokens column */}
                               <td className='px-4 py-3'>
-                                <div className='text-xs'>
-                                  {doc.processingStatus === 'completed' ? (
-                                    doc.tokenCount > 1000 ? (
-                                      `${(doc.tokenCount / 1000).toFixed(1)}k`
-                                    ) : (
-                                      doc.tokenCount.toLocaleString()
-                                    )
-                                  ) : (
-                                    <div className='text-muted-foreground'>—</div>
-                                  )}
-                                </div>
+                                <div className='h-4 w-12 animate-pulse rounded bg-muted' />
                               </td>
-
-                              {/* Chunks column - hidden on small screens */}
                               <td className='hidden px-4 py-3 lg:table-cell'>
-                                <div className='text-muted-foreground text-xs'>
-                                  {doc.processingStatus === 'completed'
-                                    ? doc.chunkCount.toLocaleString()
-                                    : '—'}
-                                </div>
+                                <div className='h-4 w-12 animate-pulse rounded bg-muted' />
                               </td>
-
-                              {/* Upload Time column */}
                               <td className='px-4 py-3'>
-                                <div className='flex flex-col justify-center'>
-                                  <div className='flex items-center font-medium text-xs'>
-                                    <span>{format(new Date(doc.uploadedAt), 'h:mm a')}</span>
-                                    <span className='mx-1.5 hidden text-muted-foreground xl:inline'>
-                                      •
-                                    </span>
-                                    <span className='hidden text-muted-foreground xl:inline'>
-                                      {format(new Date(doc.uploadedAt), 'MMM d, yyyy')}
-                                    </span>
-                                  </div>
-                                  <div className='mt-0.5 text-muted-foreground text-xs lg:hidden'>
-                                    {format(new Date(doc.uploadedAt), 'MMM d')}
-                                  </div>
-                                </div>
+                                <div className='h-4 w-20 animate-pulse rounded bg-muted' />
                               </td>
-
-                              {/* Status column */}
                               <td className='px-4 py-3'>
-                                {doc.processingStatus === 'failed' && doc.processingError ? (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <div
-                                        className={statusDisplay.className}
-                                        style={{ cursor: 'help' }}
-                                      >
-                                        {statusDisplay.text}
-                                      </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent side='top' className='max-w-xs'>
-                                      {doc.processingError}
-                                    </TooltipContent>
-                                  </Tooltip>
-                                ) : (
-                                  <div className={statusDisplay.className}>
-                                    {statusDisplay.text}
-                                  </div>
-                                )}
+                                <div className='h-4 w-16 animate-pulse rounded bg-muted' />
                               </td>
-
-                              {/* Actions column */}
                               <td className='px-4 py-3'>
-                                <div className='flex items-center gap-1'>
-                                  {doc.processingStatus === 'failed' && (
+                                <div className='h-4 w-20 animate-pulse rounded bg-muted' />
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          documents.map((doc) => {
+                            const isSelected = selectedDocuments.has(doc.id)
+                            const statusDisplay = getStatusDisplay(doc)
+                            // const processingTime = getProcessingTime(doc)
+
+                            return (
+                              <tr
+                                key={doc.id}
+                                className={`border-b transition-colors hover:bg-card/30 ${
+                                  isSelected ? 'bg-accent/30' : ''
+                                } ${
+                                  doc.processingStatus === 'completed'
+                                    ? 'cursor-pointer'
+                                    : 'cursor-default'
+                                }`}
+                                onClick={() => {
+                                  if (doc.processingStatus === 'completed') {
+                                    handleDocumentClick(doc.id)
+                                  }
+                                }}
+                              >
+                                {/* Select column */}
+                                <td className='px-4 py-3'>
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={(checked) =>
+                                      handleSelectDocument(doc.id, checked as boolean)
+                                    }
+                                    disabled={!userPermissions.canEdit}
+                                    onClick={(e) => e.stopPropagation()}
+                                    aria-label={`Select ${doc.filename}`}
+                                    className='h-3.5 w-3.5 border-gray-300 focus-visible:ring-primary/20 data-[state=checked]:bg-primary[&>*]:h-3 data-[state=checked]:border-primary [&>*]:w-3'
+                                  />
+                                </td>
+
+                                {/* Name column */}
+                                <td className='px-4 py-3'>
+                                  <div className='flex items-center gap-2'>
+                                    {getFileIcon(doc.mimeType, doc.filename)}
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span
+                                          className='block truncate text-sm'
+                                          title={doc.filename}
+                                        >
+                                          <SearchHighlight
+                                            text={doc.filename}
+                                            searchQuery={searchQuery}
+                                          />
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent side='top'>{doc.filename}</TooltipContent>
+                                    </Tooltip>
+                                  </div>
+                                </td>
+
+                                {/* Size column */}
+                                <td className='px-4 py-3'>
+                                  <div className='text-muted-foreground text-xs'>
+                                    {formatFileSize(doc.fileSize)}
+                                  </div>
+                                </td>
+
+                                {/* Tokens column */}
+                                <td className='px-4 py-3'>
+                                  <div className='text-xs'>
+                                    {doc.processingStatus === 'completed' ? (
+                                      doc.tokenCount > 1000 ? (
+                                        `${(doc.tokenCount / 1000).toFixed(1)}k`
+                                      ) : (
+                                        doc.tokenCount.toLocaleString()
+                                      )
+                                    ) : (
+                                      <div className='text-muted-foreground'>—</div>
+                                    )}
+                                  </div>
+                                </td>
+
+                                {/* Chunks column - hidden on small screens */}
+                                <td className='hidden px-4 py-3 lg:table-cell'>
+                                  <div className='text-muted-foreground text-xs'>
+                                    {doc.processingStatus === 'completed'
+                                      ? doc.chunkCount.toLocaleString()
+                                      : '—'}
+                                  </div>
+                                </td>
+
+                                {/* Upload Time column */}
+                                <td className='px-4 py-3'>
+                                  <div className='flex flex-col justify-center'>
+                                    <div className='flex items-center font-medium text-xs'>
+                                      <span>{format(new Date(doc.uploadedAt), 'h:mm a')}</span>
+                                      <span className='mx-1.5 hidden text-muted-foreground xl:inline'>
+                                        •
+                                      </span>
+                                      <span className='hidden text-muted-foreground xl:inline'>
+                                        {format(new Date(doc.uploadedAt), 'MMM d, yyyy')}
+                                      </span>
+                                    </div>
+                                    <div className='mt-0.5 text-muted-foreground text-xs lg:hidden'>
+                                      {format(new Date(doc.uploadedAt), 'MMM d')}
+                                    </div>
+                                  </div>
+                                </td>
+
+                                {/* Status column */}
+                                <td className='px-4 py-3'>
+                                  {doc.processingStatus === 'failed' && doc.processingError ? (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div
+                                          className={statusDisplay.className}
+                                          style={{ cursor: 'help' }}
+                                        >
+                                          {statusDisplay.text}
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent side='top' className='max-w-xs'>
+                                        {doc.processingError}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  ) : (
+                                    <div className={statusDisplay.className}>
+                                      {statusDisplay.text}
+                                    </div>
+                                  )}
+                                </td>
+
+                                {/* Actions column */}
+                                <td className='px-4 py-3'>
+                                  <div className='flex items-center gap-1'>
+                                    {doc.processingStatus === 'failed' && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant='ghost'
+                                            size='sm'
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleRetryDocument(doc.id)
+                                            }}
+                                            className='h-8 w-8 p-0 text-gray-500 hover:text-gray-700'
+                                          >
+                                            <RotateCcw className='h-4 w-4' />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side='top'>Retry processing</TooltipContent>
+                                      </Tooltip>
+                                    )}
+
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <Button
@@ -1009,174 +984,133 @@ export function KnowledgeBase({
                                           size='sm'
                                           onClick={(e) => {
                                             e.stopPropagation()
-                                            handleRetryDocument(doc.id)
+                                            handleToggleEnabled(doc.id)
                                           }}
-                                          className='h-8 w-8 p-0 text-gray-500 hover:text-gray-700'
+                                          disabled={
+                                            doc.processingStatus === 'processing' ||
+                                            doc.processingStatus === 'pending' ||
+                                            !userPermissions.canEdit
+                                          }
+                                          className='h-8 w-8 p-0 text-gray-500 hover:text-gray-700 disabled:opacity-50'
                                         >
-                                          <RotateCcw className='h-4 w-4' />
+                                          {doc.enabled ? (
+                                            <Circle className='h-4 w-4' />
+                                          ) : (
+                                            <CircleOff className='h-4 w-4' />
+                                          )}
                                         </Button>
                                       </TooltipTrigger>
-                                      <TooltipContent side='top'>Retry processing</TooltipContent>
-                                    </Tooltip>
-                                  )}
-
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant='ghost'
-                                        size='sm'
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          handleToggleEnabled(doc.id)
-                                        }}
-                                        disabled={
-                                          doc.processingStatus === 'processing' ||
-                                          doc.processingStatus === 'pending' ||
-                                          !userPermissions.canEdit
-                                        }
-                                        className='h-8 w-8 p-0 text-gray-500 hover:text-gray-700 disabled:opacity-50'
-                                      >
-                                        {doc.enabled ? (
-                                          <Circle className='h-4 w-4' />
-                                        ) : (
-                                          <CircleOff className='h-4 w-4' />
-                                        )}
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent side='top'>
-                                      {doc.processingStatus === 'processing' ||
+                                      <TooltipContent side='top'>
+                                        {doc.processingStatus === 'processing' ||
                                         doc.processingStatus === 'pending'
-                                        ? 'Cannot modify while processing'
-                                        : !userPermissions.canEdit
-                                          ? 'Write permission required to modify documents'
-                                          : doc.enabled
-                                            ? 'Disable Document'
-                                            : 'Enable Document'}
-                                    </TooltipContent>
-                                  </Tooltip>
+                                          ? 'Cannot modify while processing'
+                                          : !userPermissions.canEdit
+                                            ? 'Write permission required to modify documents'
+                                            : doc.enabled
+                                              ? 'Disable Document'
+                                              : 'Enable Document'}
+                                      </TooltipContent>
+                                    </Tooltip>
 
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant='ghost'
-                                        size='sm'
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          handleDeleteDocument(doc.id)
-                                        }}
-                                        disabled={
-                                          doc.processingStatus === 'processing' ||
-                                          !userPermissions.canEdit
-                                        }
-                                        className='h-8 w-8 p-0 text-gray-500 hover:text-red-600 disabled:opacity-50'
-                                      >
-                                        <Trash2 className='h-4 w-4' />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent side='top'>
-                                      {doc.processingStatus === 'processing'
-                                        ? 'Cannot delete while processing'
-                                        : !userPermissions.canEdit
-                                          ? 'Write permission required to delete documents'
-                                          : 'Delete Document'}
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </div>
-                              </td>
-                            </tr>
-                          )
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Pagination Controls */}
-                {totalPages > 1 && (
-                  <div className='flex items-center justify-center border-t bg-background px-6 py-4'>
-                    <div className='flex items-center gap-1'>
-                      <Button
-                        variant='ghost'
-                        size='sm'
-                        onClick={prevPage}
-                        disabled={!hasPrevPage || isLoadingDocuments}
-                        className='h-8 w-8 p-0'
-                      >
-                        <ChevronLeft className='h-4 w-4' />
-                      </Button>
-
-                      {/* Page numbers - show a few around current page */}
-                      <div className='mx-4 flex items-center gap-6'>
-                        {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                          let page: number
-                          if (totalPages <= 5) {
-                            page = i + 1
-                          } else if (currentPage <= 3) {
-                            page = i + 1
-                          } else if (currentPage >= totalPages - 2) {
-                            page = totalPages - 4 + i
-                          } else {
-                            page = currentPage - 2 + i
-                          }
-
-                          if (page < 1 || page > totalPages) return null
-
-                          return (
-                            <button
-                              key={page}
-                              onClick={() => goToPage(page)}
-                              disabled={isLoadingDocuments}
-                              className={`font-medium text-sm transition-colors hover:text-foreground disabled:opacity-50 ${
-                                page === currentPage ? 'text-foreground' : 'text-muted-foreground'
-                              }`}
-                            >
-                              {page}
-                            </button>
-                          )
-                        })}
-                      </div>
-
-                      <Button
-                        variant='ghost'
-                        size='sm'
-                        onClick={nextPage}
-                        disabled={!hasNextPage || isLoadingDocuments}
-                        className='h-8 w-8 p-0'
-                      >
-                        <ChevronRight className='h-4 w-4' />
-                      </Button>
-                    </div>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant='ghost'
+                                          size='sm'
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            handleDeleteDocument(doc.id)
+                                          }}
+                                          disabled={
+                                            doc.processingStatus === 'processing' ||
+                                            !userPermissions.canEdit
+                                          }
+                                          className='h-8 w-8 p-0 text-gray-500 hover:text-red-600 disabled:opacity-50'
+                                        >
+                                          <Trash2 className='h-4 w-4' />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side='top'>
+                                        {doc.processingStatus === 'processing'
+                                          ? 'Cannot delete while processing'
+                                          : !userPermissions.canEdit
+                                            ? 'Write permission required to delete documents'
+                                            : 'Delete Document'}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </div>
+                                </td>
+                              </tr>
+                            )
+                          })
+                        )}
+                      </tbody>
+                    </table>
                   </div>
-                )}
+
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className='flex items-center justify-center border-t bg-background px-6 py-4'>
+                      <div className='flex items-center gap-1'>
+                        <Button
+                          variant='ghost'
+                          size='sm'
+                          onClick={prevPage}
+                          disabled={!hasPrevPage || isLoadingDocuments}
+                          className='h-8 w-8 p-0'
+                        >
+                          <ChevronLeft className='h-4 w-4' />
+                        </Button>
+
+                        {/* Page numbers - show a few around current page */}
+                        <div className='mx-4 flex items-center gap-6'>
+                          {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                            let page: number
+                            if (totalPages <= 5) {
+                              page = i + 1
+                            } else if (currentPage <= 3) {
+                              page = i + 1
+                            } else if (currentPage >= totalPages - 2) {
+                              page = totalPages - 4 + i
+                            } else {
+                              page = currentPage - 2 + i
+                            }
+
+                            if (page < 1 || page > totalPages) return null
+
+                            return (
+                              <button
+                                key={page}
+                                onClick={() => goToPage(page)}
+                                disabled={isLoadingDocuments}
+                                className={`font-medium text-sm transition-colors hover:text-foreground disabled:opacity-50 ${
+                                  page === currentPage ? 'text-foreground' : 'text-muted-foreground'
+                                }`}
+                              >
+                                {page}
+                              </button>
+                            )
+                          })}
+                        </div>
+
+                        <Button
+                          variant='ghost'
+                          size='sm'
+                          onClick={nextPage}
+                          disabled={!hasNextPage || isLoadingDocuments}
+                          className='h-8 w-8 p-0'
+                        >
+                          <ChevronRight className='h-4 w-4' />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Knowledge Base</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete "{knowledgeBaseName}"? This will permanently delete
-              the knowledge base and all {totalItems} document
-              {totalItems === 1 ? '' : 's'} within it. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteKnowledgeBase}
-              disabled={isDeleting}
-              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
-            >
-              {isDeleting ? 'Deleting...' : 'Delete Knowledge Base'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Upload Modal */}
       <UploadModal
@@ -1197,6 +1131,6 @@ export function KnowledgeBase({
         disabledCount={disabledCount}
         isLoading={isBulkOperating}
       />
-    </div>
+    </>
   )
 }

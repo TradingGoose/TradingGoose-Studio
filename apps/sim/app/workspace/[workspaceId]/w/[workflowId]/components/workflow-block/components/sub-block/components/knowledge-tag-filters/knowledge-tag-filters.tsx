@@ -88,18 +88,18 @@ export function KnowledgeTagFilters({
   const rows: TagFilterRow[] =
     filters.length > 0
       ? filters.map((filter) => ({
-        id: filter.id,
-        cells: {
-          tagName: filter.tagName || '',
-          value: filter.tagValue || '',
-        },
-      }))
+          id: filter.id,
+          cells: {
+            tagName: filter.tagName || '',
+            value: filter.tagValue || '',
+          },
+        }))
       : [
-        {
-          id: 'empty-row-0',
-          cells: { tagName: '', value: '' },
-        },
-      ]
+          {
+            id: 'empty-row-0',
+            cells: { tagName: '', value: '' },
+          },
+        ]
 
   const updateFilters = (newFilters: TagFilter[]) => {
     if (isPreview) return

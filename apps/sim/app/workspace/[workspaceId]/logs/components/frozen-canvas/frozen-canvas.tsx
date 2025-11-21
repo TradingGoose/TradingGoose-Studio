@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
 import {
   AlertCircle,
   ChevronDown,
@@ -16,6 +15,7 @@ import {
   X,
   Zap,
 } from 'lucide-react'
+import { useParams } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -115,17 +115,17 @@ function formatExecutionData(executionData: any) {
     errorStackTrace,
     cost: cost
       ? {
-        input: cost.input || 0,
-        output: cost.output || 0,
-        total: cost.total || 0,
-      }
+          input: cost.input || 0,
+          output: cost.output || 0,
+          total: cost.total || 0,
+        }
       : null,
     tokens: tokens
       ? {
-        prompt: tokens.prompt || 0,
-        completion: tokens.completion || 0,
-        total: tokens.total || 0,
-      }
+          prompt: tokens.prompt || 0,
+          completion: tokens.completion || 0,
+          total: tokens.total || 0,
+        }
       : null,
   }
 }
@@ -396,8 +396,9 @@ export function FrozenCanvas({
 
   const params = useParams()
   const workspaceIdFromParams = params.workspaceId
-  const workspaceId =
-    Array.isArray(workspaceIdFromParams) ? workspaceIdFromParams[0] : workspaceIdFromParams
+  const workspaceId = Array.isArray(workspaceIdFromParams)
+    ? workspaceIdFromParams[0]
+    : workspaceIdFromParams
 
   // Process traceSpans to create blockExecutions map
   useEffect(() => {

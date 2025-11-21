@@ -22,7 +22,7 @@ export default function WorkspacePage() {
       // If user is not authenticated, redirect to login
       if (!session?.user) {
         logger.info('User not authenticated, redirecting to login')
-        router.replace('/login')
+        router.replace('/login?reauth=1')
         return
       }
 
@@ -93,7 +93,7 @@ export default function WorkspacePage() {
           }
 
           // If we can't create a workspace, redirect to login to reset state
-          router.replace('/login')
+          router.replace('/login?reauth=1')
           return
         }
 

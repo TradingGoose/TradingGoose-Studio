@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
 import { getCopilotStore } from '@/stores/copilot/store'
+import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'

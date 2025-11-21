@@ -29,8 +29,7 @@ export const NavigationItem = ({ item }: NavigationItemProps) => {
       className={cn(
         'h-[42px] w-[42px] rounded-md border bg-background text-foreground shadow-xs transition-all duration-200',
         isGrayHover && 'hover:bg-secondary',
-        !isGrayHover &&
-        'hover:border-primary hover:bg-primary hover:text-black',
+        !isGrayHover && 'hover:border-primary hover:bg-primary hover:text-black',
         item.active && 'border-primary bg-primary text-black'
       )}
     >

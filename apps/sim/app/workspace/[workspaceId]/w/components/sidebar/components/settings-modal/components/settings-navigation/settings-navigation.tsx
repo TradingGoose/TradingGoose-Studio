@@ -44,17 +44,17 @@ interface SettingsNavigationProps {
 
 type NavigationItem = {
   id:
-  | 'general'
-  | 'environment'
-  | 'account'
-  | 'credentials'
-  | 'apikeys'
-  | 'files'
-  | 'subscription'
-  | 'team'
-  | 'sso'
-  | 'copilot'
-  | 'privacy'
+    | 'general'
+    | 'environment'
+    | 'account'
+    | 'credentials'
+    | 'apikeys'
+    | 'files'
+    | 'subscription'
+    | 'team'
+    | 'sso'
+    | 'copilot'
+    | 'privacy'
   label: string
   icon: React.ComponentType<{ className?: string }>
   hideWhenBillingDisabled?: boolean

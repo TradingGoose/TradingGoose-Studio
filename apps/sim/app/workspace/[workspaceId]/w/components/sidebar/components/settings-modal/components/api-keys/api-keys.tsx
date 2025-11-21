@@ -602,7 +602,7 @@ export function ApiKeys({ onOpenChange, registerCloseHandler }: ApiKeysProps) {
 
           {newKey && (
             <div className='relative'>
-              <div className='flex h-9 items-center rounded-[6px] border-none bg-muted px-3 pr-10'>
+              <div className='flex h-9 items-center rounded-md border-none bg-muted px-3 pr-10'>
                 <code className='flex-1 truncate font-mono text-foreground text-sm'>
                   {newKey.key}
                 </code>
@@ -610,7 +610,7 @@ export function ApiKeys({ onOpenChange, registerCloseHandler }: ApiKeysProps) {
               <Button
                 variant='ghost'
                 size='icon'
-                className='-translate-y-1/2 absolute top-1/2 right-1 h-7 w-7 rounded-[4px] text-muted-foreground hover:bg-card hover:text-foreground'
+                className='-translate-y-1/2 absolute top-1/2 right-1 h-7 w-7 rounded-sm text-muted-foreground hover:bg-card hover:text-foreground'
                 onClick={() => copyToClipboard(newKey.key)}
               >
                 {copySuccess ? <Check className='h-3.5 w-3.5' /> : <Copy className='h-3.5 w-3.5' />}

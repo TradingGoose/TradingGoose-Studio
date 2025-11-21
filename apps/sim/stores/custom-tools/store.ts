@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
+import { handleAuthError } from '@/lib/auth/auth-error-handler'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { CustomToolsStore } from '@/stores/custom-tools/types'
 
@@ -23,6 +24,9 @@ export const useCustomToolsStore = create<CustomToolsStore>()(
             const response = await fetch(API_ENDPOINT)
 
             if (!response.ok) {
+              if (response.status === 401) {
+                await handleAuthError('custom-tools:load')
+              }
               throw new Error(`Failed to load custom tools: ${response.statusText}`)
             }
 
@@ -107,6 +111,9 @@ export const useCustomToolsStore = create<CustomToolsStore>()(
             })
 
             if (!response.ok) {
+              if (response.status === 401) {
+                await handleAuthError('custom-tools:sync')
+              }
               // Try to get more detailed error information
               try {
                 const errorData = await response.json()

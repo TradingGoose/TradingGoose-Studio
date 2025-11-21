@@ -20,12 +20,35 @@ let isInitializing = false
 let appFullyInitialized = false
 let dataInitialized = false // Flag for actual data loading completion
 
+const AUTH_COOKIE_KEYS = [
+  'better-auth.session_token',
+  'better-auth.session_data',
+  'better-auth.dont_remember',
+  '__Secure-better-auth.session_token',
+  '__Secure-better-auth.session_data',
+  '__Secure-better-auth.dont_remember',
+]
+
+function hasAuthCookie(): boolean {
+  if (typeof document === 'undefined') return false
+  return AUTH_COOKIE_KEYS.some((key) => document.cookie.includes(`${key}=`))
+}
+
 /**
  * Initialize the application state and sync system
  * localStorage persistence has been removed - relies on DB and Zustand stores only
  */
 async function initializeApplication(): Promise<void> {
   if (typeof window === 'undefined' || isInitializing) return
+
+  // Skip initialization entirely when no auth cookie is present to avoid
+  // unauthenticated 401 loops while the app is redirecting to /login.
+  if (!hasAuthCookie()) {
+    logger.info('Auth cookie missing, skipping app initialization')
+    appFullyInitialized = false
+    dataInitialized = false
+    return
+  }
 
   isInitializing = true
   appFullyInitialized = false

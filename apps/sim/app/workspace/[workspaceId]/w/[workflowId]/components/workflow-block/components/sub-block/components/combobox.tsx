@@ -9,17 +9,17 @@ import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { useSubBlockValue } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useAccessibleReferencePrefixes } from '@/app/workspace/[workspaceId]/w/[workflowId]/hooks/use-accessible-reference-prefixes'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useTagSelection } from '@/hooks/use-tag-selection'
-import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 const logger = createLogger('ComboBox')
 
 interface ComboBoxProps {
   options:
-  | Array<string | { label: string; id: string }>
-  | (() => Array<string | { label: string; id: string }>)
+    | Array<string | { label: string; id: string }>
+    | (() => Array<string | { label: string; id: string }>)
   defaultValue?: string
   blockId: string
   subBlockId: string
@@ -409,8 +409,8 @@ export function ComboBox({
           className={cn(
             'allow-scroll w-full overflow-auto pr-10 text-transparent caret-foreground placeholder:text-muted-foreground/50',
             isConnecting &&
-            config?.connectionDroppable !== false &&
-            'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500'
+              config?.connectionDroppable !== false &&
+              'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500'
           )}
           placeholder={placeholder}
           value={displayValue}

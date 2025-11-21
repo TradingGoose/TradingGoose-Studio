@@ -1,31 +1,49 @@
-"use client"
+'use client'
 
-import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
-import { Building2, BookOpen, LibraryBig, Frame, Search, Shapes, ScrollText, Workflow } from 'lucide-react'
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
+import {
+  type ComponentType,
+  Fragment,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import {
+  BookOpen,
+  Building2,
+  Frame,
+  LibraryBig,
+  ScrollText,
+  Search,
+  Shapes,
+  Workflow,
+} from 'lucide-react'
+import { usePathname, useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
-import { WidgetSurface } from '@/widgets/widget-surface'
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
+import { useBrandConfig } from '@/lib/branding/branding'
+import { type LayoutTab, LayoutTabs } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
+import { getAllBlocks } from '@/blocks'
+import { GlobalNavbarHeader } from '@/global-navbar'
+import { useKnowledgeBasesList } from '@/hooks/use-knowledge'
+import { type PairColorContext, usePairColorStore } from '@/stores/dashboard/pair-store'
+import { useOrganizationStore } from '@/stores/organization'
+import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import {
   createLayoutNodeId,
-  serializeLayout,
   type LayoutNode,
-  type WidgetInstance,
+  type LinkedPairColor,
   normalizeColorPairsState,
   type PersistedColorPair,
   type PersistedColorPairsState,
-  type LinkedPairColor,
+  serializeLayout,
+  type WidgetInstance,
 } from '@/widgets/layout'
+import { isPairColor, PAIR_COLORS, type PairColor } from '@/widgets/pair-colors'
 import type { WidgetRuntimeContext } from '@/widgets/types'
-import { PAIR_COLORS, type PairColor, isPairColor } from '@/widgets/pair-colors'
-import { usePairColorStore, type PairColorContext } from '@/stores/dashboard/pair-store'
-import { GlobalNavbarHeader } from '@/global-navbar'
-import { LayoutTabs, type LayoutTab } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
-import { getAllBlocks } from '@/blocks'
-import { useBrandConfig } from '@/lib/branding/branding'
-import { useKnowledgeBasesList } from '@/hooks/use-knowledge'
-import { useOrganizationStore } from '@/stores/organization'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { WidgetSurface } from '@/widgets/widget-surface'
 
 interface DashboardClientProps {
   initialState: LayoutNode
@@ -60,89 +78,94 @@ interface DashboardNodeProps {
 const PANEL_MIN_SIZE = 10
 const MIN_SPLIT_SIZE = PANEL_MIN_SIZE * 2
 
-const DashboardNode = memo(function DashboardNode({
-  node,
-  persistGroup,
-  widgetContext,
-  updatePairColor,
-  updateWidget,
-  updateWidgetParams,
-  sizeHint,
-  availableWidth = 100,
-  availableHeight = 100,
-  splitPanelVertical,
-  splitPanelHorizontal,
-  closePanel,
-}: DashboardNodeProps) {
-  if (node.type === 'panel') {
-    const canSplitVertical = availableHeight >= MIN_SPLIT_SIZE
-    const canSplitHorizontal = availableWidth >= MIN_SPLIT_SIZE
+const DashboardNode = memo(
+  function DashboardNode({
+    node,
+    persistGroup,
+    widgetContext,
+    updatePairColor,
+    updateWidget,
+    updateWidgetParams,
+    sizeHint,
+    availableWidth = 100,
+    availableHeight = 100,
+    splitPanelVertical,
+    splitPanelHorizontal,
+    closePanel,
+  }: DashboardNodeProps) {
+    if (node.type === 'panel') {
+      const canSplitVertical = availableHeight >= MIN_SPLIT_SIZE
+      const canSplitHorizontal = availableWidth >= MIN_SPLIT_SIZE
+
+      return (
+        <WidgetSurface
+          widget={node.widget}
+          context={widgetContext}
+          panelId={node.id}
+          onPairColorChange={(color) => updatePairColor(node.id, color)}
+          onWidgetChange={(key) => updateWidget(node.id, key)}
+          onWidgetParamsChange={(params) => updateWidgetParams(node.id, params)}
+          onPanelSplit={canSplitVertical ? () => splitPanelVertical(node.id) : undefined}
+          onPanelSplitHorizontal={
+            canSplitHorizontal ? () => splitPanelHorizontal(node.id) : undefined
+          }
+          onPanelClose={() => closePanel(node.id)}
+        />
+      )
+    }
 
     return (
-      <WidgetSurface
-        widget={node.widget}
-        context={widgetContext}
-        panelId={node.id}
-        onPairColorChange={(color) => updatePairColor(node.id, color)}
-        onWidgetChange={(key) => updateWidget(node.id, key)}
-        onWidgetParamsChange={(params) => updateWidgetParams(node.id, params)}
-        onPanelSplit={canSplitVertical ? () => splitPanelVertical(node.id) : undefined}
-        onPanelSplitHorizontal={canSplitHorizontal ? () => splitPanelHorizontal(node.id) : undefined}
-        onPanelClose={() => closePanel(node.id)}
-      />
+      <ResizablePanelGroup
+        key={node.id}
+        direction={node.direction}
+        layout={node.sizes}
+        onLayout={(sizes) => persistGroup(node.id, sizes)}
+        className='h-full w-full'
+      >
+        {node.children.map((child, index) => {
+          const childSize = node.sizes[index] ?? 100 / Math.max(node.children.length, 1)
+          const nextAvailableWidth =
+            node.direction === 'horizontal' ? (availableWidth * childSize) / 100 : availableWidth
+          const nextAvailableHeight =
+            node.direction === 'vertical' ? (availableHeight * childSize) / 100 : availableHeight
+
+          return (
+            <Fragment key={`${node.id}-${child.id}`}>
+              <ResizablePanel
+                id={child.id}
+                order={index + 1}
+                defaultSize={childSize}
+                minSize={PANEL_MIN_SIZE}
+                collapsible
+              >
+                <DashboardNode
+                  node={child}
+                  persistGroup={persistGroup}
+                  widgetContext={widgetContext}
+                  updatePairColor={updatePairColor}
+                  updateWidget={updateWidget}
+                  updateWidgetParams={updateWidgetParams}
+                  sizeHint={childSize}
+                  availableWidth={nextAvailableWidth}
+                  availableHeight={nextAvailableHeight}
+                  splitPanelVertical={splitPanelVertical}
+                  splitPanelHorizontal={splitPanelHorizontal}
+                  closePanel={closePanel}
+                />
+              </ResizablePanel>
+              {index < node.children.length - 1 && <ResizableHandle withHandle />}
+            </Fragment>
+          )
+        })}
+      </ResizablePanelGroup>
     )
-  }
-
-  return (
-    <ResizablePanelGroup
-      key={node.id}
-      direction={node.direction}
-      layout={node.sizes}
-      onLayout={(sizes) => persistGroup(node.id, sizes)}
-      className='h-full w-full'
-    >
-      {node.children.map((child, index) => {
-        const childSize = node.sizes[index] ?? 100 / Math.max(node.children.length, 1)
-        const nextAvailableWidth =
-          node.direction === 'horizontal' ? (availableWidth * childSize) / 100 : availableWidth
-        const nextAvailableHeight =
-          node.direction === 'vertical' ? (availableHeight * childSize) / 100 : availableHeight
-
-        return (
-          <Fragment key={`${node.id}-${child.id}`}>
-            <ResizablePanel
-              id={child.id}
-              order={index + 1}
-              defaultSize={childSize}
-              minSize={PANEL_MIN_SIZE}
-              collapsible
-            >
-              <DashboardNode
-                node={child}
-                persistGroup={persistGroup}
-                widgetContext={widgetContext}
-                updatePairColor={updatePairColor}
-                updateWidget={updateWidget}
-                updateWidgetParams={updateWidgetParams}
-                sizeHint={childSize}
-                availableWidth={nextAvailableWidth}
-                availableHeight={nextAvailableHeight}
-                splitPanelVertical={splitPanelVertical}
-                splitPanelHorizontal={splitPanelHorizontal}
-                closePanel={closePanel}
-              />
-            </ResizablePanel>
-            {index < node.children.length - 1 && <ResizableHandle withHandle />}
-          </Fragment>
-        )
-      })}
-    </ResizablePanelGroup>
-  )
-}, (prev, next) =>
-  prev.node === next.node &&
-  prev.sizeHint === next.sizeHint &&
-  prev.availableWidth === next.availableWidth &&
-  prev.availableHeight === next.availableHeight)
+  },
+  (prev, next) =>
+    prev.node === next.node &&
+    prev.sizeHint === next.sizeHint &&
+    prev.availableWidth === next.availableWidth &&
+    prev.availableHeight === next.availableHeight
+)
 
 export function DashboardClient({
   initialState,
@@ -226,7 +249,9 @@ export function DashboardClient({
   const loadLayoutData = useCallback(
     async (targetLayoutId?: string) => {
       const query = targetLayoutId ? `?layoutId=${targetLayoutId}` : ''
-      const response = await fetch(`/api/workspaces/${workspaceId}/layout${query}`, { cache: 'no-store' })
+      const response = await fetch(`/api/workspaces/${workspaceId}/layout${query}`, {
+        cache: 'no-store',
+      })
 
       if (!response.ok) {
         throw new Error(`Failed to load layout (${response.status})`)
@@ -314,7 +339,10 @@ export function DashboardClient({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(event.target as Node)
+      ) {
         setIsSearchOpen(false)
       }
     }
@@ -382,8 +410,18 @@ export function DashboardClient({
   const pages = useMemo(
     () => [
       { id: 'logs', name: 'Logs', icon: ScrollText, href: `/workspace/${workspaceId}/logs` },
-      { id: 'knowledge', name: 'Knowledge', icon: LibraryBig, href: `/workspace/${workspaceId}/knowledge` },
-      { id: 'templates', name: 'Templates', icon: Shapes, href: `/workspace/${workspaceId}/templates` },
+      {
+        id: 'knowledge',
+        name: 'Knowledge',
+        icon: LibraryBig,
+        href: `/workspace/${workspaceId}/knowledge`,
+      },
+      {
+        id: 'templates',
+        name: 'Templates',
+        icon: Shapes,
+        href: `/workspace/${workspaceId}/templates`,
+      },
       {
         id: 'docs',
         name: 'Docs',
@@ -435,12 +473,15 @@ export function DashboardClient({
     })
   }, [])
 
-  const handleWidgetParamsChange = useCallback((panelId: string, params: Record<string, unknown> | null) => {
-    setTree((prev) => {
-      const next = updatePanelWidgetParams(prev, panelId, params)
-      return next === prev ? prev : next
-    })
-  }, [])
+  const handleWidgetParamsChange = useCallback(
+    (panelId: string, params: Record<string, unknown> | null) => {
+      setTree((prev) => {
+        const next = updatePanelWidgetParams(prev, panelId, params)
+        return next === prev ? prev : next
+      })
+    },
+    []
+  )
 
   const handleSplitPanelVertical = useCallback((panelId: string) => {
     setTree((prev) => {
@@ -600,7 +641,7 @@ export function DashboardClient({
         <span className='font-medium text-sm'>Dashboard</span>
       </div>
       <div ref={searchContainerRef} className='relative flex flex-1'>
-        <Search className='-translate-y-1/2 absolute left-3 top-1/2 h-4 w-4 text-muted-foreground' />
+        <Search className='-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground' />
         <Input
           placeholder='Search workflows...'
           value={searchQuery}
@@ -614,10 +655,10 @@ export function DashboardClient({
               setIsSearchOpen(false)
             }
           }}
-          className='h-9 w-full rounded-md border bg-background pl-10 pr-3 text-sm'
+          className='h-9 w-full rounded-md border bg-background pr-3 pl-10 text-sm'
         />
         {showDropdown && (
-          <div className='absolute left-0 top-full z-50 mt-2 w-full max-w-[420px] rounded-md border border-border bg-background shadow-lg'>
+          <div className='absolute top-full left-0 z-50 mt-2 w-full max-w-[420px] rounded-md border border-border bg-background shadow-lg'>
             <div className='max-h-80 overflow-y-auto'>
               <div className='space-y-4 p-4'>
                 <DropdownSection
@@ -662,12 +703,14 @@ export function DashboardClient({
                 />
                 {filteredDocs.length > 0 && (
                   <section>
-                    <div className='mb-2 text-xs uppercase tracking-wide text-muted-foreground/70'>Docs</div>
+                    <div className='mb-2 text-muted-foreground/70 text-xs uppercase tracking-wide'>
+                      Docs
+                    </div>
                     <div className='space-y-1'>
                       {filteredDocs.map((doc) => (
                         <button
                           key={doc.id}
-                          className='flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm text-foreground transition hover:bg-card/50'
+                          className='flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-foreground text-sm transition hover:bg-card/50'
                           onClick={() => {
                             setIsSearchOpen(false)
                             setSearchQuery('')
@@ -682,7 +725,7 @@ export function DashboardClient({
                   </section>
                 )}
                 {!hasResults && (
-                  <div className='text-sm text-muted-foreground'>No matching content</div>
+                  <div className='text-muted-foreground text-sm'>No matching content</div>
                 )}
               </div>
             </div>
@@ -707,7 +750,7 @@ export function DashboardClient({
   return (
     <>
       <GlobalNavbarHeader left={headerLeftContent} center={headerCenterContent} />
-      <div className='h-full w-full min-h-0 min-w-0 overflow-hidden'>
+      <div className='h-full min-h-0 w-full min-w-0 overflow-hidden'>
         <DashboardNode
           node={tree}
           persistGroup={persistGroup}
@@ -752,7 +795,7 @@ function updatePanelPairColor(node: LayoutNode, panelId: string, color: PairColo
 
     // When switching to a linked color pair, drop stale params that belong to the previous color.
     // Linked color pairs should derive params from the shared pair store instead of the widget state.
-    const nextParams = color === 'gray' ? node.widget?.params ?? null : null
+    const nextParams = color === 'gray' ? (node.widget?.params ?? null) : null
 
     return {
       ...node,
@@ -851,7 +894,9 @@ function updatePanelWidgetParams(
     }
   }
 
-  const updatedChildren = node.children.map((child) => updatePanelWidgetParams(child, panelId, params))
+  const updatedChildren = node.children.map((child) =>
+    updatePanelWidgetParams(child, panelId, params)
+  )
   const hasChanged = updatedChildren.some((child, index) => child !== node.children[index])
 
   if (!hasChanged) {
@@ -864,7 +909,10 @@ function updatePanelWidgetParams(
   }
 }
 
-function applyColorPairsToLayout(node: LayoutNode, colorPairs: PersistedColorPairsState): LayoutNode {
+function applyColorPairsToLayout(
+  node: LayoutNode,
+  colorPairs: PersistedColorPairsState
+): LayoutNode {
   if (!hasLinkedColorPairs(colorPairs)) {
     return node
   }
@@ -872,7 +920,7 @@ function applyColorPairsToLayout(node: LayoutNode, colorPairs: PersistedColorPai
   const pairMap = new Map<LinkedPairColor, PersistedColorPair>()
 
   for (const pair of colorPairs.pairs ?? []) {
-    if (pair && pair.color && pair.color !== 'gray') {
+    if (pair?.color && pair.color !== 'gray') {
       pairMap.set(pair.color, pair)
     }
   }
@@ -985,7 +1033,9 @@ function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState 
         ? context.workflowId
         : null
     const ticker =
-      typeof context?.ticker === 'string' && context.ticker.trim().length > 0 ? context.ticker : null
+      typeof context?.ticker === 'string' && context.ticker.trim().length > 0
+        ? context.ticker
+        : null
 
     pairs.push({
       color,
@@ -1000,7 +1050,7 @@ function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState 
 function hasLinkedColorPairs(colorPairs?: PersistedColorPairsState): boolean {
   if (!colorPairs || !Array.isArray(colorPairs.pairs)) return false
   return colorPairs.pairs.some(
-    (pair) => pair && pair.color && pair.color !== 'gray' && (pair.workflowId || pair.ticker)
+    (pair) => pair?.color && pair.color !== 'gray' && (pair.workflowId || pair.ticker)
   )
 }
 
@@ -1062,7 +1112,11 @@ function findPanelPairColor(node: LayoutNode, panelId: string): PairColor | unde
   return undefined
 }
 
-function findParentGroupId(node: LayoutNode, childId: string, parentId: string | null = null): string | null {
+function findParentGroupId(
+  node: LayoutNode,
+  childId: string,
+  parentId: string | null = null
+): string | null {
   if (node.type === 'panel') {
     return node.id === childId ? parentId : null
   }
@@ -1120,7 +1174,9 @@ function splitPanelIntoGroup(
     }
   }
 
-  const updatedChildren = node.children.map((child) => splitPanelIntoGroup(child, panelId, direction))
+  const updatedChildren = node.children.map((child) =>
+    splitPanelIntoGroup(child, panelId, direction)
+  )
   const hasChanged = updatedChildren.some((child, index) => child !== node.children[index])
 
   if (!hasChanged) {
@@ -1138,7 +1194,9 @@ function closePanelGroup(node: LayoutNode, panelId: string): LayoutNode {
     return node
   }
 
-  const directIndex = node.children.findIndex((child) => child.type === 'panel' && child.id === panelId)
+  const directIndex = node.children.findIndex(
+    (child) => child.type === 'panel' && child.id === panelId
+  )
 
   if (directIndex !== -1) {
     const remainingChildren = node.children.filter((_, index) => index !== directIndex)
@@ -1229,7 +1287,7 @@ function DropdownSection({
 
   return (
     <section>
-      <div className='mb-2 text-xs uppercase tracking-wide text-muted-foreground/70'>{title}</div>
+      <div className='mb-2 text-muted-foreground/70 text-xs uppercase tracking-wide'>{title}</div>
       <div className='space-y-1'>
         {items.map((item) => {
           const ItemIcon = item.icon ?? Icon
@@ -1237,7 +1295,7 @@ function DropdownSection({
           return (
             <button
               key={item.id}
-              className='flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm text-foreground transition hover:bg-card/50'
+              className='flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-foreground text-sm transition hover:bg-card/50'
               onClick={() => onSelect(item.href)}
             >
               {ItemIcon && <ItemIcon className='h-4 w-4 text-muted-foreground' />}
@@ -1250,7 +1308,11 @@ function DropdownSection({
   )
 }
 
-function normalizeRemainingSizes(sizes: number[], removedIndex: number, nextLength: number): number[] {
+function normalizeRemainingSizes(
+  sizes: number[],
+  removedIndex: number,
+  nextLength: number
+): number[] {
   if (nextLength === 0) {
     return []
   }

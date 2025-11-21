@@ -176,7 +176,7 @@ export default function MarkdownRenderer({
       <thead className='bg-gray-100 text-left dark:bg-gray-800'>{children}</thead>
     ),
     tbody: ({ children }: React.HTMLAttributes<HTMLTableSectionElement>) => (
-      <tbody className='divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-900'>
+      <tbody className='divide-y divide-gray-200 dark:divide-gray-700 dark:bg-gray-900'>
         {children}
       </tbody>
     ),

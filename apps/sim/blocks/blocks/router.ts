@@ -176,10 +176,10 @@ export const RouterBlock: BlockConfig<RouterResponse> = {
       password: true,
       placeholder: 'https://your-resource.openai.azure.com',
       connectionDroppable: false,
-      condition: {
+      condition: () => ({
         field: 'model',
         value: providers['azure-openai'].models,
-      },
+      }),
     },
     {
       id: 'azureApiVersion',
@@ -188,10 +188,10 @@ export const RouterBlock: BlockConfig<RouterResponse> = {
       layout: 'full',
       placeholder: '2024-07-01-preview',
       connectionDroppable: false,
-      condition: {
+      condition: () => ({
         field: 'model',
         value: providers['azure-openai'].models,
-      },
+      }),
     },
     {
       id: 'temperature',

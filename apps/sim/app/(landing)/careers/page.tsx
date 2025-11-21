@@ -199,7 +199,7 @@ export default function CareersPage() {
     <LegalLayout title='Join Our Team'>
       <div className={`${soehne.className} mx-auto max-w-2xl`}>
         {/* Form Section */}
-        <section className='rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:p-10'>
+        <section className='rounded-2xl border border-gray-200 p-6 shadow-sm sm:p-10'>
           <h2 className='mb-2 font-medium text-2xl sm:text-3xl'>Apply Now</h2>
           <p className='mb-8 text-gray-600 text-sm sm:text-base'>
             Help us build the future of AI workflows
@@ -219,8 +219,8 @@ export default function CareersPage() {
                   onChange={(e) => setName(e.target.value)}
                   className={cn(
                     showErrors &&
-                    nameErrors.length > 0 &&
-                    'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                      nameErrors.length > 0 &&
+                      'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                   )}
                 />
                 {showErrors && nameErrors.length > 0 && (
@@ -244,8 +244,8 @@ export default function CareersPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   className={cn(
                     showErrors &&
-                    emailErrors.length > 0 &&
-                    'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                      emailErrors.length > 0 &&
+                      'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                   )}
                 />
                 {showErrors && emailErrors.length > 0 && (
@@ -284,8 +284,8 @@ export default function CareersPage() {
                   onChange={(e) => setPosition(e.target.value)}
                   className={cn(
                     showErrors &&
-                    positionErrors.length > 0 &&
-                    'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                      positionErrors.length > 0 &&
+                      'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                   )}
                 />
                 {showErrors && positionErrors.length > 0 && (
@@ -311,8 +311,8 @@ export default function CareersPage() {
                   onChange={(e) => setLinkedin(e.target.value)}
                   className={cn(
                     showErrors &&
-                    linkedinErrors.length > 0 &&
-                    'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                      linkedinErrors.length > 0 &&
+                      'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                   )}
                 />
                 {showErrors && linkedinErrors.length > 0 && (
@@ -335,8 +335,8 @@ export default function CareersPage() {
                   onChange={(e) => setPortfolio(e.target.value)}
                   className={cn(
                     showErrors &&
-                    portfolioErrors.length > 0 &&
-                    'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                      portfolioErrors.length > 0 &&
+                      'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                   )}
                 />
                 {showErrors && portfolioErrors.length > 0 && (
@@ -359,8 +359,8 @@ export default function CareersPage() {
                   <SelectTrigger
                     className={cn(
                       showErrors &&
-                      experienceErrors.length > 0 &&
-                      'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                        experienceErrors.length > 0 &&
+                        'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                     )}
                   >
                     <SelectValue placeholder='Select experience level' />
@@ -393,8 +393,8 @@ export default function CareersPage() {
                   onChange={(e) => setLocation(e.target.value)}
                   className={cn(
                     showErrors &&
-                    locationErrors.length > 0 &&
-                    'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                      locationErrors.length > 0 &&
+                      'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                   )}
                 />
                 {showErrors && locationErrors.length > 0 && (
@@ -418,8 +418,8 @@ export default function CareersPage() {
                 className={cn(
                   'min-h-[140px]',
                   showErrors &&
-                  messageErrors.length > 0 &&
-                  'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                    messageErrors.length > 0 &&
+                    'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                 )}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
@@ -467,8 +467,8 @@ export default function CareersPage() {
                     ref={fileInputRef}
                     className={cn(
                       showErrors &&
-                      resumeErrors.length > 0 &&
-                      'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                        resumeErrors.length > 0 &&
+                        'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                     )}
                   />
                 )}

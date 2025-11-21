@@ -128,7 +128,7 @@ export function Controls({
             className={cn(
               'h-7 rounded-sm px-3 font-normal text-xs',
               live
-                ? 'bg-primary  shadow-[0_0_0_0_var(--primary)] hover:bg-primary-hover  '
+                ? 'bg-primary shadow-[0_0_0_0_var(--primary)] hover:bg-primary-hover '
                 : 'text-muted-foreground hover:text-foreground'
             )}
             aria-pressed={live}

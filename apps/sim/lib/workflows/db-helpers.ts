@@ -34,7 +34,9 @@ async function ensureUniqueBlockIds(
       : await db
           .select({ id: workflowBlocks.id })
           .from(workflowBlocks)
-          .where(and(inArray(workflowBlocks.id, blockIds), ne(workflowBlocks.workflowId, workflowId)))
+          .where(
+            and(inArray(workflowBlocks.id, blockIds), ne(workflowBlocks.workflowId, workflowId))
+          )
 
   const conflictingIds = new Set(conflictingIdsResult.map((row) => row.id))
   const remap = new Map<string, string>()
@@ -407,13 +409,9 @@ export async function saveWorkflowToNormalizedTables(
       const edgeId =
         typeof edge.id === 'string' && edge.id.trim().length > 0 ? edge.id.trim() : null
       const sourceId =
-        typeof edge.source === 'string' && edge.source.trim().length > 0
-          ? edge.source.trim()
-          : null
+        typeof edge.source === 'string' && edge.source.trim().length > 0 ? edge.source.trim() : null
       const targetId =
-        typeof edge.target === 'string' && edge.target.trim().length > 0
-          ? edge.target.trim()
-          : null
+        typeof edge.target === 'string' && edge.target.trim().length > 0 ? edge.target.trim() : null
 
       if (!edgeId || !sourceId || !targetId) {
         logger.warn(`Skipping edge with missing identifiers when saving workflow ${workflowId}`)

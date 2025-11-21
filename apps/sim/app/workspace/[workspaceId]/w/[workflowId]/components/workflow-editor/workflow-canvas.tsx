@@ -27,6 +27,7 @@ import {
 } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/trigger-warning-dialog'
 import { WorkflowBlock } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-block/workflow-block'
 import { WorkflowEdge } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-edge/workflow-edge'
+import { useWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useCurrentWorkflow } from '@/app/workspace/[workspaceId]/w/[workflowId]/hooks'
 import {
   getNodeAbsolutePosition,
@@ -37,7 +38,6 @@ import {
   updateNodeParent as updateNodeParentUtil,
 } from '@/app/workspace/[workspaceId]/w/[workflowId]/utils'
 import { getBlock } from '@/blocks'
-import { useWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
 import { useStreamCleanup } from '@/hooks/use-stream-cleanup'
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions'
@@ -47,7 +47,10 @@ import { useGeneralStore } from '@/stores/settings/general/store'
 import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
 import { hasWorkflowsInitiallyLoaded, useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { getUniqueBlockName } from '@/stores/workflows/utils'
-import { useWorkflowStore, DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
+import {
+  DEFAULT_WORKFLOW_CHANNEL_ID,
+  useWorkflowStore,
+} from '@/stores/workflows/workflow/store-client'
 
 const logger = createLogger('Workflow')
 
@@ -144,10 +147,7 @@ const WorkflowCanvas = React.memo(
     // Hooks
     const router = useRouter()
     const { workspaceId, workflowId } = useWorkflowRoute()
-    const resolvedChannelId = useMemo(
-      () => channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID,
-      [channelId]
-    )
+    const resolvedChannelId = useMemo(() => channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID, [channelId])
     const reactFlowId = useMemo(() => `workflow-${resolvedChannelId}`, [resolvedChannelId])
     const { project, getNodes, fitView, screenToFlowPosition } = useReactFlow(reactFlowId)
 
@@ -1012,7 +1012,7 @@ const WorkflowCanvas = React.memo(
                     block: b,
                     distance: Math.sqrt(
                       (b.position.x - relativePosition.x) ** 2 +
-                      (b.position.y - relativePosition.y) ** 2
+                        (b.position.y - relativePosition.y) ** 2
                     ),
                   }))
                   .sort((a, b) => a.distance - b.distance)[0]?.block
@@ -1196,9 +1196,14 @@ const WorkflowCanvas = React.memo(
       if (activeWorkflowId !== currentId) {
         const { clearDiff } = useWorkflowDiffStore.getState()
         clearDiff()
-        setActiveWorkflow({ workflowId: currentId, channelId: resolvedChannelId }).catch((error) => {
-          logger.error('Failed to activate workflow for channel', { error, channelId: resolvedChannelId })
-        })
+        setActiveWorkflow({ workflowId: currentId, channelId: resolvedChannelId }).catch(
+          (error) => {
+            logger.error('Failed to activate workflow for channel', {
+              error,
+              channelId: resolvedChannelId,
+            })
+          }
+        )
       }
     }, [effectiveWorkflowId, workflows, activeWorkflowId, setActiveWorkflow, resolvedChannelId])
 
@@ -1211,7 +1216,10 @@ const WorkflowCanvas = React.memo(
       // 2. The workflow exists in the registry
       // 3. Workflows are not currently loading
       const shouldBeReady =
-        currentId !== null && activeWorkflowId === currentId && Boolean(workflows[currentId]) && !isLoading
+        currentId !== null &&
+        activeWorkflowId === currentId &&
+        Boolean(workflows[currentId]) &&
+        !isLoading
 
       setIsWorkflowReady(shouldBeReady)
     }, [activeWorkflowId, effectiveWorkflowId, workflows, isLoading])
@@ -1270,7 +1278,15 @@ const WorkflowCanvas = React.memo(
       }
 
       validateAndNavigate()
-    }, [shouldHandleNavigation, workflowId, workflows, isLoading, workspaceId, router, hasWorkflowsInitiallyLoaded])
+    }, [
+      shouldHandleNavigation,
+      workflowId,
+      workflows,
+      isLoading,
+      workspaceId,
+      router,
+      hasWorkflowsInitiallyLoaded,
+    ])
 
     // Cache block configs to prevent unnecessary re-fetches
     const blockConfigCache = useRef<Map<string, any>>(new Map())
@@ -1406,7 +1422,7 @@ const WorkflowCanvas = React.memo(
       resizeLoopNodesWrapper()
 
       // No need for cleanup with direct function
-      return () => { }
+      return () => {}
     }, [nodes, resizeLoopNodesWrapper])
 
     // Special effect to handle cleanup after node deletion
@@ -1481,7 +1497,7 @@ const WorkflowCanvas = React.memo(
           const sourceParentId =
             blocks[sourceNode.id]?.data?.parentId ||
             (connection.sourceHandle === 'loop-start-source' ||
-              connection.sourceHandle === 'parallel-start-source'
+            connection.sourceHandle === 'parallel-start-source'
               ? connection.source
               : undefined)
           const targetParentId = blocks[targetNode.id]?.data?.parentId
@@ -1530,9 +1546,9 @@ const WorkflowCanvas = React.memo(
             type: 'workflowEdge',
             data: isInsideContainer
               ? {
-                parentId,
-                isInsideContainer,
-              }
+                  parentId,
+                  isInsideContainer,
+                }
               : undefined,
           })
         }
@@ -1726,9 +1742,11 @@ const WorkflowCanvas = React.memo(
     const onNodeDragStop = useCallback(
       (_event: React.MouseEvent, node: any) => {
         // Clear UI effects
-        document.querySelectorAll('.loop-node-drag-over, .parallel-node-drag-over').forEach((el) => {
-          el.classList.remove('loop-node-drag-over', 'parallel-node-drag-over')
-        })
+        document
+          .querySelectorAll('.loop-node-drag-over, .parallel-node-drag-over')
+          .forEach((el) => {
+            el.classList.remove('loop-node-drag-over', 'parallel-node-drag-over')
+          })
         document.body.style.cursor = ''
 
         // Emit collaborative position update for the final position
@@ -1756,7 +1774,7 @@ const WorkflowCanvas = React.memo(
             }
             setDragStartPosition(null)
           }
-        } catch { }
+        } catch {}
 
         // Don't process parent changes if the node hasn't actually changed parent or is being moved within same parent
         if (potentialParentId === dragStartParentId) return
@@ -1819,7 +1837,7 @@ const WorkflowCanvas = React.memo(
                   block: b,
                   distance: Math.sqrt(
                     (b.position.x - relativePositionBefore.x) ** 2 +
-                    (b.position.y - relativePositionBefore.y) ** 2
+                      (b.position.y - relativePositionBefore.y) ** 2
                   ),
                 }))
                 .sort((a, b) => a.distance - b.distance)[0]?.block
@@ -2002,7 +2020,9 @@ const WorkflowCanvas = React.memo(
                 <Panel />
               </div>
             )}
-            {uiConfig.controlBar && <ControlBar hasValidationErrors={nestedSubflowErrors.size > 0} />}
+            {uiConfig.controlBar && (
+              <ControlBar hasValidationErrors={nestedSubflowErrors.size > 0} />
+            )}
             <div className='workflow-container h-full'>
               <Background
                 color='hsl(var(--workflow-dots))'
@@ -2113,7 +2133,8 @@ const WorkflowCanvas = React.memo(
         </div>
       </div>
     )
-  })
+  }
+)
 
 WorkflowCanvas.displayName = 'WorkflowCanvas'
 

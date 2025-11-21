@@ -645,28 +645,31 @@ export function DeployModal({
               <div className='flex gap-2'>
                 <button
                   onClick={() => setActiveTab('api')}
-                  className={`rounded-md px-3 py-1 text-sm transition-colors ${activeTab === 'api'
-                    ? 'bg-accent text-foreground'
-                    : 'text-muted-foreground hover:bg-card hover:text-foreground'
-                    }`}
+                  className={`rounded-md px-3 py-1 text-sm transition-colors ${
+                    activeTab === 'api'
+                      ? 'bg-accent text-foreground'
+                      : 'text-muted-foreground hover:bg-card hover:text-foreground'
+                  }`}
                 >
                   API
                 </button>
                 <button
                   onClick={() => setActiveTab('chat')}
-                  className={`rounded-md px-3 py-1 text-sm transition-colors ${activeTab === 'chat'
-                    ? 'bg-accent text-foreground'
-                    : 'text-muted-foreground hover:bg-card hover:text-foreground'
-                    }`}
+                  className={`rounded-md px-3 py-1 text-sm transition-colors ${
+                    activeTab === 'chat'
+                      ? 'bg-accent text-foreground'
+                      : 'text-muted-foreground hover:bg-card hover:text-foreground'
+                  }`}
                 >
                   Chat
                 </button>
                 <button
                   onClick={() => setActiveTab('versions')}
-                  className={`rounded-md px-3 py-1 text-sm transition-colors ${activeTab === 'versions'
-                    ? 'bg-accent text-foreground'
-                    : 'text-muted-foreground hover:bg-card hover:text-foreground'
-                    }`}
+                  className={`rounded-md px-3 py-1 text-sm transition-colors ${
+                    activeTab === 'versions'
+                      ? 'bg-accent text-foreground'
+                      : 'text-muted-foreground hover:bg-card hover:text-foreground'
+                  }`}
                 >
                   Versions
                 </button>
@@ -789,8 +792,9 @@ export function DeployModal({
                                   >
                                     <td className='px-4 py-2.5'>
                                       <div
-                                        className={`h-2 w-2 rounded-full ${v.isActive ? 'bg-green-500' : 'bg-muted-foreground/40'
-                                          }`}
+                                        className={`h-2 w-2 rounded-full ${
+                                          v.isActive ? 'bg-green-500' : 'bg-muted-foreground/40'
+                                        }`}
                                         title={v.isActive ? 'Active' : 'Inactive'}
                                       />
                                     </td>

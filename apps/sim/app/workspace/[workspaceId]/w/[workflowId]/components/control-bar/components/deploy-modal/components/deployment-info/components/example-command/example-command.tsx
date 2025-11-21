@@ -150,10 +150,11 @@ export function ExampleCommand({
               variant='outline'
               size='sm'
               onClick={() => setMode('sync')}
-              className={`h-6 min-w-[50px] px-2 py-1 text-xs transition-none ${mode === 'sync'
-                ? 'border-primary bg-primary text-primary-foreground hover:border-primary hover:bg-primary hover:text-primary-foreground'
-                : ''
-                }`}
+              className={`h-6 min-w-[50px] px-2 py-1 text-xs transition-none ${
+                mode === 'sync'
+                  ? 'border-primary bg-primary text-primary-foreground hover:border-primary hover:bg-primary hover:text-primary-foreground'
+                  : ''
+              }`}
             >
               Sync
             </Button>
@@ -161,10 +162,11 @@ export function ExampleCommand({
               variant='outline'
               size='sm'
               onClick={() => setMode('stream')}
-              className={`h-6 min-w-[50px] px-2 py-1 text-xs transition-none ${mode === 'stream'
-                ? 'border-primary bg-primary text-primary-foreground hover:border-primary hover:bg-primary hover:text-primary-foreground'
-                : ''
-                }`}
+              className={`h-6 min-w-[50px] px-2 py-1 text-xs transition-none ${
+                mode === 'stream'
+                  ? 'border-primary bg-primary text-primary-foreground hover:border-primary hover:bg-primary hover:text-primary-foreground'
+                  : ''
+              }`}
             >
               Stream
             </Button>
@@ -174,10 +176,11 @@ export function ExampleCommand({
                   variant='outline'
                   size='sm'
                   onClick={() => setMode('async')}
-                  className={`h-6 min-w-[50px] px-2 py-1 text-xs transition-none ${mode === 'async'
-                    ? 'border-primary bg-primary text-primary-foreground hover:border-primary hover:bg-primary hover:text-primary-foreground'
-                    : ''
-                    }`}
+                  className={`h-6 min-w-[50px] px-2 py-1 text-xs transition-none ${
+                    mode === 'async'
+                      ? 'border-primary bg-primary text-primary-foreground hover:border-primary hover:bg-primary hover:text-primary-foreground'
+                      : ''
+                  }`}
                 >
                   Async
                 </Button>

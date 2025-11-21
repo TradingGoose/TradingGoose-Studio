@@ -1,7 +1,7 @@
-import { NextResponse, type NextRequest } from 'next/server'
-import { and, asc, eq } from 'drizzle-orm'
 import { db } from '@sim/db'
 import { layoutMap } from '@sim/db/schema'
+import { and, asc, eq } from 'drizzle-orm'
+import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { normalizeColorPairsState, normalizeDashboardLayout } from '@/widgets/layout'
 
@@ -27,15 +27,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: 'No layouts found' }, { status: 404 })
   }
 
-  const requestedLayout = requestedLayoutId ? layouts.find((layout) => layout.id === requestedLayoutId) : null
+  const requestedLayout = requestedLayoutId
+    ? layouts.find((layout) => layout.id === requestedLayoutId)
+    : null
   if (requestedLayoutId && !requestedLayout) {
     return NextResponse.json({ error: 'Layout not found' }, { status: 404 })
   }
 
-  const activeLayout =
-    requestedLayout ??
-    layouts.find((layout) => layout.isActive) ??
-    layouts[0]
+  const activeLayout = requestedLayout ?? layouts.find((layout) => layout.isActive) ?? layouts[0]
 
   if (!activeLayout) {
     return NextResponse.json({ error: 'No active layout' }, { status: 404 })
@@ -80,10 +79,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   })
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: workspaceId } = await params
   const session = await getSession()
 
@@ -99,7 +95,11 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
   }
 
-  const { layout, layoutId, colorPairs } = body as { layout?: unknown; layoutId?: string; colorPairs?: unknown }
+  const { layout, layoutId, colorPairs } = body as {
+    layout?: unknown
+    layoutId?: string
+    colorPairs?: unknown
+  }
 
   if (!layoutId || typeof layoutId !== 'string') {
     return NextResponse.json({ error: 'Missing layoutId' }, { status: 400 })
@@ -112,7 +112,13 @@ export async function POST(
   const [existing] = await db
     .select({ id: layoutMap.id, colorPair: layoutMap.color_pair })
     .from(layoutMap)
-    .where(and(eq(layoutMap.id, layoutId), eq(layoutMap.workspaceId, workspaceId), eq(layoutMap.userId, userId)))
+    .where(
+      and(
+        eq(layoutMap.id, layoutId),
+        eq(layoutMap.workspaceId, workspaceId),
+        eq(layoutMap.userId, userId)
+      )
+    )
     .limit(1)
 
   if (!existing) {
@@ -130,15 +136,18 @@ export async function POST(
       color_pair: normalizedColorPairs,
       updatedAt: new Date(),
     })
-    .where(and(eq(layoutMap.id, layoutId), eq(layoutMap.workspaceId, workspaceId), eq(layoutMap.userId, userId)))
+    .where(
+      and(
+        eq(layoutMap.id, layoutId),
+        eq(layoutMap.workspaceId, workspaceId),
+        eq(layoutMap.userId, userId)
+      )
+    )
 
   return NextResponse.json({ success: true })
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: workspaceId } = await params
   const session = await getSession()
 
@@ -153,7 +162,10 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
   }
 
-  const { layoutOrder, activeLayoutId } = body as { layoutOrder?: string[]; activeLayoutId?: string }
+  const { layoutOrder, activeLayoutId } = body as {
+    layoutOrder?: string[]
+    activeLayoutId?: string
+  }
 
   if (!layoutOrder && !activeLayoutId) {
     return NextResponse.json({ error: 'No updates provided' }, { status: 400 })
@@ -174,7 +186,13 @@ export async function PATCH(
           tx
             .update(layoutMap)
             .set({ sort_order: index })
-            .where(and(eq(layoutMap.id, id), eq(layoutMap.workspaceId, workspaceId), eq(layoutMap.userId, userId)))
+            .where(
+              and(
+                eq(layoutMap.id, id),
+                eq(layoutMap.workspaceId, workspaceId),
+                eq(layoutMap.userId, userId)
+              )
+            )
         )
       )
     })

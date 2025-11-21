@@ -27,9 +27,9 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { WandPromptBar } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/wand-prompt-bar/wand-prompt-bar'
 import { CodeEditor } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-block/components/sub-block/components/tool-input/components/code-editor/code-editor'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useWand } from '@/app/workspace/[workspaceId]/w/[workflowId]/hooks/use-wand'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
-import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 const logger = createLogger('CustomToolModal')
 
@@ -982,7 +982,7 @@ try {
                   minHeight='360px'
                   className={cn(
                     (schemaGeneration.isLoading || schemaGeneration.isStreaming) &&
-                    'cursor-not-allowed opacity-50'
+                      'cursor-not-allowed opacity-50'
                   )}
                   disabled={schemaGeneration.isLoading || schemaGeneration.isStreaming} // Use disabled prop instead of readOnly
                   onKeyDown={handleKeyDown} // Pass keydown handler
@@ -1048,7 +1048,7 @@ try {
                     className={cn(
                       codeError && !codeGeneration.isStreaming ? 'border-red-500' : '',
                       (codeGeneration.isLoading || codeGeneration.isStreaming) &&
-                      'cursor-not-allowed opacity-50'
+                        'cursor-not-allowed opacity-50'
                     )}
                     highlightVariables={true}
                     disabled={codeGeneration.isLoading || codeGeneration.isStreaming} // Use disabled prop instead of readOnly
@@ -1125,7 +1125,7 @@ try {
                                 'hover:bg-card hover:text-accent-foreground',
                                 'focus:bg-accent focus:text-accent-foreground focus:outline-none',
                                 index === schemaParamSelectedIndex &&
-                                'bg-accent text-accent-foreground'
+                                  'bg-accent text-accent-foreground'
                               )}
                             >
                               <div

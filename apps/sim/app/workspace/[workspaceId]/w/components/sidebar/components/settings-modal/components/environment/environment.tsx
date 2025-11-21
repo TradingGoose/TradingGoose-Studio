@@ -146,9 +146,9 @@ export function EnvironmentVariables({
     const existingVars = Object.values(variables)
     const initialVars = existingVars.length
       ? existingVars.map((envVar) => ({
-        ...envVar,
-        id: generateRowId(),
-      }))
+          ...envVar,
+          id: generateRowId(),
+        }))
       : [createEmptyEnvVar()]
     initialVarsRef.current = JSON.parse(JSON.stringify(initialVars))
     setEnvVars(JSON.parse(JSON.stringify(initialVars)))
@@ -157,24 +157,24 @@ export function EnvironmentVariables({
 
   useEffect(() => {
     let mounted = true
-      ; (async () => {
-        if (!workspaceId) {
+    ;(async () => {
+      if (!workspaceId) {
+        setIsWorkspaceLoading(false)
+        return
+      }
+      setIsWorkspaceLoading(true)
+      try {
+        const data = await loadWorkspaceEnvironment(workspaceId)
+        if (!mounted) return
+        setWorkspaceVars(data.workspace || {})
+        initialWorkspaceVarsRef.current = data.workspace || {}
+        setConflicts(data.conflicts || [])
+      } finally {
+        if (mounted) {
           setIsWorkspaceLoading(false)
-          return
         }
-        setIsWorkspaceLoading(true)
-        try {
-          const data = await loadWorkspaceEnvironment(workspaceId)
-          if (!mounted) return
-          setWorkspaceVars(data.workspace || {})
-          initialWorkspaceVarsRef.current = data.workspace || {}
-          setConflicts(data.conflicts || [])
-        } finally {
-          if (mounted) {
-            setIsWorkspaceLoading(false)
-          }
-        }
-      })()
+      }
+    })()
     return () => {
       mounted = false
     }

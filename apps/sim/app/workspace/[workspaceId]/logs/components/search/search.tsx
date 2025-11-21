@@ -131,10 +131,10 @@ export function AutocompleteSearch({
       {/* Search Input */}
       <div className='relative flex items-center'>
         {showSpinner ? (
-          <Loader2 className='-translate-y-1/2 absolute left-3 top-1/2 z-10 h-4 w-4 animate-spin text-muted-foreground' />
+          <Loader2 className='-translate-y-1/2 absolute top-1/2 left-3 z-10 h-4 w-4 animate-spin text-muted-foreground' />
         ) : (
           <Search
-            className='-translate-y-1/2 absolute left-3 top-1/2 z-10 h-4 w-4 text-muted-foreground'
+            className='-translate-y-1/2 absolute top-1/2 left-3 z-10 h-4 w-4 text-muted-foreground'
             strokeWidth={2}
           />
         )}
@@ -154,8 +154,8 @@ export function AutocompleteSearch({
             onKeyDown={handleKeyDown}
             onSelect={(e) => updateCursorPosition(e.currentTarget)}
             className={cn(
-              'h-9 w-full rounded-md border bg-background pl-10 pr-10 text-sm text-transparent',
-              'font-[380] font-sans leading-none placeholder:text-muted-foreground ring-offset-background',
+              'h-9 w-full rounded-md border bg-background pr-10 pl-10 text-sm text-transparent',
+              'font-[380] font-sans leading-none ring-offset-background placeholder:text-muted-foreground',
               'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
               state.isOpen && 'ring-1 ring-ring'
             )}
@@ -192,7 +192,7 @@ export function AutocompleteSearch({
             type='button'
             variant='ghost'
             size='sm'
-            className='-translate-y-1/2 absolute right-2 top-1/2 z-20 h-6 w-6 p-0 hover:bg-card/50'
+            className='-translate-y-1/2 absolute top-1/2 right-2 z-20 h-6 w-6 p-0 hover:bg-card/50'
             onMouseDown={(e) => {
               e.preventDefault()
               clearAll()

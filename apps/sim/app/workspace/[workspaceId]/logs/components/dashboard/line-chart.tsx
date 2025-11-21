@@ -171,10 +171,7 @@ export function LineChart({
     hoverIndex !== null && data[hoverIndex] ? getCompactDateLabel(data[hoverIndex].timestamp) : ''
 
   return (
-    <div
-      ref={containerRef}
-      className='w-full  rounded-md border bg-card p-4 shadow-sm'
-    >
+    <div ref={containerRef} className='w-full rounded-md border bg-card p-4 shadow-sm'>
       <div className='mb-3 flex items-center justify-between'>
         <div className='flex items-center gap-3'>
           <h4 className='font-medium text-foreground text-sm'>{label}</h4>
@@ -544,13 +541,13 @@ export function LineChart({
               const preferRight = anchorX + margin + tooltipMaxW <= width - padding.right
               const left = preferRight
                 ? Math.max(
-                  padding.left,
-                  Math.min(anchorX + margin, width - padding.right - tooltipMaxW)
-                )
+                    padding.left,
+                    Math.min(anchorX + margin, width - padding.right - tooltipMaxW)
+                  )
                 : Math.max(
-                  padding.left,
-                  Math.min(anchorX - margin - tooltipMaxW, width - padding.right - tooltipMaxW)
-                )
+                    padding.left,
+                    Math.min(anchorX - margin - tooltipMaxW, width - padding.right - tooltipMaxW)
+                  )
               const anchorY = hoverPos?.y ?? pt.y
               const top = Math.min(
                 Math.max(anchorY - 26, padding.top),

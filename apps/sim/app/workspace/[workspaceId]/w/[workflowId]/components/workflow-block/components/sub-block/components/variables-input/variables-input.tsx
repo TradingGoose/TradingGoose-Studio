@@ -15,10 +15,10 @@ import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { useSubBlockValue } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
+import { useWorkflowId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useAccessibleReferencePrefixes } from '@/app/workspace/[workspaceId]/w/[workflowId]/hooks/use-accessible-reference-prefixes'
 import { useVariablesStore } from '@/stores/panel/variables/store'
 import type { Variable } from '@/stores/panel/variables/types'
-import { useWorkflowId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 interface VariableAssignment {
   id: string
@@ -305,7 +305,7 @@ export function VariablesInput({
                       }}
                       disabled={isPreview || disabled}
                     >
-                      <SelectTrigger className='h-9 border border-input bg-white dark:border-input/60 dark:bg-background'>
+                      <SelectTrigger className='h-9 border border-input dark:border-input/60 dark:bg-background'>
                         <SelectValue placeholder='Select a variable...' />
                       </SelectTrigger>
                       <SelectContent>
@@ -357,7 +357,7 @@ export function VariablesInput({
                         }
                         disabled={isPreview || disabled}
                         className={cn(
-                          'min-h-[120px] border border-input bg-white font-mono text-sm placeholder:text-muted-foreground/50 dark:border-input/60 dark:bg-background',
+                          'min-h-[120px] border border-input font-mono text-sm placeholder:text-muted-foreground/50 dark:border-input/60 dark:bg-background',
                           dragHighlight[assignment.id] && 'ring-2 ring-blue-500 ring-offset-2',
                           isConnecting && 'ring-2 ring-blue-500 ring-offset-2'
                         )}
@@ -382,7 +382,7 @@ export function VariablesInput({
                           placeholder={`${assignment.type} value`}
                           disabled={isPreview || disabled}
                           className={cn(
-                            'h-9 border border-input bg-white text-transparent caret-foreground placeholder:text-muted-foreground/50 dark:border-input/60 dark:bg-background',
+                            'h-9 border border-input text-transparent caret-foreground placeholder:text-muted-foreground/50 dark:border-input/60 dark:bg-background',
                             dragHighlight[assignment.id] && 'ring-2 ring-blue-500 ring-offset-2',
                             isConnecting && 'ring-2 ring-blue-500 ring-offset-2'
                           )}

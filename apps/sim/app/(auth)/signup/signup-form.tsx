@@ -349,7 +349,7 @@ function SignupFormContent({
   return (
     <>
       <div className='space-y-1 text-center'>
-        <h1 className={`${soehne.className} font-medium text-[32px] text-black tracking-tight`}>
+        <h1 className={`${soehne.className} font-medium text-[32px] tracking-tight`}>
           Create an account
         </h1>
         <p className={`${inter.className} font-[380] text-[16px] text-muted-foreground`}>
@@ -366,10 +366,7 @@ function SignupFormContent({
         return hasOnlySSO
       })() && (
           <div className={`${inter.className} mt-8`}>
-            <SSOLoginButton
-              callbackURL={redirectUrl || '/workspace'}
-              variant='primary'
-            />
+            <SSOLoginButton callbackURL={redirectUrl || '/workspace'} variant='primary' />
           </div>
         )}
 
@@ -479,11 +476,7 @@ function SignupFormContent({
             </div>
           </div>
 
-          <Button
-            type='submit'
-            className={primaryButtonClasses}
-            disabled={isLoading}
-          >
+          <Button type='submit' className={primaryButtonClasses} disabled={isLoading}>
             {isLoading ? 'Creating account...' : 'Create account'}
           </Button>
         </form>
@@ -504,7 +497,7 @@ function SignupFormContent({
               <div className='auth-divider w-full border-t' />
             </div>
             <div className='relative flex justify-center text-sm'>
-              <span className='bg-white px-4 font-[340] text-muted-foreground'>Or continue with</span>
+              <span className=' px-4 font-[340] text-muted-foreground'>Or continue with</span>
             </div>
           </div>
         )}
@@ -530,10 +523,7 @@ function SignupFormContent({
               isProduction={isProduction}
             >
               {isTruthy(getEnv('NEXT_PUBLIC_SSO_ENABLED')) && (
-                <SSOLoginButton
-                  callbackURL={redirectUrl || '/workspace'}
-                  variant='outline'
-                />
+                <SSOLoginButton callbackURL={redirectUrl || '/workspace'} variant='outline' />
               )}
             </SocialLoginButtons>
           </div>

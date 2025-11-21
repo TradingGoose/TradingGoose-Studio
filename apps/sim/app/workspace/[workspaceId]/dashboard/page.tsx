@@ -24,7 +24,11 @@ export default async function WorkspaceDashboardPage({
   const session = await getSession()
 
   if (!session?.user?.id) {
-    return <div className='p-6 text-sm text-muted-foreground'>Please sign in to view this workspace.</div>
+    return (
+      <div className='p-6 text-muted-foreground text-sm'>
+        Please sign in to view this workspace.
+      </div>
+    )
   }
 
   const userId = session.user.id
@@ -57,7 +61,7 @@ export default async function WorkspaceDashboardPage({
     allLayouts = [inserted]
   }
 
-  let activeLayout =
+  const activeLayout =
     (requestedLayoutId ? allLayouts.find((layout) => layout.id === requestedLayoutId) : null) ??
     allLayouts.find((layout) => layout.isActive) ??
     allLayouts[0]
@@ -73,7 +77,11 @@ export default async function WorkspaceDashboardPage({
         .update(layoutMap)
         .set({ isActive: true })
         .where(
-          and(eq(layoutMap.id, activeLayout.id), eq(layoutMap.workspaceId, workspaceId), eq(layoutMap.userId, userId))
+          and(
+            eq(layoutMap.id, activeLayout.id),
+            eq(layoutMap.workspaceId, workspaceId),
+            eq(layoutMap.userId, userId)
+          )
         )
     })
 
@@ -95,7 +103,7 @@ export default async function WorkspaceDashboardPage({
 
   return (
     <div className='flex h-full w-full flex-col overflow-hidden bg-background'>
-      <div className='flex flex-1 min-h-0 min-w-0 overflow-hidden'>
+      <div className='flex min-h-0 min-w-0 flex-1 overflow-hidden'>
         <DashboardClient
           initialState={layoutState}
           workspaceId={workspaceId}

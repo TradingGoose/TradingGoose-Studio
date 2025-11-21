@@ -54,7 +54,10 @@ interface WorkspacePermissionsProviderProps {
  * Provider that manages workspace permissions and user access
  * Also provides connection-aware permissions that enforce read-only mode when offline
  */
-export function WorkspacePermissionsProvider({ children, workspaceId: workspaceIdProp }: WorkspacePermissionsProviderProps) {
+export function WorkspacePermissionsProvider({
+  children,
+  workspaceId: workspaceIdProp,
+}: WorkspacePermissionsProviderProps) {
   const params = useParams()
   const workspaceId = workspaceIdProp ?? (params?.workspaceId as string | undefined) ?? null
 

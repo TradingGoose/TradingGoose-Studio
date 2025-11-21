@@ -38,7 +38,7 @@ export interface WidgetHeaderContext {
   panelId?: string
 }
 
-export type WidgetHeaderRenderer = (options: WidgetHeaderContext) => WidgetHeaderSlots | void
+export type WidgetHeaderRenderer = (options: WidgetHeaderContext) => WidgetHeaderSlots | undefined
 
 export interface DashboardWidgetDefinition {
   key: string

@@ -7,7 +7,7 @@ import { useSubscriptionStore } from '@/stores/subscription/store'
 
 // Constants for reusable styles
 const GRADIENT_BADGE_STYLES =
-  'gradient-text h-[1.125rem] rounded-[6px] border-gradient-primary/20 bg-gradient-to-b from-gradient-primary via-gradient-secondary to-gradient-primary px-2 py-0 font-medium text-xs'
+  'gradient-text h-[1.125rem] rounded-md border-gradient-primary/20 bg-gradient-to-b from-gradient-primary via-gradient-secondary to-gradient-primary px-2 py-0 font-medium text-xs'
 const GRADIENT_TEXT_STYLES =
   'gradient-text bg-gradient-to-b from-gradient-primary via-gradient-secondary to-gradient-primary'
 const CONTAINER_STYLES =
@@ -96,7 +96,7 @@ export function UsageIndicator({ onClick }: UsageIndicatorProps) {
         <Progress
           value={isBlocked ? 100 : progressPercentage}
           className='h-2'
-          indicatorClassName='bg-black dark:bg-white'
+          indicatorClassName='bg-black dark: '
         />
       </div>
     </div>

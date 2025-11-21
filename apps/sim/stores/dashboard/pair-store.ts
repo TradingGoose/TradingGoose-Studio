@@ -15,10 +15,13 @@ interface PairStoreState {
   resetContext: (color: PairColor) => void
 }
 
-const emptyContexts = PAIR_COLORS.reduce<Record<PairColor, PairColorContext>>((acc, color) => {
-  acc[color] = {}
-  return acc
-}, {} as Record<PairColor, PairColorContext>)
+const emptyContexts = PAIR_COLORS.reduce<Record<PairColor, PairColorContext>>(
+  (acc, color) => {
+    acc[color] = {}
+    return acc
+  },
+  {} as Record<PairColor, PairColorContext>
+)
 
 export const usePairColorStore = create<PairStoreState>((set) => ({
   contexts: emptyContexts,

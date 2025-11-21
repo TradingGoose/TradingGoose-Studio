@@ -4,7 +4,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 export function ChatLoadingState() {
   return (
-    <div className='bg-white'>
+    <div className=' '>
       <div className='flex min-h-[calc(100vh-120px)] items-center justify-center px-4'>
         <div className='w-full max-w-[410px]'>
           <div className='flex flex-col items-center justify-center'>

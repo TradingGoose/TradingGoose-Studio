@@ -23,10 +23,10 @@ import {
 } from '@/components/ui/select'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { McpTransport } from '@/lib/mcp/types'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useAccessibleReferencePrefixes } from '@/app/workspace/[workspaceId]/w/[workflowId]/hooks/use-accessible-reference-prefixes'
 import { useMcpServerTest } from '@/hooks/use-mcp-server-test'
 import { useMcpServersStore } from '@/stores/mcp-servers/store'
-import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 const logger = createLogger('McpServerModal')
 

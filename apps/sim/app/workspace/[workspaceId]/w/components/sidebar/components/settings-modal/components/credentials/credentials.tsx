@@ -204,7 +204,7 @@ export function Credentials({ onOpenChange, registerCloseHandler }: CredentialsP
         }
       }
       prevConnectedIdsRef.current = currentConnected
-    } catch { }
+    } catch {}
   }, [services])
 
   // On mount, register a close handler so the parent modal can delegate close events here
@@ -220,7 +220,7 @@ export function Credentials({ onOpenChange, registerCloseHandler }: CredentialsP
             })
           )
         }
-      } catch { }
+      } catch {}
       onOpenChange?.(open)
     }
     registerCloseHandler(handle)
@@ -463,7 +463,7 @@ export function Credentials({ onOpenChange, registerCloseHandler }: CredentialsP
                           className={cn(
                             'h-8 text-muted-foreground hover:text-foreground',
                             isConnecting === `${service.id}-${service.accounts![0].id}` &&
-                            'cursor-not-allowed'
+                              'cursor-not-allowed'
                           )}
                         >
                           Disconnect

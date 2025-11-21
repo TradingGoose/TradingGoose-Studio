@@ -3,16 +3,16 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Workflow } from 'lucide-react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import WorkflowEditorApp from '@/app/workspace/[workspaceId]/w/[workflowId]/workflow-editor-app'
 import type { WorkflowUIConfig } from '@/app/workspace/[workspaceId]/w/[workflowId]/workflow'
+import WorkflowEditorApp from '@/app/workspace/[workspaceId]/w/[workflowId]/workflow-editor-app'
 import {
-  WorkflowWidgetControlBar,
   getWorkflowWidgetChannelId,
+  WorkflowWidgetControlBar,
 } from '@/widgets/components/workflow-controlbar'
 import { WorkflowToolbar } from '@/widgets/components/workflow-toolbar'
+import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import { isPairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
-import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 
 const WORKFLOW_WIDGET_UI_CONFIG: WorkflowUIConfig = {
   controlBar: false,
@@ -111,11 +111,8 @@ const WorkflowEditorWidgetBody = ({
     }
   }, [containerElement])
 
-
   if (!workspaceId) {
-    return (
-      <WidgetStateMessage message='Select a workspace to load workflows.' />
-    )
+    return <WidgetStateMessage message='Select a workspace to load workflows.' />
   }
 
   if (loadError) {
@@ -156,7 +153,7 @@ const WorkflowEditorWidgetBody = ({
 }
 
 const WidgetStateMessage = ({ message }: { message: string }) => (
-  <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))] px-4 text-center text-xs text-muted-foreground'>
+  <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))] px-4 text-center text-muted-foreground text-xs'>
     {message}
   </div>
 )
@@ -174,7 +171,7 @@ export const workflowEditorWidget: DashboardWidgetDefinition = {
     const channelId = getWorkflowWidgetChannelId(resolvedPairColor, widgetKey, panelId)
 
     const workflowId =
-      widget && widget.params && typeof widget.params === 'object' && 'workflowId' in widget.params
+      widget?.params && typeof widget.params === 'object' && 'workflowId' in widget.params
         ? (widget.params.workflowId as string)
         : 'default'
 
@@ -185,7 +182,9 @@ export const workflowEditorWidget: DashboardWidgetDefinition = {
           workspaceId={context?.workspaceId}
           channelId={channelId}
         />,
-        <span key='workflow-label' className='text-xs'>Workflow: {workflowId}</span>,
+        <span key='workflow-label' className='text-xs'>
+          Workflow: {workflowId}
+        </span>,
       ],
       right: (
         <WorkflowWidgetControlBar

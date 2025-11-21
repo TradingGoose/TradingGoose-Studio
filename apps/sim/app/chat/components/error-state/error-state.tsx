@@ -19,7 +19,7 @@ export function ChatErrorState({ error, starCount }: ChatErrorStateProps) {
     'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
 
   return (
-    <div className='min-h-screen bg-white'>
+    <div className='min-h-screen '>
       <Nav variant='auth' />
       <div className='flex min-h-[calc(100vh-120px)] items-center justify-center px-4'>
         <div className='w-full max-w-[410px]'>
@@ -27,7 +27,7 @@ export function ChatErrorState({ error, starCount }: ChatErrorStateProps) {
             {/* Error content */}
             <div className='space-y-1 text-center'>
               <h1
-                className={`${soehne.className} font-medium text-[32px] text-black tracking-tight`}
+                className={`${soehne.className} font-medium text-[32px] tracking-tight`}
               >
                 Chat Unavailable
               </h1>

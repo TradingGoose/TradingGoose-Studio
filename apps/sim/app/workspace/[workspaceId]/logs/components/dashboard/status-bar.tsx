@@ -70,7 +70,7 @@ export function StatusBar({
           return (
             <div
               key={i}
-              className={`h-6 flex-1 rounded-[3px] ${color} cursor-pointer transition-[opacity,transform] hover:opacity-90 ${
+              className={`h-6 flex-1 rounded-xs ${color} cursor-pointer transition-[opacity,transform] hover:opacity-90 ${
                 isSelected ? 'relative z-10 ring-2 ring-primary ring-offset-1' : 'relative z-0'
               }`}
               aria-label={`Segment ${i + 1}`}

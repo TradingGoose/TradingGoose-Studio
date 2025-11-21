@@ -88,11 +88,11 @@ export function TriggerConfigSection({
 
         const availableOptions = Array.isArray(rawOptions)
           ? rawOptions.map((option: any) => {
-            if (typeof option === 'string') {
-              return { id: option, name: option }
-            }
-            return option
-          })
+              if (typeof option === 'string') {
+                return { id: option, name: option }
+              }
+              return option
+            })
           : []
 
         return (

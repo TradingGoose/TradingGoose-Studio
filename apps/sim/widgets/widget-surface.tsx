@@ -1,14 +1,14 @@
 'use client'
 
-import { Fragment, memo, useCallback, useRef, type ReactNode } from 'react'
+import { Fragment, memo, type ReactNode, useCallback, useRef } from 'react'
 import { Card } from '@/components/ui/card'
-import type { WidgetInstance } from '@/widgets/layout'
 import { PairColorDropdown } from '@/widgets/components/pair-color-dropdown'
 import { WidgetActionMenu } from '@/widgets/components/widget-action-menu'
 import { WidgetSelector } from '@/widgets/components/widget-selector'
+import type { WidgetInstance } from '@/widgets/layout'
+import { isPairColor, type PairColor } from '@/widgets/pair-colors'
 import { getWidgetDefinition } from '@/widgets/registry'
-import type { WidgetRuntimeContext, WidgetHeaderSlots, WidgetComponentProps } from '@/widgets/types'
-import { type PairColor, isPairColor } from '@/widgets/pair-colors'
+import type { WidgetComponentProps, WidgetHeaderSlots, WidgetRuntimeContext } from '@/widgets/types'
 
 type HeaderSlotContent = ReactNode | ReactNode[]
 type WidgetSurfaceHeader = Partial<WidgetHeaderSlots>
@@ -93,17 +93,17 @@ function WidgetSurfaceComponent({
   }, [onPanelClose])
 
   return (
-    <div className='flex h-full max-h-full w-full max-w-full flex-1 basis-0 box-border min-h-0 min-w-0 p-1.5'>
-      <Card className='flex h-full max-h-full w-full max-w-full flex-1 min-h-0 flex-col overflow-hidden rounded-md border border-border bg-background shadow-sm'>
-        <header className='border-b border-border/80 text-accent-foreground'>
+    <div className='box-border flex h-full max-h-full min-h-0 w-full min-w-0 max-w-full flex-1 basis-0 p-1'>
+      <Card className='flex h-full max-h-full min-h-0 w-full max-w-full flex-1 flex-col overflow-hidden rounded-lg border border-border bg-background'>
+        <header className='border-border/80 border-b text-accent-foreground'>
           <div
             ref={headerScrollRef}
             onWheel={handleHorizontalWheel}
             className='flex w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
             aria-label='Widget header'
           >
-            <div className='flex w-full flex-nowrap gap-4 text-sm font-medium text-accent-foreground'>
-              <div className='flex basis-0 flex-grow items-center justify-start gap-2 rounded-md p-2 text-left whitespace-nowrap'>
+            <div className='flex w-full flex-nowrap gap-4 font-medium text-accent-foreground text-sm'>
+              <div className='flex flex-grow basis-0 items-center justify-start gap-2 whitespace-nowrap p-2 text-left'>
                 <PairColorDropdown color={pairColor} onChange={handlePairColorSelect} />
                 <WidgetSelector
                   currentKey={widgetKey}
@@ -112,15 +112,17 @@ function WidgetSurfaceComponent({
                 />
                 {renderHeaderSlot(header?.left ?? registryHeader?.left)}
               </div>
-              <div className='flex basis-0 flex-grow items-center justify-center gap-2 rounded-md p-2 text-center whitespace-nowrap'>
+              <div className='flex flex-grow basis-0 items-center justify-center gap-2 whitespace-nowrap p-2 text-center'>
                 {renderHeaderSlot(header?.center ?? registryHeader?.center)}
               </div>
-              <div className='flex basis-0 flex-grow items-center justify-end gap-2 rounded-md p-2 text-right whitespace-nowrap'>
+              <div className='flex flex-grow basis-0 items-center justify-end gap-2 whitespace-nowrap p-2 text-right'>
                 {renderHeaderSlot(header?.right ?? registryHeader?.right)}
                 {onPanelSplit || onPanelSplitHorizontal || onPanelClose ? (
                   <WidgetActionMenu
                     onSplitVertical={onPanelSplit ? handlePanelSplit : undefined}
-                    onSplitHorizontal={onPanelSplitHorizontal ? handlePanelSplitHorizontal : undefined}
+                    onSplitHorizontal={
+                      onPanelSplitHorizontal ? handlePanelSplitHorizontal : undefined
+                    }
                     onClose={onPanelClose ? handlePanelClose : undefined}
                   />
                 ) : null}

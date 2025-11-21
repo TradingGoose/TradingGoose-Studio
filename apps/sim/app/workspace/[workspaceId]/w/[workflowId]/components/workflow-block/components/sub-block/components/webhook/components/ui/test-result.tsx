@@ -52,7 +52,7 @@ export function TestResultDisplay({
         {testResult.message}
 
         {showCurlCommand && testResult.success && testResult.test?.curlCommand && (
-          <div className='group relative mt-3 overflow-x-auto rounded border border-border bg-black/10 p-2 font-mono text-xs dark:bg-white/10'>
+          <div className='group dark: /10 relative mt-3 overflow-x-auto rounded border border-border bg-black/10 p-2 font-mono text-xs'>
             <span className='absolute top-1 left-2 font-sans text-[10px] text-muted-foreground'>
               Example Request:
             </span>

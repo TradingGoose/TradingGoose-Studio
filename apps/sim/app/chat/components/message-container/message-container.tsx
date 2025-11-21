@@ -29,7 +29,7 @@ export const ChatMessageContainer = memo(function ChatMessageContainer({
   chatConfig,
 }: ChatMessageContainerProps) {
   return (
-    <div className='relative flex flex-1 flex-col overflow-hidden bg-white'>
+    <div className='relative flex flex-1 flex-col overflow-hidden '>
       <style jsx>{`
         @keyframes growShrink {
           0%,
@@ -91,7 +91,7 @@ export const ChatMessageContainer = memo(function ChatMessageContainer({
             onClick={scrollToBottom}
             size='sm'
             variant='outline'
-            className='flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1 shadow-lg transition-all hover:bg-gray-50'
+            className='flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1 shadow-lg transition-all hover:bg-gray-50'
           >
             <ArrowDown className='h-3.5 w-3.5' />
             <span className='sr-only'>Scroll to bottom</span>

@@ -147,7 +147,7 @@ export function SlackConfig({
 
       <Notice
         variant='default'
-        className='border-slate-200 bg-white dark:border-border dark:bg-background'
+        className='border-slate-200 dark:border-border dark:bg-background'
         icon={
           <SlackIcon className='mt-0.5 mr-3.5 h-5 w-5 flex-shrink-0 text-[#611f69] dark:text-[#e01e5a]' />
         }

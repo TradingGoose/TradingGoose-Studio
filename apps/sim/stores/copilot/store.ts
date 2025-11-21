@@ -1,8 +1,8 @@
 'use client'
 
-import { createContext, useContext, useMemo, createElement, type ReactNode } from 'react'
-import { create, useStore } from 'zustand'
+import { createContext, createElement, type ReactNode, useContext, useMemo } from 'react'
 import type { StoreApi } from 'zustand'
+import { create, useStore } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { type CopilotChat, sendStreamingMessage } from '@/lib/copilot/api'
 import type {
@@ -1327,255 +1327,94 @@ const createCopilotStoreInstance = () =>
     devtools((set, get) => ({
       ...initialState,
 
-    // Basic mode controls
-    setMode: (mode) => set({ mode }),
+      // Basic mode controls
+      setMode: (mode) => set({ mode }),
 
-    // Clear messages
-    clearMessages: () => set({ messages: [], contextUsage: null }),
+      // Clear messages
+      clearMessages: () => set({ messages: [], contextUsage: null }),
 
-    // Workflow selection
-    setWorkflowId: async (workflowId: string | null) => {
-      const currentWorkflowId = get().workflowId
-      if (currentWorkflowId === workflowId) return
-      const { isSendingMessage } = get()
-      if (isSendingMessage) get().abortMessage()
+      // Workflow selection
+      setWorkflowId: async (workflowId: string | null) => {
+        const currentWorkflowId = get().workflowId
+        if (currentWorkflowId === workflowId) return
+        const { isSendingMessage } = get()
+        if (isSendingMessage) get().abortMessage()
 
-      // Abort all in-progress tools and clear any diff preview
-      abortAllInProgressTools(set, get)
-      try {
-        useWorkflowDiffStore.getState().clearDiff()
-      } catch {}
+        // Abort all in-progress tools and clear any diff preview
+        abortAllInProgressTools(set, get)
+        try {
+          useWorkflowDiffStore.getState().clearDiff()
+        } catch {}
 
-      set({
-        ...initialState,
-        workflowId,
-        mode: get().mode,
-        selectedModel: get().selectedModel,
-        agentPrefetch: get().agentPrefetch,
-      })
-    },
+        set({
+          ...initialState,
+          workflowId,
+          mode: get().mode,
+          selectedModel: get().selectedModel,
+          agentPrefetch: get().agentPrefetch,
+        })
+      },
 
-    // Chats (minimal implementation for visibility)
-    validateCurrentChat: () => {
-      const { currentChat, workflowId, chats } = get()
-      if (!currentChat || !workflowId) return false
-      const chatExists = chats.some((c) => c.id === currentChat.id)
-      if (!chatExists) {
-        set({ currentChat: null, messages: [] })
-        return false
-      }
-      return true
-    },
-
-    selectChat: async (chat: CopilotChat) => {
-      const { isSendingMessage, currentChat, workflowId } = get()
-      if (!workflowId) {
-        return
-      }
-      if (currentChat && currentChat.id !== chat.id && isSendingMessage) get().abortMessage()
-
-      // Abort in-progress tools and clear diff when changing chats
-      abortAllInProgressTools(set, get)
-      try {
-        useWorkflowDiffStore.getState().clearDiff()
-      } catch {}
-
-      // Capture previous chat/messages for optimistic background save
-      const previousChat = currentChat
-      const previousMessages = get().messages
-
-      // Optimistically set selected chat and normalize messages for UI
-      set({
-        currentChat: chat,
-        messages: normalizeMessagesForUI(chat.messages || []),
-        planTodos: [],
-        showPlanTodos: false,
-        suppressAutoSelect: false,
-        contextUsage: null,
-      })
-
-      // Background-save the previous chat's latest messages before switching (optimistic)
-      try {
-        if (previousChat && previousChat.id !== chat.id) {
-          const dbMessages = validateMessagesForLLM(previousMessages)
-          fetch('/api/copilot/chat/update-messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chatId: previousChat.id, messages: dbMessages }),
-          }).catch(() => {})
+      // Chats (minimal implementation for visibility)
+      validateCurrentChat: () => {
+        const { currentChat, workflowId, chats } = get()
+        if (!currentChat || !workflowId) return false
+        const chatExists = chats.some((c) => c.id === currentChat.id)
+        if (!chatExists) {
+          set({ currentChat: null, messages: [] })
+          return false
         }
-      } catch {}
+        return true
+      },
 
-      // Refresh selected chat from server to ensure we have latest messages/tool calls
-      try {
-        const response = await fetch(`/api/copilot/chat?workflowId=${workflowId}`)
-        if (!response.ok) throw new Error(`Failed to fetch latest chat data: ${response.status}`)
-        const data = await response.json()
-        if (data.success && Array.isArray(data.chats)) {
-          const latestChat = data.chats.find((c: CopilotChat) => c.id === chat.id)
-          if (latestChat) {
-            const normalizedMessages = normalizeMessagesForUI(latestChat.messages || [])
-
-            // Build toolCallsById map from all tool calls in normalized messages
-            const toolCallsById: Record<string, CopilotToolCall> = {}
-            for (const msg of normalizedMessages) {
-              if (msg.contentBlocks) {
-                for (const block of msg.contentBlocks as any[]) {
-                  if (block?.type === 'tool_call' && block.toolCall?.id) {
-                    toolCallsById[block.toolCall.id] = block.toolCall
-                  }
-                }
-              }
-            }
-
-            set({
-              currentChat: latestChat,
-              messages: normalizedMessages,
-              chats: (get().chats || []).map((c: CopilotChat) =>
-                c.id === chat.id ? latestChat : c
-              ),
-              contextUsage: null,
-              toolCallsById,
-            })
-            try {
-              await get().loadMessageCheckpoints(latestChat.id)
-            } catch {}
-            // Fetch context usage for the selected chat
-            logger.info('[Context Usage] Chat selected, fetching usage')
-            await get().fetchContextUsage()
-          }
+      selectChat: async (chat: CopilotChat) => {
+        const { isSendingMessage, currentChat, workflowId } = get()
+        if (!workflowId) {
+          return
         }
-      } catch {}
-    },
+        if (currentChat && currentChat.id !== chat.id && isSendingMessage) get().abortMessage()
 
-    createNewChat: async () => {
-      const { isSendingMessage } = get()
-      if (isSendingMessage) get().abortMessage()
+        // Abort in-progress tools and clear diff when changing chats
+        abortAllInProgressTools(set, get)
+        try {
+          useWorkflowDiffStore.getState().clearDiff()
+        } catch {}
 
-      // Abort in-progress tools and clear diff on new chat
-      abortAllInProgressTools(set, get)
-      try {
-        useWorkflowDiffStore.getState().clearDiff()
-      } catch {}
+        // Capture previous chat/messages for optimistic background save
+        const previousChat = currentChat
+        const previousMessages = get().messages
 
-      // Background-save the current chat before clearing (optimistic)
-      try {
-        const { currentChat } = get()
-        if (currentChat) {
-          const currentMessages = get().messages
-          const dbMessages = validateMessagesForLLM(currentMessages)
-          fetch('/api/copilot/chat/update-messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chatId: currentChat.id, messages: dbMessages }),
-          }).catch(() => {})
-        }
-      } catch {}
-
-      logger.info('[Context Usage] New chat created, clearing context usage')
-      set({
-        currentChat: null,
-        messages: [],
-        messageCheckpoints: {},
-        planTodos: [],
-        showPlanTodos: false,
-        suppressAutoSelect: true,
-        contextUsage: null,
-      })
-    },
-
-    deleteChat: async (chatId: string) => {
-      try {
-        // Call delete API
-        const response = await fetch('/api/copilot/chat/delete', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chatId }),
+        // Optimistically set selected chat and normalize messages for UI
+        set({
+          currentChat: chat,
+          messages: normalizeMessagesForUI(chat.messages || []),
+          planTodos: [],
+          showPlanTodos: false,
+          suppressAutoSelect: false,
+          contextUsage: null,
         })
 
-        if (!response.ok) {
-          throw new Error(`Failed to delete chat: ${response.status}`)
-        }
+        // Background-save the previous chat's latest messages before switching (optimistic)
+        try {
+          if (previousChat && previousChat.id !== chat.id) {
+            const dbMessages = validateMessagesForLLM(previousMessages)
+            fetch('/api/copilot/chat/update-messages', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chatId: previousChat.id, messages: dbMessages }),
+            }).catch(() => {})
+          }
+        } catch {}
 
-        // Remove from local state
-        set((state) => ({
-          chats: state.chats.filter((c) => c.id !== chatId),
-          // If deleted chat was current, clear it
-          currentChat: state.currentChat?.id === chatId ? null : state.currentChat,
-          messages: state.currentChat?.id === chatId ? [] : state.messages,
-        }))
-
-        logger.info('Chat deleted', { chatId })
-      } catch (error) {
-        logger.error('Failed to delete chat:', error)
-        throw error
-      }
-    },
-
-    areChatsFresh: (_workflowId: string) => false,
-
-    loadChats: async (_forceRefresh = false) => {
-      const { workflowId } = get()
-      if (!workflowId) {
-        set({ chats: [], isLoadingChats: false })
-        return
-      }
-
-      // For now always fetch fresh
-      set({ isLoadingChats: true })
-      try {
-        const response = await fetch(`/api/copilot/chat?workflowId=${workflowId}`)
-        if (!response.ok) {
-          throw new Error(`Failed to fetch chats: ${response.status}`)
-        }
-        const data = await response.json()
-        if (data.success && Array.isArray(data.chats)) {
-          const now = new Date()
-          set({
-            chats: data.chats,
-            isLoadingChats: false,
-            chatsLastLoadedAt: now,
-            chatsLoadedForWorkflow: workflowId,
-          })
-
-          if (data.chats.length > 0) {
-            const { currentChat, isSendingMessage, suppressAutoSelect } = get()
-            const currentChatStillExists =
-              currentChat && data.chats.some((c: CopilotChat) => c.id === currentChat.id)
-
-            if (currentChatStillExists) {
-              const updatedCurrentChat = data.chats.find(
-                (c: CopilotChat) => c.id === currentChat!.id
-              )!
-              if (isSendingMessage) {
-                set({ currentChat: { ...updatedCurrentChat, messages: get().messages } })
-              } else {
-                const normalizedMessages = normalizeMessagesForUI(updatedCurrentChat.messages || [])
-
-                // Build toolCallsById map from all tool calls in normalized messages
-                const toolCallsById: Record<string, CopilotToolCall> = {}
-                for (const msg of normalizedMessages) {
-                  if (msg.contentBlocks) {
-                    for (const block of msg.contentBlocks as any[]) {
-                      if (block?.type === 'tool_call' && block.toolCall?.id) {
-                        toolCallsById[block.toolCall.id] = block.toolCall
-                      }
-                    }
-                  }
-                }
-
-                set({
-                  currentChat: updatedCurrentChat,
-                  messages: normalizedMessages,
-                  toolCallsById,
-                })
-              }
-              try {
-                await get().loadMessageCheckpoints(updatedCurrentChat.id)
-              } catch {}
-            } else if (!isSendingMessage && !suppressAutoSelect) {
-              const mostRecentChat: CopilotChat = data.chats[0]
-              const normalizedMessages = normalizeMessagesForUI(mostRecentChat.messages || [])
+        // Refresh selected chat from server to ensure we have latest messages/tool calls
+        try {
+          const response = await fetch(`/api/copilot/chat?workflowId=${workflowId}`)
+          if (!response.ok) throw new Error(`Failed to fetch latest chat data: ${response.status}`)
+          const data = await response.json()
+          if (data.success && Array.isArray(data.chats)) {
+            const latestChat = data.chats.find((c: CopilotChat) => c.id === chat.id)
+            if (latestChat) {
+              const normalizedMessages = normalizeMessagesForUI(latestChat.messages || [])
 
               // Build toolCallsById map from all tool calls in normalized messages
               const toolCallsById: Record<string, CopilotToolCall> = {}
@@ -1590,205 +1429,39 @@ const createCopilotStoreInstance = () =>
               }
 
               set({
-                currentChat: mostRecentChat,
+                currentChat: latestChat,
                 messages: normalizedMessages,
+                chats: (get().chats || []).map((c: CopilotChat) =>
+                  c.id === chat.id ? latestChat : c
+                ),
+                contextUsage: null,
                 toolCallsById,
               })
               try {
-                await get().loadMessageCheckpoints(mostRecentChat.id)
+                await get().loadMessageCheckpoints(latestChat.id)
               } catch {}
+              // Fetch context usage for the selected chat
+              logger.info('[Context Usage] Chat selected, fetching usage')
+              await get().fetchContextUsage()
             }
-          } else {
-            set({ currentChat: null, messages: [] })
           }
-        } else {
-          throw new Error('Invalid response format')
-        }
-      } catch (error) {
-        set({
-          chats: [],
-          isLoadingChats: false,
-          error: error instanceof Error ? error.message : 'Failed to load chats',
-        })
-      }
-    },
+        } catch {}
+      },
 
-    // Send a message (streaming only)
-    sendMessage: async (message: string, options = {}) => {
-      const { workflowId, currentChat, mode, revertState } = get()
-      const {
-        stream = true,
-        fileAttachments,
-        contexts,
-        messageId,
-      } = options as {
-        stream?: boolean
-        fileAttachments?: MessageFileAttachment[]
-        contexts?: ChatContext[]
-        messageId?: string
-      }
-      if (!workflowId) return
+      createNewChat: async () => {
+        const { isSendingMessage } = get()
+        if (isSendingMessage) get().abortMessage()
 
-      const abortController = new AbortController()
-      set({ isSendingMessage: true, error: null, abortController })
-
-      const userMessage = createUserMessage(message, fileAttachments, contexts, messageId)
-      const streamingMessage = createStreamingMessage()
-
-      let newMessages: CopilotMessage[]
-      if (revertState) {
-        const currentMessages = get().messages
-        newMessages = [...currentMessages, userMessage, streamingMessage]
-        set({ revertState: null, inputValue: '' })
-      } else {
-        const currentMessages = get().messages
-        // If messageId is provided, check if it already exists (e.g., from edit flow)
-        const existingIndex = messageId ? currentMessages.findIndex((m) => m.id === messageId) : -1
-        if (existingIndex !== -1) {
-          // Replace existing message instead of adding new one
-          newMessages = [...currentMessages.slice(0, existingIndex), userMessage, streamingMessage]
-        } else {
-          // Add new messages normally
-          newMessages = [...currentMessages, userMessage, streamingMessage]
-        }
-      }
-
-      const isFirstMessage = get().messages.length === 0 && !currentChat?.title
-      set((state) => ({
-        messages: newMessages,
-        currentUserMessageId: userMessage.id,
-      }))
-
-      if (isFirstMessage) {
-        const optimisticTitle = message.length > 50 ? `${message.substring(0, 47)}...` : message
-        set((state) => ({
-          currentChat: state.currentChat
-            ? { ...state.currentChat, title: optimisticTitle }
-            : state.currentChat,
-        }))
-      }
-
-      try {
-        // Debug: log contexts presence before sending
+        // Abort in-progress tools and clear diff on new chat
+        abortAllInProgressTools(set, get)
         try {
-          logger.info('sendMessage: preparing request', {
-            hasContexts: Array.isArray(contexts),
-            contextsCount: Array.isArray(contexts) ? contexts.length : 0,
-            contextsPreview: Array.isArray(contexts)
-              ? contexts.map((c: any) => ({
-                  kind: c?.kind,
-                  chatId: (c as any)?.chatId,
-                  workflowId: (c as any)?.workflowId,
-                  label: (c as any)?.label,
-                }))
-              : undefined,
-          })
+          useWorkflowDiffStore.getState().clearDiff()
         } catch {}
 
-        const result = await sendStreamingMessage({
-          message,
-          userMessageId: userMessage.id,
-          chatId: currentChat?.id,
-          workflowId,
-          mode: mode === 'ask' ? 'ask' : 'agent',
-          model: get().selectedModel,
-          prefetch: get().agentPrefetch,
-          createNewChat: !currentChat,
-          stream,
-          fileAttachments,
-          contexts,
-          abortSignal: abortController.signal,
-        })
-
-        if (result.success && result.stream) {
-          await get().handleStreamingResponse(
-            result.stream,
-            streamingMessage.id,
-            false,
-            userMessage.id
-          )
-          set({ chatsLastLoadedAt: null, chatsLoadedForWorkflow: null })
-        } else {
-          if (result.error === 'Request was aborted') {
-            return
-          }
-
-          // Check for specific status codes and provide custom messages
-          let errorContent = result.error || 'Failed to send message'
-          if (result.status === 401) {
-            errorContent =
-              '_Unauthorized request. You need a valid API key to use the copilot. You can get one by going to [sim.ai](https://sim.ai) settings and generating one there._'
-          } else if (result.status === 402) {
-            errorContent =
-              '_Usage limit exceeded. To continue using this service, upgrade your plan or top up on credits._'
-          } else if (result.status === 403) {
-            errorContent =
-              '_Provider config not allowed for non-enterprise users. Please remove the provider config and try again_'
-          } else if (result.status === 426) {
-            errorContent =
-              '_Please upgrade to the latest version of the Sim platform to continue using the copilot._'
-          } else if (result.status === 429) {
-            errorContent = '_Provider rate limit exceeded. Please try again later._'
-          }
-
-          const errorMessage = createErrorMessage(streamingMessage.id, errorContent)
-          set((state) => ({
-            messages: state.messages.map((m) => (m.id === streamingMessage.id ? errorMessage : m)),
-            error: errorContent,
-            isSendingMessage: false,
-            abortController: null,
-          }))
-        }
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') return
-        const errorMessage = createErrorMessage(
-          streamingMessage.id,
-          'Sorry, I encountered an error while processing your message. Please try again.'
-        )
-        set((state) => ({
-          messages: state.messages.map((m) => (m.id === streamingMessage.id ? errorMessage : m)),
-          error: error instanceof Error ? error.message : 'Failed to send message',
-          isSendingMessage: false,
-          abortController: null,
-        }))
-      }
-    },
-
-    // Abort streaming
-    abortMessage: () => {
-      const { abortController, isSendingMessage, messages } = get()
-      if (!isSendingMessage || !abortController) return
-      set({ isAborting: true })
-      try {
-        abortController.abort()
-        const lastMessage = messages[messages.length - 1]
-        if (lastMessage && lastMessage.role === 'assistant') {
-          const textContent =
-            lastMessage.contentBlocks
-              ?.filter((b) => b.type === 'text')
-              .map((b: any) => b.content)
-              .join('') || ''
-          set((state) => ({
-            messages: state.messages.map((msg) =>
-              msg.id === lastMessage.id
-                ? { ...msg, content: textContent.trim() || 'Message was aborted' }
-                : msg
-            ),
-            isSendingMessage: false,
-            isAborting: false,
-            abortController: null,
-          }))
-        } else {
-          set({ isSendingMessage: false, isAborting: false, abortController: null })
-        }
-
-        // Immediately put all in-progress tools into aborted state
-        abortAllInProgressTools(set, get)
-
-        // Persist whatever contentBlocks/text we have to keep ordering for reloads
-        const { currentChat } = get()
-        if (currentChat) {
-          try {
+        // Background-save the current chat before clearing (optimistic)
+        try {
+          const { currentChat } = get()
+          if (currentChat) {
             const currentMessages = get().messages
             const dbMessages = validateMessagesForLLM(currentMessages)
             fetch('/api/copilot/chat/update-messages', {
@@ -1796,597 +1469,939 @@ const createCopilotStoreInstance = () =>
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ chatId: currentChat.id, messages: dbMessages }),
             }).catch(() => {})
-          } catch {}
+          }
+        } catch {}
+
+        logger.info('[Context Usage] New chat created, clearing context usage')
+        set({
+          currentChat: null,
+          messages: [],
+          messageCheckpoints: {},
+          planTodos: [],
+          showPlanTodos: false,
+          suppressAutoSelect: true,
+          contextUsage: null,
+        })
+      },
+
+      deleteChat: async (chatId: string) => {
+        try {
+          // Call delete API
+          const response = await fetch('/api/copilot/chat/delete', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chatId }),
+          })
+
+          if (!response.ok) {
+            throw new Error(`Failed to delete chat: ${response.status}`)
+          }
+
+          // Remove from local state
+          set((state) => ({
+            chats: state.chats.filter((c) => c.id !== chatId),
+            // If deleted chat was current, clear it
+            currentChat: state.currentChat?.id === chatId ? null : state.currentChat,
+            messages: state.currentChat?.id === chatId ? [] : state.messages,
+          }))
+
+          logger.info('Chat deleted', { chatId })
+        } catch (error) {
+          logger.error('Failed to delete chat:', error)
+          throw error
+        }
+      },
+
+      areChatsFresh: (_workflowId: string) => false,
+
+      loadChats: async (_forceRefresh = false) => {
+        const { workflowId } = get()
+        if (!workflowId) {
+          set({ chats: [], isLoadingChats: false })
+          return
         }
 
-        // Fetch context usage after abort
-        logger.info('[Context Usage] Message aborted, fetching usage')
-        get()
-          .fetchContextUsage()
-          .catch((err) => {
-            logger.warn('[Context Usage] Failed to fetch after abort', err)
-          })
-      } catch {
-        set({ isSendingMessage: false, isAborting: false, abortController: null })
-      }
-    },
+        // For now always fetch fresh
+        set({ isLoadingChats: true })
+        try {
+          const response = await fetch(`/api/copilot/chat?workflowId=${workflowId}`)
+          if (!response.ok) {
+            throw new Error(`Failed to fetch chats: ${response.status}`)
+          }
+          const data = await response.json()
+          if (data.success && Array.isArray(data.chats)) {
+            const now = new Date()
+            set({
+              chats: data.chats,
+              isLoadingChats: false,
+              chatsLastLoadedAt: now,
+              chatsLoadedForWorkflow: workflowId,
+            })
 
-    // Implicit feedback (send a continuation) - minimal
-    sendImplicitFeedback: async (implicitFeedback: string) => {
-      const { workflowId, currentChat, mode, selectedModel } = get()
-      if (!workflowId) return
-      const abortController = new AbortController()
-      set({ isSendingMessage: true, error: null, abortController })
-      const newAssistantMessage = createStreamingMessage()
-      set((state) => ({ messages: [...state.messages, newAssistantMessage] }))
-      try {
-        const result = await sendStreamingMessage({
-          message: 'Please continue your response.',
-          chatId: currentChat?.id,
-          workflowId,
-          mode: mode === 'ask' ? 'ask' : 'agent',
-          model: selectedModel,
-          prefetch: get().agentPrefetch,
-          createNewChat: !currentChat,
-          stream: true,
-          implicitFeedback,
-          abortSignal: abortController.signal,
-        })
-        if (result.success && result.stream) {
-          await get().handleStreamingResponse(result.stream, newAssistantMessage.id, false)
+            if (data.chats.length > 0) {
+              const { currentChat, isSendingMessage, suppressAutoSelect } = get()
+              const currentChatStillExists =
+                currentChat && data.chats.some((c: CopilotChat) => c.id === currentChat.id)
+
+              if (currentChatStillExists) {
+                const updatedCurrentChat = data.chats.find(
+                  (c: CopilotChat) => c.id === currentChat!.id
+                )!
+                if (isSendingMessage) {
+                  set({ currentChat: { ...updatedCurrentChat, messages: get().messages } })
+                } else {
+                  const normalizedMessages = normalizeMessagesForUI(
+                    updatedCurrentChat.messages || []
+                  )
+
+                  // Build toolCallsById map from all tool calls in normalized messages
+                  const toolCallsById: Record<string, CopilotToolCall> = {}
+                  for (const msg of normalizedMessages) {
+                    if (msg.contentBlocks) {
+                      for (const block of msg.contentBlocks as any[]) {
+                        if (block?.type === 'tool_call' && block.toolCall?.id) {
+                          toolCallsById[block.toolCall.id] = block.toolCall
+                        }
+                      }
+                    }
+                  }
+
+                  set({
+                    currentChat: updatedCurrentChat,
+                    messages: normalizedMessages,
+                    toolCallsById,
+                  })
+                }
+                try {
+                  await get().loadMessageCheckpoints(updatedCurrentChat.id)
+                } catch {}
+              } else if (!isSendingMessage && !suppressAutoSelect) {
+                const mostRecentChat: CopilotChat = data.chats[0]
+                const normalizedMessages = normalizeMessagesForUI(mostRecentChat.messages || [])
+
+                // Build toolCallsById map from all tool calls in normalized messages
+                const toolCallsById: Record<string, CopilotToolCall> = {}
+                for (const msg of normalizedMessages) {
+                  if (msg.contentBlocks) {
+                    for (const block of msg.contentBlocks as any[]) {
+                      if (block?.type === 'tool_call' && block.toolCall?.id) {
+                        toolCallsById[block.toolCall.id] = block.toolCall
+                      }
+                    }
+                  }
+                }
+
+                set({
+                  currentChat: mostRecentChat,
+                  messages: normalizedMessages,
+                  toolCallsById,
+                })
+                try {
+                  await get().loadMessageCheckpoints(mostRecentChat.id)
+                } catch {}
+              }
+            } else {
+              set({ currentChat: null, messages: [] })
+            }
+          } else {
+            throw new Error('Invalid response format')
+          }
+        } catch (error) {
+          set({
+            chats: [],
+            isLoadingChats: false,
+            error: error instanceof Error ? error.message : 'Failed to load chats',
+          })
+        }
+      },
+
+      // Send a message (streaming only)
+      sendMessage: async (message: string, options = {}) => {
+        const { workflowId, currentChat, mode, revertState } = get()
+        const {
+          stream = true,
+          fileAttachments,
+          contexts,
+          messageId,
+        } = options as {
+          stream?: boolean
+          fileAttachments?: MessageFileAttachment[]
+          contexts?: ChatContext[]
+          messageId?: string
+        }
+        if (!workflowId) return
+
+        const abortController = new AbortController()
+        set({ isSendingMessage: true, error: null, abortController })
+
+        const userMessage = createUserMessage(message, fileAttachments, contexts, messageId)
+        const streamingMessage = createStreamingMessage()
+
+        let newMessages: CopilotMessage[]
+        if (revertState) {
+          const currentMessages = get().messages
+          newMessages = [...currentMessages, userMessage, streamingMessage]
+          set({ revertState: null, inputValue: '' })
         } else {
-          if (result.error === 'Request was aborted') return
+          const currentMessages = get().messages
+          // If messageId is provided, check if it already exists (e.g., from edit flow)
+          const existingIndex = messageId
+            ? currentMessages.findIndex((m) => m.id === messageId)
+            : -1
+          if (existingIndex !== -1) {
+            // Replace existing message instead of adding new one
+            newMessages = [
+              ...currentMessages.slice(0, existingIndex),
+              userMessage,
+              streamingMessage,
+            ]
+          } else {
+            // Add new messages normally
+            newMessages = [...currentMessages, userMessage, streamingMessage]
+          }
+        }
+
+        const isFirstMessage = get().messages.length === 0 && !currentChat?.title
+        set((state) => ({
+          messages: newMessages,
+          currentUserMessageId: userMessage.id,
+        }))
+
+        if (isFirstMessage) {
+          const optimisticTitle = message.length > 50 ? `${message.substring(0, 47)}...` : message
+          set((state) => ({
+            currentChat: state.currentChat
+              ? { ...state.currentChat, title: optimisticTitle }
+              : state.currentChat,
+          }))
+        }
+
+        try {
+          // Debug: log contexts presence before sending
+          try {
+            logger.info('sendMessage: preparing request', {
+              hasContexts: Array.isArray(contexts),
+              contextsCount: Array.isArray(contexts) ? contexts.length : 0,
+              contextsPreview: Array.isArray(contexts)
+                ? contexts.map((c: any) => ({
+                    kind: c?.kind,
+                    chatId: (c as any)?.chatId,
+                    workflowId: (c as any)?.workflowId,
+                    label: (c as any)?.label,
+                  }))
+                : undefined,
+            })
+          } catch {}
+
+          const result = await sendStreamingMessage({
+            message,
+            userMessageId: userMessage.id,
+            chatId: currentChat?.id,
+            workflowId,
+            mode: mode === 'ask' ? 'ask' : 'agent',
+            model: get().selectedModel,
+            prefetch: get().agentPrefetch,
+            createNewChat: !currentChat,
+            stream,
+            fileAttachments,
+            contexts,
+            abortSignal: abortController.signal,
+          })
+
+          if (result.success && result.stream) {
+            await get().handleStreamingResponse(
+              result.stream,
+              streamingMessage.id,
+              false,
+              userMessage.id
+            )
+            set({ chatsLastLoadedAt: null, chatsLoadedForWorkflow: null })
+          } else {
+            if (result.error === 'Request was aborted') {
+              return
+            }
+
+            // Check for specific status codes and provide custom messages
+            let errorContent = result.error || 'Failed to send message'
+            if (result.status === 401) {
+              errorContent =
+                '_Unauthorized request. You need a valid API key to use the copilot. You can get one by going to [sim.ai](https://sim.ai) settings and generating one there._'
+            } else if (result.status === 402) {
+              errorContent =
+                '_Usage limit exceeded. To continue using this service, upgrade your plan or top up on credits._'
+            } else if (result.status === 403) {
+              errorContent =
+                '_Provider config not allowed for non-enterprise users. Please remove the provider config and try again_'
+            } else if (result.status === 426) {
+              errorContent =
+                '_Please upgrade to the latest version of the Sim platform to continue using the copilot._'
+            } else if (result.status === 429) {
+              errorContent = '_Provider rate limit exceeded. Please try again later._'
+            }
+
+            const errorMessage = createErrorMessage(streamingMessage.id, errorContent)
+            set((state) => ({
+              messages: state.messages.map((m) =>
+                m.id === streamingMessage.id ? errorMessage : m
+              ),
+              error: errorContent,
+              isSendingMessage: false,
+              abortController: null,
+            }))
+          }
+        } catch (error) {
+          if (error instanceof Error && error.name === 'AbortError') return
+          const errorMessage = createErrorMessage(
+            streamingMessage.id,
+            'Sorry, I encountered an error while processing your message. Please try again.'
+          )
+          set((state) => ({
+            messages: state.messages.map((m) => (m.id === streamingMessage.id ? errorMessage : m)),
+            error: error instanceof Error ? error.message : 'Failed to send message',
+            isSendingMessage: false,
+            abortController: null,
+          }))
+        }
+      },
+
+      // Abort streaming
+      abortMessage: () => {
+        const { abortController, isSendingMessage, messages } = get()
+        if (!isSendingMessage || !abortController) return
+        set({ isAborting: true })
+        try {
+          abortController.abort()
+          const lastMessage = messages[messages.length - 1]
+          if (lastMessage && lastMessage.role === 'assistant') {
+            const textContent =
+              lastMessage.contentBlocks
+                ?.filter((b) => b.type === 'text')
+                .map((b: any) => b.content)
+                .join('') || ''
+            set((state) => ({
+              messages: state.messages.map((msg) =>
+                msg.id === lastMessage.id
+                  ? { ...msg, content: textContent.trim() || 'Message was aborted' }
+                  : msg
+              ),
+              isSendingMessage: false,
+              isAborting: false,
+              abortController: null,
+            }))
+          } else {
+            set({ isSendingMessage: false, isAborting: false, abortController: null })
+          }
+
+          // Immediately put all in-progress tools into aborted state
+          abortAllInProgressTools(set, get)
+
+          // Persist whatever contentBlocks/text we have to keep ordering for reloads
+          const { currentChat } = get()
+          if (currentChat) {
+            try {
+              const currentMessages = get().messages
+              const dbMessages = validateMessagesForLLM(currentMessages)
+              fetch('/api/copilot/chat/update-messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatId: currentChat.id, messages: dbMessages }),
+              }).catch(() => {})
+            } catch {}
+          }
+
+          // Fetch context usage after abort
+          logger.info('[Context Usage] Message aborted, fetching usage')
+          get()
+            .fetchContextUsage()
+            .catch((err) => {
+              logger.warn('[Context Usage] Failed to fetch after abort', err)
+            })
+        } catch {
+          set({ isSendingMessage: false, isAborting: false, abortController: null })
+        }
+      },
+
+      // Implicit feedback (send a continuation) - minimal
+      sendImplicitFeedback: async (implicitFeedback: string) => {
+        const { workflowId, currentChat, mode, selectedModel } = get()
+        if (!workflowId) return
+        const abortController = new AbortController()
+        set({ isSendingMessage: true, error: null, abortController })
+        const newAssistantMessage = createStreamingMessage()
+        set((state) => ({ messages: [...state.messages, newAssistantMessage] }))
+        try {
+          const result = await sendStreamingMessage({
+            message: 'Please continue your response.',
+            chatId: currentChat?.id,
+            workflowId,
+            mode: mode === 'ask' ? 'ask' : 'agent',
+            model: selectedModel,
+            prefetch: get().agentPrefetch,
+            createNewChat: !currentChat,
+            stream: true,
+            implicitFeedback,
+            abortSignal: abortController.signal,
+          })
+          if (result.success && result.stream) {
+            await get().handleStreamingResponse(result.stream, newAssistantMessage.id, false)
+          } else {
+            if (result.error === 'Request was aborted') return
+            const errorMessage = createErrorMessage(
+              newAssistantMessage.id,
+              result.error || 'Failed to send implicit feedback'
+            )
+            set((state) => ({
+              messages: state.messages.map((msg) =>
+                msg.id === newAssistantMessage.id ? errorMessage : msg
+              ),
+              error: result.error || 'Failed to send implicit feedback',
+              isSendingMessage: false,
+              abortController: null,
+            }))
+          }
+        } catch (error) {
+          if (error instanceof Error && error.name === 'AbortError') return
           const errorMessage = createErrorMessage(
             newAssistantMessage.id,
-            result.error || 'Failed to send implicit feedback'
+            'Sorry, I encountered an error while processing your feedback. Please try again.'
           )
           set((state) => ({
             messages: state.messages.map((msg) =>
               msg.id === newAssistantMessage.id ? errorMessage : msg
             ),
-            error: result.error || 'Failed to send implicit feedback',
+            error: error instanceof Error ? error.message : 'Failed to send implicit feedback',
             isSendingMessage: false,
             abortController: null,
           }))
         }
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') return
-        const errorMessage = createErrorMessage(
-          newAssistantMessage.id,
-          'Sorry, I encountered an error while processing your feedback. Please try again.'
-        )
-        set((state) => ({
-          messages: state.messages.map((msg) =>
-            msg.id === newAssistantMessage.id ? errorMessage : msg
-          ),
-          error: error instanceof Error ? error.message : 'Failed to send implicit feedback',
-          isSendingMessage: false,
-          abortController: null,
-        }))
-      }
-    },
+      },
 
-    // Tool-call related APIs are stubbed for now
-    setToolCallState: (toolCall: any, newState: any) => {
-      try {
-        const id: string | undefined = toolCall?.id
+      // Tool-call related APIs are stubbed for now
+      setToolCallState: (toolCall: any, newState: any) => {
+        try {
+          const id: string | undefined = toolCall?.id
+          if (!id) return
+          const map = { ...get().toolCallsById }
+          const current = map[id]
+          if (!current) return
+          // Preserve rejected state from being overridden
+          if (
+            isRejectedState(current.state) &&
+            (newState === 'success' || newState === (ClientToolCallState as any).success)
+          ) {
+            return
+          }
+          let norm: ClientToolCallState = current.state
+          if (newState === 'executing') norm = ClientToolCallState.executing
+          else if (newState === 'errored' || newState === 'error') norm = ClientToolCallState.error
+          else if (newState === 'rejected') norm = ClientToolCallState.rejected
+          else if (newState === 'pending') norm = ClientToolCallState.pending
+          else if (newState === 'success' || newState === 'accepted')
+            norm = ClientToolCallState.success
+          else if (newState === 'aborted') norm = ClientToolCallState.aborted
+          else if (typeof newState === 'number') norm = newState as unknown as ClientToolCallState
+          map[id] = {
+            ...current,
+            state: norm,
+            display: resolveToolDisplay(current.name, norm, id, current.params),
+          }
+          set({ toolCallsById: map })
+        } catch {}
+      },
+      updatePreviewToolCallState: (
+        toolCallState: 'accepted' | 'rejected' | 'error',
+        toolCallId?: string
+      ) => {
+        const stateMap: Record<string, ClientToolCallState> = {
+          accepted: ClientToolCallState.success,
+          rejected: ClientToolCallState.rejected,
+          error: ClientToolCallState.error,
+        }
+        const targetState = stateMap[toolCallState] || ClientToolCallState.success
+        const { toolCallsById } = get()
+        // Determine target tool
+        let id = toolCallId
+        if (!id) {
+          // Prefer the latest assistant message's build/edit tool_call
+          const messages = get().messages
+          outer: for (let mi = messages.length - 1; mi >= 0; mi--) {
+            const m = messages[mi]
+            if (m.role !== 'assistant' || !m.contentBlocks) continue
+            const blocks = m.contentBlocks as any[]
+            for (let bi = blocks.length - 1; bi >= 0; bi--) {
+              const b = blocks[bi]
+              if (b?.type === 'tool_call') {
+                const tn = b.toolCall?.name
+                if (tn === 'edit_workflow') {
+                  id = b.toolCall?.id
+                  break outer
+                }
+              }
+            }
+          }
+          // Fallback to map if not found in messages
+          if (!id) {
+            const candidates = Object.values(toolCallsById).filter(
+              (t) => t.name === 'edit_workflow'
+            )
+            id = candidates.length ? candidates[candidates.length - 1].id : undefined
+          }
+        }
         if (!id) return
-        const map = { ...get().toolCallsById }
-        const current = map[id]
+        const current = toolCallsById[id]
         if (!current) return
-        // Preserve rejected state from being overridden
+        // Do not override a rejected tool with success
         if (
           isRejectedState(current.state) &&
-          (newState === 'success' || newState === (ClientToolCallState as any).success)
+          targetState === (ClientToolCallState as any).success
         ) {
           return
         }
-        let norm: ClientToolCallState = current.state
-        if (newState === 'executing') norm = ClientToolCallState.executing
-        else if (newState === 'errored' || newState === 'error') norm = ClientToolCallState.error
-        else if (newState === 'rejected') norm = ClientToolCallState.rejected
-        else if (newState === 'pending') norm = ClientToolCallState.pending
-        else if (newState === 'success' || newState === 'accepted')
-          norm = ClientToolCallState.success
-        else if (newState === 'aborted') norm = ClientToolCallState.aborted
-        else if (typeof newState === 'number') norm = newState as unknown as ClientToolCallState
-        map[id] = {
+
+        // Update store map
+        const updatedMap = { ...toolCallsById }
+        const updatedDisplay = resolveToolDisplay(current.name, targetState, id, current.params)
+        updatedMap[id] = {
           ...current,
-          state: norm,
-          display: resolveToolDisplay(current.name, norm, id, current.params),
+          state: targetState,
+          display: updatedDisplay,
         }
-        set({ toolCallsById: map })
-      } catch {}
-    },
-    updatePreviewToolCallState: (
-      toolCallState: 'accepted' | 'rejected' | 'error',
-      toolCallId?: string
-    ) => {
-      const stateMap: Record<string, ClientToolCallState> = {
-        accepted: ClientToolCallState.success,
-        rejected: ClientToolCallState.rejected,
-        error: ClientToolCallState.error,
-      }
-      const targetState = stateMap[toolCallState] || ClientToolCallState.success
-      const { toolCallsById } = get()
-      // Determine target tool
-      let id = toolCallId
-      if (!id) {
-        // Prefer the latest assistant message's build/edit tool_call
-        const messages = get().messages
-        outer: for (let mi = messages.length - 1; mi >= 0; mi--) {
-          const m = messages[mi]
-          if (m.role !== 'assistant' || !m.contentBlocks) continue
-          const blocks = m.contentBlocks as any[]
-          for (let bi = blocks.length - 1; bi >= 0; bi--) {
-            const b = blocks[bi]
-            if (b?.type === 'tool_call') {
-              const tn = b.toolCall?.name
-              if (tn === 'edit_workflow') {
-                id = b.toolCall?.id
-                break outer
+        set({ toolCallsById: updatedMap })
+
+        // Update inline content block in the latest assistant message
+        set((s) => {
+          const messages = [...s.messages]
+          for (let mi = messages.length - 1; mi >= 0; mi--) {
+            const m = messages[mi]
+            if (m.role !== 'assistant' || !m.contentBlocks) continue
+            let changed = false
+            const blocks = m.contentBlocks.map((b: any) => {
+              if (b.type === 'tool_call' && b.toolCall?.id === id) {
+                changed = true
+                const prev = b.toolCall || {}
+                return {
+                  ...b,
+                  toolCall: {
+                    ...prev,
+                    id,
+                    name: current.name,
+                    state: targetState,
+                    display: updatedDisplay,
+                    params: current.params,
+                  },
+                }
               }
+              return b
+            })
+            if (changed) {
+              messages[mi] = { ...m, contentBlocks: blocks }
+              break
             }
           }
-        }
-        // Fallback to map if not found in messages
-        if (!id) {
-          const candidates = Object.values(toolCallsById).filter((t) => t.name === 'edit_workflow')
-          id = candidates.length ? candidates[candidates.length - 1].id : undefined
-        }
-      }
-      if (!id) return
-      const current = toolCallsById[id]
-      if (!current) return
-      // Do not override a rejected tool with success
-      if (isRejectedState(current.state) && targetState === (ClientToolCallState as any).success) {
-        return
-      }
+          return { messages }
+        })
 
-      // Update store map
-      const updatedMap = { ...toolCallsById }
-      const updatedDisplay = resolveToolDisplay(current.name, targetState, id, current.params)
-      updatedMap[id] = {
-        ...current,
-        state: targetState,
-        display: updatedDisplay,
-      }
-      set({ toolCallsById: updatedMap })
+        // Notify backend mark-complete to finalize tool server-side
+        try {
+          fetch('/api/copilot/tools/mark-complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id,
+              name: current.name,
+              status:
+                targetState === ClientToolCallState.success
+                  ? 200
+                  : targetState === ClientToolCallState.rejected
+                    ? 409
+                    : 500,
+              message: toolCallState,
+            }),
+          }).catch(() => {})
+        } catch {}
+      },
 
-      // Update inline content block in the latest assistant message
-      set((s) => {
-        const messages = [...s.messages]
-        for (let mi = messages.length - 1; mi >= 0; mi--) {
-          const m = messages[mi]
-          if (m.role !== 'assistant' || !m.contentBlocks) continue
-          let changed = false
-          const blocks = m.contentBlocks.map((b: any) => {
-            if (b.type === 'tool_call' && b.toolCall?.id === id) {
-              changed = true
-              const prev = b.toolCall || {}
-              return {
-                ...b,
-                toolCall: {
-                  ...prev,
-                  id,
-                  name: current.name,
-                  state: targetState,
-                  display: updatedDisplay,
-                  params: current.params,
-                },
-              }
-            }
-            return b
+      sendDocsMessage: async (query: string) => {
+        await get().sendMessage(query)
+      },
+
+      saveChatMessages: async (_chatId: string) => {},
+
+      loadCheckpoints: async (_chatId: string) => set({ checkpoints: [] }),
+
+      loadMessageCheckpoints: async (chatId: string) => {
+        const { workflowId } = get()
+        if (!workflowId) return
+        set({ isLoadingCheckpoints: true, checkpointError: null })
+        try {
+          const response = await fetch(`/api/copilot/checkpoints?chatId=${chatId}`)
+          if (!response.ok) throw new Error(`Failed to load checkpoints: ${response.statusText}`)
+          const data = await response.json()
+          if (data.success && Array.isArray(data.checkpoints)) {
+            const grouped = data.checkpoints.reduce((acc: Record<string, any[]>, cp: any) => {
+              const key = cp.messageId || '__no_message__'
+              acc[key] = acc[key] || []
+              acc[key].push(cp)
+              return acc
+            }, {})
+            set({ messageCheckpoints: grouped, isLoadingCheckpoints: false })
+          } else {
+            throw new Error('Invalid checkpoints response')
+          }
+        } catch (error) {
+          set({
+            isLoadingCheckpoints: false,
+            checkpointError: error instanceof Error ? error.message : 'Failed to load checkpoints',
           })
-          if (changed) {
-            messages[mi] = { ...m, contentBlocks: blocks }
-            break
+        }
+      },
+
+      // Revert to a specific checkpoint and apply state locally
+      revertToCheckpoint: async (checkpointId: string) => {
+        const { workflowId } = get()
+        if (!workflowId) return
+        set({ isRevertingCheckpoint: true, checkpointError: null })
+        try {
+          const response = await fetch('/api/copilot/checkpoints/revert', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ checkpointId }),
+          })
+          if (!response.ok) {
+            const errorText = await response.text().catch(() => '')
+            throw new Error(errorText || `Failed to revert: ${response.statusText}`)
+          }
+          const result = await response.json()
+          const reverted = result?.checkpoint?.workflowState || null
+          if (reverted) {
+            // Clear any active diff preview
+            try {
+              useWorkflowDiffStore.getState().clearDiff()
+            } catch {}
+
+            // Apply to main workflow store
+            useWorkflowStore.setState({
+              blocks: reverted.blocks || {},
+              edges: reverted.edges || [],
+              loops: reverted.loops || {},
+              parallels: reverted.parallels || {},
+              lastSaved: reverted.lastSaved || Date.now(),
+              isDeployed: !!reverted.isDeployed,
+              ...(reverted.deployedAt ? { deployedAt: new Date(reverted.deployedAt) } : {}),
+              deploymentStatuses: reverted.deploymentStatuses || {},
+            })
+
+            // Extract and apply subblock values
+            const values: Record<string, Record<string, any>> = {}
+            Object.entries(reverted.blocks || {}).forEach(([blockId, block]: [string, any]) => {
+              values[blockId] = {}
+              Object.entries((block as any).subBlocks || {}).forEach(
+                ([subId, sub]: [string, any]) => {
+                  values[blockId][subId] = (sub as any)?.value
+                }
+              )
+            })
+            const subState = useSubBlockStore.getState()
+            useSubBlockStore.setState({
+              workflowValues: {
+                ...subState.workflowValues,
+                [workflowId]: values,
+              },
+            })
+          }
+          set({ isRevertingCheckpoint: false })
+        } catch (error) {
+          set({
+            isRevertingCheckpoint: false,
+            checkpointError: error instanceof Error ? error.message : 'Failed to revert checkpoint',
+          })
+          throw error
+        }
+      },
+      getCheckpointsForMessage: (messageId: string) => {
+        const { messageCheckpoints } = get()
+        return messageCheckpoints[messageId] || []
+      },
+
+      // Preview YAML (stubbed/no-op)
+      setPreviewYaml: async (_yamlContent: string) => {},
+      clearPreviewYaml: async () => {
+        set((state) => ({
+          currentChat: state.currentChat ? { ...state.currentChat, previewYaml: null } : null,
+        }))
+      },
+
+      // Handle streaming response
+      handleStreamingResponse: async (
+        stream: ReadableStream,
+        assistantMessageId: string,
+        isContinuation = false,
+        triggerUserMessageId?: string
+      ) => {
+        const reader = stream.getReader()
+        const decoder = new TextDecoder()
+        const startTimeMs = Date.now()
+
+        const context: StreamingContext = {
+          messageId: assistantMessageId,
+          accumulatedContent: new StringBuilder(),
+          contentBlocks: [],
+          currentTextBlock: null,
+          isInThinkingBlock: false,
+          currentThinkingBlock: null,
+          pendingContent: '',
+          doneEventCount: 0,
+        }
+
+        if (isContinuation) {
+          const { messages } = get()
+          const existingMessage = messages.find((m) => m.id === assistantMessageId)
+          if (existingMessage) {
+            if (existingMessage.content) context.accumulatedContent.append(existingMessage.content)
+            context.contentBlocks = existingMessage.contentBlocks
+              ? [...existingMessage.contentBlocks]
+              : []
           }
         }
-        return { messages }
-      })
 
-      // Notify backend mark-complete to finalize tool server-side
-      try {
-        fetch('/api/copilot/tools/mark-complete', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id,
-            name: current.name,
-            status:
-              targetState === ClientToolCallState.success
-                ? 200
-                : targetState === ClientToolCallState.rejected
-                  ? 409
-                  : 500,
-            message: toolCallState,
-          }),
-        }).catch(() => {})
-      } catch {}
-    },
+        const timeoutId = setTimeout(() => {
+          logger.warn('Stream timeout reached, completing response')
+          reader.cancel()
+        }, 600000)
 
-    sendDocsMessage: async (query: string) => {
-      await get().sendMessage(query)
-    },
+        try {
+          for await (const data of parseSSEStream(reader, decoder)) {
+            const { abortController } = get()
+            if (abortController?.signal.aborted) break
 
-    saveChatMessages: async (_chatId: string) => {},
+            const handler = sseHandlers[data.type] || sseHandlers.default
+            await handler(data, context, get, set)
+            if (context.streamComplete) break
+          }
 
-    loadCheckpoints: async (_chatId: string) => set({ checkpoints: [] }),
+          if (sseHandlers.stream_end) sseHandlers.stream_end({}, context, get, set)
 
-    loadMessageCheckpoints: async (chatId: string) => {
-      const { workflowId } = get()
-      if (!workflowId) return
-      set({ isLoadingCheckpoints: true, checkpointError: null })
-      try {
-        const response = await fetch(`/api/copilot/checkpoints?chatId=${chatId}`)
-        if (!response.ok) throw new Error(`Failed to load checkpoints: ${response.statusText}`)
-        const data = await response.json()
-        if (data.success && Array.isArray(data.checkpoints)) {
-          const grouped = data.checkpoints.reduce((acc: Record<string, any[]>, cp: any) => {
-            const key = cp.messageId || '__no_message__'
-            acc[key] = acc[key] || []
-            acc[key].push(cp)
-            return acc
-          }, {})
-          set({ messageCheckpoints: grouped, isLoadingCheckpoints: false })
-        } else {
-          throw new Error('Invalid checkpoints response')
-        }
-      } catch (error) {
-        set({
-          isLoadingCheckpoints: false,
-          checkpointError: error instanceof Error ? error.message : 'Failed to load checkpoints',
-        })
-      }
-    },
+          if (streamingUpdateRAF !== null) {
+            cancelAnimationFrame(streamingUpdateRAF)
+            streamingUpdateRAF = null
+          }
+          streamingUpdateQueue.clear()
 
-    // Revert to a specific checkpoint and apply state locally
-    revertToCheckpoint: async (checkpointId: string) => {
-      const { workflowId } = get()
-      if (!workflowId) return
-      set({ isRevertingCheckpoint: true, checkpointError: null })
-      try {
-        const response = await fetch('/api/copilot/checkpoints/revert', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ checkpointId }),
-        })
-        if (!response.ok) {
-          const errorText = await response.text().catch(() => '')
-          throw new Error(errorText || `Failed to revert: ${response.statusText}`)
-        }
-        const result = await response.json()
-        const reverted = result?.checkpoint?.workflowState || null
-        if (reverted) {
-          // Clear any active diff preview
+          if (context.contentBlocks) {
+            context.contentBlocks.forEach((block) => {
+              if (block.type === TEXT_BLOCK_TYPE || block.type === THINKING_BLOCK_TYPE) {
+                contentBlockPool.release(block)
+              }
+            })
+          }
+
+          const finalContent = context.accumulatedContent.toString()
+          set((state) => ({
+            messages: state.messages.map((msg) =>
+              msg.id === assistantMessageId
+                ? {
+                    ...msg,
+                    content: finalContent,
+                    contentBlocks: context.contentBlocks,
+                  }
+                : msg
+            ),
+            isSendingMessage: false,
+            abortController: null,
+            currentUserMessageId: null,
+          }))
+
+          if (context.newChatId && !get().currentChat) {
+            await get().handleNewChatCreation(context.newChatId)
+          }
+
+          // Persist full message state (including contentBlocks) to database
+          const { currentChat } = get()
+          if (currentChat) {
+            try {
+              const currentMessages = get().messages
+              const dbMessages = validateMessagesForLLM(currentMessages)
+              await fetch('/api/copilot/chat/update-messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatId: currentChat.id, messages: dbMessages }),
+              })
+            } catch {}
+          }
+
+          // Post copilot_stats record (input/output tokens can be null for now)
           try {
-            useWorkflowDiffStore.getState().clearDiff()
+            // Removed: stats sending now occurs only on accept/reject with minimal payload
           } catch {}
 
-          // Apply to main workflow store
-          useWorkflowStore.setState({
-            blocks: reverted.blocks || {},
-            edges: reverted.edges || [],
-            loops: reverted.loops || {},
-            parallels: reverted.parallels || {},
-            lastSaved: reverted.lastSaved || Date.now(),
-            isDeployed: !!reverted.isDeployed,
-            ...(reverted.deployedAt ? { deployedAt: new Date(reverted.deployedAt) } : {}),
-            deploymentStatuses: reverted.deploymentStatuses || {},
-          })
-
-          // Extract and apply subblock values
-          const values: Record<string, Record<string, any>> = {}
-          Object.entries(reverted.blocks || {}).forEach(([blockId, block]: [string, any]) => {
-            values[blockId] = {}
-            Object.entries((block as any).subBlocks || {}).forEach(
-              ([subId, sub]: [string, any]) => {
-                values[blockId][subId] = (sub as any)?.value
-              }
-            )
-          })
-          const subState = useSubBlockStore.getState()
-          useSubBlockStore.setState({
-            workflowValues: {
-              ...subState.workflowValues,
-              [workflowId]: values,
-            },
-          })
+          // Fetch context usage after response completes
+          logger.info('[Context Usage] Stream completed, fetching usage')
+          await get().fetchContextUsage()
+        } finally {
+          clearTimeout(timeoutId)
         }
-        set({ isRevertingCheckpoint: false })
-      } catch (error) {
+      },
+
+      // Handle new chat creation from stream
+      handleNewChatCreation: async (newChatId: string) => {
+        const newChat: CopilotChat = {
+          id: newChatId,
+          title: null,
+          model: 'gpt-4',
+          messages: get().messages,
+          messageCount: get().messages.length,
+          previewYaml: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }
+        // Abort any in-progress tools and clear diff on new chat creation
+        abortAllInProgressTools(set, get)
+        try {
+          useWorkflowDiffStore.getState().clearDiff()
+        } catch {}
+
         set({
-          isRevertingCheckpoint: false,
-          checkpointError: error instanceof Error ? error.message : 'Failed to revert checkpoint',
+          currentChat: newChat,
+          chats: [newChat, ...(get().chats || [])],
+          chatsLastLoadedAt: null,
+          chatsLoadedForWorkflow: null,
+          planTodos: [],
+          showPlanTodos: false,
+          suppressAutoSelect: false,
         })
-        throw error
-      }
-    },
-    getCheckpointsForMessage: (messageId: string) => {
-      const { messageCheckpoints } = get()
-      return messageCheckpoints[messageId] || []
-    },
+      },
 
-    // Preview YAML (stubbed/no-op)
-    setPreviewYaml: async (_yamlContent: string) => {},
-    clearPreviewYaml: async () => {
-      set((state) => ({
-        currentChat: state.currentChat ? { ...state.currentChat, previewYaml: null } : null,
-      }))
-    },
+      // Utilities
+      clearError: () => set({ error: null }),
+      clearSaveError: () => set({ saveError: null }),
+      clearCheckpointError: () => set({ checkpointError: null }),
+      retrySave: async (_chatId: string) => {},
 
-    // Handle streaming response
-    handleStreamingResponse: async (
-      stream: ReadableStream,
-      assistantMessageId: string,
-      isContinuation = false,
-      triggerUserMessageId?: string
-    ) => {
-      const reader = stream.getReader()
-      const decoder = new TextDecoder()
-      const startTimeMs = Date.now()
-
-      const context: StreamingContext = {
-        messageId: assistantMessageId,
-        accumulatedContent: new StringBuilder(),
-        contentBlocks: [],
-        currentTextBlock: null,
-        isInThinkingBlock: false,
-        currentThinkingBlock: null,
-        pendingContent: '',
-        doneEventCount: 0,
-      }
-
-      if (isContinuation) {
-        const { messages } = get()
-        const existingMessage = messages.find((m) => m.id === assistantMessageId)
-        if (existingMessage) {
-          if (existingMessage.content) context.accumulatedContent.append(existingMessage.content)
-          context.contentBlocks = existingMessage.contentBlocks
-            ? [...existingMessage.contentBlocks]
-            : []
-        }
-      }
-
-      const timeoutId = setTimeout(() => {
-        logger.warn('Stream timeout reached, completing response')
-        reader.cancel()
-      }, 600000)
-
-      try {
-        for await (const data of parseSSEStream(reader, decoder)) {
-          const { abortController } = get()
-          if (abortController?.signal.aborted) break
-
-          const handler = sseHandlers[data.type] || sseHandlers.default
-          await handler(data, context, get, set)
-          if (context.streamComplete) break
-        }
-
-        if (sseHandlers.stream_end) sseHandlers.stream_end({}, context, get, set)
-
+      cleanup: () => {
+        const { isSendingMessage } = get()
+        if (isSendingMessage) get().abortMessage()
         if (streamingUpdateRAF !== null) {
           cancelAnimationFrame(streamingUpdateRAF)
           streamingUpdateRAF = null
         }
         streamingUpdateQueue.clear()
-
-        if (context.contentBlocks) {
-          context.contentBlocks.forEach((block) => {
-            if (block.type === TEXT_BLOCK_TYPE || block.type === THINKING_BLOCK_TYPE) {
-              contentBlockPool.release(block)
-            }
-          })
-        }
-
-        const finalContent = context.accumulatedContent.toString()
-        set((state) => ({
-          messages: state.messages.map((msg) =>
-            msg.id === assistantMessageId
-              ? {
-                  ...msg,
-                  content: finalContent,
-                  contentBlocks: context.contentBlocks,
-                }
-              : msg
-          ),
-          isSendingMessage: false,
-          abortController: null,
-          currentUserMessageId: null,
-        }))
-
-        if (context.newChatId && !get().currentChat) {
-          await get().handleNewChatCreation(context.newChatId)
-        }
-
-        // Persist full message state (including contentBlocks) to database
-        const { currentChat } = get()
-        if (currentChat) {
-          try {
-            const currentMessages = get().messages
-            const dbMessages = validateMessagesForLLM(currentMessages)
-            await fetch('/api/copilot/chat/update-messages', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ chatId: currentChat.id, messages: dbMessages }),
-            })
-          } catch {}
-        }
-
-        // Post copilot_stats record (input/output tokens can be null for now)
+        // Clear any diff on cleanup
         try {
-          // Removed: stats sending now occurs only on accept/reject with minimal payload
+          useWorkflowDiffStore.getState().clearDiff()
         } catch {}
+      },
 
-        // Fetch context usage after response completes
-        logger.info('[Context Usage] Stream completed, fetching usage')
-        await get().fetchContextUsage()
-      } finally {
-        clearTimeout(timeoutId)
-      }
-    },
+      reset: () => {
+        get().cleanup()
+        // Abort in-progress tools prior to reset
+        abortAllInProgressTools(set, get)
+        set(initialState)
+      },
 
-    // Handle new chat creation from stream
-    handleNewChatCreation: async (newChatId: string) => {
-      const newChat: CopilotChat = {
-        id: newChatId,
-        title: null,
-        model: 'gpt-4',
-        messages: get().messages,
-        messageCount: get().messages.length,
-        previewYaml: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
-      // Abort any in-progress tools and clear diff on new chat creation
-      abortAllInProgressTools(set, get)
-      try {
-        useWorkflowDiffStore.getState().clearDiff()
-      } catch {}
+      // Input controls
+      setInputValue: (value: string) => set({ inputValue: value }),
+      clearRevertState: () => set({ revertState: null }),
 
-      set({
-        currentChat: newChat,
-        chats: [newChat, ...(get().chats || [])],
-        chatsLastLoadedAt: null,
-        chatsLoadedForWorkflow: null,
-        planTodos: [],
-        showPlanTodos: false,
-        suppressAutoSelect: false,
-      })
-    },
-
-    // Utilities
-    clearError: () => set({ error: null }),
-    clearSaveError: () => set({ saveError: null }),
-    clearCheckpointError: () => set({ checkpointError: null }),
-    retrySave: async (_chatId: string) => {},
-
-    cleanup: () => {
-      const { isSendingMessage } = get()
-      if (isSendingMessage) get().abortMessage()
-      if (streamingUpdateRAF !== null) {
-        cancelAnimationFrame(streamingUpdateRAF)
-        streamingUpdateRAF = null
-      }
-      streamingUpdateQueue.clear()
-      // Clear any diff on cleanup
-      try {
-        useWorkflowDiffStore.getState().clearDiff()
-      } catch {}
-    },
-
-    reset: () => {
-      get().cleanup()
-      // Abort in-progress tools prior to reset
-      abortAllInProgressTools(set, get)
-      set(initialState)
-    },
-
-    // Input controls
-    setInputValue: (value: string) => set({ inputValue: value }),
-    clearRevertState: () => set({ revertState: null }),
-
-    // Todo list (UI only)
-    setPlanTodos: (todos) => set({ planTodos: todos, showPlanTodos: true }),
-    updatePlanTodoStatus: (id, status) => {
-      set((state) => {
-        const updated = state.planTodos.map((t) =>
-          t.id === id
-            ? { ...t, completed: status === 'completed', executing: status === 'executing' }
-            : t
-        )
-        return { planTodos: updated }
-      })
-    },
-    closePlanTodos: () => set({ showPlanTodos: false }),
-
-    // Diff updates are out of scope for minimal store
-    updateDiffStore: async (_yamlContent: string) => {},
-    updateDiffStoreWithWorkflowState: async (_workflowState: any) => {},
-
-    setSelectedModel: async (model) => {
-      logger.info('[Context Usage] Model changed', { from: get().selectedModel, to: model })
-      set({ selectedModel: model })
-      // Fetch context usage after model switch
-      await get().fetchContextUsage()
-    },
-    setAgentPrefetch: (prefetch) => set({ agentPrefetch: prefetch }),
-    setEnabledModels: (models) => set({ enabledModels: models }),
-
-    // Fetch context usage from sim-agent API
-    fetchContextUsage: async () => {
-      try {
-        const { currentChat, selectedModel, workflowId } = get()
-        logger.info('[Context Usage] Starting fetch', {
-          hasChatId: !!currentChat?.id,
-          hasWorkflowId: !!workflowId,
-          chatId: currentChat?.id,
-          workflowId,
-          model: selectedModel,
+      // Todo list (UI only)
+      setPlanTodos: (todos) => set({ planTodos: todos, showPlanTodos: true }),
+      updatePlanTodoStatus: (id, status) => {
+        set((state) => {
+          const updated = state.planTodos.map((t) =>
+            t.id === id
+              ? { ...t, completed: status === 'completed', executing: status === 'executing' }
+              : t
+          )
+          return { planTodos: updated }
         })
+      },
+      closePlanTodos: () => set({ showPlanTodos: false }),
 
-        if (!currentChat?.id || !workflowId) {
-          logger.info('[Context Usage] Skipping: missing chat or workflow', {
+      // Diff updates are out of scope for minimal store
+      updateDiffStore: async (_yamlContent: string) => {},
+      updateDiffStoreWithWorkflowState: async (_workflowState: any) => {},
+
+      setSelectedModel: async (model) => {
+        logger.info('[Context Usage] Model changed', { from: get().selectedModel, to: model })
+        set({ selectedModel: model })
+        // Fetch context usage after model switch
+        await get().fetchContextUsage()
+      },
+      setAgentPrefetch: (prefetch) => set({ agentPrefetch: prefetch }),
+      setEnabledModels: (models) => set({ enabledModels: models }),
+
+      // Fetch context usage from sim-agent API
+      fetchContextUsage: async () => {
+        try {
+          const { currentChat, selectedModel, workflowId } = get()
+          logger.info('[Context Usage] Starting fetch', {
             hasChatId: !!currentChat?.id,
             hasWorkflowId: !!workflowId,
+            chatId: currentChat?.id,
+            workflowId,
+            model: selectedModel,
           })
-          return
-        }
 
-        const requestPayload = {
-          chatId: currentChat.id,
-          model: selectedModel,
-          workflowId,
-        }
-
-        logger.info('[Context Usage] Calling API', requestPayload)
-
-        // Call the backend API route which proxies to sim-agent
-        const response = await fetch('/api/copilot/context-usage', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestPayload),
-        })
-
-        logger.info('[Context Usage] API response', { status: response.status, ok: response.ok })
-
-        if (response.ok) {
-          const data = await response.json()
-          logger.info('[Context Usage] Received data', data)
-
-          // Check for either tokensUsed or usage field
-          if (
-            data.tokensUsed !== undefined ||
-            data.usage !== undefined ||
-            data.percentage !== undefined
-          ) {
-            const contextUsage = {
-              usage: data.tokensUsed || data.usage || 0,
-              percentage: data.percentage || 0,
-              model: data.model || selectedModel,
-              contextWindow: data.contextWindow || data.context_window || 0,
-              when: data.when || 'end',
-              estimatedTokens: data.tokensUsed || data.estimated_tokens || data.estimatedTokens,
-            }
-            set({ contextUsage })
-            logger.info('[Context Usage] Updated store', contextUsage)
-          } else {
-            logger.warn('[Context Usage] No usage data in response', data)
+          if (!currentChat?.id || !workflowId) {
+            logger.info('[Context Usage] Skipping: missing chat or workflow', {
+              hasChatId: !!currentChat?.id,
+              hasWorkflowId: !!workflowId,
+            })
+            return
           }
-        } else {
-          const errorText = await response.text().catch(() => 'Unable to read error')
-          logger.warn('[Context Usage] API call failed', {
-            status: response.status,
-            error: errorText,
+
+          const requestPayload = {
+            chatId: currentChat.id,
+            model: selectedModel,
+            workflowId,
+          }
+
+          logger.info('[Context Usage] Calling API', requestPayload)
+
+          // Call the backend API route which proxies to sim-agent
+          const response = await fetch('/api/copilot/context-usage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestPayload),
           })
+
+          logger.info('[Context Usage] API response', { status: response.status, ok: response.ok })
+
+          if (response.ok) {
+            const data = await response.json()
+            logger.info('[Context Usage] Received data', data)
+
+            // Check for either tokensUsed or usage field
+            if (
+              data.tokensUsed !== undefined ||
+              data.usage !== undefined ||
+              data.percentage !== undefined
+            ) {
+              const contextUsage = {
+                usage: data.tokensUsed || data.usage || 0,
+                percentage: data.percentage || 0,
+                model: data.model || selectedModel,
+                contextWindow: data.contextWindow || data.context_window || 0,
+                when: data.when || 'end',
+                estimatedTokens: data.tokensUsed || data.estimated_tokens || data.estimatedTokens,
+              }
+              set({ contextUsage })
+              logger.info('[Context Usage] Updated store', contextUsage)
+            } else {
+              logger.warn('[Context Usage] No usage data in response', data)
+            }
+          } else {
+            const errorText = await response.text().catch(() => 'Unable to read error')
+            logger.warn('[Context Usage] API call failed', {
+              status: response.status,
+              error: errorText,
+            })
+          }
+        } catch (err) {
+          logger.error('[Context Usage] Error fetching:', err)
         }
-      } catch (err) {
-        logger.error('[Context Usage] Error fetching:', err)
-      }
-    },
-  }))
-)
+      },
+    }))
+  )
 
 export const DEFAULT_COPILOT_CHANNEL_ID = 'default'
 

@@ -3,10 +3,10 @@ import { ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useSubBlockValue } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
+import { useWorkflowId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { getTrigger } from '@/triggers'
 import { TriggerModal } from './components/trigger-modal'
-import { useWorkflowId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 const logger = createLogger('TriggerConfig')
 
@@ -70,7 +70,7 @@ export function TriggerConfig({
       return
     }
 
-    ; (async () => {
+    ;(async () => {
       setIsLoading(true)
       try {
         const response = await fetch(`/api/webhooks?workflowId=${workflowId}&blockId=${blockId}`)

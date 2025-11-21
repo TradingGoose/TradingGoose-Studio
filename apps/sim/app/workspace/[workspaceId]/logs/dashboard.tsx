@@ -160,8 +160,8 @@ export default function Dashboard() {
 
   const filteredExecutions = searchQuery.trim()
     ? executions.filter((workflow) =>
-      workflow.workflowName.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+        workflow.workflowName.toLowerCase().includes(searchQuery.toLowerCase())
+      )
     : executions
 
   const aggregate = useMemo(() => {
@@ -761,12 +761,12 @@ export default function Dashboard() {
         <span className='font-medium text-sm'>Logs</span>
       </div>
       <div className='relative flex-1'>
-        <Search className='-translate-y-1/2 absolute left-3 top-1/2 h-4 w-4 text-muted-foreground' />
+        <Search className='-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground' />
         <Input
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
           placeholder='Search workflows...'
-          className='h-9 w-full rounded-md border bg-background pl-10 pr-3 text-sm'
+          className='h-9 w-full rounded-md border bg-background pr-3 pl-10 text-sm'
         />
       </div>
     </div>
@@ -1150,13 +1150,13 @@ export default function Dashboard() {
                           value:
                             s.totalExecutions > 0
                               ? 100 -
-                              Math.min(
-                                100,
-                                Math.max(
-                                  0,
-                                  (s.successfulExecutions / Math.max(1, s.totalExecutions)) * 100
+                                Math.min(
+                                  100,
+                                  Math.max(
+                                    0,
+                                    (s.successfulExecutions / Math.max(1, s.totalExecutions)) * 100
+                                  )
                                 )
-                              )
                               : 0,
                         }))
                         const executionCounts = segs.map((s) => ({
@@ -1216,27 +1216,27 @@ export default function Dashboard() {
                         // Build series from selected segments indices
                         const idxSet = new Set(workflowSelectedIndices)
                         const selectedSegs = wf.segments.filter((_, i) => idxSet.has(i))
-                          ; (details as any).__filtered = buildSeriesFromSegments(selectedSegs as any)
+                        ;(details as any).__filtered = buildSeriesFromSegments(selectedSegs as any)
                       }
 
                       const detailsWithFilteredLogs = details
                         ? {
-                          ...details,
-                          logs: logsToDisplay,
-                          ...(() => {
-                            const series =
-                              (details as any).__filtered ||
-                              buildSeriesFromSegments(wf.segments as any)
-                            return {
-                              errorRates: series.errorRates,
-                              durations: series.durations,
-                              executionCounts: series.executionCounts,
-                              durationP50: series.durationP50,
-                              durationP90: series.durationP90,
-                              durationP99: series.durationP99,
-                            }
-                          })(),
-                        }
+                            ...details,
+                            logs: logsToDisplay,
+                            ...(() => {
+                              const series =
+                                (details as any).__filtered ||
+                                buildSeriesFromSegments(wf.segments as any)
+                              return {
+                                errorRates: series.errorRates,
+                                durations: series.durations,
+                                executionCounts: series.executionCounts,
+                                durationP50: series.durationP50,
+                                durationP90: series.durationP90,
+                                durationP99: series.durationP99,
+                              }
+                            })(),
+                          }
                         : undefined
 
                       const selectedSegment =
@@ -1255,9 +1255,9 @@ export default function Dashboard() {
                           selectedSegment={
                             selectedSegment
                               ? {
-                                timestamp: selectedSegment.timestamp,
-                                totalExecutions: selectedSegment.totalExecutions,
-                              }
+                                  timestamp: selectedSegment.timestamp,
+                                  totalExecutions: selectedSegment.totalExecutions,
+                                }
                               : null
                           }
                           clearSegmentSelection={() => {

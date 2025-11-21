@@ -3,17 +3,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ListTree } from 'lucide-react'
 import { shallow } from 'zustand/shallow'
-import { FolderTree } from '@/app/workspace/[workspaceId]/w/components/sidebar/components/folder-tree/folder-tree'
+import { LoadingAgent } from '@/components/ui/loading-agent'
 import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { WorkflowRouteProvider } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
-import { LoadingAgent } from '@/components/ui/loading-agent'
-import { DashboardWorkflowCreateMenu } from '@/widgets/components/workflow-create-menu'
-import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
-import type { PairColor } from '@/widgets/pair-colors'
-import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
-import { useWorkflowRegistry, hasWorkflowsInitiallyLoaded } from '@/stores/workflows/registry/store'
-import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
+import { FolderTree } from '@/app/workspace/[workspaceId]/w/components/sidebar/components/folder-tree/folder-tree'
 import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
+import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
+import { hasWorkflowsInitiallyLoaded, useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
+import { DashboardWorkflowCreateMenu } from '@/widgets/components/workflow-create-menu'
+import type { PairColor } from '@/widgets/pair-colors'
+import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 
 const WORKFLOW_LIST_WORKFLOW_CREATED_EVENT = 'dashboard-workflow-list:workflow-created'
 
@@ -23,7 +23,7 @@ type WorkflowListWorkflowCreatedDetail = {
 }
 
 const WidgetMessage = ({ message }: { message: string }) => (
-  <div className='flex h-full w-full items-center justify-center px-4 text-center text-xs text-muted-foreground'>
+  <div className='flex h-full w-full items-center justify-center px-4 text-center text-muted-foreground text-xs'>
     {message}
   </div>
 )
@@ -35,22 +35,17 @@ const WorkflowListWidgetBody = ({
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId ?? null
-  const {
-    workflows,
-    isLoading,
-    loadWorkflows,
-    createWorkflow,
-    activeWorkflowId,
-  } = useWorkflowRegistry(
-    (state) => ({
-      workflows: state.workflows,
-      isLoading: state.isLoading,
-      loadWorkflows: state.loadWorkflows,
-      createWorkflow: state.createWorkflow,
-      activeWorkflowId: state.activeWorkflowId,
-    }),
-    shallow
-  )
+  const { workflows, isLoading, loadWorkflows, createWorkflow, activeWorkflowId } =
+    useWorkflowRegistry(
+      (state) => ({
+        workflows: state.workflows,
+        isLoading: state.isLoading,
+        loadWorkflows: state.loadWorkflows,
+        createWorkflow: state.createWorkflow,
+        activeWorkflowId: state.activeWorkflowId,
+      }),
+      shallow
+    )
   const [hasInitialized, setHasInitialized] = useState(!workspaceId)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false)
@@ -180,7 +175,14 @@ const WorkflowListWidgetBody = ({
     return () => {
       window.removeEventListener(WORKFLOW_LIST_WORKFLOW_CREATED_EVENT, handler as EventListener)
     }
-  }, [workspaceId, resolvedPairColor, isLinkedToColorPair, setPairContext, setSelectedWorkflowId, onWidgetParamsChange])
+  }, [
+    workspaceId,
+    resolvedPairColor,
+    isLinkedToColorPair,
+    setPairContext,
+    setSelectedWorkflowId,
+    onWidgetParamsChange,
+  ])
 
   const effectiveActiveWorkflowId = useMemo(() => {
     if (selectedWorkflowId) {
@@ -233,7 +235,15 @@ const WorkflowListWidgetBody = ({
         setIsCreatingWorkflow(false)
       }
     },
-    [workspaceId, createWorkflow, isCreatingWorkflow, resolvedPairColor, isLinkedToColorPair, setPairContext, onWidgetParamsChange]
+    [
+      workspaceId,
+      createWorkflow,
+      isCreatingWorkflow,
+      resolvedPairColor,
+      isLinkedToColorPair,
+      setPairContext,
+      onWidgetParamsChange,
+    ]
   )
 
   const handleWorkflowSelect = useCallback(
@@ -296,7 +306,7 @@ export const workflowListWidget: DashboardWidgetDefinition = {
   description: 'Full folder tree with drag-and-drop, identical to the workspace sidebar.',
   component: (props) => <WorkflowListWidgetBody {...props} />,
   renderHeader: ({ context }) => ({
-    left: <span className='text-xs font-medium text-accent-foreground'>Workflow folders</span>,
+    left: <span className='font-medium text-accent-foreground text-xs'>Workflow folders</span>,
     right: <WorkflowListHeaderRight workspaceId={context?.workspaceId} />,
   }),
 }
@@ -308,25 +318,22 @@ const WorkflowListHeaderRight = ({ workspaceId }: { workspaceId?: string }) => {
         return
       }
       window.dispatchEvent(
-        new CustomEvent<WorkflowListWorkflowCreatedDetail>(
-          WORKFLOW_LIST_WORKFLOW_CREATED_EVENT,
-          {
-            detail: { workspaceId, workflowId },
-          }
-        )
+        new CustomEvent<WorkflowListWorkflowCreatedDetail>(WORKFLOW_LIST_WORKFLOW_CREATED_EVENT, {
+          detail: { workspaceId, workflowId },
+        })
       )
     },
     [workspaceId]
   )
 
   if (!workspaceId) {
-    return <span className='text-xs text-muted-foreground'>Explorer</span>
+    return <span className='text-muted-foreground text-xs'>Explorer</span>
   }
 
   return (
     <WorkspacePermissionsProvider workspaceId={workspaceId}>
       <div className='flex items-center gap-2'>
-        <span className='text-xs text-muted-foreground'>Explorer</span>
+        <span className='text-muted-foreground text-xs'>Explorer</span>
         <DashboardWorkflowCreateMenu
           workspaceId={workspaceId}
           onWorkflowCreated={handleWorkflowCreated}

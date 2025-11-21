@@ -5,9 +5,9 @@ import clsx from 'clsx'
 import { usePathname } from 'next/navigation'
 import { Skeleton } from '@/components/ui/skeleton'
 import { createLogger } from '@/lib/logs/console/logger'
+import { useOptionalWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { FolderItem } from '@/app/workspace/[workspaceId]/w/components/sidebar/components/folder-tree/components/folder-item'
 import { WorkflowItem } from '@/app/workspace/[workspaceId]/w/components/sidebar/components/folder-tree/components/workflow-item'
-import { useOptionalWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { type FolderTreeNode, useFolderStore } from '@/stores/folders/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
@@ -107,9 +107,9 @@ function FolderSection({
       className={clsx(
         'relative',
         isDragOver &&
-        (isInvalidDrop
-          ? 'before:pointer-events-none before:absolute before:inset-0 before:rounded-sm before:border before:border-destructive/50 before:bg-destructive/15'
-          : 'before:pointer-events-none before:absolute before:inset-0 before:rounded-sm before:border before:border-muted-foreground/50 before:bg-muted/20')
+          (isInvalidDrop
+            ? 'before:pointer-events-none before:absolute before:inset-0 before:rounded-sm before:border before:border-destructive/50 before:bg-destructive/15'
+            : 'before:pointer-events-none before:absolute before:inset-0 before:rounded-sm before:border before:border-muted-foreground/50 before:bg-muted/20')
       )}
     >
       {/* Render folder */}
@@ -374,7 +374,7 @@ interface FolderTreeProps {
   regularWorkflows: WorkflowMetadata[]
   marketplaceWorkflows: WorkflowMetadata[]
   isLoading?: boolean
-  onCreateWorkflow: (folderId?: string) => Promise<string | void> | void
+  onCreateWorkflow: (folderId?: string) => Promise<string | undefined> | undefined
   workspaceIdOverride?: string | null
   workflowIdOverride?: string | null
   pathnameOverride?: string
@@ -576,9 +576,9 @@ export function FolderTree({
         className={clsx(
           'relative flex-1 ',
           rootDragOver &&
-          (rootInvalidDrop
-            ? 'before:pointer-events-none before:absolute before:inset-0 before:rounded-sm before:border before:border-destructive/50 before:bg-destructive/15'
-            : 'before:pointer-events-none before:absolute before:inset-0 before:rounded-sm before:border before:border-muted-foreground/50 before:bg-muted/20'),
+            (rootInvalidDrop
+              ? 'before:pointer-events-none before:absolute before:inset-0 before:rounded-sm before:border before:border-destructive/50 before:bg-destructive/15'
+              : 'before:pointer-events-none before:absolute before:inset-0 before:rounded-sm before:border before:border-muted-foreground/50 before:bg-muted/20'),
           // Ensure minimum height for drag target when empty
           rootWorkflows.length === 0 ? 'min-h-8' : ''
         )}

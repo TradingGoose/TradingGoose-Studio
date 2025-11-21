@@ -168,8 +168,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           id: block.id || blockId,
           name: typeof block.name === 'string' ? block.name : '',
           enabled: block.enabled !== undefined ? block.enabled : true,
-          horizontalHandles:
-            block.horizontalHandles !== undefined ? block.horizontalHandles : true,
+          horizontalHandles: block.horizontalHandles !== undefined ? block.horizontalHandles : true,
           isWide: block.isWide !== undefined ? block.isWide : false,
           height: block.height !== undefined ? block.height : 0,
           subBlocks: block.subBlocks || {},

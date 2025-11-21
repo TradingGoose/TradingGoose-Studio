@@ -19,10 +19,7 @@ const DropdownMenuContext = React.createContext<DropdownMenuContextValue | null>
 
 const DropdownMenu = ({ children, ...props }: DropdownMenuPrimitive.DropdownMenuProps) => {
   const [triggerElement, setTriggerElement] = React.useState<HTMLElement | null>(null)
-  const value = React.useMemo(
-    () => ({ triggerElement, setTriggerElement }),
-    [triggerElement]
-  )
+  const value = React.useMemo(() => ({ triggerElement, setTriggerElement }), [triggerElement])
 
   return (
     <DropdownMenuContext.Provider value={value}>
@@ -116,7 +113,8 @@ const DropdownMenuContent = React.forwardRef<
     const context = React.useContext(DropdownMenuContext)
     const resolvedAlign = useDropdownAutoAlign(context?.triggerElement ?? null, align)
     const resolvedSide = useDropdownAutoSide(context?.triggerElement ?? null, side)
-    const contentAlign: AlignValue | undefined = resolvedAlign === 'center' ? undefined : resolvedAlign
+    const contentAlign: AlignValue | undefined =
+      resolvedAlign === 'center' ? undefined : resolvedAlign
 
     return (
       <DropdownMenuPrimitive.Portal>
@@ -233,7 +231,10 @@ const DropdownMenuShortcut = ({ className, ...props }: React.HTMLAttributes<HTML
 }
 DropdownMenuShortcut.displayName = 'DropdownMenuShortcut'
 
-function useDropdownAutoAlign(triggerElement: HTMLElement | null, align: AutoAlignValue): AlignValue {
+function useDropdownAutoAlign(
+  triggerElement: HTMLElement | null,
+  align: AutoAlignValue
+): AlignValue {
   const [computedAlign, setComputedAlign] = React.useState<AlignValue>('center')
   const alignPreference = align ?? 'center'
 
@@ -341,7 +342,7 @@ function assignRef<T>(ref: React.Ref<T> | undefined, value: T | null) {
   if (typeof ref === 'function') {
     ref(value)
   } else {
-    ; (ref as React.MutableRefObject<T | null>).current = value
+    ;(ref as React.MutableRefObject<T | null>).current = value
   }
 }
 

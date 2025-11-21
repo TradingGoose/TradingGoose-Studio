@@ -23,33 +23,35 @@ export type LayoutNode =
   | {
       id: string
       type: 'panel'
-    widget: WidgetInstance
-  }
+      widget: WidgetInstance
+    }
   | {
-    id: string
-    type: 'group'
-    direction: 'horizontal' | 'vertical'
-    sizes: number[]
-    children: LayoutNode[]
-  }
+      id: string
+      type: 'group'
+      direction: 'horizontal' | 'vertical'
+      sizes: number[]
+      children: LayoutNode[]
+    }
 
 export type PersistedLayoutNode =
   | {
       type: 'panel'
       widget: WidgetInstance
-  }
+    }
   | {
-    type: 'group'
-    direction: 'horizontal' | 'vertical'
-    sizes: number[]
-    children: PersistedLayoutNode[]
-  }
+      type: 'group'
+      direction: 'horizontal' | 'vertical'
+      sizes: number[]
+      children: PersistedLayoutNode[]
+    }
 
 const randomHexString = (length = 32) => {
   if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
     const bytes = new Uint8Array(Math.ceil(length / 2))
     crypto.getRandomValues(bytes)
-    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('').slice(0, length)
+    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0'))
+      .join('')
+      .slice(0, length)
   }
 
   let result = ''

@@ -117,15 +117,17 @@ export function Toolbar({ userPermissions, isWorkspaceSelectorVisible = false }:
           <div className='flex h-9 w-full items-center gap-1 rounded-md border bg-card px-[2.5px] py-1 shadow-xs'>
             <button
               onClick={() => setActiveTab('blocks')}
-              className={`panel-tab-base inline-flex flex-1 cursor-pointer items-center justify-center rounded-sm border border-transparent py-1 font-[450] text-sm outline-none transition-colors duration-200 ${activeTab === 'blocks' ? 'panel-tab-active' : 'panel-tab-inactive'
-                }`}
+              className={`panel-tab-base inline-flex flex-1 cursor-pointer items-center justify-center rounded-sm border border-transparent py-1 font-[450] text-sm outline-none transition-colors duration-200 ${
+                activeTab === 'blocks' ? 'panel-tab-active' : 'panel-tab-inactive'
+              }`}
             >
               Blocks
             </button>
             <button
               onClick={() => setActiveTab('triggers')}
-              className={`panel-tab-base inline-flex flex-1 cursor-pointer items-center justify-center rounded-sm border border-transparent py-1 font-[450] text-sm outline-none transition-colors duration-200 ${activeTab === 'triggers' ? 'panel-tab-active' : 'panel-tab-inactive'
-                }`}
+              className={`panel-tab-base inline-flex flex-1 cursor-pointer items-center justify-center rounded-sm border border-transparent py-1 font-[450] text-sm outline-none transition-colors duration-200 ${
+                activeTab === 'triggers' ? 'panel-tab-active' : 'panel-tab-inactive'
+              }`}
             >
               Triggers
             </button>

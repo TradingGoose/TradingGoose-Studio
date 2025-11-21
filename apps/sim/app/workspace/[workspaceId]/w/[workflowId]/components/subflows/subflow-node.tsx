@@ -199,7 +199,7 @@ export const SubflowNodeComponent = memo(({ data, id }: NodeProps<SubflowNodeDat
                 type='source'
                 position={Position.Right}
                 id={startHandleId}
-                className='!w-[6px] !h-4 !bg-slate-300 dark:!bg-slate-500 !rounded-[2px] !border-none !z-[30] hover:!w-[10px] hover:!right-[-10px] hover:!rounded-r-full hover:!rounded-l-none !cursor-crosshair transition-[colors] duration-150'
+                className='!w-[6px] !h-4 !bg-slate-300 dark:!bg-slate-500 !rounded-xs !border-none !z-[30] hover:!w-[10px] hover:!right-[-10px] hover:!rounded-r-full hover:!rounded-l-none !cursor-crosshair transition-[colors] duration-150'
                 style={{
                   right: '-6px',
                   top: '50%',
@@ -215,7 +215,7 @@ export const SubflowNodeComponent = memo(({ data, id }: NodeProps<SubflowNodeDat
           <Handle
             type='target'
             position={Position.Left}
-            className='!w-[7px] !h-5 !bg-slate-300 dark:!bg-slate-500 !rounded-[2px] !border-none !z-[30] hover:!w-[10px] hover:!left-[-10px] hover:!rounded-l-full hover:!rounded-r-none !cursor-crosshair transition-[colors] duration-150'
+            className='!w-[7px] !h-5 !bg-slate-300 dark:!bg-slate-500 !rounded-xs !border-none !z-[30] hover:!w-[10px] hover:!left-[-10px] hover:!rounded-l-full hover:!rounded-r-none !cursor-crosshair transition-[colors] duration-150'
             style={{
               left: '-7px',
               top: '50%',
@@ -228,7 +228,7 @@ export const SubflowNodeComponent = memo(({ data, id }: NodeProps<SubflowNodeDat
           <Handle
             type='source'
             position={Position.Right}
-            className='!w-[7px] !h-5 !bg-slate-300 dark:!bg-slate-500 !rounded-[2px] !border-none !z-[30] hover:!w-[10px] hover:!right-[-10px] hover:!rounded-r-full hover:!rounded-l-none !cursor-crosshair transition-[colors] duration-150'
+            className='!w-[7px] !h-5 !bg-slate-300 dark:!bg-slate-500 !rounded-xs !border-none !z-[30] hover:!w-[10px] hover:!right-[-10px] hover:!rounded-r-full hover:!rounded-l-none !cursor-crosshair transition-[colors] duration-150'
             style={{
               right: '-7px',
               top: '50%',

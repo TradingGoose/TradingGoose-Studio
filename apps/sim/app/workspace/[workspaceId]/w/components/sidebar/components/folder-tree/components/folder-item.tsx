@@ -89,7 +89,7 @@ export function FolderItem({
 
     // Set global drag state for validation in other components
     if (typeof window !== 'undefined') {
-      ; (window as any).currentDragFolderId = folder.id
+      ;(window as any).currentDragFolderId = folder.id
     }
   }
 
@@ -101,7 +101,7 @@ export function FolderItem({
 
     // Clear global drag state
     if (typeof window !== 'undefined') {
-      ; (window as any).currentDragFolderId = null
+      ;(window as any).currentDragFolderId = null
     }
   }
 
@@ -201,7 +201,7 @@ export function FolderItem({
                 className={clsx(
                   'relative flex h-[14px] w-[14px] items-center justify-center rounded transition-colors hover:bg-card',
                   dragOver &&
-                  'before:pointer-events-none before:absolute before:inset-0 before:rounded before:bg-muted/20 before:ring-2 before:ring-muted-foreground/60'
+                    'before:pointer-events-none before:absolute before:inset-0 before:rounded before:bg-muted/20 before:ring-2 before:ring-muted-foreground/60'
                 )}
               >
                 {isExpanded ? (
@@ -258,7 +258,6 @@ export function FolderItem({
             isDragging ? 'opacity-50' : '',
             isFirstItem ? 'mr-[36px]' : ''
           )}
-
           onClick={handleClick}
           draggable={!isEditing}
           onDragStart={handleDragStart}

@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils'
 import { isLikelyReferenceSegment, SYSTEM_REFERENCE_PREFIXES } from '@/lib/workflows/references'
 import { WandPromptBar } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/wand-prompt-bar/wand-prompt-bar'
 import { useSubBlockValue } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
+import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useAccessibleReferencePrefixes } from '@/app/workspace/[workspaceId]/w/[workflowId]/hooks/use-accessible-reference-prefixes'
 import { useWand } from '@/app/workspace/[workspaceId]/w/[workflowId]/hooks/use-wand'
 import type { GenerationType } from '@/blocks/types'
@@ -22,7 +23,6 @@ import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
 import { useTagSelection } from '@/hooks/use-tag-selection'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { normalizeBlockName } from '@/stores/workflows/utils'
-import { useWorkspaceId } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 
 const logger = createLogger('Code')
 
@@ -142,9 +142,9 @@ export function Code({
     setCollapsedValue(blockId, collapsedStateKey, !isCollapsed)
   }
 
-  const handleStreamStartRef = useRef<() => void>(() => { })
-  const handleGeneratedContentRef = useRef<(generatedCode: string) => void>(() => { })
-  const handleStreamChunkRef = useRef<(chunk: string) => void>(() => { })
+  const handleStreamStartRef = useRef<() => void>(() => {})
+  const handleGeneratedContentRef = useRef<(generatedCode: string) => void>(() => {})
+  const handleStreamChunkRef = useRef<(chunk: string) => void>(() => {})
 
   const [languageValue] = useSubBlockValue<string>(blockId, 'language')
   const [remoteExecution] = useSubBlockValue<boolean>(blockId, 'remoteExecution')
@@ -193,13 +193,13 @@ IMPORTANT FORMATTING RULES:
 
   const isAiLoading = wandHook?.isLoading || false
   const isAiStreaming = wandHook?.isStreaming || false
-  const generateCodeStream = wandHook?.generateStream || (() => { })
+  const generateCodeStream = wandHook?.generateStream || (() => {})
   const isPromptVisible = wandHook?.isPromptVisible || false
-  const showPromptInline = wandHook?.showPromptInline || (() => { })
-  const hidePromptInline = wandHook?.hidePromptInline || (() => { })
+  const showPromptInline = wandHook?.showPromptInline || (() => {})
+  const hidePromptInline = wandHook?.hidePromptInline || (() => {})
   const promptInputValue = wandHook?.promptInputValue || ''
-  const updatePromptValue = wandHook?.updatePromptValue || (() => { })
-  const cancelGeneration = wandHook?.cancelGeneration || (() => { })
+  const updatePromptValue = wandHook?.updatePromptValue || (() => {})
+  const cancelGeneration = wandHook?.cancelGeneration || (() => {})
 
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlockId, false, {
     isStreaming: isAiStreaming,

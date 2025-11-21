@@ -523,7 +523,7 @@ export function VoiceInterface({
   }
 
   return (
-    <div className={cn('fixed inset-0 z-[100] flex flex-col bg-white text-gray-900', className)}>
+    <div className={cn('fixed inset-0 z-[100] flex flex-col text-gray-900', className)}>
       {/* Main content */}
       <div className='flex flex-1 flex-col items-center justify-center px-8'>
         {/* Voice visualization */}

@@ -1,6 +1,9 @@
 export type PairColor = 'gray' | 'red' | 'orange' | 'blue' | 'green' | 'purple'
 
-export const PAIR_COLOR_META: Record<PairColor, { label: string; description: string; hex: string }> = {
+export const PAIR_COLOR_META: Record<
+  PairColor,
+  { label: string; description: string; hex: string }
+> = {
   gray: { label: 'Unlinked', description: 'Keep this widget independent', hex: '#6b7280' },
   red: { label: 'Red', description: 'Linked channel', hex: '#ff0000' },
   orange: { label: 'Orange', description: 'Linked channel', hex: '#ff9900' },
