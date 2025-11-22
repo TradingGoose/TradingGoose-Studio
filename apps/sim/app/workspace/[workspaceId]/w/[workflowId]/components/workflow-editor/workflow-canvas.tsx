@@ -12,6 +12,7 @@ import ReactFlow, {
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 import { createLogger } from '@/lib/logs/console/logger'
+import { useSession } from '@/lib/auth-client'
 import { TriggerUtils } from '@/lib/workflows/triggers'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { ControlBar } from '@/app/workspace/[workspaceId]/w/[workflowId]/components/control-bar/control-bar'
@@ -519,6 +520,8 @@ const WorkflowCanvas = React.memo(
     )
 
     // Auto-layout handler - now uses frontend auto layout for immediate updates
+    const { data: session } = useSession()
+
     const handleAutoLayout = useCallback(async () => {
       if (Object.keys(blocks).length === 0) return
 
@@ -529,6 +532,7 @@ const WorkflowCanvas = React.memo(
         const result = await applyAutoLayoutAndUpdateStore({
           workflowId: activeWorkflowId!,
           channelId: resolvedChannelId,
+          undoUserId: session?.user?.id,
         })
 
         if (result.success) {
@@ -2049,7 +2053,9 @@ const WorkflowCanvas = React.memo(
           {uiConfig.controlBar && <ControlBar hasValidationErrors={nestedSubflowErrors.size > 0} />}
 
           {/* Floating Controls (Zoom, Undo, Redo) */}
-          {uiConfig.floatingControls && <FloatingControls />}
+          {uiConfig.floatingControls && (
+            <FloatingControls constrainToContainer={Boolean(viewportBounds)} />
+          )}
 
           {/* Training Controls - for recording workflow edits */}
           {uiConfig.trainingControls && <TrainingControls />}

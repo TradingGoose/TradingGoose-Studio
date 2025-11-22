@@ -113,6 +113,8 @@ export const useEnvironmentStore = create<EnvironmentStore>()((set, get) => ({
         workspace: Record<string, string>
         personal: Record<string, string>
         conflicts: string[]
+        workspaceMeta?: { createdAt?: string | null; updatedAt?: string | null }
+        personalMeta?: { createdAt?: string | null; updatedAt?: string | null }
       }
     } catch (error) {
       logger.error('Error loading workspace environment:', { error })

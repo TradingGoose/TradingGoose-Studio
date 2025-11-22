@@ -17,6 +17,8 @@ export interface EnvironmentStore extends EnvironmentState {
     workspace: Record<string, string>
     personal: Record<string, string>
     conflicts: string[]
+    workspaceMeta?: { createdAt?: string | null; updatedAt?: string | null }
+    personalMeta?: { createdAt?: string | null; updatedAt?: string | null }
   }>
   upsertWorkspaceEnvironment: (
     workspaceId: string,

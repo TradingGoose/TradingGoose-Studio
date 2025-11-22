@@ -234,7 +234,7 @@ export default function Logs() {
           if (e?.name === 'AbortError') return
         }
       })
-    ).catch(() => {})
+    ).catch(() => { })
   }
 
   const handleNavigateNext = useCallback(() => {
@@ -289,7 +289,7 @@ export default function Logs() {
               if (e?.name === 'AbortError') return
             }
           })
-        ).catch(() => {})
+        ).catch(() => { })
       }
     }
   }, [selectedLogIndex, logs])
@@ -346,7 +346,7 @@ export default function Logs() {
               if (e?.name === 'AbortError') return
             }
           })
-        ).catch(() => {})
+        ).catch(() => { })
       }
     }
   }, [selectedLogIndex, logs])
@@ -711,7 +711,7 @@ export default function Logs() {
 
   const headerCenterContent = isDashboardView ? null : (
     <div className='flex flex-wrap items-center justify-center gap-3'>
-      <div className='inline-flex h-9 items-center rounded-md border bg-card p-1 shadow-sm'>
+      <div className='inline-flex h-9 items-center rounded-md border bg-muted p-1 gap-1 shadow-sm'>
         <Button
           variant='ghost'
           size='sm'
@@ -728,7 +728,7 @@ export default function Logs() {
         </Button>
       </div>
 
-      <div className='inline-flex h-9 items-center rounded-md border bg-card p-1 shadow-sm'>
+      <div className='inline-flex h-9 items-center rounded-md border bg-muted p-1 gap-1 shadow-sm'>
         <Button
           variant='ghost'
           size='sm'
@@ -736,7 +736,7 @@ export default function Logs() {
           className={cn(
             'h-7 rounded-sm px-3 font-normal text-xs',
             viewMode !== 'dashboard'
-              ? 'bg-muted text-foreground'
+              ? 'bg-background text-foreground'
               : 'text-muted-foreground hover:text-foreground'
           )}
           aria-pressed={viewMode !== 'dashboard'}
@@ -750,7 +750,7 @@ export default function Logs() {
           className={cn(
             'h-7 rounded-sm px-3 font-normal text-xs',
             viewMode === 'dashboard'
-              ? 'bg-muted text-foreground'
+              ? 'bg-background text-foreground'
               : 'text-muted-foreground hover:text-foreground'
           )}
           aria-pressed={viewMode === 'dashboard'}

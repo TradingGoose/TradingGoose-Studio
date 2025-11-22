@@ -6,10 +6,8 @@ import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   Account,
-  ApiKeys,
   Copilot,
   Credentials,
-  EnvironmentVariables,
   General,
   Privacy,
   SettingsNavigation,
@@ -31,7 +29,6 @@ interface SettingsModalProps {
 
 type SettingsSection =
   | 'general'
-  | 'environment'
   | 'account'
   | 'credentials'
   | 'apikeys'
@@ -49,7 +46,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const { activeOrganization } = useOrganizationStore()
   const hasLoadedInitialData = useRef(false)
   const hasLoadedGeneral = useRef(false)
-  const environmentCloseHandler = useRef<((open: boolean) => void) | null>(null)
   const credentialsCloseHandler = useRef<((open: boolean) => void) | null>(null)
 
   useEffect(() => {
@@ -99,11 +95,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
   const isSubscriptionEnabled = isBillingEnabled
 
-  // Handle dialog close - delegate to environment component if it's active
+  // Handle dialog close - delegate to credentials component if it's active
   const handleDialogOpenChange = (newOpen: boolean) => {
-    if (!newOpen && activeSection === 'environment' && environmentCloseHandler.current) {
-      environmentCloseHandler.current(newOpen)
-    } else if (!newOpen && activeSection === 'credentials' && credentialsCloseHandler.current) {
+    if (!newOpen && activeSection === 'credentials' && credentialsCloseHandler.current) {
       credentialsCloseHandler.current(newOpen)
     } else {
       onOpenChange(newOpen)
@@ -134,16 +128,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 <General />
               </div>
             )}
-            {activeSection === 'environment' && (
-              <div className='h-full'>
-                <EnvironmentVariables
-                  onOpenChange={onOpenChange}
-                  registerCloseHandler={(handler) => {
-                    environmentCloseHandler.current = handler
-                  }}
-                />
-              </div>
-            )}
             {activeSection === 'account' && (
               <div className='h-full'>
                 <Account onOpenChange={onOpenChange} />
@@ -157,16 +141,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     credentialsCloseHandler.current = handler
                   }}
                 />
-              </div>
-            )}
-            {activeSection === 'apikeys' && (
-              <div className='h-full'>
-                <ApiKeys onOpenChange={onOpenChange} />
-              </div>
-            )}
-            {activeSection === 'files' && (
-              <div className='h-full'>
-                <FileUploads />
               </div>
             )}
             {isSubscriptionEnabled && activeSection === 'subscription' && (

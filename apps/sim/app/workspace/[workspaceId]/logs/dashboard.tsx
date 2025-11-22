@@ -160,8 +160,8 @@ export default function Dashboard() {
 
   const filteredExecutions = searchQuery.trim()
     ? executions.filter((workflow) =>
-        workflow.workflowName.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      workflow.workflowName.toLowerCase().includes(searchQuery.toLowerCase())
+    )
     : executions
 
   const aggregate = useMemo(() => {
@@ -778,7 +778,7 @@ export default function Dashboard() {
 
   const headerCenterContent = (
     <div className='flex flex-wrap items-center justify-center gap-3'>
-      <div className='inline-flex h-9 items-center rounded-md border bg-card p-1 shadow-sm'>
+      <div className='inline-flex h-9 items-center rounded-md border bg-muted p-1 gap-1 shadow-sm'>
         <Button
           variant='ghost'
           size='sm'
@@ -795,7 +795,7 @@ export default function Dashboard() {
         </Button>
       </div>
 
-      <div className='inline-flex h-9 items-center rounded-md border bg-card p-1 shadow-sm'>
+      <div className='inline-flex h-9 items-center rounded-md border bg-muted p-1 gap-1 shadow-sm'>
         <Button
           variant='ghost'
           size='sm'
@@ -803,7 +803,7 @@ export default function Dashboard() {
           className={cn(
             'h-7 rounded-sm px-3 font-normal text-xs',
             viewMode !== 'dashboard'
-              ? 'bg-muted text-foreground'
+              ? 'bg-background text-foreground'
               : 'text-muted-foreground hover:text-foreground'
           )}
           aria-pressed={viewMode !== 'dashboard'}
@@ -817,7 +817,7 @@ export default function Dashboard() {
           className={cn(
             'h-7 rounded-sm px-3 font-normal text-xs',
             viewMode === 'dashboard'
-              ? 'bg-muted text-foreground'
+              ? 'bg-background text-foreground'
               : 'text-muted-foreground hover:text-foreground'
           )}
           aria-pressed={viewMode === 'dashboard'}
@@ -1150,13 +1150,13 @@ export default function Dashboard() {
                           value:
                             s.totalExecutions > 0
                               ? 100 -
-                                Math.min(
-                                  100,
-                                  Math.max(
-                                    0,
-                                    (s.successfulExecutions / Math.max(1, s.totalExecutions)) * 100
-                                  )
+                              Math.min(
+                                100,
+                                Math.max(
+                                  0,
+                                  (s.successfulExecutions / Math.max(1, s.totalExecutions)) * 100
                                 )
+                              )
                               : 0,
                         }))
                         const executionCounts = segs.map((s) => ({
@@ -1216,27 +1216,27 @@ export default function Dashboard() {
                         // Build series from selected segments indices
                         const idxSet = new Set(workflowSelectedIndices)
                         const selectedSegs = wf.segments.filter((_, i) => idxSet.has(i))
-                        ;(details as any).__filtered = buildSeriesFromSegments(selectedSegs as any)
+                          ; (details as any).__filtered = buildSeriesFromSegments(selectedSegs as any)
                       }
 
                       const detailsWithFilteredLogs = details
                         ? {
-                            ...details,
-                            logs: logsToDisplay,
-                            ...(() => {
-                              const series =
-                                (details as any).__filtered ||
-                                buildSeriesFromSegments(wf.segments as any)
-                              return {
-                                errorRates: series.errorRates,
-                                durations: series.durations,
-                                executionCounts: series.executionCounts,
-                                durationP50: series.durationP50,
-                                durationP90: series.durationP90,
-                                durationP99: series.durationP99,
-                              }
-                            })(),
-                          }
+                          ...details,
+                          logs: logsToDisplay,
+                          ...(() => {
+                            const series =
+                              (details as any).__filtered ||
+                              buildSeriesFromSegments(wf.segments as any)
+                            return {
+                              errorRates: series.errorRates,
+                              durations: series.durations,
+                              executionCounts: series.executionCounts,
+                              durationP50: series.durationP50,
+                              durationP90: series.durationP90,
+                              durationP99: series.durationP99,
+                            }
+                          })(),
+                        }
                         : undefined
 
                       const selectedSegment =
@@ -1255,9 +1255,9 @@ export default function Dashboard() {
                           selectedSegment={
                             selectedSegment
                               ? {
-                                  timestamp: selectedSegment.timestamp,
-                                  totalExecutions: selectedSegment.totalExecutions,
-                                }
+                                timestamp: selectedSegment.timestamp,
+                                totalExecutions: selectedSegment.totalExecutions,
+                              }
                               : null
                           }
                           clearSegmentSelection={() => {

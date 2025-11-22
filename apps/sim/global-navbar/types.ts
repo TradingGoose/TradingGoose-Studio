@@ -4,6 +4,7 @@ export interface NavItemLink {
   title: string
   url: string
   icon: LucideIcon
+  section?: 'workspace' | 'more'
 }
 
 export interface NavSection extends NavItemLink {

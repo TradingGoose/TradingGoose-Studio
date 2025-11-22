@@ -33,16 +33,16 @@ export function PairColorDropdown({ color, onChange }: PairColorDropdownProps) {
         <button
           type='button'
           disabled={disabled}
-          className={widgetHeaderControlClassName('border-transparent')}
+          className={widgetHeaderControlClassName('border-transparent p-0 mx-2')}
           onClick={() => {
             if (!disabled) {
               setOpen((prev) => !prev)
             }
           }}
         >
-          <span className='flex items-center gap-2'>
+          <span className='flex items-center'>
             <span
-              className='h-2.5 w-2.5 rounded-xs'
+              className='h-2.5 w-2.5 rounded-xs '
               style={{ backgroundColor: meta.hex, boxShadow: `0 0 0 4px ${meta.hex}50` }}
               aria-hidden
             />

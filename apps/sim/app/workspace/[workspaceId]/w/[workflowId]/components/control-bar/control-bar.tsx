@@ -526,6 +526,7 @@ export function ControlBar({
         const result = await applyAutoLayoutAndUpdateStore({
           workflowId: activeWorkflowId!,
           channelId,
+          undoUserId: session?.user?.id,
         })
 
         if (result.success) {

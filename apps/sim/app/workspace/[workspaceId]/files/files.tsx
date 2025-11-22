@@ -175,7 +175,7 @@ export function WorkspaceFiles() {
               <div className='flex h-full min-h-0 flex-1 flex-col overflow-hidden'>
                 <div className='flex h-full min-h-0 min-w-0 flex-1 overflow-hidden'>
                   <div className='flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border'>
-                    <div className='shrink-0 overflow-x-auto border-b bg-card/40'>
+                    <div className='shrink-0 overflow-x-auto border-b bg-muted/40'>
                       <table className='w-full min-w-[720px] table-fixed'>
                         <colgroup>
                           <col className='w-[55%]' />

@@ -423,7 +423,7 @@ export function McpServers() {
         <div className='flex flex-1 overflow-hidden'>
           <div className='flex flex-1 flex-col overflow-hidden'>
             <div className='flex-1 overflow-auto'>
-              <div className='relative flex h-full flex-col'>
+              <div className='relative flex h-full flex-col p-1'>
                 <div className='scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent min-h-0 flex-1 overflow-y-auto px-6'>
                   <div className='space-y-6 py-6'>
                     {(toolsError || serversError) && (

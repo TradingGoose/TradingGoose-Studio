@@ -106,7 +106,7 @@ export function DocumentTableSkeleton({
 }) {
   return (
     <div className='flex h-full max-h-full min-h-0 flex-1 flex-col overflow-hidden'>
-      <div className='shrink-0 overflow-x-auto border-b bg-card/40'>
+      <div className='shrink-0 overflow-x-auto border-b bg-muted/40'>
         <table className='w-full min-w-[700px] table-fixed'>
           <colgroup>
             <col className='w-[4%]' />

@@ -110,12 +110,14 @@ interface KnowledgeStore {
   documents: Record<string, DocumentsCache> // knowledgeBaseId -> documents cache
   chunks: Record<string, ChunksCache> // documentId -> chunks cache
   knowledgeBasesList: KnowledgeBaseData[]
+  knowledgeBasesListWorkspaceId: string | null
 
   // Loading states
   loadingKnowledgeBases: Set<string>
   loadingDocuments: Set<string>
   loadingChunks: Set<string>
   loadingKnowledgeBasesList: boolean
+  loadingKnowledgeBasesListWorkspaceId: string | null
   knowledgeBasesListLoaded: boolean
 
   // Actions
@@ -164,7 +166,7 @@ interface KnowledgeStore {
   removeDocument: (knowledgeBaseId: string, documentId: string) => void
   clearDocuments: (knowledgeBaseId: string) => void
   clearChunks: (documentId: string) => void
-  clearKnowledgeBasesList: () => void
+  clearKnowledgeBasesList: (workspaceId?: string | null) => void
 
   // Getters
   getCachedKnowledgeBase: (id: string) => KnowledgeBaseData | null
@@ -182,10 +184,12 @@ export const useKnowledgeStore = create<KnowledgeStore>((set, get) => ({
   documents: {},
   chunks: {},
   knowledgeBasesList: [],
+  knowledgeBasesListWorkspaceId: null,
   loadingKnowledgeBases: new Set(),
   loadingDocuments: new Set(),
   loadingChunks: new Set(),
   loadingKnowledgeBasesList: false,
+  loadingKnowledgeBasesListWorkspaceId: null,
   knowledgeBasesListLoaded: false,
 
   getCachedKnowledgeBase: (id: string) => {
@@ -462,16 +466,32 @@ export const useKnowledgeStore = create<KnowledgeStore>((set, get) => ({
 
   getKnowledgeBasesList: async (workspaceId?: string) => {
     const state = get()
+    const targetWorkspaceId = workspaceId || null
 
-    // Return cached list if we have already loaded it before (prevents infinite loops when empty)
-    if (state.knowledgeBasesListLoaded) {
+    const hasCachedList =
+      state.knowledgeBasesListLoaded && state.knowledgeBasesListWorkspaceId === targetWorkspaceId
+    if (hasCachedList) {
       return state.knowledgeBasesList
     }
 
-    // Return cached data if already loading
-    if (state.loadingKnowledgeBasesList) {
+    const isLoadingCurrentWorkspace =
+      state.loadingKnowledgeBasesList &&
+      state.loadingKnowledgeBasesListWorkspaceId === targetWorkspaceId
+    if (isLoadingCurrentWorkspace) {
       return state.knowledgeBasesList
     }
+
+    // Prepare state for new workspace load
+    set((current) => ({
+      knowledgeBasesList:
+        current.knowledgeBasesListWorkspaceId === targetWorkspaceId
+          ? current.knowledgeBasesList
+          : [],
+      knowledgeBasesListWorkspaceId: targetWorkspaceId,
+      knowledgeBasesListLoaded: false,
+      loadingKnowledgeBasesList: true,
+      loadingKnowledgeBasesListWorkspaceId: targetWorkspaceId,
+    }))
 
     // Create an AbortController for request cancellation
     const abortController = new AbortController()
@@ -480,8 +500,6 @@ export const useKnowledgeStore = create<KnowledgeStore>((set, get) => ({
     }, 10000) // 10 second timeout
 
     try {
-      set({ loadingKnowledgeBasesList: true })
-
       const url = workspaceId ? `/api/knowledge?workspaceId=${workspaceId}` : '/api/knowledge'
       const response = await fetch(url, {
         signal: abortController.signal,
@@ -507,10 +525,19 @@ export const useKnowledgeStore = create<KnowledgeStore>((set, get) => ({
 
       const knowledgeBasesList = result.data || []
 
-      set({
-        knowledgeBasesList,
-        loadingKnowledgeBasesList: false,
-        knowledgeBasesListLoaded: true, // Mark as loaded regardless of result to prevent infinite loops
+      set((current) => {
+        if (current.knowledgeBasesListWorkspaceId !== targetWorkspaceId) {
+          // Workspace changed while loading; ignore result
+          return {}
+        }
+
+        return {
+          knowledgeBasesList,
+          knowledgeBasesListWorkspaceId: targetWorkspaceId,
+          loadingKnowledgeBasesList: false,
+          loadingKnowledgeBasesListWorkspaceId: null,
+          knowledgeBasesListLoaded: true, // Mark as loaded regardless of result to prevent infinite loops
+        }
       })
 
       logger.info(`Knowledge bases list loaded: ${knowledgeBasesList.length} items`)
@@ -522,15 +549,22 @@ export const useKnowledgeStore = create<KnowledgeStore>((set, get) => ({
       logger.error('Error fetching knowledge bases list:', error)
 
       // Always set loading to false, even on error
-      set({
-        loadingKnowledgeBasesList: false,
-        knowledgeBasesListLoaded: true, // Mark as loaded even on error to prevent infinite retries
+      set((current) => {
+        if (current.loadingKnowledgeBasesListWorkspaceId !== targetWorkspaceId) {
+          return {}
+        }
+
+        return {
+          loadingKnowledgeBasesList: false,
+          loadingKnowledgeBasesListWorkspaceId: null,
+          knowledgeBasesListLoaded: true, // Mark as loaded even on error to prevent infinite retries
+        }
       })
 
       // Don't throw on AbortError (timeout or cancellation)
       if (error instanceof Error && error.name === 'AbortError') {
         logger.warn('Knowledge bases list request was aborted (timeout or cancellation)')
-        return state.knowledgeBasesList // Return whatever we have cached
+        return get().knowledgeBasesList // Return whatever we have cached
       }
 
       throw error
@@ -787,13 +821,22 @@ export const useKnowledgeStore = create<KnowledgeStore>((set, get) => ({
   },
 
   addKnowledgeBase: (knowledgeBase: KnowledgeBaseData) => {
-    set((state) => ({
-      knowledgeBases: {
+    set((state) => {
+      const knowledgeBases = {
         ...state.knowledgeBases,
         [knowledgeBase.id]: knowledgeBase,
-      },
-      knowledgeBasesList: [knowledgeBase, ...state.knowledgeBasesList],
-    }))
+      }
+
+      const workspaceMatches =
+        state.knowledgeBasesListWorkspaceId === (knowledgeBase.workspaceId || null)
+
+      return {
+        knowledgeBases,
+        knowledgeBasesList: workspaceMatches
+          ? [knowledgeBase, ...state.knowledgeBasesList]
+          : state.knowledgeBasesList,
+      }
+    })
     logger.info(`Knowledge base added: ${knowledgeBase.id}`)
   },
 
@@ -803,13 +846,22 @@ export const useKnowledgeStore = create<KnowledgeStore>((set, get) => ({
       if (!existingKb) return state
 
       const updatedKb = { ...existingKb, ...updates }
+      const workspaceMatches =
+        state.knowledgeBasesListWorkspaceId === (updatedKb.workspaceId || null)
+      const existsInList = state.knowledgeBasesList.some((kb) => kb.id === id)
 
       return {
         knowledgeBases: {
           ...state.knowledgeBases,
           [id]: updatedKb,
         },
-        knowledgeBasesList: state.knowledgeBasesList.map((kb) => (kb.id === id ? updatedKb : kb)),
+        knowledgeBasesList: workspaceMatches
+          ? existsInList
+            ? state.knowledgeBasesList.map((kb) => (kb.id === id ? updatedKb : kb))
+            : [updatedKb, ...state.knowledgeBasesList]
+          : existsInList
+            ? state.knowledgeBasesList.filter((kb) => kb.id !== id)
+            : state.knowledgeBasesList,
       }
     })
     logger.info(`Knowledge base updated: ${id}`)
@@ -875,10 +927,19 @@ export const useKnowledgeStore = create<KnowledgeStore>((set, get) => ({
     logger.info(`Chunks cleared for document: ${documentId}`)
   },
 
-  clearKnowledgeBasesList: () => {
-    set({
-      knowledgeBasesList: [],
-      knowledgeBasesListLoaded: false, // Reset loaded state to allow reloading
+  clearKnowledgeBasesList: (workspaceId?: string | null) => {
+    set((state) => {
+      const targetWorkspaceId = workspaceId ?? state.knowledgeBasesListWorkspaceId
+      if (targetWorkspaceId !== state.knowledgeBasesListWorkspaceId) {
+        return state
+      }
+
+      return {
+        knowledgeBasesList: [],
+        knowledgeBasesListLoaded: false, // Reset loaded state to allow reloading
+        loadingKnowledgeBasesList: false,
+        loadingKnowledgeBasesListWorkspaceId: null,
+      }
     })
     logger.info('Knowledge bases list cleared')
   },

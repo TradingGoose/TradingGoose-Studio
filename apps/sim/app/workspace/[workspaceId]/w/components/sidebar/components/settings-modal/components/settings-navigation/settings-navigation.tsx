@@ -2,10 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   Bot,
   CreditCard,
-  FileCode,
-  Files,
   Home,
-  Key,
   LogIn,
   Settings,
   Shield,
@@ -28,10 +25,8 @@ interface SettingsNavigationProps {
   onSectionChange: (
     section:
       | 'general'
-      | 'environment'
       | 'account'
       | 'credentials'
-      | 'apikeys'
       | 'files'
       | 'subscription'
       | 'team'
@@ -44,17 +39,15 @@ interface SettingsNavigationProps {
 
 type NavigationItem = {
   id:
-    | 'general'
-    | 'environment'
-    | 'account'
-    | 'credentials'
-    | 'apikeys'
-    | 'files'
-    | 'subscription'
-    | 'team'
-    | 'sso'
-    | 'copilot'
-    | 'privacy'
+  | 'general'
+  | 'account'
+  | 'credentials'
+  | 'files'
+  | 'subscription'
+  | 'team'
+  | 'sso'
+  | 'copilot'
+  | 'privacy'
   label: string
   icon: React.ComponentType<{ className?: string }>
   hideWhenBillingDisabled?: boolean
@@ -75,24 +68,9 @@ const allNavigationItems: NavigationItem[] = [
     icon: Waypoints,
   },
   {
-    id: 'environment',
-    label: 'Environment',
-    icon: FileCode,
-  },
-  {
     id: 'account',
     label: 'Account',
     icon: User,
-  },
-  {
-    id: 'apikeys',
-    label: 'API Keys',
-    icon: Key,
-  },
-  {
-    id: 'files',
-    label: 'File Uploads',
-    icon: Files,
   },
   {
     id: 'copilot',

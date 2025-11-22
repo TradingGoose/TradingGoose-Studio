@@ -12,6 +12,7 @@ export type OperationType =
   | 'move-subflow'
   | 'duplicate-block'
   | 'update-parent'
+  | 'auto-layout'
 
 export interface BaseOperation {
   id: string
@@ -100,6 +101,17 @@ export interface MoveSubflowOperation extends BaseOperation {
   }
 }
 
+export interface AutoLayoutOperation extends BaseOperation {
+  type: 'auto-layout'
+  data: {
+    moves: Array<{
+      blockId: string
+      before: { x: number; y: number; parentId?: string }
+      after: { x: number; y: number; parentId?: string }
+    }>
+  }
+}
+
 export interface DuplicateBlockOperation extends BaseOperation {
   type: 'duplicate-block'
   data: {
@@ -133,6 +145,7 @@ export type Operation =
   | MoveSubflowOperation
   | DuplicateBlockOperation
   | UpdateParentOperation
+  | AutoLayoutOperation
 
 export interface OperationEntry {
   id: string

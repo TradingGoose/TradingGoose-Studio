@@ -258,7 +258,7 @@ const Sidebar = React.forwardRef<
               <SheetTitle>Sidebar</SheetTitle>
               <SheetDescription>Displays the mobile sidebar.</SheetDescription>
             </SheetHeader>
-            <div className='flex h-full w-full flex-col'>{children}</div>
+            <div className='flex h-full w-full flex-col bg-background'>{children}</div>
           </SheetContent>
         </Sheet>
       )
@@ -367,7 +367,7 @@ const SidebarRail = React.forwardRef<
       if (typeof ref === 'function') {
         ref(node)
       } else if (ref) {
-        ;(ref as React.MutableRefObject<HTMLButtonElement | null>).current = node
+        ; (ref as React.MutableRefObject<HTMLButtonElement | null>).current = node
       }
       dragRef.current = node
     },
@@ -593,9 +593,10 @@ const sidebarMenuButtonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+        default: 'bg-background hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+        muted: 'bg-muted/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
         outline:
-          'bg-background shadow-[0_0_0_1px_hsl(var(--sidebar-border))] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_hsl(var(--sidebar-accent))]',
+          'border-border border hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_hsl(var(--sidebar-accent))]',
       },
       size: {
         default: 'h-8 text-sm',
@@ -691,7 +692,7 @@ const SidebarMenuAction = React.forwardRef<
         'peer-data-[size=lg]/menu-button:top-2.5',
         'group-data-[collapsible=icon]:hidden',
         showOnHover &&
-          'group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 data-[state=open]:opacity-100 peer-data-[active=true]/menu-button:text-sidebar-accent-foreground md:opacity-0',
+        'group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 data-[state=open]:opacity-100 peer-data-[active=true]/menu-button:text-sidebar-accent-foreground md:opacity-0',
         className
       )}
       {...props}

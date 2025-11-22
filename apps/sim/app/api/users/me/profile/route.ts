@@ -9,18 +9,17 @@ import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('UpdateUserProfileAPI')
 
+const imageSchema = z
+  .string()
+  .refine(
+    (val) => val.startsWith('http://') || val.startsWith('https://') || val.startsWith('/api/'),
+    { message: 'Invalid image URL' }
+  )
+
 const UpdateProfileSchema = z
   .object({
     name: z.string().min(1, 'Name is required').optional(),
-    image: z
-      .string()
-      .refine(
-        (val) => {
-          return val.startsWith('http://') || val.startsWith('https://') || val.startsWith('/api/')
-        },
-        { message: 'Invalid image URL' }
-      )
-      .optional(),
+    image: z.union([imageSchema, z.literal(null)]).optional(),
   })
   .refine((data) => data.name !== undefined || data.image !== undefined, {
     message: 'At least one field (name or image) must be provided',

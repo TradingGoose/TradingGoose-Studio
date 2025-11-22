@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import {
   Sidebar,
   SidebarContent,
@@ -10,28 +10,42 @@ import {
   SidebarInset,
   SidebarProvider,
   SidebarRail,
+  useSidebar,
+  SidebarMenuButton,
+  SidebarMenuItem,
 } from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
 import { useSession } from '@/lib/auth-client'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { generateWorkspaceName } from '@/lib/naming'
+import { HelpModal } from '@/app/workspace/[workspaceId]/w/components/sidebar/components/help-modal/help-modal'
+import { SettingsModal } from '@/app/workspace/[workspaceId]/w/components/sidebar/components/settings-modal/settings-modal'
+import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { NavbarHeader } from './components/navbar-header'
 import { SidebarNav } from './components/sidebar-nav'
 import { UserMenu } from './components/user-menu'
 import { WorkspaceDialogs } from './components/workspace-dialogs'
 import { WorkspaceSwitcher } from './components/workspace-switcher'
 import { GlobalNavbarHeaderProvider } from './header-context'
+import { AccountSettingsModal } from './settings-modal/components/account-settings-modal'
+import { SubscriptionSettingsModal } from './settings-modal/components/subscription-settings-modal'
 import type { NavSection, Workspace } from './types'
-import { createNavSections, createWorkspaceNav, getWorkspaceIdFromPath } from './utils'
+import {
+  createNavSections,
+  createWorkspaceNav,
+  getWorkspaceIdFromPath,
+  getWorkspaceSwitchPath,
+} from './utils'
 
 const AUTH_ROUTE_PREFIXES = ['/login', '/signup', '/reset-password', '/verify', '/sso'] as const
 const LANDING_ROUTE_PREFIXES = ['/privacy', '/terms', '/careers', '/blog'] as const
 
 export function GlobalNavbar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? '/'
-  const router = useRouter()
   const brand = React.useMemo(() => getBrandConfig(), [])
   const { data: sessionData, isPending: isSessionLoading } = useSession()
+  const switchToWorkspace = useWorkflowRegistry((state) => state.switchToWorkspace)
   const workspaceId = React.useMemo(() => getWorkspaceIdFromPath(pathname), [pathname])
   const workspaceNavItems = React.useMemo(() => createWorkspaceNav(workspaceId), [workspaceId])
   const navMain = React.useMemo<NavSection[]>(
@@ -59,6 +73,10 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
   const [workspaceToDelete, setWorkspaceToDelete] = React.useState<Workspace | null>(null)
   const [isDeletingWorkspace, setIsDeletingWorkspace] = React.useState(false)
   const [deleteError, setDeleteError] = React.useState<string | null>(null)
+  const [isHelpModalOpen, setIsHelpModalOpen] = React.useState(false)
+  const [isAccountModalOpen, setIsAccountModalOpen] = React.useState(false)
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = React.useState(false)
+  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = React.useState(false)
 
   const isAuthenticated = Boolean(sessionData?.user?.id)
   const isAuthRoute = React.useMemo(
@@ -168,10 +186,17 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
       setActiveWorkspace(workspace)
       setWorkspaceMenuOpen(false)
       if (workspaceId !== workspace.id) {
-        router.push(`/workspace/${workspace.id}/dashboard`)
+        try {
+          await switchToWorkspace(workspace.id)
+        } catch (error) {
+          console.error('Failed to reset workflow state during workspace switch', error)
+        }
+        const targetPath = getWorkspaceSwitchPath(pathname, workspace.id)
+        // Force a full reload so all workspace-scoped data is fetched fresh
+        window.location.assign(targetPath)
       }
     },
-    [router, workspaceId]
+    [pathname, switchToWorkspace, workspaceId]
   )
 
   const handleCreateWorkspace = React.useCallback(async () => {
@@ -426,8 +451,15 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
             <SidebarContent>
               <SidebarNav navItems={navMain} />
             </SidebarContent>
-            <SidebarFooter>
-              <UserMenu userName={userName} userEmail={userEmail} userAvatar={userAvatar} />
+            <SidebarFooter className='flex flex-col gap-2 px-2 py-3'>
+              <SidebarHelpButton onClick={() => setIsHelpModalOpen(true)} />
+              <UserMenu
+                userName={userName}
+                userEmail={userEmail}
+                userAvatar={userAvatar}
+                onOpenAccountSettings={() => setIsAccountModalOpen(true)}
+                onOpenSubscriptionSettings={() => setIsSubscriptionModalOpen(true)}
+              />
             </SidebarFooter>
             <SidebarRail />
           </Sidebar>
@@ -464,7 +496,30 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
           isDeletingWorkspace={isDeletingWorkspace}
           onConfirmDelete={() => void handleConfirmDelete()}
         />
+        <SettingsModal open={isSettingsModalOpen} onOpenChange={setIsSettingsModalOpen} />
+        <AccountSettingsModal open={isAccountModalOpen} onOpenChange={setIsAccountModalOpen} />
+        <SubscriptionSettingsModal
+          open={isSubscriptionModalOpen}
+          onOpenChange={setIsSubscriptionModalOpen}
+        />
+        <HelpModal open={isHelpModalOpen} onOpenChange={setIsHelpModalOpen} />
       </div>
     </GlobalNavbarHeaderProvider>
+  )
+}
+
+function SidebarHelpButton({ onClick }: { onClick: () => void }) {
+  const { state } = useSidebar()
+  if (state === 'collapsed') {
+    return null
+  }
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton asChild>
+        <a onClick={onClick}>
+          <span>Need help?</span>
+        </a>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
   )
 }

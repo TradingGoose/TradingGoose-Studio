@@ -166,7 +166,9 @@ export function useKnowledgeBasesList(workspaceId?: string) {
   const {
     getKnowledgeBasesList,
     knowledgeBasesList,
+    knowledgeBasesListWorkspaceId,
     loadingKnowledgeBasesList,
+    loadingKnowledgeBasesListWorkspaceId,
     knowledgeBasesListLoaded,
     addKnowledgeBase,
     removeKnowledgeBase,
@@ -177,9 +179,15 @@ export function useKnowledgeBasesList(workspaceId?: string) {
   const [retryCount, setRetryCount] = useState(0)
   const maxRetries = 3
 
+  const workspaceKey = workspaceId || null
+  const hasDataForWorkspace =
+    knowledgeBasesListLoaded && knowledgeBasesListWorkspaceId === workspaceKey
+  const isCurrentWorkspaceLoading =
+    loadingKnowledgeBasesList && loadingKnowledgeBasesListWorkspaceId === workspaceKey
+
   useEffect(() => {
     // Only load if we haven't loaded before AND we're not currently loading
-    if (knowledgeBasesListLoaded || loadingKnowledgeBasesList) return
+    if (hasDataForWorkspace || isCurrentWorkspaceLoading) return
 
     let isMounted = true
     let retryTimeoutId: NodeJS.Timeout | null = null
@@ -232,13 +240,18 @@ export function useKnowledgeBasesList(workspaceId?: string) {
         clearTimeout(retryTimeoutId)
       }
     }
-  }, [knowledgeBasesListLoaded, loadingKnowledgeBasesList, getKnowledgeBasesList, workspaceId])
+  }, [
+    hasDataForWorkspace,
+    isCurrentWorkspaceLoading,
+    getKnowledgeBasesList,
+    workspaceId,
+  ])
 
   const refreshList = async () => {
     try {
       setError(null)
       setRetryCount(0)
-      clearKnowledgeBasesList()
+      clearKnowledgeBasesList(workspaceId)
       await getKnowledgeBasesList(workspaceId)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to refresh knowledge bases'
@@ -251,13 +264,20 @@ export function useKnowledgeBasesList(workspaceId?: string) {
   const forceRefresh = async () => {
     setError(null)
     setRetryCount(0)
-    clearKnowledgeBasesList()
+    clearKnowledgeBasesList(workspaceId)
 
     // Force reload by clearing cache and loading state
-    useKnowledgeStore.setState({
-      knowledgeBasesList: [],
-      loadingKnowledgeBasesList: false,
-      knowledgeBasesListLoaded: false, // Reset store's loaded state
+    useKnowledgeStore.setState((state) => {
+      if (state.knowledgeBasesListWorkspaceId !== workspaceKey) {
+        return state
+      }
+
+      return {
+        knowledgeBasesList: [],
+        loadingKnowledgeBasesList: false,
+        loadingKnowledgeBasesListWorkspaceId: null,
+        knowledgeBasesListLoaded: false, // Reset store's loaded state
+      }
     })
 
     try {
@@ -270,8 +290,8 @@ export function useKnowledgeBasesList(workspaceId?: string) {
   }
 
   return {
-    knowledgeBases: knowledgeBasesList,
-    isLoading: loadingKnowledgeBasesList,
+    knowledgeBases: hasDataForWorkspace ? knowledgeBasesList : [],
+    isLoading: isCurrentWorkspaceLoading,
     error,
     refreshList,
     forceRefresh,

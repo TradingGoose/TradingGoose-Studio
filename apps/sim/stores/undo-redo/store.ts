@@ -59,6 +59,10 @@ function isOperationApplicable(
         ? Boolean(graph.blocksById[subflowId])
         : !graph.blocksById[subflowId]
     }
+    case 'auto-layout': {
+      const moves = (operation as any).data?.moves
+      return Array.isArray(moves)
+    }
     default:
       return true
   }

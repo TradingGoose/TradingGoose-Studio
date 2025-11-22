@@ -1,9 +1,11 @@
 'use client'
 
+import { useCallback } from 'react'
 import { Minus, Plus, Redo2, Undo2 } from 'lucide-react'
 import { useReactFlow, useStore } from 'reactflow'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useOptionalWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useSession } from '@/lib/auth-client'
 import { cn } from '@/lib/utils'
 import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
@@ -11,7 +13,11 @@ import { useGeneralStore } from '@/stores/settings/general/store'
 import { useUndoRedoStore } from '@/stores/undo-redo'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
-export function FloatingControls() {
+interface FloatingControlsProps {
+  constrainToContainer?: boolean
+}
+
+export function FloatingControls({ constrainToContainer = false }: FloatingControlsProps) {
   const { zoomIn, zoomOut } = useReactFlow()
   // Subscribe to React Flow store so zoom % live-updates while zooming
   const zoom = useStore((s: any) =>
@@ -19,7 +25,11 @@ export function FloatingControls() {
   )
   const { undo, redo } = useCollaborativeWorkflow()
   const { showFloatingControls } = useGeneralStore()
-  const { activeWorkflowId } = useWorkflowRegistry()
+  const workflowRoute = useOptionalWorkflowRoute()
+  const channelId = workflowRoute?.channelId
+  const activeWorkflowId = useWorkflowRegistry(
+    useCallback((state) => state.getActiveWorkflowId(channelId), [channelId])
+  )
   const { data: session } = useSession()
   const userId = session?.user?.id || 'unknown'
   const stacks = useUndoRedoStore((s) => s.stacks)
@@ -41,9 +51,13 @@ export function FloatingControls() {
     zoomOut({ duration: 200 })
   }
 
+  const positionClass = constrainToContainer
+    ? 'absolute bottom-3 left-1/2 -translate-x-1/2'
+    : '-translate-x-1/2 fixed bottom-6 left-1/2'
+
   return (
-    <div className='-translate-x-1/2 fixed bottom-6 left-1/2 z-10'>
-      <div className='flex items-center gap-1 rounded-lg border bg-card/95 p-1 shadow-lg backdrop-blur-sm'>
+    <div className={cn(positionClass, 'z-10')}>
+      <div className='flex items-center gap-1 rounded-md border bg-card  p-1 shadow-sm'>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -52,12 +66,12 @@ export function FloatingControls() {
               onClick={handleZoomOut}
               disabled={currentZoom <= 10}
               className={cn(
-                'h-9 w-9 rounded-md',
-                'hover:bg-card/80',
+                'h-7 w-7 rounded-sm',
+                'hover:bg-background',
                 'disabled:cursor-not-allowed disabled:opacity-50'
               )}
             >
-              <Minus className='h-4 w-4' />
+              <Minus className='h-2.5 w-2.5' />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Zoom Out</TooltipContent>
@@ -75,12 +89,12 @@ export function FloatingControls() {
               onClick={handleZoomIn}
               disabled={currentZoom >= 200}
               className={cn(
-                'h-9 w-9 rounded-md',
-                'hover:bg-card/80',
+                'h-7 w-7 rounded-sm',
+                'hover:bg-background',
                 'disabled:cursor-not-allowed disabled:opacity-50'
               )}
             >
-              <Plus className='h-4 w-4' />
+              <Plus className='h-2.5 w-2.5' />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Zoom In</TooltipContent>
@@ -96,12 +110,12 @@ export function FloatingControls() {
               onClick={undo}
               disabled={undoRedoSizes.undoSize === 0}
               className={cn(
-                'h-9 w-9 rounded-md',
-                'hover:bg-card/80',
+                'h-7 w-7 rounded-sm',
+                'hover:bg-background',
                 'disabled:cursor-not-allowed disabled:opacity-50'
               )}
             >
-              <Undo2 className='h-4 w-4' />
+              <Undo2 className='h-2.5 w-2.5' />
             </Button>
           </TooltipTrigger>
           <TooltipContent>
@@ -120,12 +134,12 @@ export function FloatingControls() {
               onClick={redo}
               disabled={undoRedoSizes.redoSize === 0}
               className={cn(
-                'h-9 w-9 rounded-md',
-                'hover:bg-card/80',
+                'h-7 w-7 rounded-sm',
+                'hover:bg-background',
                 'disabled:cursor-not-allowed disabled:opacity-50'
               )}
             >
-              <Redo2 className='h-4 w-4' />
+              <Redo2 className='h-2.5 w-2.5' />
             </Button>
           </TooltipTrigger>
           <TooltipContent>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Camera } from 'lucide-react'
+import { Camera, Check, Pencil, X } from 'lucide-react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { AgentIcon } from '@/components/icons'
@@ -34,6 +34,7 @@ export function Account(_props: AccountProps) {
 
   const [isLoadingProfile, setIsLoadingProfile] = useState(false)
   const [isUpdatingName, setIsUpdatingName] = useState(false)
+  const [nameError, setNameError] = useState<string | null>(null)
 
   const [isEditingName, setIsEditingName] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -139,15 +140,19 @@ export function Account(_props: AccountProps) {
     const trimmedName = name.trim()
 
     if (!trimmedName) {
+      setNameError('Name is required')
+      inputRef.current?.focus()
       return
     }
 
     if (trimmedName === (session?.user?.name || '')) {
       setIsEditingName(false)
+      setNameError(null)
       return
     }
 
     setIsUpdatingName(true)
+    setNameError(null)
 
     try {
       const response = await fetch('/api/users/me/profile', {
@@ -158,6 +163,7 @@ export function Account(_props: AccountProps) {
 
       if (!response.ok) {
         const error = await response.json()
+        setNameError(error.error || 'Failed to update name')
         throw new Error(error.error || 'Failed to update name')
       }
 
@@ -165,6 +171,7 @@ export function Account(_props: AccountProps) {
     } catch (error) {
       logger.error('Error updating name:', error)
       setName(session?.user?.name || '')
+      setNameError('Unable to update name. Please try again.')
     } finally {
       setIsUpdatingName(false)
     }
@@ -183,6 +190,7 @@ export function Account(_props: AccountProps) {
   const handleCancelEdit = () => {
     setIsEditingName(false)
     setName(session?.user?.name || '')
+    setNameError(null)
   }
 
   const handleInputBlur = () => {
@@ -290,11 +298,11 @@ export function Account(_props: AccountProps) {
         ) : (
           <>
             {/* User Info Section */}
-            <div className='flex items-center gap-4'>
-              {/* Profile Picture Upload */}
+            <div className='flex items-center gap-3 rounded-lg border bg-card/70 p-3 shadow-xs'>
+              {/* Profile Picture Upload styled like user menu avatar */}
               <div className='relative'>
                 <div
-                  className='group relative flex h-12 w-12 flex-shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-[#802FFF] transition-all hover:opacity-80'
+                  className='group relative flex h-14 w-14 cursor-pointer items-center justify-center overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/50'
                   onClick={handleProfilePictureClick}
                 >
                   {(() => {
@@ -303,20 +311,22 @@ export function Account(_props: AccountProps) {
                       <Image
                         src={imageUrl}
                         alt={name || 'User'}
-                        width={48}
-                        height={48}
+                        width={56}
+                        height={56}
                         className={`h-full w-full object-cover transition-opacity duration-300 ${
                           isUploadingProfilePicture ? 'opacity-50' : 'opacity-100'
                         }`}
                       />
                     ) : (
-                      <AgentIcon className='h-6 w-6 text-white' />
+                      <div className='flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 via-card to-primary/5'>
+                        <AgentIcon className='h-6 w-6 text-primary' />
+                      </div>
                     )
                   })()}
 
                   {/* Upload overlay */}
                   <div
-                    className={`absolute inset-0 flex items-center justify-center rounded-full bg-black/50 transition-opacity ${
+                    className={`absolute inset-0 flex items-center justify-center bg-black/50 transition-opacity ${
                       isUploadingProfilePicture
                         ? 'opacity-100'
                         : 'opacity-0 group-hover:opacity-100'
@@ -343,8 +353,8 @@ export function Account(_props: AccountProps) {
 
               {/* User Details */}
               <div className='flex flex-1 flex-col justify-center'>
-                <h3 className='font-medium text-base'>{name}</h3>
-                <p className='font-normal text-muted-foreground text-sm'>{email}</p>
+                <h3 className='font-semibold text-base'>{name}</h3>
+                <p className='text-muted-foreground text-sm'>{email}</p>
                 {uploadError && <p className='mt-1 text-destructive text-xs'>{uploadError}</p>}
               </div>
             </div>
@@ -355,30 +365,59 @@ export function Account(_props: AccountProps) {
                 Name
               </Label>
               {isEditingName ? (
-                <input
-                  ref={inputRef}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  onBlur={handleInputBlur}
-                  className='min-w-0 flex-1 border-0 bg-transparent p-0 text-base outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
-                  maxLength={100}
-                  disabled={isUpdatingName}
-                  autoComplete='off'
-                  autoCorrect='off'
-                  autoCapitalize='off'
-                  spellCheck='false'
-                />
+                <div className='space-y-1'>
+                  <div className='flex items-center gap-2 max-w-md'>
+                    <Input
+                      ref={inputRef}
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      onBlur={handleInputBlur}
+                      className='h-9 flex-1'
+                      maxLength={100}
+                      disabled={isUpdatingName}
+                      autoComplete='off'
+                      autoCorrect='off'
+                      autoCapitalize='off'
+                      spellCheck='false'
+                    />
+                    <Button
+                      type='button'
+                      variant='ghost'
+                      size='icon'
+                      className='h-9 w-9 text-muted-foreground hover:text-foreground'
+                      onClick={() => void handleUpdateName()}
+                      disabled={isUpdatingName}
+                    >
+                      <Check className='h-4 w-4' />
+                      <span className='sr-only'>Save name</span>
+                    </Button>
+                    <Button
+                      type='button'
+                      variant='ghost'
+                      size='icon'
+                      className='h-9 w-9 text-muted-foreground hover:text-foreground'
+                      onClick={handleCancelEdit}
+                      disabled={isUpdatingName}
+                    >
+                      <X className='h-4 w-4' />
+                      <span className='sr-only'>Cancel</span>
+                    </Button>
+                  </div>
+                  {nameError && <p className='text-destructive text-xs'>{nameError}</p>}
+                </div>
               ) : (
-                <div className='flex items-center gap-4'>
-                  <span className='text-base'>{name}</span>
+                <div className='flex items-center gap-2'>
+                  <span className='text-base font-medium'>{name}</span>
                   <Button
                     variant='ghost'
-                    className='h-auto p-0 font-normal text-muted-foreground text-sm transition-colors hover:bg-transparent hover:text-foreground'
+                    size='icon'
+                    className='h-8 w-8 text-muted-foreground transition-colors hover:text-foreground'
                     onClick={() => setIsEditingName(true)}
+                    disabled={isUpdatingName}
                   >
-                    update
-                    <span className='sr-only'>Update name</span>
+                    <Pencil className='h-4 w-4' />
+                    <span className='sr-only'>Edit name</span>
                   </Button>
                 </div>
               )}

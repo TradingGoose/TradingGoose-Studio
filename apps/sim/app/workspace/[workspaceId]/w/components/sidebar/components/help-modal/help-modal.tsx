@@ -517,7 +517,7 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
                       ? 'border border-red-500 bg-transparent text-red-500 hover:bg-red-500 hover:text-white dark:border-red-500 dark:text-red-500 dark:hover:bg-red-500'
                       : submitStatus === 'success'
                         ? 'border border-green-500 bg-transparent text-green-500 hover:bg-green-500 hover:text-white dark:border-green-500 dark:text-green-500 dark:hover:bg-green-500'
-                        : 'bg-primary text-muted-foreground shadow-[0_0_0_0_var(--primary)] hover:bg-primary-hover disabled:opacity-50 disabled:hover:shadow-none'
+                        : 'bg-primary text-black  hover:bg-primary-hover disabled:opacity-50 disabled:hover:shadow-none'
                   )}
                 >
                   {isSubmitting

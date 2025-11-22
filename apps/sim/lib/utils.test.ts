@@ -15,32 +15,55 @@ import {
   validateName,
 } from '@/lib/utils'
 
-vi.mock('crypto', () => ({
-  createCipheriv: vi.fn().mockReturnValue({
+const { createCipherivMock, createDecipherivMock, randomBytesMock } = vi.hoisted(() => {
+  const cipherMock = vi.fn().mockReturnValue({
     update: vi.fn().mockReturnValue('encrypted-data'),
     final: vi.fn().mockReturnValue('final-data'),
     getAuthTag: vi.fn().mockReturnValue({
       toString: vi.fn().mockReturnValue('auth-tag'),
     }),
-  }),
-  createDecipheriv: vi.fn().mockReturnValue({
+  })
+
+  const decipherMock = vi.fn().mockReturnValue({
     update: vi.fn().mockReturnValue('decrypted-data'),
     final: vi.fn().mockReturnValue('final-data'),
     setAuthTag: vi.fn(),
-  }),
-  randomBytes: vi.fn().mockReturnValue({
+  })
+
+  const randomBytes = vi.fn().mockReturnValue({
     toString: vi.fn().mockReturnValue('random-iv'),
-  }),
+  })
+
+  return {
+    createCipherivMock: cipherMock,
+    createDecipherivMock: decipherMock,
+    randomBytesMock: randomBytes,
+  }
+})
+
+vi.mock('crypto', () => ({
+  createCipheriv: createCipherivMock,
+  createDecipheriv: createDecipherivMock,
+  randomBytes: randomBytesMock,
 }))
 
+const { defaultEncryptionKey, mockEnv } = vi.hoisted(() => {
+  const key = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+  return {
+    defaultEncryptionKey: key,
+    mockEnv: {
+      ENCRYPTION_KEY: key,
+    },
+  }
+})
+
 vi.mock('@/lib/env', () => ({
-  env: {
-    ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-  },
+  env: mockEnv,
 }))
 
 afterEach(() => {
   vi.clearAllMocks()
+  mockEnv.ENCRYPTION_KEY = defaultEncryptionKey
 })
 
 describe('cn (class name utility)', () => {
@@ -87,6 +110,35 @@ describe('encryption and decryption', () => {
 
   it.concurrent('should throw error for invalid decrypt format', async () => {
     await expect(decryptSecret('invalid-format')).rejects.toThrow('Invalid encrypted value format')
+  })
+})
+
+describe('encryption key compatibility', () => {
+  it.concurrent('should support 32-character raw string keys', async () => {
+    mockEnv.ENCRYPTION_KEY = 'A'.repeat(32)
+    await encryptSecret('raw-secret')
+
+    const keyBuffer = createCipherivMock.mock.calls.at(-1)?.[1]
+    expect(Buffer.isBuffer(keyBuffer)).toBe(true)
+    expect(keyBuffer?.length).toBe(32)
+  })
+
+  it.concurrent('should support base64 encoded keys that decode to 32 bytes', async () => {
+    const base64Key = Buffer.from('B'.repeat(32), 'utf8').toString('base64')
+    mockEnv.ENCRYPTION_KEY = base64Key
+
+    await encryptSecret('base64-secret')
+
+    const keyBuffer = createCipherivMock.mock.calls.at(-1)?.[1]
+    expect(Buffer.isBuffer(keyBuffer)).toBe(true)
+    expect(keyBuffer?.length).toBe(32)
+  })
+
+  it.concurrent('should reject invalid key lengths', async () => {
+    mockEnv.ENCRYPTION_KEY = 'short-key'
+    await expect(encryptSecret('secret')).rejects.toThrow(
+      'ENCRYPTION_KEY must be set to a 64-character hex string (32 bytes)'
+    )
   })
 })
 

@@ -1,8 +1,6 @@
 export { Account } from './account/account'
-export { ApiKeys } from './api-keys/api-keys'
 export { Copilot } from './copilot/copilot'
 export { Credentials } from './credentials/credentials'
-export { EnvironmentVariables } from './environment/environment'
 export { General } from './general/general'
 export { Privacy } from './privacy/privacy'
 export { SettingsNavigation } from './settings-navigation/settings-navigation'

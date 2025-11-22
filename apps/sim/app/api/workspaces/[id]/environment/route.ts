@@ -51,6 +51,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .limit(1)
 
     const wsEncrypted: Record<string, string> = (wsEnvRow[0]?.variables as any) || {}
+    const wsCreatedAt = wsEnvRow[0]?.createdAt || null
+    const wsUpdatedAt = wsEnvRow[0]?.updatedAt || null
 
     // Personal env (encrypted)
     const personalRow = await db
@@ -60,6 +62,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .limit(1)
 
     const personalEncrypted: Record<string, string> = (personalRow[0]?.variables as any) || {}
+    const personalCreatedAt = personalRow[0]?.createdAt || null
+    const personalUpdatedAt = personalRow[0]?.updatedAt || null
 
     // Decrypt both for UI
     const decryptAll = async (src: Record<string, string>) => {
@@ -88,6 +92,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           workspace: workspaceDecrypted,
           personal: personalDecrypted,
           conflicts,
+          workspaceMeta: {
+            createdAt: wsCreatedAt,
+            updatedAt: wsUpdatedAt,
+          },
+          personalMeta: {
+            createdAt: personalCreatedAt,
+            updatedAt: personalUpdatedAt,
+          },
         },
       },
       { status: 200 }

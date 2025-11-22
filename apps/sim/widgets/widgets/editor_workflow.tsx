@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Workflow } from 'lucide-react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import type { WorkflowUIConfig } from '@/app/workspace/[workspaceId]/w/[workflowId]/workflow'
+import { WorkflowUIConfigProvider } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-ui-context'
 import WorkflowEditorApp from '@/app/workspace/[workspaceId]/w/[workflowId]/workflow-editor-app'
 import {
   getWorkflowWidgetChannelId,
@@ -15,7 +16,10 @@ import { isPairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 
 const WORKFLOW_WIDGET_UI_CONFIG: WorkflowUIConfig = {
+  panel: false,
   controlBar: false,
+  floatingControls: true,
+  trainingControls: false,
 }
 
 type ViewportBounds = { x: number; y: number; width: number; height: number }
@@ -141,13 +145,15 @@ const WorkflowEditorWidgetBody = ({
       ref={setContainerRef}
       className='relative flex h-full w-full overflow-hidden bg-[hsl(var(--workflow-background))]'
     >
-      <WorkflowEditorApp
-        workspaceId={workspaceId}
-        workflowId={resolvedWorkflowId}
-        channelId={channelId}
-        ui={WORKFLOW_WIDGET_UI_CONFIG}
-        viewportBounds={widgetBounds ?? undefined}
-      />
+      <WorkflowUIConfigProvider value={WORKFLOW_WIDGET_UI_CONFIG}>
+        <WorkflowEditorApp
+          workspaceId={workspaceId}
+          workflowId={resolvedWorkflowId}
+          channelId={channelId}
+          ui={WORKFLOW_WIDGET_UI_CONFIG}
+          viewportBounds={widgetBounds ?? undefined}
+        />
+      </WorkflowUIConfigProvider>
     </div>
   )
 }

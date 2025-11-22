@@ -25,7 +25,6 @@ import { Input } from '@/components/ui/input'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { useBrandConfig } from '@/lib/branding/branding'
 import { type LayoutTab, LayoutTabs } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
-import { getAllBlocks } from '@/blocks'
 import { GlobalNavbarHeader } from '@/global-navbar'
 import { useKnowledgeBasesList } from '@/hooks/use-knowledge'
 import { type PairColorContext, usePairColorStore } from '@/stores/dashboard/pair-store'
@@ -77,6 +76,13 @@ interface DashboardNodeProps {
 
 const PANEL_MIN_SIZE = 10
 const MIN_SPLIT_SIZE = PANEL_MIN_SIZE * 2
+
+interface DropdownItem {
+  id: string
+  name: string
+  href: string
+  icon?: ComponentType<any>
+}
 
 const DashboardNode = memo(
   function DashboardNode({
@@ -193,9 +199,12 @@ export function DashboardClient({
   const isCreatingLayoutRef = useRef(false)
   const pathname = usePathname()
   const router = useRouter()
+  const [docs, setDocs] = useState<DropdownItem[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const searchContainerRef = useRef<HTMLDivElement | null>(null)
+  const docsLoadedRef = useRef(false)
+  const docsLoadingRef = useRef(false)
   const brand = useBrandConfig()
   const { workflows } = useWorkflowRegistry()
   const { knowledgeBases } = useKnowledgeBasesList(workspaceId)
@@ -432,15 +441,33 @@ export function DashboardClient({
     [brand.documentationUrl, workspaceId]
   )
 
-  const docs = useMemo(() => {
-    const blocks = getAllBlocks().filter((block) => block.docsLink)
-    return blocks.map((block) => ({
-      id: block.type,
-      name: block.name,
-      icon: block.icon,
-      href: block.docsLink!,
-    }))
+  const loadDocs = useCallback(async () => {
+    if (docsLoadedRef.current || docsLoadingRef.current) return
+
+    docsLoadingRef.current = true
+    try {
+      const { getAllBlocks } = await import('@/blocks')
+      const blocks = getAllBlocks().filter((block) => block.docsLink)
+      setDocs(
+        blocks.map((block) => ({
+          id: block.type,
+          name: block.name,
+          icon: block.icon,
+          href: block.docsLink!,
+        }))
+      )
+      docsLoadedRef.current = true
+    } catch (error) {
+      console.error('Failed to load block docs', error)
+    } finally {
+      docsLoadingRef.current = false
+    }
   }, [])
+
+  useEffect(() => {
+    if (!isSearchOpen) return
+    void loadDocs()
+  }, [isSearchOpen, loadDocs])
 
   const normalizedQuery = searchQuery.trim().toLowerCase()
   const filteredWorkflows = normalizedQuery
@@ -1263,13 +1290,6 @@ function duplicateWidgetInstance(widget: WidgetInstance): WidgetInstance {
 
 function sortLayouts(layouts: LayoutTab[]): LayoutTab[] {
   return [...layouts].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-}
-
-interface DropdownItem {
-  id: string
-  name: string
-  href: string
-  icon?: ComponentType<any>
 }
 
 function DropdownSection({

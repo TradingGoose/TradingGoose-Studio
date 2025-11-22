@@ -1,7 +1,8 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import type { Edge } from 'reactflow'
 import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
+import { useOptionalWorkflowRoute } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-route-context'
 import { useOperationQueue } from '@/stores/operation-queue/store'
 import {
   createOperationEntry,
@@ -23,12 +24,23 @@ const logger = createLogger('UndoRedo')
 
 export function useUndoRedo() {
   const { data: session } = useSession()
-  const { activeWorkflowId } = useWorkflowRegistry()
+  const workflowRoute = useOptionalWorkflowRoute()
+  const channelId = workflowRoute?.channelId
+  const activeWorkflowId = useWorkflowRegistry(
+    useCallback((state) => state.getActiveWorkflowId(channelId), [channelId])
+  )
   const workflowStore = useWorkflowStore()
   const undoRedoStore = useUndoRedoStore()
   const { addToQueue } = useOperationQueue()
 
-  const userId = session?.user?.id || 'unknown'
+  // Use a stable user ID for undo/redo stacks so late session hydration doesn't split stacks
+  const userIdRef = useRef<string>(session?.user?.id || 'anonymous')
+  useEffect(() => {
+    if (session?.user?.id && userIdRef.current === 'anonymous') {
+      userIdRef.current = session.user.id
+    }
+  }, [session?.user?.id])
+  const userId = userIdRef.current
 
   const recordAddBlock = useCallback(
     (blockId: string, autoConnectEdge?: Edge) => {
@@ -44,7 +56,7 @@ export function useUndoRedo() {
       }
 
       // Get fresh state from store
-      const currentBlocks = useWorkflowStore.getState().blocks
+      const currentBlocks = useWorkflowStore.getState(channelId).blocks
       const merged = mergeSubblockState(currentBlocks, activeWorkflowId, blockId)
       const blockSnapshot = merged[blockId] || currentBlocks[blockId]
 
@@ -74,7 +86,7 @@ export function useUndoRedo() {
         hasSnapshot: !!blockSnapshot,
       })
     },
-    [activeWorkflowId, userId, undoRedoStore]
+    [activeWorkflowId, userId, undoRedoStore, channelId]
   )
 
   const recordRemoveBlock = useCallback(
@@ -130,6 +142,8 @@ export function useUndoRedo() {
         data: { edgeId },
       }
 
+      // Capture the edge snapshot from the correct channel's store so redo can restore it
+      const channelEdges = useWorkflowStore.getState(channelId).edges
       const inverse: RemoveEdgeOperation = {
         id: crypto.randomUUID(),
         type: 'remove-edge',
@@ -138,7 +152,7 @@ export function useUndoRedo() {
         userId,
         data: {
           edgeId,
-          edgeSnapshot: workflowStore.edges.find((e) => e.id === edgeId) || null,
+          edgeSnapshot: channelEdges.find((e) => e.id === edgeId) || null,
         },
       }
 
@@ -400,7 +414,7 @@ export function useUndoRedo() {
           break
         }
 
-        const currentBlocks = useWorkflowStore.getState().blocks
+        const currentBlocks = useWorkflowStore.getState(channelId).blocks
         const uniqueName = getUniqueBlockName(blockSnapshot.name, currentBlocks)
 
         // FIRST: Add the main block (parent subflow) with subBlocks in payload
@@ -468,7 +482,7 @@ export function useUndoRedo() {
         if (allBlockSnapshots) {
           Object.entries(allBlockSnapshots).forEach(([id, snap]: [string, any]) => {
             if (id !== blockSnapshot.id && !workflowStore.blocks[id]) {
-              const currentBlocksNested = useWorkflowStore.getState().blocks
+              const currentBlocksNested = useWorkflowStore.getState(channelId).blocks
               const uniqueNestedName = getUniqueBlockName(snap.name, currentBlocksNested)
 
               // Add nested block locally
@@ -567,8 +581,8 @@ export function useUndoRedo() {
         break
       }
       case 'add-edge': {
-        const originalOp = entry.operation as RemoveEdgeOperation
-        const { edgeSnapshot } = originalOp.data
+        // Use the snapshot captured in the inverse (remove-edge) so we can restore the connection
+        const { edgeSnapshot } = entry.inverse as RemoveEdgeOperation
         // Skip if snapshot missing or already exists
         if (!edgeSnapshot || workflowStore.edges.find((e) => e.id === edgeSnapshot.id)) {
           logger.debug('Undo add-edge skipped', {
@@ -591,7 +605,7 @@ export function useUndoRedo() {
       }
       case 'move-block': {
         const moveOp = entry.inverse as MoveBlockOperation
-        const currentBlocks = useWorkflowStore.getState().blocks
+        const currentBlocks = useWorkflowStore.getState(channelId).blocks
         if (currentBlocks[moveOp.data.blockId]) {
           // Apply the inverse's target as the undo result (inverse.after)
           addToQueue({
@@ -763,10 +777,17 @@ export function useUndoRedo() {
         }
         break
       }
+      case 'auto-layout': {
+        const moves = (entry.inverse as any).data?.moves || []
+        moves.forEach((move: any) => {
+          workflowStore.updateBlockPosition(move.blockId, move.after)
+        })
+        break
+      }
     }
 
     logger.info('Undo operation', { type: entry.operation.type, workflowId: activeWorkflowId })
-  }, [activeWorkflowId, userId, undoRedoStore, addToQueue, workflowStore])
+  }, [activeWorkflowId, userId, undoRedoStore, addToQueue, workflowStore, channelId])
 
   const redo = useCallback(() => {
     if (!activeWorkflowId || !userId) return
@@ -791,7 +812,7 @@ export function useUndoRedo() {
           break
         }
 
-        const currentBlocks = useWorkflowStore.getState().blocks
+        const currentBlocks = useWorkflowStore.getState(channelId).blocks
         const uniqueName = getUniqueBlockName(snap.name, currentBlocks)
 
         // FIRST: Add the main block (parent subflow) with subBlocks included
@@ -856,7 +877,7 @@ export function useUndoRedo() {
         if (allBlockSnapshots) {
           Object.entries(allBlockSnapshots).forEach(([id, snapNested]: [string, any]) => {
             if (id !== snap.id && !workflowStore.blocks[id]) {
-              const currentBlocksNested = useWorkflowStore.getState().blocks
+              const currentBlocksNested = useWorkflowStore.getState(channelId).blocks
               const uniqueNestedName = getUniqueBlockName(snapNested.name, currentBlocksNested)
 
               // Add nested block locally
@@ -968,7 +989,7 @@ export function useUndoRedo() {
         break
       }
       case 'add-edge': {
-        // Use snapshot from inverse
+        // Use snapshot captured on undo (inverse remove-edge) to restore the connection
         const inv = entry.inverse as RemoveEdgeOperation
         const snap = inv.data.edgeSnapshot
         if (!snap || workflowStore.edges.find((e) => e.id === snap.id)) {
@@ -1011,7 +1032,7 @@ export function useUndoRedo() {
       }
       case 'move-block': {
         const moveOp = entry.operation as MoveBlockOperation
-        const currentBlocks = useWorkflowStore.getState().blocks
+        const currentBlocks = useWorkflowStore.getState(channelId).blocks
         if (currentBlocks[moveOp.data.blockId]) {
           addToQueue({
             id: opId,
@@ -1063,7 +1084,7 @@ export function useUndoRedo() {
           break
         }
 
-        const currentBlocks = useWorkflowStore.getState().blocks
+        const currentBlocks = useWorkflowStore.getState(channelId).blocks
         const uniqueName = getUniqueBlockName(duplicatedBlockSnapshot.name, currentBlocks)
 
         // Add the duplicated block
@@ -1232,6 +1253,13 @@ export function useUndoRedo() {
         }
         break
       }
+      case 'auto-layout': {
+        const moves = (entry.operation as any).data?.moves || []
+        moves.forEach((move: any) => {
+          workflowStore.updateBlockPosition(move.blockId, move.after)
+        })
+        break
+      }
     }
 
     logger.info('Redo operation completed', {
@@ -1239,7 +1267,7 @@ export function useUndoRedo() {
       workflowId: activeWorkflowId,
       userId,
     })
-  }, [activeWorkflowId, userId, undoRedoStore, addToQueue, workflowStore])
+  }, [activeWorkflowId, userId, undoRedoStore, addToQueue, workflowStore, channelId])
 
   const getStackSizes = useCallback(() => {
     if (!activeWorkflowId) return { undoSize: 0, redoSize: 0 }

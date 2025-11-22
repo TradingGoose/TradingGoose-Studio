@@ -150,12 +150,14 @@ interface ApplyAutoLayoutAndUpdateStoreParams {
   workflowId: string
   channelId?: string
   options?: AutoLayoutOptions
+  undoUserId?: string
 }
 
 export async function applyAutoLayoutAndUpdateStore({
   workflowId,
   channelId,
   options = {},
+  undoUserId,
 }: ApplyAutoLayoutAndUpdateStoreParams): Promise<{
   success: boolean
   error?: string
@@ -185,6 +187,9 @@ export async function applyAutoLayoutAndUpdateStore({
     }
 
     const workflowStore = useWorkflowStore.getState(channelId)
+    const { useUndoRedoStore } = await import('@/stores/undo-redo')
+    const { createOperationEntry } = await import('@/stores/undo-redo/utils')
+    const prevBlocks = workflowStore.blocks
     const { blocks, edges, loops = {}, parallels = {} } = workflowStore
 
     logger.info('Auto layout store data:', {
@@ -214,6 +219,64 @@ export async function applyAutoLayoutAndUpdateStore({
       return { success: false, error: result.error }
     }
 
+    // Build undo entry for auto-layout (single action captures all node moves)
+    const moves =
+      undoUserId && resolvedWorkflowId
+        ? Object.entries(result.layoutedBlocks || {}).reduce(
+            (acc, [id, block]) => {
+              const before = prevBlocks[id]?.position
+              if (
+                before &&
+                (Math.abs(before.x - block.position.x) > 0.01 ||
+                  Math.abs(before.y - block.position.y) > 0.01)
+              ) {
+                acc.push({
+                  blockId: id,
+                  before: {
+                    x: before.x,
+                    y: before.y,
+                    parentId: prevBlocks[id]?.data?.parentId,
+                  },
+                  after: {
+                    x: block.position.x,
+                    y: block.position.y,
+                    parentId: block.data?.parentId,
+                  },
+                })
+              }
+              return acc
+            },
+            [] as Array<{
+              blockId: string
+              before: { x: number; y: number; parentId?: string }
+              after: { x: number; y: number; parentId?: string }
+            }>
+          )
+        : []
+
+    if (moves.length > 0) {
+      const operation = {
+        id: crypto.randomUUID(),
+        type: 'auto-layout' as const,
+        timestamp: Date.now(),
+        workflowId: resolvedWorkflowId!,
+        userId: undoUserId!,
+        data: { moves },
+      }
+      const inverse = {
+        ...operation,
+        data: {
+          moves: moves.map((m) => ({
+            blockId: m.blockId,
+            before: m.after,
+            after: m.before,
+          })),
+        },
+      }
+      const entry = createOperationEntry(operation as any, inverse as any)
+      useUndoRedoStore.getState().push(resolvedWorkflowId!, undoUserId!, entry)
+    }
+
     // Update workflow store immediately with new positions
     const newWorkflowState = {
       ...workflowStore.getWorkflowState(),
@@ -221,7 +284,7 @@ export async function applyAutoLayoutAndUpdateStore({
       lastSaved: Date.now(),
     }
 
-    useWorkflowStore.setState(newWorkflowState, false, channelId)
+    useWorkflowStore.setStateForChannel(newWorkflowState, channelId, false)
 
     logger.info('Successfully updated workflow store with auto layout', {
       workflowId: resolvedWorkflowId,
@@ -260,18 +323,31 @@ export async function applyAutoLayoutAndUpdateStore({
       }
 
       // Save the updated workflow state to the database
-      const response = await fetch(`/api/workflows/${resolvedWorkflowId}/state`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(cleanedWorkflowState),
-      })
+    const response = await fetch(`/api/workflows/${resolvedWorkflowId}/state`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(cleanedWorkflowState),
+    })
 
-      if (!response.ok) {
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}: ${response.statusText}`
+      try {
         const errorData = await response.json()
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
+        const details =
+          typeof errorData?.details === 'string'
+            ? errorData.details
+            : JSON.stringify(errorData?.details || errorData)
+        errorMessage = errorData?.error
+          ? `${errorData.error}${details ? ` - ${details}` : ''}`
+          : errorMessage
+      } catch (parseError) {
+        // Ignore JSON parse errors and fall back to generic message
       }
+
+      throw new Error(errorMessage)
+    }
 
       logger.info('Auto layout successfully persisted to database', {
         workflowId: resolvedWorkflowId,
@@ -279,20 +355,24 @@ export async function applyAutoLayoutAndUpdateStore({
       })
       return { success: true }
     } catch (saveError) {
+      const message =
+        saveError instanceof Error && saveError.message
+          ? saveError.message
+          : JSON.stringify(saveError)
       logger.error('Failed to save auto layout to database, reverting store changes:', {
         workflowId: resolvedWorkflowId,
-        error: saveError,
+        error: message,
       })
 
       // Revert the store changes since database save failed
-      useWorkflowStore.setState(
+      useWorkflowStore.setStateForChannel(
         {
           ...workflowStore.getWorkflowState(),
           blocks, // Revert to original blocks
           lastSaved: workflowStore.lastSaved, // Revert lastSaved
         },
-        false,
-        channelId
+        channelId,
+        false
       )
 
       return {

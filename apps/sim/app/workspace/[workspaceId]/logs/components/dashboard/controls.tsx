@@ -120,7 +120,7 @@ export function Controls({
           <TooltipContent>Export CSV</TooltipContent>
         </Tooltip>
 
-        <div className='inline-flex h-9 items-center rounded-md border bg-card p-1 shadow-sm'>
+        <div className='inline-flex h-9 items-center rounded-md border bg-muted p-1 gap-1 shadow-sm'>
           <Button
             variant='ghost'
             size='sm'
@@ -137,7 +137,7 @@ export function Controls({
           </Button>
         </div>
 
-        <div className='inline-flex h-9 items-center rounded-md border bg-card p-1 shadow-sm'>
+        <div className='inline-flex h-9 items-center rounded-md border bg-muted p-1 gap-1 shadow-sm'>
           <Button
             variant='ghost'
             size='sm'
@@ -145,7 +145,7 @@ export function Controls({
             className={cn(
               'h-7 rounded-sm px-3 font-normal text-xs',
               (viewMode as string) !== 'dashboard'
-                ? 'bg-muted text-foreground'
+                ? 'bg-background text-foreground'
                 : 'text-muted-foreground hover:text-foreground'
             )}
             aria-pressed={(viewMode as string) !== 'dashboard'}
@@ -159,7 +159,7 @@ export function Controls({
             className={cn(
               'h-7 rounded-sm px-3 font-normal text-xs',
               (viewMode as string) === 'dashboard'
-                ? 'bg-muted text-foreground'
+                ? 'bg-background text-foreground'
                 : 'text-muted-foreground hover:text-foreground'
             )}
             aria-pressed={(viewMode as string) === 'dashboard'}

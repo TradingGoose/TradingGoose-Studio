@@ -5,17 +5,65 @@ import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('Utils')
+const HEX_KEY_REGEX = /^[0-9a-fA-F]{64}$/
+const BASE64_KEY_REGEX = /^[0-9a-zA-Z+/=]+$/
+
+type NonHexKeyFormat = 'base64' | 'utf8'
+let encryptionKeyWarningType: NonHexKeyFormat | null = null
+
+function warnAboutEncryptionKey(format: NonHexKeyFormat) {
+  if (encryptionKeyWarningType === format) {
+    return
+  }
+
+  encryptionKeyWarningType = format
+  const message =
+    format === 'base64'
+      ? 'ENCRYPTION_KEY appears to be base64 encoded. Please switch to a 64-character hex string generated with `openssl rand -hex 32`.'
+      : 'ENCRYPTION_KEY is not a 64-character hex string. Falling back to raw string bytes for backward compatibility – please update your configuration.'
+  logger.warn(message)
+}
+
+function decodeBase64Key(key: string): Buffer | null {
+  if (key.length % 4 !== 0 || !BASE64_KEY_REGEX.test(key)) {
+    return null
+  }
+
+  try {
+    const decoded = Buffer.from(key, 'base64')
+    return decoded.length === 32 ? decoded : null
+  } catch {
+    return null
+  }
+}
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
 function getEncryptionKey(): Buffer {
-  const key = env.ENCRYPTION_KEY
-  if (!key || key.length !== 64) {
+  const rawKey = env.ENCRYPTION_KEY?.trim()
+  if (!rawKey) {
     throw new Error('ENCRYPTION_KEY must be set to a 64-character hex string (32 bytes)')
   }
-  return Buffer.from(key, 'hex')
+
+  if (HEX_KEY_REGEX.test(rawKey)) {
+    return Buffer.from(rawKey, 'hex')
+  }
+
+  const base64Key = decodeBase64Key(rawKey)
+  if (base64Key) {
+    warnAboutEncryptionKey('base64')
+    return base64Key
+  }
+
+  const utf8Buffer = Buffer.from(rawKey, 'utf8')
+  if (utf8Buffer.length === 32) {
+    warnAboutEncryptionKey('utf8')
+    return utf8Buffer
+  }
+
+  throw new Error('ENCRYPTION_KEY must be set to a 64-character hex string (32 bytes)')
 }
 
 /**

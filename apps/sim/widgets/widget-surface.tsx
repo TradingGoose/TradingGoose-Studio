@@ -95,7 +95,7 @@ function WidgetSurfaceComponent({
   return (
     <div className='box-border flex h-full max-h-full min-h-0 w-full min-w-0 max-w-full flex-1 basis-0 p-1'>
       <Card className='flex h-full max-h-full min-h-0 w-full max-w-full flex-1 flex-col overflow-hidden rounded-lg border border-border bg-background'>
-        <header className='border-border/80 border-b text-accent-foreground'>
+        <header className='border-border/80 border-b text-accent-foreground bg-muted/40'>
           <div
             ref={headerScrollRef}
             onWheel={handleHorizontalWheel}
