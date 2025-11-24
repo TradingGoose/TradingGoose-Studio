@@ -16,6 +16,16 @@ interface Logger {
  */
 export function createHttpHandler(roomManager: RoomManager, logger: Logger) {
   return (req: IncomingMessage, res: ServerResponse) => {
+    // If the response is already handled (e.g., by Socket.IO), bail out to avoid double writes
+    if (res.writableEnded || res.headersSent) {
+      return
+    }
+
+    // Let Socket.IO own its transport endpoints entirely
+    if (req.url?.startsWith('/socket.io')) {
+      return
+    }
+
     if (req.method === 'GET' && req.url === '/health') {
       res.writeHead(200, { 'Content-Type': 'application/json' })
       res.end(

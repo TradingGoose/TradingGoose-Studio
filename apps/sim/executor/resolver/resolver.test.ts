@@ -2830,6 +2830,84 @@ describe('InputResolver', () => {
     })
   })
 
+  describe('Trigger reference array property fallback', () => {
+    it.concurrent('should resolve first file property when referencing trigger files without index', () => {
+      const chatWorkflow: SerializedWorkflow = {
+        version: '1.0',
+        blocks: [
+          {
+            id: 'chat-block',
+            metadata: { id: 'chat_trigger', name: 'Chat', category: 'triggers' },
+            position: { x: 0, y: 0 },
+            config: { tool: 'chat_trigger', params: {} },
+            inputs: {},
+            outputs: {},
+            enabled: true,
+          },
+          {
+            id: 'consumer-block',
+            metadata: { id: 'generic', name: 'Consumer' },
+            position: { x: 200, y: 0 },
+            config: {
+              tool: 'generic',
+              params: {
+                fileUrl: '<chat.files.url>',
+              },
+            },
+            inputs: {
+              fileUrl: 'string',
+            },
+            outputs: {},
+            enabled: true,
+          },
+        ],
+        connections: [{ source: 'chat-block', target: 'consumer-block' }],
+        loops: {},
+      }
+
+      const file = {
+        url: 'https://example.com/file.txt',
+        name: 'file.txt',
+        type: 'text/plain',
+      }
+
+      const chatContext: ExecutionContext = {
+        workflowId: 'chat-workflow',
+        workflow: chatWorkflow,
+        blockStates: new Map([
+          [
+            'chat-block',
+            {
+              output: {
+                input: 'hello world',
+                conversationId: 'conv-123',
+                files: [file],
+              },
+              executed: true,
+              executionTime: 0,
+            },
+          ],
+        ]),
+        activeExecutionPath: new Set(['chat-block', 'consumer-block']),
+        blockLogs: [],
+        metadata: { duration: 0 },
+        environmentVariables: {},
+        decisions: { router: new Map(), condition: new Map() },
+        loopIterations: new Map(),
+        loopItems: new Map(),
+        completedLoops: new Set(),
+        executedBlocks: new Set(['chat-block']),
+      }
+
+      const triggerResolver = new InputResolver(chatWorkflow, {}, {})
+
+      const consumerBlock = chatWorkflow.blocks[1]
+      const result = triggerResolver.resolveInputs(consumerBlock, chatContext)
+
+      expect(result.fileUrl).toBe(file.url)
+    })
+  })
+
   describe('Variable Reference Validation', () => {
     it.concurrent('should allow block references without dots like <start>', () => {
       const block: SerializedBlock = {

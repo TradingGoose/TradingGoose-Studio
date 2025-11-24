@@ -548,7 +548,19 @@ export class InputResolver {
                 )
               } else {
                 // Regular property access with FileReference mapping
-                replacementValue = resolvePropertyAccess(replacementValue, part)
+                const directValue = resolvePropertyAccess(replacementValue, part)
+
+                // If we're working with an array and no direct property match, fall back to first item property access.
+                if (directValue === undefined && Array.isArray(replacementValue)) {
+                  const firstItem = replacementValue[0]
+                  if (firstItem && typeof firstItem === 'object' && part in firstItem) {
+                    replacementValue = (firstItem as any)[part]
+                  } else {
+                    replacementValue = directValue
+                  }
+                } else {
+                  replacementValue = directValue
+                }
               }
 
               if (replacementValue === undefined) {
@@ -781,7 +793,19 @@ export class InputResolver {
           )
         } else {
           // Regular property access with FileReference mapping
-          replacementValue = resolvePropertyAccess(replacementValue, part)
+          const directValue = resolvePropertyAccess(replacementValue, part)
+
+          // If working with an array, allow property access on the first element as a compatibility fallback.
+          if (directValue === undefined && Array.isArray(replacementValue)) {
+            const firstItem = replacementValue[0]
+            if (firstItem && typeof firstItem === 'object' && part in firstItem) {
+              replacementValue = (firstItem as any)[part]
+            } else {
+              replacementValue = directValue
+            }
+          } else {
+            replacementValue = directValue
+          }
         }
 
         if (replacementValue === undefined) {

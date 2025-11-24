@@ -279,17 +279,26 @@ export class AgentBlockHandler implements BlockHandler {
         headers,
       })
       if (!response.ok) {
-        throw new Error(`Failed to discover tools from server ${serverId}`)
+        const errorText = await response.text().catch(() => '')
+        logger.warn(
+          `Failed to discover tools from server ${serverId} (status ${response.status})`,
+          { errorText }
+        )
+        return null
       }
 
       const data = await response.json()
       if (!data.success) {
-        throw new Error(data.error || 'Failed to discover MCP tools')
+        logger.warn(`MCP discovery returned unsuccessful for ${serverId}`, {
+          error: data.error,
+        })
+        return null
       }
 
       const mcpTool = data.data.tools.find((t: any) => t.name === toolName)
       if (!mcpTool) {
-        throw new Error(`MCP tool ${toolName} not found on server ${serverId}`)
+        logger.warn(`MCP tool ${toolName} not found on server ${serverId}`)
+        return null
       }
 
       const toolId = createMcpToolId(serverId, toolName)
@@ -358,7 +367,7 @@ export class AgentBlockHandler implements BlockHandler {
         },
       }
     } catch (error) {
-      logger.error(`Failed to create MCP tool ${toolName} from server ${serverId}:`, error)
+      logger.warn(`Failed to create MCP tool ${toolName} from server ${serverId}:`, error)
       return null
     }
   }

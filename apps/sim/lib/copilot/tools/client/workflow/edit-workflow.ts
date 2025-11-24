@@ -88,6 +88,12 @@ export class EditWorkflowClientTool extends BaseClientTool {
         return
       }
 
+      // Try to locate the workflow store for the channel that actually loaded this workflow
+      const registryState = useWorkflowRegistry.getState() as any
+      const channelIdForWorkflow = Object.entries(registryState?.activeWorkflowIds || {}).find(
+        ([channel, id]) => id === workflowId && registryState?.loadedWorkflowIds?.[channel]
+      )?.[0] as string | undefined
+
       // Validate operations
       const operations = args?.operations || []
       if (!operations.length) {
@@ -128,7 +134,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
 
       if (!currentUserWorkflow && !usedDiffWorkflow) {
         try {
-          const workflowStore = useWorkflowStore.getState()
+          const workflowStore = useWorkflowStore.getState(channelIdForWorkflow)
           const fullState = workflowStore.getWorkflowState()
           let merged = fullState
           if (merged?.blocks) {

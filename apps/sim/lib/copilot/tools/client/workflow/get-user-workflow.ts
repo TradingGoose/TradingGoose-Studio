@@ -42,9 +42,10 @@ export class GetUserWorkflowClientTool extends BaseClientTool {
       this.setState(ClientToolCallState.executing)
 
       // Determine workflow ID (explicit or active)
+      const registryState = useWorkflowRegistry.getState() as any
       let workflowId = args?.workflowId
       if (!workflowId) {
-        const { activeWorkflowId } = useWorkflowRegistry.getState()
+        const { activeWorkflowId } = registryState
         if (!activeWorkflowId) {
           await this.markToolComplete(400, 'No active workflow found')
           this.setState(ClientToolCallState.error)
@@ -53,9 +54,15 @@ export class GetUserWorkflowClientTool extends BaseClientTool {
         workflowId = activeWorkflowId as any
       }
 
+      // Try to locate the workflow store for the channel that actually loaded this workflow
+      const channelIdForWorkflow = Object.entries(registryState?.activeWorkflowIds || {}).find(
+        ([channel, id]) => id === workflowId && registryState?.loadedWorkflowIds?.[channel]
+      )?.[0] as string | undefined
+
       logger.info('Fetching user workflow from stores', {
         workflowId,
         includeMetadata: args?.includeMetadata,
+        channelIdForWorkflow,
       })
 
       // Prefer diff/preview store if available; otherwise use main workflow store
@@ -66,13 +73,12 @@ export class GetUserWorkflowClientTool extends BaseClientTool {
         workflowState = diffStore.diffWorkflow
         logger.info('Using workflow from diff/preview store', { workflowId })
       } else {
-        const workflowStore = useWorkflowStore.getState()
+        const workflowStore = useWorkflowStore.getState(channelIdForWorkflow)
         const fullWorkflowState = workflowStore.getWorkflowState()
 
         if (!fullWorkflowState || !fullWorkflowState.blocks) {
-          const workflowRegistry = useWorkflowRegistry.getState()
           const wfKey = String(workflowId)
-          const workflow = (workflowRegistry as any).workflows?.[wfKey]
+          const workflow = (registryState as any).workflows?.[wfKey]
 
           if (!workflow) {
             await this.markToolComplete(404, `Workflow ${workflowId} not found in any store`)

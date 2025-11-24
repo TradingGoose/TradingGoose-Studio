@@ -4,6 +4,7 @@
  * @vitest-environment node
  */
 import { createServer } from 'http'
+import { io as createClient } from 'socket.io-client'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createLogger } from '@/lib/logs/console/logger'
 import { createSocketIOServer } from '@/socket-server/config/socket'
@@ -223,6 +224,27 @@ describe('Socket Server Index Integration', () => {
 
       expect(roomManager.hasWorkflowRoom(workflowId)).toBe(false)
       expect(roomManager.getWorkflowIdForSocket(socketId)).toBeUndefined()
+    })
+  })
+
+  describe('Socket.IO integration', () => {
+    it('should allow socket connections alongside the HTTP handler', async () => {
+      const client = createClient(`http://localhost:${PORT}`, {
+        transports: ['polling', 'websocket'],
+        timeout: 5000,
+        forceNew: true,
+      })
+
+      try {
+        await new Promise<void>((resolve, reject) => {
+          client.on('connect', () => resolve())
+          client.on('connect_error', (err) => reject(err))
+        })
+
+        expect(client.connected).toBe(true)
+      } finally {
+        client.close()
+      }
     })
   })
 
