@@ -5,7 +5,15 @@ import { Badge, Progress } from '@/components/ui'
 import { cn } from '@/lib/utils'
 
 const GRADIENT_BADGE_STYLES =
-  'gradient-text h-[1.125rem] rounded-md border-gradient-primary/20 bg-gradient-to-b from-gradient-primary via-gradient-secondary to-gradient-primary px-2 py-0 font-medium text-xs cursor-pointer'
+  'gradient-text h-[1.125rem] rounded-md border-gradient-primary from-gradient-primary via-gradient-secondary to-gradient-primary px-2 py-0 font-medium text-xs font-bold'
+
+const USAGE_PILL_COUNT = 8
+const calculateFilledPills = (percent: number) => {
+  const clamped = Math.max(0, Math.min(percent, 100))
+  const filled = Math.round((clamped / 100) * USAGE_PILL_COUNT)
+  // Show at least one pill when there is any usage but rounding would yield 0
+  return clamped > 0 && filled === 0 ? 1 : filled
+}
 
 interface UsageHeaderProps {
   title: string
@@ -41,9 +49,12 @@ export function UsageHeader({
   percentUsed,
 }: UsageHeaderProps) {
   const progress = progressValue ?? (limit > 0 ? Math.min((current / limit) * 100, 100) : 0)
+  const filledPillsCount = calculateFilledPills(progress)
+  const isAlmostOut = filledPillsCount === USAGE_PILL_COUNT
+  const formattedLimit = Number.isFinite(limit) ? Number(limit).toFixed(2) : '0.00'
 
   return (
-    <div className='rounded-sm border bg-background p-3 shadow-xs'>
+    <div className='rounded-md border bg-background p-3 shadow-xs'>
       <div className='space-y-2'>
         <div className='flex items-center justify-between'>
           <div className='flex items-center gap-2'>
@@ -73,17 +84,29 @@ export function UsageHeader({
               <>
                 <span className='text-muted-foreground'>${current.toFixed(2)}</span>
                 <span className='text-muted-foreground'>/</span>
-                {rightContent ?? <span className='text-muted-foreground'>${limit}</span>}
+                {rightContent ?? (
+                  <span className='text-muted-foreground'>${formattedLimit}</span>
+                )}
               </>
             )}
           </div>
         </div>
 
-        <Progress
-          value={isBlocked ? 100 : progress}
-          className='h-2'
-          indicatorClassName='bg-black dark: '
-        />
+        {/* Usage pills for clearer low-limit visualization */}
+        <div className='flex items-center gap-1'>
+          {Array.from({ length: USAGE_PILL_COUNT }).map((_, i) => {
+            const isFilled = i < filledPillsCount
+            return (
+              <div
+                key={i}
+                className='h-1.5 flex-1 rounded-sm'
+                style={{
+                  backgroundColor: isFilled ? (isAlmostOut ? '#ef4444' : '#ffcc00') : '#88888825',
+                }}
+              />
+            )
+          })}
+        </div>
 
         {isBlocked && (
           <div className='flex items-center justify-between rounded-md bg-destructive/10 px-2 py-1'>

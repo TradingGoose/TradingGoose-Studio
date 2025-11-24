@@ -13,19 +13,20 @@ import type {
 import { getNextWorkflowColor } from '@/stores/workflows/registry/utils'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store'
-import { isPairColor, type PAIR_COLORS } from '@/widgets/pair-colors'
+import { isPairColor, type PairColor, type PAIR_COLORS } from '@/widgets/pair-colors'
 
 const logger = createLogger('WorkflowRegistry')
 
 let isFetching = false
 let lastFetchTimestamp = 0
+let pendingFetchPromise: Promise<void> | null = null
 
 const DEFAULT_WORKFLOW_CHANNEL_ID = 'default'
 
 const resolveChannelId = (channelId?: string) =>
   channelId && channelId.trim().length > 0 ? channelId : DEFAULT_WORKFLOW_CHANNEL_ID
 
-const getPairColorFromChannelId = (channelId?: string): string | null => {
+const getPairColorFromChannelId = (channelId?: string): PairColor | null => {
   if (!channelId) return null
   const prefix = 'pair-'
   if (!channelId.startsWith(prefix)) return null
@@ -63,11 +64,24 @@ const syncRegistryFromPairContexts = (
   useWorkflowRegistry.setState((state) => {
     const nextActiveWorkflowIds = { ...state.activeWorkflowIds }
     const nextLoadedWorkflowIds = { ...state.loadedWorkflowIds }
-    removals.forEach((chan) => delete nextActiveWorkflowIds[chan])
-    Object.entries(updates).forEach(([chan, wfId]) => {
-      nextActiveWorkflowIds[chan] = wfId
-      delete nextLoadedWorkflowIds[chan] // mark as not yet loaded
+
+    removals.forEach((chan) => {
+      delete nextActiveWorkflowIds[chan]
+      delete nextLoadedWorkflowIds[chan]
     })
+
+    Object.entries(updates).forEach(([chan, wfId]) => {
+      const previousActive = state.activeWorkflowIds[chan]
+      nextActiveWorkflowIds[chan] = wfId
+
+      // Only reset the loaded flag when the workflow changed; keep it when linking the same one
+      if (previousActive === wfId && state.loadedWorkflowIds[chan]) {
+        nextLoadedWorkflowIds[chan] = state.loadedWorkflowIds[chan]
+      } else {
+        nextLoadedWorkflowIds[chan] = false
+      }
+    })
+
     return {
       ...state,
       activeWorkflowIds: nextActiveWorkflowIds,
@@ -319,6 +333,49 @@ export function hasWorkflowsInitiallyLoaded(): boolean {
 // Track if initial load has happened to prevent premature navigation
 let hasInitiallyLoaded = false
 
+// Cache for workflow data to prevent redundant fetches
+const workflowCache = new Map<string, { data: any; timestamp: number }>()
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
+// Map to track in-flight requests for deduplication
+const pendingRequests = new Map<string, Promise<any>>()
+
+async function fetchWorkflowData(id: string): Promise<any> {
+  // Check cache first
+  const cached = workflowCache.get(id)
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    logger.info(`Using cached data for workflow ${id}`)
+    return cached.data
+  }
+
+  // Check for pending request
+  if (pendingRequests.has(id)) {
+    logger.info(`Reusing in-flight request for workflow ${id}`)
+    return pendingRequests.get(id)
+  }
+
+  // Create new request
+  const promise = (async () => {
+    try {
+      const response = await fetch(`/api/workflows/${id}`, { method: 'GET' })
+      if (!response.ok) {
+        throw new Error(`Failed to fetch workflow: ${response.statusText}`)
+      }
+      const { data } = await response.json()
+
+      // Update cache
+      workflowCache.set(id, { data, timestamp: Date.now() })
+      return data
+    } finally {
+      // Remove from pending requests
+      pendingRequests.delete(id)
+    }
+  })()
+
+  pendingRequests.set(id, promise)
+  return promise
+}
+
 export const useWorkflowRegistry = create<WorkflowRegistry>()(
   devtools(
     (set, get) => ({
@@ -341,7 +398,17 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
 
       // Simple method to load workflows (replaces sync system)
       loadWorkflows: async (workspaceId?: string) => {
-        await fetchWorkflowsFromDB(workspaceId)
+        // Deduplicate loadWorkflows calls
+        if (isFetching && pendingFetchPromise) {
+          // If already fetching, wait for the existing promise
+          return pendingFetchPromise
+        }
+
+        pendingFetchPromise = fetchWorkflowsFromDB(workspaceId).finally(() => {
+          pendingFetchPromise = null
+        })
+
+        await pendingFetchPromise
       },
 
       // Switch to workspace - just clear state, let sidebar handle workflow loading
@@ -523,9 +590,16 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
 
         logger.info(`Switching to workflow ${id}`)
 
-        // Fetch workflow state from database
-        const response = await fetch(`/api/workflows/${id}`, { method: 'GET' })
-        const workflowData = response.ok ? (await response.json()).data : null
+        // Use request deduplication and caching
+        let workflowData: any
+
+        try {
+          workflowData = await fetchWorkflowData(id)
+        } catch (error) {
+          logger.error(`Failed to fetch workflow data for ${id}:`, error)
+          set({ error: `Failed to load workflow: ${id}` })
+          throw error
+        }
 
         let workflowState: any
 
@@ -1258,7 +1332,4 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
 
 // Keep registry channel map in sync with pair color contexts so linked widgets retain their workflow IDs.
 syncRegistryFromPairContexts(usePairColorStore.getState().contexts)
-usePairColorStore.subscribe(
-  (state) => state.contexts,
-  (contexts) => syncRegistryFromPairContexts(contexts)
-)
+usePairColorStore.subscribe((state) => syncRegistryFromPairContexts(state.contexts))

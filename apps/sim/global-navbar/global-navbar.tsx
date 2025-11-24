@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   Sidebar,
   SidebarContent,
@@ -18,18 +18,23 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { useSession } from '@/lib/auth-client'
 import { getBrandConfig } from '@/lib/branding/branding'
+import { getEnv, isTruthy } from '@/lib/env'
 import { generateWorkspaceName } from '@/lib/naming'
 import { HelpModal } from '@/app/workspace/[workspaceId]/w/components/sidebar/components/help-modal/help-modal'
 import { SettingsModal } from '@/app/workspace/[workspaceId]/w/components/sidebar/components/settings-modal/settings-modal'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { useOrganizationStore } from '@/stores/organization'
 import { NavbarHeader } from './components/navbar-header'
-import { SidebarNav } from './components/sidebar-nav'
+import { SidebarNav, SidebarUsageIndicator } from './components/sidebar-nav'
 import { UserMenu } from './components/user-menu'
 import { WorkspaceDialogs } from './components/workspace-dialogs'
 import { WorkspaceSwitcher } from './components/workspace-switcher'
 import { GlobalNavbarHeaderProvider } from './header-context'
 import { AccountSettingsModal } from './settings-modal/components/account-settings-modal'
+import { CopilotSettingsModal } from './settings-modal/components/copilot-settings-modal'
+import { GeneralSettingsModal } from './settings-modal/components/general-settings-modal'
 import { SubscriptionSettingsModal } from './settings-modal/components/subscription-settings-modal'
+import { TeamManagementSettingsModal } from './settings-modal/components/team-management-settings-modal'
 import type { NavSection, Workspace } from './types'
 import {
   createNavSections,
@@ -43,6 +48,7 @@ const LANDING_ROUTE_PREFIXES = ['/privacy', '/terms', '/careers', '/blog'] as co
 
 export function GlobalNavbar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? '/'
+  const router = useRouter()
   const brand = React.useMemo(() => getBrandConfig(), [])
   const { data: sessionData, isPending: isSessionLoading } = useSession()
   const switchToWorkspace = useWorkflowRegistry((state) => state.switchToWorkspace)
@@ -53,6 +59,13 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
     [pathname, workspaceNavItems]
   )
   const activeNavItem = React.useMemo(() => navMain.find((item) => item.isActive), [navMain])
+  const billingEnabled = React.useMemo(() => {
+    const runtimeFlag = getEnv('NEXT_PUBLIC_BILLING_ENABLED')
+    const buildFlag = process.env.NEXT_PUBLIC_BILLING_ENABLED ?? process.env.BILLING_ENABLED
+    return isTruthy(runtimeFlag ?? buildFlag)
+  }, [])
+  const hasOrganization = useOrganizationStore((state) => Boolean(state.activeOrganization?.id))
+  const canManageTeam = billingEnabled && hasOrganization
   const [workspaces, setWorkspaces] = React.useState<Workspace[]>([])
   const [activeWorkspace, setActiveWorkspace] = React.useState<Workspace | null>(null)
   const [isWorkspacesLoading, setIsWorkspacesLoading] = React.useState(true)
@@ -75,8 +88,15 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
   const [deleteError, setDeleteError] = React.useState<string | null>(null)
   const [isHelpModalOpen, setIsHelpModalOpen] = React.useState(false)
   const [isAccountModalOpen, setIsAccountModalOpen] = React.useState(false)
+  const [isGeneralSettingsModalOpen, setIsGeneralSettingsModalOpen] = React.useState(false)
+  const [isCopilotSettingsModalOpen, setIsCopilotSettingsModalOpen] = React.useState(false)
+  const [isTeamManagementModalOpen, setIsTeamManagementModalOpen] = React.useState(false)
   const [isSettingsModalOpen, setIsSettingsModalOpen] = React.useState(false)
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = React.useState(false)
+  const [userAvatarOverride, setUserAvatarOverride] = React.useState<{
+    url: string | null
+    version: number | string | null
+  }>({ url: null, version: null })
 
   const isAuthenticated = Boolean(sessionData?.user?.id)
   const isAuthRoute = React.useMemo(
@@ -91,9 +111,66 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
   const shouldRenderNavbar = isSidebarRoute && !isLandingRoute && !isAuthRoute
   const shouldShowSkeleton = shouldRenderNavbar && isSessionLoading
 
+  const userId = sessionData?.user?.id ?? null
   const userName = sessionData?.user?.name ?? brand.name
   const userEmail = sessionData?.user?.email ?? brand.supportEmail ?? 'help@sim.ai'
-  const userAvatar = sessionData?.user?.image ?? brand.logoUrl
+  const userAvatar = userAvatarOverride.url ?? sessionData?.user?.image ?? brand.logoUrl
+  const userAvatarVersion =
+    userAvatarOverride.version ??
+    (sessionData?.user?.updatedAt
+      ? new Date(sessionData.user.updatedAt).getTime()
+      : null)
+
+  React.useEffect(() => {
+    if (!canManageTeam && isTeamManagementModalOpen) {
+      setIsTeamManagementModalOpen(false)
+    }
+  }, [canManageTeam, isTeamManagementModalOpen])
+
+  React.useEffect(() => {
+    if (!userId || typeof window === 'undefined') return
+
+    const readStoredAvatar = () => {
+      const storedVersion = window.localStorage.getItem(`user-avatar-version-${userId}`)
+      const storedUrl = window.localStorage.getItem(`user-avatar-url-${userId}`)
+      if (storedVersion || storedUrl !== null) {
+        setUserAvatarOverride((prev) => ({
+          url: storedUrl !== null ? storedUrl || null : prev.url,
+          version: storedVersion ?? prev.version,
+        }))
+      }
+    }
+
+    const handleStorage = (event: StorageEvent) => {
+      if (!event.key) return
+      if (
+        event.key === `user-avatar-version-${userId}` ||
+        event.key === `user-avatar-url-${userId}`
+      ) {
+        readStoredAvatar()
+      }
+    }
+
+    const handleAvatarEvent = (event: Event) => {
+      const customEvent = event as CustomEvent<{ url?: string | null; version?: number }>
+      const detail = customEvent.detail
+      setUserAvatarOverride((prev) => ({
+        url: detail && 'url' in detail ? detail?.url ?? null : prev.url,
+        version:
+          detail && 'version' in detail
+            ? detail?.version ?? prev.version ?? Date.now()
+            : prev.version ?? Date.now(),
+      }))
+    }
+
+    readStoredAvatar()
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener('user-avatar-updated', handleAvatarEvent)
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('user-avatar-updated', handleAvatarEvent)
+    }
+  }, [userId])
 
   const createDefaultWorkspace = React.useCallback(async () => {
     try {
@@ -192,11 +269,11 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
           console.error('Failed to reset workflow state during workspace switch', error)
         }
         const targetPath = getWorkspaceSwitchPath(pathname, workspace.id)
-        // Force a full reload so all workspace-scoped data is fetched fresh
-        window.location.assign(targetPath)
+        // Client navigation only; avoid full page reload
+        router.push(targetPath)
       }
     },
-    [pathname, switchToWorkspace, workspaceId]
+    [pathname, router, switchToWorkspace, workspaceId]
   )
 
   const handleCreateWorkspace = React.useCallback(async () => {
@@ -453,12 +530,20 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
             </SidebarContent>
             <SidebarFooter className='flex flex-col gap-2 px-2 py-3'>
               <SidebarHelpButton onClick={() => setIsHelpModalOpen(true)} />
+              <SidebarUsageIndicator
+                onOpenSubscriptionSettings={() => setIsSubscriptionModalOpen(true)}
+              />
               <UserMenu
+                userId={userId}
                 userName={userName}
                 userEmail={userEmail}
                 userAvatar={userAvatar}
+                userAvatarVersion={userAvatarVersion}
                 onOpenAccountSettings={() => setIsAccountModalOpen(true)}
-                onOpenSubscriptionSettings={() => setIsSubscriptionModalOpen(true)}
+                onOpenGeneralSettings={() => setIsGeneralSettingsModalOpen(true)}
+                onOpenCopilotSettings={() => setIsCopilotSettingsModalOpen(true)}
+                onOpenTeamManagement={() => setIsTeamManagementModalOpen(true)}
+                canManageTeam={canManageTeam}
               />
             </SidebarFooter>
             <SidebarRail />
@@ -498,6 +583,18 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
         />
         <SettingsModal open={isSettingsModalOpen} onOpenChange={setIsSettingsModalOpen} />
         <AccountSettingsModal open={isAccountModalOpen} onOpenChange={setIsAccountModalOpen} />
+        <GeneralSettingsModal
+          open={isGeneralSettingsModalOpen}
+          onOpenChange={setIsGeneralSettingsModalOpen}
+        />
+        <CopilotSettingsModal
+          open={isCopilotSettingsModalOpen}
+          onOpenChange={setIsCopilotSettingsModalOpen}
+        />
+        <TeamManagementSettingsModal
+          open={isTeamManagementModalOpen && canManageTeam}
+          onOpenChange={setIsTeamManagementModalOpen}
+        />
         <SubscriptionSettingsModal
           open={isSubscriptionModalOpen}
           onOpenChange={setIsSubscriptionModalOpen}

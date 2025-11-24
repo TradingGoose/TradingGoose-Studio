@@ -4,18 +4,14 @@ import {
   CreditCard,
   Home,
   LogIn,
-  Settings,
-  Shield,
   User,
   Users,
-  Waypoints,
 } from 'lucide-react'
 import { useSession } from '@/lib/auth-client'
 import { getEnv, isTruthy } from '@/lib/env'
 import { isHosted } from '@/lib/environment'
 import { cn } from '@/lib/utils'
 import { useOrganizationStore } from '@/stores/organization'
-import { useGeneralStore } from '@/stores/settings/general/store'
 import { useSubscriptionStore } from '@/stores/subscription/store'
 
 const isBillingEnabled = isTruthy(getEnv('NEXT_PUBLIC_BILLING_ENABLED'))
@@ -24,14 +20,11 @@ interface SettingsNavigationProps {
   activeSection: string
   onSectionChange: (
     section:
-      | 'general'
       | 'account'
-      | 'credentials'
       | 'files'
       | 'subscription'
       | 'team'
       | 'sso'
-      | 'privacy'
       | 'copilot'
   ) => void
   hasOrganization: boolean
@@ -39,15 +32,12 @@ interface SettingsNavigationProps {
 
 type NavigationItem = {
   id:
-  | 'general'
   | 'account'
-  | 'credentials'
   | 'files'
   | 'subscription'
   | 'team'
   | 'sso'
   | 'copilot'
-  | 'privacy'
   label: string
   icon: React.ComponentType<{ className?: string }>
   hideWhenBillingDisabled?: boolean
@@ -58,16 +48,6 @@ type NavigationItem = {
 
 const allNavigationItems: NavigationItem[] = [
   {
-    id: 'general',
-    label: 'General',
-    icon: Settings,
-  },
-  {
-    id: 'credentials',
-    label: 'Integrations',
-    icon: Waypoints,
-  },
-  {
     id: 'account',
     label: 'Account',
     icon: User,
@@ -76,11 +56,6 @@ const allNavigationItems: NavigationItem[] = [
     id: 'copilot',
     label: 'Copilot',
     icon: Bot,
-  },
-  {
-    id: 'privacy',
-    label: 'Privacy',
-    icon: Shield,
   },
   {
     id: 'subscription',
@@ -157,7 +132,7 @@ export function SettingsNavigation({
       if (isHosted) {
         return hasOrganization && hasEnterprisePlan && canManageSSO
       }
-      return isSSOProviderOwner === true
+      return isSSOProviderOwner === true //check for self-hosted, hide for self-hosted
     }
 
     if (item.requiresOwner && !isOwner) {
@@ -179,9 +154,6 @@ export function SettingsNavigation({
             <button
               onMouseEnter={() => {
                 switch (item.id) {
-                  case 'general':
-                    useGeneralStore.getState().loadSettings()
-                    break
                   case 'subscription':
                     useSubscriptionStore.getState().loadData()
                     break

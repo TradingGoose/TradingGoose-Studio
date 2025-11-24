@@ -1,7 +1,15 @@
 "use client"
 
 import Image from 'next/image'
-import { type ChangeEvent, type DragEvent, useEffect, useRef, useState } from 'react'
+import {
+  type ChangeEvent,
+  type DragEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { AlertCircle, Check, Loader2, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -22,7 +30,8 @@ interface AccountSettingsModalProps {
 const logger = createLogger('AccountSettingsModal')
 
 export function AccountSettingsModal({ open, onOpenChange }: AccountSettingsModalProps) {
-  const { data: session } = useSession()
+  const { data: session, refetch: refetchSession } = useSession()
+  const userId = session?.user?.id ?? null
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [isSaving, setIsSaving] = useState(false)
@@ -36,6 +45,7 @@ export function AccountSettingsModal({ open, onOpenChange }: AccountSettingsModa
   const [isUpdatingName, setIsUpdatingName] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
   const [userImage, setUserImage] = useState<string | null>(null)
+  const [avatarVersion, setAvatarVersion] = useState<number | null>(null)
 
   const editNameInputRef = useRef<HTMLInputElement>(null)
 
@@ -60,6 +70,17 @@ export function AccountSettingsModal({ open, onOpenChange }: AccountSettingsModa
 
       setMessage('Profile saved.')
       setUserImage(imageUrl)
+      const version = Date.now()
+      setAvatarVersion(version)
+      if (typeof window !== 'undefined') {
+        if (userId) {
+          window.localStorage.setItem(`user-avatar-version-${userId}`, String(version))
+          window.localStorage.setItem(`user-avatar-url-${userId}`, imageUrl ?? '')
+        }
+        window.dispatchEvent(
+          new CustomEvent('user-avatar-updated', { detail: { url: imageUrl, version } })
+        )
+      }
     } catch (error) {
       logger.error('Failed to update profile picture', error)
       setProfilePictureError(
@@ -106,16 +127,36 @@ export function AccountSettingsModal({ open, onOpenChange }: AccountSettingsModa
         setName(data.user.name)
         setEmail(data.user.email)
         setUserImage(data.user.image || null)
+        setAvatarVersion(data.user.updatedAt ? new Date(data.user.updatedAt).getTime() : Date.now())
+        if (typeof window !== 'undefined' && userId) {
+          const version =
+            data.user.updatedAt && !Number.isNaN(Date.parse(data.user.updatedAt))
+              ? new Date(data.user.updatedAt).getTime()
+              : Date.now()
+          window.localStorage.setItem(`user-avatar-version-${userId}`, String(version))
+          window.localStorage.setItem(`user-avatar-url-${userId}`, data.user.image ?? '')
+        }
       } catch (error) {
         logger.error('Error fetching profile:', error)
         setName(session?.user?.name ?? '')
         setEmail(session?.user?.email ?? '')
         setUserImage(session?.user?.image ?? null)
+        setAvatarVersion(
+          session?.user?.updatedAt ? new Date(session.user.updatedAt).getTime() : Date.now()
+        )
+        if (typeof window !== 'undefined' && userId) {
+          const version =
+            session?.user?.updatedAt && !Number.isNaN(Date.parse(session.user.updatedAt))
+              ? new Date(session.user.updatedAt).getTime()
+              : Date.now()
+          window.localStorage.setItem(`user-avatar-version-${userId}`, String(version))
+          window.localStorage.setItem(`user-avatar-url-${userId}`, session?.user?.image ?? '')
+        }
       }
     }
 
     void fetchProfile()
-  }, [session?.user])
+  }, [session?.user, userId])
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -270,7 +311,21 @@ export function AccountSettingsModal({ open, onOpenChange }: AccountSettingsModa
     }
   }
 
-  const avatarSrc = previewUrl || userImage || session?.user?.image || null
+  const avatarSrc = useMemo(() => {
+    // Keep showing the local preview (blob URL) while uploading.
+    if (previewUrl?.startsWith('blob:')) return previewUrl
+
+    const base = userImage || session?.user?.image || previewUrl || null
+    if (!base) return null
+
+    const version =
+      avatarVersion ??
+      (session?.user?.updatedAt ? new Date(session.user.updatedAt).getTime() : null)
+
+    if (!version) return base
+    const separator = base.includes('?') ? '&' : '?'
+    return `${base}${separator}v=${version}`
+  }, [avatarVersion, previewUrl, session?.user?.image, session?.user?.updatedAt, userImage])
 
   return (
     <SettingsModal
@@ -280,7 +335,7 @@ export function AccountSettingsModal({ open, onOpenChange }: AccountSettingsModa
       contentClassName='p-0'
     >
       <div className='bg-muted/20 px-6 py-6'>
-        <Card className='rounded-sm border bg-background shadow-xs'>
+        <Card className='rounded-md border bg-background shadow-xs'>
           <CardContent className='p-0'>
             <div className='grid gap-6 p-6 sm:grid-cols-[280px,1fr]'>
               <Card className='border-none bg-transparent shadow-none'>
@@ -291,8 +346,8 @@ export function AccountSettingsModal({ open, onOpenChange }: AccountSettingsModa
                 <CardContent className='space-y-4'>
                   <div
                     className={`group relative flex flex-col items-center justify-center gap-4 rounded-sm border-2 border-dashed px-4 py-6 text-center transition-all ${isDragActive
-                        ? 'border-primary bg-primary/10'
-                        : 'border-muted-foreground/35 bg-card hover:border-primary/40 hover:bg-card/70'
+                      ? 'border-primary bg-primary/10'
+                      : 'border-muted-foreground/35 bg-card hover:border-primary/40 hover:bg-card/70'
                       }`}
                     onClick={handleThumbnailClick}
                     onDragOver={handleDragOver}
@@ -330,10 +385,6 @@ export function AccountSettingsModal({ open, onOpenChange }: AccountSettingsModa
                       <p className='text-muted-foreground text-xs'>PNG or JPG, max 5MB</p>
                     </div>
                   </div>
-
-                  <p className='text-muted-foreground text-xs'>
-                    {avatarSrc ? 'Photo saved.' : 'No photo uploaded yet.'}
-                  </p>
 
                   {profilePictureError && (
                     <div className='flex items-start gap-2 rounded-sm border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-xs'>
@@ -434,9 +485,8 @@ export function AccountSettingsModal({ open, onOpenChange }: AccountSettingsModa
                     </div>
                     {passwordResetStatus && (
                       <p
-                        className={`mt-3 text-sm ${
-                          passwordResetStatus.type === 'success' ? 'text-emerald-600' : 'text-destructive'
-                        }`}
+                        className={`mt-3 text-sm ${passwordResetStatus.type === 'success' ? 'text-emerald-600' : 'text-destructive'
+                          }`}
                         role='status'
                       >
                         {passwordResetStatus.message}

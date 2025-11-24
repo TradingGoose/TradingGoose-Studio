@@ -13,13 +13,22 @@ const logger = createLogger('OrganizationBilling')
  */
 async function getOrganizationSubscription(organizationId: string) {
   try {
-    const orgSubs = await db
+    // Prefer an active subscription; fall back to any subscription for the org if none are active
+    const activeSubs = await db
       .select()
       .from(subscription)
       .where(and(eq(subscription.referenceId, organizationId), eq(subscription.status, 'active')))
       .limit(1)
 
-    return orgSubs.length > 0 ? orgSubs[0] : null
+    if (activeSubs.length > 0) return activeSubs[0]
+
+    const anySubs = await db
+      .select()
+      .from(subscription)
+      .where(eq(subscription.referenceId, organizationId))
+      .limit(1)
+
+    return anySubs.length > 0 ? anySubs[0] : null
   } catch (error) {
     logger.error('Error getting organization subscription', { error, organizationId })
     return null
@@ -60,6 +69,26 @@ interface MemberUsageData {
   lastActive: Date | null
 }
 
+function buildDefaultOrgBillingSummary(org: any): OrganizationUsageData {
+  const usageLimit = org?.orgUsageLimit ? Number.parseFloat(org.orgUsageLimit) : 0
+  return {
+    organizationId: org?.id ?? '',
+    organizationName: org?.name ?? '',
+    subscriptionPlan: 'free',
+    subscriptionStatus: 'inactive',
+    totalSeats: 1,
+    usedSeats: 0,
+    seatsCount: 1,
+    totalCurrentUsage: 0,
+    totalUsageLimit: roundCurrency(usageLimit),
+    minimumBillingAmount: roundCurrency(usageLimit),
+    averageUsagePerMember: 0,
+    billingPeriodStart: null,
+    billingPeriodEnd: null,
+    members: [],
+  }
+}
+
 /**
  * Get comprehensive organization billing and usage data
  */
@@ -86,7 +115,7 @@ export async function getOrganizationBillingData(
 
     if (!subscription) {
       logger.warn('No subscription found for organization', { organizationId })
-      return null
+      return buildDefaultOrgBillingSummary(organizationData)
     }
 
     // Get all organization members with their usage data
@@ -130,38 +159,35 @@ export async function getOrganizationBillingData(
     // Calculate aggregated statistics
     const totalCurrentUsage = members.reduce((sum, member) => sum + member.currentUsage, 0)
 
-    // Get per-seat pricing for the plan
-    const { basePrice: pricePerSeat } = getPlanPricing(subscription.plan)
+    const seats = Math.max(subscription.seats || 1, 1)
+    const licensedSeats = seats
+    const metadata = (subscription as any)?.metadata ?? {}
+    const perSeatAllowance = Number.isFinite(Number(metadata?.perSeatAllowance))
+      ? Number(metadata.perSeatAllowance)
+      : null
+    const totalAllowance = Number.isFinite(Number(metadata?.totalAllowance))
+      ? Number(metadata.totalAllowance)
+      : null
 
-    // Use Stripe subscription seats as source of truth
-    // Ensure we always have at least 1 seat (protect against 0 or falsy values)
-    const licensedSeats = Math.max(subscription.seats || 1, 1)
+    // Get per-seat pricing for the plan (defaults)
+    const { basePrice: defaultPerSeat } = getPlanPricing(subscription.plan)
+    // Derive base allowance from metadata or defaults
+    const allowanceFromMetadata =
+      totalAllowance !== null
+        ? totalAllowance
+        : perSeatAllowance !== null
+          ? perSeatAllowance * seats
+          : null
+    const minimumFromPlan = seats * defaultPerSeat
+    const minimumBillingAmount = Math.max(allowanceFromMetadata ?? 0, minimumFromPlan)
 
-    // Calculate minimum billing amount
-    let minimumBillingAmount: number
-    let totalUsageLimit: number
-
-    if (subscription.plan === 'enterprise') {
-      // Enterprise has fixed pricing set through custom Stripe product
-      // Their usage limit is configured to match their monthly cost
-      const configuredLimit = organizationData.orgUsageLimit
-        ? Number.parseFloat(organizationData.orgUsageLimit)
-        : 0
-      minimumBillingAmount = configuredLimit // For enterprise, this equals their fixed monthly cost
-      totalUsageLimit = configuredLimit // Same as their monthly cost
-    } else {
-      // Team plan: Billing is based on licensed seats from Stripe
-      minimumBillingAmount = licensedSeats * pricePerSeat
-
-      // Total usage limit: never below the minimum based on licensed seats
-      const configuredLimit = organizationData.orgUsageLimit
-        ? Number.parseFloat(organizationData.orgUsageLimit)
-        : null
-      totalUsageLimit =
-        configuredLimit !== null
-          ? Math.max(configuredLimit, minimumBillingAmount)
-          : minimumBillingAmount
-    }
+    const configuredLimit = organizationData.orgUsageLimit
+      ? Number.parseFloat(organizationData.orgUsageLimit)
+      : null
+    const totalUsageLimit =
+      configuredLimit !== null
+        ? Math.max(configuredLimit, minimumBillingAmount)
+        : minimumBillingAmount
 
     const averageUsagePerMember = members.length > 0 ? totalCurrentUsage / members.length : 0
 

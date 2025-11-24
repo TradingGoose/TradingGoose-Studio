@@ -1,8 +1,6 @@
 export { Account } from './account/account'
 export { Copilot } from './copilot/copilot'
 export { Credentials } from './credentials/credentials'
-export { General } from './general/general'
-export { Privacy } from './privacy/privacy'
 export { SettingsNavigation } from './settings-navigation/settings-navigation'
 export { SSO } from './sso/sso'
 export { Subscription } from './subscription/subscription'

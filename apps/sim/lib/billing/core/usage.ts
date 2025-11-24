@@ -90,8 +90,24 @@ export async function getUserUsageData(userId: string): Promise<UsageData> {
         .limit(1)
 
       const { getPlanPricing } = await import('@/lib/billing/core/billing')
+      const metadata = (subscription as any)?.metadata ?? {}
+      const seats = subscription.seats || 1
+      const perSeatAllowance = Number.isFinite(Number(metadata?.perSeatAllowance))
+        ? Number(metadata.perSeatAllowance)
+        : null
+      const totalAllowance = Number.isFinite(Number(metadata?.totalAllowance))
+        ? Number(metadata.totalAllowance)
+        : null
       const { basePrice } = getPlanPricing(subscription.plan)
-      const minimum = (subscription.seats || 1) * basePrice
+
+      // Minimum limit derives from per-seat defaults, but honor metadata when provided
+      let minimum = seats * basePrice
+      if (perSeatAllowance !== null) {
+        minimum = Math.max(minimum, seats * perSeatAllowance)
+      }
+      if (totalAllowance !== null) {
+        minimum = Math.max(minimum, totalAllowance)
+      }
 
       if (orgData.length > 0 && orgData[0].orgUsageLimit) {
         const configured = Number.parseFloat(orgData[0].orgUsageLimit)

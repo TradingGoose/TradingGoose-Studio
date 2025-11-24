@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Workflow } from 'lucide-react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import type { WorkflowUIConfig } from '@/app/workspace/[workspaceId]/w/[workflowId]/workflow'
 import { WorkflowUIConfigProvider } from '@/app/workspace/[workspaceId]/w/[workflowId]/context/workflow-ui-context'
+import type { WorkflowUIConfig } from '@/app/workspace/[workspaceId]/w/[workflowId]/workflow'
 import WorkflowEditorApp from '@/app/workspace/[workspaceId]/w/[workflowId]/workflow-editor-app'
 import {
   getWorkflowWidgetChannelId,
@@ -123,12 +123,7 @@ const WorkflowEditorWidgetBody = ({
     return <WidgetStateMessage message={loadError} />
   }
 
-  if (
-    !hasLoadedWorkflows ||
-    isLoading ||
-    !resolvedWorkflowId ||
-    activeWorkflowIdForChannel !== resolvedWorkflowId
-  ) {
+  if (!hasLoadedWorkflows || isLoading) {
     return (
       <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))]'>
         <LoadingAgent size='md' />
@@ -138,6 +133,14 @@ const WorkflowEditorWidgetBody = ({
 
   if (workflowIds.length === 0) {
     return <WidgetStateMessage message='No workflows available in this workspace.' />
+  }
+
+  if (!resolvedWorkflowId) {
+    return (
+      <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))]'>
+        <LoadingAgent size='md' />
+      </div>
+    )
   }
 
   return (
@@ -152,6 +155,7 @@ const WorkflowEditorWidgetBody = ({
           channelId={channelId}
           ui={WORKFLOW_WIDGET_UI_CONFIG}
           viewportBounds={widgetBounds ?? undefined}
+          disableNavigation={true}
         />
       </WorkflowUIConfigProvider>
     </div>

@@ -6,6 +6,7 @@ import {
   LibraryBig,
   Map as MapIcon,
   Server,
+  Waypoints,
 } from 'lucide-react'
 import type { NavItemLink, NavSection } from './types'
 
@@ -20,7 +21,7 @@ export function getWorkspaceSwitchPath(path: string, targetWorkspaceId: string, 
 
   // Only allow safe top-level sections to carry over between workspaces.
   // Workflow routes (/w) and deep paths are reset to the dashboard to avoid stale data.
-  const allowedSections = new Set(['dashboard', 'knowledge', 'files', 'logs', 'environment', 'api-keys', 'mcp'])
+  const allowedSections = new Set(['dashboard', 'knowledge', 'files', 'logs', 'environment', 'api-keys', 'mcp', 'integrations'])
   const sectionPath = section && allowedSections.has(section) ? `/${section}` : '/dashboard'
 
   const basePath = `/workspace/${targetWorkspaceId}${sectionPath}`
@@ -48,6 +49,7 @@ export function createWorkspaceNav(workspaceId?: string): NavItemLink[] {
     { title: 'Logs', url: `${base}/logs`, icon: MapIcon, section: 'workspace' },
     { title: 'Environment Variable', url: `${base}/environment`, icon: Braces, section: 'more' },
     { title: 'API Keys', url: `${base}/api-keys`, icon: KeyRound, section: 'more' },
+    { title: 'Integrations', url: `${base}/integrations`, icon: Waypoints, section: 'more' },
   ]
 }
 

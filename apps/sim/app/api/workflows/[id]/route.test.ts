@@ -292,6 +292,43 @@ describe('Workflow By ID API Route', () => {
       expect(data.data.state.blocks).toEqual(mockNormalizedData.blocks)
       expect(data.data.state.edges).toEqual(mockNormalizedData.edges)
     })
+
+    it('should return an empty state when no normalized data exists yet', async () => {
+      const mockWorkflow = {
+        id: 'workflow-123',
+        userId: 'user-123',
+        name: 'Test Workflow',
+        workspaceId: null,
+      }
+
+      vi.doMock('@/lib/auth', () => ({
+        getSession: vi.fn().mockResolvedValue({
+          user: { id: 'user-123' },
+        }),
+      }))
+
+      mockGetWorkflowById.mockResolvedValueOnce(mockWorkflow)
+      mockGetWorkflowAccessContext.mockResolvedValueOnce({
+        workflow: mockWorkflow,
+        workspaceOwnerId: null,
+        workspacePermission: null,
+        isOwner: true,
+        isWorkspaceOwner: false,
+      })
+
+      const req = new NextRequest('http://localhost:3000/api/workflows/workflow-123')
+      const params = Promise.resolve({ id: 'workflow-123' })
+
+      const { GET } = await import('@/app/api/workflows/[id]/route')
+      const response = await GET(req, { params })
+
+      expect(response.status).toBe(200)
+      const data = await response.json()
+      expect(data.data.state.blocks).toEqual({})
+      expect(data.data.state.edges).toEqual([])
+      expect(data.data.state.loops).toEqual({})
+      expect(data.data.state.parallels).toEqual({})
+    })
   })
 
   describe('DELETE /api/workflows/[id]', () => {

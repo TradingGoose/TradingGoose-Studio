@@ -17,7 +17,7 @@ type EmptyWidgetProps = WidgetComponentProps & {
 }
 
 const EmptyBody = ({ widget, onWidgetChange }: EmptyWidgetProps) => (
-  <Empty className='border border-border border-dashed p-6'>
+  <Empty className='p-6'>
     <EmptyHeader>
       <EmptyMedia variant='default'>
         <Avatar className='size-12 border border-border/60 '>

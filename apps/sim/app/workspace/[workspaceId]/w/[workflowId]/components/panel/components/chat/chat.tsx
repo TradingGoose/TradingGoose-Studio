@@ -678,11 +678,10 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
 
           {/* Combined input container matching copilot style */}
           <div
-            className={`rounded-md border border-[#E5E5E5] bg-[#FFFFFF] p-2 shadow-xs transition-all duration-200 dark:border-[#414141] dark:bg-[var(--surface-elevated)] ${
-              isDragOver
-                ? 'border-[var(--primary-hover)] bg-purple-50/50 dark:border-[var(--primary-hover)] dark:bg-purple-950/20'
-                : ''
-            }`}
+            className={`rounded-md border border-[#E5E5E5] bg-background p-2 shadow-xs transition-all duration-200 dark:border-[#414141]  ${isDragOver
+              ? 'border-[var(--primary-hover)] bg-purple-50/50 dark:border-[var(--primary-hover)] dark:bg-purple-950/20'
+              : ''
+              }`}
           >
             {/* File thumbnails */}
             {chatFiles.length > 0 && (
@@ -716,11 +715,10 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
                   return (
                     <div
                       key={file.id}
-                      className={`group relative overflow-hidden rounded-md border border-border/50 bg-muted/20 ${
-                        previewUrl
-                          ? 'h-16 w-16'
-                          : 'flex h-16 min-w-[120px] max-w-[200px] items-center gap-2 px-2'
-                      }`}
+                      className={`group relative overflow-hidden rounded-md border border-border/50 bg-muted/20 ${previewUrl
+                        ? 'h-16 w-16'
+                        : 'flex h-16 min-w-[120px] max-w-[200px] items-center gap-2 px-2'
+                        }`}
                     >
                       {previewUrl ? (
                         <img

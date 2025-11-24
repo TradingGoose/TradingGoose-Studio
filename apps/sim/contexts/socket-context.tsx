@@ -75,24 +75,24 @@ const SocketContext = createContext<SocketContextType>({
   isConnecting: false,
   currentWorkflowId: null,
   presenceUsers: [],
-  joinWorkflow: () => {},
-  leaveWorkflow: () => {},
-  emitWorkflowOperation: () => {},
-  emitSubblockUpdate: () => {},
-  emitVariableUpdate: () => {},
-  emitCursorUpdate: () => {},
-  emitSelectionUpdate: () => {},
-  onWorkflowOperation: () => {},
-  onSubblockUpdate: () => {},
-  onVariableUpdate: () => {},
-  onCursorUpdate: () => {},
-  onSelectionUpdate: () => {},
-  onUserJoined: () => {},
-  onUserLeft: () => {},
-  onWorkflowDeleted: () => {},
-  onWorkflowReverted: () => {},
-  onOperationConfirmed: () => {},
-  onOperationFailed: () => {},
+  joinWorkflow: () => { },
+  leaveWorkflow: () => { },
+  emitWorkflowOperation: () => { },
+  emitSubblockUpdate: () => { },
+  emitVariableUpdate: () => { },
+  emitCursorUpdate: () => { },
+  emitSelectionUpdate: () => { },
+  onWorkflowOperation: () => { },
+  onSubblockUpdate: () => { },
+  onVariableUpdate: () => { },
+  onCursorUpdate: () => { },
+  onSelectionUpdate: () => { },
+  onUserJoined: () => { },
+  onUserLeft: () => { },
+  onWorkflowDeleted: () => { },
+  onWorkflowReverted: () => { },
+  onOperationConfirmed: () => { },
+  onOperationFailed: () => { },
 })
 
 export const useSocket = () => useContext(SocketContext)
@@ -141,6 +141,9 @@ export function SocketProvider({
     operationFailed?: (data: any) => void
   }>({})
 
+  // Singleton socket instance management
+  const socketRef = useRef<Socket | null>(null)
+
   // Helper function to generate a fresh socket token
   const generateSocketToken = async (): Promise<string> => {
     // Avoid overlapping token requests
@@ -156,364 +159,319 @@ export function SocketProvider({
     return token
   }
 
+  // Global socket registry to share connections between providers
+  // Key is userId, Value is the socket instance or initialization promise
+  const getGlobalSocketRegistry = () => {
+    if (typeof window === 'undefined') return new Map()
+    if (!(window as any).__socketRegistry) {
+      ; (window as any).__socketRegistry = new Map<string, Socket | Promise<Socket>>()
+    }
+    return (window as any).__socketRegistry as Map<string, Socket | Promise<Socket>>
+  }
+
   // Initialize socket when user is available - only once per session
   useEffect(() => {
     if (!user?.id) return
 
-    // Only initialize if we don't have a socket and aren't already connecting
-    if (initializedRef.current || socket || isConnecting) {
-      logger.info('Socket already exists or is connecting, skipping initialization')
-      return
-    }
+    const registry = getGlobalSocketRegistry()
+    let entry = registry.get(user.id)
 
-    logger.info('Initializing socket connection for user:', user.id)
-    initializedRef.current = true
-    setIsConnecting(true)
+    let setupSocketCleanup: (() => void) | undefined
+    let attachListenersCleanup: (() => void) | undefined
 
-    const initializeSocket = async () => {
-      try {
-        // Generate initial token for socket authentication
-        const token = await generateSocketToken()
+    const setupSocket = (socketInstance: Socket) => {
+      setSocket(socketInstance)
 
-        const socketUrl = getEnv('NEXT_PUBLIC_SOCKET_URL') || 'http://localhost:3002'
-
-        logger.info('Attempting to connect to Socket.IO server', {
-          url: socketUrl,
-          userId: user?.id || 'no-user',
-          hasToken: !!token,
-          timestamp: new Date().toISOString(),
-        })
-
-        const socketInstance = io(socketUrl, {
-          transports: ['websocket', 'polling'], // Keep polling fallback for reliability
-          withCredentials: true,
-          reconnectionAttempts: Number.POSITIVE_INFINITY, // Socket.IO handles base reconnection
-          reconnectionDelay: 1000, // Start with 1 second delay
-          reconnectionDelayMax: 30000, // Max 30 second delay
-          timeout: 10000, // Back to original timeout
-          auth: async (cb) => {
-            try {
-              const freshToken = await generateSocketToken()
-              cb({ token: freshToken })
-            } catch (error) {
-              logger.error('Failed to generate fresh token for connection:', error)
-              cb({ token: null })
-            }
-          },
-        })
-
-        // Connection events
-        socketInstance.on('connect', () => {
-          setIsConnected(true)
-          setIsConnecting(false)
-          logger.info('Socket connected successfully', {
-            socketId: socketInstance.id,
-            connected: socketInstance.connected,
-            transport: socketInstance.io.engine?.transport?.name,
-            workspaceId: resolvedWorkspaceId || 'unknown',
-            workflowId: resolvedWorkflowId || 'none',
-          })
-
-          // Automatically join the current workflow room based on URL
-          // This handles both initial connections and reconnections
-          if (resolvedWorkflowId) {
-            logger.info(`Joining workflow room after connection: ${resolvedWorkflowId}`)
-            socketInstance.emit('join-workflow', {
-              workflowId: resolvedWorkflowId,
-            })
-            // Update our internal state to match the URL
-            setCurrentWorkflowId(resolvedWorkflowId)
-          }
-        })
-
-        socketInstance.on('disconnect', (reason) => {
-          setIsConnected(false)
-          setIsConnecting(false)
-
-          logger.info('Socket disconnected', {
-            reason,
-          })
-
-          // Clear presence when disconnected
-          setPresenceUsers([])
-        })
-
-        socketInstance.on('connect_error', (error: any) => {
-          setIsConnecting(false)
-          logger.error('Socket connection error:', {
-            message: error.message,
-            stack: error.stack,
-            description: error.description,
-            type: error.type,
-            transport: error.transport,
-          })
-
-          // Authentication errors now indicate either session expiry or token generation issues
-          if (
-            error.message?.includes('Token validation failed') ||
-            error.message?.includes('Authentication failed') ||
-            error.message?.includes('Authentication required')
-          ) {
-            logger.warn(
-              'Authentication failed - this could indicate session expiry or token generation issues'
-            )
-            // The fresh token generation on each attempt should handle most cases automatically
-            // If this persists, user may need to refresh page or re-login
-          }
-        })
-
-        // Socket.IO provides reconnection logging with attempt numbers
-        socketInstance.on('reconnect', (attemptNumber) => {
-          logger.info('Socket reconnected successfully', {
-            attemptNumber,
-            socketId: socketInstance.id,
-            transport: socketInstance.io.engine?.transport?.name,
-          })
-          // Note: Workflow rejoining is handled by the 'connect' event which fires for both initial connections and reconnections
-        })
-
-        socketInstance.on('reconnect_attempt', (attemptNumber) => {
-          logger.info('Socket reconnection attempt (fresh token will be generated)', {
-            attemptNumber,
-            timestamp: new Date().toISOString(),
-          })
-        })
-
-        socketInstance.on('reconnect_error', (error: any) => {
-          logger.error('Socket reconnection error:', {
-            message: error.message,
-            attemptNumber: error.attemptNumber,
-            type: error.type,
-          })
-        })
-
-        socketInstance.on('reconnect_failed', () => {
-          logger.error('Socket reconnection failed - all attempts exhausted')
-          setIsConnecting(false)
-        })
-
-        // Presence events
-        socketInstance.on('presence-update', (users: PresenceUser[]) => {
-          setPresenceUsers(users)
-        })
-
-        // Note: user-joined and user-left events removed in favor of authoritative presence-update
-
-        // Workflow operation events
-        socketInstance.on('workflow-operation', (data) => {
-          eventHandlers.current.workflowOperation?.(data)
-        })
-
-        // Subblock update events
-        socketInstance.on('subblock-update', (data) => {
-          eventHandlers.current.subblockUpdate?.(data)
-        })
-
-        // Variable update events
-        socketInstance.on('variable-update', (data) => {
-          eventHandlers.current.variableUpdate?.(data)
-        })
-
-        // Workflow deletion events
-        socketInstance.on('workflow-deleted', (data) => {
-          logger.warn(`Workflow ${data.workflowId} has been deleted`)
-          // Clear current workflow ID if it matches the deleted workflow
-          if (currentWorkflowId === data.workflowId) {
-            setCurrentWorkflowId(null)
-            setPresenceUsers([])
-          }
-          eventHandlers.current.workflowDeleted?.(data)
-        })
-
-        // Workflow revert events
-        socketInstance.on('workflow-reverted', (data) => {
-          logger.info(`Workflow ${data.workflowId} has been reverted to deployed state`)
-          eventHandlers.current.workflowReverted?.(data)
-        })
-
-        // Workflow update events (external changes like LLM edits)
-        socketInstance.on('workflow-updated', (data) => {
-          logger.info(`Workflow ${data.workflowId} has been updated externally - requesting sync`)
-          // Request fresh workflow state to sync with external changes
-          if (data.workflowId === resolvedWorkflowId) {
-            socketInstance.emit('request-sync', { workflowId: data.workflowId })
-          }
-        })
-
-        // Shared function to rehydrate workflow stores
-        const rehydrateWorkflowStores = async (
-          workflowId: string,
-          workflowState: any,
-          source: 'copilot' | 'workflow-state'
-        ) => {
-          // Import stores dynamically
-          const [
-            { useOperationQueueStore },
-            { useWorkflowRegistry },
-            { useWorkflowStore },
-            { useSubBlockStore },
-          ] = await Promise.all([
-            import('@/stores/operation-queue/store'),
-            import('@/stores/workflows/registry/store'),
-            import('@/stores/workflows/workflow/store-client'),
-            import('@/stores/workflows/subblock/store'),
-          ])
-
-          // Only proceed if this is the active workflow
-          const { activeWorkflowId } = useWorkflowRegistry.getState()
-          if (activeWorkflowId !== workflowId) {
-            logger.info(`Skipping rehydration - workflow ${workflowId} is not active`)
-            return false
-          }
-
-          // Check for pending operations
-          const hasPending = useOperationQueueStore
-            .getState()
-            .operations.some((op: any) => op.workflowId === workflowId && op.status !== 'confirmed')
-          if (hasPending) {
-            logger.info(`Skipping ${source} rehydration due to pending operations in queue`)
-            return false
-          }
-
-          // Extract subblock values from blocks
-          const subblockValues: Record<string, Record<string, any>> = {}
-          Object.entries(workflowState.blocks || {}).forEach(([blockId, block]) => {
-            const blockState = block as any
-            subblockValues[blockId] = {}
-            Object.entries(blockState.subBlocks || {}).forEach(([subblockId, subblock]) => {
-              subblockValues[blockId][subblockId] = (subblock as any).value
-            })
-          })
-
-          // Replace local workflow store with authoritative server state
-          useWorkflowStore.setState({
-            blocks: workflowState.blocks || {},
-            edges: workflowState.edges || [],
-            loops: workflowState.loops || {},
-            parallels: workflowState.parallels || {},
-            lastSaved: workflowState.lastSaved || Date.now(),
-            isDeployed: workflowState.isDeployed ?? false,
-            deployedAt: workflowState.deployedAt,
-            deploymentStatuses: workflowState.deploymentStatuses || {},
-          })
-
-          // Replace subblock store values for this workflow
-          useSubBlockStore.setState((state: any) => ({
-            workflowValues: {
-              ...state.workflowValues,
-              [workflowId]: subblockValues,
-            },
-          }))
-
-          logger.info(`Successfully rehydrated stores from ${source}`)
-          return true
-        }
-
-        // Copilot workflow edit events (database has been updated, rehydrate stores)
-        socketInstance.on('copilot-workflow-edit', async (data) => {
-          logger.info(
-            `Copilot edited workflow ${data.workflowId} - rehydrating stores from database`
-          )
-
-          try {
-            // Fetch fresh workflow state directly from API
-            const response = await fetch(`/api/workflows/${data.workflowId}`)
-            if (response.ok) {
-              const responseData = await response.json()
-              const workflowData = responseData.data
-
-              if (workflowData?.state) {
-                await rehydrateWorkflowStores(data.workflowId, workflowData.state, 'copilot')
-              }
-            } else {
-              logger.error('Failed to fetch fresh workflow state:', response.statusText)
-            }
-          } catch (error) {
-            logger.error('Failed to rehydrate stores after copilot edit:', error)
-          }
-        })
-
-        // Operation confirmation events
-        socketInstance.on('operation-confirmed', (data) => {
-          logger.debug('Operation confirmed', { operationId: data.operationId })
-          eventHandlers.current.operationConfirmed?.(data)
-        })
-
-        // Operation failure events
-        socketInstance.on('operation-failed', (data) => {
-          logger.warn('Operation failed', { operationId: data.operationId, error: data.error })
-          eventHandlers.current.operationFailed?.(data)
-        })
-
-        // Cursor update events
-        socketInstance.on('cursor-update', (data) => {
-          setPresenceUsers((prev) =>
-            prev.map((user) =>
-              user.socketId === data.socketId ? { ...user, cursor: data.cursor } : user
-            )
-          )
-          eventHandlers.current.cursorUpdate?.(data)
-        })
-
-        // Selection update events
-        socketInstance.on('selection-update', (data) => {
-          setPresenceUsers((prev) =>
-            prev.map((user) =>
-              user.socketId === data.socketId ? { ...user, selection: data.selection } : user
-            )
-          )
-          eventHandlers.current.selectionUpdate?.(data)
-        })
-
-        // Enhanced error handling for new server events
-        socketInstance.on('error', (error) => {
-          logger.error('Socket error:', error)
-        })
-
-        socketInstance.on('operation-error', (error) => {
-          logger.error('Operation error:', error)
-        })
-
-        socketInstance.on('operation-forbidden', (error) => {
-          logger.warn('Operation forbidden:', error)
-          // Could show a toast notification to user
-        })
-
-        socketInstance.on('operation-confirmed', (data) => {
-          logger.debug('Operation confirmed:', data)
-        })
-
-        socketInstance.on('workflow-state', async (workflowData) => {
-          logger.info('Received workflow state from server')
-
-          if (workflowData?.state) {
-            await rehydrateWorkflowStores(workflowData.id, workflowData.state, 'workflow-state')
-          }
-        })
-
-        setSocket(socketInstance)
-
-        return () => {
-          socketInstance.close()
-        }
-      } catch (error) {
-        logger.error('Failed to initialize socket with token:', error)
+      const onConnect = () => {
+        setIsConnected(true)
         setIsConnecting(false)
+        logger.info('Socket connected successfully', {
+          socketId: socketInstance?.id,
+          connected: socketInstance?.connected,
+          workspaceId: resolvedWorkspaceId || 'unknown',
+          workflowId: resolvedWorkflowId || 'none',
+        })
+        // Join workflow if needed
+        if (resolvedWorkflowId) {
+          logger.info(`Joining workflow room after connection: ${resolvedWorkflowId}`)
+          socketInstance.emit('join-workflow', { workflowId: resolvedWorkflowId })
+          setCurrentWorkflowId(resolvedWorkflowId)
+        }
+      }
+
+      const onDisconnect = (reason: string) => {
+        setIsConnected(false)
+        setIsConnecting(false)
+        logger.info('Socket disconnected', { reason })
+        setPresenceUsers([])
+      }
+
+      const onConnectError = (error: any) => {
+        setIsConnecting(false)
+        logger.error('Socket connection error:', {
+          message: error.message,
+          type: error.type,
+        })
+      }
+
+      socketInstance.on('connect', onConnect)
+      socketInstance.on('disconnect', onDisconnect)
+      socketInstance.on('connect_error', onConnectError)
+
+      // Initial check
+      if (socketInstance.connected) {
+        onConnect()
+      }
+
+      return () => {
+        socketInstance.off('connect', onConnect)
+        socketInstance.off('disconnect', onDisconnect)
+        socketInstance.off('connect_error', onConnectError)
       }
     }
 
-    // Start the socket initialization
-    initializeSocket()
+    const attachListeners = (socketInstance: Socket) => {
+      const onPresenceUpdate = (users: PresenceUser[]) => {
+        setPresenceUsers(users)
+      }
 
-    // Cleanup on unmount only (not on user change since socket is session-level)
+      const onWorkflowOperation = (data: any) => {
+        if (resolvedWorkflowId && data.workflowId && data.workflowId !== resolvedWorkflowId) return
+        eventHandlers.current.workflowOperation?.(data)
+      }
+
+      const onSubblockUpdate = (data: any) => {
+        if (resolvedWorkflowId && data.workflowId && data.workflowId !== resolvedWorkflowId) return
+        eventHandlers.current.subblockUpdate?.(data)
+      }
+
+      const onVariableUpdate = (data: any) => {
+        if (resolvedWorkflowId && data.workflowId && data.workflowId !== resolvedWorkflowId) return
+        eventHandlers.current.variableUpdate?.(data)
+      }
+
+      const onWorkflowDeleted = (data: any) => {
+        if (resolvedWorkflowId && data.workflowId && data.workflowId !== resolvedWorkflowId) return
+        logger.warn(`Workflow ${data.workflowId} has been deleted`)
+        if (currentWorkflowId === data.workflowId) {
+          setCurrentWorkflowId(null)
+          setPresenceUsers([])
+        }
+        eventHandlers.current.workflowDeleted?.(data)
+      }
+
+      const onWorkflowReverted = (data: any) => {
+        if (resolvedWorkflowId && data.workflowId && data.workflowId !== resolvedWorkflowId) return
+        logger.info(`Workflow ${data.workflowId} has been reverted to deployed state`)
+        eventHandlers.current.workflowReverted?.(data)
+      }
+
+      const onWorkflowUpdated = (data: any) => {
+        if (resolvedWorkflowId && data.workflowId && data.workflowId !== resolvedWorkflowId) return
+        logger.info(`Workflow ${data.workflowId} has been updated externally - requesting sync`)
+        if (data.workflowId === resolvedWorkflowId) {
+          socketInstance?.emit('request-sync', { workflowId: data.workflowId })
+        }
+      }
+
+      const onCopilotWorkflowEdit = async (data: any) => {
+        if (resolvedWorkflowId && data.workflowId && data.workflowId !== resolvedWorkflowId) return
+        logger.info(`Copilot edited workflow ${data.workflowId} - rehydrating stores`)
+        try {
+          const response = await fetch(`/api/workflows/${data.workflowId}`)
+          if (response.ok) {
+            const responseData = await response.json()
+            if (responseData.data?.state) {
+              // We need to dynamically import stores as in original
+              const [
+                { useOperationQueueStore },
+                { useWorkflowRegistry },
+                { useWorkflowStore },
+                { useSubBlockStore },
+              ] = await Promise.all([
+                import('@/stores/operation-queue/store'),
+                import('@/stores/workflows/registry/store'),
+                import('@/stores/workflows/workflow/store-client'),
+                import('@/stores/workflows/subblock/store'),
+              ])
+
+              useWorkflowStore.setState({
+                blocks: responseData.data.state.blocks || {},
+                edges: responseData.data.state.edges || [],
+                loops: responseData.data.state.loops || {},
+                parallels: responseData.data.state.parallels || {},
+                lastSaved: responseData.data.state.lastSaved || Date.now(),
+                isDeployed: responseData.data.state.isDeployed ?? false,
+                deployedAt: responseData.data.state.deployedAt,
+                deploymentStatuses: responseData.data.state.deploymentStatuses || {},
+              })
+
+              // Replace subblock store values for this workflow
+              const subblockValues: Record<string, Record<string, any>> = {}
+              Object.entries(responseData.data.state.blocks || {}).forEach(([blockId, block]) => {
+                const blockState = block as any
+                subblockValues[blockId] = {}
+                Object.entries(blockState.subBlocks || {}).forEach(([subblockId, subblock]) => {
+                  subblockValues[blockId][subblockId] = (subblock as any).value
+                })
+              })
+
+              useSubBlockStore.setState((state: any) => ({
+                workflowValues: {
+                  ...state.workflowValues,
+                  [data.workflowId]: subblockValues,
+                },
+              }))
+            }
+          }
+        } catch (e) {
+          logger.error('Error rehydrating', e)
+        }
+      }
+
+      const onCursorUpdate = (data: any) => {
+        setPresenceUsers((prev) =>
+          prev.map((user) =>
+            user.socketId === data.socketId ? { ...user, cursor: data.cursor } : user
+          )
+        )
+        eventHandlers.current.cursorUpdate?.(data)
+      }
+
+      const onSelectionUpdate = (data: any) => {
+        setPresenceUsers((prev) =>
+          prev.map((user) =>
+            user.socketId === data.socketId ? { ...user, selection: data.selection } : user
+          )
+        )
+        eventHandlers.current.selectionUpdate?.(data)
+      }
+
+      const onOperationConfirmed = (data: any) => {
+        eventHandlers.current.operationConfirmed?.(data)
+      }
+
+      const onOperationFailed = (data: any) => {
+        eventHandlers.current.operationFailed?.(data)
+      }
+
+      // Attach listeners
+      socketInstance.on('presence-update', onPresenceUpdate)
+      socketInstance.on('workflow-operation', onWorkflowOperation)
+      socketInstance.on('subblock-update', onSubblockUpdate)
+      socketInstance.on('variable-update', onVariableUpdate)
+      socketInstance.on('workflow-deleted', onWorkflowDeleted)
+      socketInstance.on('workflow-reverted', onWorkflowReverted)
+      socketInstance.on('workflow-updated', onWorkflowUpdated)
+      socketInstance.on('copilot-workflow-edit', onCopilotWorkflowEdit)
+      socketInstance.on('cursor-update', onCursorUpdate)
+      socketInstance.on('selection-update', onSelectionUpdate)
+      socketInstance.on('operation-confirmed', onOperationConfirmed)
+      socketInstance.on('operation-failed', onOperationFailed)
+
+      return () => {
+        socketInstance.off('presence-update', onPresenceUpdate)
+        socketInstance.off('workflow-operation', onWorkflowOperation)
+        socketInstance.off('subblock-update', onSubblockUpdate)
+        socketInstance.off('variable-update', onVariableUpdate)
+        socketInstance.off('workflow-deleted', onWorkflowDeleted)
+        socketInstance.off('workflow-reverted', onWorkflowReverted)
+        socketInstance.off('workflow-updated', onWorkflowUpdated)
+        socketInstance.off('copilot-workflow-edit', onCopilotWorkflowEdit)
+        socketInstance.off('cursor-update', onCursorUpdate)
+        socketInstance.off('selection-update', onSelectionUpdate)
+        socketInstance.off('operation-confirmed', onOperationConfirmed)
+        socketInstance.off('operation-failed', onOperationFailed)
+      }
+    }
+
+    if (entry) {
+      // Socket already exists or is being created
+      if (entry instanceof Promise) {
+        logger.info('Waiting for shared socket initialization', { userId: user.id })
+        setIsConnecting(true)
+        entry.then((socket) => {
+          // Update registry with actual socket if not already
+          if (registry.get(user.id) === entry) {
+            registry.set(user.id, socket)
+          }
+          setupSocketCleanup = setupSocket(socket)
+          attachListenersCleanup = attachListeners(socket)
+        }).catch(err => {
+          logger.error('Shared socket initialization failed', err)
+          setIsConnecting(false)
+          registry.delete(user.id) // Allow retry
+        })
+      } else {
+        logger.info('Reusing existing shared socket connection', { userId: user.id })
+        setupSocketCleanup = setupSocket(entry as Socket)
+        attachListenersCleanup = attachListeners(entry as Socket)
+      }
+    } else {
+      // Initialize new socket
+      logger.info('Initializing new socket connection for user:', user.id)
+      setIsConnecting(true)
+
+      const initPromise = (async () => {
+        try {
+          const token = await generateSocketToken()
+          const socketUrl = getEnv('NEXT_PUBLIC_SOCKET_URL') || 'http://localhost:3002'
+
+          logger.info('Attempting to connect to Socket.IO server', {
+            url: socketUrl,
+            userId: user?.id || 'no-user',
+            hasToken: !!token,
+            timestamp: new Date().toISOString(),
+          })
+
+          const socketInstance = io(socketUrl, {
+            transports: ['websocket', 'polling'],
+            withCredentials: true,
+            reconnectionAttempts: Number.POSITIVE_INFINITY,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 30000,
+            timeout: 10000,
+            auth: async (cb) => {
+              try {
+                const freshToken = await generateSocketToken()
+                cb({ token: freshToken })
+              } catch (error) {
+                logger.error('Failed to generate fresh token for connection:', error)
+                cb({ token: null })
+              }
+            },
+          })
+
+          return socketInstance
+        } catch (e) {
+          throw e
+        }
+      })()
+
+      registry.set(user.id, initPromise)
+
+      initPromise.then((socket) => {
+        registry.set(user.id, socket)
+        setupSocketCleanup = setupSocket(socket)
+        attachListenersCleanup = attachListeners(socket)
+      }).catch((err) => {
+        logger.error('Failed to initialize socket:', err)
+        setIsConnecting(false)
+        registry.delete(user.id)
+      })
+    }
+
     return () => {
+      setupSocketCleanup?.()
+      attachListenersCleanup?.()
+
       positionUpdateTimeouts.current.forEach((timeoutId) => {
         clearTimeout(timeoutId)
       })
       positionUpdateTimeouts.current.clear()
       pendingPositionUpdates.current.clear()
     }
-  }, [user?.id])
+  }, [user?.id, resolvedWorkflowId])
 
   // Handle workflow room switching when URL changes (for navigation between workflows)
   useEffect(() => {
@@ -588,7 +546,7 @@ export function SocketProvider({
       try {
         const { useOperationQueueStore } = require('@/stores/operation-queue/store')
         useOperationQueueStore.getState().cancelOperationsForWorkflow(currentWorkflowId)
-      } catch {}
+      } catch { }
       socket.emit('leave-workflow')
       setCurrentWorkflowId(null)
       setPresenceUsers([])

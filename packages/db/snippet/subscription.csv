@@ -1,0 +1,2 @@
+"id","plan","reference_id","stripe_customer_id","stripe_subscription_id","status","period_start","period_end","cancel_at_period_end","seats","trial_start","trial_end","metadata"
+"PTN6hfpEgaxW1Ejq3byMExmCsSJ8khrj","team","org_edd5427a-dea4-4fd1-81f0-25c30f859bd3","cus_TTluKfssgHrYGC","sub_1SWobfBhUw2lykYXpIx08jw8","active","2025-11-24 01:30:16","2025-12-24 01:30:16","false","10",,,"{""perSeatAllowance"":1000,""totalAllowance"":10000}"

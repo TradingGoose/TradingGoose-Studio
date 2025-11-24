@@ -1,4 +1,4 @@
-import { HelpCircle, LibraryBig, ScrollText, Settings, Shapes } from 'lucide-react'
+import { HelpCircle, LibraryBig, ScrollText, Settings, Shapes, Waypoints } from 'lucide-react'
 import { NavigationItem } from '@/app/workspace/[workspaceId]/w/components/sidebar/components/navigation-item/navigation-item'
 import { getKeyboardShortcutText } from '@/app/workspace/[workspaceId]/w/hooks/use-keyboard-shortcuts'
 
@@ -52,6 +52,13 @@ export const FloatingNavigation = ({
       href: `/workspace/${workspaceId}/templates`,
       tooltip: 'Templates',
       active: pathname === `/workspace/${workspaceId}/templates`,
+    },
+    {
+      id: 'integrations',
+      icon: Waypoints,
+      href: `/workspace/${workspaceId}/integrations`,
+      tooltip: 'Integrations',
+      active: pathname === `/workspace/${workspaceId}/integrations`,
     },
   ]
 

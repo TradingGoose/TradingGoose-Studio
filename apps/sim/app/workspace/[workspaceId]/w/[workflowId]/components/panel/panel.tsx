@@ -127,7 +127,7 @@ export function Panel() {
     // Instantly clear to a fresh chat locally
     copilotRef.current?.createNewChat()
     // Ensure copilot data is loaded in the background (do not await)
-    ensureCopilotDataLoaded().catch(() => {})
+    ensureCopilotDataLoaded().catch(() => { })
   }, [ensureCopilotDataLoaded])
 
   // Handle history dropdown opening - use smart caching instead of force refresh
@@ -322,33 +322,29 @@ export function Panel() {
       <div className='fixed top-[76px] right-4 z-20 flex h-9 w-[308px] items-center gap-1 rounded-lg border bg-card px-[2.5px] py-1 shadow-xs'>
         <button
           onClick={() => handleTabClick('copilot')}
-          className={`panel-tab-base inline-flex flex-1 cursor-pointer items-center justify-center rounded-md border border-transparent py-1 font-[450] text-sm outline-none transition-colors duration-200 ${
-            isOpen && activeTab === 'copilot' ? 'panel-tab-active' : 'panel-tab-inactive'
-          }`}
+          className={`panel-tab-base inline-flex flex-1 cursor-pointer items-center justify-center rounded-md border border-transparent py-1 font-[450] text-sm outline-none transition-colors duration-200 ${isOpen && activeTab === 'copilot' ? 'panel-tab-active' : 'panel-tab-inactive'
+            }`}
         >
           Copilot
         </button>
         <button
           onClick={() => handleTabClick('console')}
-          className={`panel-tab-base inline-flex flex-1 cursor-pointer items-center justify-center rounded-md border border-transparent py-1 font-[450] text-sm outline-none transition-colors duration-200 ${
-            isOpen && activeTab === 'console' ? 'panel-tab-active' : 'panel-tab-inactive'
-          }`}
+          className={`panel-tab-base inline-flex flex-1 cursor-pointer items-center justify-center rounded-md border border-transparent py-1 font-[450] text-sm outline-none transition-colors duration-200 ${isOpen && activeTab === 'console' ? 'panel-tab-active' : 'panel-tab-inactive'
+            }`}
         >
           Console
         </button>
         <button
           onClick={() => handleTabClick('chat')}
-          className={`panel-tab-base inline-flex flex-1 cursor-pointer items-center justify-center rounded-md border border-transparent py-1 font-[450] text-sm outline-none transition-colors duration-200 ${
-            isOpen && activeTab === 'chat' ? 'panel-tab-active' : 'panel-tab-inactive'
-          }`}
+          className={`panel-tab-base inline-flex flex-1 cursor-pointer items-center justify-center rounded-md border border-transparent py-1 font-[450] text-sm outline-none transition-colors duration-200 ${isOpen && activeTab === 'chat' ? 'panel-tab-active' : 'panel-tab-inactive'
+            }`}
         >
           Chat
         </button>
         <button
           onClick={() => handleTabClick('variables')}
-          className={`panel-tab-base inline-flex flex-1 cursor-pointer items-center justify-center rounded-md border border-transparent py-1 font-[450] text-sm outline-none transition-colors duration-200 ${
-            isOpen && activeTab === 'variables' ? 'panel-tab-active' : 'panel-tab-inactive'
-          }`}
+          className={`panel-tab-base inline-flex flex-1 cursor-pointer items-center justify-center rounded-md border border-transparent py-1 font-[450] text-sm outline-none transition-colors duration-200 ${isOpen && activeTab === 'variables' ? 'panel-tab-active' : 'panel-tab-inactive'
+            }`}
         >
           Variables
         </button>
@@ -434,7 +430,7 @@ export function Panel() {
                     </Tooltip>
                     <DropdownMenuContent
                       align='end'
-                      className='z-[200] w-96 rounded-lg border bg-background p-2 shadow-lg dark:border-[#414141] dark:bg-[var(--surface-elevated)]'
+                      className='z-[200] w-96 rounded-lg border bg-background p-2 shadow-lg dark:border-[#414141] '
                       sideOffset={8}
                       side='bottom'
                       avoidCollisions={true}
@@ -461,11 +457,10 @@ export function Panel() {
                                 {chats.map((chat) => (
                                   <div
                                     key={chat.id}
-                                    className={`group relative flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${
-                                      currentChat?.id === chat.id
+                                    className={`group relative flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${currentChat?.id === chat.id
                                         ? 'bg-accent text-accent-foreground'
                                         : 'text-foreground hover:bg-card'
-                                    }`}
+                                      }`}
                                   >
                                     {editingChatId === chat.id ? (
                                       <input

@@ -118,7 +118,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     logger.debug(`[${requestId}] Attempting to load workflow ${workflowId} from normalized tables`)
     const normalizedData = await loadWorkflowFromNormalizedTables(workflowId)
 
-    if (normalizedData) {
+    if (!normalizedData) {
+      logger.warn(
+        `[${requestId}] Workflow ${workflowId} has no normalized data, returning empty state`
+      )
+    } else {
       logger.debug(`[${requestId}] Found normalized data for workflow ${workflowId}:`, {
         blocksCount: Object.keys(normalizedData.blocks).length,
         edgesCount: normalizedData.edges.length,
@@ -126,30 +130,40 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         parallelsCount: Object.keys(normalizedData.parallels).length,
         loops: normalizedData.loops,
       })
-
-      const finalWorkflowData = {
-        ...workflowData,
-        state: {
-          // Default values for expected properties
-          deploymentStatuses: {},
-          // Data from normalized tables
-          blocks: normalizedData.blocks,
-          edges: normalizedData.edges,
-          loops: normalizedData.loops,
-          parallels: normalizedData.parallels,
-          lastSaved: Date.now(),
-          isDeployed: workflowData.isDeployed || false,
-          deployedAt: workflowData.deployedAt,
-        },
-      }
-
-      logger.info(`[${requestId}] Loaded workflow ${workflowId} from normalized tables`)
-      const elapsed = Date.now() - startTime
-      logger.info(`[${requestId}] Successfully fetched workflow ${workflowId} in ${elapsed}ms`)
-
-      return NextResponse.json({ data: finalWorkflowData }, { status: 200 })
     }
-    return NextResponse.json({ error: 'Workflow has no normalized data' }, { status: 400 })
+
+    const normalizedState = normalizedData ?? {
+      blocks: {},
+      edges: [],
+      loops: {},
+      parallels: {},
+    }
+
+    const finalWorkflowData = {
+      ...workflowData,
+      state: {
+        // Default values for expected properties
+        deploymentStatuses: {},
+        // Data from normalized tables (or empty fallback for brand new workflows)
+        blocks: normalizedState.blocks,
+        edges: normalizedState.edges,
+        loops: normalizedState.loops,
+        parallels: normalizedState.parallels,
+        lastSaved: Date.now(),
+        isDeployed: workflowData.isDeployed || false,
+        deployedAt: workflowData.deployedAt,
+      },
+    }
+
+    logger.info(
+      `[${requestId}] Loaded workflow ${workflowId} from ${
+        normalizedData ? 'normalized tables' : 'empty fallback'
+      }`
+    )
+    const elapsed = Date.now() - startTime
+    logger.info(`[${requestId}] Successfully fetched workflow ${workflowId} in ${elapsed}ms`)
+
+    return NextResponse.json({ data: finalWorkflowData }, { status: 200 })
   } catch (error: any) {
     const elapsed = Date.now() - startTime
     logger.error(`[${requestId}] Error fetching workflow ${workflowId} after ${elapsed}ms`, error)

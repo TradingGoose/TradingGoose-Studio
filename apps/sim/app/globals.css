@@ -132,10 +132,6 @@
     /* Background helper for auth components */
     --background-hex: #ffffff;
 
-    /* UI Surface Colors */
-    --surface-elevated: #202020;
-    /* Elevated surface background for dark mode */
-
     /* Sidebar Colors (Light) */
     --sidebar: 0 0% 98.039%;
     --sidebar-foreground: 240 10% 3.922%;
@@ -154,7 +150,7 @@
     --foreground: 0 0% 98.039%;
 
     /* Card Colors */
-    --card: 0 0% 2.5%;
+    --card: 240 10% 5.922%;
     --card-foreground: 0 0% 98.039%;
 
     /* Popover Colors */
@@ -212,10 +208,6 @@
 
     /* Background helper for auth components */
     --background-hex: #0c0c0c;
-
-    /* UI Surface Colors */
-    --surface-elevated: #202020;
-    /* Elevated surface background for dark mode */
 
     /* Sidebar Colors (Dark) */
 
@@ -446,10 +438,7 @@ input[type="search"]::-ms-clear {
     color: #737373 !important;
   }
 
-  /* Surface Utilities */
-  .bg-surface-elevated {
-    background-color: var(--surface-elevated);
-  }
+
 
   /* Animation Classes */
   .animate-pulse-ring {

@@ -1,24 +1,18 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui'
 import { getEnv, isTruthy } from '@/lib/env'
-import { createLogger } from '@/lib/logs/console/logger'
 import {
   Account,
   Copilot,
-  Credentials,
-  General,
-  Privacy,
+
   SettingsNavigation,
   SSO,
   Subscription,
   TeamManagement,
 } from '@/app/workspace/[workspaceId]/w/components/sidebar/components/settings-modal/components'
 import { useOrganizationStore } from '@/stores/organization'
-import { useGeneralStore } from '@/stores/settings/general/store'
-
-const logger = createLogger('SettingsModal')
 
 const isBillingEnabled = isTruthy(getEnv('NEXT_PUBLIC_BILLING_ENABLED'))
 
@@ -28,54 +22,36 @@ interface SettingsModalProps {
 }
 
 type SettingsSection =
-  | 'general'
   | 'account'
-  | 'credentials'
+
   | 'apikeys'
   | 'files'
   | 'subscription'
   | 'team'
   | 'sso'
-  | 'privacy'
   | 'copilot'
 
+const VALID_SECTIONS: SettingsSection[] = [
+  'account',
+  'apikeys',
+  'files',
+  'subscription',
+  'team',
+  'sso',
+  'copilot',
+]
+
+const BILLING_SECTIONS: SettingsSection[] = ['subscription', 'team']
+
 export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
-  const [activeSection, setActiveSection] = useState<SettingsSection>('general')
-  const [isLoading, setIsLoading] = useState(true)
-  const loadSettings = useGeneralStore((state) => state.loadSettings)
+  const [activeSection, setActiveSection] = useState<SettingsSection>('account')
   const { activeOrganization } = useOrganizationStore()
-  const hasLoadedInitialData = useRef(false)
-  const hasLoadedGeneral = useRef(false)
-  const credentialsCloseHandler = useRef<((open: boolean) => void) | null>(null)
-
-  useEffect(() => {
-    async function loadGeneralIfNeeded() {
-      if (!open) return
-      if (activeSection !== 'general') return
-      if (hasLoadedGeneral.current) return
-      setIsLoading(true)
-      try {
-        await loadSettings()
-        hasLoadedGeneral.current = true
-        hasLoadedInitialData.current = true
-      } catch (error) {
-        logger.error('Error loading general settings:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    if (open) {
-      void loadGeneralIfNeeded()
-    } else {
-      hasLoadedInitialData.current = false
-      hasLoadedGeneral.current = false
-    }
-  }, [open, activeSection, loadSettings])
 
   useEffect(() => {
     const handleOpenSettings = (event: CustomEvent<{ tab: SettingsSection }>) => {
-      setActiveSection(event.detail.tab)
+      const requestedSection = event.detail?.tab
+      const nextSection = VALID_SECTIONS.includes(requestedSection) ? requestedSection : 'account'
+      setActiveSection(nextSection)
       onOpenChange(true)
     }
 
@@ -88,20 +64,16 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
   // Redirect away from billing tabs if billing is disabled
   useEffect(() => {
-    if (!isBillingEnabled && (activeSection === 'subscription' || activeSection === 'team')) {
-      setActiveSection('general')
+    if (!isBillingEnabled && BILLING_SECTIONS.includes(activeSection)) {
+      setActiveSection('account')
     }
   }, [activeSection])
 
   const isSubscriptionEnabled = isBillingEnabled
 
-  // Handle dialog close - delegate to credentials component if it's active
+  // Handle dialog close
   const handleDialogOpenChange = (newOpen: boolean) => {
-    if (!newOpen && activeSection === 'credentials' && credentialsCloseHandler.current) {
-      credentialsCloseHandler.current(newOpen)
-    } else {
-      onOpenChange(newOpen)
-    }
+    onOpenChange(newOpen)
   }
 
   return (
@@ -123,26 +95,12 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
           {/* Content Area */}
           <div className='flex-1 overflow-y-auto'>
-            {activeSection === 'general' && (
-              <div className='h-full'>
-                <General />
-              </div>
-            )}
             {activeSection === 'account' && (
               <div className='h-full'>
                 <Account onOpenChange={onOpenChange} />
               </div>
             )}
-            {activeSection === 'credentials' && (
-              <div className='h-full'>
-                <Credentials
-                  onOpenChange={onOpenChange}
-                  registerCloseHandler={(handler) => {
-                    credentialsCloseHandler.current = handler
-                  }}
-                />
-              </div>
-            )}
+
             {isSubscriptionEnabled && activeSection === 'subscription' && (
               <div className='h-full'>
                 <Subscription onOpenChange={onOpenChange} />
@@ -161,11 +119,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
             {activeSection === 'copilot' && (
               <div className='h-full'>
                 <Copilot />
-              </div>
-            )}
-            {activeSection === 'privacy' && (
-              <div className='h-full'>
-                <Privacy />
               </div>
             )}
           </div>

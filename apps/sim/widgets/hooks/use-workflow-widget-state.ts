@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { shallow } from 'zustand/shallow'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import { hasWorkflowsInitiallyLoaded, useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
@@ -64,6 +64,8 @@ export const useWorkflowWidgetState = ({
   const workflowMap = workflows ?? {}
   const [hasLoadedWorkflows, setHasLoadedWorkflows] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [isActivating, setIsActivating] = useState(false)
+  const [activatedWorkflowId, setActivatedWorkflowId] = useState<string | null>(null)
 
   const requestedWorkflowId = useMemo(() => {
     if (resolvedPairColor !== 'gray' || !params || typeof params !== 'object') {
@@ -94,7 +96,7 @@ export const useWorkflowWidgetState = ({
       return
     }
 
-    if (workspaceHasWorkflows || hasWorkflowsInitiallyLoaded()) {
+    if (workspaceHasWorkflows) {
       setHasLoadedWorkflows(true)
       return
     }
@@ -122,8 +124,15 @@ export const useWorkflowWidgetState = ({
 
   const workflowIds = useMemo(() => Object.keys(workflowMap), [workflowMap])
 
+  useEffect(() => {
+    // If workflows arrive through some other mechanism, ensure we mark them as loaded
+    if (workspaceId && workflowIds.length > 0 && !hasLoadedWorkflows) {
+      setHasLoadedWorkflows(true)
+    }
+  }, [workspaceId, workflowIds.length, hasLoadedWorkflows])
+
   const resolvedWorkflowId = useMemo(() => {
-    if (!hasLoadedWorkflows || workflowIds.length === 0) {
+    if (workflowIds.length === 0) {
       return null
     }
 
@@ -151,8 +160,13 @@ export const useWorkflowWidgetState = ({
   ])
 
   const activeWorkflowIdForChannel = activateWorkflow
-    ? rawActiveWorkflowIdForChannel
+    ? (rawActiveWorkflowIdForChannel ?? activatedWorkflowId)
     : resolvedWorkflowId
+
+  useEffect(() => {
+    // Reset activation marker when switching channels or workflows
+    setActivatedWorkflowId(null)
+  }, [channelId, resolvedWorkflowId])
 
   useEffect(() => {
     if (!activateWorkflow) {
@@ -164,15 +178,28 @@ export const useWorkflowWidgetState = ({
     }
 
     let cancelled = false
+    setIsActivating(true)
 
-    setActiveWorkflow({ workflowId: resolvedWorkflowId, channelId }).catch((error) => {
-      if (!cancelled) {
-        console.error(`Failed to activate workflow for ${loggerScope}`, error)
-      }
-    })
+    setActiveWorkflow({ workflowId: resolvedWorkflowId, channelId })
+      .then(() => {
+        if (!cancelled) {
+          setActivatedWorkflowId(resolvedWorkflowId)
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          console.error(`Failed to activate workflow for ${loggerScope}`, error)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsActivating(false)
+        }
+      })
 
     return () => {
       cancelled = true
+      setIsActivating(false)
     }
   }, [
     activateWorkflow,
@@ -225,7 +252,7 @@ export const useWorkflowWidgetState = ({
     resolvedWorkflowId,
     hasLoadedWorkflows,
     loadError,
-    isLoading,
+    isLoading: isLoading || isActivating,
     workflowIds,
     activeWorkflowIdForChannel: activeWorkflowIdForChannel ?? null,
   }

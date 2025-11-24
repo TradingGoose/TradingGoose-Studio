@@ -7,6 +7,7 @@ import {
   getFreeTierLimit,
   getProTierLimit,
   getTeamTierLimitPerSeat,
+  getEnterpriseTierLimitPerSeat,
 } from '@/lib/billing/subscriptions/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 
@@ -51,6 +52,9 @@ export function getPlanPricing(plan: string): {
       return { basePrice: getProTierLimit() }
     case 'team':
       return { basePrice: getTeamTierLimitPerSeat() } // Per-seat pricing
+    case 'enterprise':
+      // Enterprise uses per-seat allowance when available; falls back to env default
+      return { basePrice: getEnterpriseTierLimitPerSeat() }
     default:
       return { basePrice: 0 }
   }
@@ -269,10 +273,20 @@ export async function getSimplifiedBillingSummary(
         .from(member)
         .where(eq(member.organizationId, organizationId))
 
-      const { basePrice: basePricePerSeat } = getPlanPricing(subscription.plan)
-      // Use licensed seats from Stripe as source of truth
-      const licensedSeats = subscription.seats || 1
-      const totalBasePrice = basePricePerSeat * licensedSeats // Based on Stripe subscription
+      const seats = subscription.seats || 1
+      const metadata = (subscription as any)?.metadata ?? {}
+      const perSeatAllowance = Number.isFinite(Number(metadata?.perSeatAllowance))
+        ? Number(metadata.perSeatAllowance)
+        : null
+      const totalAllowance = Number.isFinite(Number(metadata?.totalAllowance))
+        ? Number(metadata.totalAllowance)
+        : null
+
+      const { basePrice: defaultPerSeat } = getPlanPricing(subscription.plan)
+      // Prefer explicit per-seat allowance, otherwise fall back to configured defaults
+      const basePricePerSeat = perSeatAllowance ?? defaultPerSeat
+      // If a total allowance is provided, use it as the base; otherwise seats × per-seat
+      const totalBasePrice = totalAllowance ?? basePricePerSeat * seats
 
       let totalCurrentUsage = 0
 

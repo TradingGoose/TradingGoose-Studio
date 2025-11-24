@@ -200,7 +200,11 @@ export const useOrganizationStore = create<OrganizationStore>()(
         }
       },
 
-      loadOrganizationBillingData: async (organizationId: string, force?: boolean) => {
+      loadOrganizationBillingData: async (organizationId?: string, force?: boolean) => {
+        if (!organizationId) {
+          logger.warn('No organizationId provided for billing load')
+          return
+        }
         const state = get()
 
         if (
@@ -224,7 +228,17 @@ export const useOrganizationStore = create<OrganizationStore>()(
           const response = await fetch(`/api/billing?context=organization&id=${organizationId}`)
 
           if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`)
+            const errorText = await response.text().catch(() => '')
+            const errorMessage =
+              errorText && errorText.trim() !== ''
+                ? errorText
+                : `HTTP error! status: ${response.status}`
+            set({
+              error: errorMessage,
+              isLoadingOrgBilling: false,
+            })
+            logger.error('Failed to load organization billing data', { error: errorMessage })
+            return
           }
 
           const result = await response.json()
@@ -238,8 +252,9 @@ export const useOrganizationStore = create<OrganizationStore>()(
 
           logger.debug('Organization billing data loaded successfully')
         } catch (error) {
-          logger.error('Failed to load organization billing data', { error })
-          set({ isLoadingOrgBilling: false })
+          const message = error instanceof Error ? error.message : 'Unknown error'
+          logger.error('Failed to load organization billing data', { error: message })
+          set({ isLoadingOrgBilling: false, error: message })
         }
       },
 

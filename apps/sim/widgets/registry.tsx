@@ -9,6 +9,7 @@ import { chatWidget } from '@/widgets/widgets/workflow_chat'
 import { workflowConsoleWidget } from '@/widgets/widgets/workflow_console'
 import { workflowCopilotWidget } from '@/widgets/widgets/workflow_copilot'
 import { workflowListWidget } from '@/widgets/widgets/workflow_list'
+import { workflowVariablesWidget } from '@/widgets/widgets/workflow_variables'
 
 const widgetCategoryConfig: WidgetCategoryDefinition[] = [
   {
@@ -32,6 +33,7 @@ const widgetRegistry: Record<string, DashboardWidgetDefinition> = {
   workflow_console: workflowConsoleWidget,
   workflow_copilot: workflowCopilotWidget,
   workflow_list: workflowListWidget,
+  workflow_variables: workflowVariablesWidget,
 }
 
 export const getWidgetDefinition = (key: string): DashboardWidgetDefinition | undefined =>

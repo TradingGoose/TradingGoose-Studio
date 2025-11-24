@@ -56,12 +56,7 @@ const WorkflowConsoleWidgetBody = ({
     return <WidgetStateMessage message={loadError} />
   }
 
-  if (
-    !hasLoadedWorkflows ||
-    isLoading ||
-    !resolvedWorkflowId ||
-    activeWorkflowIdForChannel !== resolvedWorkflowId
-  ) {
+  if (!hasLoadedWorkflows || isLoading) {
     return (
       <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))]'>
         <LoadingAgent size='md' />
@@ -71,6 +66,14 @@ const WorkflowConsoleWidgetBody = ({
 
   if (workflowIds.length === 0) {
     return <WidgetStateMessage message='No workflows available in this workspace.' />
+  }
+
+  if (!resolvedWorkflowId) {
+    return (
+      <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))]'>
+        <LoadingAgent size='md' />
+      </div>
+    )
   }
 
   return (

@@ -37,8 +37,14 @@ import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('Variables')
 
-export function Variables() {
+type VariablesProps = {
+  workflowId?: string
+  hideAddButtons?: boolean
+}
+
+export function Variables({ workflowId: workflowIdProp, hideAddButtons = false }: VariablesProps = {}) {
   const { activeWorkflowId } = useWorkflowRegistry()
+  const workflowId = workflowIdProp ?? activeWorkflowId
   const { getVariablesByWorkflowId } = useVariablesStore()
   const {
     collaborativeUpdateVariable,
@@ -48,7 +54,7 @@ export function Variables() {
   } = useCollaborativeWorkflow()
 
   // Get variables for the current workflow
-  const workflowVariables = activeWorkflowId ? getVariablesByWorkflowId(activeWorkflowId) : []
+  const workflowVariables = workflowId ? getVariablesByWorkflowId(workflowId) : []
 
   // Track editor references
   const editorRefs = useRef<Record<string, HTMLDivElement | null>>({})
@@ -73,13 +79,13 @@ export function Variables() {
   }
 
   const handleAddVariable = () => {
-    if (!activeWorkflowId) return
+    if (!workflowId) return
 
     const id = collaborativeAddVariable({
       name: '',
       type: 'string',
       value: '',
-      workflowId: activeWorkflowId,
+      workflowId,
     })
 
     return id
@@ -223,16 +229,22 @@ export function Variables() {
   return (
     <div className='h-full pt-2'>
       {workflowVariables.length === 0 ? (
-        <div className='flex h-full items-center justify-center'>
-          <Button
-            onClick={handleAddVariable}
-            className='h-9 rounded-lg border border-[#E5E5E5] bg-[#FFFFFF] px-3 py-1.5 font-normal text-muted-foreground text-sm shadow-xs transition-colors hover:text-muted-foreground dark:border-[#414141] dark:bg-[var(--surface-elevated)] dark:hover:text-muted-foreground'
-            variant='outline'
-          >
-            <Plus className='h-4 w-4' />
-            Add variable
-          </Button>
-        </div>
+        hideAddButtons ? (
+          <div className='flex h-full items-center justify-center px-4 text-muted-foreground text-sm'>
+            No variables defined.
+          </div>
+        ) : (
+          <div className='flex h-full items-center justify-center'>
+            <Button
+              onClick={handleAddVariable}
+              className='h-9 rounded-lg border border-[#E5E5E5] bg-background px-3 py-1.5 font-normal text-muted-foreground text-sm shadow-xs transition-colors hover:text-muted-foreground dark:border-[#414141]  dark:hover:text-muted-foreground'
+              variant='outline'
+            >
+              <Plus className='h-4 w-4' />
+              Add variable
+            </Button>
+          </div>
+        )
       ) : (
         <ScrollArea className='h-full' hideScrollbar={false}>
           <div className='space-y-4'>
@@ -257,7 +269,7 @@ export function Variables() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                       align='end'
-                      className='min-w-32 rounded-lg border-[#E5E5E5] bg-[#FFFFFF] shadow-xs dark:border-[#414141] dark:bg-[var(--surface-elevated)]'
+                      className='min-w-32 rounded-lg border-[#E5E5E5] bg-background shadow-xs dark:border-[#414141] '
                     >
                       <DropdownMenuItem
                         onClick={() => collaborativeUpdateVariable(variable.id, 'type', 'plain')}
@@ -310,7 +322,7 @@ export function Variables() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                       align='end'
-                      className='min-w-32 rounded-lg border-[#E5E5E5] bg-[#FFFFFF] shadow-xs dark:border-[#414141] dark:bg-[var(--surface-elevated)]'
+                      className='min-w-32 rounded-lg border-[#E5E5E5] bg-background shadow-xs dark:border-[#414141] '
                     >
                       <DropdownMenuItem
                         onClick={() => toggleCollapsed(variable.id)}
@@ -387,10 +399,10 @@ export function Variables() {
                             variable.type === 'plain' || variable.type === 'string'
                               ? code
                               : highlight(
-                                  code,
-                                  languages[getEditorLanguage(variable.type)],
-                                  getEditorLanguage(variable.type)
-                                )
+                                code,
+                                languages[getEditorLanguage(variable.type)],
+                                getEditorLanguage(variable.type)
+                              )
                           }
                           padding={0}
                           style={{
@@ -415,14 +427,16 @@ export function Variables() {
             ))}
 
             {/* Add Variable Button */}
-            <Button
-              onClick={handleAddVariable}
-              className='mt-2 h-9 w-full rounded-lg border border-[#E5E5E5] bg-[#FFFFFF] px-3 py-1.5 font-[380] text-muted-foreground text-sm shadow-xs transition-colors hover:text-muted-foreground dark:border-[#414141] dark:bg-[var(--surface-elevated)] dark:hover:text-muted-foreground'
-              variant='outline'
-            >
-              <Plus className='h-4 w-4' />
-              Add variable
-            </Button>
+            {!hideAddButtons ? (
+              <Button
+                onClick={handleAddVariable}
+                className='mt-2 h-9 w-full rounded-lg border border-[#E5E5E5] bg-background px-3 py-1.5 font-[380] text-muted-foreground text-sm shadow-xs transition-colors hover:text-muted-foreground dark:border-[#414141]  dark:hover:text-muted-foreground'
+                variant='outline'
+              >
+                <Plus className='h-4 w-4' />
+                Add variable
+              </Button>
+            ) : null}
           </div>
         </ScrollArea>
       )}

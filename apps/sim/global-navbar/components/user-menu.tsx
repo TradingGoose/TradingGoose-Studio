@@ -2,44 +2,36 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import dynamic from 'next/dynamic'
 import {
   BadgeCheck,
+  Brain,
   ChevronsUpDown,
-  CreditCard,
+  LogIn,
   LogOut,
   Monitor,
   Moon,
-  Sparkles,
+  Settings,
   Sun,
+  Users,
   type LucideIcon,
 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
 import { signOut } from '@/lib/auth-client'
+import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getEnv, isTruthy } from '@/lib/env'
 import { getInitials } from '../utils'
 import { clearUserData } from '@/stores'
+import { useOrganizationStore } from '@/stores/organization'
 import { useGeneralStore } from '@/stores/settings/general/store'
-import { useSubscriptionStore } from '@/stores/subscription/store'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './resizable-dropdown'
-
-const LazyUsageIndicator = dynamic(
-  () =>
-    import(
-      '@/app/workspace/[workspaceId]/w/components/sidebar/components/usage-indicator/usage-indicator'
-    ).then((mod) => mod.UsageIndicator),
-  { ssr: false }
-)
 
 type ThemeOption = {
   value: 'light' | 'system' | 'dark'
@@ -63,19 +55,33 @@ interface UserMenuProps {
   userName: string
   userEmail: string
   userAvatar?: string | null
+  userAvatarVersion?: number | string | null
+  userId?: string | null
   onOpenAccountSettings?: () => void
-  onOpenSubscriptionSettings?: () => void
+  onOpenGeneralSettings?: () => void
+  onOpenCopilotSettings?: () => void
+  onOpenTeamManagement?: () => void
+  canManageTeam?: boolean
 }
 
 export function UserMenu({
   userName,
   userEmail,
   userAvatar,
+  userAvatarVersion,
+  userId,
   onOpenAccountSettings,
-  onOpenSubscriptionSettings,
+  onOpenGeneralSettings,
+  onOpenCopilotSettings,
+  onOpenTeamManagement,
+  canManageTeam,
 }: UserMenuProps) {
   const router = useRouter()
   const [isSigningOut, setIsSigningOut] = useState(false)
+  const [avatarOverride, setAvatarOverride] = useState<{
+    url: string | null
+    version: number | string | null
+  }>({ url: null, version: null })
   const logger = createLogger('UserMenu')
   const theme = useGeneralStore((state) => state.theme)
   const setTheme = useGeneralStore((state) => state.setTheme)
@@ -83,39 +89,123 @@ export function UserMenu({
   const isThemeLoading = useGeneralStore((state) => state.isThemeLoading)
   const currentThemeLabel =
     THEME_OPTIONS.find((option) => option.value === theme)?.label ?? 'Theme'
-  const billingEnabled = useMemo(() => {
-    const runtimeFlag = getEnv('NEXT_PUBLIC_BILLING_ENABLED')
-    const buildFlag = process.env.NEXT_PUBLIC_BILLING_ENABLED ?? process.env.BILLING_ENABLED
-    return isTruthy(runtimeFlag ?? buildFlag)
-  }, [])
+  const hasEnterprisePlan = useOrganizationStore((state) => state.hasEnterprisePlan)
+  const activeOrganizationId = useOrganizationStore((state) => state.activeOrganization?.id)
+  const getUserRole = useOrganizationStore((state) => state.getUserRole)
+  const [isSSOProviderOwner, setIsSSOProviderOwner] = useState<boolean | null>(null)
+  const userRole = useMemo(() => getUserRole(userEmail), [getUserRole, userEmail])
+  const isOwner = userRole === 'owner'
+  const isAdmin = userRole === 'admin'
+  const hasOrganization = Boolean(activeOrganizationId)
+  const canManageSSOSettings = useMemo(() => {
+    if (!hasOrganization || !hasEnterprisePlan) return false
+    if (isHosted) {
+      return isOwner || isAdmin
+    }
+    return isSSOProviderOwner === true
+  }, [hasEnterprisePlan, hasOrganization, isAdmin, isOwner, isSSOProviderOwner])
 
   useEffect(() => {
-    if (!billingEnabled) return
-    void useSubscriptionStore.getState().loadData()
-  }, [billingEnabled])
+    if (!userId || typeof window === 'undefined') return
 
-  const handleUsageIndicatorClick = () => {
-    if (!billingEnabled) return
-
-    const subscriptionStore = useSubscriptionStore.getState()
-    const isBlocked = subscriptionStore.getBillingStatus() === 'blocked'
-    const canUpgrade = subscriptionStore.canUpgrade()
-
-    if (isBlocked || !canUpgrade) {
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(
-          new CustomEvent('open-settings', { detail: { tab: 'subscription' } })
-        )
+    const readStoredAvatar = () => {
+      const storedVersion = window.localStorage.getItem(`user-avatar-version-${userId}`)
+      const storedUrl = window.localStorage.getItem(`user-avatar-url-${userId}`)
+      if (storedVersion || storedUrl !== null) {
+        setAvatarOverride((prev) => ({
+          url: storedUrl !== null ? storedUrl || null : prev.url,
+          version: storedVersion ?? prev.version,
+        }))
       }
+    }
+
+    const handleStorage = (event: StorageEvent) => {
+      if (!event.key) return
+      if (
+        event.key === `user-avatar-version-${userId}` ||
+        event.key === `user-avatar-url-${userId}`
+      ) {
+        readStoredAvatar()
+      }
+    }
+
+    readStoredAvatar()
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+  }, [userId])
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<{ url?: string | null; version?: number } | undefined>
+      const detail = customEvent.detail
+      setAvatarOverride((prev) => ({
+        url:
+          detail && 'url' in detail
+            ? detail?.url ?? null
+            : prev.url,
+        version:
+          detail && 'version' in detail
+            ? detail?.version ?? Date.now()
+            : Date.now(),
+      }))
+    }
+
+    if (typeof window === 'undefined') {
       return
     }
 
-    if (onOpenSubscriptionSettings) {
-      onOpenSubscriptionSettings()
-    } else if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('open-settings', { detail: { tab: 'subscription' } }))
+    window.addEventListener('user-avatar-updated', handler)
+    return () => window.removeEventListener('user-avatar-updated', handler)
+  }, [])
+
+  useEffect(() => {
+    if (isHosted) {
+      setIsSSOProviderOwner(null)
+      return
     }
-  }
+
+    if (!userId) {
+      setIsSSOProviderOwner(false)
+      return
+    }
+
+    let isMounted = true
+
+    const fetchProviders = async () => {
+      try {
+        const response = await fetch('/api/auth/sso/providers')
+        if (!response.ok) throw new Error('Failed to fetch providers')
+        const data = await response.json()
+        const ownsProvider = data.providers?.some((p: any) => p.userId === userId) || false
+        if (isMounted) setIsSSOProviderOwner(ownsProvider)
+      } catch {
+        if (isMounted) setIsSSOProviderOwner(false)
+      }
+    }
+
+    fetchProviders()
+
+    return () => {
+      isMounted = false
+    }
+  }, [userId])
+
+  const effectiveAvatar = avatarOverride.url ?? userAvatar
+  const effectiveVersion = avatarOverride.version ?? userAvatarVersion
+
+  const avatarSrc = useMemo(() => {
+    if (!effectiveAvatar) return null
+    const numericVersion = Number(effectiveVersion)
+    const versionValue =
+      effectiveVersion && Number.isFinite(numericVersion)
+        ? numericVersion
+        : effectiveVersion
+          ? encodeURIComponent(String(effectiveVersion))
+          : null
+    if (!versionValue) return effectiveAvatar
+    const separator = effectiveAvatar.includes('?') ? '&' : '?'
+    return `${effectiveAvatar}${separator}v=${versionValue}`
+  }, [effectiveAvatar, effectiveVersion])
 
   const handleSignOut = async () => {
     if (isSigningOut) return
@@ -144,14 +234,14 @@ export function UserMenu({
       <SidebarMenu>
         <SidebarMenuItem>
           <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            <DropdownMenuTrigger asChild>
               <SidebarMenuButton
-                variant='muted'
+                variant='default'
                 size='lg'
                 className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
               >
                 <Avatar className='h-8 w-8 rounded-lg'>
-                  {userAvatar ? <AvatarImage src={userAvatar} alt={userName} /> : null}
+                  {avatarSrc ? <AvatarImage key={avatarSrc} src={avatarSrc} alt={userName} /> : null}
                   <AvatarFallback className='rounded-lg'>{getInitials(userName)}</AvatarFallback>
                 </Avatar>
                 <div className='grid flex-1 text-left text-sm leading-tight'>
@@ -166,12 +256,6 @@ export function UserMenu({
               sideOffset={4}
               align='start'
             >
-              {billingEnabled ? (
-                <div className='px-1 py-1.5'>
-                  <LazyUsageIndicator onClick={handleUsageIndicatorClick} />
-                </div>
-              ) : null}
-
               <DropdownMenuGroup>
                 <div className='flex items-center gap-1.5 px-2 pb-1.5 pt-0.5'>
                   <DropdownMenuItem className='flex items-center gap-2 text-sm font-medium text-muted-foreground'>
@@ -179,9 +263,8 @@ export function UserMenu({
                   </DropdownMenuItem>
                   {THEME_OPTIONS.map(({ value, label, Icon }) => {
                     const isActive = theme === value
-                    const themeClasses = `${THEME_ITEM_BASE_CLASSES} ${
-                      isActive ? THEME_ITEM_ACTIVE_CLASSES : THEME_ITEM_INACTIVE_CLASSES
-                    }`
+                    const themeClasses = `${THEME_ITEM_BASE_CLASSES} ${isActive ? THEME_ITEM_ACTIVE_CLASSES : THEME_ITEM_INACTIVE_CLASSES
+                      }`
                     return (
                       <DropdownMenuItem
                         key={value}
@@ -220,10 +303,68 @@ export function UserMenu({
                   <BadgeCheck />
                   Account Detail
                 </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <CreditCard />
-                  Billing
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault()
+                    if (onOpenGeneralSettings) {
+                      onOpenGeneralSettings()
+                    } else if (typeof window !== 'undefined') {
+                      window.dispatchEvent(
+                        new CustomEvent('open-settings', { detail: { tab: 'general' } })
+                      )
+                    }
+                  }}
+                >
+                  <Settings />
+                  General Settings
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault()
+                    if (onOpenCopilotSettings) {
+                      onOpenCopilotSettings()
+                    } else if (typeof window !== 'undefined') {
+                      window.dispatchEvent(
+                        new CustomEvent('open-settings', { detail: { tab: 'copilot' } })
+                      )
+                    }
+                  }}
+                >
+                  <Brain />
+                  Copilot Settings
+                </DropdownMenuItem>
+                {canManageTeam ? (
+                  <DropdownMenuItem
+                    onSelect={(event) => {
+                      event.preventDefault()
+                      if (onOpenTeamManagement) {
+                        onOpenTeamManagement()
+                      } else if (typeof window !== 'undefined') {
+                        window.dispatchEvent(
+                          new CustomEvent('open-settings', { detail: { tab: 'team' } })
+                        )
+                      }
+                    }}
+                  >
+                    <Users />
+                    Team Management
+                  </DropdownMenuItem>
+                ) : null}
+                {canManageSSOSettings ? (
+                  <DropdownMenuItem
+                    onSelect={(event) => {
+                      event.preventDefault()
+                      if (typeof window !== 'undefined') {
+                        window.dispatchEvent(
+                          new CustomEvent('open-settings', { detail: { tab: 'sso' } })
+                        )
+                      }
+                    }}
+                  >
+                    <LogIn />
+                    Single Sign-On
+                  </DropdownMenuItem>
+                ) : null}
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -232,17 +373,15 @@ export function UserMenu({
                   event.preventDefault()
                   void handleSignOut()
                 }}
+                className="text-destructive focus:text-destructive"
               >
-                <LogOut />
+                <LogOut className="text-destructive " />
                 {isSigningOut ? 'Logging out…' : 'Log out'}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </SidebarMenuItem>
       </SidebarMenu>
-      {billingEnabled ? (
-        null
-      ) : null}
     </>
   )
 }

@@ -32,7 +32,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = await req.json()
+    const text = await req.text()
+    if (!text) {
+      logger.warn('[Context Usage API] Empty request body')
+      return NextResponse.json({ error: 'Empty request body' }, { status: 400 })
+    }
+
+    let body
+    try {
+      body = JSON.parse(text)
+    } catch (e) {
+      logger.warn('[Context Usage API] Invalid JSON body', { text })
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
+
     logger.info('[Context Usage API] Request body', body)
 
     const parsed = ContextUsageRequestSchema.safeParse(body)

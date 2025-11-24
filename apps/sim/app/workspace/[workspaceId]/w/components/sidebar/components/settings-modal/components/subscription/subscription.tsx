@@ -53,7 +53,7 @@ function SubscriptionSkeleton() {
       <div className='flex flex-col gap-2'>
         {/* Current Plan skeleton - matches usage indicator style */}
         <div className='mb-2'>
-          <div className='rounded-sm border bg-background p-3 shadow-xs'>
+          <div className='rounded-md border bg-background p-3 shadow-xs'>
             <div className='space-y-2'>
               <div className='flex items-center justify-between'>
                 <div className='flex items-center gap-2'>
@@ -183,6 +183,8 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     getBillingStatus,
     usageLimitData,
     subscriptionData,
+    loadData,
+    loadUsageLimitData,
   } = useSubscriptionStore()
 
   const { activeOrganization, organizationBillingData, loadOrganizationBillingData, getUserRole } =
@@ -190,6 +192,12 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
 
   const [upgradeError, setUpgradeError] = useState<'pro' | 'team' | null>(null)
   const usageLimitRef = useRef<UsageLimitRef | null>(null)
+
+  // Ensure subscription and usage data are loaded on mount
+  useEffect(() => {
+    void loadData()
+    void loadUsageLimitData()
+  }, [loadData, loadUsageLimitData])
 
   // Get real subscription data from store
   const subscription = getSubscriptionStatus()
@@ -356,16 +364,18 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
             }
             current={
               subscription.isEnterprise || subscription.isTeam
-                ? organizationBillingData?.totalCurrentUsage || 0
+                ? organizationBillingData?.totalCurrentUsage ??
+                organizationBillingData?.minimumBillingAmount ??
+                0
                 : usage.current
             }
             limit={
               subscription.isEnterprise || subscription.isTeam
-                ? organizationBillingData?.totalUsageLimit ||
-                  organizationBillingData?.minimumBillingAmount ||
-                  0
+                ? organizationBillingData?.totalUsageLimit ??
+                organizationBillingData?.minimumBillingAmount ??
+                0
                 : !subscription.isFree &&
-                    (permissions.canEditUsageLimit || permissions.showTeamMemberView)
+                  (permissions.canEditUsageLimit || permissions.showTeamMemberView)
                   ? usage.current // placeholder; rightContent will render UsageLimit
                   : usage.limit
             }
@@ -376,10 +386,10 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                 ? organizationBillingData?.totalUsageLimit &&
                   organizationBillingData.totalUsageLimit > 0
                   ? Math.round(
-                      (organizationBillingData.totalCurrentUsage /
-                        organizationBillingData.totalUsageLimit) *
-                        100
-                    )
+                    ((organizationBillingData.totalCurrentUsage ?? 0) /
+                      organizationBillingData.totalUsageLimit) *
+                    100
+                  )
                   : 0
                 : Math.round(usage.percentUsed)
             }
@@ -405,7 +415,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
             }}
             rightContent={
               !subscription.isFree &&
-              (permissions.canEditUsageLimit || permissions.showTeamMemberView) ? (
+                (permissions.canEditUsageLimit || permissions.showTeamMemberView) ? (
                 <UsageLimit
                   ref={usageLimitRef}
                   currentLimit={
@@ -418,7 +428,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                   minimumLimit={
                     subscription.isTeam && isTeamAdmin
                       ? organizationBillingData?.minimumBillingAmount ||
-                        (subscription.isPro ? 20 : 40)
+                      (subscription.isPro ? 20 : 40)
                       : usageLimitData?.minimumLimit || (subscription.isPro ? 20 : 40)
                   }
                   context={subscription.isTeam && isTeamAdmin ? 'organization' : 'user'}

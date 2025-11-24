@@ -9,7 +9,7 @@ import { WorkflowRouteProvider } from '@/app/workspace/[workspaceId]/w/[workflow
 import { FolderTree } from '@/app/workspace/[workspaceId]/w/components/sidebar/components/folder-tree/folder-tree'
 import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
-import { hasWorkflowsInitiallyLoaded, useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
 import { DashboardWorkflowCreateMenu } from '@/widgets/components/workflow-create-menu'
 import type { PairColor } from '@/widgets/pair-colors'
@@ -81,7 +81,7 @@ const WorkflowListWidgetBody = ({
       return
     }
 
-    if (workspaceHasWorkflows || hasWorkflowsInitiallyLoaded()) {
+    if (workspaceHasWorkflows) {
       setHasInitialized(true)
       setLoadError(null)
       return
