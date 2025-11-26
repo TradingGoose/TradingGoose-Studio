@@ -3,7 +3,7 @@
 Thank you for your interest in contributing to Sim! Our goal is to provide developers with a powerful, user-friendly platform for building, testing, and optimizing agentic workflows. We welcome contributions in all forms—from bug fixes and design improvements to brand-new features.
 
 > **Project Overview:**  
-> Sim is a monorepo using Turborepo, containing the main application (`apps/sim/`), documentation (`apps/docs/`), and shared packages (`packages/`). The main application is built with Next.js (app router), ReactFlow, Zustand, Shadcn, and Tailwind CSS. Please ensure your contributions follow our best practices for clarity, maintainability, and consistency.
+> Sim is a monorepo using Turborepo, containing the main application (`apps/tradinggoose/`), documentation (`apps/docs/`), and shared packages (`packages/`). The main application is built with Next.js (app router), ReactFlow, Zustand, Shadcn, and Tailwind CSS. Please ensure your contributions follow our best practices for clarity, maintainability, and consistency.
 
 ---
 
@@ -235,7 +235,7 @@ If you prefer not to use Docker or Dev Containers:
 
    - Navigate to the app directory:
      ```bash
-     cd apps/sim
+     cd apps/tradinggoose
      ```
    - Copy `.env.example` to `.env`
    - Configure required variables (DATABASE_URL, BETTER_AUTH_SECRET, BETTER_AUTH_URL)
@@ -284,26 +284,26 @@ Sim is built in a modular fashion where blocks and tools extend the platform's f
 
 ### Where to Add Your Code
 
-- **Blocks:** Create your new block file under the `/apps/sim/blocks/blocks` directory. The name of the file should match the provider name (e.g., `pinecone.ts`).
-- **Tools:** Create a new directory under `/apps/sim/tools` with the same name as the provider (e.g., `/apps/sim/tools/pinecone`).
+- **Blocks:** Create your new block file under the `/apps/tradinggoose/blocks/blocks` directory. The name of the file should match the provider name (e.g., `pinecone.ts`).
+- **Tools:** Create a new directory under `/apps/tradinggoose/tools` with the same name as the provider (e.g., `/apps/tradinggoose/tools/pinecone`).
 
 In addition, you will need to update the registries:
 
-- **Block Registry:** Update the blocks index (`/apps/sim/blocks/index.ts`) to include your new block.
-- **Tool Registry:** Update the tools registry (`/apps/sim/tools/index.ts`) to add your new tool.
+- **Block Registry:** Update the blocks index (`/apps/tradinggoose/blocks/index.ts`) to include your new block.
+- **Tool Registry:** Update the tools registry (`/apps/tradinggoose/tools/index.ts`) to add your new tool.
 
 ### How to Create a New Block
 
 1. **Create a New File:**  
-   Create a file for your block named after the provider (e.g., `pinecone.ts`) in the `/apps/sim/blocks/blocks` directory.
+   Create a file for your block named after the provider (e.g., `pinecone.ts`) in the `/apps/tradinggoose/blocks/blocks` directory.
 
 2. **Create a New Icon:**
-   Create a new icon for your block in the `/apps/sim/components/icons.tsx` file. The icon should follow the same naming convention as the block (e.g., `PineconeIcon`).
+   Create a new icon for your block in the `/apps/tradinggoose/components/icons.tsx` file. The icon should follow the same naming convention as the block (e.g., `PineconeIcon`).
 
 3. **Define the Block Configuration:**  
    Your block should export a constant of type `BlockConfig`. For example:
 
-   ```typescript:/apps/sim/blocks/blocks/pinecone.ts
+   ```typescript:/apps/tradinggoose/blocks/blocks/pinecone.ts
    import { PineconeIcon } from '@/components/icons'
    import type { BlockConfig } from '@/blocks/types'
    import type { PineconeResponse } from '@/tools/pinecone/types'
@@ -373,9 +373,9 @@ In addition, you will need to update the registries:
    ```
 
 4. **Register Your Block:**  
-   Add your block to the blocks registry (`/apps/sim/blocks/registry.ts`):
+   Add your block to the blocks registry (`/apps/tradinggoose/blocks/registry.ts`):
 
-   ```typescript:/apps/sim/blocks/registry.ts
+   ```typescript:/apps/tradinggoose/blocks/registry.ts
    import { PineconeBlock } from './blocks/pinecone'
 
    // Registry of all available blocks
@@ -393,7 +393,7 @@ In addition, you will need to update the registries:
 ### How to Create a New Tool
 
 1. **Create a New Directory:**  
-   Create a directory under `/apps/sim/tools` with the same name as the provider (e.g., `/apps/sim/tools/pinecone`).
+   Create a directory under `/apps/tradinggoose/tools` with the same name as the provider (e.g., `/apps/tradinggoose/tools/pinecone`).
 
 2. **Create Tool Files:**  
    Create separate files for each tool functionality with descriptive names (e.g., `fetch.ts`, `generate_embeddings.ts`, `search_text.ts`) in your tool directory.
@@ -404,7 +404,7 @@ In addition, you will need to update the registries:
 4. **Create an Index File:**  
    Create an `index.ts` file in your tool directory that imports and exports all tools:
 
-   ```typescript:/apps/sim/tools/pinecone/index.ts
+   ```typescript:/apps/tradinggoose/tools/pinecone/index.ts
    import { fetchTool } from './fetch'
    import { generateEmbeddingsTool } from './generate_embeddings'
    import { searchTextTool } from './search_text'
@@ -415,7 +415,7 @@ In addition, you will need to update the registries:
 5. **Define the Tool Configuration:**  
    Your tool should export a constant with a naming convention of `{toolName}Tool`. The tool ID should follow the format `{provider}_{tool_name}`. For example:
 
-   ```typescript:/apps/sim/tools/pinecone/fetch.ts
+   ```typescript:/apps/tradinggoose/tools/pinecone/fetch.ts
    import { ToolConfig, ToolResponse } from '@/tools/types'
    import { PineconeParams, PineconeResponse } from '@/tools/pinecone/types'
 
@@ -452,9 +452,9 @@ In addition, you will need to update the registries:
    ```
 
 6. **Register Your Tool:**  
-   Update the tools registry in `/apps/sim/tools/index.ts` to include your new tool:
+   Update the tools registry in `/apps/tradinggoose/tools/index.ts` to include your new tool:
 
-   ```typescript:/apps/sim/tools/index.ts
+   ```typescript:/apps/tradinggoose/tools/index.ts
    import { fetchTool, generateEmbeddingsTool, searchTextTool } from '/@tools/pinecone'
    // ... other imports
 

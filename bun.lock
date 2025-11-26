@@ -59,7 +59,7 @@
         "typescript": "^5.8.2",
       },
     },
-    "apps/sim": {
+    "apps/tradinggoose": {
       "name": "sim",
       "version": "0.1.0",
       "dependencies": {
@@ -2820,7 +2820,7 @@
 
     "signal-exit": ["signal-exit@4.1.0", "", {}, "sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw=="],
 
-    "sim": ["sim@workspace:apps/sim"],
+    "sim": ["sim@workspace:apps/tradinggoose"],
 
     "simple-swizzle": ["simple-swizzle@0.2.4", "", { "dependencies": { "is-arrayish": "^0.3.1" } }, "sha512-nAu1WFPQSMNr2Zn9PGSZK9AGn4t/y97lEm+MXTtUDwfP0ksAIX4nO+6ruD9Jwut4C49SB1Ws+fbXsm/yScWOHw=="],
 

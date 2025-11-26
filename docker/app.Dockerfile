@@ -15,7 +15,7 @@ RUN bun install -g turbo
 
 COPY package.json bun.lock ./
 RUN mkdir -p apps
-COPY apps/sim/package.json ./apps/sim/package.json
+COPY apps/tradinggoose/package.json ./apps/tradinggoose/package.json
 
 RUN bun install --omit dev --ignore-scripts
 
@@ -35,7 +35,7 @@ COPY . .
 RUN bun install --omit dev --ignore-scripts
 
 # Required for standalone nextjs build
-WORKDIR /app/apps/sim
+WORKDIR /app/apps/tradinggoose
 RUN bun install sharp
 
 ENV NEXT_TELEMETRY_DISABLED=1 \
@@ -72,23 +72,23 @@ ENV NODE_ENV=production
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001
 
-COPY --from=builder --chown=nextjs:nodejs /app/apps/sim/public ./apps/sim/public
-COPY --from=builder --chown=nextjs:nodejs /app/apps/sim/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/apps/sim/.next/static ./apps/sim/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/tradinggoose/public ./apps/tradinggoose/public
+COPY --from=builder --chown=nextjs:nodejs /app/apps/tradinggoose/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/tradinggoose/.next/static ./apps/tradinggoose/.next/static
 
 # Guardrails setup (files need to be owned by nextjs for runtime)
-COPY --from=builder --chown=nextjs:nodejs /app/apps/sim/lib/guardrails/setup.sh ./apps/sim/lib/guardrails/setup.sh
-COPY --from=builder --chown=nextjs:nodejs /app/apps/sim/lib/guardrails/requirements.txt ./apps/sim/lib/guardrails/requirements.txt
-COPY --from=builder --chown=nextjs:nodejs /app/apps/sim/lib/guardrails/validate_pii.py ./apps/sim/lib/guardrails/validate_pii.py
+COPY --from=builder --chown=nextjs:nodejs /app/apps/tradinggoose/lib/guardrails/setup.sh ./apps/tradinggoose/lib/guardrails/setup.sh
+COPY --from=builder --chown=nextjs:nodejs /app/apps/tradinggoose/lib/guardrails/requirements.txt ./apps/tradinggoose/lib/guardrails/requirements.txt
+COPY --from=builder --chown=nextjs:nodejs /app/apps/tradinggoose/lib/guardrails/validate_pii.py ./apps/tradinggoose/lib/guardrails/validate_pii.py
 
 # Run guardrails setup as root, then fix ownership of generated venv files
-RUN chmod +x ./apps/sim/lib/guardrails/setup.sh && \
-    cd ./apps/sim/lib/guardrails && \
+RUN chmod +x ./apps/tradinggoose/lib/guardrails/setup.sh && \
+    cd ./apps/tradinggoose/lib/guardrails && \
     ./setup.sh && \
-    chown -R nextjs:nodejs /app/apps/sim/lib/guardrails
+    chown -R nextjs:nodejs /app/apps/tradinggoose/lib/guardrails
 
 # Create .next/cache directory with correct ownership
-RUN mkdir -p apps/sim/.next/cache && \
+RUN mkdir -p apps/tradinggoose/.next/cache && \
     chown -R nextjs:nodejs /app
 
 # Switch to non-root user
@@ -98,4 +98,4 @@ EXPOSE 3000
 ENV PORT=3000 \
     HOSTNAME="0.0.0.0"
 
-CMD ["bun", "apps/sim/server.js"]
+CMD ["bun", "apps/tradinggoose/server.js"]

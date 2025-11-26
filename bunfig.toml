@@ -17,7 +17,7 @@ workspaces = ["apps/*", "packages/*"]
 
 [test]
 # Test configuration
-preload = "./apps/sim/test/setup.ts"
+preload = "./apps/tradinggoose/vitest.setup.ts"
 extensions = [".test.ts", ".test.tsx"]
 timeout = 10000
 

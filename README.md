@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://sim.ai" target="_blank" rel="noopener noreferrer">
-    <img src="apps/sim/public/logo/reverse/text/large.png" alt="Sim Logo" width="500"/>
+    <img src="apps/tradinggoose/public/logo/reverse/text/large.png" alt="Sim Logo" width="500"/>
   </a>
 </p>
 
@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <img src="apps/sim/public/static/demo.gif" alt="Sim Demo" width="800"/>
+  <img src="apps/tradinggoose/public/static/demo.gif" alt="Sim Demo" width="800"/>
 </p>
 
 ## Quickstart
@@ -116,7 +116,7 @@ docker run --name simstudio-db \
 3. Set up environment:
 
 ```bash
-cd apps/sim
+cd apps/tradinggoose
 cp .env.example .env  # Configure with required variables (DATABASE_URL, BETTER_AUTH_SECRET, BETTER_AUTH_URL)
 ```
 
@@ -160,9 +160,9 @@ Next.js app (from project root):
 bun run dev
 ```
 
-Realtime socket server (from `apps/sim` directory in a separate terminal):
+Realtime socket server (from `apps/tradinggoose` directory in a separate terminal):
 ```bash
-cd apps/sim
+cd apps/tradinggoose
 bun run dev:sockets
 ```
 
@@ -171,7 +171,7 @@ bun run dev:sockets
 Copilot is a Sim-managed service. To use Copilot on a self-hosted instance:
 
 - Go to https://sim.ai → Settings → Copilot and generate a Copilot API key
-- Set `COPILOT_API_KEY` environment variable in your self-hosted apps/sim/.env file to that value
+- Set `COPILOT_API_KEY` environment variable in your self-hosted apps/tradinggoose/.env file to that value
 
 ## Tech Stack
 

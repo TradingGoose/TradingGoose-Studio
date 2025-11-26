@@ -1,7 +1,0 @@
-export { Account } from './account/account'
-export { Copilot } from './copilot/copilot'
-export { Credentials } from './credentials/credentials'
-export { SettingsNavigation } from './settings-navigation/settings-navigation'
-export { SSO } from './sso/sso'
-export { Subscription } from './subscription/subscription'
-export { TeamManagement } from './team-management/team-management'

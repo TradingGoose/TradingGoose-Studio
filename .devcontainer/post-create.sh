@@ -51,7 +51,7 @@ echo "📦 Cleaning and reinstalling dependencies..."
 if [ -d "node_modules" ]; then
   echo "Removing existing node_modules to ensure platform compatibility..."
   rm -rf node_modules
-  rm -rf apps/sim/node_modules
+  rm -rf apps/tradinggoose/node_modules
   rm -rf apps/docs/node_modules
 fi
 
@@ -65,24 +65,24 @@ bun install
 
 # Check for native dependencies
 echo "Checking for native dependencies compatibility..."
-if grep -q '"trustedDependencies"' apps/sim/package.json 2>/dev/null; then
+if grep -q '"trustedDependencies"' apps/tradinggoose/package.json 2>/dev/null; then
   echo "⚠️ Native dependencies detected. Bun will handle compatibility during install."
 fi
 
 # Set up environment variables if .env doesn't exist for the sim app
-if [ ! -f "apps/sim/.env" ]; then
+if [ ! -f "apps/tradinggoose/.env" ]; then
   echo "📄 Creating .env file from template..."
-  if [ -f "apps/sim/.env.example" ]; then
-    cp apps/sim/.env.example apps/sim/.env
+  if [ -f "apps/tradinggoose/.env.example" ]; then
+    cp apps/tradinggoose/.env.example apps/tradinggoose/.env
   else
-    echo "DATABASE_URL=postgresql://postgres:postgres@db:5432/simstudio" > apps/sim/.env
+    echo "DATABASE_URL=postgresql://postgres:postgres@db:5432/simstudio" > apps/tradinggoose/.env
   fi
 fi
 
 # Generate schema and run database migrations
 echo "🗃️ Running database schema generation and migrations..."
 echo "Generating schema..."
-cd apps/sim
+cd apps/tradinggoose
 bunx drizzle-kit generate
 cd ../..
 
@@ -93,7 +93,7 @@ echo "Waiting for database to be ready..."
   while [ $timeout -gt 0 ]; do
     if PGPASSWORD=postgres psql -h db -U postgres -c '\q' 2>/dev/null; then
       echo "Database is ready!"
-      cd apps/sim
+      cd apps/tradinggoose
       DATABASE_URL=postgresql://postgres:postgres@db:5432/simstudio bunx drizzle-kit push
       cd ../..
       break

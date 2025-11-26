@@ -28,7 +28,7 @@ jobs:
         run: bun install
 
       - name: Process docs embeddings
-        working-directory: ./apps/sim
+        working-directory: ./apps/tradinggoose
         env:
           DATABASE_URL: ${{ github.ref == 'refs/heads/main' && secrets.DATABASE_URL || secrets.STAGING_DATABASE_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

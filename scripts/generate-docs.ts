@@ -10,9 +10,9 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const rootDir = path.resolve(__dirname, '..')
 
-const BLOCKS_PATH = path.join(rootDir, 'apps/sim/blocks/blocks')
+const BLOCKS_PATH = path.join(rootDir, 'apps/tradinggoose/blocks/blocks')
 const DOCS_OUTPUT_PATH = path.join(rootDir, 'apps/docs/content/docs/en/tools')
-const ICONS_PATH = path.join(rootDir, 'apps/sim/components/icons.tsx')
+const ICONS_PATH = path.join(rootDir, 'apps/tradinggoose/components/icons.tsx')
 
 if (!fs.existsSync(DOCS_OUTPUT_PATH)) {
   fs.mkdirSync(DOCS_OUTPUT_PATH, { recursive: true })
@@ -703,7 +703,7 @@ async function getToolInfo(toolName: string): Promise<{
       const possiblePrefix = parts.slice(0, i).join('_')
       const possibleSuffix = parts.slice(i).join('_')
 
-      const toolDirPath = path.join(rootDir, `apps/sim/tools/${possiblePrefix}`)
+      const toolDirPath = path.join(rootDir, `apps/tradinggoose/tools/${possiblePrefix}`)
 
       if (fs.existsSync(toolDirPath) && fs.statSync(toolDirPath).isDirectory()) {
         toolPrefix = possiblePrefix
@@ -719,15 +719,15 @@ async function getToolInfo(toolName: string): Promise<{
 
     const possibleLocations = []
 
-    possibleLocations.push(path.join(rootDir, `apps/sim/tools/${toolPrefix}/${toolSuffix}.ts`))
+    possibleLocations.push(path.join(rootDir, `apps/tradinggoose/tools/${toolPrefix}/${toolSuffix}.ts`))
 
     const camelCaseSuffix = toolSuffix
       .split('_')
       .map((part, i) => (i === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1)))
       .join('')
-    possibleLocations.push(path.join(rootDir, `apps/sim/tools/${toolPrefix}/${camelCaseSuffix}.ts`))
+    possibleLocations.push(path.join(rootDir, `apps/tradinggoose/tools/${toolPrefix}/${camelCaseSuffix}.ts`))
 
-    possibleLocations.push(path.join(rootDir, `apps/sim/tools/${toolPrefix}/index.ts`))
+    possibleLocations.push(path.join(rootDir, `apps/tradinggoose/tools/${toolPrefix}/index.ts`))
 
     let toolFileContent = ''
 
