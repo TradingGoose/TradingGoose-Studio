@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { subscription } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { subscription } from '@tradinggoose/db/schema'
 import { and, eq, ne } from 'drizzle-orm'
 import { calculateSubscriptionOverage } from '@/lib/billing/core/billing'
 import { requireStripeClient } from '@/lib/billing/stripe-client'

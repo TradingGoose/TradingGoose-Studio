@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { userStats } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { userStats } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { checkInternalApiKey } from '@/lib/copilot/utils'
@@ -39,8 +39,8 @@ export async function POST(req: NextRequest) {
     if (usage.length > 0) {
       const currentUsage = Number.parseFloat(
         (usage[0].currentPeriodCost?.toString() as string) ||
-          (usage[0].totalCost as unknown as string) ||
-          '0'
+        (usage[0].totalCost as unknown as string) ||
+        '0'
       )
       const limit = Number.parseFloat((usage[0].currentUsageLimit as unknown as string) || '0')
 

@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { templateStars, templates, workflow } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { templateStars, templates, workflow } from '@tradinggoose/db/schema'
 import { and, desc, eq, ilike, or, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'

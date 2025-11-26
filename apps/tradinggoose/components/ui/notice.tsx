@@ -26,11 +26,11 @@ const variantStyles = {
     icon: <Info className='mr-2 h-4 w-4 flex-shrink-0 text-blue-500 dark:text-blue-400' />,
   },
   warning: {
-    container: 'bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800/50',
-    text: 'text-amber-800 dark:text-amber-300',
-    title: 'text-amber-800 dark:text-amber-300 font-medium',
+    container: 'bg-yellow-50 border-yellow-200 dark:bg-yellow-950/20 dark:border-yellow-800/50',
+    text: 'text-yellow-800 dark:text-yellow-300',
+    title: 'text-yellow-800 dark:text-yellow-300 font-medium',
     icon: (
-      <AlertTriangle className='mr-2 h-4 w-4 flex-shrink-0 text-amber-500 dark:text-amber-400' />
+      <AlertTriangle className='mr-2 h-4 w-4 flex-shrink-0 text-yellow-500 dark:text-yellow-400' />
     ),
   },
   success: {

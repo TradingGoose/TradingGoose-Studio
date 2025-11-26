@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect } from 'react'
-import type { permissionTypeEnum } from '@sim/db/schema'
+import type { permissionTypeEnum } from '@tradinggoose/db/schema'
 import { create } from 'zustand'
 import { handleAuthError } from '@/lib/auth/auth-error-handler'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -157,7 +157,7 @@ export function useWorkspacePermissions(workspaceId: string | null): UseWorkspac
 
   useEffect(() => {
     if (!workspaceId) {
-      return () => {}
+      return () => { }
     }
     fetchPermissions(workspaceId).catch((error) => {
       logger.error('Failed to load workspace permissions', { workspaceId, error })

@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { account } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { account } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
@@ -108,8 +108,8 @@ export async function GET(request: NextRequest) {
 
     const filteredLabels = query
       ? labels.filter((label: GmailLabel) =>
-          label.name.toLowerCase().includes((query as string).toLowerCase())
-        )
+        label.name.toLowerCase().includes((query as string).toLowerCase())
+      )
       : labels
 
     return NextResponse.json({ labels: filteredLabels }, { status: 200 })

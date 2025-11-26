@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { apiKey, permissions, workflow as workflowTable, workspace } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { apiKey, permissions, workflow as workflowTable, workspace } from '@tradinggoose/db/schema'
 import type { InferSelectModel } from 'drizzle-orm'
 import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
@@ -69,12 +69,12 @@ function mapWorkflowRow(row: WorkflowRow | undefined): WorkflowWithPinnedKey | u
   const pinnedApiKey =
     workflowWithoutDerived.pinnedApiKeyId && pinnedApiKeyKey && pinnedApiKeyName && pinnedApiKeyType
       ? {
-          id: workflowWithoutDerived.pinnedApiKeyId,
-          name: pinnedApiKeyName,
-          key: pinnedApiKeyKey,
-          type: pinnedApiKeyType,
-          workspaceId: pinnedApiKeyWorkspaceId,
-        }
+        id: workflowWithoutDerived.pinnedApiKeyId,
+        name: pinnedApiKeyName,
+        key: pinnedApiKeyKey,
+        type: pinnedApiKeyType,
+        workspaceId: pinnedApiKeyWorkspaceId,
+      }
       : null
 
   return {
@@ -132,9 +132,9 @@ export async function getWorkflowAccessContext(
 
   const row = rows[0] as
     | (WorkflowRow & {
-        workspaceOwnerId: string | null
-        workspacePermission: PermissionType | null
-      })
+      workspaceOwnerId: string | null
+      workspacePermission: PermissionType | null
+    })
     | undefined
 
   if (!row) {

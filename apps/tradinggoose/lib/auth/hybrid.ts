@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { workflow } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { workflow } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { authenticateApiKeyFromHeader, updateApiKeyLastUsed } from '@/lib/api-key/service'

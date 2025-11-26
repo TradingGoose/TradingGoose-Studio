@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { webhook, workflow } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { webhook, workflow } from '@tradinggoose/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { type NextRequest, NextResponse } from 'next/server'

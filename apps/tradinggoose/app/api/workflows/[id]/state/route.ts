@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { workflow } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { workflow } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -139,7 +139,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       accessContext?.isOwner ||
       (workflowData.workspaceId
         ? accessContext?.workspacePermission === 'write' ||
-          accessContext?.workspacePermission === 'admin'
+        accessContext?.workspacePermission === 'admin'
         : false)
 
     if (!canUpdate) {

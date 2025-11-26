@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { subscription, user, workflow, workflowExecutionLogs } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { subscription, user, workflow, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { and, eq, inArray, lt, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { verifyCronAuth } from '@/lib/auth/internal'

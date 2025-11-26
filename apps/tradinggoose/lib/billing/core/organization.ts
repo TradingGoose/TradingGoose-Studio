@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { member, organization, subscription, user, userStats } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { member, organization, subscription, user, userStats } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { getPlanPricing } from '@/lib/billing/core/billing'
 import { getFreeTierLimit } from '@/lib/billing/subscriptions/utils'

@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { chat } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { chat } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
@@ -32,9 +32,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const deploymentInfo =
       deploymentResults.length > 0
         ? {
-            id: deploymentResults[0].id,
-            identifier: deploymentResults[0].identifier,
-          }
+          id: deploymentResults[0].id,
+          identifier: deploymentResults[0].identifier,
+        }
         : null
 
     return createSuccessResponse({

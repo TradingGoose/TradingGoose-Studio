@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import * as schema from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import * as schema from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { syncUsageLimitsFromSubscription } from '@/lib/billing/core/usage'
 import { createLogger } from '@/lib/logs/console/logger'

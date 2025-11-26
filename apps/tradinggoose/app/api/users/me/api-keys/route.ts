@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { apiKey } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { apiKey } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { type NextRequest, NextResponse } from 'next/server'

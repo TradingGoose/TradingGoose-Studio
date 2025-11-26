@@ -44,7 +44,7 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
 
 WORKDIR /app
 
-# Provide dummy database URLs during image build so server code that imports @sim/db
+# Provide dummy database URLs during image build so server code that imports @tradinggoose/db
 # can be evaluated without crashing. Runtime environments should override these.
 ARG DATABASE_URL="postgresql://user:pass@localhost:5432/dummy"
 ENV DATABASE_URL=${DATABASE_URL}

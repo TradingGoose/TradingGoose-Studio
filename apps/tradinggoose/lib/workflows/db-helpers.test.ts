@@ -50,7 +50,7 @@ const mockWorkflowSubflows = {
   config: 'config',
 }
 
-vi.doMock('@sim/db', () => ({
+vi.doMock('@tradinggoose/db', () => ({
   db: mockDb,
   workflowBlocks: mockWorkflowBlocks,
   workflowEdges: mockWorkflowEdges,
@@ -414,7 +414,7 @@ describe('Database Helpers', () => {
 
     it('should handle database connection errors gracefully', async () => {
       const connectionError = new Error('Connection refused')
-      ;(connectionError as any).code = 'ECONNREFUSED'
+        ; (connectionError as any).code = 'ECONNREFUSED'
 
       // Mock database connection error
       mockDb.select.mockReturnValue({
@@ -504,7 +504,7 @@ describe('Database Helpers', () => {
 
     it('should handle database constraint errors', async () => {
       const constraintError = new Error('Unique constraint violation')
-      ;(constraintError as any).code = '23505'
+        ; (constraintError as any).code = '23505'
 
       const mockTransaction = vi.fn().mockRejectedValue(constraintError)
       mockDb.transaction = mockTransaction

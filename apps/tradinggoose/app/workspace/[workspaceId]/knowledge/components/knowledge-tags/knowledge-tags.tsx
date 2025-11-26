@@ -754,11 +754,11 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
 
                   {/* Warning when at max slots */}
                   {kbTagDefinitions.length >= MAX_TAG_SLOTS && (
-                    <div className='rounded-md border border-amber-200 bg-amber-50 p-2 dark:border-amber-800 dark:bg-amber-950'>
-                      <div className='text-amber-800 text-xs dark:text-amber-200'>
+                    <div className='rounded-md border border-yellow-200 bg-yellow-50 p-2 dark:border-yellow-800 dark:bg-yellow-950'>
+                      <div className='text-yellow-800 text-xs dark:text-yellow-200'>
                         <span className='font-medium'>Maximum tag definitions reached</span>
                       </div>
-                      <p className='text-amber-700 text-xs dark:text-amber-300'>
+                      <p className='text-yellow-700 text-xs dark:text-yellow-300'>
                         You can still use existing tag definitions, but cannot create new ones.
                       </p>
                     </div>

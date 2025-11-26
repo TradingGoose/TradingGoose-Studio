@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { memory } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { memory } from '@tradinggoose/db/schema'
 import { and, eq, isNull, like } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'

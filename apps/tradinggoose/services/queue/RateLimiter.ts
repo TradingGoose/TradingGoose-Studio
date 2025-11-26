@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { userRateLimits } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { userRateLimits } from '@tradinggoose/db/schema'
 import { eq, sql } from 'drizzle-orm'
 import { getHighestPrioritySubscription } from '@/lib/billing/core/subscription'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -175,8 +175,7 @@ export class RateLimiter {
             .where(eq(userRateLimits.referenceId, rateLimitKey))
 
           logger.info(
-            `Rate limit exceeded - request ${actualCount} > limit ${execLimit} for ${
-              rateLimitKey === userId ? `user ${userId}` : `organization ${rateLimitKey}`
+            `Rate limit exceeded - request ${actualCount} > limit ${execLimit} for ${rateLimitKey === userId ? `user ${userId}` : `organization ${rateLimitKey}`
             }`,
             {
               execLimit,
@@ -229,8 +228,7 @@ export class RateLimiter {
         )
 
         logger.info(
-          `Rate limit exceeded - request ${actualNewRequests} > limit ${execLimit} for ${
-            rateLimitKey === userId ? `user ${userId}` : `organization ${rateLimitKey}`
+          `Rate limit exceeded - request ${actualNewRequests} > limit ${execLimit} for ${rateLimitKey === userId ? `user ${userId}` : `organization ${rateLimitKey}`
           }`,
           {
             execLimit,
@@ -344,7 +342,7 @@ export class RateLimiter {
       logger.error('Error getting rate limit status:', error)
       const execLimit = isAsync
         ? RATE_LIMITS[(subscription?.plan || 'free') as SubscriptionPlan]
-            .asyncApiExecutionsPerMinute
+          .asyncApiExecutionsPerMinute
         : RATE_LIMITS[(subscription?.plan || 'free') as SubscriptionPlan].syncApiExecutionsPerMinute
       return {
         used: 0,

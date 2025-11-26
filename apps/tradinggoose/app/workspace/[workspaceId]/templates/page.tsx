@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { templateStars, templates } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { templateStars, templates } from '@tradinggoose/db/schema'
 import { and, desc, eq, sql } from 'drizzle-orm'
 import { getSession } from '@/lib/auth'
 import type { Template } from '@/app/workspace/[workspaceId]/templates/templates'

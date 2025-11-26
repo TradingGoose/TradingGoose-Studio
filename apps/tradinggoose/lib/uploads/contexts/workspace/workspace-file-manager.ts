@@ -3,8 +3,8 @@
  * Files uploaded at workspace level persist indefinitely and are accessible across all workflows
  */
 
-import { db } from '@sim/db'
-import { workspaceFile } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { workspaceFile } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import {
   checkStorageQuota,

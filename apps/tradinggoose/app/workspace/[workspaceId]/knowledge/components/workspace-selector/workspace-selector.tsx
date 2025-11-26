@@ -167,7 +167,7 @@ export function WorkspaceSelector({
       {!hasWorkspace && (
         <Tooltip>
           <TooltipTrigger asChild>
-            <AlertTriangle className='h-4 w-4 text-amber-500' />
+            <AlertTriangle className='h-4 w-4 text-yellow-500' />
           </TooltipTrigger>
           <TooltipContent side='top'>Not assigned to workspace</TooltipContent>
         </Tooltip>

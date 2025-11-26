@@ -1,4 +1,4 @@
-import { db } from '@sim/db'
+import { db } from '@tradinggoose/db'
 import {
   member,
   organization,
@@ -6,7 +6,7 @@ import {
   user as userTable,
   workflow,
   workflowExecutionLogs,
-} from '@sim/db/schema'
+} from '@tradinggoose/db/schema'
 import { eq, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { getHighestPrioritySubscription } from '@/lib/billing/core/subscription'
@@ -309,7 +309,7 @@ export class ExecutionLogger implements IExecutionLoggerService {
           costSummary,
           updatedLog.trigger as ExecutionTrigger['type']
         )
-      } catch {}
+      } catch { }
       logger.warn('Usage threshold notification check failed (non-fatal)', { error: e })
     }
 

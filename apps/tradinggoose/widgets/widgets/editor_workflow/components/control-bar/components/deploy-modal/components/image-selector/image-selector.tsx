@@ -240,7 +240,7 @@ export function ImageSelector({
             'relative flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center transition-colors',
             isDragging
               ? 'border-primary bg-[var(--primary)]/5'
-              : 'border-muted-foreground/25 hover:border-muted-foreground/40 hover:bg-card/10',
+              : 'border-muted-foreground/25 hover:border-muted-foreground/40 hover:bg-card/40',
             disabled && 'cursor-not-allowed opacity-50'
           )}
         >

@@ -58,7 +58,7 @@ export function DeploymentControls({
 
     try {
       await refetchDeployedState()
-    } catch (error) {}
+    } catch (error) { }
   }
 
   const canDeploy = userPermissions.canAdmin
@@ -106,9 +106,9 @@ export function DeploymentControls({
                 'transition-all duration-200',
                 isDeployed && !isPreviousVersionActive && 'text-[var(--primary-hover)]',
                 isPreviousVersionActive &&
-                  'border-purple-500 bg-purple-500/10 text-purple-600 dark:text-purple-400',
+                'border-amber-500 bg-amber-500/10 text-amber-600 dark:text-amber-400',
                 isDisabled &&
-                  'cursor-not-allowed opacity-50 hover:border hover:bg-card hover:text-card-foreground hover:shadow-xs'
+                'cursor-not-allowed opacity-50 hover:border hover:bg-card hover:text-card-foreground hover:shadow-xs'
               )}
             >
               {isDeploying ? (
@@ -122,8 +122,8 @@ export function DeploymentControls({
             {isDeployed && workflowNeedsRedeployment && (
               <div className='pointer-events-none absolute right-2 bottom-2 flex items-center justify-center'>
                 <div className='relative'>
-                  <div className='absolute inset-0 h-[6px] w-[6px] animate-ping rounded-full bg-amber-500/50' />
-                  <div className='zoom-in fade-in relative h-[6px] w-[6px] animate-in rounded-full bg-amber-500/80 duration-300' />
+                  <div className='absolute inset-0 h-[6px] w-[6px] animate-ping rounded-full bg-yellow-500/50' />
+                  <div className='zoom-in fade-in relative h-[6px] w-[6px] animate-in rounded-full bg-yellow-500/80 duration-300' />
                 </div>
                 <span className='sr-only'>Needs Redeployment</span>
               </div>

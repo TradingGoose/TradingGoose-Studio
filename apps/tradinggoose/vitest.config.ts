@@ -19,13 +19,13 @@ export default defineConfig({
     exclude: [...configDefaults.exclude, '**/node_modules/**', '**/dist/**'],
     setupFiles: ['./vitest.setup.ts'],
     alias: {
-      '@sim/db': resolve(__dirname, '../../packages/db'),
+      '@tradinggoose/db': resolve(__dirname, '../../packages/db'),
     },
   },
   resolve: {
     alias: [
       {
-        find: '@sim/db',
+        find: '@tradinggoose/db',
         replacement: path.resolve(__dirname, '../../packages/db'),
       },
       {

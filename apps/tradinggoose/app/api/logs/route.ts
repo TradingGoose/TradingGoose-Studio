@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { permissions, workflow, workflowExecutionLogs } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { permissions, workflow, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { and, desc, eq, gte, inArray, lte, type SQL, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -47,52 +47,52 @@ export async function GET(request: NextRequest) {
       const selectColumns =
         params.details === 'full'
           ? {
-              id: workflowExecutionLogs.id,
-              workflowId: workflowExecutionLogs.workflowId,
-              executionId: workflowExecutionLogs.executionId,
-              stateSnapshotId: workflowExecutionLogs.stateSnapshotId,
-              level: workflowExecutionLogs.level,
-              trigger: workflowExecutionLogs.trigger,
-              startedAt: workflowExecutionLogs.startedAt,
-              endedAt: workflowExecutionLogs.endedAt,
-              totalDurationMs: workflowExecutionLogs.totalDurationMs,
-              executionData: workflowExecutionLogs.executionData, // Large field - only in full mode
-              cost: workflowExecutionLogs.cost,
-              files: workflowExecutionLogs.files, // Large field - only in full mode
-              createdAt: workflowExecutionLogs.createdAt,
-              workflowName: workflow.name,
-              workflowDescription: workflow.description,
-              workflowColor: workflow.color,
-              workflowFolderId: workflow.folderId,
-              workflowUserId: workflow.userId,
-              workflowWorkspaceId: workflow.workspaceId,
-              workflowCreatedAt: workflow.createdAt,
-              workflowUpdatedAt: workflow.updatedAt,
-            }
+            id: workflowExecutionLogs.id,
+            workflowId: workflowExecutionLogs.workflowId,
+            executionId: workflowExecutionLogs.executionId,
+            stateSnapshotId: workflowExecutionLogs.stateSnapshotId,
+            level: workflowExecutionLogs.level,
+            trigger: workflowExecutionLogs.trigger,
+            startedAt: workflowExecutionLogs.startedAt,
+            endedAt: workflowExecutionLogs.endedAt,
+            totalDurationMs: workflowExecutionLogs.totalDurationMs,
+            executionData: workflowExecutionLogs.executionData, // Large field - only in full mode
+            cost: workflowExecutionLogs.cost,
+            files: workflowExecutionLogs.files, // Large field - only in full mode
+            createdAt: workflowExecutionLogs.createdAt,
+            workflowName: workflow.name,
+            workflowDescription: workflow.description,
+            workflowColor: workflow.color,
+            workflowFolderId: workflow.folderId,
+            workflowUserId: workflow.userId,
+            workflowWorkspaceId: workflow.workspaceId,
+            workflowCreatedAt: workflow.createdAt,
+            workflowUpdatedAt: workflow.updatedAt,
+          }
           : {
-              // Basic mode - exclude large fields for better performance
-              id: workflowExecutionLogs.id,
-              workflowId: workflowExecutionLogs.workflowId,
-              executionId: workflowExecutionLogs.executionId,
-              stateSnapshotId: workflowExecutionLogs.stateSnapshotId,
-              level: workflowExecutionLogs.level,
-              trigger: workflowExecutionLogs.trigger,
-              startedAt: workflowExecutionLogs.startedAt,
-              endedAt: workflowExecutionLogs.endedAt,
-              totalDurationMs: workflowExecutionLogs.totalDurationMs,
-              executionData: sql<null>`NULL`, // Exclude large execution data in basic mode
-              cost: workflowExecutionLogs.cost,
-              files: sql<null>`NULL`, // Exclude files in basic mode
-              createdAt: workflowExecutionLogs.createdAt,
-              workflowName: workflow.name,
-              workflowDescription: workflow.description,
-              workflowColor: workflow.color,
-              workflowFolderId: workflow.folderId,
-              workflowUserId: workflow.userId,
-              workflowWorkspaceId: workflow.workspaceId,
-              workflowCreatedAt: workflow.createdAt,
-              workflowUpdatedAt: workflow.updatedAt,
-            }
+            // Basic mode - exclude large fields for better performance
+            id: workflowExecutionLogs.id,
+            workflowId: workflowExecutionLogs.workflowId,
+            executionId: workflowExecutionLogs.executionId,
+            stateSnapshotId: workflowExecutionLogs.stateSnapshotId,
+            level: workflowExecutionLogs.level,
+            trigger: workflowExecutionLogs.trigger,
+            startedAt: workflowExecutionLogs.startedAt,
+            endedAt: workflowExecutionLogs.endedAt,
+            totalDurationMs: workflowExecutionLogs.totalDurationMs,
+            executionData: sql<null>`NULL`, // Exclude large execution data in basic mode
+            cost: workflowExecutionLogs.cost,
+            files: sql<null>`NULL`, // Exclude files in basic mode
+            createdAt: workflowExecutionLogs.createdAt,
+            workflowName: workflow.name,
+            workflowDescription: workflow.description,
+            workflowColor: workflow.color,
+            workflowFolderId: workflow.folderId,
+            workflowUserId: workflow.userId,
+            workflowWorkspaceId: workflow.workspaceId,
+            workflowCreatedAt: workflow.createdAt,
+            workflowUpdatedAt: workflow.updatedAt,
+          }
 
       const baseQuery = db
         .select(selectColumns)
@@ -322,7 +322,7 @@ export async function GET(request: NextRequest) {
           try {
             const fo = (log.executionData as any)?.finalOutput
             if (fo !== undefined) finalOutput = fo
-          } catch {}
+          } catch { }
         }
 
         const workflowSummary = {
@@ -350,12 +350,12 @@ export async function GET(request: NextRequest) {
           executionData:
             params.details === 'full'
               ? {
-                  totalDuration: log.totalDurationMs,
-                  traceSpans,
-                  blockExecutions,
-                  finalOutput,
-                  enhanced: true,
-                }
+                totalDuration: log.totalDurationMs,
+                traceSpans,
+                blockExecutions,
+                finalOutput,
+                enhanced: true,
+              }
               : undefined,
           cost:
             params.details === 'full'

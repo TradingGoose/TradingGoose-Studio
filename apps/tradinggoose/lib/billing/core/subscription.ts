@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { member, subscription, user, userStats } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { member, subscription, user, userStats } from '@tradinggoose/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
 import {
   checkEnterprisePlan,

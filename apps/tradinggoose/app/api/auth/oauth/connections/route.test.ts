@@ -34,7 +34,7 @@ describe('OAuth Connections API Route', () => {
       getSession: mockGetSession,
     }))
 
-    vi.doMock('@sim/db', () => ({
+    vi.doMock('@tradinggoose/db', () => ({
       db: mockDb,
       account: { userId: 'userId', providerId: 'providerId' },
       user: { email: 'email', id: 'id' },

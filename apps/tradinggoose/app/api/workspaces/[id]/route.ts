@@ -1,4 +1,4 @@
-import { workflow } from '@sim/db/schema'
+import { workflow } from '@tradinggoose/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
@@ -6,8 +6,8 @@ import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('WorkspaceByIdAPI')
 
-import { db } from '@sim/db'
-import { knowledgeBase, permissions, templates, workspace } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { knowledgeBase, permissions, templates, workspace } from '@tradinggoose/db/schema'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

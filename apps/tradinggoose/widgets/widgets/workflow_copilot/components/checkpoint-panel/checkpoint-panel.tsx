@@ -107,7 +107,7 @@ export function CheckpointPanel() {
                 <div className='flex items-start justify-between gap-2'>
                   <div className='min-w-0 flex-1'>
                     <div className='mb-1 flex items-center gap-2'>
-                      <div className='h-2 w-2 rounded-full bg-purple-500' />
+                      <div className='h-2 w-2 rounded-full bg-amber-500' />
                       <span className='font-medium text-muted-foreground text-xs'>
                         Checkpoint {checkpoints.length - index}
                       </span>

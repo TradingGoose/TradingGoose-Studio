@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { workflowLogWebhook, workflowLogWebhookDelivery } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { workflowLogWebhook, workflowLogWebhookDelivery } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { createLogger } from '@/lib/logs/console/logger'

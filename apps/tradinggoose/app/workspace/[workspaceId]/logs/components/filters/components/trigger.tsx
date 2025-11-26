@@ -20,7 +20,7 @@ export default function Trigger() {
     { value: 'api', label: 'API', color: 'bg-blue-500' },
     { value: 'webhook', label: 'Webhook', color: 'bg-orange-500' },
     { value: 'schedule', label: 'Schedule', color: 'bg-green-500' },
-    { value: 'chat', label: 'Chat', color: 'bg-purple-500' },
+    { value: 'chat', label: 'Chat', color: 'bg-amber-500' },
   ]
 
   // Get display text for the dropdown button

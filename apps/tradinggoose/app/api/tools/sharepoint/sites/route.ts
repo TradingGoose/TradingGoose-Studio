@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
-import { db } from '@sim/db'
-import { account } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { account } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'

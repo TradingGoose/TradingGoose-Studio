@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { organization, subscription, user } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { organization, subscription, user } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import type Stripe from 'stripe'
 import {

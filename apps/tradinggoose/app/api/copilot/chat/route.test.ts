@@ -46,7 +46,7 @@ describe('Copilot Chat API Route', () => {
     mockUpdate.mockReturnValue({ set: mockSet })
     mockSet.mockReturnValue({ where: mockWhere })
 
-    vi.doMock('@sim/db', () => ({
+    vi.doMock('@tradinggoose/db', () => ({
       db: {
         select: mockSelect,
         insert: mockInsert,
@@ -54,7 +54,7 @@ describe('Copilot Chat API Route', () => {
       },
     }))
 
-    vi.doMock('@sim/db/schema', () => ({
+    vi.doMock('@tradinggoose/db/schema', () => ({
       copilotChats: {
         id: 'id',
         userId: 'userId',
@@ -179,10 +179,10 @@ describe('Copilot Chat API Route', () => {
         },
       })
 
-      ;(global.fetch as any).mockResolvedValue({
-        ok: true,
-        body: mockReadableStream,
-      })
+        ; (global.fetch as any).mockResolvedValue({
+          ok: true,
+          body: mockReadableStream,
+        })
 
       const req = createMockRequest('POST', {
         message: 'Hello',
@@ -254,10 +254,10 @@ describe('Copilot Chat API Route', () => {
         },
       })
 
-      ;(global.fetch as any).mockResolvedValue({
-        ok: true,
-        body: mockReadableStream,
-      })
+        ; (global.fetch as any).mockResolvedValue({
+          ok: true,
+          body: mockReadableStream,
+        })
 
       const req = createMockRequest('POST', {
         message: 'New message',
@@ -302,14 +302,14 @@ describe('Copilot Chat API Route', () => {
       }
       mockReturning.mockResolvedValue([newChat])
 
-      ;(global.fetch as any).mockResolvedValue({
-        ok: true,
-        body: new ReadableStream({
-          start(controller) {
-            controller.close()
-          },
-        }),
-      })
+        ; (global.fetch as any).mockResolvedValue({
+          ok: true,
+          body: new ReadableStream({
+            start(controller) {
+              controller.close()
+            },
+          }),
+        })
 
       const req = createMockRequest('POST', {
         message: 'Hello',
@@ -347,11 +347,11 @@ describe('Copilot Chat API Route', () => {
 
       mockReturning.mockResolvedValue([{ id: 'chat-123', messages: [] }])
 
-      ;(global.fetch as any).mockResolvedValue({
-        ok: false,
-        status: 500,
-        text: () => Promise.resolve('Internal server error'),
-      })
+        ; (global.fetch as any).mockResolvedValue({
+          ok: false,
+          status: 500,
+          text: () => Promise.resolve('Internal server error'),
+        })
 
       const req = createMockRequest('POST', {
         message: 'Hello',
@@ -394,14 +394,14 @@ describe('Copilot Chat API Route', () => {
 
       mockReturning.mockResolvedValue([{ id: 'chat-123', messages: [] }])
 
-      ;(global.fetch as any).mockResolvedValue({
-        ok: true,
-        body: new ReadableStream({
-          start(controller) {
-            controller.close()
-          },
-        }),
-      })
+        ; (global.fetch as any).mockResolvedValue({
+          ok: true,
+          body: new ReadableStream({
+            start(controller) {
+              controller.close()
+            },
+          }),
+        })
 
       const req = createMockRequest('POST', {
         message: 'What is this workflow?',

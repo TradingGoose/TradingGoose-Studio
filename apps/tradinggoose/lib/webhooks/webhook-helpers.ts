@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { webhook as webhookTable } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { webhook as webhookTable } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'

@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { copilotChats } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { copilotChats } from '@tradinggoose/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -130,15 +130,15 @@ export async function POST(req: NextRequest) {
         contextsCount: Array.isArray(contexts) ? contexts.length : 0,
         contextsPreview: Array.isArray(contexts)
           ? contexts.map((c: any) => ({
-              kind: c?.kind,
-              chatId: c?.chatId,
-              workflowId: c?.workflowId,
-              executionId: (c as any)?.executionId,
-              label: c?.label,
-            }))
+            kind: c?.kind,
+            chatId: c?.chatId,
+            workflowId: c?.workflowId,
+            executionId: (c as any)?.executionId,
+            label: c?.label,
+          }))
           : undefined,
       })
-    } catch {}
+    } catch { }
     // Preprocess contexts server-side
     let agentContexts: Array<{ type: string; content: string }> = []
     if (Array.isArray(contexts) && contexts.length > 0) {
@@ -333,7 +333,7 @@ export async function POST(req: NextRequest) {
         hasFileAttachments: processedFileContents.length > 0,
         messageLength: message.length,
       })
-    } catch {}
+    } catch { }
 
     const simAgentResponse = await fetch(`${SIM_AGENT_API_URL}/api/chat-completion-streaming`, {
       method: 'POST',
@@ -374,8 +374,8 @@ export async function POST(req: NextRequest) {
         ...(Array.isArray(contexts) && contexts.length > 0 && { contexts }),
         ...(Array.isArray(contexts) &&
           contexts.length > 0 && {
-            contentBlocks: [{ type: 'contexts', contexts: contexts as any, timestamp: Date.now() }],
-          }),
+          contentBlocks: [{ type: 'contexts', contexts: contexts as any, timestamp: Date.now() }],
+        }),
       }
 
       // Create a pass-through stream that captures the response
@@ -573,7 +573,7 @@ export async function POST(req: NextRequest) {
                           reader.cancel()
                           break
                         }
-                      } catch {}
+                      } catch { }
                       // Do not forward the original error event
                     } else {
                       // Forward original event to client
@@ -770,8 +770,8 @@ export async function POST(req: NextRequest) {
         ...(Array.isArray(contexts) && contexts.length > 0 && { contexts }),
         ...(Array.isArray(contexts) &&
           contexts.length > 0 && {
-            contentBlocks: [{ type: 'contexts', contexts: contexts as any, timestamp: Date.now() }],
-          }),
+          contentBlocks: [{ type: 'contexts', contexts: contexts as any, timestamp: Date.now() }],
+        }),
       }
 
       const assistantMessage = {

@@ -5,7 +5,7 @@ import {
   workflowDeploymentVersion,
   workflowEdges,
   workflowSubflows,
-} from '@sim/db'
+} from '@tradinggoose/db'
 import type { InferSelectModel } from 'drizzle-orm'
 import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm'
 import type { Edge } from 'reactflow'
@@ -32,11 +32,11 @@ async function ensureUniqueBlockIds(
     blockIds.length === 0
       ? []
       : await db
-          .select({ id: workflowBlocks.id })
-          .from(workflowBlocks)
-          .where(
-            and(inArray(workflowBlocks.id, blockIds), ne(workflowBlocks.workflowId, workflowId))
-          )
+        .select({ id: workflowBlocks.id })
+        .from(workflowBlocks)
+        .where(
+          and(inArray(workflowBlocks.id, blockIds), ne(workflowBlocks.workflowId, workflowId))
+        )
 
   const conflictingIds = new Set(conflictingIdsResult.map((row) => row.id))
   const remap = new Map<string, string>()
@@ -289,9 +289,9 @@ export async function loadWorkflowFromNormalizedTables(
             typeof (config as Loop).iterations === 'number' ? (config as Loop).iterations : 1,
           loopType:
             (config as Loop).loopType === 'for' ||
-            (config as Loop).loopType === 'forEach' ||
-            (config as Loop).loopType === 'while' ||
-            (config as Loop).loopType === 'doWhile'
+              (config as Loop).loopType === 'forEach' ||
+              (config as Loop).loopType === 'while' ||
+              (config as Loop).loopType === 'doWhile'
               ? (config as Loop).loopType
               : 'for',
           forEachItems: (config as Loop).forEachItems ?? '',
@@ -306,7 +306,7 @@ export async function loadWorkflowFromNormalizedTables(
           distribution: (config as Parallel).distribution ?? '',
           parallelType:
             (config as Parallel).parallelType === 'count' ||
-            (config as Parallel).parallelType === 'collection'
+              (config as Parallel).parallelType === 'collection'
               ? (config as Parallel).parallelType
               : 'count',
         }

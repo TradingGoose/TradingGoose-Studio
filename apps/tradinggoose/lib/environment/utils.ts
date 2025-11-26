@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { environment, workspaceEnvironment } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { environment, workspaceEnvironment } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { createLogger } from '@/lib/logs/console/logger'
 import { decryptSecret } from '@/lib/utils'
@@ -56,10 +56,10 @@ export async function getPersonalAndWorkspaceEnv(
     db.select().from(environment).where(eq(environment.userId, userId)).limit(1),
     workspaceId
       ? db
-          .select()
-          .from(workspaceEnvironment)
-          .where(eq(workspaceEnvironment.workspaceId, workspaceId))
-          .limit(1)
+        .select()
+        .from(workspaceEnvironment)
+        .where(eq(workspaceEnvironment.workspaceId, workspaceId))
+        .limit(1)
       : Promise.resolve([] as any[]),
   ])
 

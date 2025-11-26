@@ -3,14 +3,14 @@
  * Similar to cost limits but for file storage quotas
  */
 
-import { db } from '@sim/db'
+import { db } from '@tradinggoose/db'
 import {
   DEFAULT_ENTERPRISE_STORAGE_LIMIT_GB,
   DEFAULT_FREE_STORAGE_LIMIT_GB,
   DEFAULT_PRO_STORAGE_LIMIT_GB,
   DEFAULT_TEAM_STORAGE_LIMIT_GB,
-} from '@sim/db/consts'
-import { organization, subscription, userStats } from '@sim/db/schema'
+} from '@tradinggoose/db/consts'
+import { organization, subscription, userStats } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { getEnv } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'

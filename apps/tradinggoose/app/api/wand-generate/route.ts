@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { userStats, workflow } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { userStats, workflow } from '@tradinggoose/db/schema'
 import { eq, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import OpenAI, { AzureOpenAI } from 'openai'
@@ -26,14 +26,14 @@ const useWandAzure = azureApiKey && azureEndpoint && azureApiVersion
 
 const client = useWandAzure
   ? new AzureOpenAI({
-      apiKey: azureApiKey,
-      apiVersion: azureApiVersion,
-      endpoint: azureEndpoint,
-    })
+    apiKey: azureApiKey,
+    apiVersion: azureApiVersion,
+    endpoint: azureEndpoint,
+  })
   : openaiApiKey
     ? new OpenAI({
-        apiKey: openaiApiKey,
-      })
+      apiKey: openaiApiKey,
+    })
     : null
 
 if (!useWandAzure && !openaiApiKey) {

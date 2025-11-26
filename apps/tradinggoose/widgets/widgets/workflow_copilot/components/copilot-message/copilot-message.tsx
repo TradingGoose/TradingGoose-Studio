@@ -909,7 +909,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 onClick={handleMessageClick}
                 onMouseEnter={() => setIsHoveringMessage(true)}
                 onMouseLeave={() => setIsHoveringMessage(false)}
-                className='group relative cursor-text rounded-sm border border-[#E5E5E5] bg-background px-3 py-1.5 shadow-xs transition-all duration-200 hover:border-[#D0D0D0] dark:border-[#414141]  dark:hover:border-[#525252]'
+                className='group relative cursor-text rounded-md border border-input bg-background px-3 py-1.5 shadow-xs transition-all duration-200 '
               >
                 <div
                   ref={messageContentRef}

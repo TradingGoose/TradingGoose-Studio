@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { permissions, type permissionTypeEnum, user } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { permissions, type permissionTypeEnum, user } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'

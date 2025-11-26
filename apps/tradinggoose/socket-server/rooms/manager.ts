@@ -1,5 +1,5 @@
-import * as schema from '@sim/db/schema'
-import { workflowBlocks, workflowEdges } from '@sim/db/schema'
+import * as schema from '@tradinggoose/db/schema'
+import { workflowBlocks, workflowEdges } from '@tradinggoose/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
@@ -14,7 +14,7 @@ const db = drizzle(
     idle_timeout: 15,
     connect_timeout: 20,
     max: 3,
-    onnotice: () => {},
+    onnotice: () => { },
   }),
   { schema }
 )

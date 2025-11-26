@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { document, embedding, knowledgeBase } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { document, embedding, knowledgeBase } from '@tradinggoose/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 

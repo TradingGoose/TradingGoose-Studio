@@ -3,7 +3,7 @@ import { RateLimiter } from '@/services/queue/RateLimiter'
 import { MANUAL_EXECUTION_LIMIT, RATE_LIMITS } from '@/services/queue/types'
 
 // Mock the database module
-vi.mock('@sim/db', () => ({
+vi.mock('@tradinggoose/db', () => ({
   db: {
     select: vi.fn(),
     insert: vi.fn(),
@@ -24,7 +24,7 @@ vi.mock('@/lib/billing/core/subscription', () => ({
   getHighestPrioritySubscription: vi.fn().mockResolvedValue(null),
 }))
 
-import { db } from '@sim/db'
+import { db } from '@tradinggoose/db'
 
 describe('RateLimiter', () => {
   const rateLimiter = new RateLimiter()

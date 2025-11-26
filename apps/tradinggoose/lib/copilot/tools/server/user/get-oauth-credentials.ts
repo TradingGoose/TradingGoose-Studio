@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { account, user } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { account, user } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { jwtDecode } from 'jwt-decode'
 import { createPermissionError, verifyWorkflowAccess } from '@/lib/copilot/auth/permissions'
@@ -71,7 +71,7 @@ export const getOAuthCredentialsServerTool: BaseServerTool<GetOAuthCredentialsPa
         try {
           const decoded = jwtDecode<{ email?: string; name?: string }>(acc.idToken)
           displayName = decoded.email || decoded.name || ''
-        } catch {}
+        } catch { }
       }
       if (!displayName && baseProvider === 'github') displayName = `${acc.accountId} (GitHub)`
       if (!displayName && userEmail) displayName = userEmail
@@ -84,7 +84,7 @@ export const getOAuthCredentialsServerTool: BaseServerTool<GetOAuthCredentialsPa
           acc.id
         )
         accessToken = refreshedToken || accessToken
-      } catch {}
+      } catch { }
       credentials.push({
         id: acc.id,
         name: displayName,

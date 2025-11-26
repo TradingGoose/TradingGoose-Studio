@@ -1,6 +1,6 @@
 import crypto from 'crypto'
-import { db } from '@sim/db'
-import { permissions, type permissionTypeEnum } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { permissions, type permissionTypeEnum } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'

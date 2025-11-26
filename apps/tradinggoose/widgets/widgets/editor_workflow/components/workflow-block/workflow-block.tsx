@@ -542,9 +542,9 @@ export const WorkflowBlock = memo(
         // Check if the condition value is an array
         const isValueMatch = Array.isArray(actualCondition.value)
           ? fieldValue != null &&
-            (actualCondition.not
-              ? !actualCondition.value.includes(fieldValue as string | number | boolean)
-              : actualCondition.value.includes(fieldValue as string | number | boolean))
+          (actualCondition.not
+            ? !actualCondition.value.includes(fieldValue as string | number | boolean)
+            : actualCondition.value.includes(fieldValue as string | number | boolean))
           : actualCondition.not
             ? fieldValue !== actualCondition.value
             : fieldValue === actualCondition.value
@@ -554,9 +554,9 @@ export const WorkflowBlock = memo(
           !actualCondition.and ||
           (Array.isArray(actualCondition.and.value)
             ? andFieldValue != null &&
-              (actualCondition.and.not
-                ? !actualCondition.and.value.includes(andFieldValue as string | number | boolean)
-                : actualCondition.and.value.includes(andFieldValue as string | number | boolean))
+            (actualCondition.and.not
+              ? !actualCondition.and.value.includes(andFieldValue as string | number | boolean)
+              : actualCondition.and.value.includes(andFieldValue as string | number | boolean))
             : actualCondition.and.not
               ? andFieldValue !== actualCondition.and.value
               : andFieldValue === actualCondition.and.value)
@@ -742,11 +742,11 @@ export const WorkflowBlock = memo(
             displayIsWide ? 'w-[480px]' : 'w-[320px]',
             !isEnabled && 'shadow-sm',
             isActive && 'animate-pulse-ring ring-2 ring-blue-500',
-            isPending && 'ring-2 ring-amber-500',
+            isPending && 'ring-2 ring-yellow-500',
             // Diff highlighting
             diffStatus === 'new' && 'bg-green-50/50 ring-2 ring-green-500 dark:bg-green-900/10',
             diffStatus === 'edited' &&
-              'bg-orange-50/50 ring-2 ring-orange-500 dark:bg-orange-900/10',
+            'bg-orange-50/50 ring-2 ring-orange-500 dark:bg-orange-900/10',
             // Deleted block highlighting (in original workflow)
             isDeletedBlock && 'bg-red-50/50 ring-2 ring-red-500 dark:bg-red-900/10',
             'z-[20]'
@@ -754,7 +754,7 @@ export const WorkflowBlock = memo(
         >
           {/* Show debug indicator for pending blocks */}
           {isPending && (
-            <div className='-top-6 -translate-x-1/2 absolute left-1/2 z-10 transform rounded-t-md bg-amber-500 px-2 py-0.5 text-white text-xs'>
+            <div className='-top-6 -translate-x-1/2 absolute left-1/2 z-10 transform rounded-t-md bg-yellow-500 px-2 py-0.5 text-white text-xs'>
               Next Step
             </div>
           )}
@@ -887,7 +887,7 @@ export const WorkflowBlock = memo(
                       className={cn(
                         'flex cursor-pointer items-center gap-1 font-normal text-xs',
                         scheduleInfo?.isDisabled
-                          ? 'border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400'
+                          ? 'border-yellow-200 bg-yellow-50 text-yellow-600 hover:bg-yellow-100 dark:bg-yellow-900/20 dark:text-yellow-400'
                           : 'border-green-200 bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400'
                       )}
                       onClick={
@@ -902,13 +902,13 @@ export const WorkflowBlock = memo(
                         <div
                           className={cn(
                             'absolute h-3 w-3 rounded-full',
-                            scheduleInfo?.isDisabled ? 'bg-amber-500/20' : 'bg-green-500/20'
+                            scheduleInfo?.isDisabled ? 'bg-yellow-500/20' : 'bg-green-500/20'
                           )}
                         />
                         <div
                           className={cn(
                             'relative h-2 w-2 rounded-full',
-                            scheduleInfo?.isDisabled ? 'bg-amber-500' : 'bg-green-500'
+                            scheduleInfo?.isDisabled ? 'bg-yellow-500' : 'bg-green-500'
                           )}
                         />
                       </div>
@@ -974,8 +974,8 @@ export const WorkflowBlock = memo(
                         'h-7 p-1 text-gray-500',
                         displayAdvancedMode && 'text-primary',
                         !userPermissions.canEdit &&
-                          !currentWorkflow.isDiffMode &&
-                          'cursor-not-allowed opacity-50'
+                        !currentWorkflow.isDiffMode &&
+                        'cursor-not-allowed opacity-50'
                       )}
                       disabled={!userPermissions.canEdit && !currentWorkflow.isDiffMode}
                     >
@@ -1012,8 +1012,8 @@ export const WorkflowBlock = memo(
                         'h-7 p-1 text-gray-500',
                         displayTriggerMode && 'text-[#22C55E]',
                         !userPermissions.canEdit &&
-                          !currentWorkflow.isDiffMode &&
-                          'cursor-not-allowed opacity-50'
+                        !currentWorkflow.isDiffMode &&
+                        'cursor-not-allowed opacity-50'
                       )}
                       disabled={!userPermissions.canEdit && !currentWorkflow.isDiffMode}
                     >
@@ -1070,8 +1070,8 @@ export const WorkflowBlock = memo(
                                 <div key={key} className='mb-1'>
                                   <span className='text-muted-foreground'>{key}</span>{' '}
                                   {typeof value === 'object' &&
-                                  value !== null &&
-                                  'type' in value ? (
+                                    value !== null &&
+                                    'type' in value ? (
                                     // New format: { type: 'string', description: '...' }
                                     <span className='text-green-500'>{value.type}</span>
                                   ) : typeof value === 'object' && value !== null ? (
@@ -1118,8 +1118,8 @@ export const WorkflowBlock = memo(
                       className={cn(
                         'h-7 p-1 text-gray-500',
                         !userPermissions.canEdit &&
-                          !currentWorkflow.isDiffMode &&
-                          'cursor-not-allowed opacity-50'
+                        !currentWorkflow.isDiffMode &&
+                        'cursor-not-allowed opacity-50'
                       )}
                       disabled={!userPermissions.canEdit && !currentWorkflow.isDiffMode}
                     >
@@ -1248,17 +1248,17 @@ export const WorkflowBlock = memo(
                     position: 'absolute',
                     ...(horizontalHandles
                       ? {
-                          right: '-8px',
-                          top: 'auto',
-                          bottom: '30px',
-                          transform: 'translateY(0)',
-                        }
+                        right: '-8px',
+                        top: 'auto',
+                        bottom: '30px',
+                        transform: 'translateY(0)',
+                      }
                       : {
-                          bottom: '-7px',
-                          left: 'auto',
-                          right: '30px',
-                          transform: 'translateX(0)',
-                        }),
+                        bottom: '-7px',
+                        left: 'auto',
+                        right: '30px',
+                        transform: 'translateX(0)',
+                      }),
                   }}
                   data-nodeid={id}
                   data-handleid='error'

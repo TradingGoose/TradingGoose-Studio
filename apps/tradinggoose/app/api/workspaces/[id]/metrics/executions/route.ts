@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { permissions, workflow, workflowExecutionLogs } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { permissions, workflow, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { and, eq, gte, inArray, lte } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'

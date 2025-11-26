@@ -226,24 +226,24 @@ export function DocumentTagEntry({
         const updatedTags =
           editingTagIndex !== null
             ? tags.map((tag, index) =>
-                index === editingTagIndex
-                  ? {
-                      ...tag,
-                      displayName: editForm.displayName,
-                      fieldType: editForm.fieldType,
-                      value: editForm.value,
-                    }
-                  : tag
-              )
-            : [
-                ...tags,
-                {
-                  slot: targetSlot,
+              index === editingTagIndex
+                ? {
+                  ...tag,
                   displayName: editForm.displayName,
                   fieldType: editForm.fieldType,
                   value: editForm.value,
-                },
-              ]
+                }
+                : tag
+            )
+            : [
+              ...tags,
+              {
+                slot: targetSlot,
+                displayName: editForm.displayName,
+                fieldType: editForm.fieldType,
+                value: editForm.value,
+              },
+            ]
         await onSave(updatedTags)
       }
 
@@ -424,11 +424,11 @@ export function DocumentTagEntry({
 
           {/* Show warning when at max slots in create mode */}
           {editingTagIndex === null && kbTagDefinitions.length >= MAX_TAG_SLOTS && (
-            <div className='rounded-md border border-amber-200 bg-amber-50 p-3'>
-              <div className='flex items-center gap-2 text-amber-800 text-sm'>
+            <div className='rounded-md border border-yellow-200 bg-yellow-50 p-3'>
+              <div className='flex items-center gap-2 text-yellow-800 text-sm'>
                 <span className='font-medium'>Maximum tag definitions reached</span>
               </div>
-              <p className='mt-1 text-amber-700 text-xs'>
+              <p className='mt-1 text-yellow-700 text-xs'>
                 You can still use existing tag definitions from the dropdown, but cannot create new
                 ones.
               </p>

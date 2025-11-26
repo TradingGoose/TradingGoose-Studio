@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { docsEmbeddings } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { docsEmbeddings } from '@tradinggoose/db/schema'
 import { sql } from 'drizzle-orm'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'

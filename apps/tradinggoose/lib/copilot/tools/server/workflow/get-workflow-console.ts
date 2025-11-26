@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { workflowExecutionLogs } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { desc, eq } from 'drizzle-orm'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -87,7 +87,7 @@ function normalizeErrorMessage(errorValue: unknown): string | undefined {
   if (typeof errorValue === 'object') {
     try {
       return JSON.stringify(errorValue)
-    } catch {}
+    } catch { }
   }
   try {
     return String(errorValue)

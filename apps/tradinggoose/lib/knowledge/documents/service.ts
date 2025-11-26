@@ -1,6 +1,6 @@
 import crypto, { randomUUID } from 'crypto'
-import { db } from '@sim/db'
-import { document, embedding, knowledgeBase, knowledgeBaseTagDefinitions } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { document, embedding, knowledgeBase, knowledgeBaseTagDefinitions } from '@tradinggoose/db/schema'
 import { tasks } from '@trigger.dev/sdk'
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import {
@@ -464,7 +464,7 @@ export async function processDocumentAsync(
         if (processed.chunks.length > LARGE_DOC_CONFIG.MAX_CHUNKS_PER_DOCUMENT) {
           throw new Error(
             `Document has ${processed.chunks.length.toLocaleString()} chunks, exceeding maximum of ${LARGE_DOC_CONFIG.MAX_CHUNKS_PER_DOCUMENT.toLocaleString()}. ` +
-              `This document is unusually large and may need to be split into multiple files or preprocessed to reduce content.`
+            `This document is unusually large and may need to be split into multiple files or preprocessed to reduce content.`
           )
         }
 
@@ -1431,7 +1431,7 @@ export async function updateDocument(
   TAG_SLOTS.forEach((slot: TagSlot) => {
     const updateValue = (updateData as any)[slot]
     if (updateValue !== undefined) {
-      ;(dbUpdateData as any)[slot] = updateValue
+      ; (dbUpdateData as any)[slot] = updateValue
     }
   })
 

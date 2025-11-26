@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { account, workflow as workflowTable } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { account, workflow as workflowTable } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { checkHybridAuth } from '@/lib/auth/hybrid'

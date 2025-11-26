@@ -115,17 +115,17 @@ function formatExecutionData(executionData: any) {
     errorStackTrace,
     cost: cost
       ? {
-          input: cost.input || 0,
-          output: cost.output || 0,
-          total: cost.total || 0,
-        }
+        input: cost.input || 0,
+        output: cost.output || 0,
+        total: cost.total || 0,
+      }
       : null,
     tokens: tokens
       ? {
-          prompt: tokens.prompt || 0,
-          completion: tokens.completion || 0,
-          total: tokens.total || 0,
-        }
+        prompt: tokens.prompt || 0,
+        completion: tokens.completion || 0,
+        total: tokens.total || 0,
+      }
       : null,
   }
 }
@@ -569,7 +569,7 @@ export function FrozenCanvas({
         className={cn('flex flex-col items-center justify-center gap-4 p-8', className)}
         style={{ height, width }}
       >
-        <div className='flex items-center gap-3 text-amber-600 dark:text-amber-400'>
+        <div className='flex items-center gap-3 text-yellow-600 dark:text-yellow-400'>
           <AlertCircle className='h-6 w-6' />
           <span className='font-medium text-lg'>Logged State Not Found</span>
         </div>

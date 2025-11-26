@@ -75,7 +75,7 @@ describe('Folders API Route', () => {
 
     mockGetUserEntityPermissions.mockResolvedValue('admin')
 
-    vi.doMock('@sim/db', () => ({
+    vi.doMock('@tradinggoose/db', () => ({
       db: {
         select: mockSelect,
         insert: mockInsert,

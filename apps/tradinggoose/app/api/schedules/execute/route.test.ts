@@ -56,7 +56,7 @@ describe('Scheduled Workflow Execution API Route', () => {
       not: vi.fn((condition) => ({ type: 'not', condition })),
     }))
 
-    vi.doMock('@sim/db', () => {
+    vi.doMock('@tradinggoose/db', () => {
       const mockDb = {
         select: vi.fn().mockImplementation(() => ({
           from: vi.fn().mockImplementation(() => ({
@@ -117,7 +117,7 @@ describe('Scheduled Workflow Execution API Route', () => {
       not: vi.fn((condition) => ({ type: 'not', condition })),
     }))
 
-    vi.doMock('@sim/db', () => {
+    vi.doMock('@tradinggoose/db', () => {
       const mockDb = {
         select: vi.fn().mockImplementation(() => ({
           from: vi.fn().mockImplementation(() => ({
@@ -173,7 +173,7 @@ describe('Scheduled Workflow Execution API Route', () => {
       not: vi.fn((condition) => ({ type: 'not', condition })),
     }))
 
-    vi.doMock('@sim/db', () => {
+    vi.doMock('@tradinggoose/db', () => {
       const mockDb = {
         select: vi.fn().mockImplementation(() => ({
           from: vi.fn().mockImplementation(() => ({
@@ -220,7 +220,7 @@ describe('Scheduled Workflow Execution API Route', () => {
       not: vi.fn((condition) => ({ type: 'not', condition })),
     }))
 
-    vi.doMock('@sim/db', () => {
+    vi.doMock('@tradinggoose/db', () => {
       const mockDb = {
         select: vi.fn().mockImplementation(() => ({
           from: vi.fn().mockImplementation(() => ({

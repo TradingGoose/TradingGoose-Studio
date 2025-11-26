@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { account, webhook } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { account, webhook } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { htmlToText } from 'html-to-text'
 import { nanoid } from 'nanoid'

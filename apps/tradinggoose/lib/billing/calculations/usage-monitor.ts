@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { member, organization, userStats } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { member, organization, userStats } from '@tradinggoose/db/schema'
 import { eq, inArray } from 'drizzle-orm'
 import { getOrganizationSubscription, getPlanPricing } from '@/lib/billing/core/billing'
 import { getUserUsageLimit } from '@/lib/billing/core/usage'

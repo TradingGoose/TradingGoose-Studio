@@ -28,7 +28,7 @@ export function BlockDataDisplay({
 
     if (typeof value === 'boolean') {
       return (
-        <span className='font-mono text-amber-700 dark:text-amber-400'>{value.toString()}</span>
+        <span className='font-mono text-yellow-700 dark:text-yellow-400'>{value.toString()}</span>
       )
     }
 
@@ -76,7 +76,7 @@ export function BlockDataDisplay({
   const transformedData = transformBlockData(data, blockType || 'unknown', isInput)
 
   if (isError && typeof data === 'object' && data !== null && 'error' in data) {
-    const errorData = data as { error: string; [key: string]: unknown }
+    const errorData = data as { error: string;[key: string]: unknown }
     return (
       <div className='space-y-2 text-xs'>
         <div className='rounded border border-red-200 bg-red-50 p-2 dark:border-red-800 dark:bg-red-950/20'>

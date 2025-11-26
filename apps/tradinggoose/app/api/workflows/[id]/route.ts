@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { templates, workflow } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { templates, workflow } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -156,8 +156,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     logger.info(
-      `[${requestId}] Loaded workflow ${workflowId} from ${
-        normalizedData ? 'normalized tables' : 'empty fallback'
+      `[${requestId}] Loaded workflow ${workflowId} from ${normalizedData ? 'normalized tables' : 'empty fallback'
       }`
     )
     const elapsed = Date.now() - startTime

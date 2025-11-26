@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { member, subscription, userStats } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { member, subscription, userStats } from '@tradinggoose/db/schema'
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import type Stripe from 'stripe'
 import { DEFAULT_OVERAGE_THRESHOLD } from '@/lib/billing/constants'

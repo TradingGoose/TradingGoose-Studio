@@ -303,7 +303,7 @@ export default function TemplateDetails({
               <Button
                 onClick={handleUseTemplate}
                 disabled={isUsing}
-                className='bg-purple-600 text-white hover:bg-purple-700'
+                className='bg-amber-600 text-white hover:bg-amber-700'
               >
                 Use this template
               </Button>

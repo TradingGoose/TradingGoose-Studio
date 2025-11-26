@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { workflow as workflowTable } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { workflow as workflowTable } from '@tradinggoose/db/schema'
 import { task } from '@trigger.dev/sdk'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
@@ -53,7 +53,7 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
       )
       throw new Error(
         usageCheck.message ||
-          'Usage limit exceeded. Please upgrade your plan to continue using workflows.'
+        'Usage limit exceeded. Please upgrade your plan to continue using workflows.'
       )
     }
 

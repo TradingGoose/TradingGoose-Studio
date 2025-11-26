@@ -39,37 +39,37 @@ export function ToolCallExecution({ toolCall, isCompact = false }: ToolCallProps
   const [isExpanded, setIsExpanded] = useState(!isCompact)
 
   return (
-    <div className='min-w-0 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950'>
+    <div className='min-w-0 rounded-lg border border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950'>
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
         <CollapsibleTrigger asChild>
           <Button
             variant='ghost'
-            className='w-full min-w-0 justify-between px-3 py-4 hover:bg-amber-100 dark:hover:bg-amber-900'
+            className='w-full min-w-0 justify-between px-3 py-4 hover:bg-yellow-100 dark:hover:bg-yellow-900'
           >
             <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
-              <Settings className='h-4 w-4 shrink-0 animate-pulse text-amber-600 dark:text-amber-400' />
-              <span className='min-w-0 truncate font-mono text-amber-800 text-xs dark:text-amber-200'>
+              <Settings className='h-4 w-4 shrink-0 animate-pulse text-yellow-600 dark:text-yellow-400' />
+              <span className='min-w-0 truncate font-mono text-yellow-800 text-xs dark:text-yellow-200'>
                 {toolCall.displayName || toolCall.name}
               </span>
               {toolCall.progress && (
                 <Badge
                   variant='outline'
-                  className='shrink-0 text-amber-700 text-xs dark:text-amber-300'
+                  className='shrink-0 text-yellow-700 text-xs dark:text-yellow-300'
                 >
                   {toolCall.progress}
                 </Badge>
               )}
             </div>
             {isExpanded ? (
-              <ChevronDown className='h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400' />
+              <ChevronDown className='h-4 w-4 shrink-0 text-yellow-600 dark:text-yellow-400' />
             ) : (
-              <ChevronRight className='h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400' />
+              <ChevronRight className='h-4 w-4 shrink-0 text-yellow-600 dark:text-yellow-400' />
             )}
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent className='min-w-0 max-w-full px-3 pb-3'>
           <div className='min-w-0 max-w-full space-y-2'>
-            <div className='flex items-center gap-2 text-amber-700 text-xs dark:text-amber-300'>
+            <div className='flex items-center gap-2 text-yellow-700 text-xs dark:text-yellow-300'>
               <Loader2 className='h-3 w-3 shrink-0 animate-spin' />
               <span>Executing...</span>
             </div>
@@ -78,7 +78,7 @@ export function ToolCallExecution({ toolCall, isCompact = false }: ToolCallProps
               (toolCall.name === 'make_api_request' ||
                 toolCall.name === 'set_environment_variables' ||
                 toolCall.name === 'set_global_workflow_variables') && (
-                <div className='min-w-0 max-w-full rounded border border-amber-200 bg-amber-50 p-2 dark:border-amber-800 dark:bg-amber-950'>
+                <div className='min-w-0 max-w-full rounded border border-yellow-200 bg-yellow-50 p-2 dark:border-yellow-800 dark:bg-yellow-950'>
                   {toolCall.name === 'make_api_request' ? (
                     <div className='w-full overflow-hidden rounded border border-muted bg-card'>
                       <div className='grid grid-cols-2 gap-0 border-muted/60 border-b bg-muted/40 px-2 py-1.5'>
@@ -110,105 +110,105 @@ export function ToolCallExecution({ toolCall, isCompact = false }: ToolCallProps
 
                   {toolCall.name === 'set_environment_variables'
                     ? (() => {
-                        const variables =
-                          (toolCall.parameters as any).variables &&
+                      const variables =
+                        (toolCall.parameters as any).variables &&
                           typeof (toolCall.parameters as any).variables === 'object'
-                            ? (toolCall.parameters as any).variables
-                            : {}
-                        const entries = Object.entries(variables)
-                        return (
-                          <div className='w-full overflow-hidden rounded border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950'>
-                            <div className='grid grid-cols-2 gap-0 border-amber-200/60 border-b px-2 py-1.5 dark:border-amber-800/60'>
-                              <div className='font-medium text-[10px] text-amber-700 uppercase tracking-wide dark:text-amber-300'>
-                                Name
-                              </div>
-                              <div className='font-medium text-[10px] text-amber-700 uppercase tracking-wide dark:text-amber-300'>
-                                Value
-                              </div>
+                          ? (toolCall.parameters as any).variables
+                          : {}
+                      const entries = Object.entries(variables)
+                      return (
+                        <div className='w-full overflow-hidden rounded border border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950'>
+                          <div className='grid grid-cols-2 gap-0 border-yellow-200/60 border-b px-2 py-1.5 dark:border-yellow-800/60'>
+                            <div className='font-medium text-[10px] text-yellow-700 uppercase tracking-wide dark:text-yellow-300'>
+                              Name
                             </div>
-                            {entries.length === 0 ? (
-                              <div className='px-2 py-2 text-muted-foreground text-xs'>
-                                No variables provided
-                              </div>
-                            ) : (
-                              <div className='divide-y divide-amber-200 dark:divide-amber-800'>
-                                {entries.map(([k, v]) => (
-                                  <div
-                                    key={k}
-                                    className='grid grid-cols-[auto_1fr] items-center gap-2 px-2 py-1.5'
-                                  >
-                                    <div className='truncate font-medium text-amber-800 text-xs dark:text-amber-200'>
-                                      {k}
-                                    </div>
-                                    <div className='min-w-0'>
-                                      <span className='block overflow-x-auto whitespace-nowrap font-mono text-amber-700 text-xs dark:text-amber-300'>
-                                        {String(v)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                            <div className='font-medium text-[10px] text-yellow-700 uppercase tracking-wide dark:text-yellow-300'>
+                              Value
+                            </div>
                           </div>
-                        )
-                      })()
+                          {entries.length === 0 ? (
+                            <div className='px-2 py-2 text-muted-foreground text-xs'>
+                              No variables provided
+                            </div>
+                          ) : (
+                            <div className='divide-y divide-yellow-200 dark:divide-yellow-800'>
+                              {entries.map(([k, v]) => (
+                                <div
+                                  key={k}
+                                  className='grid grid-cols-[auto_1fr] items-center gap-2 px-2 py-1.5'
+                                >
+                                  <div className='truncate font-medium text-yellow-800 text-xs dark:text-yellow-200'>
+                                    {k}
+                                  </div>
+                                  <div className='min-w-0'>
+                                    <span className='block overflow-x-auto whitespace-nowrap font-mono text-yellow-700 text-xs dark:text-yellow-300'>
+                                      {String(v)}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()
                     : null}
 
                   {toolCall.name === 'set_global_workflow_variables'
                     ? (() => {
-                        const ops = Array.isArray((toolCall.parameters as any).operations)
-                          ? ((toolCall.parameters as any).operations as any[])
-                          : []
-                        return (
-                          <div className='w-full overflow-hidden rounded border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950'>
-                            <div className='grid grid-cols-3 gap-0 border-amber-200/60 border-b px-2 py-1.5 dark:border-amber-800/60'>
-                              <div className='font-medium text-[10px] text-amber-700 uppercase tracking-wide dark:text-amber-300'>
-                                Name
-                              </div>
-                              <div className='font-medium text-[10px] text-amber-700 uppercase tracking-wide dark:text-amber-300'>
-                                Type
-                              </div>
-                              <div className='font-medium text-[10px] text-amber-700 uppercase tracking-wide dark:text-amber-300'>
-                                Value
-                              </div>
+                      const ops = Array.isArray((toolCall.parameters as any).operations)
+                        ? ((toolCall.parameters as any).operations as any[])
+                        : []
+                      return (
+                        <div className='w-full overflow-hidden rounded border border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950'>
+                          <div className='grid grid-cols-3 gap-0 border-yellow-200/60 border-b px-2 py-1.5 dark:border-yellow-800/60'>
+                            <div className='font-medium text-[10px] text-yellow-700 uppercase tracking-wide dark:text-yellow-300'>
+                              Name
                             </div>
-                            {ops.length === 0 ? (
-                              <div className='px-2 py-2 text-muted-foreground text-xs'>
-                                No operations provided
-                              </div>
-                            ) : (
-                              <div className='divide-y divide-amber-200 dark:divide-amber-800'>
-                                {ops.map((op, idx) => (
-                                  <div
-                                    key={idx}
-                                    className='grid grid-cols-3 items-center gap-0 px-2 py-1.5'
-                                  >
-                                    <div className='min-w-0'>
-                                      <span className='truncate text-amber-800 text-xs dark:text-amber-200'>
-                                        {String(op.name || '')}
-                                      </span>
-                                    </div>
-                                    <div>
-                                      <span className='rounded border px-1 py-0.5 text-[10px] text-muted-foreground'>
-                                        {String(op.type || '')}
-                                      </span>
-                                    </div>
-                                    <div className='min-w-0'>
-                                      {op.value !== undefined ? (
-                                        <span className='block overflow-x-auto whitespace-nowrap font-mono text-amber-700 text-xs dark:text-amber-300'>
-                                          {String(op.value)}
-                                        </span>
-                                      ) : (
-                                        <span className='text-muted-foreground text-xs'>—</span>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                            <div className='font-medium text-[10px] text-yellow-700 uppercase tracking-wide dark:text-yellow-300'>
+                              Type
+                            </div>
+                            <div className='font-medium text-[10px] text-yellow-700 uppercase tracking-wide dark:text-yellow-300'>
+                              Value
+                            </div>
                           </div>
-                        )
-                      })()
+                          {ops.length === 0 ? (
+                            <div className='px-2 py-2 text-muted-foreground text-xs'>
+                              No operations provided
+                            </div>
+                          ) : (
+                            <div className='divide-y divide-yellow-200 dark:divide-yellow-800'>
+                              {ops.map((op, idx) => (
+                                <div
+                                  key={idx}
+                                  className='grid grid-cols-3 items-center gap-0 px-2 py-1.5'
+                                >
+                                  <div className='min-w-0'>
+                                    <span className='truncate text-yellow-800 text-xs dark:text-yellow-200'>
+                                      {String(op.name || '')}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className='rounded border px-1 py-0.5 text-[10px] text-muted-foreground'>
+                                      {String(op.type || '')}
+                                    </span>
+                                  </div>
+                                  <div className='min-w-0'>
+                                    {op.value !== undefined ? (
+                                      <span className='block overflow-x-auto whitespace-nowrap font-mono text-yellow-700 text-xs dark:text-yellow-300'>
+                                        {String(op.value)}
+                                      </span>
+                                    ) : (
+                                      <span className='text-muted-foreground text-xs'>—</span>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()
                     : null}
                 </div>
               )}

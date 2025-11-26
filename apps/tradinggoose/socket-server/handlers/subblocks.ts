@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { workflow, workflowBlocks } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { workflow, workflowBlocks } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { HandlerDependencies } from '@/socket-server/handlers/workflow'

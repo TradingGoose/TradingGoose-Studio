@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { mcpServers } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { mcpServers } from '@tradinggoose/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'

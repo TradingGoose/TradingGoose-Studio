@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { permissions, workflow, workflowExecutionLogs } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { permissions, workflow, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { and, desc, eq, gte, inArray, lte, type SQL, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -154,7 +154,7 @@ export async function GET(request: NextRequest) {
                   if (ed.message) message = ed.message
                   if (ed.traceSpans) traces = ed.traceSpans
                 }
-              } catch {}
+              } catch { }
               const line = [
                 escapeCsv(r.startedAt?.toISOString?.() || r.startedAt),
                 escapeCsv(r.level),
@@ -177,7 +177,7 @@ export async function GET(request: NextRequest) {
           logger.error('Export stream error', { error: e?.message })
           try {
             controller.error(e)
-          } catch {}
+          } catch { }
         }
       },
     })

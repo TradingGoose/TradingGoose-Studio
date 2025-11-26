@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { workflowExecutionLogs, workflowExecutionSnapshots } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { workflowExecutionLogs, workflowExecutionSnapshots } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'

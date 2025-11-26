@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { account } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { account } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
@@ -123,11 +123,11 @@ export async function GET(request: NextRequest) {
         size: file.size?.toString(),
         owners: file.createdBy
           ? [
-              {
-                displayName: file.createdBy.user?.displayName || 'Unknown',
-                emailAddress: file.createdBy.user?.email || '',
-              },
-            ]
+            {
+              displayName: file.createdBy.user?.displayName || 'Unknown',
+              emailAddress: file.createdBy.user?.email || '',
+            },
+          ]
           : [],
       }))
 

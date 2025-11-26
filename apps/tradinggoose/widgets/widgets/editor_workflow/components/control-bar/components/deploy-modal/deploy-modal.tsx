@@ -621,7 +621,7 @@ export function DeployModal({
               <div className='flex items-center gap-2'>
                 <DialogTitle className='font-medium text-lg'>Deploy Workflow</DialogTitle>
                 {needsRedeployment && versions.length > 0 && versionToActivate === null && (
-                  <span className='inline-flex items-center rounded-md bg-purple-500/10 px-2 py-1 font-medium text-purple-600 text-xs dark:text-purple-400'>
+                  <span className='inline-flex items-center rounded-md bg-amber-500/10 px-2 py-1 font-medium text-amber-600 text-xs dark:text-amber-400'>
                     {versions.find((v) => v.isActive)?.name ||
                       `v${versions.find((v) => v.isActive)?.version}`}{' '}
                     active
@@ -645,31 +645,28 @@ export function DeployModal({
               <div className='flex gap-2'>
                 <button
                   onClick={() => setActiveTab('api')}
-                  className={`rounded-md px-3 py-1 text-sm transition-colors ${
-                    activeTab === 'api'
+                  className={`rounded-md px-3 py-1 text-sm transition-colors ${activeTab === 'api'
                       ? 'bg-accent text-foreground'
                       : 'text-muted-foreground hover:bg-card hover:text-foreground'
-                  }`}
+                    }`}
                 >
                   API
                 </button>
                 <button
                   onClick={() => setActiveTab('chat')}
-                  className={`rounded-md px-3 py-1 text-sm transition-colors ${
-                    activeTab === 'chat'
+                  className={`rounded-md px-3 py-1 text-sm transition-colors ${activeTab === 'chat'
                       ? 'bg-accent text-foreground'
                       : 'text-muted-foreground hover:bg-card hover:text-foreground'
-                  }`}
+                    }`}
                 >
                   Chat
                 </button>
                 <button
                   onClick={() => setActiveTab('versions')}
-                  className={`rounded-md px-3 py-1 text-sm transition-colors ${
-                    activeTab === 'versions'
+                  className={`rounded-md px-3 py-1 text-sm transition-colors ${activeTab === 'versions'
                       ? 'bg-accent text-foreground'
                       : 'text-muted-foreground hover:bg-card hover:text-foreground'
-                  }`}
+                    }`}
                 >
                   Versions
                 </button>
@@ -792,9 +789,8 @@ export function DeployModal({
                                   >
                                     <td className='px-4 py-2.5'>
                                       <div
-                                        className={`h-2 w-2 rounded-full ${
-                                          v.isActive ? 'bg-green-500' : 'bg-muted-foreground/40'
-                                        }`}
+                                        className={`h-2 w-2 rounded-full ${v.isActive ? 'bg-green-500' : 'bg-muted-foreground/40'
+                                          }`}
                                         title={v.isActive ? 'Active' : 'Inactive'}
                                       />
                                     </td>

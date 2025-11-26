@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { templateStars, templates } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { templateStars, templates } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { notFound } from 'next/navigation'
 import { getSession } from '@/lib/auth'

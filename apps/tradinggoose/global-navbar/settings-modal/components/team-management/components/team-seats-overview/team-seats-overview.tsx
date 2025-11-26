@@ -70,8 +70,8 @@ export function TeamSeatsOverview({
     return (
       <div className='rounded-sm border bg-background p-3 shadow-xs'>
         <div className='space-y-4 text-center'>
-          <div className='mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100'>
-            <Building2 className='h-6 w-6 text-amber-600' />
+          <div className='mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100'>
+            <Building2 className='h-6 w-6 text-yellow-600' />
           </div>
           <div className='space-y-2'>
             <p className='font-medium text-sm'>No Team Subscription Found</p>

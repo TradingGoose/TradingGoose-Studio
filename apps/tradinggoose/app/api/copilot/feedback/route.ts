@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { copilotFeedback } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { copilotFeedback } from '@tradinggoose/db/schema'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import {

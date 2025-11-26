@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { webhook as webhookTable, workflow as workflowTable } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { webhook as webhookTable, workflow as workflowTable } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { verifyCronAuth } from '@/lib/auth/internal'

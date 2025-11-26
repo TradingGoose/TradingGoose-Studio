@@ -1,6 +1,6 @@
 import crypto from 'crypto'
-import { db } from '@sim/db'
-import { workflow as workflowTable } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { workflow as workflowTable } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'

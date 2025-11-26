@@ -126,8 +126,8 @@ export function UsageHeader({
         )}
 
         {!isBlocked && status === 'exceeded' && (
-          <div className='rounded-[6px] bg-amber-900/10 px-2 py-1'>
-            <span className='text-amber-600 text-xs'>
+          <div className='rounded-[6px] bg-yellow-900/10 px-2 py-1'>
+            <span className='text-yellow-600 text-xs'>
               Usage limit exceeded. Increase your limit to continue.
             </span>
           </div>

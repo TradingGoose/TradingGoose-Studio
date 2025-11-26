@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { invitation, member, organization, subscription, user, userStats } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { invitation, member, organization, subscription, user, userStats } from '@tradinggoose/db/schema'
 import { and, count, eq } from 'drizzle-orm'
 import { getOrganizationSubscription } from '@/lib/billing/core/billing'
 import { quickValidateEmail } from '@/lib/email/validation'

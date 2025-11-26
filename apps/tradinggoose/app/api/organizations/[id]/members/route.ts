@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
-import { db } from '@sim/db'
-import { invitation, member, organization, user, userStats } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { invitation, member, organization, user, userStats } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getEmailSubject, renderInvitationEmail } from '@/components/emails/render-email'

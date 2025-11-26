@@ -1,4 +1,4 @@
-import { db, workflow, workflowSchedule } from '@sim/db'
+import { db, workflow, workflowSchedule } from '@tradinggoose/db'
 import { task } from '@trigger.dev/sdk'
 import { Cron } from 'croner'
 import { eq } from 'drizzle-orm'

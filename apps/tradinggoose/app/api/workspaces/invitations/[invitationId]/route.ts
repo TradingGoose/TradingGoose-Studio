@@ -1,13 +1,13 @@
 import { randomUUID } from 'crypto'
 import { render } from '@react-email/render'
-import { db } from '@sim/db'
+import { db } from '@tradinggoose/db'
 import {
   permissions,
   user,
   type WorkspaceInvitationStatus,
   workspace,
   workspaceInvitation,
-} from '@sim/db/schema'
+} from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { WorkspaceInvitationEmail } from '@/components/emails/workspace-invitation'

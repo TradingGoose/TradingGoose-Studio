@@ -1,4 +1,4 @@
-import { db, webhook, workflow } from '@sim/db'
+import { db, webhook, workflow } from '@tradinggoose/db'
 import { tasks } from '@trigger.dev/sdk'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
@@ -423,8 +423,7 @@ export async function queueWebhookExecution(
     if (useTrigger) {
       const handle = await tasks.trigger('webhook-execution', payload)
       logger.info(
-        `[${options.requestId}] Queued ${options.testMode ? 'TEST ' : ''}webhook execution task ${
-          handle.id
+        `[${options.requestId}] Queued ${options.testMode ? 'TEST ' : ''}webhook execution task ${handle.id
         } for ${foundWebhook.provider} webhook`
       )
     } else {
@@ -432,8 +431,7 @@ export async function queueWebhookExecution(
         logger.error(`[${options.requestId}] Direct webhook execution failed`, error)
       })
       logger.info(
-        `[${options.requestId}] Queued direct ${
-          options.testMode ? 'TEST ' : ''
+        `[${options.requestId}] Queued direct ${options.testMode ? 'TEST ' : ''
         }webhook execution for ${foundWebhook.provider} webhook (Trigger.dev disabled)`
       )
     }

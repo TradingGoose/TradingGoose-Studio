@@ -1,4 +1,4 @@
-import { db, workflowDeploymentVersion } from '@sim/db'
+import { db, workflowDeploymentVersion } from '@tradinggoose/db'
 import { and, desc, eq } from 'drizzle-orm'
 import type { NextRequest, NextResponse } from 'next/server'
 import { verifyInternalToken } from '@/lib/auth/internal'

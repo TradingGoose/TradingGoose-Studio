@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'crypto'
-import { db } from '@sim/db'
-import { document, embedding } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { document, embedding } from '@tradinggoose/db/schema'
 import { and, asc, eq, ilike, inArray, sql } from 'drizzle-orm'
 import { generateEmbeddings } from '@/lib/embeddings/utils'
 import type {

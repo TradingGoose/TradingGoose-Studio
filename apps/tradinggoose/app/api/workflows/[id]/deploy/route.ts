@@ -1,4 +1,4 @@
-import { apiKey, db, workflow, workflowDeploymentVersion } from '@sim/db'
+import { apiKey, db, workflow, workflowDeploymentVersion } from '@tradinggoose/db'
 import { and, desc, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (parsed && typeof parsed.apiKey === 'string' && parsed.apiKey.trim().length > 0) {
         providedApiKey = parsed.apiKey.trim()
       }
-    } catch (_err) {}
+    } catch (_err) { }
 
     logger.debug(`[${requestId}] Validating API key for deployment`)
 

@@ -35,13 +35,13 @@ describe('Copilot Checkpoints Revert API Route', () => {
     mockWhere.mockReturnValue({ then: mockThen })
     mockThen.mockResolvedValue(null) // Default: no data found
 
-    vi.doMock('@sim/db', () => ({
+    vi.doMock('@tradinggoose/db', () => ({
       db: {
         select: mockSelect,
       },
     }))
 
-    vi.doMock('@sim/db/schema', () => ({
+    vi.doMock('@tradinggoose/db/schema', () => ({
       workflowCheckpoints: {
         id: 'id',
         userId: 'userId',
@@ -256,12 +256,12 @@ describe('Copilot Checkpoints Revert API Route', () => {
         .mockResolvedValueOnce(mockCheckpoint) // Checkpoint found
         .mockResolvedValueOnce(mockWorkflow) // Workflow found
 
-      // Mock successful state API call
+        // Mock successful state API call
 
-      ;(global.fetch as any).mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ success: true }),
-      })
+        ; (global.fetch as any).mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({ success: true }),
+        })
 
       const req = new NextRequest('http://localhost:3000/api/copilot/checkpoints/revert', {
         method: 'POST',
@@ -343,10 +343,10 @@ describe('Copilot Checkpoints Revert API Route', () => {
 
       mockThen.mockResolvedValueOnce(mockCheckpoint).mockResolvedValueOnce(mockWorkflow)
 
-      ;(global.fetch as any).mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ success: true }),
-      })
+        ; (global.fetch as any).mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({ success: true }),
+        })
 
       const req = createMockRequest('POST', {
         checkpointId: 'checkpoint-with-date',
@@ -384,10 +384,10 @@ describe('Copilot Checkpoints Revert API Route', () => {
 
       mockThen.mockResolvedValueOnce(mockCheckpoint).mockResolvedValueOnce(mockWorkflow)
 
-      ;(global.fetch as any).mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ success: true }),
-      })
+        ; (global.fetch as any).mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({ success: true }),
+        })
 
       const req = createMockRequest('POST', {
         checkpointId: 'checkpoint-invalid-date',
@@ -426,10 +426,10 @@ describe('Copilot Checkpoints Revert API Route', () => {
 
       mockThen.mockResolvedValueOnce(mockCheckpoint).mockResolvedValueOnce(mockWorkflow)
 
-      ;(global.fetch as any).mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ success: true }),
-      })
+        ; (global.fetch as any).mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({ success: true }),
+        })
 
       const req = createMockRequest('POST', {
         checkpointId: 'checkpoint-null-values',
@@ -473,12 +473,12 @@ describe('Copilot Checkpoints Revert API Route', () => {
         .mockResolvedValueOnce(mockCheckpoint)
         .mockResolvedValueOnce(mockWorkflow)
 
-      // Mock failed state API call
+        // Mock failed state API call
 
-      ;(global.fetch as any).mockResolvedValue({
-        ok: false,
-        text: () => Promise.resolve('State validation failed'),
-      })
+        ; (global.fetch as any).mockResolvedValue({
+          ok: false,
+          text: () => Promise.resolve('State validation failed'),
+        })
 
       const req = createMockRequest('POST', {
         checkpointId: 'checkpoint-123',
@@ -558,9 +558,9 @@ describe('Copilot Checkpoints Revert API Route', () => {
         .mockResolvedValueOnce(mockCheckpoint)
         .mockResolvedValueOnce(mockWorkflow)
 
-      // Mock fetch network error
+        // Mock fetch network error
 
-      ;(global.fetch as any).mockRejectedValue(new Error('Network error'))
+        ; (global.fetch as any).mockRejectedValue(new Error('Network error'))
 
       const req = createMockRequest('POST', {
         checkpointId: 'checkpoint-123',
@@ -613,10 +613,10 @@ describe('Copilot Checkpoints Revert API Route', () => {
 
       mockThen.mockResolvedValueOnce(mockCheckpoint).mockResolvedValueOnce(mockWorkflow)
 
-      ;(global.fetch as any).mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ success: true }),
-      })
+        ; (global.fetch as any).mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({ success: true }),
+        })
 
       const req = new NextRequest('http://localhost:3000/api/copilot/checkpoints/revert', {
         method: 'POST',
@@ -663,10 +663,10 @@ describe('Copilot Checkpoints Revert API Route', () => {
 
       mockThen.mockResolvedValueOnce(mockCheckpoint).mockResolvedValueOnce(mockWorkflow)
 
-      ;(global.fetch as any).mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ success: true }),
-      })
+        ; (global.fetch as any).mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({ success: true }),
+        })
 
       const req = new NextRequest('http://localhost:3000/api/copilot/checkpoints/revert', {
         method: 'POST',
@@ -736,10 +736,10 @@ describe('Copilot Checkpoints Revert API Route', () => {
 
       mockThen.mockResolvedValueOnce(mockCheckpoint).mockResolvedValueOnce(mockWorkflow)
 
-      ;(global.fetch as any).mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ success: true }),
-      })
+        ; (global.fetch as any).mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({ success: true }),
+        })
 
       const req = createMockRequest('POST', {
         checkpointId: 'checkpoint-complex',

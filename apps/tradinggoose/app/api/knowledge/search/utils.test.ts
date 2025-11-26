@@ -15,7 +15,7 @@ vi.mock('@/lib/logs/console/logger', () => ({
     error: vi.fn(),
   })),
 }))
-vi.mock('@sim/db')
+vi.mock('@tradinggoose/db')
 vi.mock('@/lib/knowledge/documents/utils', () => ({
   retryWithExponentialBackoff: (fn: any) => fn(),
 }))

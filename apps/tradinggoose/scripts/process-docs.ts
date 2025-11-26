@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 
 import path from 'path'
-import { db } from '@sim/db'
-import { docsEmbeddings } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { docsEmbeddings } from '@tradinggoose/db/schema'
 import { sql } from 'drizzle-orm'
 import { type DocChunk, DocsChunker } from '@/lib/chunkers'
 import { isDev } from '@/lib/environment'
@@ -166,10 +166,10 @@ async function processDocs(options: ProcessingOptions = {}) {
 
     logger.info(
       `\n✅ Processing complete!\n` +
-        `   📊 Total chunks: ${chunks.length}\n` +
-        `   ✅ Processed: ${processedChunks}\n` +
-        `   ❌ Failed: ${failedChunks}\n` +
-        `   💾 Total in DB: ${savedCount}`
+      `   📊 Total chunks: ${chunks.length}\n` +
+      `   ✅ Processed: ${processedChunks}\n` +
+      `   ❌ Failed: ${failedChunks}\n` +
+      `   💾 Total in DB: ${savedCount}`
     )
 
     return { success: failedChunks === 0, processedChunks, failedChunks }

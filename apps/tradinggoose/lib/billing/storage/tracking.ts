@@ -3,8 +3,8 @@
  * Updates storage_used_bytes for users and organizations
  */
 
-import { db } from '@sim/db'
-import { organization, userStats } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { organization, userStats } from '@tradinggoose/db/schema'
 import { eq, sql } from 'drizzle-orm'
 import { createLogger } from '@/lib/logs/console/logger'
 

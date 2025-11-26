@@ -11,6 +11,8 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "dev:docs": "cd apps/docs && bun run dev",
+    "dev:next": "cd apps/tradinggoose && bun run dev",
     "dev:sockets": "cd apps/tradinggoose && bun run dev:sockets",
     "dev:full": "cd apps/tradinggoose && bun run dev:full",
     "test": "turbo run test",

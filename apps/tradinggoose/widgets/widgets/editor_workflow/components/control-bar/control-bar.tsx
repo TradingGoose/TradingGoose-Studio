@@ -751,14 +751,14 @@ export function ControlBar({
       return isDebugging ? 'Stop debugging' : 'Start debugging'
     }
 
-    const buttonClass = cn(getIconButtonClass(variant), isDebugging && 'text-amber-500')
+    const buttonClass = cn(getIconButtonClass(variant), isDebugging && 'text-yellow-500')
 
     return (
       <Tooltip>
         <TooltipTrigger asChild>
           {isDisabled ? (
             <div
-              className={cn(getDisabledIconButtonClass(variant), isDebugging && 'text-amber-500')}
+              className={cn(getDisabledIconButtonClass(variant), isDebugging && 'text-yellow-500')}
             >
               <Bug className='h-4 w-4' />
             </div>

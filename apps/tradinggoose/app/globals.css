@@ -100,7 +100,7 @@
 
     /* Border & Input Colors */
     --border: 240 5.882% 90%;
-    --input: 240 5.882% 90%;
+    --input: 240 5.882% 80%;
     --ring: 48 100% 50%;
 
     /* Border Radius */
@@ -150,7 +150,7 @@
     --foreground: 0 0% 98.039%;
 
     /* Card Colors */
-    --card: 240 10% 5.922%;
+    --card: 240 10% 9.922%;
     --card-foreground: 0 0% 98.039%;
 
     /* Popover Colors */
@@ -181,7 +181,7 @@
 
     /* Border & Input Colors */
     --border: 0 0% 10%;
-    --input: 0 0% 16%;
+    --input: 0 0% 25%;
     --ring: 48 100% 50%;
 
     /* Scrollbar Properties */

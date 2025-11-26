@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { member, organization } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { member, organization } from '@tradinggoose/db/schema'
 import { and, eq, ne } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'

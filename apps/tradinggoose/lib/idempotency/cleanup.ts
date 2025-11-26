@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { idempotencyKey } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { idempotencyKey } from '@tradinggoose/db/schema'
 import { and, eq, lt } from 'drizzle-orm'
 import { createLogger } from '@/lib/logs/console/logger'
 

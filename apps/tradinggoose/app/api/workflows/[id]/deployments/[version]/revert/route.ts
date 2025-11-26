@@ -1,4 +1,4 @@
-import { db, workflow, workflowDeploymentVersion } from '@sim/db'
+import { db, workflow, workflowDeploymentVersion } from '@tradinggoose/db'
 import { and, eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { env } from '@/lib/env'

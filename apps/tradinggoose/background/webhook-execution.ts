@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { webhook, workflow as workflowTable } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { webhook, workflow as workflowTable } from '@tradinggoose/db/schema'
 import { task } from '@trigger.dev/sdk'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
@@ -144,7 +144,7 @@ async function executeWebhookJobInternal(
       )
       throw new Error(
         usageCheck.message ||
-          'Usage limit exceeded. Please upgrade your plan to continue using webhooks.'
+        'Usage limit exceeded. Please upgrade your plan to continue using webhooks.'
       )
     }
 
@@ -344,10 +344,10 @@ async function executeWebhookJobInternal(
       webhookRows.length > 0
         ? webhookRows[0]
         : {
-            provider: payload.provider,
-            blockId: payload.blockId,
-            providerConfig: {},
-          }
+          provider: payload.provider,
+          blockId: payload.blockId,
+          providerConfig: {},
+        }
 
     const mockWorkflow = {
       id: payload.workflowId,

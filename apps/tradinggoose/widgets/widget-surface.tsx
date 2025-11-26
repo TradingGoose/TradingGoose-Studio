@@ -102,8 +102,8 @@ function WidgetSurfaceComponent({
             className='flex w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
             aria-label='Widget header'
           >
-            <div className='flex w-full flex-nowrap gap-4 font-medium text-accent-foreground text-sm'>
-              <div className='flex flex-grow basis-0 items-center justify-start gap-2 whitespace-nowrap p-2 text-left'>
+            <div className='flex w-full flex-nowrap gap-4 font-medium text-accent-foreground text-sm p-1'>
+              <div className='flex flex-grow basis-0 items-center justify-start gap-2 whitespace-nowrap text-left'>
                 <PairColorDropdown color={pairColor} onChange={handlePairColorSelect} />
                 <WidgetSelector
                   currentKey={widgetKey}
@@ -112,10 +112,10 @@ function WidgetSurfaceComponent({
                 />
                 {renderHeaderSlot(header?.left ?? registryHeader?.left)}
               </div>
-              <div className='flex flex-grow basis-0 items-center justify-center gap-2 whitespace-nowrap p-2 text-center'>
+              <div className='flex flex-grow basis-0 items-center justify-center gap-2 whitespace-nowrap  text-center'>
                 {renderHeaderSlot(header?.center ?? registryHeader?.center)}
               </div>
-              <div className='flex flex-grow basis-0 items-center justify-end gap-2 whitespace-nowrap p-2 text-right'>
+              <div className='flex flex-grow basis-0 items-center justify-end gap-2 whitespace-nowrap text-right'>
                 {renderHeaderSlot(header?.right ?? registryHeader?.right)}
                 {onPanelSplit || onPanelSplitHorizontal || onPanelClose ? (
                   <WidgetActionMenu

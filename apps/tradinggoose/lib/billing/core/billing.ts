@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { member, subscription, user, userStats } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { member, subscription, user, userStats } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { getHighestPrioritySubscription } from '@/lib/billing/core/subscription'
 import { getUserUsageData } from '@/lib/billing/core/usage'
@@ -306,9 +306,9 @@ export async function getSimplifiedBillingSummary(
       // Calculate days remaining in billing period
       const daysRemaining = usageData.billingPeriodEnd
         ? Math.max(
-            0,
-            Math.ceil((usageData.billingPeriodEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-          )
+          0,
+          Math.ceil((usageData.billingPeriodEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        )
         : 0
 
       return {
@@ -382,9 +382,9 @@ export async function getSimplifiedBillingSummary(
     // Calculate days remaining in billing period
     const daysRemaining = usageData.billingPeriodEnd
       ? Math.max(
-          0,
-          Math.ceil((usageData.billingPeriodEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-        )
+        0,
+        Math.ceil((usageData.billingPeriodEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      )
       : 0
 
     return {

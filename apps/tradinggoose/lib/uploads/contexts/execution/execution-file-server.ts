@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { workflowExecutionLogs } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { ExecutionFileMetadata } from './execution-file-helpers'

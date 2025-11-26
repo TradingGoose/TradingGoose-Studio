@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { chat } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { chat } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'

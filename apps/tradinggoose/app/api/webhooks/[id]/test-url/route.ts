@@ -1,4 +1,4 @@
-import { db, webhook, workflow } from '@sim/db'
+import { db, webhook, workflow } from '@tradinggoose/db'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'

@@ -494,11 +494,10 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
                         onDragLeave={handleDragLeave}
                         onDrop={handleDrop}
                         onClick={() => fileInputRef.current?.click()}
-                        className={`relative flex flex-1 cursor-pointer items-center justify-center rounded-lg border-[1.5px] border-dashed py-8 text-center transition-all duration-200 ${
-                          isDragging
-                            ? 'border-purple-300 bg-purple-50 shadow-sm'
-                            : 'border-muted-foreground/25 hover:border-muted-foreground/40 hover:bg-card/10'
-                        }`}
+                        className={`relative flex flex-1 cursor-pointer items-center justify-center rounded-lg border-[1.5px] border-dashed py-8 text-center transition-all duration-200 ${isDragging
+                          ? 'border-amber-300 bg-amber-50 shadow-sm'
+                          : 'border-muted-foreground/25 hover:border-muted-foreground/40 hover:bg-card/40'
+                          }`}
                       >
                         <input
                           ref={fileInputRef}
@@ -511,9 +510,8 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
                         <div className='flex flex-col items-center gap-3'>
                           <div className='space-y-1'>
                             <p
-                              className={`font-medium text-sm transition-colors duration-200 ${
-                                isDragging ? 'text-purple-700' : ''
-                              }`}
+                              className={`font-medium text-sm transition-colors duration-200 ${isDragging ? 'text-amber-700' : ''
+                                }`}
                             >
                               {isDragging
                                 ? 'Drop files here!'
@@ -536,11 +534,10 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
                           onDragLeave={handleDragLeave}
                           onDrop={handleDrop}
                           onClick={() => fileInputRef.current?.click()}
-                          className={`cursor-pointer rounded-md border border-dashed p-3 text-center transition-all duration-200 ${
-                            isDragging
-                              ? 'border-purple-300 bg-purple-50'
-                              : 'border-muted-foreground/25 hover:border-muted-foreground/40 hover:bg-card/10'
-                          }`}
+                          className={`cursor-pointer rounded-md border border-dashed p-3 text-center transition-all duration-200 ${isDragging
+                            ? 'border-amber-300 bg-amber-50'
+                            : 'border-muted-foreground/25 hover:border-muted-foreground/40 hover:bg-card/40'
+                            }`}
                         >
                           <input
                             ref={fileInputRef}
@@ -553,9 +550,8 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
                           <div className='flex items-center justify-center gap-2'>
                             <div>
                               <p
-                                className={`font-medium text-sm transition-colors duration-200 ${
-                                  isDragging ? 'text-purple-700' : ''
-                                }`}
+                                className={`font-medium text-sm transition-colors duration-200 ${isDragging ? 'text-amber-700' : ''
+                                  }`}
                               >
                                 {isDragging
                                   ? 'Drop more files here!'

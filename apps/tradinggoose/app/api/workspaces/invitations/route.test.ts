@@ -43,11 +43,11 @@ describe('Workspace Invitations API Route', () => {
       values: mockInsertValues,
     }
 
-    vi.doMock('@sim/db', () => ({
+    vi.doMock('@tradinggoose/db', () => ({
       db: mockDbChain,
     }))
 
-    vi.doMock('@sim/db/schema', () => ({
+    vi.doMock('@tradinggoose/db/schema', () => ({
       user: { id: 'user_id', email: 'user_email', name: 'user_name', image: 'user_image' },
       workspace: { id: 'workspace_id', name: 'workspace_name', ownerId: 'owner_id' },
       permissions: {

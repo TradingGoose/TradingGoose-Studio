@@ -2,8 +2,8 @@
  * MCP Service - Clean stateless service for MCP operations
  */
 
-import { db } from '@sim/db'
-import { mcpServers } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { mcpServers } from '@tradinggoose/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
 import { isTest } from '@/lib/environment'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
@@ -197,7 +197,7 @@ class McpService {
     if (missingVars.length > 0) {
       throw new Error(
         `Missing required environment variable${missingVars.length > 1 ? 's' : ''}: ${missingVars.join(', ')}. ` +
-          `Please set ${missingVars.length > 1 ? 'these variables' : 'this variable'} in your workspace or personal environment settings.`
+        `Please set ${missingVars.length > 1 ? 'these variables' : 'this variable'} in your workspace or personal environment settings.`
       )
     }
 

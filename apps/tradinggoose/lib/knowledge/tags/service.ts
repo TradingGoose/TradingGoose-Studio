@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
-import { db } from '@sim/db'
-import { document, embedding, knowledgeBaseTagDefinitions } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { document, embedding, knowledgeBaseTagDefinitions } from '@tradinggoose/db/schema'
 import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm'
 import {
   getSlotsForFieldType,

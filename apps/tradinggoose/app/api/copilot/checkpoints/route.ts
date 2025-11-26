@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { copilotChats, workflowCheckpoints } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { copilotChats, workflowCheckpoints } from '@tradinggoose/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'

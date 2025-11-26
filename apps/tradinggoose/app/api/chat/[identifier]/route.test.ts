@@ -93,7 +93,7 @@ describe('Chat Identifier API Route', () => {
       }),
     }))
 
-    vi.doMock('@sim/db', () => {
+    vi.doMock('@tradinggoose/db', () => {
       const mockSelect = vi.fn().mockImplementation((fields) => {
         if (fields && fields.isDeployed !== undefined) {
           return {
@@ -162,7 +162,7 @@ describe('Chat Identifier API Route', () => {
     })
 
     it('should return 404 for non-existent identifier', async () => {
-      vi.doMock('@sim/db', () => {
+      vi.doMock('@tradinggoose/db', () => {
         const mockLimit = vi.fn().mockReturnValue([])
         const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit })
         const mockFrom = vi.fn().mockReturnValue({ where: mockWhere })
@@ -190,7 +190,7 @@ describe('Chat Identifier API Route', () => {
     })
 
     it('should return 403 for inactive chat', async () => {
-      vi.doMock('@sim/db', () => {
+      vi.doMock('@tradinggoose/db', () => {
         const mockLimit = vi.fn().mockReturnValue([
           {
             id: 'chat-id',
@@ -308,7 +308,7 @@ describe('Chat Identifier API Route', () => {
 
     it('should return 503 when workflow is not available', async () => {
       // Override the default workflow result to return non-deployed
-      vi.doMock('@sim/db', () => {
+      vi.doMock('@tradinggoose/db', () => {
         // Track call count to return different results
         let callCount = 0
 

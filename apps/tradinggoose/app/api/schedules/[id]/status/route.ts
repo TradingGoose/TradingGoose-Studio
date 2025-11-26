@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { workflow, workflowSchedule } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { workflow, workflowSchedule } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'

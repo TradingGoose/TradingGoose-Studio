@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
-import { db } from '@sim/db'
-import { layoutMap } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { layoutMap } from '@tradinggoose/db/schema'
 import { and, asc, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'

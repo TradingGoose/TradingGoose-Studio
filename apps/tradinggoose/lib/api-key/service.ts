@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
-import { db } from '@sim/db'
-import { apiKey as apiKeyTable, workspace } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { apiKey as apiKeyTable, workspace } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { authenticateApiKey } from '@/lib/api-key/auth'

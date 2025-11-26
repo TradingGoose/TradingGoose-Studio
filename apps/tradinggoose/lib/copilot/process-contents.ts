@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { copilotChats, document, knowledgeBase, templates } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { copilotChats, document, knowledgeBase, templates } from '@tradinggoose/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
 import { createLogger } from '@/lib/logs/console/logger'
 import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
@@ -487,8 +487,8 @@ async function processExecutionLogFromDb(
   tag: string
 ): Promise<AgentContext | null> {
   try {
-    const { workflowExecutionLogs, workflow } = await import('@sim/db/schema')
-    const { db } = await import('@sim/db')
+    const { workflowExecutionLogs, workflow } = await import('@tradinggoose/db/schema')
+    const { db } = await import('@tradinggoose/db')
     const rows = await db
       .select({
         id: workflowExecutionLogs.id,
@@ -524,9 +524,9 @@ async function processExecutionLogFromDb(
       // Include trace spans and any available details without being huge
       executionData: log.executionData
         ? {
-            traceSpans: (log.executionData as any).traceSpans || undefined,
-            errorDetails: (log.executionData as any).errorDetails || undefined,
-          }
+          traceSpans: (log.executionData as any).traceSpans || undefined,
+          errorDetails: (log.executionData as any).errorDetails || undefined,
+        }
         : undefined,
       cost: log.cost || undefined,
     }

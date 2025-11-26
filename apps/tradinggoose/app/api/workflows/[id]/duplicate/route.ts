@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { workflow, workflowBlocks, workflowEdges, workflowSubflows } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { workflow, workflowBlocks, workflowEdges, workflowSubflows } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -154,9 +154,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             if (dataObj.parentId && typeof dataObj.parentId === 'string') {
               updatedData = { ...dataObj }
               if (blockIdMapping.has(dataObj.parentId)) {
-                ;(updatedData as any).parentId = blockIdMapping.get(dataObj.parentId)!
-                // Ensure extent is set to 'parent' for child blocks
-                ;(updatedData as any).extent = 'parent'
+                ; (updatedData as any).parentId = blockIdMapping.get(dataObj.parentId)!
+                  // Ensure extent is set to 'parent' for child blocks
+                  ; (updatedData as any).extent = 'parent'
                 newExtent = 'parent'
               }
             }
@@ -235,9 +235,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                 | LoopConfig
                 | ParallelConfig
 
-              // Update the config ID to match the new subflow ID
+                // Update the config ID to match the new subflow ID
 
-              ;(updatedConfig as any).id = newSubflowId
+                ; (updatedConfig as any).id = newSubflowId
 
               // Update node references in config if they exist
               if ('nodes' in updatedConfig && Array.isArray(updatedConfig.nodes)) {

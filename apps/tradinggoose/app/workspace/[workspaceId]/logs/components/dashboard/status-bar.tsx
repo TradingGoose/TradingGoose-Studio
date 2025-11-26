@@ -62,7 +62,7 @@ export function StatusBar({
           } else if (segment.successRate === 100) {
             color = 'bg-emerald-400/90'
           } else if (segment.successRate >= 95) {
-            color = 'bg-amber-400/90'
+            color = 'bg-yellow-400/90'
           } else {
             color = 'bg-red-400/90'
           }
@@ -70,9 +70,8 @@ export function StatusBar({
           return (
             <div
               key={i}
-              className={`h-6 flex-1 rounded-xs ${color} cursor-pointer transition-[opacity,transform] hover:opacity-90 ${
-                isSelected ? 'relative z-10 ring-2 ring-primary ring-offset-1' : 'relative z-0'
-              }`}
+              className={`h-6 flex-1 rounded-xs ${color} cursor-pointer transition-[opacity,transform] hover:opacity-90 ${isSelected ? 'relative z-10 ring-2 ring-primary ring-offset-1' : 'relative z-0'
+                }`}
               aria-label={`Segment ${i + 1}`}
               onMouseEnter={() => setHoverIndex(i)}
               onMouseDown={(e) => {
@@ -90,9 +89,8 @@ export function StatusBar({
 
       {hoverIndex !== null && segments[hoverIndex] && (
         <div
-          className={`-translate-x-1/2 pointer-events-none absolute z-20 w-max whitespace-nowrap rounded-md bg-background/90 px-2 py-1 text-center text-[11px] shadow-sm ring-1 ring-border backdrop-blur ${
-            preferBelow ? '' : '-translate-y-full'
-          }`}
+          className={`-translate-x-1/2 pointer-events-none absolute z-20 w-max whitespace-nowrap rounded-md bg-background/90 px-2 py-1 text-center text-[11px] shadow-sm ring-1 ring-border backdrop-blur ${preferBelow ? '' : '-translate-y-full'
+            }`}
           style={{
             left: `${((hoverIndex + 0.5) / (segments.length || 1)) * 100}%`,
             top: preferBelow ? '100%' : 0,

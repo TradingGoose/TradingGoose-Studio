@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { workflowCheckpoints, workflow as workflowTable } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { workflowCheckpoints, workflow as workflowTable } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -73,9 +73,9 @@ export async function POST(request: NextRequest) {
       deploymentStatuses: checkpointState?.deploymentStatuses || {},
       lastSaved: Date.now(),
       ...(checkpointState?.deployedAt &&
-      checkpointState.deployedAt !== null &&
-      checkpointState.deployedAt !== undefined &&
-      !Number.isNaN(new Date(checkpointState.deployedAt).getTime())
+        checkpointState.deployedAt !== null &&
+        checkpointState.deployedAt !== undefined &&
+        !Number.isNaN(new Date(checkpointState.deployedAt).getTime())
         ? { deployedAt: new Date(checkpointState.deployedAt) }
         : {}),
     }

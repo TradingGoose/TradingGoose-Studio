@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { settings } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { settings } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { NextResponse } from 'next/server'

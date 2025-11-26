@@ -32,7 +32,7 @@ function shouldShowRunSkipButtons(toolCall: CopilotToolCall): boolean {
             ? !!def.hasInterrupt(toolCall.params || {})
             : !!def.hasInterrupt
       }
-    } catch {}
+    } catch { }
   }
   return hasInterrupt && toolCall.state === 'pending'
 }
@@ -55,7 +55,7 @@ async function handleSkip(toolCall: CopilotToolCall, setToolCallState: any, onSt
   if (instance) {
     try {
       await instance.handleReject?.()
-    } catch {}
+    } catch { }
   }
   setToolCallState(toolCall, 'rejected')
   onStateChange?.('rejected')
@@ -69,7 +69,7 @@ function getDisplayName(toolCall: CopilotToolCall): string {
     const def = getRegisteredTools()[toolCall.name] as any
     const byState = def?.metadata?.displayNames?.[toolCall.state]
     if (byState?.text) return byState.text
-  } catch {}
+  } catch { }
   return toolCall.name
 }
 
@@ -140,7 +140,7 @@ function RunSkipButtons({
           }
         },
       })
-    } catch {}
+    } catch { }
   }
 
   if (buttonsHidden) return null
@@ -358,11 +358,11 @@ export function InlineToolCall({
                   key={name}
                   className='grid grid-cols-[auto_1fr] items-center gap-2 px-2 py-1.5'
                 >
-                  <div className='truncate font-medium text-amber-800 text-xs dark:text-amber-200'>
+                  <div className='truncate font-medium text-yellow-800 text-xs dark:text-yellow-200'>
                     {name}
                   </div>
                   <div className='min-w-0'>
-                    <span className='block overflow-x-auto whitespace-nowrap font-mono text-amber-700 text-xs dark:text-amber-300'>
+                    <span className='block overflow-x-auto whitespace-nowrap font-mono text-yellow-700 text-xs dark:text-yellow-300'>
                       {value}
                     </span>
                   </div>
@@ -392,11 +392,11 @@ export function InlineToolCall({
           {ops.length === 0 ? (
             <div className='px-2 py-2 text-muted-foreground text-xs'>No operations provided</div>
           ) : (
-            <div className='divide-y divide-amber-200 dark:divide-amber-800'>
+            <div className='divide-y divide-yellow-200 dark:divide-yellow-800'>
               {ops.map((op, idx) => (
                 <div key={idx} className='grid grid-cols-3 items-center gap-0 px-2 py-1.5'>
                   <div className='min-w-0'>
-                    <span className='truncate text-amber-800 text-xs dark:text-amber-200'>
+                    <span className='truncate text-yellow-800 text-xs dark:text-yellow-200'>
                       {String(op.name || '')}
                     </span>
                   </div>
@@ -407,7 +407,7 @@ export function InlineToolCall({
                   </div>
                   <div className='min-w-0'>
                     {op.value !== undefined ? (
-                      <span className='block overflow-x-auto whitespace-nowrap font-mono text-amber-700 text-xs dark:text-amber-300'>
+                      <span className='block overflow-x-auto whitespace-nowrap font-mono text-yellow-700 text-xs dark:text-yellow-300'>
                         {String(op.value)}
                       </span>
                     ) : (
@@ -435,7 +435,7 @@ export function InlineToolCall({
         try {
           const def = getRegisteredTools()[toolCall.name] as any
           IconComp = def?.metadata?.displayNames?.[toolCall.state]?.icon
-        } catch {}
+        } catch { }
       }
       if (!IconComp) IconComp = Loader2
 
@@ -443,7 +443,7 @@ export function InlineToolCall({
       let colorClass = ''
       const state = toolCall.state as any
       if (state === (ClientToolCallState as any).aborted || state === 'aborted') {
-        colorClass = 'text-amber-500'
+        colorClass = 'text-yellow-500'
       } else if (state === (ClientToolCallState as any).error || state === 'error') {
         colorClass = 'text-red-500'
       } else if (state === (ClientToolCallState as any).success || state === 'success') {
@@ -489,7 +489,7 @@ export function InlineToolCall({
                 // Optionally force a re-render; store should sync state from server
                 forceUpdate({})
                 onStateChange?.('background')
-              } catch {}
+              } catch { }
             }}
             size='sm'
             className='h-6 bg-blue-600 px-2 font-medium text-white text-xs hover:bg-blue-500 disabled:opacity-50 dark:bg-blue-400 dark:text-gray-900 dark:hover:bg-blue-300'

@@ -1,4 +1,4 @@
-import { db, workflowSchedule } from '@sim/db'
+import { db, workflowSchedule } from '@tradinggoose/db'
 import { tasks } from '@trigger.dev/sdk'
 import { and, eq, lte, not } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'

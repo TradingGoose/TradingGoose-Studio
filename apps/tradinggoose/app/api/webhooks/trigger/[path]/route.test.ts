@@ -88,7 +88,7 @@ vi.mock('drizzle-orm/postgres-js', () => ({
 
 vi.mock('postgres', () => vi.fn().mockReturnValue({}))
 
-// The @sim/db mock is handled in test utils via mockExecutionDependencies()
+// The @tradinggoose/db mock is handled in test utils via mockExecutionDependencies()
 
 // (removed duplicate utils mock - defined above with specific handlers)
 
@@ -185,7 +185,7 @@ describe('Webhook Trigger API Route', () => {
    * Test 404 handling for non-existent webhooks
    */
   it('should handle 404 for non-existent webhooks', async () => {
-    // The global @sim/db mock already returns empty arrays, so findWebhookAndWorkflow will return null
+    // The global @tradinggoose/db mock already returns empty arrays, so findWebhookAndWorkflow will return null
 
     // Create a mock request
     const req = createMockRequest('POST', { event: 'test' })

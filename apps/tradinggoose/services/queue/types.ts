@@ -1,4 +1,4 @@
-import type { userRateLimits } from '@sim/db/schema'
+import type { userRateLimits } from '@tradinggoose/db/schema'
 import type { InferSelectModel } from 'drizzle-orm'
 import { env } from '@/lib/env'
 

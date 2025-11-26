@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import { db } from '@sim/db'
+import { db } from '@tradinggoose/db'
 import {
   invitation,
   member,
@@ -8,7 +8,7 @@ import {
   type WorkspaceInvitationStatus,
   workspace,
   workspaceInvitation,
-} from '@sim/db/schema'
+} from '@tradinggoose/db/schema'
 import { and, eq, inArray, isNull, or } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import {

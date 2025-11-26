@@ -1,5 +1,5 @@
-import { db } from '@sim/db'
-import { document, embedding } from '@sim/db/schema'
+import { db } from '@tradinggoose/db'
+import { document, embedding } from '@tradinggoose/db/schema'
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { createLogger } from '@/lib/logs/console/logger'
 

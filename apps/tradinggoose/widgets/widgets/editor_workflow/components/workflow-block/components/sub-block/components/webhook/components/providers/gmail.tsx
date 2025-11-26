@@ -145,9 +145,9 @@ export function GmailConfig({
   labelFilterBehavior,
   setLabelFilterBehavior,
   markAsRead = false,
-  setMarkAsRead = () => {},
+  setMarkAsRead = () => { },
   includeRawEmail = false,
-  setIncludeRawEmail = () => {},
+  setIncludeRawEmail = () => { },
 }: GmailConfigProps) {
   const [labels, setLabels] = useState<GmailLabel[]>([])
   const [isLoadingLabels, setIsLoadingLabels] = useState(false)
@@ -247,7 +247,7 @@ export function GmailConfig({
         ) : (
           <>
             {labelError && (
-              <p className='text-amber-500 text-sm dark:text-amber-400'>{labelError}</p>
+              <p className='text-yellow-500 text-sm dark:text-yellow-400'>{labelError}</p>
             )}
 
             <div className='mt-2 flex flex-wrap gap-2'>

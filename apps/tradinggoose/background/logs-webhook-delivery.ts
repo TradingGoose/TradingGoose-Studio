@@ -1,10 +1,10 @@
 import { createHmac } from 'crypto'
-import { db } from '@sim/db'
+import { db } from '@tradinggoose/db'
 import {
   workflowLogWebhook,
   workflowLogWebhookDelivery,
   workflow as workflowTable,
-} from '@sim/db/schema'
+} from '@tradinggoose/db/schema'
 import { task, wait } from '@trigger.dev/sdk'
 import { and, eq, isNull, lte, or, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
