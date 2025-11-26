@@ -16,12 +16,12 @@ export function Navbar() {
       }}
     >
       {/* Desktop: Single row layout */}
-      <div className='hidden h-16 w-full items-center lg:flex'>
+      <div className='hidden h-14 w-full items-center lg:flex'>
         <div
           className='relative flex w-full items-center justify-between'
           style={{
-            paddingLeft: 'calc(var(--sidebar-offset) + 20px)',
-            paddingRight: 'calc(var(--toc-offset) + 60px)',
+            paddingLeft: 'calc(var(--sidebar-offset, 14rem) + 1rem)',
+            paddingRight: 'calc(var(--toc-offset, 0px) + 1rem)',
           }}
         >
           {/* Left cluster: logo */}

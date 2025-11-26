@@ -69,13 +69,13 @@ interface InternalContext {
 }
 
 const itemVariants = cva(
-  'relative flex flex-row items-center gap-2 rounded-lg p-2 ps-(--sidebar-item-offset) text-start text-fd-muted-foreground [overflow-wrap:anywhere] [&_svg]:size-4 [&_svg]:shrink-0',
+  'relative mt-1 flex w-full items-center gap-2  h-8 overflow-hidden rounded-md p-2 ps-(--sidebar-item-offset) text-left text-sm font-sm text-fd-foreground [overflow-wrap:anywhere] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring [&_svg]:size-4 [&_svg]:shrink-0 data-[collapsed=true]:justify-center data-[collapsed=true]:ml-1 data-[collapsed=true]:px-2 data-[collapsed=true]:w-8 data-[collapsed=true]:py-2',
   {
     variants: {
       active: {
-        true: 'bg-fd-primary/10 text-fd-primary',
+        true: 'bg-fd-accent text-fd-foreground',
         false:
-          'transition-colors hover:bg-fd-accent/50 hover:text-fd-accent-foreground/80 hover:transition-none',
+          'hover:bg-fd-secondary hover:text-fd-foreground',
       },
     },
   },
@@ -118,10 +118,10 @@ export function Sidebar({
 
 export function SidebarContent(props: ComponentProps<'aside'>) {
   const { collapsed, setCollapsed } = useSidebar();
-  const DEFAULT_WIDTH = 286;
-  const MIN_WIDTH = 220;
-  const MAX_WIDTH = 420;
-  const COLLAPSED_WIDTH = 72;
+  const DEFAULT_WIDTH = 224;
+  const MIN_WIDTH = 224;
+  const MAX_WIDTH = 352;
+  const COLLAPSED_WIDTH = 48;
 
   const [width, setWidth] = useState<number>(DEFAULT_WIDTH);
   const [isDragging, setIsDragging] = useState(false);
@@ -169,8 +169,8 @@ export function SidebarContent(props: ComponentProps<'aside'>) {
       data-collapsed={collapsed}
       data-dragging={isDragging}
       className={cn(
-        'fixed left-0 rtl:left-auto rtl:right-(--removed-body-scroll-bar-size,0) top-(--fd-sidebar-top) bottom-0 z-20 max-md:hidden',
-        'flex flex-col bg-fd-card text-sm border-e shadow-sm transition-[width] duration-200',
+        'fixed left-0 rtl:left-auto rtl:right-(--removed-body-scroll-bar-size,0) top-0 bottom-0 z-20 max-md:hidden',
+        'flex flex-col border-r border-fd-border  text-sm text-fd-foreground transition-[width] duration-200',
         'data-[collapsed=true]:items-center data-[collapsed=true]:overflow-hidden',
         isDragging && 'select-none transition-none',
         props.className,
@@ -178,12 +178,11 @@ export function SidebarContent(props: ComponentProps<'aside'>) {
       style={
         {
           ...props.style,
-          '--fd-sidebar-top': `calc(var(--fd-banner-height) + var(--fd-nav-height))`,
           width: collapsed ? `${COLLAPSED_WIDTH}px` : `${width}px`,
         } as object
       }
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-2 px-2 py-3 data-[collapsed=true]:px-1 data-[collapsed=true]:py-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 p-2 data-[collapsed=true]:px-1 data-[collapsed=true]:py-3">
         {props.children}
       </div>
       <button
@@ -223,7 +222,7 @@ export function SidebarContentMobile({
             {...props}
             data-state={state}
             className={cn(
-              'fixed text-[0.9375rem] flex flex-col shadow-lg border-s end-0 inset-y-0 w-[85%] max-w-[380px] z-40 bg-fd-background data-[state=open]:animate-fd-sidebar-in data-[state=closed]:animate-fd-sidebar-out',
+              'fixed text-[0.9375rem] flex flex-col border-l border-fd-border shadow-2xl end-0 inset-y-0 w-[85%] max-w-[380px] z-40 bg-fd-card data-[state=open]:animate-fd-sidebar-in data-[state=closed]:animate-fd-sidebar-out',
               !present && 'invisible',
               className,
             )}
@@ -239,12 +238,18 @@ export function SidebarContentMobile({
 export function SidebarHeader(props: ComponentProps<'div'>) {
   const { className, children, 'data-collapsed': dataCollapsed, ...rest } =
     props as ComponentProps<'div'> & { 'data-collapsed'?: boolean | string };
+  const { collapsed } = useSidebar();
+  const collapsedState =
+    dataCollapsed !== undefined ? dataCollapsed : collapsed;
 
   return (
     <div
       {...rest}
-      className={cn('flex flex-col gap-3 p-4 pb-2', className)}
-      data-collapsed={dataCollapsed}
+      className={cn(
+        'group flex flex-col gap-2 bg-fd-secondary rounded-md p-2 text-fd-foreground data-[collapsed=true]:items-center  data-[collapsed=true]:p-0',
+        className,
+      )}
+      data-collapsed={collapsedState}
     >
       {children}
     </div>
@@ -254,12 +259,18 @@ export function SidebarHeader(props: ComponentProps<'div'>) {
 export function SidebarFooter(props: ComponentProps<'div'>) {
   const { className, children, 'data-collapsed': dataCollapsed, ...rest } =
     props as ComponentProps<'div'> & { 'data-collapsed'?: boolean | string };
+  const { collapsed } = useSidebar();
+  const collapsedState =
+    dataCollapsed !== undefined ? dataCollapsed : collapsed;
 
   return (
     <div
       {...rest}
-      className={cn('flex flex-col border-t p-4 pt-2', className)}
-      data-collapsed={dataCollapsed}
+      className={cn(
+        'group flex flex-col gap-2 rounded-md border border-fd-border px-2 py-3 text-fd-foreground data-[collapsed=true]:items-center ',
+        className,
+      )}
+      data-collapsed={collapsedState}
     >
       {children}
     </div>
@@ -270,7 +281,7 @@ export function SidebarViewport(props: ScrollAreaProps) {
   return (
     <ScrollArea {...props} className={cn('h-full', props.className)}>
       <ScrollViewport
-        className="p-4 overscroll-contain"
+        className="pt-2 overscroll-contain"
         style={
           {
             '--sidebar-item-offset': 'calc(var(--spacing) * 2)',
@@ -290,7 +301,7 @@ export function SidebarSeparator(props: ComponentProps<'p'>) {
     <p
       {...props}
       className={cn(
-        'inline-flex items-center gap-2 mb-1.5 px-2 ps-(--sidebar-item-offset) empty:mb-0 [&_svg]:size-4 [&_svg]:shrink-0',
+        'inline-flex items-center gap-2 mb-2 ps-(--sidebar-item-offset) text-[11px] font-semibold uppercase tracking-wide text-fd-muted-foreground/70 empty:mb-0 [&_svg]:size-4 [&_svg]:shrink-0',
         props.className,
       )}
     >
@@ -320,8 +331,6 @@ export function SidebarItem({
       data-active={active}
       className={cn(
         itemVariants({ active }),
-        'justify-start',
-        collapsed && 'justify-center px-2',
         props.className,
       )}
       title={collapsed ? itemLabel : undefined}
@@ -330,7 +339,7 @@ export function SidebarItem({
       <span className="inline-flex items-center justify-center">
         {icon ?? (props.external ? <ExternalLink /> : null)}
         {!icon && collapsed && (
-          <span className="h-1.5 w-1.5 rounded-full bg-fd-muted-foreground" />
+          <span className="h-1.5 w-1.5 rounded-full bg-fd-muted-foreground/70" />
         )}
       </span>
       <span
@@ -392,8 +401,6 @@ export function SidebarFolderTrigger({
     <CollapsibleTrigger
       className={cn(
         itemVariants({ active: false }),
-        'w-full justify-start',
-        collapsed && 'justify-center px-2',
         className,
       )}
       {...props}
@@ -401,7 +408,7 @@ export function SidebarFolderTrigger({
       title={collapsed ? labelString : undefined}
     >
       <span className="inline-flex items-center justify-center">
-        {icon ?? (collapsed ? <span className="h-1.5 w-1.5 rounded-full bg-fd-muted-foreground" /> : null)}
+        {icon ?? (collapsed ? <span className="h-1.5 w-1.5 rounded-full bg-fd-muted-foreground/70" /> : null)}
       </span>
       <span className={cn('truncate w-48', collapsed && 'sr-only')}>
         {label ?? children}
@@ -409,7 +416,10 @@ export function SidebarFolderTrigger({
       {!collapsed && (
         <ChevronDown
           data-icon
-          className={cn('ms-auto transition-transform', !open && '-rotate-90')}
+          className={cn(
+            'ms-auto text-fd-muted-foreground transition-transform',
+            !open && '-rotate-90',
+          )}
         />
       )}
     </CollapsibleTrigger>
@@ -446,8 +456,6 @@ export function SidebarFolderLink({
       data-collapsed={collapsed}
       className={cn(
         itemVariants({ active }),
-        'w-full justify-start',
-        collapsed && 'justify-center px-2',
         props.className,
       )}
       onClick={(e) => {
@@ -466,7 +474,7 @@ export function SidebarFolderLink({
       title={collapsed ? labelText : undefined}
     >
       <span className="inline-flex items-center justify-center">
-        {icon ?? (collapsed ? <span className="h-1.5 w-1.5 rounded-full bg-fd-muted-foreground" /> : null)}
+        {icon ?? (collapsed ? <span className="h-1.5 w-1.5  bg-fd-muted-foreground/70" /> : null)}
       </span>
       <span className={cn('truncate', collapsed && 'sr-only')}>
         {label ?? children}
@@ -474,7 +482,10 @@ export function SidebarFolderLink({
       {!collapsed && (
         <ChevronDown
           data-icon
-          className={cn('ms-auto transition-transform', !open && '-rotate-90')}
+          className={cn(
+            'ms-auto text-fd-muted-foreground transition-transform',
+            !open && '-rotate-90',
+          )}
         />
       )}
     </Link>
@@ -489,11 +500,7 @@ export function SidebarFolderContent(props: CollapsibleContentProps) {
     <CollapsibleContent
       {...props}
       className={cn(
-        'relative',
-        level === 1 && [
-          "before:content-[''] before:absolute before:w-px before:inset-y-1 before:bg-fd-border before:start-2.5",
-          "**:data-[active=true]:before:content-[''] **:data-[active=true]:before:bg-fd-primary **:data-[active=true]:before:absolute **:data-[active=true]:before:w-px **:data-[active=true]:before:inset-y-2.5 **:data-[active=true]:before:start-2.5",
-        ],
+        'relative mx-3.5 flex min-w-0 flex-col gap-1 border-l border-fd-border px-2.5 py-1',
         collapsed && 'hidden',
         props.className,
       )}

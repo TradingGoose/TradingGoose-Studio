@@ -8,7 +8,7 @@ import { type ButtonProps, buttonVariants } from './ui/button';
 
 interface SearchToggleProps
   extends Omit<ComponentProps<'button'>, 'color'>,
-    ButtonProps {
+  ButtonProps {
   hideIfDisabled?: boolean;
 }
 
@@ -58,22 +58,17 @@ export function LargeSearchToggle({
       data-search-full=""
       {...props}
       className={cn(
-        'inline-flex items-center gap-2 rounded-lg border bg-fd-secondary/50 p-1.5 ps-2 text-sm text-fd-muted-foreground transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground',
+        'inline-flex w-full flex-nowrap items-center gap-2 overflow-hidden rounded-md border p-1.5 ps-2 text-sm text-fd-muted-foreground transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground',
         props.className,
       )}
       onClick={() => {
         setOpenSearch(true);
       }}
     >
-      <Search className="size-4" />
-      {text.search}
-      <div className="ms-auto inline-flex gap-0.5">
-        {hotKey.map((k, i) => (
-          <kbd key={i} className="rounded-md border bg-fd-background px-1.5">
-            {k.display}
-          </kbd>
-        ))}
-      </div>
+      <span className="flex min-w-0 items-center gap-2 whitespace-nowrap">
+        <Search className="size-4 flex-shrink-0" />
+        <span className="truncate">{text.search}</span>
+      </span>
     </button>
   );
 }

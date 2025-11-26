@@ -177,7 +177,6 @@ export default async function Page(props: { params: Promise<{ slug?: string[]; l
         tableOfContent={{
           style: 'clerk',
           enabled: true,
-          header: <div className='mb-2 font-medium text-sm'>On this page</div>,
           single: false,
         }}
         article={{

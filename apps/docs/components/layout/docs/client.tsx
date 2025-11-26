@@ -1,143 +1,111 @@
-'use client';
-import { cn } from '../../../lib/cn';
-import { type ComponentProps, useMemo } from 'react';
-import { useSidebar } from 'fumadocs-ui/contexts/sidebar';
-import { useNav } from 'fumadocs-ui/contexts/layout';
-import { buttonVariants } from '../../ui/button';
-import { Sidebar as SidebarIcon } from 'lucide-react';
-import Link from 'fumadocs-core/link';
-import { usePathname } from 'fumadocs-core/framework';
-import { isTabActive } from '../../../lib/is-active';
-import type { Option } from '../../root-toggle';
+'use client'
 
-export function Navbar({
-  mode,
-  style,
-  ...props
-}: ComponentProps<'header'> & { mode: 'top' | 'auto' }) {
-  const { open } = useSidebar();
-  const { isTransparent } = useNav();
+import { cn } from '../../../lib/cn'
+import { type ComponentProps, type ReactNode, useMemo } from 'react'
+import { useSidebar } from 'fumadocs-ui/contexts/sidebar'
+import { buttonVariants } from '../../ui/button'
+import { Sidebar as SidebarIcon } from 'lucide-react'
+import Link from 'fumadocs-core/link'
+import { usePathname } from 'fumadocs-core/framework'
+import { isTabActive } from '../../../lib/is-active'
+import type { Option } from '../../root-toggle'
 
+export function Navbar(props: ComponentProps<'header'>) {
   return (
     <header
-      id="nd-subnav"
       {...props}
       className={cn(
-        'fixed flex flex-col top-(--fd-banner-height) right-(--removed-body-scroll-bar-size,0) z-10 px-(--fd-layout-offset) h-(--fd-nav-height) backdrop-blur-sm transition-colors max-md:[--fd-sidebar-width:0px]',
-        (!isTransparent || open) && 'bg-fd-background/80',
-        mode === 'auto' &&
-        'ps-[calc(var(--fd-layout-offset)+var(--fd-sidebar-width))]',
+        'sticky top-0 z-20 flex flex-col border-b border-fd-border bg-fd-background backdrop-blur supports-[backdrop-filter]:backdrop-blur-xl',
         props.className,
       )}
-      style={{
-        ...style,
-        insetInlineStart: mode === 'auto' ? ' ' : style?.insetInlineStart,
-        width:
-          mode === 'auto'
-            ? '100%'
-            : style?.width,
-      }}
     >
       {props.children}
     </header>
-  );
+  )
 }
 
-export function LayoutBody(props: ComponentProps<'main'>) {
-  const sidebarWidth = 'var(--fd-sidebar-width)';
+type LayoutBodyProps = ComponentProps<'div'> & {
+  sidebar: ReactNode
+  navbar: ReactNode
+}
 
+export function LayoutBody({ sidebar, navbar, children, className, ...props }: LayoutBodyProps) {
   return (
-    <main
-      id="nd-docs-layout"
+    <div
       {...props}
       className={cn(
-        'flex flex-1 flex-col transition-[padding] pt-(--fd-nav-height) fd-notebook-layout max-md:[--fd-sidebar-width:0px] px-(--fd-layout-offset)',
-        props.className,
+        'relative flex min-h-screen w-full bg-fd-background text-fd-foreground',
+        className,
       )}
-      style={{
-        ...props.style,
-        marginInlineStart: sidebarWidth,
-        width: `calc(100% - ${sidebarWidth})`,
-        paddingInlineStart: 0,
-      }}
     >
-      {props.children}
-    </main>
-  );
+      {sidebar}
+      <div
+        className='flex min-h-screen flex-1 flex-col'
+        style={{
+          marginInlineStart: 'var(--fd-sidebar-width)',
+        }}
+      >
+        {navbar}
+        <div className='flex-1 overflow-y-auto px-4 py-6 md:px-10'>{children}</div>
+      </div>
+    </div>
+  )
 }
 
-export function NavbarSidebarTrigger({
-  className,
-  ...props
-}: ComponentProps<'button'>) {
-  const { setOpen } = useSidebar();
+export function NavbarSidebarTrigger({ className, ...props }: ComponentProps<'button'>) {
+  const { setOpen } = useSidebar()
 
   return (
     <button
       {...props}
       className={cn(
-        buttonVariants({
-          color: 'ghost',
-          size: 'icon-sm',
-          className,
-        }),
+        buttonVariants({ color: 'ghost', size: 'icon-sm' }),
+        'rounded-full border border-transparent transition-colors hover:border-fd-border',
+        className,
       )}
       onClick={() => setOpen((prev) => !prev)}
     >
       <SidebarIcon />
     </button>
-  );
+  )
 }
 
-export function LayoutTabs({
-  options,
-  ...props
-}: ComponentProps<'div'> & {
-  options: Option[];
-}) {
-  const pathname = usePathname();
+export function LayoutTabs({ options, ...props }: ComponentProps<'div'> & { options: Option[] }) {
+  const pathname = usePathname()
   const selected = useMemo(() => {
-    return options.findLast((option) => isTabActive(option, pathname));
-  }, [options, pathname]);
+    return options.findLast((option) => isTabActive(option, pathname))
+  }, [options, pathname])
 
   return (
     <div
       {...props}
       className={cn(
-        'flex flex-row items-end gap-6 overflow-auto',
+        'flex flex-row items-center gap-3 overflow-auto px-4 text-sm text-fd-muted-foreground',
         props.className,
       )}
     >
       {options.map((option) => (
-        <LayoutTab
-          key={option.url}
-          selected={selected === option}
-          option={option}
-        />
+        <LayoutTab key={option.url} selected={selected === option} option={option} />
       ))}
     </div>
-  );
+  )
 }
 
-function LayoutTab({
-  option: { title, url, unlisted, props },
-  selected = false,
-}: {
-  option: Option;
-  selected?: boolean;
-}) {
+function LayoutTab({ option: { title, url, unlisted, props }, selected = false }: { option: Option; selected?: boolean }) {
   return (
     <Link
       href={url}
       {...props}
       className={cn(
-        'inline-flex border-b-2 border-transparent transition-colors items-center pb-1.5 font-medium gap-2 text-fd-muted-foreground text-sm text-nowrap hover:text-fd-accent-foreground',
+        'inline-flex items-center gap-2 rounded-full border border-transparent px-3 py-1.5 text-sm font-medium text-fd-muted-foreground transition-colors',
         unlisted && !selected && 'hidden',
-        selected && 'border-fd-primary text-fd-primary',
+        selected
+          ? 'bg-fd-accent text-fd-accent-foreground shadow-sm'
+          : 'hover:border-fd-border hover:bg-fd-accent hover:text-fd-accent-foreground',
         props?.className,
       )}
     >
       {title}
     </Link>
-  );
+  )
 }

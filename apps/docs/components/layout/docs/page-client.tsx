@@ -186,7 +186,7 @@ export function PageTOCPopover(props: ComponentProps<'div'>) {
           {...props}
           className={cn(
             'fixed pr-(--removed-body-scroll-bar-size,0) z-10 border-b backdrop-blur-sm transition-colors xl:hidden max-xl:on-root:[--fd-tocnav-height:40px]',
-            (!isTransparent || open) && 'bg-fd-background/80',
+            (!isTransparent || open) && 'bg-fd-background',
             open && 'shadow-lg',
             props.className
           )}
@@ -388,7 +388,7 @@ export function PageTOC(props: ComponentProps<'div'>) {
         insetInlineEnd: `max(${offset}, calc(50vw  - var(--fd-page-width)))`,
       }}
     >
-      <div className='flex h-full w-(--fd-toc-width) max-w-full flex-col pe-4'>
+      <div className='flex h-full w-(--fd-toc-width) max-w-full flex-col pt-6'>
         {props.children}
       </div>
     </div>

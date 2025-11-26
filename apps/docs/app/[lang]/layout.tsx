@@ -118,15 +118,18 @@ export default async function Layout({ children, params }: LayoutProps) {
               enabled: true,
             }}
             nav={{
-              title: (
-                <Image
-                  src='/static/logo.png'
-                  alt='Sim'
-                  width={72}
-                  height={28}
-                  className='h-7 w-auto'
-                  priority
-                />
+              title: 'Documentations',
+              logo: (
+                <div className="flex h-8 w-8 items-center justify-center bg-fd-primary rounded-md">
+                  <Image
+                    src='/static/logo.png'
+                    alt='TradingGoose'
+                    width={28}
+                    height={28}
+                    className='h-8 w-8'
+                    priority
+                  />
+                </div>
               ),
             }}
             sidebar={{
