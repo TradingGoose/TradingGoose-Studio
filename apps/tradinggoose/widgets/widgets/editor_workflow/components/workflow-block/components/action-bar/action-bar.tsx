@@ -55,7 +55,7 @@ export const ActionBar = memo(
         className={cn(
           '-right-20 absolute top-0',
           'flex flex-col items-center gap-2 p-2',
-          'rounded-md border border-gray-200 bg-background shadow-sm dark:border-gray-800',
+          'rounded-sm border border-gray-200 bg-background shadow-sm dark:border-gray-800',
           'opacity-0 transition-opacity duration-200 group-hover:opacity-100'
         )}
       >

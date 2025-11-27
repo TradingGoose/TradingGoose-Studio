@@ -1113,9 +1113,32 @@ const resolveChannelKey = (channelId?: string) =>
   channelId && channelId.trim().length > 0 ? channelId : DEFAULT_WORKFLOW_CHANNEL_ID
 
 const workflowStoreMap = new Map<string, StoreApi<WorkflowStore>>()
+const workflowStoreByWorkflowId = new Map<string, StoreApi<WorkflowStore>>()
+const channelWorkflowBindings = new Map<string, string>()
 
-export const getWorkflowStoreForChannel = (channelId?: string) => {
+const getStoreForWorkflow = (workflowId: string) => {
+  if (!workflowStoreByWorkflowId.has(workflowId)) {
+    workflowStoreByWorkflowId.set(
+      workflowId,
+      createWorkflowStore(`workflow-${workflowId}`)
+    )
+  }
+  return workflowStoreByWorkflowId.get(workflowId)!
+}
+
+export const getWorkflowStoreForChannel = (channelId?: string, workflowId?: string) => {
   const key = resolveChannelKey(channelId)
+
+  if (workflowId) {
+    channelWorkflowBindings.set(key, workflowId)
+    return getStoreForWorkflow(workflowId)
+  }
+
+  const boundWorkflow = channelWorkflowBindings.get(key)
+  if (boundWorkflow) {
+    return getStoreForWorkflow(boundWorkflow)
+  }
+
   if (!workflowStoreMap.has(key)) {
     workflowStoreMap.set(key, createWorkflowStore(key))
   }
@@ -1128,8 +1151,9 @@ export const getWorkflowStoreState = (channelId?: string) =>
 export const setWorkflowStoreState = (
   partial: Parameters<StoreApi<WorkflowStore>['setState']>[0],
   channelId?: string,
-  replace?: Parameters<StoreApi<WorkflowStore>['setState']>[1]
-) => getWorkflowStoreForChannel(channelId).setState(partial as any, replace)
+  replace?: Parameters<StoreApi<WorkflowStore>['setState']>[1],
+  workflowId?: string
+) => getWorkflowStoreForChannel(channelId, workflowId).setState(partial as any, replace)
 
 export const subscribeToWorkflowStore = (
   listener: Parameters<StoreApi<WorkflowStore>['subscribe']>[0],
@@ -1146,7 +1170,8 @@ type WorkflowStoreAccessor = {
   setStateForChannel: (
     partial: SetStateParam,
     channelId?: string,
-    replace?: SetStateReplace
+    replace?: SetStateReplace,
+    workflowId?: string
   ) => void
   subscribe: (listener: SubscribeParam, channelId?: string) => () => void
 }
@@ -1154,7 +1179,7 @@ type WorkflowStoreAccessor = {
 export const useWorkflowStore: WorkflowStoreAccessor = {
   getState: (channelId) => getWorkflowStoreState(channelId),
   setState: (partial, replace) => setWorkflowStoreState(partial, undefined, replace),
-  setStateForChannel: (partial, channelId, replace) =>
-    setWorkflowStoreState(partial, channelId, replace),
+  setStateForChannel: (partial, channelId, replace, workflowId) =>
+    setWorkflowStoreState(partial, channelId, replace, workflowId),
   subscribe: (listener, channelId) => subscribeToWorkflowStore(listener, channelId),
 }

@@ -38,6 +38,9 @@ const STYLES = {
     'gradient-text h-[1.125rem] rounded-md border-gradient-primary/20 bg-gradient-to-b from-gradient-primary via-gradient-secondary to-gradient-primary px-2 py-0 font-medium text-xs cursor-pointer',
 } as const
 
+const safeNumber = (value: number | null | undefined) =>
+  typeof value === 'number' && Number.isFinite(value) ? value : 0
+
 type TargetPlan = 'pro' | 'team'
 
 interface SubscriptionProps {
@@ -205,6 +208,35 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   const billingStatus = getBillingStatus()
   const activeOrgId = activeOrganization?.id
 
+  const defaultMinimumLimit = subscription.isPro ? 20 : 40
+  const usageLimitInfo = {
+    currentLimit: usageLimitData?.currentLimit ?? usage.limit,
+    minimumLimit: usageLimitData?.minimumLimit ?? defaultMinimumLimit,
+  }
+  const isOrganizationPlan = subscription.isTeam || subscription.isEnterprise
+  const aggregatedCurrentUsage = safeNumber(
+    isOrganizationPlan ? organizationBillingData?.totalCurrentUsage ?? usage.current : usage.current
+  )
+  const aggregatedUsageLimit = safeNumber(
+    isOrganizationPlan
+      ? organizationBillingData?.totalUsageLimit ??
+        organizationBillingData?.minimumBillingAmount ??
+        usage.limit
+      : usage.limit
+  )
+  const percentUsedRaw = isOrganizationPlan
+    ? (() => {
+        const totalLimit = organizationBillingData?.totalUsageLimit
+        if (totalLimit && totalLimit > 0) {
+          return ((organizationBillingData?.totalCurrentUsage ?? 0) / totalLimit) * 100
+        }
+        return usage.percentUsed
+      })()
+    : usage.percentUsed
+  const percentUsedClamped = Math.max(0, Math.min(Math.round(percentUsedRaw ?? 0), 100))
+  const normalizedBillingStatus =
+    billingStatus === 'unknown' ? 'ok' : (billingStatus as 'ok' | 'warning' | 'exceeded' | 'blocked')
+
   useEffect(() => {
     if ((subscription.isTeam || subscription.isEnterprise) && activeOrgId) {
       loadOrganizationBillingData(activeOrgId)
@@ -362,37 +394,18 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                 ? `${organizationBillingData?.totalSeats || subscription.seats || 1} seats`
                 : undefined
             }
-            current={
-              subscription.isEnterprise || subscription.isTeam
-                ? organizationBillingData?.totalCurrentUsage ??
-                organizationBillingData?.minimumBillingAmount ??
-                0
-                : usage.current
-            }
+            current={aggregatedCurrentUsage}
             limit={
-              subscription.isEnterprise || subscription.isTeam
-                ? organizationBillingData?.totalUsageLimit ??
-                organizationBillingData?.minimumBillingAmount ??
-                0
+              isOrganizationPlan
+                ? aggregatedUsageLimit
                 : !subscription.isFree &&
-                  (permissions.canEditUsageLimit || permissions.showTeamMemberView)
-                  ? usage.current // placeholder; rightContent will render UsageLimit
-                  : usage.limit
+                    (permissions.canEditUsageLimit || permissions.showTeamMemberView)
+                  ? safeNumber(usage.current) // UsageLimit renders the actual limit
+                  : safeNumber(usage.limit)
             }
             isBlocked={Boolean(subscriptionData?.billingBlocked)}
-            status={billingStatus === 'unknown' ? 'ok' : billingStatus}
-            percentUsed={
-              subscription.isEnterprise || subscription.isTeam
-                ? organizationBillingData?.totalUsageLimit &&
-                  organizationBillingData.totalUsageLimit > 0
-                  ? Math.round(
-                    ((organizationBillingData.totalCurrentUsage ?? 0) /
-                      organizationBillingData.totalUsageLimit) *
-                    100
-                  )
-                  : 0
-                : Math.round(usage.percentUsed)
-            }
+            status={normalizedBillingStatus}
+            percentUsed={percentUsedClamped}
             onResolvePayment={async () => {
               try {
                 const res = await fetch('/api/billing/portal', {
@@ -420,28 +433,33 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                   ref={usageLimitRef}
                   currentLimit={
                     subscription.isTeam && isTeamAdmin
-                      ? organizationBillingData?.totalUsageLimit || usage.limit
-                      : usageLimitData?.currentLimit || usage.limit
+                      ? aggregatedUsageLimit
+                      : usageLimitInfo.currentLimit
                   }
-                  currentUsage={usage.current}
+                  currentUsage={
+                    subscription.isTeam && isTeamAdmin ? aggregatedCurrentUsage : safeNumber(usage.current)
+                  }
                   canEdit={permissions.canEditUsageLimit}
                   minimumLimit={
                     subscription.isTeam && isTeamAdmin
-                      ? organizationBillingData?.minimumBillingAmount ||
-                      (subscription.isPro ? 20 : 40)
-                      : usageLimitData?.minimumLimit || (subscription.isPro ? 20 : 40)
+                      ? safeNumber(
+                        organizationBillingData?.minimumBillingAmount ?? defaultMinimumLimit
+                      )
+                      : usageLimitInfo.minimumLimit
                   }
                   context={subscription.isTeam && isTeamAdmin ? 'organization' : 'user'}
                   organizationId={subscription.isTeam && isTeamAdmin ? activeOrgId : undefined}
                   onLimitUpdated={async () => {
                     if (subscription.isTeam && isTeamAdmin && activeOrgId) {
                       await loadOrganizationBillingData(activeOrgId, true)
+                    } else {
+                      await loadUsageLimitData()
                     }
                   }}
                 />
               ) : undefined
             }
-            progressValue={Math.min(Math.round(usage.percentUsed), 100)}
+            progressValue={percentUsedClamped}
           />
         </div>
 

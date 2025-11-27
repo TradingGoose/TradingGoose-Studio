@@ -277,13 +277,6 @@ export function TeamManagement() {
   return (
     <div className='flex h-full flex-col px-6 pt-4 pb-4'>
       <div className='flex flex-1 flex-col gap-6 overflow-y-auto'>
-        {error && (
-          <Alert variant='destructive' className='rounded-sm'>
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
         {/* Team Usage Overview */}
         <TeamUsage hasAdminAccess={adminOrOwner} />
 

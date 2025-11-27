@@ -64,7 +64,7 @@ export function WorkflowWidgetControlBar({
           workflowId={activeWorkflowId}
           channelId={channelId}
         >
-          <WorkflowStoreProvider channelId={channelId}>
+          <WorkflowStoreProvider channelId={channelId} workflowId={activeWorkflowId}>
             <ControlBar
               variant='widget'
               className='inline-flex items-center gap-1 whitespace-nowrap'

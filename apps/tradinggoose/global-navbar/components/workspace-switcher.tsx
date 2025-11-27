@@ -1,5 +1,5 @@
 'use client'
-import { ChevronsUpDown, Loader2, Pencil, Plus, Sparkles, Trash2, UserPlus } from 'lucide-react'
+import { ChevronsUpDown, Loader2, Pencil, Plus, Sparkles, Trash2, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -204,8 +204,8 @@ export function WorkspaceSwitcher({
                   onClick={() => (activeWorkspace ? onInviteWorkspace(activeWorkspace) : undefined)}
                   disabled={!activeWorkspace || activeWorkspace.permissions !== 'admin'}
                 >
-                  <UserPlus className='h-3.5 w-3.5' />
-                  Invite
+                  <Settings className='h-3.5 w-3.5' />
+                  Manage
                 </Button>
                 <Button
                   variant='secondary'

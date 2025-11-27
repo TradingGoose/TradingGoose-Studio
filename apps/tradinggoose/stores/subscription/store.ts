@@ -1,29 +1,26 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
-import { DEFAULT_FREE_CREDITS } from '@/lib/billing/constants'
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  canUpgrade as canUpgradeHelper,
+  getBillingStatus as getBillingStatusHelper,
+  getDaysRemainingInPeriod as getDaysRemainingInPeriodHelper,
+  getRemainingBudget as getRemainingBudgetHelper,
+  getSubscriptionStatus as getSubscriptionStatusHelper,
+  getUsage as getUsageHelper,
+  isAtLeastPro as isAtLeastProHelper,
+  isAtLeastTeam as isAtLeastTeamHelper,
+} from '@/lib/subscription/helpers'
 import type {
   BillingStatus,
   SubscriptionData,
   SubscriptionStore,
-  UsageData,
   UsageLimitData,
-} from '@/stores/subscription/types'
+} from '@/lib/subscription/types'
 
 const logger = createLogger('SubscriptionStore')
 
 const CACHE_DURATION = 30 * 1000
-
-const defaultUsage: UsageData = {
-  current: 0,
-  limit: DEFAULT_FREE_CREDITS,
-  percentUsed: 0,
-  isWarning: false,
-  isExceeded: false,
-  billingPeriodStart: null,
-  billingPeriodEnd: null,
-  lastPeriodCost: 0,
-}
 
 export const useSubscriptionStore = create<SubscriptionStore>()(
   devtools(
@@ -360,65 +357,21 @@ export const useSubscriptionStore = create<SubscriptionStore>()(
       },
 
       // Computed getters
-      getSubscriptionStatus: () => {
-        const data = get().subscriptionData
-        return {
-          isPaid: data?.isPaid ?? false,
-          isPro: data?.isPro ?? false,
-          isTeam: data?.isTeam ?? false,
-          isEnterprise: data?.isEnterprise ?? false,
-          isFree: !(data?.isPaid ?? false),
-          plan: data?.plan ?? 'free',
-          status: data?.status ?? null,
-          seats: data?.seats ?? null,
-          metadata: data?.metadata ?? null,
-        }
-      },
+      getSubscriptionStatus: () => getSubscriptionStatusHelper(get().subscriptionData),
 
-      getUsage: () => {
-        return get().subscriptionData?.usage ?? defaultUsage
-      },
+      getUsage: () => getUsageHelper(get().subscriptionData),
 
-      getBillingStatus: (): BillingStatus => {
-        const usage = get().getUsage()
-        const blocked = get().subscriptionData?.billingBlocked
-        if (blocked) return 'blocked'
-        if (usage.isExceeded) return 'exceeded'
-        if (usage.isWarning) return 'warning'
-        return 'ok'
-      },
+      getBillingStatus: (): BillingStatus => getBillingStatusHelper(get().subscriptionData),
 
-      getRemainingBudget: () => {
-        const usage = get().getUsage()
-        return Math.max(0, usage.limit - usage.current)
-      },
+      getRemainingBudget: () => getRemainingBudgetHelper(get().subscriptionData),
 
-      getDaysRemainingInPeriod: () => {
-        const usage = get().getUsage()
-        if (!usage.billingPeriodEnd) return null
+      getDaysRemainingInPeriod: () => getDaysRemainingInPeriodHelper(get().subscriptionData),
 
-        const now = new Date()
-        const endDate = usage.billingPeriodEnd
-        const diffTime = endDate.getTime() - now.getTime()
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      isAtLeastPro: () => isAtLeastProHelper(get().subscriptionData),
 
-        return Math.max(0, diffDays)
-      },
+      isAtLeastTeam: () => isAtLeastTeamHelper(get().subscriptionData),
 
-      isAtLeastPro: () => {
-        const status = get().getSubscriptionStatus()
-        return status.isPro || status.isTeam || status.isEnterprise
-      },
-
-      isAtLeastTeam: () => {
-        const status = get().getSubscriptionStatus()
-        return status.isTeam || status.isEnterprise
-      },
-
-      canUpgrade: () => {
-        const status = get().getSubscriptionStatus()
-        return status.plan === 'free' || status.plan === 'pro'
-      },
+      canUpgrade: () => canUpgradeHelper(get().subscriptionData),
     }),
     { name: 'subscription-store' }
   )

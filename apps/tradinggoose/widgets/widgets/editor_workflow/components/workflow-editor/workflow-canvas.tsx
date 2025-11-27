@@ -710,6 +710,9 @@ const WorkflowCanvas = React.memo(
           return
         }
 
+        // Prevent duplicate handling across widgets sharing the same channel
+        event.stopImmediatePropagation()
+
         if (!type) return
         if (type === 'connectionBlock') return
 

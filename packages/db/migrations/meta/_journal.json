@@ -708,20 +708,6 @@
       "when": 1761631932261,
       "tag": "0101_missing_doc_processing",
       "breakpoints": true
-    },
-    {
-      "idx": 102,
-      "version": "7",
-      "when": 1762929477716,
-      "tag": "0102_add-dashboard-layout-map",
-      "breakpoints": true
-    },
-    {
-      "idx": 103,
-      "version": "7",
-      "when": 1763266782932,
-      "tag": "0103_add-color-pair-column",
-      "breakpoints": true
     }
   ]
 }

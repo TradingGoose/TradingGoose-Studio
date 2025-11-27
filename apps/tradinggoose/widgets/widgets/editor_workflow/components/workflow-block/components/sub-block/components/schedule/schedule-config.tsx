@@ -7,7 +7,7 @@ import { parseCronToHumanReadable } from '@/lib/schedules/utils'
 import { formatDateTime } from '@/lib/utils'
 import { ScheduleModal } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/schedule/components/schedule-modal'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowChannelId, useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { getBlockWithValues, getWorkflowWithValues } from '@/stores/workflows'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
@@ -52,6 +52,7 @@ export function ScheduleConfig({
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   const workflowId = useWorkflowId()
+  const channelId = useWorkflowChannelId()
 
   // Get workflow state from store
 
@@ -63,7 +64,7 @@ export function ScheduleConfig({
   const [_startWorkflow, setStartWorkflow] = useSubBlockValue(blockId, 'startWorkflow')
 
   // Determine if this is a schedule trigger block vs starter block
-  const blockWithValues = getBlockWithValues(blockId)
+  const blockWithValues = getBlockWithValues(blockId, channelId)
   const isScheduleTriggerBlock = blockWithValues?.type === 'schedule'
 
   // Fetch schedule data from API
@@ -185,18 +186,22 @@ export function ScheduleConfig({
     setError(null)
 
     try {
+      const registryState = useWorkflowRegistry.getState()
+      const activeWorkflowId =
+        typeof registryState.getActiveWorkflowId === 'function'
+          ? registryState.getActiveWorkflowId(channelId)
+          : registryState.activeWorkflowId
+
+      if (!activeWorkflowId) {
+        setError('No active workflow found')
+        return false
+      }
+
       // For starter blocks, update the startWorkflow value to 'schedule'
       // For schedule trigger blocks, skip this step as startWorkflow is not needed
       if (!isScheduleTriggerBlock) {
         // 1. First, update the startWorkflow value in SubBlock store to 'schedule'
         setStartWorkflow('schedule')
-
-        // 2. Directly access and modify the SubBlock store to guarantee the value is set
-        const activeWorkflowId = useWorkflowRegistry.getState().activeWorkflowId
-        if (!activeWorkflowId) {
-          setError('No active workflow found')
-          return false
-        }
 
         // Update the SubBlock store directly to ensure the value is set correctly
         const subBlockStore = useSubBlockStore.getState()
@@ -206,15 +211,9 @@ export function ScheduleConfig({
         await new Promise((resolve) => setTimeout(resolve, 200))
       }
 
-      const activeWorkflowId = useWorkflowRegistry.getState().activeWorkflowId
-      if (!activeWorkflowId) {
-        setError('No active workflow found')
-        return false
-      }
-
       // 3. Get the fully merged current state with updated values
       // This ensures we send the complete, correct workflow state to the backend
-      const currentWorkflowWithValues = getWorkflowWithValues(activeWorkflowId)
+      const currentWorkflowWithValues = getWorkflowWithValues(activeWorkflowId, channelId)
       if (!currentWorkflowWithValues) {
         setError('Failed to get current workflow state')
         return false
@@ -284,7 +283,7 @@ export function ScheduleConfig({
       // Note: Global schedule status is managed at a higher level
 
       // 7. Tell the workflow store that the state has been saved
-      const workflowStore = useWorkflowStore.getState()
+      const workflowStore = useWorkflowStore.getState(channelId)
       workflowStore.updateLastSaved()
       workflowStore.triggerUpdate()
 
@@ -299,7 +298,14 @@ export function ScheduleConfig({
     } finally {
       setIsSaving(false)
     }
-  }, [workflowId, blockId, isScheduleTriggerBlock, setStartWorkflow, fetchSchedule])
+  }, [
+    workflowId,
+    blockId,
+    isScheduleTriggerBlock,
+    setStartWorkflow,
+    fetchSchedule,
+    channelId,
+  ])
 
   const handleDeleteSchedule = useCallback(async (): Promise<boolean> => {
     if (isPreview || !scheduleData.id || disabled) return false
@@ -313,7 +319,11 @@ export function ScheduleConfig({
         setStartWorkflow('manual')
 
         // 2. Directly update the SubBlock store to ensure the value is set
-        const activeWorkflowId = useWorkflowRegistry.getState().activeWorkflowId
+        const registryState = useWorkflowRegistry.getState()
+        const activeWorkflowId =
+          typeof registryState.getActiveWorkflowId === 'function'
+            ? registryState.getActiveWorkflowId(channelId)
+            : registryState.activeWorkflowId
         if (!activeWorkflowId) {
           setError('No active workflow found')
           return false
@@ -324,7 +334,7 @@ export function ScheduleConfig({
         subBlockStore.setValue(blockId, 'startWorkflow', 'manual')
 
         // 3. Update the workflow store
-        const workflowStore = useWorkflowStore.getState()
+        const workflowStore = useWorkflowStore.getState(channelId)
         workflowStore.triggerUpdate()
         workflowStore.updateLastSaved()
       }
@@ -375,6 +385,7 @@ export function ScheduleConfig({
     setStartWorkflow,
     workflowId,
     blockId,
+    channelId,
   ])
 
   // Check if the schedule is active

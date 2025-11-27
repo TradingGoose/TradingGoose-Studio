@@ -48,7 +48,7 @@ const WorkflowEditorApp = ({
           workflowId={workflowId}
           channelId={channelId}
         >
-          <WorkflowStoreProvider channelId={channelId}>
+          <WorkflowStoreProvider channelId={channelId} workflowId={workflowId}>
             <Workflow
               channelId={channelId}
               ui={ui}

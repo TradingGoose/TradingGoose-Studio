@@ -12,10 +12,14 @@ const logger = createLogger('Workflows')
  * @param workflowId ID of the workflow to retrieve
  * @returns The workflow with merged state values or null if not found/not active
  */
-export function getWorkflowWithValues(workflowId: string) {
-  const { workflows } = useWorkflowRegistry.getState()
-  const activeWorkflowId = useWorkflowRegistry.getState().activeWorkflowId
-  const currentState = useWorkflowStore.getState()
+export function getWorkflowWithValues(workflowId: string, channelId?: string) {
+  const registryState = useWorkflowRegistry.getState()
+  const { workflows } = registryState
+  const activeWorkflowId =
+    typeof registryState.getActiveWorkflowId === 'function'
+      ? registryState.getActiveWorkflowId(channelId)
+      : registryState.activeWorkflowId
+  const workflowStore = useWorkflowStore.getState(channelId)
 
   if (!workflows[workflowId]) {
     logger.warn(`Workflow ${workflowId} not found`)
@@ -36,7 +40,7 @@ export function getWorkflowWithValues(workflowId: string) {
   // Use the current state from the store (only available for active workflow)
   const workflowState: WorkflowState = {
     // Use the main store's method to get the base workflow state
-    ...useWorkflowStore.getState().getWorkflowState(),
+    ...workflowStore.getWorkflowState(),
     // Override deployment fields with registry-specific deployment status
     isDeployed: deploymentStatus?.isDeployed || false,
     deployedAt: deploymentStatus?.deployedAt,
@@ -70,13 +74,17 @@ export function getWorkflowWithValues(workflowId: string) {
  * @param blockId ID of the block to retrieve
  * @returns The block with merged subblock values or null if not found
  */
-export function getBlockWithValues(blockId: string): BlockState | null {
-  const workflowState = useWorkflowStore.getState()
-  const activeWorkflowId = useWorkflowRegistry.getState().activeWorkflowId
+export function getBlockWithValues(blockId: string, channelId?: string): BlockState | null {
+  const registryState = useWorkflowRegistry.getState()
+  const workflowStore = useWorkflowStore.getState(channelId)
+  const activeWorkflowId =
+    typeof registryState.getActiveWorkflowId === 'function'
+      ? registryState.getActiveWorkflowId(channelId)
+      : registryState.activeWorkflowId
 
-  if (!activeWorkflowId || !workflowState.blocks[blockId]) return null
+  if (!activeWorkflowId || !workflowStore.blocks[blockId]) return null
 
-  const mergedBlocks = mergeSubblockState(workflowState.blocks, activeWorkflowId, blockId)
+  const mergedBlocks = mergeSubblockState(workflowStore.blocks, activeWorkflowId, blockId)
   return mergedBlocks[blockId] || null
 }
 

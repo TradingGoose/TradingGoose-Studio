@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { client, useSession, useSubscription } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useOrganizationStore } from '@/stores/organization'
+import { useSubscriptionStore } from '@/stores/subscription/store'
 
 const logger = createLogger('SubscriptionUpgrade')
 
@@ -18,6 +19,7 @@ export function useSubscriptionUpgrade() {
   const { data: session } = useSession()
   const betterAuthSubscription = useSubscription()
   const { loadData: loadOrganizationData } = useOrganizationStore()
+  const refreshSubscriptionData = useSubscriptionStore((state) => state.refresh)
 
   const handleUpgrade = useCallback(
     async (targetPlan: TargetPlan) => {
@@ -197,6 +199,13 @@ export function useSubscriptionUpgrade() {
           }
         }
 
+        try {
+          await refreshSubscriptionData()
+          logger.info('Refreshed subscription data after upgrade')
+        } catch (refreshError) {
+          logger.warn('Failed to refresh subscription data after upgrade', refreshError)
+        }
+
         logger.info('Subscription upgrade completed successfully', {
           targetPlan,
           referenceId,
@@ -217,7 +226,7 @@ export function useSubscriptionUpgrade() {
         )
       }
     },
-    [session?.user?.id, betterAuthSubscription, loadOrganizationData]
+    [session?.user?.id, betterAuthSubscription, loadOrganizationData, refreshSubscriptionData]
   )
 
   return { handleUpgrade }

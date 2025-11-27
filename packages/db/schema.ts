@@ -725,9 +725,14 @@ export const workspace = pgTable('workspace', {
   ownerId: text('owner_id')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
+  billedAccountUserId: text('billed_account_user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'no action' }),
+  allowPersonalApiKeys: boolean('allow_personal_api_keys').notNull().default(true),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
+
 
 export const layoutMap = pgTable(
   'layout_map',

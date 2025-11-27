@@ -30,7 +30,6 @@ interface FolderItemProps {
   onDragOver?: (e: React.DragEvent) => void
   onDragLeave?: (e: React.DragEvent) => void
   onDrop?: (e: React.DragEvent) => void
-  isFirstItem?: boolean
   level: number
 }
 
@@ -42,7 +41,6 @@ export function FolderItem({
   onDragOver,
   onDragLeave,
   onDrop,
-  isFirstItem = false,
   level,
 }: FolderItemProps) {
   const { expandedFolders, toggleExpanded, updateFolderAPI, deleteFolder } = useFolderStore()
@@ -255,8 +253,7 @@ export function FolderItem({
         <div
           className={clsx(
             'group flex h-8 w-full cursor-pointer items-center rounded-sm px-2 py-2 font-medium font-sans text-sm transition-colors hover:bg-card',
-            isDragging ? 'opacity-50' : '',
-            isFirstItem ? 'mr-[36px]' : ''
+            isDragging ? 'opacity-50' : ''
           )}
           onClick={handleClick}
           draggable={!isEditing}

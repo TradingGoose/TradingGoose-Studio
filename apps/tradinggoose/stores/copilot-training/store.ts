@@ -59,16 +59,34 @@ export const EMPTY_CHANNEL_TRAINING_STATE: ChannelTrainingState = {
 const resolveChannelKey = (channelId?: string) =>
   channelId && channelId.trim().length > 0 ? channelId : DEFAULT_WORKFLOW_CHANNEL_ID
 
+const getChannelMap = (
+  state?: CopilotTrainingState
+): { channels: Record<string, ChannelTrainingState>; hasExistingState: boolean } => {
+  if (state?.channels && Object.keys(state.channels).length > 0) {
+    return { channels: state.channels, hasExistingState: true }
+  }
+
+  return {
+    channels: {
+      [DEFAULT_WORKFLOW_CHANNEL_ID]: createChannelState(),
+    },
+    hasExistingState: false,
+  }
+}
+
 const updateChannelState = (
-  state: CopilotTrainingState,
+  state: CopilotTrainingState | undefined,
   channelKey: string,
   updater: (channel: ChannelTrainingState) => ChannelTrainingState
-) => ({
-  channels: {
-    ...state.channels,
-    [channelKey]: updater(state.channels[channelKey] ?? createChannelState()),
-  },
-})
+) => {
+  const { channels } = getChannelMap(state)
+  return {
+    channels: {
+      ...channels,
+      [channelKey]: updater(channels[channelKey] ?? createChannelState()),
+    },
+  }
+}
 
 /**
  * Get a clean snapshot of the current workflow state
@@ -111,12 +129,13 @@ export const useCopilotTrainingStore = create<CopilotTrainingState>()(
       ensureChannel: (channelId) => {
         const key = resolveChannelKey(channelId)
         set((state) => {
-          if (state.channels[key]) {
+          const { channels, hasExistingState } = getChannelMap(state)
+          if (channels[key] && hasExistingState) {
             return undefined
           }
           return {
             channels: {
-              ...state.channels,
+              ...channels,
               [key]: createChannelState(),
             },
           }

@@ -41,7 +41,7 @@ const WorkflowConsoleApp = ({
           workflowId={workflowId}
           channelId={channelId}
         >
-          <WorkflowStoreProvider channelId={channelId}>
+          <WorkflowStoreProvider channelId={channelId} workflowId={workflowId}>
             <div className='flex h-full w-full flex-col overflow-y-auto bg-[hsl(var(--workflow-background))]'>
               <Console panelWidth={panelWidth} hideScrollbar={false} />
             </div>

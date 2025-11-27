@@ -665,7 +665,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           error: null,
         }))
         syncPairContextForChannel(channelId, id)
-        useWorkflowStore.setStateForChannel(workflowState, channelKey)
+        useWorkflowStore.setStateForChannel(workflowState, channelKey, undefined, id)
         useSubBlockStore.getState().initializeFromWorkflow(id, (workflowState as any).blocks || {})
 
         window.dispatchEvent(

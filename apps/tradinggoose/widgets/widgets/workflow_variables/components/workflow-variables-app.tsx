@@ -44,7 +44,7 @@ const WorkflowVariablesApp = ({
           workflowId={workflowId}
           channelId={channelId}
         >
-          <WorkflowStoreProvider channelId={channelId}>
+          <WorkflowStoreProvider channelId={channelId} workflowId={workflowId}>
             <WorkflowVariablesAppContent
               workflowId={workflowId}
               channelId={channelId}

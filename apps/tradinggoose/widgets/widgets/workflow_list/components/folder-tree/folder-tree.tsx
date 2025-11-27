@@ -32,7 +32,6 @@ interface FolderSectionProps {
     parentDragOver?: boolean
   ) => React.ReactNode[]
   parentDragOver?: boolean
-  isFirstItem?: boolean
 }
 
 // Helper function to count visible items, excluding content of the last expanded folder
@@ -85,7 +84,6 @@ function FolderSection({
   updateFolder,
   renderFolderTree,
   parentDragOver = false,
-  isFirstItem = false,
 }: FolderSectionProps) {
   const { isDragOver, isInvalidDrop, handleDragOver, handleDragLeave, handleDrop } =
     useDragHandlers(
@@ -123,7 +121,6 @@ function FolderSection({
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          isFirstItem={isFirstItem}
           level={level}
         />
       </div>
@@ -240,7 +237,6 @@ function FolderSection({
                       updateFolder={updateFolder}
                       renderFolderTree={renderFolderTree}
                       parentDragOver={isAnyDragOver}
-                      isFirstItem={false}
                     />
                   </div>
                 </div>
@@ -549,7 +545,6 @@ export function FolderTree({
         updateFolder={updateFolderAPI}
         renderFolderTree={renderFolderTree}
         parentDragOver={parentDragOver}
-        isFirstItem={level === 0 && index === 0}
       />
     ))
   }
@@ -603,7 +598,6 @@ export function FolderTree({
               active={pathname === `/workspace/${workspaceId}/w/${workflow.id}`}
               level={-1}
               isDragOver={rootDragOver}
-              isFirstItem={folderTree.length === 0 && index === 0}
               onSelect={onWorkflowSelect}
               disableNavigation={disableNavigation}
             />

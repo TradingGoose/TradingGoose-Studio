@@ -16,12 +16,17 @@ const WorkflowStoreContext = createContext<StoreApi<WorkflowStore>>(getWorkflowS
 
 export function WorkflowStoreProvider({
   channelId = DEFAULT_WORKFLOW_CHANNEL_ID,
+  workflowId,
   children,
 }: {
   channelId?: string
+  workflowId?: string
   children: ReactNode
 }) {
-  const store = useMemo(() => getWorkflowStoreForChannel(channelId), [channelId])
+  const store = useMemo(
+    () => getWorkflowStoreForChannel(channelId, workflowId),
+    [channelId, workflowId]
+  )
   return <WorkflowStoreContext.Provider value={store}>{children}</WorkflowStoreContext.Provider>
 }
 
@@ -52,7 +57,8 @@ type UseWorkflowStoreHook = typeof useWorkflowStoreBase & {
   setStateForChannel: (
     partial: Parameters<StoreApi<WorkflowStore>['setState']>[0],
     channelId: string,
-    replace?: Parameters<StoreApi<WorkflowStore>['setState']>[1]
+    replace?: Parameters<StoreApi<WorkflowStore>['setState']>[1],
+    workflowId?: string
   ) => void
   subscribe: (
     listener: Parameters<StoreApi<WorkflowStore>['subscribe']>[0],
@@ -66,8 +72,8 @@ useWorkflowStore.getState = (channelId?: string) => getWorkflowStoreState(channe
 
 useWorkflowStore.setState = (partial, replace) => setWorkflowStoreState(partial, undefined, replace)
 
-useWorkflowStore.setStateForChannel = (partial, channelId, replace) =>
-  setWorkflowStoreState(partial, channelId, replace)
+useWorkflowStore.setStateForChannel = (partial, channelId, replace, workflowId) =>
+  setWorkflowStoreState(partial, channelId, replace, workflowId)
 
 useWorkflowStore.subscribe = (listener, channelId) => subscribeToWorkflowStore(listener, channelId)
 

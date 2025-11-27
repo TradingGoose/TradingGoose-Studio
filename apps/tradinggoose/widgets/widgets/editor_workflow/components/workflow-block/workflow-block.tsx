@@ -737,7 +737,7 @@ export const WorkflowBlock = memo(
         <Card
           ref={blockRef}
           className={cn(
-            'relative cursor-default select-none shadow-md',
+            'rounded-sm relative cursor-default select-none shadow-md',
             'transition-block-bg transition-ring',
             displayIsWide ? 'w-[480px]' : 'w-[320px]',
             !isEnabled && 'shadow-sm',

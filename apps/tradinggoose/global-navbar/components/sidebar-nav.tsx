@@ -99,8 +99,6 @@ export function SidebarUsageIndicator({ onOpenSubscriptionSettings }: SidebarUsa
   if (state === 'collapsed' || !billingEnabled) return null
 
   return (
-    <div className='px-1 py-1.5'>
-      <LazyUsageIndicator onClick={handleUsageIndicatorClick} />
-    </div>
+    <LazyUsageIndicator onClick={handleUsageIndicatorClick} />
   )
 }

@@ -48,7 +48,6 @@ interface WorkflowItemProps {
   isMarketplace?: boolean
   level: number
   isDragOver?: boolean
-  isFirstItem?: boolean
   onSelect?: (workflow: WorkflowMetadata) => void
   disableNavigation?: boolean
 }
@@ -59,7 +58,6 @@ export function WorkflowItem({
   isMarketplace,
   level,
   isDragOver = false,
-  isFirstItem = false,
   onSelect,
   disableNavigation = false,
 }: WorkflowItemProps) {
@@ -355,8 +353,7 @@ export function WorkflowItem({
           'group flex h-8 cursor-pointer items-center rounded-sm px-2 py-2 font-medium font-sans text-sm transition-colors',
           active && !isDragOver ? 'bg-muted' : 'hover:bg-card',
           isSelected && selectedWorkflows.size > 1 && !active && !isDragOver ? 'bg-muted' : '',
-          isDragging ? 'opacity-50' : '',
-          isFirstItem ? 'mr-[36px]' : ''
+          isDragging ? 'opacity-50' : ''
         )}
         draggable={!isMarketplace && !isEditing}
         onDragStart={handleDragStart}

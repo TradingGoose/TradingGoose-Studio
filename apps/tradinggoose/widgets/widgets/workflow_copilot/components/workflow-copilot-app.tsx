@@ -42,7 +42,7 @@ const WorkflowCopilotApp = ({
           workflowId={workflowId}
           channelId={channelId}
         >
-          <WorkflowStoreProvider channelId={channelId}>
+          <WorkflowStoreProvider channelId={channelId} workflowId={workflowId}>
             <CopilotStoreProvider channelId={channelId}>
               <div className='flex h-full w-full flex-col overflow-hidden bg-[hsl(var(--workflow-background))]'>
                 <Copilot panelWidth={panelWidth} />
