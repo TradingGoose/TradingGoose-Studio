@@ -1,0 +1,21 @@
+{
+  "name": "@tradinggoose/copilot-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/server.ts",
+    "start": "bun run src/server.ts",
+    "lint": "bunx biome check --files-ignore-unknown=true ./src"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.4",
+    "hono": "^4.6.6",
+    "nanoid": "^5.0.7",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "bun-types": "1.2.19",
+    "typescript": "^5.7.3"
+  }
+}
