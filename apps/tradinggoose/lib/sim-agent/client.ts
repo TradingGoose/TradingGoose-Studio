@@ -1,6 +1,6 @@
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
-import { SIM_AGENT_API_URL_DEFAULT } from '@/lib/sim-agent/constants'
+import { COPILOT_API_URL_DEFAULT } from '@/lib/sim-agent/constants'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('SimAgentClient')
@@ -23,7 +23,7 @@ class SimAgentClient {
 
   constructor() {
     // Move environment variable access inside the constructor
-    this.baseUrl = env.SIM_AGENT_API_URL || SIM_AGENT_API_URL_DEFAULT
+    this.baseUrl = env.COPILOT_API_URL || COPILOT_API_URL_DEFAULT
   }
 
   /**

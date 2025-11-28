@@ -13,6 +13,7 @@ export type PersistedColorPair = {
   color: LinkedPairColor
   workflowId?: string | null
   ticker?: string | null
+  copilotChatId?: string | null
 }
 
 export type PersistedColorPairsState = {
@@ -103,11 +104,17 @@ export function normalizeColorPairsState(state?: unknown): PersistedColorPairsSt
       ((raw as { ticker?: unknown }).ticker as string).trim().length > 0
         ? ((raw as { ticker?: unknown }).ticker as string)
         : null
+    const copilotChatId =
+      typeof (raw as { copilotChatId?: unknown }).copilotChatId === 'string' &&
+      ((raw as { copilotChatId?: unknown }).copilotChatId as string).trim().length > 0
+        ? ((raw as { copilotChatId?: unknown }).copilotChatId as string)
+        : null
 
     normalized.push({
       color: rawColor,
       workflowId,
       ticker,
+      copilotChatId,
     })
     seen.add(rawColor)
   }

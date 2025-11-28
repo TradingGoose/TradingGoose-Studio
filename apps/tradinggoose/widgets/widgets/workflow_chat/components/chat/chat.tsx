@@ -850,7 +850,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
                   isExecuting ||
                   isUploadingFiles
                 }
-                className='h-6 w-6 shrink-0 rounded-full bg-primary-hover text-white shadow-[0_0_0_0_var(--primary-hover)] transition-all duration-200 hover:bg-primary-hover '
+                className='h-6 w-6 shrink-0 rounded-full bg-primary-hover text-black shadow-[0_0_0_0_var(--primary-hover)] transition-all duration-200 hover:bg-primary-hover '
               >
                 <ArrowUp className='h-3 w-3' />
               </Button>

@@ -5,11 +5,11 @@ import { getCopilotModel } from '@/lib/copilot/config'
 import type { CopilotProviderConfig } from '@/lib/copilot/types'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
-import { SIM_AGENT_API_URL_DEFAULT } from '@/lib/sim-agent/constants'
+import { COPILOT_API_URL_DEFAULT } from '@/lib/sim-agent/constants'
 
 const logger = createLogger('ContextUsageAPI')
 
-const SIM_AGENT_API_URL = env.SIM_AGENT_API_URL || SIM_AGENT_API_URL_DEFAULT
+const COPILOT_API_URL = env.COPILOT_API_URL || COPILOT_API_URL_DEFAULT
 
 const ContextUsageRequestSchema = z.object({
   chatId: z.string(),
@@ -99,11 +99,11 @@ export async function POST(req: NextRequest) {
     }
 
     logger.info('[Context Usage API] Calling sim-agent', {
-      url: `${SIM_AGENT_API_URL}/api/get-context-usage`,
+      url: `${COPILOT_API_URL}/api/get-context-usage`,
       payload: requestPayload,
     })
 
-    const simAgentResponse = await fetch(`${SIM_AGENT_API_URL}/api/get-context-usage`, {
+    const simAgentResponse = await fetch(`${COPILOT_API_URL}/api/get-context-usage`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -8,9 +8,9 @@ import {
   createUnauthorizedResponse,
 } from '@/lib/copilot/auth'
 import { env } from '@/lib/env'
-import { SIM_AGENT_API_URL_DEFAULT } from '@/lib/sim-agent/constants'
+import { COPILOT_API_URL_DEFAULT } from '@/lib/sim-agent/constants'
 
-const SIM_AGENT_API_URL = env.SIM_AGENT_API_URL || SIM_AGENT_API_URL_DEFAULT
+const COPILOT_API_URL = env.COPILOT_API_URL || COPILOT_API_URL_DEFAULT
 
 const BodySchema = z.object({
   messageId: z.string(),
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       diffAccepted,
     }
 
-    const agentRes = await fetch(`${SIM_AGENT_API_URL}/api/stats`, {
+    const agentRes = await fetch(`${COPILOT_API_URL}/api/stats`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     let agentJson: any = null
     try {
       agentJson = await agentRes.json()
-    } catch {}
+    } catch { }
 
     if (!agentRes.ok) {
       const message = (agentJson && (agentJson.error || agentJson.message)) || 'Upstream error'

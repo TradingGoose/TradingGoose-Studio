@@ -3540,7 +3540,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                   onClick={handleSubmit}
                   disabled={!canSubmit}
                   size='icon'
-                  className='h-6 w-6 rounded-full bg-primary-hover text-white shadow-[0_0_0_0_var(--primary-hover)] transition-all duration-200 hover:bg-primary-hover '
+                  className='h-6 w-6 rounded-full bg-primary-hover text-black shadow-[0_0_0_0_var(--primary-hover)] transition-all duration-200 hover:bg-primary-hover '
                 >
                   {isLoading ? (
                     <Loader2 className='h-3 w-3 animate-spin' />

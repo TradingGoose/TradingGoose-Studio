@@ -1004,13 +1004,17 @@ function applyPairDataToWidget(
 
   const workflowId = pairData.workflowId ?? null
   const ticker = pairData.ticker ?? null
+  const copilotChatId = pairData.copilotChatId ?? null
 
-  if (workflowId == null && ticker == null) {
+  if (workflowId == null && ticker == null && copilotChatId == null) {
     return widget
   }
 
   baseParams.workflowId = workflowId
   baseParams.ticker = ticker
+  if (copilotChatId) {
+    baseParams.copilotChatId = copilotChatId
+  }
 
   if (areWidgetParamsEqual(widget.params ?? null, baseParams)) {
     return widget
@@ -1036,6 +1040,7 @@ function hydratePairStoreFromColorPairs(colorPairs: PersistedColorPairsState) {
     setContext(pair.color, {
       workflowId: pair.workflowId ?? undefined,
       ticker: pair.ticker ?? undefined,
+      copilotChatId: pair.copilotChatId ?? undefined,
     })
   }
 
@@ -1063,11 +1068,16 @@ function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState 
       typeof context?.ticker === 'string' && context.ticker.trim().length > 0
         ? context.ticker
         : null
+    const copilotChatId =
+      typeof context?.copilotChatId === 'string' && context.copilotChatId.trim().length > 0
+        ? context.copilotChatId
+        : null
 
     pairs.push({
       color,
       workflowId,
       ticker,
+      copilotChatId,
     })
   })
 
@@ -1077,7 +1087,10 @@ function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState 
 function hasLinkedColorPairs(colorPairs?: PersistedColorPairsState): boolean {
   if (!colorPairs || !Array.isArray(colorPairs.pairs)) return false
   return colorPairs.pairs.some(
-    (pair) => pair?.color && pair.color !== 'gray' && (pair.workflowId || pair.ticker)
+    (pair) =>
+      pair?.color &&
+      pair.color !== 'gray' &&
+      (pair.workflowId || pair.ticker || pair.copilotChatId)
   )
 }
 

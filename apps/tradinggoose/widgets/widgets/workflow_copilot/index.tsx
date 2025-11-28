@@ -5,6 +5,8 @@ import WorkflowCopilotApp from './components/workflow-copilot-app'
 import { useWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
+import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
+import { CopilotHeader, CopilotHeaderActions } from './components/copilot/copilot-header'
 
 const WorkflowCopilotWidgetBody = ({
   params,
@@ -14,7 +16,7 @@ const WorkflowCopilotWidgetBody = ({
   widget,
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
-  const { workspaceId, channelId, isLinkedToColorPair } = useWidgetChannel({
+  const { workspaceId, channelId, resolvedPairColor, isLinkedToColorPair } = useWidgetChannel({
     context,
     pairColor,
     widget,
@@ -93,6 +95,7 @@ const WorkflowCopilotWidgetBody = ({
         workflowId={resolvedWorkflowId}
         panelWidth={panelWidth || fallbackPanelWidth}
         channelId={channelId}
+        pairColor={resolvedPairColor}
       />
     </div>
   )
@@ -111,8 +114,18 @@ export const workflowCopilotWidget: DashboardWidgetDefinition = {
   category: 'utility',
   description: 'AI copilot experience tailored to the selected workflow.',
   component: (props) => <WorkflowCopilotWidgetBody {...props} />,
-  renderHeader: () => ({
-    left: <span className='font-medium text-accent-foreground text-xs'>Copilot</span>,
-    center: <span className='text-muted-foreground text-xs'>Workflow assistance</span>,
-  }),
+  renderHeader: ({ widget, panelId }) => {
+    const { channelId } = resolveWidgetChannel({
+      pairColor: widget?.pairColor ?? 'gray',
+      widget,
+      panelId,
+      fallbackWidgetKey: 'workflow-copilot',
+    })
+
+    return {
+      left: null,
+      center: <CopilotHeader channelId={channelId} />,
+      right: <CopilotHeaderActions channelId={channelId} />,
+    }
+  },
 }

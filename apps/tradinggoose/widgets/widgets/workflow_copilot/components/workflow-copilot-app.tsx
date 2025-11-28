@@ -10,12 +10,14 @@ import {
   DEFAULT_WORKFLOW_CHANNEL_ID,
   WorkflowStoreProvider,
 } from '@/stores/workflows/workflow/store-client'
+import type { PairColor } from '@/widgets/pair-colors'
 
 interface WorkflowCopilotAppProps {
   workspaceId: string
   workflowId: string
   panelWidth: number
   channelId?: string
+  pairColor: PairColor
 }
 
 const WorkflowCopilotApp = ({
@@ -23,6 +25,7 @@ const WorkflowCopilotApp = ({
   workflowId,
   panelWidth,
   channelId = DEFAULT_WORKFLOW_CHANNEL_ID,
+  pairColor,
 }: WorkflowCopilotAppProps) => {
   const session = useSession()
 
@@ -45,7 +48,7 @@ const WorkflowCopilotApp = ({
           <WorkflowStoreProvider channelId={channelId} workflowId={workflowId}>
             <CopilotStoreProvider channelId={channelId}>
               <div className='flex h-full w-full flex-col overflow-hidden bg-[hsl(var(--workflow-background))]'>
-                <Copilot panelWidth={panelWidth} />
+                <Copilot panelWidth={panelWidth} pairColor={pairColor} />
               </div>
             </CopilotStoreProvider>
           </WorkflowStoreProvider>

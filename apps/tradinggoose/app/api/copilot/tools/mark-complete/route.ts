@@ -9,11 +9,11 @@ import {
 } from '@/lib/copilot/auth'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
-import { SIM_AGENT_API_URL_DEFAULT } from '@/lib/sim-agent/constants'
+import { COPILOT_API_URL_DEFAULT } from '@/lib/sim-agent/constants'
 
 const logger = createLogger('CopilotMarkToolCompleteAPI')
 
-const SIM_AGENT_API_URL = env.SIM_AGENT_API_URL || SIM_AGENT_API_URL_DEFAULT
+const COPILOT_API_URL = env.COPILOT_API_URL || COPILOT_API_URL_DEFAULT
 
 const MarkCompleteSchema = z.object({
   id: z.string(),
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
       logger.debug(`[${tracker.requestId}] Incoming mark-complete raw body preview`, {
         preview: `${bodyPreview}${bodyPreview.length === 300 ? '...' : ''}`,
       })
-    } catch {}
+    } catch { }
 
     const parsed = MarkCompleteSchema.parse(body)
 
@@ -66,10 +66,10 @@ export async function POST(req: NextRequest) {
       hasMessage: parsed.message !== undefined,
       hasData: parsed.data !== undefined,
       messagePreview,
-      agentUrl: `${SIM_AGENT_API_URL}/api/tools/mark-complete`,
+      agentUrl: `${COPILOT_API_URL}/api/tools/mark-complete`,
     })
 
-    const agentRes = await fetch(`${SIM_AGENT_API_URL}/api/tools/mark-complete`, {
+    const agentRes = await fetch(`${COPILOT_API_URL}/api/tools/mark-complete`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
     } catch (_) {
       try {
         agentText = await agentRes.text()
-      } catch {}
+      } catch { }
     }
 
     logger.info(`[${tracker.requestId}] Agent responded to mark-complete`, {

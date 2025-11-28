@@ -7,7 +7,7 @@ import { validateWorkflowState } from '@/lib/workflows/validation'
 import { Serializer } from '@/serializer'
 import { useWorkflowRegistry } from '../workflows/registry/store'
 import { useSubBlockStore } from '../workflows/subblock/store'
-import { useWorkflowStore } from '../workflows/workflow/store'
+import { DEFAULT_WORKFLOW_CHANNEL_ID, useWorkflowStore } from '../workflows/workflow/store'
 import type { WorkflowState } from '../workflows/workflow/types'
 
 const logger = createLogger('WorkflowDiffStore')
@@ -290,7 +290,7 @@ export const useWorkflowDiffStore = create<WorkflowDiffState & WorkflowDiffActio
         },
 
         acceptChanges: async () => {
-          const activeWorkflowId = useWorkflowRegistry.getState().activeWorkflowId
+          const { activeWorkflowId, activeWorkflowIds } = useWorkflowRegistry.getState()
 
           if (!activeWorkflowId) {
             logger.error('No active workflow ID found when accepting diff')
@@ -354,12 +354,37 @@ export const useWorkflowDiffStore = create<WorkflowDiffState & WorkflowDiffActio
               }
             } catch {}
 
-            // Update the main workflow store state
-            useWorkflowStore.setState({
+            const workflowStateUpdate = {
               blocks: stateToApply.blocks,
               edges: stateToApply.edges,
               loops: stateToApply.loops,
               parallels: stateToApply.parallels,
+            }
+
+            // Update the default workflow store (legacy/global consumers)
+            useWorkflowStore.setState(workflowStateUpdate)
+
+            // Also sync any channel-specific workflow stores that are bound to this workflow
+            Object.entries(activeWorkflowIds || {}).forEach(([channelKey, workflowId]) => {
+              if (
+                workflowId === activeWorkflowId &&
+                channelKey &&
+                channelKey !== DEFAULT_WORKFLOW_CHANNEL_ID
+              ) {
+                try {
+                  useWorkflowStore.setStateForChannel(
+                    workflowStateUpdate,
+                    channelKey,
+                    undefined,
+                    activeWorkflowId
+                  )
+                } catch (syncError) {
+                  logger.warn('Failed to sync workflow store for channel after diff accept', {
+                    channelKey,
+                    error: syncError instanceof Error ? syncError.message : String(syncError),
+                  })
+                }
+              }
             })
 
             // Update the subblock store with the values from the diff workflow blocks

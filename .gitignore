@@ -71,3 +71,4 @@ start-collector.sh
 helm/sim/test
 i18n.cache
 commit.md
+/apps/copilot

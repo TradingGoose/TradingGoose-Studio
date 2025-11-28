@@ -2117,7 +2117,7 @@ const WorkflowCanvas = React.memo(
           </ReactFlow>
 
           {/* Show DiffControls if diff is available (regardless of current view mode) */}
-          {uiConfig.diffControls && <DiffControls />}
+          {uiConfig.diffControls && <DiffControls constrainToContainer={Boolean(viewportBounds)} />}
 
           {/* Trigger warning dialog */}
           <TriggerWarningDialog

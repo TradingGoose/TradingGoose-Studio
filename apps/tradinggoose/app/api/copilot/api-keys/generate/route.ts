@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { env } from '@/lib/env'
-import { SIM_AGENT_API_URL_DEFAULT } from '@/lib/sim-agent/constants'
+import { COPILOT_API_URL_DEFAULT } from '@/lib/sim-agent/constants'
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,11 +13,11 @@ export async function POST(req: NextRequest) {
     const userId = session.user.id
 
     // Move environment variable access inside the function
-    const SIM_AGENT_API_URL = env.SIM_AGENT_API_URL || SIM_AGENT_API_URL_DEFAULT
+    const COPILOT_API_URL = env.COPILOT_API_URL || COPILOT_API_URL_DEFAULT
 
     await req.json().catch(() => ({}))
 
-    const res = await fetch(`${SIM_AGENT_API_URL}/api/validate-key/generate`, {
+    const res = await fetch(`${COPILOT_API_URL}/api/validate-key/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

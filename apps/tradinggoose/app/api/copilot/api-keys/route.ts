@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { env } from '@/lib/env'
-import { SIM_AGENT_API_URL_DEFAULT } from '@/lib/sim-agent/constants'
+import { COPILOT_API_URL_DEFAULT } from '@/lib/sim-agent/constants'
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,9 +12,9 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id
 
-    const SIM_AGENT_API_URL = env.SIM_AGENT_API_URL || SIM_AGENT_API_URL_DEFAULT
+    const COPILOT_API_URL = env.COPILOT_API_URL || COPILOT_API_URL_DEFAULT
 
-    const res = await fetch(`${SIM_AGENT_API_URL}/api/validate-key/get-api-keys`, {
+    const res = await fetch(`${COPILOT_API_URL}/api/validate-key/get-api-keys`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -60,9 +60,9 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 })
     }
 
-    const SIM_AGENT_API_URL = env.SIM_AGENT_API_URL || SIM_AGENT_API_URL_DEFAULT
+    const COPILOT_API_URL = env.COPILOT_API_URL || COPILOT_API_URL_DEFAULT
 
-    const res = await fetch(`${SIM_AGENT_API_URL}/api/validate-key/delete`, {
+    const res = await fetch(`${COPILOT_API_URL}/api/validate-key/delete`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

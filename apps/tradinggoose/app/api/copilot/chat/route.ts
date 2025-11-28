@@ -15,14 +15,14 @@ import { getCopilotModel } from '@/lib/copilot/config'
 import type { CopilotProviderConfig } from '@/lib/copilot/types'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
-import { SIM_AGENT_API_URL_DEFAULT, SIM_AGENT_VERSION } from '@/lib/sim-agent/constants'
+import { COPILOT_API_URL_DEFAULT, SIM_AGENT_VERSION } from '@/lib/sim-agent/constants'
 import { generateChatTitle } from '@/lib/sim-agent/utils'
 import { CopilotFiles } from '@/lib/uploads'
 import { createFileContent } from '@/lib/uploads/utils/file-utils'
 
 const logger = createLogger('CopilotChatAPI')
 
-const SIM_AGENT_API_URL = env.SIM_AGENT_API_URL || SIM_AGENT_API_URL_DEFAULT
+const COPILOT_API_URL = env.COPILOT_API_URL || COPILOT_API_URL_DEFAULT
 
 const FileAttachmentSchema = z.object({
   id: z.string(),
@@ -335,7 +335,7 @@ export async function POST(req: NextRequest) {
       })
     } catch { }
 
-    const simAgentResponse = await fetch(`${SIM_AGENT_API_URL}/api/chat-completion-streaming`, {
+    const simAgentResponse = await fetch(`${COPILOT_API_URL}/api/chat-completion-streaming`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

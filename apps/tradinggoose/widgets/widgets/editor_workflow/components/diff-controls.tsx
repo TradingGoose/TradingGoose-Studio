@@ -1,6 +1,9 @@
+'use client'
+
 import { memo, useCallback } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
 import { useWorkflowDiffStore } from '@/stores/workflow-diff'
@@ -10,7 +13,13 @@ import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 
 const logger = createLogger('DiffControls')
 
-export const DiffControls = memo(function DiffControls() {
+interface DiffControlsProps {
+  constrainToContainer?: boolean
+}
+
+export const DiffControls = memo(function DiffControls({
+  constrainToContainer = false,
+}: DiffControlsProps) {
   // Optimized: Single diff store subscription
   const { isShowingDiff, isDiffReady, diffWorkflow, toggleDiffView, acceptChanges, rejectChanges } =
     useWorkflowDiffStore(
@@ -304,8 +313,12 @@ export const DiffControls = memo(function DiffControls() {
     return null
   }
 
+  const positionClass = constrainToContainer
+    ? 'absolute bottom-6 left-1/2 -translate-x-1/2'
+    : '-translate-x-1/2 fixed bottom-20 left-1/2'
+
   return (
-    <div className='-translate-x-1/2 fixed bottom-20 left-1/2 z-30'>
+    <div className={cn(positionClass, 'z-30')}>
       <div className='flex items-center gap-2'>
         {/* Toggle (left, icon-only, no background) */}
         <Button

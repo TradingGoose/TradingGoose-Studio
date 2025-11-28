@@ -7,6 +7,7 @@ export type PairColorContext = {
   ticker?: string
   updatedAt?: number
   channelId?: string
+  copilotChatId?: string | null
 }
 
 interface PairStoreState {
@@ -26,16 +27,36 @@ const emptyContexts = PAIR_COLORS.reduce<Record<PairColor, PairColorContext>>(
 export const usePairColorStore = create<PairStoreState>((set) => ({
   contexts: emptyContexts,
   setContext: (color, ctx) =>
-    set((state) => ({
-      contexts: {
-        ...state.contexts,
-        [color]: {
-          ...state.contexts[color],
-          ...ctx,
-          updatedAt: Date.now(),
+    set((state) => {
+      const previous = state.contexts[color]
+      const workflowChanged =
+        typeof ctx.workflowId === 'string' &&
+        ctx.workflowId.trim().length > 0 &&
+        ctx.workflowId !== previous.workflowId
+
+      let next: PairColorContext = {
+        ...previous,
+        ...ctx,
+        updatedAt: Date.now(),
+      }
+
+      if (workflowChanged && typeof ctx.copilotChatId === 'undefined') {
+        const { copilotChatId: _removed, ...rest } = next
+        next = rest
+      }
+
+      if (ctx.copilotChatId === null) {
+        const { copilotChatId: _removed, ...rest } = next
+        next = rest
+      }
+
+      return {
+        contexts: {
+          ...state.contexts,
+          [color]: next,
         },
-      },
-    })),
+      }
+    }),
   resetContext: (color) =>
     set((state) => ({
       contexts: {
