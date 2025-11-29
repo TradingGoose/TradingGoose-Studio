@@ -1,21 +1,9 @@
-import {
-  Body,
-  Column,
-  Container,
-  Head,
-  Hr,
-  Html,
-  Img,
-  Link,
-  Preview,
-  Row,
-  Section,
-  Text,
-} from '@react-email/components'
-import EmailFooter from '@/components/emails/footer'
+import { Body, Container, Head, Hr, Html, Link, Preview, Section, Text } from '@react-email/components'
+import EmailFooter from './footer'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { baseStyles } from './base-styles'
+import EmailHeader from './header'
 
 interface UsageThresholdEmailProps {
   userName?: string
@@ -47,69 +35,51 @@ export function UsageThresholdEmail({
       <Preview>{previewText}</Preview>
       <Body style={baseStyles.main}>
         <Container style={baseStyles.container}>
-          <Section style={{ padding: '30px 0', textAlign: 'center' }}>
-            <Row>
-              <Column style={{ textAlign: 'center' }}>
-                <Img
-                  src={brand.logoUrl || `${baseUrl}/logo/reverse/text/medium.png`}
-                  width='114'
-                  alt={brand.name}
-                  style={{
-                    margin: '0 auto',
-                  }}
-                />
-              </Column>
-            </Row>
-          </Section>
-
-          <Section style={baseStyles.sectionsBorders}>
-            <Row>
-              <Column style={baseStyles.sectionBorder} />
-              <Column style={baseStyles.sectionCenter} />
-              <Column style={baseStyles.sectionBorder} />
-            </Row>
-          </Section>
+          <EmailHeader />
 
           <Section style={baseStyles.content}>
-            <Text style={{ ...baseStyles.paragraph, marginTop: 0 }}>
-              {userName ? `Hi ${userName},` : 'Hi,'}
-            </Text>
-
+            <Text style={baseStyles.title}>You&apos;re at {percentUsed}% of your budget</Text>
             <Text style={baseStyles.paragraph}>
-              You're approaching your monthly budget on the {planName} plan.
+              {userName ? `${userName}, ` : ''}your {planName} plan usage is nearing the monthly
+              limit.
             </Text>
 
-            <Section>
-              <Row>
-                <Column>
-                  <Text style={{ ...baseStyles.paragraph, marginBottom: 8 }}>
-                    <strong>Usage</strong>
-                  </Text>
-                  <Text style={{ ...baseStyles.paragraph, marginTop: 0 }}>
-                    ${currentUsage.toFixed(2)} of ${limit.toFixed(2)} used ({percentUsed}%)
-                  </Text>
-                </Column>
-              </Row>
+            <Section style={baseStyles.codeContainer}>
+              <Text style={{ ...baseStyles.code, letterSpacing: '1px', fontSize: '20px' }}>
+                ${currentUsage.toFixed(2)} / ${limit.toFixed(2)} used
+              </Text>
+              <Text style={{ ...baseStyles.footerText, marginTop: '6px', fontFamily: baseStyles.fontFamily }}>
+                {percentUsed}% of this month&apos;s budget
+              </Text>
             </Section>
 
-            <Hr />
+            <Hr style={{ borderColor: '#1f202a', margin: '18px 0' }} />
 
             <Text style={{ ...baseStyles.paragraph }}>
               To avoid interruptions, consider increasing your monthly limit.
             </Text>
 
-            <Link href={ctaLink} style={{ textDecoration: 'none' }}>
-              <Text style={baseStyles.button}>Review limits</Text>
-            </Link>
+            <Section>
+              <table role='presentation' width='100%'>
+                <tbody>
+                  <tr>
+                    <td align='center'>
+                      <Link href={ctaLink} style={{ textDecoration: 'none' }}>
+                        <Text style={{ ...baseStyles.button, display: 'inline-block', margin: '22px 0' }}>
+                          Review limits
+                        </Text>
+                      </Link>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </Section>
 
-            <Text style={baseStyles.paragraph}>
-              Best regards,
-              <br />
-              The Sim Team
+            <Text style={{ ...baseStyles.paragraph, fontSize: '14px', color: '#929eae' }}>
+              We send this once when you reach 80% to give you time to adjust your plan or usage.
             </Text>
-
-            <Text style={{ ...baseStyles.paragraph, fontSize: '12px', color: '#666' }}>
-              Sent on {updatedDate.toLocaleDateString()} • This is a one-time notification at 80%.
+            <Text style={{ ...baseStyles.footerText, fontFamily: baseStyles.fontFamily, marginTop: '14px' }}>
+              Sent on {updatedDate.toLocaleDateString()}
             </Text>
           </Section>
         </Container>

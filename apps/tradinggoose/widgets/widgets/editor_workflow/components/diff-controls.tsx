@@ -21,20 +21,28 @@ export const DiffControls = memo(function DiffControls({
   constrainToContainer = false,
 }: DiffControlsProps) {
   // Optimized: Single diff store subscription
-  const { isShowingDiff, isDiffReady, diffWorkflow, toggleDiffView, acceptChanges, rejectChanges } =
-    useWorkflowDiffStore(
-      useCallback(
-        (state) => ({
-          isShowingDiff: state.isShowingDiff,
-          isDiffReady: state.isDiffReady,
-          diffWorkflow: state.diffWorkflow,
-          toggleDiffView: state.toggleDiffView,
-          acceptChanges: state.acceptChanges,
-          rejectChanges: state.rejectChanges,
-        }),
-        []
-      )
+  const {
+    isShowingDiff,
+    isDiffReady,
+    diffWorkflow,
+    toggleDiffView,
+    acceptChanges,
+    rejectChanges,
+    pendingEditToolCallId,
+  } = useWorkflowDiffStore(
+    useCallback(
+      (state) => ({
+        isShowingDiff: state.isShowingDiff,
+        isDiffReady: state.isDiffReady,
+        diffWorkflow: state.diffWorkflow,
+        toggleDiffView: state.toggleDiffView,
+        acceptChanges: state.acceptChanges,
+        rejectChanges: state.rejectChanges,
+        pendingEditToolCallId: state.pendingEditToolCallId,
+      }),
+      []
     )
+  )
 
   // Optimized: Single copilot store subscription for needed values
   const { updatePreviewToolCallState, clearPreviewYaml, currentChat, messages } = useCopilotStore(
@@ -213,70 +221,7 @@ export const DiffControls = memo(function DiffControls({
     }
   }, [activeWorkflowId, currentChat, messages])
 
-  const handleAccept = useCallback(async () => {
-    logger.info('Accepting proposed changes with backup protection')
-
-    try {
-      // Create a checkpoint before applying changes so it appears under the triggering user message
-      await createCheckpoint().catch((error) => {
-        logger.warn('Failed to create checkpoint before accept:', error)
-      })
-
-      // Clear preview YAML immediately
-      await clearPreviewYaml().catch((error) => {
-        logger.warn('Failed to clear preview YAML:', error)
-      })
-
-      // Resolve target toolCallId for build/edit and update to terminal success state in the copilot store
-      try {
-        const { toolCallsById, messages } = copilotStoreApi.getState()
-        let id: string | undefined
-        outer: for (let mi = messages.length - 1; mi >= 0; mi--) {
-          const m = messages[mi]
-          if (m.role !== 'assistant' || !m.contentBlocks) continue
-          const blocks = m.contentBlocks as any[]
-          for (let bi = blocks.length - 1; bi >= 0; bi--) {
-            const b = blocks[bi]
-            if (b?.type === 'tool_call') {
-              const tn = b.toolCall?.name
-              if (tn === 'edit_workflow') {
-                id = b.toolCall?.id
-                break outer
-              }
-            }
-          }
-        }
-        if (!id) {
-          const candidates = Object.values(toolCallsById).filter((t) => t.name === 'edit_workflow')
-          id = candidates.length ? candidates[candidates.length - 1].id : undefined
-        }
-        if (id) updatePreviewToolCallState('accepted', id)
-      } catch {}
-
-      // Accept changes without blocking the UI; errors will be logged by the store handler
-      acceptChanges().catch((error) => {
-        logger.error('Failed to accept changes (background):', error)
-      })
-
-      logger.info('Accept triggered; UI will update optimistically')
-    } catch (error) {
-      logger.error('Failed to accept changes:', error)
-
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-      console.error('Workflow update failed:', errorMessage)
-      alert(`Failed to save workflow changes: ${errorMessage}`)
-    }
-  }, [createCheckpoint, clearPreviewYaml, updatePreviewToolCallState, acceptChanges])
-
-  const handleReject = useCallback(() => {
-    logger.info('Rejecting proposed changes (optimistic)')
-
-    // Clear preview YAML immediately
-    clearPreviewYaml().catch((error) => {
-      logger.warn('Failed to clear preview YAML:', error)
-    })
-
-    // Resolve target toolCallId for build/edit and update to terminal rejected state in the copilot store
+  const resolveEditToolCallId = () => {
     try {
       const { toolCallsById, messages } = copilotStoreApi.getState()
       let id: string | undefined
@@ -286,12 +231,9 @@ export const DiffControls = memo(function DiffControls({
         const blocks = m.contentBlocks as any[]
         for (let bi = blocks.length - 1; bi >= 0; bi--) {
           const b = blocks[bi]
-          if (b?.type === 'tool_call') {
-            const tn = b.toolCall?.name
-            if (tn === 'edit_workflow') {
-              id = b.toolCall?.id
-              break outer
-            }
+          if (b?.type === 'tool_call' && b.toolCall?.name === 'edit_workflow') {
+            id = b.toolCall?.id
+            break outer
           }
         }
       }
@@ -299,10 +241,87 @@ export const DiffControls = memo(function DiffControls({
         const candidates = Object.values(toolCallsById).filter((t) => t.name === 'edit_workflow')
         id = candidates.length ? candidates[candidates.length - 1].id : undefined
       }
-      if (id) updatePreviewToolCallState('rejected', id)
-    } catch {}
+      if (!id && (useWorkflowDiffStore.getState() as any)?.pendingEditToolCallId) {
+        id = (useWorkflowDiffStore.getState() as any).pendingEditToolCallId || undefined
+      }
+      return id
+    } catch {
+      return undefined
+    }
+  }
 
-    // Reject changes optimistically
+  const handleAccept = useCallback(async () => {
+    logger.info('Accepting proposed changes with backup protection')
+
+    try {
+      await createCheckpoint().catch((error) => {
+        logger.warn('Failed to create checkpoint before accept:', error)
+      })
+      await clearPreviewYaml().catch((error) => {
+        logger.warn('Failed to clear preview YAML:', error)
+      })
+
+      const id = resolveEditToolCallId()
+      if (id) {
+        updatePreviewToolCallState('accepted', id)
+        try {
+          const tool = getClientTool(id) as any
+          if (tool?.handleAccept) {
+            await tool.handleAccept()
+          } else {
+            throw new Error('edit_workflow tool instance not found')
+          }
+        } catch (err) {
+          logger.warn('Failed to notify edit_workflow tool on accept; posting mark-complete fallback', {
+            message: (err as any)?.message,
+          })
+          // Let diff store/tool handle mark-complete
+        }
+      } else {
+        logger.warn('No edit_workflow toolCallId found on accept; skipping mark-complete')
+      }
+
+      acceptChanges().catch((error) => {
+        logger.error('Failed to accept changes (background):', error)
+      })
+      logger.info('Accept triggered; UI will update optimistically')
+    } catch (error) {
+      logger.error('Failed to accept changes:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      console.error('Workflow update failed:', errorMessage)
+      alert(`Failed to save workflow changes: ${errorMessage}`)
+    }
+  }, [createCheckpoint, clearPreviewYaml, updatePreviewToolCallState, acceptChanges])
+
+  const handleReject = useCallback(async () => {
+    logger.info('Rejecting proposed changes (optimistic)')
+
+    clearPreviewYaml().catch((error) => {
+      logger.warn('Failed to clear preview YAML:', error)
+    })
+
+    try {
+      const id = resolveEditToolCallId()
+      if (id) {
+        updatePreviewToolCallState('rejected', id)
+        try {
+          const tool = getClientTool(id) as any
+          if (tool?.handleReject) {
+            await tool.handleReject()
+          } else {
+            throw new Error('edit_workflow tool instance not found')
+          }
+        } catch (err) {
+          logger.warn('Failed to notify edit_workflow tool on reject; posting mark-complete fallback', {
+            message: (err as any)?.message,
+          })
+          // Let diff store/tool handle mark-complete
+        }
+      } else {
+        logger.warn('No edit_workflow toolCallId found on reject; skipping mark-complete')
+      }
+    } catch { }
+
     rejectChanges().catch((error) => {
       logger.error('Failed to reject changes (background):', error)
     })
@@ -347,7 +366,7 @@ export const DiffControls = memo(function DiffControls({
           variant='default'
           size='sm'
           onClick={handleAccept}
-          className='h-8 rounded-md bg-primary-hover px-3 text-white hover:bg-primary-hover/90 '
+          className='h-8 rounded-sm bg-primary-hover px-3 text-black hover:bg-primary-hover/90 '
           title='Accept changes'
         >
           Accept

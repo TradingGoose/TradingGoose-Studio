@@ -1,1 +1,0 @@
-DROP TABLE "workflow_execution_blocks" CASCADE;

@@ -1,20 +1,10 @@
-import {
-  Body,
-  Column,
-  Container,
-  Head,
-  Html,
-  Img,
-  Preview,
-  Row,
-  Section,
-  Text,
-} from '@react-email/components'
+import { Body, Container, Head, Html, Preview, Section, Text } from '@react-email/components'
 import { format } from 'date-fns'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { baseStyles } from './base-styles'
 import EmailFooter from './footer'
+import EmailHeader from './header'
 
 interface HelpConfirmationEmailProps {
   userEmail?: string
@@ -52,45 +42,20 @@ export const HelpConfirmationEmail = ({
     <Html>
       <Head />
       <Body style={baseStyles.main}>
-        <Preview>Your {typeLabel.toLowerCase()} has been received</Preview>
+        <Preview>{brand.name}: we received your {typeLabel.toLowerCase()}</Preview>
         <Container style={baseStyles.container}>
-          <Section style={{ padding: '30px 0', textAlign: 'center' }}>
-            <Row>
-              <Column style={{ textAlign: 'center' }}>
-                <Img
-                  src={brand.logoUrl || `${baseUrl}/logo/reverse/text/medium.png`}
-                  width='114'
-                  alt={brand.name}
-                  style={{
-                    margin: '0 auto',
-                  }}
-                />
-              </Column>
-            </Row>
-          </Section>
-
-          <Section style={baseStyles.sectionsBorders}>
-            <Row>
-              <Column style={baseStyles.sectionBorder} />
-              <Column style={baseStyles.sectionCenter} />
-              <Column style={baseStyles.sectionBorder} />
-            </Row>
-          </Section>
+          <EmailHeader />
 
           <Section style={baseStyles.content}>
-            <Text style={baseStyles.paragraph}>Hello,</Text>
+            <Text style={baseStyles.title}>Thanks for reaching out</Text>
             <Text style={baseStyles.paragraph}>
-              Thank you for your <strong>{typeLabel.toLowerCase()}</strong> submission. We've
-              received your request and will get back to you as soon as possible.
+              We received your <strong>{typeLabel.toLowerCase()}</strong> and will follow up shortly.
             </Text>
 
             {attachmentCount > 0 && (
               <Text style={baseStyles.paragraph}>
-                You attached{' '}
-                <strong>
-                  {attachmentCount} image{attachmentCount > 1 ? 's' : ''}
-                </strong>{' '}
-                with your request.
+                You attached <strong>{attachmentCount} file{attachmentCount > 1 ? 's' : ''}</strong>
+                . We&apos;ll review everything you shared.
               </Text>
             )}
 
@@ -101,26 +66,22 @@ export const HelpConfirmationEmail = ({
                 : type === 'feature_request'
                   ? 'feature requests'
                   : 'inquiries'}{' '}
-              within a few hours. If you need immediate assistance, please don't hesitate to reach
-              out to us directly.
-            </Text>
-
-            <Text style={baseStyles.paragraph}>
-              Best regards,
-              <br />
-              The {brand.name} Team
+              within a few hours. If you need immediate help, email us anytime at{' '}
+              <a href={`mailto:${brand.supportEmail}`} style={baseStyles.link}>
+                {brand.supportEmail}
+              </a>
+              .
             </Text>
 
             <Text
               style={{
                 ...baseStyles.footerText,
-                marginTop: '40px',
-                textAlign: 'left',
-                color: '#666666',
+                marginTop: '18px',
+                fontFamily: baseStyles.fontFamily,
               }}
             >
-              This confirmation was sent on {format(submittedDate, 'MMMM do, yyyy')} for your{' '}
-              {typeLabel.toLowerCase()} submission from {userEmail}.
+              Sent on {format(submittedDate, 'MMMM do, yyyy')} for your {typeLabel.toLowerCase()}
+              {userEmail ? ` from ${userEmail}` : ''}.
             </Text>
           </Section>
         </Container>

@@ -1,1 +1,0 @@
-ALTER TABLE "workflow_deployment_version" ADD COLUMN "name" text;

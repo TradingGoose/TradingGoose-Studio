@@ -1,21 +1,9 @@
-import {
-  Body,
-  Column,
-  Container,
-  Head,
-  Hr,
-  Html,
-  Img,
-  Link,
-  Preview,
-  Row,
-  Section,
-  Text,
-} from '@react-email/components'
-import EmailFooter from '@/components/emails/footer'
+import { Body, Container, Head, Hr, Html, Link, Preview, Section, Text } from '@react-email/components'
+import EmailFooter from './footer'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { baseStyles } from './base-styles'
+import EmailHeader from './header'
 
 interface PlanWelcomeEmailProps {
   planName: 'Pro' | 'Team'
@@ -42,41 +30,33 @@ export function PlanWelcomeEmail({
       <Preview>{previewText}</Preview>
       <Body style={baseStyles.main}>
         <Container style={baseStyles.container}>
-          <Section style={{ padding: '30px 0', textAlign: 'center' }}>
-            <Row>
-              <Column style={{ textAlign: 'center' }}>
-                <Img
-                  src={brand.logoUrl || `${baseUrl}/logo/reverse/text/medium.png`}
-                  width='114'
-                  alt={brand.name}
-                  style={{
-                    margin: '0 auto',
-                  }}
-                />
-              </Column>
-            </Row>
-          </Section>
-
-          <Section style={baseStyles.sectionsBorders}>
-            <Row>
-              <Column style={baseStyles.sectionBorder} />
-              <Column style={baseStyles.sectionCenter} />
-              <Column style={baseStyles.sectionBorder} />
-            </Row>
-          </Section>
+          <EmailHeader />
 
           <Section style={baseStyles.content}>
+            <Text style={baseStyles.title}>{planName} plan activated</Text>
             <Text style={{ ...baseStyles.paragraph, marginTop: 0 }}>
-              {userName ? `Hi ${userName},` : 'Hi,'}
+              {userName ? `Welcome, ${userName}!` : 'Welcome!'}
             </Text>
             <Text style={baseStyles.paragraph}>
-              Welcome to the <strong>{planName}</strong> plan on {brand.name}. You're all set to
-              build, test, and scale your agentic workflows.
+              You&apos;re all set on the <strong>{planName}</strong> plan for {brand.name}. Explore
+              your new limits and ship faster with your team.
             </Text>
 
-            <Link href={cta} style={{ textDecoration: 'none' }}>
-              <Text style={baseStyles.button}>Open {brand.name}</Text>
-            </Link>
+            <Section>
+              <table role='presentation' width='100%'>
+                <tbody>
+                  <tr>
+                    <td align='center'>
+                      <Link href={cta} style={{ textDecoration: 'none' }}>
+                        <Text style={{ ...baseStyles.button, display: 'inline-block', margin: '22px 0' }}>
+                          Open {brand.name}
+                        </Text>
+                      </Link>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </Section>
 
             <Text style={baseStyles.paragraph}>
               Want to discuss your plan or get personalized help getting started?{' '}
@@ -86,20 +66,18 @@ export function PlanWelcomeEmail({
               with our team.
             </Text>
 
-            <Hr />
+            <Hr style={{ borderColor: '#1f202a', margin: '18px 0' }} />
 
             <Text style={baseStyles.paragraph}>
-              Need to invite teammates, adjust usage limits, or manage billing? You can do that from
-              Settings → Subscription.
+              Need to invite teammates, adjust usage limits, or manage billing? Visit Settings {'->'}
+              Subscription anytime.
             </Text>
 
-            <Text style={baseStyles.paragraph}>
-              Best regards,
+            <Section style={baseStyles.divider} />
+
+            <Text style={{ ...baseStyles.footerText, fontFamily: baseStyles.fontFamily }}>
+              The {brand.name} Team
               <br />
-              The Sim Team
-            </Text>
-
-            <Text style={{ ...baseStyles.paragraph, fontSize: '12px', color: '#666' }}>
               Sent on {createdDate.toLocaleDateString()}
             </Text>
           </Section>

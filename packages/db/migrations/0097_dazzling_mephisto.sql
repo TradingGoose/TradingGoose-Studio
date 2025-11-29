@@ -1,1 +1,0 @@
-ALTER TABLE "user_stats" ADD COLUMN "billed_overage_this_period" numeric DEFAULT '0' NOT NULL;

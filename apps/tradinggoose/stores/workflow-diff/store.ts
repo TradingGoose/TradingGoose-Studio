@@ -57,6 +57,8 @@ interface WorkflowDiffState {
   _lastDisplayStateHash?: string
   // Track the user message id that triggered the current diff (for stats correlation)
   _triggerMessageId?: string | null
+  // Track the toolCallId for the current edit_workflow diff so we can always send mark-complete
+  pendingEditToolCallId?: string | null
 }
 
 interface WorkflowDiffActions {
@@ -69,6 +71,7 @@ interface WorkflowDiffActions {
   rejectChanges: () => Promise<void>
   // PERFORMANCE OPTIMIZATION: Batched state updates
   _batchedStateUpdate: (updates: Partial<WorkflowDiffState>) => void
+  setPendingEditToolCallId: (toolCallId: string | null | undefined) => void
 }
 
 /**
@@ -116,8 +119,13 @@ export const useWorkflowDiffStore = create<WorkflowDiffState & WorkflowDiffActio
         _cachedDisplayState: undefined,
         _lastDisplayStateHash: undefined,
         _triggerMessageId: null,
+        pendingEditToolCallId: null,
 
         _batchedStateUpdate: batchedUpdate,
+
+        setPendingEditToolCallId: (toolCallId) => {
+          batchedUpdate({ pendingEditToolCallId: toolCallId || null })
+        },
 
         setProposedChanges: async (
           proposedContent: string | WorkflowState,
@@ -274,6 +282,7 @@ export const useWorkflowDiffStore = create<WorkflowDiffState & WorkflowDiffActio
             diffAnalysis: null,
             diffMetadata: null,
             diffError: null,
+            pendingEditToolCallId: null,
           })
         },
 
@@ -410,6 +419,9 @@ export const useWorkflowDiffStore = create<WorkflowDiffState & WorkflowDiffActio
 
             logger.info('Successfully applied diff workflow to main store')
 
+            // Capture pending toolCallId before clearing diff (used for fallback mark-complete)
+            const pendingToolCallId = get().pendingEditToolCallId || undefined
+
             // Optimistically clear the diff immediately so UI updates instantly
             get().clearDiff()
 
@@ -472,13 +484,34 @@ export const useWorkflowDiffStore = create<WorkflowDiffState & WorkflowDiffActio
                   ) as any[]
                   toolCallId = candidates.length ? candidates[candidates.length - 1].id : undefined
                 }
+                if (!toolCallId) {
+                  toolCallId = pendingToolCallId
+                }
 
                 if (toolCallId) {
                   const instance: any = getClientTool(toolCallId)
                   try {
-                    await instance?.handleAccept?.()
+                    if (instance?.handleAccept) {
+                      await instance.handleAccept()
+                    } else {
+                      throw new Error('edit_workflow tool instance not found')
+                    }
                   } catch (e) {
-                    logger.warn('Failed to mark tool complete on accept', e)
+                    logger.warn('Failed to mark tool complete on accept; sending fallback mark-complete', e as any)
+                    try {
+                      await fetch('/api/copilot/tools/mark-complete', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          id: toolCallId,
+                          name: 'edit_workflow',
+                          status: 200,
+                          message: 'Workflow edits accepted',
+                        }),
+                      })
+                    } catch (fallbackErr) {
+                      logger.error('Fallback mark-complete failed on accept', fallbackErr as any)
+                    }
                   }
                 }
               } catch (error) {
@@ -493,6 +526,8 @@ export const useWorkflowDiffStore = create<WorkflowDiffState & WorkflowDiffActio
 
         rejectChanges: async () => {
           logger.info('Rejecting proposed changes')
+          // Capture pending toolCallId before clearing diff (used for fallback mark-complete)
+          const pendingToolCallId = get().pendingEditToolCallId || undefined
           get().clearDiff()
 
           // Update copilot tool call state to 'rejected'
@@ -538,13 +573,34 @@ export const useWorkflowDiffStore = create<WorkflowDiffState & WorkflowDiffActio
               ) as any[]
               toolCallId = candidates.length ? candidates[candidates.length - 1].id : undefined
             }
+            if (!toolCallId) {
+              toolCallId = pendingToolCallId
+            }
 
             if (toolCallId) {
               const instance: any = getClientTool(toolCallId)
               try {
-                await instance?.handleReject?.()
+                if (instance?.handleReject) {
+                  await instance.handleReject()
+                } else {
+                  throw new Error('edit_workflow tool instance not found')
+                }
               } catch (e) {
-                logger.warn('Failed to mark tool complete on reject', e)
+                logger.warn('Failed to mark tool complete on reject; sending fallback mark-complete', e as any)
+                try {
+                  await fetch('/api/copilot/tools/mark-complete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      id: toolCallId,
+                      name: 'edit_workflow',
+                      status: 200,
+                      message: 'Workflow changes rejected',
+                    }),
+                  })
+                } catch (fallbackErr) {
+                  logger.error('Fallback mark-complete failed on reject', fallbackErr as any)
+                }
               }
             }
           } catch (error) {

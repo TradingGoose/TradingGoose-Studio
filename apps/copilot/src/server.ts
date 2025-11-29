@@ -6,7 +6,8 @@ import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { config } from './config'
 import { authenticateRequest } from './auth'
-import { generateAgentResponse } from './agent'
+import { generateAgentResponse } from './agent/index'
+import type { AiRouterProvider } from './llm/ai-router'
 import { consumeUnkeyLimit } from './unkey'
 import {
   createSession,
@@ -31,7 +32,7 @@ const log = {
 
 type AppBindings = { Variables: { auth: any; rate: any } }
 const app = new Hono<AppBindings>()
-const SIM_AGENT_VERSION = '1.0.2'
+const COPILOT_VERSION = '1.0.2'
 
 async function executeEditWorkflowTool(payload: any, context: { userId: string }) {
   // TODO: wire direct TradingGoose tool execution. For now, return a stub to keep parity.
@@ -53,6 +54,8 @@ interface RunTurnInput {
   messageId?: string
   version?: string
   streamToolCalls?: boolean
+  mode?: 'ask' | 'agent'
+  provider?: AiRouterProvider
 }
 
 async function finalizeSession(session: Session, responseId?: string) {
@@ -66,7 +69,19 @@ async function finalizeSession(session: Session, responseId?: string) {
 }
 
 async function runTurn(input: RunTurnInput) {
-  const { session, userMessage, contexts, userName, model, messageId, version, streamToolCalls = true } = input
+  const {
+    session,
+    userMessage,
+    contexts,
+    userName,
+    model,
+    messageId,
+    version,
+    streamToolCalls = true,
+    mode,
+    provider,
+  } = input
+  const effectiveMode = mode || session.mode || 'agent'
 
   const extractWorkflowSummary = (): string | undefined => {
     try {
@@ -74,45 +89,70 @@ async function runTurn(input: RunTurnInput) {
       const wfTool = reversed.find((m) => m.role === 'tool' && m.name === 'get_user_workflow')
       if (!wfTool || !wfTool.content) return undefined
       const parsed = JSON.parse(wfTool.content)
-      const wf = parsed?.userWorkflow || parsed?.workflow || parsed
+      let wf = parsed?.userWorkflow || parsed?.workflow || parsed
+      if (typeof wf === 'string') {
+        try {
+          wf = JSON.parse(wf)
+        } catch {
+          return undefined
+        }
+      }
       if (!wf || typeof wf !== 'object' || !wf.blocks || typeof wf.blocks !== 'object') {
         return undefined
       }
+
       const blockEntries = Object.entries<any>(wf.blocks)
-      const edgesArray: Array<{ source?: string; target?: string }> = Array.isArray(wf.edges)
-        ? wf.edges
-        : []
-      const edgeMap = new Map<string, Set<string>>()
-      for (const e of edgesArray) {
-        const src = e?.source || '?'
-        const tgt = e?.target || '?'
-        if (!edgeMap.has(src)) edgeMap.set(src, new Set())
-        edgeMap.get(src)!.add(tgt)
+      const edgeCount = Array.isArray(wf.edges) ? wf.edges.length : 0
+      const blockCount = blockEntries.length
+      const loopsCount =
+        wf.loops && typeof wf.loops === 'object' ? Object.keys(wf.loops).length : 0
+      const parallelsCount =
+        wf.parallels && typeof wf.parallels === 'object' ? Object.keys(wf.parallels).length : 0
+      const workflowName =
+        wf.name || wf.displayName || wf.workflowName || wf.title || wf.label || undefined
+      const workflowDescription =
+        wf.description || wf.workflowDescription || wf.summary || wf.shortDescription || undefined
+
+      const blockStructure = blockEntries.map(([id, block]) => ({
+        id,
+        type: block.type,
+        name: block.name,
+        enabled: block.enabled,
+        advancedMode: block.advancedMode,
+        triggerMode: block.triggerMode,
+        inputs: block.inputs,
+        outputs: block.outputs,
+        connections: block.connections,
+        nestedNodes: block.nestedNodes,
+      }))
+
+      const workflowPayload = {
+        workflowId: session.workflowId,
+        name: workflowName,
+        description: workflowDescription,
+        blockCount,
+        edgeCount,
+        loopsCount,
+        parallelsCount,
+        edges: Array.isArray(wf.edges) ? wf.edges : [],
+        blocks: blockStructure,
       }
-      const blockLines = blockEntries.slice(0, 50).map(([id, block]: any) => {
-        const type = block?.type || 'unknown'
-        const name = block?.name ? `"${block.name}"` : ''
-        const src = block?.connections?.source ? ` source:${block.connections.source}` : ''
-        const outs =
-          block?.outputs && typeof block.outputs === 'object'
-            ? Object.keys(block.outputs).map((k) => `${k}:${block.outputs[k]}`).join(',')
-            : ''
-        const targets =
-          edgeMap.get(id) && edgeMap.get(id)!.size > 0
-            ? ` -> [${Array.from(edgeMap.get(id)!).join(', ')}]`
-            : ''
-        return `- ${id}: ${type}${name ? ' ' + name : ''}${src}${outs ? ` outputs(${outs})` : ''}${targets}`
-      })
-      const edgesText = edgesArray.length
-        ? `Edges (${edgesArray.length}): ${edgesArray
-            .slice(0, 80)
-            .map((e: any) => `${e?.source || '?'} -> ${e?.target || '?'}`)
-            .join('; ')}`
-        : ''
-      const idList = blockEntries.map(([id]) => id).join(', ')
-      return `Latest workflow snapshot:\nBlock IDs: ${idList}\nBlocks:\n${blockLines.join('\n')}${
-        edgesText ? '\n' + edgesText : ''
-      }`
+
+      const workflowJson = truncate(JSON.stringify(workflowPayload, null, 2), 20000)
+      const summaryLines = [
+        `Latest workflow snapshot${workflowName ? ` for "${workflowName}"` : ''}${session.workflowId ? ` (workflowId: ${session.workflowId})` : ''
+        }`,
+        workflowDescription ? `Description: ${workflowDescription}` : undefined,
+        `- Blocks: ${blockCount}`,
+        `- Connections: ${edgeCount}`,
+        loopsCount || parallelsCount ? `- Loops: ${loopsCount}, Parallels: ${parallelsCount}` : undefined,
+        '',
+        'Workflow structure (JSON):',
+        '```json',
+        workflowJson,
+        '```',
+      ]
+      return summaryLines.filter(Boolean).join('\n')
     } catch {
       return undefined
     }
@@ -120,8 +160,15 @@ async function runTurn(input: RunTurnInput) {
 
   const workflowSummary = extractWorkflowSummary()
 
+  const providerToUse = provider ?? session.provider
   let agentResult: Awaited<ReturnType<typeof generateAgentResponse>>
   try {
+    log.debug('Calling generateAgentResponse (streaming)', {
+      mode: effectiveMode,
+      model: model || session.model,
+      messageLength: userMessage?.length || 0,
+      historyCount: session.messages.length,
+    })
     agentResult = await generateAgentResponse({
       message: userMessage,
       workflowSummary,
@@ -129,8 +176,11 @@ async function runTurn(input: RunTurnInput) {
       messages: session.messages.slice(-20),
       userName,
       model: model || session.model,
+      mode: effectiveMode,
+      provider: providerToUse,
     })
   } catch (error) {
+    log.error('generateAgentResponse failed (streaming)', { message: (error as any)?.message })
     agentResult = {
       reply: '',
       model: model || session.model || config.defaultModel,
@@ -163,7 +213,7 @@ async function runTurn(input: RunTurnInput) {
         if (parsed && typeof parsed.reply === 'string') {
           return parsed.reply
         }
-      } catch {}
+      } catch { }
       return null
     }
 
@@ -227,6 +277,13 @@ async function runTurn(input: RunTurnInput) {
 
   replyText = sanitizeReply(replyText, normalizedToolCalls)
 
+  const isAiRouterError =
+    typeof replyText === 'string' &&
+    (replyText.startsWith('Copilot Error:') ||
+      replyText.startsWith('Copilot request failed:') ||
+      replyText.startsWith('AI router request failed:') ||
+      replyText.startsWith('AI router is not configured.'))
+
   log.info('Run turn', {
     chatId: session.chatId,
     hasTools: normalizedToolCalls.length > 0,
@@ -257,6 +314,7 @@ async function runTurn(input: RunTurnInput) {
     for (const tc of normalizedToolCalls) {
       const tcId = tc.id || nanoid()
       session.toolCallIds.add(tcId)
+      session.pendingToolCallIds.add(tcId)
       mapToolCall(tcId, session.chatId)
       await session.stream.writeSSE({
         data: JSON.stringify({
@@ -302,7 +360,18 @@ async function runTurn(input: RunTurnInput) {
     session.messages.push({ role: 'assistant', content: replyText })
   }
 
-  await finalizeSession(session, messageId || version)
+  // Keep session open if there are pending tool calls waiting for completion (e.g., edit_workflow review flow)
+  const pendingTools = session.pendingToolCallIds?.size ?? 0
+  const pendingReviews = session.pendingReviewToolCallIds?.size ?? 0
+  if (!isAiRouterError && pendingTools === 0 && pendingReviews === 0) {
+    await finalizeSession(session, messageId || version)
+  } else {
+    log.info('Session kept open awaiting tool results', {
+      chatId: session.chatId,
+      pendingTools,
+      pendingReviews,
+    })
+  }
 }
 
 const ChatRequestSchema = z.object({
@@ -314,7 +383,7 @@ const ChatRequestSchema = z.object({
   model: z.string().optional(),
   mode: z.enum(['ask', 'agent']).default('agent'),
   messageId: z.string().optional(),
-  version: z.string().optional().default(SIM_AGENT_VERSION),
+  version: z.string().optional().default(COPILOT_VERSION),
   provider: z.any().optional(),
   conversationId: z.string().optional(),
   prefetch: z.boolean().optional(),
@@ -426,6 +495,7 @@ app.post('/api/chat-completion-streaming', async (c) => {
     messages,
   } = parsed.data
 
+  const effectiveMode = mode || 'agent'
   const effectiveChatId = chatId || `chat_${nanoid()}`
   const responseId = crypto.randomUUID()
 
@@ -434,26 +504,45 @@ app.post('/api/chat-completion-streaming', async (c) => {
       Array.isArray(messages) && messages.length > 0
         ? messages.map((m) => ({ role: m.role, content: m.content }))
         : []
-    const agentResult = await generateAgentResponse({
-      message,
-      workflowSummary: undefined,
-      contexts: context || undefined,
-      messages: history,
-      userName,
+    log.debug('Calling generateAgentResponse (non-stream)', {
+      mode: effectiveMode,
       model,
+      messageLength: message?.length || 0,
+      historyCount: history.length,
     })
+    let agentResult: Awaited<ReturnType<typeof generateAgentResponse>>
+    try {
+      agentResult = await generateAgentResponse({
+        message,
+        workflowSummary: undefined,
+        contexts: context || undefined,
+        messages: history,
+        userName,
+        model,
+        mode: effectiveMode,
+        provider,
+      })
+    } catch (error) {
+      log.error('generateAgentResponse failed (non-stream)', { message: (error as any)?.message })
+      agentResult = {
+        reply: '',
+        model: model || config.defaultModel,
+        reasoning: undefined,
+        operations: undefined,
+      }
+    }
 
     const toolCallsFromOps =
       agentResult.operations &&
-      agentResult.operations.length > 0 &&
-      (!agentResult.toolCalls || agentResult.toolCalls.length === 0)
+        agentResult.operations.length > 0 &&
+        (!agentResult.toolCalls || agentResult.toolCalls.length === 0)
         ? [
-            {
-              id: nanoid(),
-              name: 'edit_workflow',
-              arguments: { operations: agentResult.operations, workflowId },
-            },
-          ]
+          {
+            id: nanoid(),
+            name: 'edit_workflow',
+            arguments: { operations: agentResult.operations, workflowId },
+          },
+        ]
         : []
     const toolCalls = agentResult.toolCalls?.length ? agentResult.toolCalls : toolCallsFromOps
     const normalizedToolCalls = toolCalls.map((tc) => ({ ...tc, id: tc.id || nanoid() }))
@@ -488,10 +577,14 @@ app.post('/api/chat-completion-streaming', async (c) => {
       chatId: effectiveChatId,
       userId,
       workflowId,
+      mode,
       model,
+      provider,
       stream,
       messages: [...history, { role: 'user', content: message }],
       toolCallIds: new Set(),
+      pendingToolCallIds: new Set(),
+      pendingReviewToolCallIds: new Set(),
       lastUserMessage: message,
       closed: false,
       resolve: resolveDone!,
@@ -521,6 +614,8 @@ app.post('/api/chat-completion-streaming', async (c) => {
       messageId,
       version,
       streamToolCalls,
+      mode,
+      provider,
     })
 
     // Keep the stream open until the session resolves (tools completed or reply finished)
@@ -562,6 +657,16 @@ app.post('/api/tools/mark-complete', async (c) => {
 
   const session = getSessionByToolCallId(parsed.data.id)
   if (session) {
+    log.info('[tools/mark-complete] resolved session', {
+      toolCallId: parsed.data.id,
+      name: parsed.data.name,
+      status: parsed.data.status,
+      message: parsed.data.message,
+      mode: session.mode,
+      pendingToolCallCount: session.pendingToolCallIds.size,
+      pendingReviewCount: session.pendingReviewToolCallIds.size,
+    })
+
     await session.stream.writeSSE({
       data: JSON.stringify({
         type: 'tool_result',
@@ -579,18 +684,32 @@ app.post('/api/tools/mark-complete', async (c) => {
       name: parsed.data.name,
       toolCallId: parsed.data.id,
     })
-    // Kick off a follow-up turn to generate a reply based on the tool result
-    await runTurn({
-      session,
-      userMessage: session.lastUserMessage,
-      contexts: undefined,
-      userName: undefined,
-      model: session.model,
-      messageId: undefined,
-      version: SIM_AGENT_VERSION,
-      streamToolCalls: true,
+
+    session.pendingToolCallIds.delete(parsed.data.id)
+
+    // Only continue once all pending tool calls are resolved and no review is outstanding
+    if (session.pendingToolCallIds.size === 0 && session.pendingReviewToolCallIds.size === 0) {
+      await runTurn({
+        session,
+        userMessage: session.lastUserMessage,
+        contexts: undefined,
+        userName: undefined,
+        model: session.model,
+        messageId: undefined,
+        version: COPILOT_VERSION,
+        streamToolCalls: true,
+        mode: session.mode,
+        provider: session.provider,
+      })
+      log.info('[tools/mark-complete] follow-up turn triggered', { toolCallId: parsed.data.id })
+      return c.json({ success: true, continued: true })
+    }
+
+    log.info('[tools/mark-complete] waiting for remaining tool results', {
+      pendingToolCallCount: session.pendingToolCallIds.size,
+      pendingReviewCount: session.pendingReviewToolCallIds.size,
     })
-    return c.json({ success: true, continued: true })
+    return c.json({ success: true, continued: false })
   }
 
   log.warn('[tools/mark-complete] No active session for tool', { toolCallId: parsed.data.id })

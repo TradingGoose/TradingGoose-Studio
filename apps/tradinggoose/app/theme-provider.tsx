@@ -10,17 +10,17 @@ export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
   // Force light mode for certain pages
   const forcedTheme =
     pathname === '/' ||
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/signup') ||
-    pathname.startsWith('/sso') ||
-    pathname.startsWith('/terms') ||
-    pathname.startsWith('/privacy') ||
-    pathname.startsWith('/invite') ||
-    pathname.startsWith('/verify') ||
-    pathname.startsWith('/careers') ||
-    pathname.startsWith('/changelog') ||
-    pathname.startsWith('/chat') ||
-    pathname.startsWith('/blog')
+      pathname.startsWith('/login') ||
+      pathname.startsWith('/signup') ||
+      pathname.startsWith('/sso') ||
+      pathname.startsWith('/terms') ||
+      pathname.startsWith('/privacy') ||
+      pathname.startsWith('/invite') ||
+      pathname.startsWith('/verify') ||
+      pathname.startsWith('/careers') ||
+      pathname.startsWith('/changelog') ||
+      pathname.startsWith('/chat') ||
+      pathname.startsWith('/blog')
       ? 'light'
       : undefined
 
@@ -31,7 +31,7 @@ export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
       enableSystem
       disableTransitionOnChange
       storageKey='sim-theme'
-      forcedTheme={forcedTheme}
+      //forcedTheme={forcedTheme}
       {...props}
     >
       {children}

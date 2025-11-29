@@ -1,20 +1,9 @@
-import {
-  Body,
-  Column,
-  Container,
-  Head,
-  Html,
-  Img,
-  Link,
-  Preview,
-  Row,
-  Section,
-  Text,
-} from '@react-email/components'
+import { Body, Container, Head, Html, Link, Preview, Section, Text } from '@react-email/components'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { baseStyles } from './base-styles'
 import EmailFooter from './footer'
+import EmailHeader from './header'
 
 interface WorkspaceInvitation {
   workspaceId: string
@@ -64,60 +53,37 @@ export const BatchInvitationEmail = ({
   const brand = getBrandConfig()
   const baseUrl = getBaseUrl()
   const hasWorkspaces = workspaceInvitations.length > 0
+  const previewText = `Join ${organizationName} on ${brand.name}`
 
   return (
     <Html>
       <Head />
       <Body style={baseStyles.main}>
         <Preview>
-          You've been invited to join {organizationName}
-          {hasWorkspaces ? ` and ${workspaceInvitations.length} workspace(s)` : ''}
+          {previewText}
+          {hasWorkspaces ? ` + ${workspaceInvitations.length} workspace(s)` : ''}
         </Preview>
         <Container style={baseStyles.container}>
-          <Section style={{ padding: '30px 0', textAlign: 'center' }}>
-            <Row>
-              <Column style={{ textAlign: 'center' }}>
-                <Img
-                  src={brand.logoUrl || `${baseUrl}/logo/reverse/text/medium.png`}
-                  width='114'
-                  alt={brand.name}
-                  style={{
-                    margin: '0 auto',
-                  }}
-                />
-              </Column>
-            </Row>
-          </Section>
-
-          <Section style={baseStyles.sectionsBorders}>
-            <Row>
-              <Column style={baseStyles.sectionBorder} />
-              <Column style={baseStyles.sectionCenter} />
-              <Column style={baseStyles.sectionBorder} />
-            </Row>
-          </Section>
+          <EmailHeader />
 
           <Section style={baseStyles.content}>
-            <Text style={baseStyles.paragraph}>Hello,</Text>
+            <Text style={baseStyles.title}>You&apos;ve been invited to join {organizationName}.</Text>
             <Text style={baseStyles.paragraph}>
-              <strong>{inviterName}</strong> has invited you to join{' '}
-              <strong>{organizationName}</strong> on Sim.
+              <strong>{inviterName}</strong> added you as a {getRoleLabel(organizationRole)} on{' '}
+              {brand.name}.
             </Text>
 
             {/* Team Role Information */}
-            <Text style={baseStyles.paragraph}>
-              <strong>Team Role:</strong> {getRoleLabel(organizationRole)}
-            </Text>
-            <Text style={baseStyles.paragraph}>
+            <Text style={{ ...baseStyles.paragraph, textAlign: 'left' }}>
               {organizationRole === 'admin'
-                ? "As a Team Admin, you'll be able to manage team members, billing, and workspace access."
-                : "As a Team Member, you'll have access to shared team billing and can be invited to workspaces."}
+                ? "As an Admin, you'll manage billing, teammates, and workspace access across the organization."
+                : "As a Member, you can collaborate on shared billing and accept workspace invites."}
             </Text>
 
             {/* Workspace Invitations */}
             {hasWorkspaces && (
               <>
-                <Text style={baseStyles.paragraph}>
+                <Text style={{ ...baseStyles.paragraph, textAlign: 'left', marginBottom: '6px' }}>
                   <strong>
                     Workspace Access ({workspaceInvitations.length} workspace
                     {workspaceInvitations.length !== 1 ? 's' : ''}):
@@ -126,35 +92,45 @@ export const BatchInvitationEmail = ({
                 {workspaceInvitations.map((ws) => (
                   <Text
                     key={ws.workspaceId}
-                    style={{ ...baseStyles.paragraph, marginLeft: '20px' }}
+                    style={{
+                      ...baseStyles.paragraph,
+                      textAlign: 'left',
+                      margin: '4px 0 4px 16px',
+                    }}
                   >
-                    • <strong>{ws.workspaceName}</strong> - {getPermissionLabel(ws.permission)}
+                    - <strong>{ws.workspaceName}</strong> - {getPermissionLabel(ws.permission)}
                   </Text>
                 ))}
               </>
             )}
 
-            <Link href={acceptUrl} style={{ textDecoration: 'none' }}>
-              <Text style={baseStyles.button}>Accept Invitation</Text>
-            </Link>
+            <Section>
+              <table role='presentation' width='100%'>
+                <tbody>
+                  <tr>
+                    <td align='center'>
+                      <Link href={acceptUrl} style={{ textDecoration: 'none' }}>
+                        <Text style={{ ...baseStyles.button, display: 'inline-block', margin: '22px 0' }}>
+                          Accept Invitation
+                        </Text>
+                      </Link>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </Section>
 
-            <Text style={baseStyles.paragraph}>
-              By accepting this invitation, you'll join {organizationName}
+            <Section style={baseStyles.divider} />
+
+            <Text style={{ ...baseStyles.paragraph, color: '#929eae', fontSize: '14px' }}>
+              By accepting, you&apos;ll join {organizationName}
               {hasWorkspaces
-                ? ` and gain access to ${workspaceInvitations.length} workspace(s)`
+                ? ` and unlock access to ${workspaceInvitations.length} workspace(s)`
                 : ''}
-              .
+              . This invitation expires in 7 days.
             </Text>
-
-            <Text style={baseStyles.paragraph}>
-              This invitation will expire in 7 days. If you didn't expect this invitation, you can
-              safely ignore this email.
-            </Text>
-
-            <Text style={baseStyles.paragraph}>
-              Best regards,
-              <br />
-              The Sim Team
+            <Text style={{ ...baseStyles.footerText, fontFamily: baseStyles.fontFamily, marginTop: '14px' }}>
+              The {brand.name} Team
             </Text>
           </Section>
         </Container>

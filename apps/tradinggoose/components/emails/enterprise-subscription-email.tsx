@@ -1,21 +1,10 @@
-import {
-  Body,
-  Column,
-  Container,
-  Head,
-  Html,
-  Img,
-  Link,
-  Preview,
-  Row,
-  Section,
-  Text,
-} from '@react-email/components'
+import { Body, Container, Head, Html, Link, Preview, Section, Text } from '@react-email/components'
 import { format } from 'date-fns'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { baseStyles } from './base-styles'
 import EmailFooter from './footer'
+import EmailHeader from './header'
 
 interface EnterpriseSubscriptionEmailProps {
   userName?: string
@@ -38,76 +27,55 @@ export const EnterpriseSubscriptionEmail = ({
     <Html>
       <Head />
       <Body style={baseStyles.main}>
-        <Preview>Your Enterprise Plan is now active on Sim</Preview>
+        <Preview>Your Enterprise Plan is active on {brand.name}</Preview>
         <Container style={baseStyles.container}>
-          <Section style={{ padding: '30px 0', textAlign: 'center' }}>
-            <Row>
-              <Column style={{ textAlign: 'center' }}>
-                <Img
-                  src={brand.logoUrl || `${baseUrl}/logo/reverse/text/medium.png`}
-                  width='114'
-                  alt={brand.name}
-                  style={{
-                    margin: '0 auto',
-                  }}
-                />
-              </Column>
-            </Row>
-          </Section>
-
-          <Section style={baseStyles.sectionsBorders}>
-            <Row>
-              <Column style={baseStyles.sectionBorder} />
-              <Column style={baseStyles.sectionCenter} />
-              <Column style={baseStyles.sectionBorder} />
-            </Row>
-          </Section>
+          <EmailHeader />
 
           <Section style={baseStyles.content}>
-            <Text style={baseStyles.paragraph}>Hello {userName},</Text>
+            <Text style={baseStyles.title}>Enterprise plan activated</Text>
+            <Text style={baseStyles.paragraph}>Welcome aboard, {userName}.</Text>
             <Text style={baseStyles.paragraph}>
-              Great news! Your <strong>Enterprise Plan</strong> has been activated on Sim. You now
-              have access to advanced features and increased capacity for your workflows.
+              Your <strong>Enterprise Plan</strong> is live on {brand.name}. You now have expanded
+              capacity, advanced controls, and organization-wide access.
             </Text>
 
-            <Text style={baseStyles.paragraph}>
-              Your account has been set up with full access to your organization. Click below to log
-              in and start exploring your new Enterprise features:
+            <Section>
+              <table role='presentation' width='100%'>
+                <tbody>
+                  <tr>
+                    <td align='center'>
+                      <Link href={effectiveLoginLink} style={{ textDecoration: 'none' }}>
+                        <Text style={{ ...baseStyles.button, display: 'inline-block', margin: '22px 0' }}>
+                          Access Your Account
+                        </Text>
+                      </Link>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </Section>
+
+            <Text style={{ ...baseStyles.paragraph, textAlign: 'left' }}>
+              <strong>Next steps</strong>
+              <br />- Invite teammates to your organization
+              <br />- Configure permissions for workspaces
+              <br />- Start building workflows with the new limits
             </Text>
 
-            <Link href={effectiveLoginLink} style={{ textDecoration: 'none' }}>
-              <Text style={baseStyles.button}>Access Your Enterprise Account</Text>
-            </Link>
+            <Section style={baseStyles.divider} />
 
-            <Text style={baseStyles.paragraph}>
-              <strong>What's next?</strong>
+            <Text style={{ ...baseStyles.paragraph, fontSize: '14px', color: '#929eae' }}>
+              Need help getting started? Reply to this email and our team will assist you.
             </Text>
-            <Text style={baseStyles.paragraph}>
-              • Invite team members to your organization
-              <br />• Begin building your workflows
-            </Text>
-
-            <Text style={baseStyles.paragraph}>
-              If you have any questions or need assistance getting started, our support team is here
-              to help.
-            </Text>
-
-            <Text style={baseStyles.paragraph}>
-              Best regards,
-              <br />
-              The Sim Team
-            </Text>
-
             <Text
               style={{
                 ...baseStyles.footerText,
-                marginTop: '40px',
-                textAlign: 'left',
-                color: '#666666',
+                fontFamily: baseStyles.fontFamily,
+                marginTop: '18px',
               }}
             >
-              This email was sent on {format(createdDate, 'MMMM do, yyyy')} to {userEmail}
-              regarding your Enterprise plan activation on Sim.
+              Sent on {format(createdDate, 'MMMM do, yyyy')}
+              {userEmail ? ` to ${userEmail}` : ''}.
             </Text>
           </Section>
         </Container>

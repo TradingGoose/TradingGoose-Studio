@@ -63,6 +63,7 @@ export class BaseClientTool {
       })
     } catch {}
     try {
+      // Use the proxied route; Next will forward to COPILOT_API_URL/api/tools/mark-complete
       const res = await fetch('/api/copilot/tools/mark-complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -82,13 +83,38 @@ export class BaseClientTool {
           const { error } = await res.json()
           if (error) errorText = String(error)
         } catch {}
-        throw new Error(errorText)
+        try {
+          baseToolLogger.warn('markToolComplete response not ok', {
+            toolCallId: this.toolCallId,
+            toolName: this.name,
+            status: res.status,
+            errorText,
+          })
+        } catch {}
+        return false
       }
 
       const json = (await res.json()) as { success?: boolean }
-      return json?.success === true
+      const success = json?.success === true
+      if (!success) {
+        try {
+          baseToolLogger.warn('markToolComplete returned non-success payload', {
+            toolCallId: this.toolCallId,
+            toolName: this.name,
+            json,
+          })
+        } catch {}
+      }
+      return success
     } catch (e) {
       // Default failure path
+      try {
+        baseToolLogger.warn('markToolComplete fetch failed', {
+          toolCallId: this.toolCallId,
+          toolName: this.name,
+          error: (e as any)?.message,
+        })
+      } catch {}
       return false
     }
   }

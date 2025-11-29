@@ -1,21 +1,10 @@
-import {
-  Body,
-  Column,
-  Container,
-  Head,
-  Html,
-  Img,
-  Link,
-  Preview,
-  Row,
-  Section,
-  Text,
-} from '@react-email/components'
+import { Body, Container, Head, Html, Link, Preview, Section, Text } from '@react-email/components'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { baseStyles } from './base-styles'
 import EmailFooter from './footer'
+import EmailHeader from './header'
 
 const logger = createLogger('WorkspaceInvitationEmail')
 
@@ -56,51 +45,46 @@ export const WorkspaceInvitationEmail = ({
     <Html>
       <Head />
       <Body style={baseStyles.main}>
-        <Preview>You've been invited to join the "{workspaceName}" workspace on Sim!</Preview>
+        <Preview>Join the "{workspaceName}" workspace on {brand.name}</Preview>
         <Container style={baseStyles.container}>
-          <Section style={{ padding: '30px 0', textAlign: 'center' }}>
-            <Row>
-              <Column style={{ textAlign: 'center' }}>
-                <Img
-                  src={brand.logoUrl || `${baseUrl}/logo/reverse/text/medium.png`}
-                  width='114'
-                  alt={brand.name}
-                  style={{
-                    margin: '0 auto',
-                  }}
-                />
-              </Column>
-            </Row>
-          </Section>
-
-          <Section style={baseStyles.sectionsBorders}>
-            <Row>
-              <Column style={baseStyles.sectionBorder} />
-              <Column style={baseStyles.sectionCenter} />
-              <Column style={baseStyles.sectionBorder} />
-            </Row>
-          </Section>
+          <EmailHeader />
 
           <Section style={baseStyles.content}>
-            <Text style={baseStyles.paragraph}>Hello,</Text>
+            <Text style={baseStyles.title}>You&apos;re invited to {workspaceName}</Text>
             <Text style={baseStyles.paragraph}>
-              {inviterName} has invited you to join the "{workspaceName}" workspace on Sim!
+              {inviterName} asked you to collaborate in the "{workspaceName}" workspace on{' '}
+              {brand.name}. Accept to access shared projects and data.
             </Text>
-            <Text style={baseStyles.paragraph}>
-              Sim is a powerful platform for building, testing, and optimizing AI workflows. Join
-              this workspace to collaborate with your team.
+            <Section>
+              <table role='presentation' width='100%'>
+                <tbody>
+                  <tr>
+                    <td align='center'>
+                      <Link href={enhancedLink} style={{ textDecoration: 'none' }}>
+                        <Text style={{ ...baseStyles.button, display: 'inline-block', margin: '22px 0' }}>
+                          Accept Invitation
+                        </Text>
+                      </Link>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </Section>
+
+            <Section style={baseStyles.divider} />
+
+            <Text style={{ ...baseStyles.paragraph, fontSize: '14px', color: '#929eae' }}>
+              This link expires in 7 days. If you didn't request this, you can safely ignore this
+              email.
             </Text>
-            <Link href={enhancedLink} style={{ textDecoration: 'none' }}>
-              <Text style={baseStyles.button}>Accept Invitation</Text>
-            </Link>
-            <Text style={baseStyles.paragraph}>
-              This invitation link will expire in 7 days. If you have any questions or need
-              assistance, feel free to reach out to our support team.
-            </Text>
-            <Text style={baseStyles.paragraph}>
-              Best regards,
-              <br />
-              The Sim Team
+            <Text
+              style={{
+                ...baseStyles.footerText,
+                fontFamily: baseStyles.fontFamily,
+                marginTop: '14px',
+              }}
+            >
+              The {brand.name} Team
             </Text>
           </Section>
         </Container>

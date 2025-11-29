@@ -71,8 +71,7 @@ export const auth = betterAuth({
   }),
   session: {
     cookieCache: {
-      enabled: true,
-      maxAge: 24 * 60 * 60, // 24 hours in seconds
+      enabled: false, // Disable cookie-cached sessions to avoid stale auth after account deletion
     },
     expiresIn: 30 * 24 * 60 * 60, // 30 days (how long a session can last overall)
     updateAge: 24 * 60 * 60, // 24 hours (how often to refresh the expiry)
@@ -1544,11 +1543,54 @@ export const auth = betterAuth({
   },
 })
 
-export async function getSession() {
-  const hdrs = await headers()
-  return await auth.api.getSession({
-    headers: hdrs,
-  })
+function isUnauthorizedSessionError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const status = (error as any).status ?? (error as any).statusCode
+  const code = (error as any).code
+  const message = (error as any).message ?? (error as any).meta?.message
+
+  return (
+    status === 401 ||
+    code === 'UNAUTHORIZED' ||
+    message === 'Failed to get session' ||
+    message === 'Failed to get session.'
+  )
+}
+
+export async function getSession(headersOverride?: Headers) {
+  const hdrs = headersOverride ?? (await headers())
+
+  try {
+    const session = await auth.api.getSession({
+      headers: hdrs,
+    })
+
+    const userId = session?.user?.id ?? session?.session?.userId
+    if (userId) {
+      const userExists = await db.query.user.findFirst({
+        where: eq(schema.user.id, userId),
+        columns: { id: true },
+      })
+
+      if (!userExists) {
+        logger.warn('Session user not found; invalidating session', { userId })
+        return null
+      }
+    }
+
+    return session
+  } catch (error) {
+    if (isUnauthorizedSessionError(error)) {
+      logger.warn('Unauthorized session detected; returning null', { error })
+      return null
+    }
+
+    logger.error('Unexpected error fetching session', { error })
+    throw error
+  }
 }
 
 export const signIn = auth.api.signInEmail

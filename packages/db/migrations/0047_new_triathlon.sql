@@ -1,1 +1,0 @@
-ALTER TABLE "workflow_blocks" ADD COLUMN "advanced_mode" boolean DEFAULT false NOT NULL;

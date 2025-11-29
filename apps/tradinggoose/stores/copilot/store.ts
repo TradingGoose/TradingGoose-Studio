@@ -2017,7 +2017,28 @@ const createCopilotStoreInstance = () =>
                     : 500,
               message: toolCallState,
             }),
-          }).catch(() => {})
+          })
+            .then(async (res) => {
+              if (!res.ok) {
+                let body: string | undefined
+                try {
+                  body = await res.text()
+                } catch {}
+                logger.warn('[mark-complete] proxy responded non-OK', {
+                  toolCallId: id,
+                  toolName: current.name,
+                  status: res.status,
+                  body: body?.slice(0, 200),
+                })
+              }
+            })
+            .catch((error) => {
+              logger.warn('[mark-complete] proxy fetch failed', {
+                toolCallId: id,
+                toolName: current.name,
+                error: error instanceof Error ? error.message : String(error),
+              })
+            })
         } catch {}
       },
 

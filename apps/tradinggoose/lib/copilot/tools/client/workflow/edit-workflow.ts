@@ -54,7 +54,12 @@ export class EditWorkflowClientTool extends BaseClientTool {
       hasResult: this.lastResult !== undefined,
     })
     this.setState(ClientToolCallState.success)
-    await this.markToolComplete(200, 'Workflow edits accepted', this.lastResult)
+    const completed = await this.markToolComplete(200, 'Workflow edits accepted', this.lastResult)
+    if (!completed) {
+      logger.warn('markToolComplete failed during handleAccept', {
+        toolCallId: this.toolCallId,
+      })
+    }
     this.setState(ClientToolCallState.success)
   }
 
@@ -62,7 +67,12 @@ export class EditWorkflowClientTool extends BaseClientTool {
     const logger = createLogger('EditWorkflowClientTool')
     logger.info('handleReject called', { toolCallId: this.toolCallId, state: this.getState() })
     this.setState(ClientToolCallState.rejected)
-    await this.markToolComplete(200, 'Workflow changes rejected')
+    const completed = await this.markToolComplete(200, 'Workflow changes rejected')
+    if (!completed) {
+      logger.warn('markToolComplete failed during handleReject', {
+        toolCallId: this.toolCallId,
+      })
+    }
   }
 
   async execute(args?: EditWorkflowArgs): Promise<void> {
@@ -75,6 +85,12 @@ export class EditWorkflowClientTool extends BaseClientTool {
       this.hasExecuted = true
       logger.info('execute called', { toolCallId: this.toolCallId, argsProvided: !!args })
       this.setState(ClientToolCallState.executing)
+
+      // Capture toolCallId in the diff store so accept/reject always knows what to mark complete
+      try {
+        const diffStore = useWorkflowDiffStore.getState()
+        diffStore.setPendingEditToolCallId?.(this.toolCallId)
+      } catch {}
 
       // Resolve workflowId
       let workflowId = args?.workflowId
@@ -207,10 +223,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
         throw new Error('No workflow state returned from server')
       }
 
-      // Mark complete early to unblock LLM stream
-      await this.markToolComplete(200, 'Workflow diff ready for review', result)
-
-      // Move into review state
+      // Move into review state and wait for user approval/rejection to mark complete
       this.setState(ClientToolCallState.review, { result })
     } catch (error: any) {
       const message = error instanceof Error ? error.message : String(error)

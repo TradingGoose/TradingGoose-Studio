@@ -96,7 +96,7 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
 
   const userId = sessionData?.user?.id ?? null
   const userName = sessionData?.user?.name ?? brand.name
-  const userEmail = sessionData?.user?.email ?? brand.supportEmail ?? 'help@sim.ai'
+  const userEmail = sessionData?.user?.email ?? brand.supportEmail ?? 'help@tradinggoose.ai'
   const userAvatar = userAvatarOverride.url ?? sessionData?.user?.image ?? brand.logoUrl
   const userAvatarVersion =
     userAvatarOverride.version ??

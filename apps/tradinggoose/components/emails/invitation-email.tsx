@@ -1,22 +1,11 @@
-import {
-  Body,
-  Column,
-  Container,
-  Head,
-  Html,
-  Img,
-  Link,
-  Preview,
-  Row,
-  Section,
-  Text,
-} from '@react-email/components'
+import { Body, Container, Head, Html, Link, Preview, Section, Text } from '@react-email/components'
 import { format } from 'date-fns'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { baseStyles } from './base-styles'
 import EmailFooter from './footer'
+import EmailHeader from './header'
 
 interface InvitationEmailProps {
   inviterName?: string
@@ -37,6 +26,7 @@ export const InvitationEmail = ({
 }: InvitationEmailProps) => {
   const brand = getBrandConfig()
   const baseUrl = getBaseUrl()
+  const preview = `${inviterName} invited you to join ${organizationName} on ${brand.name}`
 
   // Extract invitation ID or token from inviteLink if present
   let enhancedLink = inviteLink
@@ -58,60 +48,54 @@ export const InvitationEmail = ({
     <Html>
       <Head />
       <Body style={baseStyles.main}>
-        <Preview>You've been invited to join {organizationName} on Sim</Preview>
+        <Preview>{preview}</Preview>
         <Container style={baseStyles.container}>
-          <Section style={{ padding: '30px 0', textAlign: 'center' }}>
-            <Row>
-              <Column style={{ textAlign: 'center' }}>
-                <Img
-                  src={brand.logoUrl || `${baseUrl}/logo/reverse/text/medium.png`}
-                  width='114'
-                  alt={brand.name}
-                  style={{
-                    margin: '0 auto',
-                  }}
-                />
-              </Column>
-            </Row>
-          </Section>
-
-          <Section style={baseStyles.sectionsBorders}>
-            <Row>
-              <Column style={baseStyles.sectionBorder} />
-              <Column style={baseStyles.sectionCenter} />
-              <Column style={baseStyles.sectionBorder} />
-            </Row>
-          </Section>
+          <EmailHeader />
 
           <Section style={baseStyles.content}>
-            <Text style={baseStyles.paragraph}>Hello,</Text>
+            <Text style={baseStyles.title}>You&apos;ve been invited to join {organizationName}!</Text>
             <Text style={baseStyles.paragraph}>
-              <strong>{inviterName}</strong> has invited you to join{' '}
-              <strong>{organizationName}</strong> on Sim. Sim is a powerful, user-friendly platform
-              for building, testing, and optimizing agentic workflows.
+              <strong>{inviterName}</strong> has invited you to collaborate on {brand.name}. Accept the
+              invitation to get access to shared projects and workflows.
             </Text>
-            <Link href={enhancedLink} style={{ textDecoration: 'none' }}>
-              <Text style={baseStyles.button}>Accept Invitation</Text>
-            </Link>
-            <Text style={baseStyles.paragraph}>
-              This invitation will expire in 48 hours. If you believe this invitation was sent in
-              error, please ignore this email.
-            </Text>
-            <Text style={baseStyles.paragraph}>
-              Best regards,
-              <br />
-              The Sim Team
+            <Section>
+              <table role='presentation' width='100%'>
+                <tbody>
+                  <tr>
+                    <td align='center'>
+                      <Link href={enhancedLink} style={{ textDecoration: 'none' }}>
+                        <Text style={{ ...baseStyles.button, display: 'inline-block', margin: '22px 0' }}>
+                          Join Now
+                        </Text>
+                      </Link>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </Section>
+
+            <Section style={baseStyles.divider} />
+
+            <Text
+              style={{
+                ...baseStyles.paragraph,
+                fontSize: '14px',
+                color: '#929eae',
+                marginTop: '10px',
+              }}
+            >
+              If you did not expect this invitation, please disregard this email. Invitations expire
+              in 48 hours for security.
             </Text>
             <Text
               style={{
                 ...baseStyles.footerText,
-                marginTop: '40px',
-                textAlign: 'left',
-                color: '#666666',
+                marginTop: '18px',
+                fontFamily: baseStyles.fontFamily,
               }}
             >
-              This email was sent on {format(updatedDate, 'MMMM do, yyyy')} to {invitedEmail} with
-              an invitation to join {organizationName} on Sim.
+              Sent on {format(updatedDate, 'MMMM do, yyyy')}
+              {invitedEmail ? ` to ${invitedEmail}` : ''}.
             </Text>
           </Section>
         </Container>

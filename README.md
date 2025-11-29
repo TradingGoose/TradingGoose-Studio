@@ -90,8 +90,8 @@ docker compose -f docker-compose.ollama.yml exec ollama ollama pull llama3.1:8b
 1. Clone and install dependencies:
 
 ```bash
-git clone https://github.com/simstudioai/sim.git
-cd sim
+git clone https://github.com/TradingGoose/TradingGoose-Studio.git
+cd tradinggoose
 bun install
 ```
 
@@ -102,10 +102,10 @@ You need PostgreSQL with the `vector` extension for embedding support. Choose on
 **Option A: Using Docker (Recommended)**
 ```bash
 # Start PostgreSQL with pgvector extension
-docker run --name simstudio-db \
-  -e POSTGRES_PASSWORD=your_password \
-  -e POSTGRES_DB=simstudio \
-  -p 5432:5432 -d \
+docker run --name tradinggoose-db 
+  -e POSTGRES_PASSWORD=your_password 
+  -e POSTGRES_DB=tradinggoose 
+  -p 5432:5432 -d 
   pgvector/pgvector:pg17
 ```
 
@@ -122,7 +122,7 @@ cp .env.example .env  # Configure with required variables (DATABASE_URL, BETTER_
 
 Update your `.env` file with the database URL:
 ```bash
-DATABASE_URL="postgresql://postgres:your_password@localhost:5432/simstudio"
+DATABASE_URL="postgresql://postgres:your_password@localhost:5432/tradinggoose"
 ```
 
 4. Set up the database:
@@ -135,7 +135,7 @@ cp .env.example .env
 
 Update your `packages/db/.env` file with the database URL:
 ```bash
-DATABASE_URL="postgresql://postgres:your_password@localhost:5432/simstudio"
+DATABASE_URL="postgresql://postgres:your_password@localhost:5432/tradinggoose"
 ```
 
 Then run the migrations:

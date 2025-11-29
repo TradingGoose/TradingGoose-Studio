@@ -1,6 +1,6 @@
 # Copilot → sim.ai request payloads
 
-All request bodies that the TradingGoose copilot sends to `https://copilot.sim.ai` (default `SIM_AGENT_API_URL`) and what triggers each field.
+All request bodies that the TradingGoose copilot sends to `https://copilot.sim.ai` (default `COPILOT_API_URL`) and what triggers each field.
 
 ## /api/chat-completion-streaming
 
@@ -16,7 +16,7 @@ All request bodies that the TradingGoose copilot sends to `https://copilot.sim.a
 | `model` | yes | string | Zod enum default `claude-4.5-sonnet` | Client-selected or default. |
 | `mode` | yes | `'ask' \| 'agent'` | Zod default `agent` | From client. |
 | `messageId` | yes | string | Client `userMessageId` or generated `crypto.randomUUID()` | Stable per message for persistence. |
-| `version` | yes | string | `SIM_AGENT_VERSION` (`1.0.2`) | Constant. |
+| `version` | yes | string | `COPILOT_VERSION` (`1.0.2`) | Constant. |
 | `provider` | no | object | From `env.COPILOT_PROVIDER` | If set: Azure shape `{ provider:'azure-openai', model, apiKey: AZURE_OPENAI_API_KEY, apiVersion:'preview', endpoint: AZURE_OPENAI_ENDPOINT }`; other providers `{ provider, model, apiKey: COPILOT_API_KEY }`. |
 | `conversationId` | no | string | Existing chat `conversationId` or client-provided | Included when available to continue a session. |
 | `prefetch` | no | boolean | From client | Only included when client passes a boolean. |

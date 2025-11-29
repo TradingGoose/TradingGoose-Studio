@@ -81,7 +81,7 @@ export function InviteStatusCard({
         >
           Need help?{' '}
           <a
-            href='mailto:help@sim.ai'
+            href='mailto:help@tradinggoose.ai'
             className='auth-link underline-offset-4 transition hover:underline'
           >
             Contact support

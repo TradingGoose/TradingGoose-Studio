@@ -25,10 +25,10 @@ export interface BrandConfig {
  */
 const defaultConfig: BrandConfig = {
   name: 'TradingGoose Studio',
-  logoUrl: undefined,
+  logoUrl: 'https://avatars.githubusercontent.com/u/226357056?s=200&v=4',
   faviconUrl: '/favicon/favicon.ico',
   customCssUrl: undefined,
-  supportEmail: 'help@sim.ai',
+  supportEmail: 'help@tradinggoose.ai',
   documentationUrl: undefined,
   termsUrl: undefined,
   privacyUrl: undefined,
@@ -37,7 +37,7 @@ const defaultConfig: BrandConfig = {
     primaryHoverColor: '#ffcc0075',
     accentColor: '#ffd600',
     accentHoverColor: '#ffd600cc',
-    backgroundColor: '#0c0c0c',
+    backgroundColor: '#0c0c0c00',
   },
 }
 

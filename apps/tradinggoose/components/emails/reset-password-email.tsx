@@ -1,21 +1,10 @@
-import {
-  Body,
-  Column,
-  Container,
-  Head,
-  Html,
-  Img,
-  Link,
-  Preview,
-  Row,
-  Section,
-  Text,
-} from '@react-email/components'
+import { Body, Container, Head, Html, Link, Preview, Section, Text } from '@react-email/components'
 import { format } from 'date-fns'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { baseStyles } from './base-styles'
 import EmailFooter from './footer'
+import EmailHeader from './header'
 
 interface ResetPasswordEmailProps {
   username?: string
@@ -37,57 +26,44 @@ export const ResetPasswordEmail = ({
       <Body style={baseStyles.main}>
         <Preview>Reset your {brand.name} password</Preview>
         <Container style={baseStyles.container}>
-          <Section style={{ padding: '30px 0', textAlign: 'center' }}>
-            <Row>
-              <Column style={{ textAlign: 'center' }}>
-                <Img
-                  src={brand.logoUrl || `${baseUrl}/logo/reverse/text/medium.png`}
-                  width='114'
-                  alt={brand.name}
-                  style={{
-                    margin: '0 auto',
-                  }}
-                />
-              </Column>
-            </Row>
-          </Section>
-
-          <Section style={baseStyles.sectionsBorders}>
-            <Row>
-              <Column style={baseStyles.sectionBorder} />
-              <Column style={baseStyles.sectionCenter} />
-              <Column style={baseStyles.sectionBorder} />
-            </Row>
-          </Section>
+          <EmailHeader />
 
           <Section style={baseStyles.content}>
-            <Text style={baseStyles.paragraph}>Hello {username},</Text>
+            <Text style={baseStyles.title}>Reset your password</Text>
             <Text style={baseStyles.paragraph}>
-              You recently requested to reset your password for your {brand.name} account. Use the
-              button below to reset it. This password reset is only valid for the next 24 hours.
+              We received a request to reset the password for your {brand.name} account.
             </Text>
-            <Link href={resetLink} style={{ textDecoration: 'none' }}>
-              <Text style={baseStyles.button}>Reset Your Password</Text>
-            </Link>
-            <Text style={baseStyles.paragraph}>
-              If you did not request a password reset, please ignore this email or contact support
-              if you have concerns.
-            </Text>
-            <Text style={baseStyles.paragraph}>
-              Best regards,
-              <br />
-              The {brand.name} Team
+            <Section>
+              <table role='presentation' width='100%'>
+                <tbody>
+                  <tr>
+                    <td align='center'>
+                      <Link href={resetLink} style={{ textDecoration: 'none' }}>
+                        <Text style={{ ...baseStyles.button, display: 'inline-block', margin: '22px 0' }}>
+                          Reset Password
+                        </Text>
+                      </Link>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </Section>
+            <Text style={baseStyles.paragraph}>This link is valid for the next 24 hours.</Text>
+
+            <Section style={baseStyles.divider} />
+
+            <Text style={{ ...baseStyles.paragraph, fontSize: '14px', color: '#929eae' }}>
+              If you didn&apos;t request this, no action is needed. Your account stays secure unless the
+              link above is used.
             </Text>
             <Text
               style={{
                 ...baseStyles.footerText,
-                marginTop: '40px',
-                textAlign: 'left',
-                color: '#666666',
+                fontFamily: baseStyles.fontFamily,
+                marginTop: '18px',
               }}
             >
-              This email was sent on {format(updatedDate, 'MMMM do, yyyy')} because a password reset
-              was requested for your account.
+              Sent on {format(updatedDate, 'MMMM do, yyyy')} to {username || 'your account email'}.
             </Text>
           </Section>
         </Container>

@@ -1,3 +1,5 @@
+import type { AiRouterProvider } from './llm/ai-router'
+
 type Role = 'user' | 'assistant' | 'system' | 'tool'
 
 export interface SessionToolCall {
@@ -18,12 +20,16 @@ export interface Session {
   chatId: string
   userId: string
   workflowId: string
+  mode: 'ask' | 'agent'
   model?: string
+  provider?: AiRouterProvider
   stream: {
     writeSSE: (arg: { data: string }) => Promise<void>
   }
   messages: SessionMessage[]
   toolCallIds: Set<string>
+  pendingToolCallIds: Set<string>
+  pendingReviewToolCallIds: Set<string>
   lastUserMessage: string
   closed: boolean
   resolve?: () => void

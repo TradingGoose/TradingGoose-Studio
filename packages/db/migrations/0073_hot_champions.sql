@@ -1,1 +1,0 @@
-ALTER TABLE "settings" DROP COLUMN "telemetry_notified_user";

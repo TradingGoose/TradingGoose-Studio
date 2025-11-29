@@ -1,10 +1,10 @@
-# Copilot Service Design (Stateless Adapter for TradingGoose + LLM Gateway + Unkey)
+# Copilot Service Design (Stateless Adapter for TradingGoose + AI router + Unkey)
 
 This copilot service is a thin, stateless adapter that:
 - Accepts the TradingGoose→sim.ai-compatible payloads (see `copilot.md` in the TG repo).
 - Authenticates requests via Unkey (or an internal secret for official TG).
 - Enforces rate limits via Unkey (for external callers).
-- Calls LLM Gateway for model responses and maps them to sim.ai-style SSE events.
+- Calls the configured AI router endpoint for model responses and maps them to sim.ai-style SSE events.
 - Does **not** access the TradingGoose database or providers directly.
 - Avoids double-billing by letting official TG remain the single source of billing truth.
 
@@ -29,16 +29,17 @@ This copilot service is a thin, stateless adapter that:
   - TradingGoose executes the tool (client/server) and returns `tool_result`/`tool_error` via a callback or by streaming back through the same connection.
   - If no tool execution is available, copilot should emit `tool_error`/`failedDependency` rather than pretending to execute.
 
-## LLM Gateway Integration
-- Copilot calls LLM Gateway for all model responses (no direct provider calls).
-- If Gateway supports streaming, map Gateway tokens to sim.ai SSE events: `chat_id` → `start` → `reasoning` → `tool_call/result/error` → `content` → `done` → `stream_end`.
+## AI Router Integration
+- Copilot calls the configured AI router endpoint for all model responses (no direct provider calls).
+- If the router supports streaming, map its tokens to sim.ai SSE events: `chat_id` → `start` → `reasoning` → `tool_call/result/error` → `content` → `done` → `stream_end`.
 - Non-stream: return `{ success, response, chatId, metadata }` matching the TG proxy contract.
 
 ## Environment Variables (apps/copilot/.env)
-- `PORT`: service port (default 4001).
+- `PORT`: service port (default 5001).
 - `COPILOT_SERVICE_API_KEY`: shared key for TG→copilot when using API key auth.
 - `COPILOT_MODEL`: default model (e.g., `claude-4.5-sonnet`).
-- `LLM_GATEWAY_URL`, `LLM_GATEWAY_API_KEY`: upstream LLM Gateway.
+- `AI_ROUTER_URL`, `AI_ROUTER_API_KEY`: upstream AI router endpoint and key (LLM Gateway, OpenRouter, etc.).
+- `USE_OPENROUTER`: when true, format provider-prefixed model IDs (e.g., `o3` → `openai/o3`) before calling the router, using the provider data that TradingGoose forwards.
 - `UNKEY_ROOT_KEY`, `UNKEY_LIMIT_ID`: Unkey verification and limit bucket.
 - `OFFICIAL_TG_SECRET`: internal header value to identify official TG calls (skip Unkey/billing).
 

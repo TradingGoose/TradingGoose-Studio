@@ -12,6 +12,7 @@ import {
 import { useParams } from 'next/navigation'
 import { io, type Socket } from 'socket.io-client'
 import { getEnv } from '@/lib/env'
+import { handleAuthError } from '@/lib/auth/auth-error-handler'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('SocketContext')
@@ -152,6 +153,12 @@ export function SocketProvider({
       credentials: 'include',
       headers: { 'cache-control': 'no-store' },
     })
+
+    if (res.status === 401) {
+      await handleAuthError('socket-token-unauthorized')
+      throw new Error('Unauthorized - unable to generate socket token')
+    }
+
     if (!res.ok) throw new Error('Failed to generate socket token')
     const body = await res.json().catch(() => ({}))
     const token = body?.token

@@ -1,20 +1,10 @@
-import {
-  Body,
-  Column,
-  Container,
-  Head,
-  Html,
-  Img,
-  Preview,
-  Row,
-  Section,
-  Text,
-} from '@react-email/components'
+import { Body, Container, Head, Html, Preview, Section, Text } from '@react-email/components'
 import { format } from 'date-fns'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { baseStyles } from './base-styles'
 import EmailFooter from './footer'
+import EmailHeader from './header'
 
 interface CareersConfirmationEmailProps {
   name: string
@@ -36,34 +26,14 @@ export const CareersConfirmationEmail = ({
       <Body style={baseStyles.main}>
         <Preview>Your application to {brand.name} has been received</Preview>
         <Container style={baseStyles.container}>
-          <Section style={{ padding: '30px 0', textAlign: 'center' }}>
-            <Row>
-              <Column style={{ textAlign: 'center' }}>
-                <Img
-                  src={brand.logoUrl || `${baseUrl}/logo/reverse/text/medium.png`}
-                  width='114'
-                  alt={brand.name}
-                  style={{
-                    margin: '0 auto',
-                  }}
-                />
-              </Column>
-            </Row>
-          </Section>
-
-          <Section style={baseStyles.sectionsBorders}>
-            <Row>
-              <Column style={baseStyles.sectionBorder} />
-              <Column style={baseStyles.sectionCenter} />
-              <Column style={baseStyles.sectionBorder} />
-            </Row>
-          </Section>
+          <EmailHeader />
 
           <Section style={baseStyles.content}>
+            <Text style={baseStyles.title}>We received your application</Text>
             <Text style={baseStyles.paragraph}>Hello {name},</Text>
             <Text style={baseStyles.paragraph}>
-              Thank you for your interest in joining the {brand.name} team! We've received your
-              application for the <strong>{position}</strong> position.
+              Thanks for your interest in joining the {brand.name} team. We&apos;ve received your
+              application for the <strong>{position}</strong> role.
             </Text>
 
             <Text style={baseStyles.paragraph}>
@@ -73,34 +43,38 @@ export const CareersConfirmationEmail = ({
             </Text>
 
             <Text style={baseStyles.paragraph}>
-              In the meantime, feel free to explore our{' '}
+              In the meantime, explore our{' '}
               <a
                 href='https://docs.sim.ai'
                 target='_blank'
                 rel='noopener noreferrer'
-                style={{ color: '#802FFF', textDecoration: 'none' }}
+                style={baseStyles.link}
               >
                 documentation
               </a>{' '}
-              to learn more about what we're building, or check out our{' '}
-              <a href={`${baseUrl}/blog`} style={{ color: '#802FFF', textDecoration: 'none' }}>
+              to see what we&apos;re building, or read the latest on our{' '}
+              <a href={`${baseUrl}/blog`} style={baseStyles.link}>
                 blog
-              </a>{' '}
-              for the latest updates.
+              </a>
+              .
             </Text>
 
-            <Text style={baseStyles.paragraph}>
-              Best regards,
-              <br />
+            <Section style={baseStyles.divider} />
+
+            <Text
+              style={{
+                ...baseStyles.footerText,
+                fontFamily: baseStyles.fontFamily,
+              }}
+            >
               The {brand.name} Team
             </Text>
 
             <Text
               style={{
                 ...baseStyles.footerText,
-                marginTop: '40px',
-                textAlign: 'left',
-                color: '#666666',
+                marginTop: '18px',
+                fontFamily: baseStyles.fontFamily,
               }}
             >
               This confirmation was sent on {format(submittedDate, 'MMMM do, yyyy')} at{' '}

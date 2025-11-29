@@ -1,19 +1,9 @@
-import {
-  Body,
-  Column,
-  Container,
-  Head,
-  Html,
-  Img,
-  Preview,
-  Row,
-  Section,
-  Text,
-} from '@react-email/components'
+import { Body, Container, Head, Html, Preview, Section, Text } from '@react-email/components'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { baseStyles } from './base-styles'
 import EmailFooter from './footer'
+import EmailHeader from './header'
 
 interface OTPVerificationEmailProps {
   otp: string
@@ -66,41 +56,25 @@ export const OTPVerificationEmail = ({
       <Body style={baseStyles.main}>
         <Preview>{getSubjectByType(type, brand.name, chatTitle)}</Preview>
         <Container style={baseStyles.container}>
-          <Section style={{ padding: '30px 0', textAlign: 'center' }}>
-            <Row>
-              <Column style={{ textAlign: 'center' }}>
-                <Img
-                  src={brand.logoUrl || `${baseUrl}/logo/reverse/text/medium.png`}
-                  width='114'
-                  alt={brand.name}
-                  style={{
-                    margin: '0 auto',
-                  }}
-                />
-              </Column>
-            </Row>
-          </Section>
-          <Section style={baseStyles.sectionsBorders}>
-            <Row>
-              <Column style={baseStyles.sectionBorder} />
-              <Column style={baseStyles.sectionCenter} />
-              <Column style={baseStyles.sectionBorder} />
-            </Row>
-          </Section>
+          <EmailHeader tagline={type === 'email-verification' ? 'AI-Powered Trading Agent' : undefined} />
           <Section style={baseStyles.content}>
-            <Text style={baseStyles.paragraph}>{getMessage()}</Text>
-            <Text style={baseStyles.paragraph}>Your verification code is:</Text>
+            <Text style={baseStyles.title}>{getMessage()}</Text>
+            <Text style={baseStyles.paragraph}>Use the code below to continue.</Text>
             <Section style={baseStyles.codeContainer}>
               <Text style={baseStyles.code}>{otp}</Text>
             </Section>
-            <Text style={baseStyles.paragraph}>This code will expire in 15 minutes.</Text>
-            <Text style={baseStyles.paragraph}>
-              If you didn't request this code, you can safely ignore this email.
+            <Text style={baseStyles.paragraph}>This code expires in 15 minutes.</Text>
+            <Text style={{ ...baseStyles.paragraph, fontSize: '14px', color: '#929eae' }}>
+              If you didn&apos;t request this code, you can safely ignore this email.
             </Text>
-            <Text style={baseStyles.paragraph}>
-              Best regards,
-              <br />
-              The Sim Team
+            <Text
+              style={{
+                ...baseStyles.footerText,
+                fontFamily: baseStyles.fontFamily,
+                marginTop: '14px',
+              }}
+            >
+              The {brand.name} Team
             </Text>
           </Section>
         </Container>
