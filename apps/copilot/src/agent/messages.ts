@@ -1,10 +1,10 @@
-import { SYSTEM_PROMPT } from '../config'
+import { SYSTEM_PROMPT } from '../core/config'
 import type { AiRouterMessage } from '../llm/ai-router'
-import type { SessionMessage } from '../state'
+import type { SessionMessage } from '../chat/state'
 import type { AgentContextItem, AgentMode } from './types'
 import { buildToolingInstruction } from './tooling'
 
-function truncate(text: string, max = 4000): string {
+export function truncate(text: string, max = 4000): string {
   if (!text) return ''
   if (text.length <= max) return text
   return `${text.slice(0, max)}\n...[truncated ${text.length - max} chars]`

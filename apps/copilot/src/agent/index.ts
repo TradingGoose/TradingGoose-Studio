@@ -1,7 +1,7 @@
-import { config } from '../config'
+import { config } from '../core/config'
 import { getAiRouterCompletion } from '../llm/ai-router'
 import type { AiRouterProvider } from '../llm/ai-router'
-import type { SessionMessage } from '../state'
+import type { SessionMessage } from '../chat/state'
 import { buildMessages } from './messages'
 import { buildToolsForAiRouter, toolsForMode } from './tooling'
 import type { AgentContextItem, AgentMode, AgentResponse } from './types'
@@ -44,5 +44,8 @@ export async function generateAgentResponse(options: {
     reasoning: completion.reasoning,
     toolCalls: completion.toolCalls,
     model: completion.model || options.model || config.defaultModel,
+    usage: completion.usage,
+    tokenUsage: completion.tokenUsage,
+    tokens: completion.tokens,
   }
 }

@@ -1,4 +1,4 @@
-import { config } from '../config'
+import { config } from '../core/config'
 
 export interface AiRouterCompletion {
   content: string
@@ -6,6 +6,9 @@ export interface AiRouterCompletion {
   operations?: any[]
   model: string
   toolCalls?: Array<{ id?: string; name: string; arguments?: Record<string, any> }>
+  usage?: any
+  tokenUsage?: any
+  tokens?: any
 }
 
 export interface AiRouterMessage {
@@ -240,6 +243,9 @@ export async function getAiRouterCompletion(input: AiRouterRequest): Promise<AiR
   })) as any
   const message = json?.choices?.[0]?.message || {}
   const rawContent = message?.content || json?.content || ''
+  const rawUsage = json?.usage
+  const rawTokenUsage = json?.token_usage || rawUsage
+  const rawTokens = json?.tokens
 
   let toolCalls: Array<{ id?: string; name: string; arguments?: Record<string, any> }> | undefined
   if (Array.isArray(message?.tool_calls) && message.tool_calls.length > 0) {
@@ -303,5 +309,8 @@ export async function getAiRouterCompletion(input: AiRouterRequest): Promise<AiR
     operations,
     model: json?.model || body.model,
     toolCalls,
+    usage: rawUsage,
+    tokenUsage: rawTokenUsage,
+    tokens: rawTokens,
   }
 }

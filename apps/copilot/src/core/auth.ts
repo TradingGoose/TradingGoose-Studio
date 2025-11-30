@@ -1,5 +1,5 @@
 import { config } from './config'
-import { validateUnkeyKey } from './unkey'
+import { validateUnkeyKey } from '../services/unkey'
 
 export interface AuthContext {
   userId?: string

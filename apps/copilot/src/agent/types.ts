@@ -12,4 +12,7 @@ export interface AgentResponse {
   reasoning?: string
   model: string
   toolCalls?: Array<{ id?: string; name: string; arguments?: Record<string, any> }>
+  usage?: any
+  tokenUsage?: any
+  tokens?: any
 }

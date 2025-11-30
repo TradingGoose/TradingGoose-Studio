@@ -1,4 +1,4 @@
-import { COPILOT_TOOLS } from '../tools'
+import { COPILOT_TOOLS } from '../services/tools'
 import type { AiRouterTool } from '../llm/ai-router'
 import type { AgentMode } from './types'
 

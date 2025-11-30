@@ -1,4 +1,4 @@
-import type { AiRouterProvider } from './llm/ai-router'
+import type { AiRouterProvider } from '../llm/ai-router'
 
 type Role = 'user' | 'assistant' | 'system' | 'tool'
 
