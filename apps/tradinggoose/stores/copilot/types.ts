@@ -142,7 +142,7 @@ export interface CopilotActions {
   setSelectedModel: (model: CopilotStore['selectedModel']) => Promise<void>
   setAgentPrefetch: (prefetch: boolean) => void
   setEnabledModels: (models: string[] | null) => void
-  fetchContextUsage: () => Promise<void>
+  fetchContextUsage: (options?: { bill?: boolean; assistantMessageId?: string }) => Promise<void>
 
   setWorkflowId: (workflowId: string | null) => Promise<void>
   validateCurrentChat: () => boolean

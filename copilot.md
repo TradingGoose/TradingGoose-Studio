@@ -1,6 +1,6 @@
 # Copilot → sim.ai request payloads
 
-All request bodies that the TradingGoose copilot sends to `https://copilot.sim.ai` (default `COPILOT_API_URL`) and what triggers each field.
+All request bodies that the TradingGoose copilot sends to `COPILOT_API_URL` (defaults to `http://localhost:5001` when `COPILOT_API_URL` is unset) and what triggers each field.
 
 ## /api/chat-completion-streaming
 
@@ -29,7 +29,7 @@ Headers: `Content-Type: application/json`; `x-api-key: env.COPILOT_API_KEY` when
 
 ## /api/get-context-usage
 
-- Right after a streaming chat response finishes. Client store calls `/api/copilot/context-usage`, which forwards to sim.ai.
+- Called by the client store after a stream completes (success or abort), when a chat is selected, and when the model changes (only if `chatId` + `workflowId` are present). The API route proxies to sim.ai.
 
 | Field | Required | Type | Source / Default | Notes |
 | --- | --- | --- | --- | --- |
@@ -37,7 +37,7 @@ Headers: `Content-Type: application/json`; `x-api-key: env.COPILOT_API_KEY` when
 | `model` | yes | string | From request body | |
 | `workflowId` | yes | string | From request body | |
 | `userId` | yes | string | From session | |
-| `provider` | no | object | From body or built from env (same shape as chat route) | Included only when provided or env `COPILOT_PROVIDER` set. |
+| `provider` | no | object | From body or built from env (`COPILOT_PROVIDER`; azure uses `AZURE_OPENAI_API_VERSION`/`AZURE_OPENAI_ENDPOINT`/`AZURE_OPENAI_API_KEY`, others use `COPILOT_API_KEY`) | Included only when provided or env `COPILOT_PROVIDER` set. |
 
 Headers: `Content-Type: application/json`; `x-api-key: env.COPILOT_API_KEY` when set.
 
@@ -104,12 +104,13 @@ Headers: `Content-Type: application/json`; `x-api-key: env.COPILOT_API_KEY` when
 
 ## /api/chat-completion-streaming (stream=true)
 
-- Sim.ai responds as an SSE stream; each `data:` line is a JSON event.
+- TradingGoose injects an initial `chat_id` event (and a `title_updated` event if it generates a title) before proxying sim.ai SSE events. Upstream `error` events are rewritten into friendly `content` + `done` events; otherwise events pass through unchanged. No `stream_end` event is emitted by the server.
 
 | Field | Required | Type | Notes |
 | --- | --- | --- | --- |
-| `type` | yes | string | Event discriminator. Known: `chat_id`, `content`, `reasoning`, `tool_generating`, `tool_call`, `tool_result`, `tool_error`, `start`, `done`, `error`, `stream_end` (last one is injected locally after stream closes). |
-| `chatId` | yes (type=`chat_id`) | string | Sent once at stream start so the client can create/select the chat. |
+| `type` | yes | string | Event discriminator. Known: `chat_id`, `title_updated`, `content`, `reasoning`, `tool_generating`, `tool_call`, `tool_result`, `tool_error`, `start`, `done`, `error`. |
+| `chatId` | yes (type=`chat_id`) | string | Injected once at stream start so the client can create/select the chat. |
+| `title` | yes (type=`title_updated`) | string | Emitted when the server generates and saves a chat title (first-message streams only). |
 | `data` | yes (type=`content`) | string | Assistant text chunk; may include `<thinking>…</thinking>` markers that are split into thinking blocks. |
 | `data` | yes (type=`reasoning`) | string | When `phase` absent; appended to current thinking block. |
 | `phase` | no (type=`reasoning`) | `'start' \| 'end'` | Start opens a thinking block; end closes it. |
@@ -178,5 +179,3 @@ Response envelope from TradingGoose server: `{ success: true, response, chatId?,
 | `/api/validate-key/generate` | yes | `apiKey:string`; `id?:string` | `apiKey` must be present or proxy treats as invalid. |
 | `/api/validate-key/get-api-keys` | yes | array of `{ id:string, apiKey:string }` | Each item parsed; missing fields = invalid response. |
 | `/api/validate-key/delete` | no | `success?:boolean` | If falsy/missing on 2xx, proxy treats as invalid. |
-
-

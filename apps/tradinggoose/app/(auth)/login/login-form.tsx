@@ -15,6 +15,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { client } from '@/lib/auth-client'
+import { handleAuthError } from '@/lib/auth/auth-error-handler'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { getEnv, isFalsy, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -205,7 +206,22 @@ export default function LoginPage({
         {
           onError: (ctx) => {
             console.error('Login error:', ctx.error)
-            const errorMessage: string[] = ['Invalid email or password']
+            const errorMessage: string[] = []
+
+            const status =
+              (ctx.error as any)?.status ??
+              (ctx.error as any)?.statusCode ??
+              (ctx.error as any)?.response?.status
+            const message =
+              (ctx.error as any)?.message ??
+              (ctx.error as any)?.response?.statusText ??
+              (ctx.error as any)?.response?.data?.error
+
+            // If the backend rejected the request due to an invalid/expired auth state, hard reset auth.
+            if (status === 401) {
+              handleAuthError('login-unauthorized').catch(() => {})
+              errorMessage.push('Your session expired. Please try signing in again.')
+            }
 
             if (ctx.error.code?.includes('EMAIL_NOT_VERIFIED')) {
               return
@@ -243,6 +259,12 @@ export default function LoginPage({
               errorMessage.push('Network error. Please check your connection and try again.')
             } else if (ctx.error.message?.includes('rate limit')) {
               errorMessage.push('Too many requests. Please wait a moment before trying again.')
+            } else if (message) {
+              errorMessage.push(typeof message === 'string' ? message : 'Unable to sign in.')
+            }
+
+            if (errorMessage.length === 0) {
+              errorMessage.push('Unable to sign in right now. Please try again.')
             }
 
             setPasswordErrors(errorMessage)
@@ -252,6 +274,14 @@ export default function LoginPage({
       )
 
       if (!result || result.error) {
+        const message =
+          result?.error?.message ||
+          (result?.error as any)?.response?.statusText ||
+          (result?.error as any)?.response?.data?.error ||
+          'Unable to sign in right now. Please try again.'
+
+        setPasswordErrors([message])
+        setShowValidationError(true)
         setIsLoading(false)
         return
       }

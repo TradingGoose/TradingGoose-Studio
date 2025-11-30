@@ -2257,7 +2257,10 @@ const createCopilotStoreInstance = () =>
 
           // Fetch context usage after response completes
           logger.info('[Context Usage] Stream completed, fetching usage')
-          await get().fetchContextUsage()
+          const billingOptions = assistantMessageId
+            ? { bill: true, assistantMessageId }
+            : undefined
+          await get().fetchContextUsage(billingOptions)
         } finally {
           clearTimeout(timeoutId)
         }
@@ -2351,8 +2354,9 @@ const createCopilotStoreInstance = () =>
       setEnabledModels: (models) => set({ enabledModels: models }),
 
       // Fetch context usage from sim-agent API
-      fetchContextUsage: async () => {
+      fetchContextUsage: async (options?: { bill?: boolean; assistantMessageId?: string }) => {
         try {
+          const { bill = false, assistantMessageId } = options ?? {}
           const { currentChat, selectedModel, workflowId } = get()
           logger.info('[Context Usage] Starting fetch', {
             hasChatId: !!currentChat?.id,
@@ -2360,6 +2364,8 @@ const createCopilotStoreInstance = () =>
             chatId: currentChat?.id,
             workflowId,
             model: selectedModel,
+            bill,
+            assistantMessageId,
           })
 
           if (!currentChat?.id || !workflowId) {
@@ -2370,10 +2376,15 @@ const createCopilotStoreInstance = () =>
             return
           }
 
-          const requestPayload = {
+          const requestPayload: Record<string, any> = {
             chatId: currentChat.id,
             model: selectedModel,
             workflowId,
+          }
+          if (bill && assistantMessageId) {
+            requestPayload.bill = true
+            requestPayload.assistantMessageId = assistantMessageId
+            requestPayload.billingModel = selectedModel
           }
 
           logger.info('[Context Usage] Calling API', requestPayload)
