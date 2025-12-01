@@ -1,5 +1,5 @@
 import { config } from './config'
-import { validateUnkeyKey } from '../services/unkey'
+import { lookupApiKey } from '../../db/key-store'
 
 export interface AuthContext {
   userId?: string
@@ -22,21 +22,21 @@ export async function authenticateRequest(apiKeyHeader: string | null): Promise<
   if (!apiKey) return null
 
   // Shared service key (used by Next.js proxy)
-  if (config.serviceApiKey && apiKey === config.serviceApiKey) {
+  if (config.internalApiSecret && apiKey === config.internalApiSecret) {
     return {
       isServiceKey: true,
       rateLimitKey: 'service',
     }
   }
 
-  // Unkey-backed keys (optional)
-  const unkey = await validateUnkeyKey(apiKey)
-  if (unkey.valid) {
+  // Local copilot-issued keys
+  const localKey = await lookupApiKey(apiKey)
+  if (localKey) {
     return {
       isServiceKey: false,
-      userId: unkey.userId,
-      keyId: unkey.keyId,
-      rateLimitKey: unkey.userId || unkey.keyId || apiKey,
+      userId: localKey.userId,
+      keyId: localKey.keyId,
+      rateLimitKey: localKey.userId || localKey.keyId || apiKey,
     }
   }
 

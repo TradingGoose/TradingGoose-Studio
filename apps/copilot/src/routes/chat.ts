@@ -10,9 +10,16 @@ import { ChatRequestSchema } from '../core/schemas'
 import { createSession, type Session } from '../chat/state'
 import { normalizeUsage, recordUsageSnapshot } from '../services/usage'
 import type { AppBindings } from '../core/types'
+import type { AuthContext } from '../core/auth'
+import {
+  billingConfig,
+  postContextUsage,
+  validateUsageLimit,
+} from '../services/billing'
 
 export const registerChatRoutes = (app: Hono<AppBindings>) => {
   app.post('/api/chat-completion-streaming', async (c) => {
+    const auth = c.get('auth') as AuthContext | undefined
     const body = await c.req.json()
     const parsed = ChatRequestSchema.safeParse(body)
     if (!parsed.success) {
@@ -40,7 +47,14 @@ export const registerChatRoutes = (app: Hono<AppBindings>) => {
 
     const effectiveMode = mode || 'agent'
     const effectiveChatId = chatId || `chat_${nanoid()}`
+    const effectiveUserId = (auth?.userId || userId) as string
     const responseId = crypto.randomUUID()
+    const shouldValidateUsage =
+      auth &&
+      !auth.isServiceKey &&
+      auth.userId &&
+      billingConfig.internalApiSecret &&
+      billingConfig.officialTgUrl
 
     if (!stream) {
       const history =
@@ -85,6 +99,41 @@ export const registerChatRoutes = (app: Hono<AppBindings>) => {
           agentResult.tokenUsage,
           agentResult.tokens
         )
+      }
+
+      if (shouldValidateUsage) {
+        const usageCheck = await validateUsageLimit({
+          userId: auth!.userId!,
+          officialTgUrl: billingConfig.officialTgUrl,
+          internalApiSecret: billingConfig.internalApiSecret,
+        })
+        if (!usageCheck.allowed) {
+          return c.json({ error: 'Usage limit exceeded or validation failed' }, usageCheck.status ?? 402)
+        }
+      }
+
+      const shouldBill =
+        auth &&
+        !auth.isServiceKey &&
+        auth.userId &&
+        billingConfig.internalApiSecret &&
+        billingConfig.officialTgUrl
+      if (shouldBill) {
+        const billingResult = await postContextUsage({
+          chatId: effectiveChatId,
+          model: modelUsed,
+          workflowId,
+          userId: auth!.userId!,
+          provider,
+          assistantMessageId: messageId || responseId,
+        })
+        if (!billingResult.success) {
+          log.warn('Context usage billing failed (non-stream)', {
+            userId: auth?.userId,
+            status: billingResult.status,
+            error: billingResult.error,
+          })
+        }
       }
 
       const toolCallsFromOps =
@@ -140,6 +189,17 @@ export const registerChatRoutes = (app: Hono<AppBindings>) => {
       })
     }
 
+    if (shouldValidateUsage) {
+      const usageCheck = await validateUsageLimit({
+        userId: auth!.userId!,
+        officialTgUrl: billingConfig.officialTgUrl,
+        internalApiSecret: billingConfig.internalApiSecret,
+      })
+      if (!usageCheck.allowed) {
+        return c.json({ error: 'Usage limit exceeded or validation failed' }, usageCheck.status ?? 402)
+      }
+    }
+
     return streamSSE(c, async (stream) => {
       let resolveDone: () => void
       const donePromise = new Promise<void>((resolve) => {
@@ -153,7 +213,7 @@ export const registerChatRoutes = (app: Hono<AppBindings>) => {
 
       const session: Session = {
         chatId: effectiveChatId,
-        userId,
+        userId: effectiveUserId,
         workflowId,
         mode,
         model,
@@ -194,6 +254,7 @@ export const registerChatRoutes = (app: Hono<AppBindings>) => {
         streamToolCalls,
         mode,
         provider,
+        auth,
       })
 
       if (!session.closed) {

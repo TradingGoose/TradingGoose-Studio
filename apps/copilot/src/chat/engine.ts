@@ -6,6 +6,8 @@ import type { AiRouterProvider } from '../llm/ai-router'
 import { log } from '../core/logger'
 import { recordUsageSnapshot } from '../services/usage'
 import { mapToolCall, closeSession, type Session } from './state'
+import { billingConfig, postContextUsage } from '../services/billing'
+import type { AuthContext } from '../core/auth'
 
 export interface RunTurnInput {
   session: Session
@@ -18,6 +20,7 @@ export interface RunTurnInput {
   streamToolCalls?: boolean
   mode?: 'ask' | 'agent'
   provider?: AiRouterProvider
+  auth?: AuthContext | null
 }
 
 const chunkMessage = (message: string): string[] => {
@@ -59,6 +62,7 @@ export async function runTurn(input: RunTurnInput) {
     streamToolCalls = true,
     mode,
     provider,
+    auth,
   } = input
   const effectiveMode = mode || session.mode || 'agent'
 
@@ -90,6 +94,7 @@ export async function runTurn(input: RunTurnInput) {
       model: model || session.model,
       mode: effectiveMode,
       provider: providerToUse,
+      appendUserMessage: false,
     })
   } catch (error) {
     log.error('generateAgentResponse failed (streaming)', { message: (error as any)?.message })
@@ -110,6 +115,30 @@ export async function runTurn(input: RunTurnInput) {
       agentResult.tokenUsage,
       agentResult.tokens
     )
+  }
+
+  const shouldBill =
+    auth &&
+    !auth.isServiceKey &&
+    auth.userId &&
+    billingConfig.internalApiSecret &&
+    billingConfig.officialTgUrl
+  if (shouldBill) {
+    const billingResult = await postContextUsage({
+      chatId: session.chatId,
+      model: modelUsed,
+      workflowId: session.workflowId,
+      userId: auth!.userId!,
+      provider: providerToUse,
+      assistantMessageId: messageId || version,
+    })
+    if (!billingResult.success) {
+      log.warn('Context usage billing failed (stream)', {
+        userId: auth?.userId,
+        status: billingResult.status,
+        error: billingResult.error,
+      })
+    }
   }
 
   const toolCallsFromOps =

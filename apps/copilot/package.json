@@ -10,8 +10,10 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.13.4",
+    "drizzle-orm": "^0.44.5",
     "hono": "^4.6.6",
     "nanoid": "^5.0.7",
+    "postgres": "^3.4.5",
     "zod": "^3.24.2"
   },
   "devDependencies": {
