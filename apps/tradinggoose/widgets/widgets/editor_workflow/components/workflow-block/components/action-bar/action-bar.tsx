@@ -99,26 +99,24 @@ export const ActionBar = memo(
           </TooltipContent>
         </Tooltip>
 
-        {!isTriggerBlock && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant='ghost'
-                size='sm'
-                onClick={() => {
-                  if (!disabled) {
-                    collaborativeDuplicateBlock(blockId)
-                  }
-                }}
-                className={cn('text-gray-500', disabled && 'cursor-not-allowed opacity-50')}
-                disabled={disabled}
-              >
-                <Copy className='h-4 w-4' />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side='right'>{getTooltipMessage('Duplicate Block')}</TooltipContent>
-          </Tooltip>
-        )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={() => {
+                if (!disabled) {
+                  collaborativeDuplicateBlock(blockId)
+                }
+              }}
+              className={cn('text-gray-500', disabled && 'cursor-not-allowed opacity-50')}
+              disabled={disabled}
+            >
+              <Copy className='h-4 w-4' />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side='right'>{getTooltipMessage('Duplicate Block')}</TooltipContent>
+        </Tooltip>
 
         {/* Remove from subflow - only show when inside loop/parallel */}
         {!isTriggerBlock && parentId && (parentType === 'loop' || parentType === 'parallel') && (
@@ -172,29 +170,27 @@ export const ActionBar = memo(
           </TooltipContent>
         </Tooltip>
 
-        {!isTriggerBlock && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant='ghost'
-                size='sm'
-                onClick={() => {
-                  if (!disabled) {
-                    collaborativeRemoveBlock(blockId)
-                  }
-                }}
-                className={cn(
-                  'text-gray-500 hover:text-red-600',
-                  disabled && 'cursor-not-allowed opacity-50'
-                )}
-                disabled={disabled}
-              >
-                <Trash2 className='h-4 w-4' />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side='right'>{getTooltipMessage('Delete Block')}</TooltipContent>
-          </Tooltip>
-        )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={() => {
+                if (!disabled) {
+                  collaborativeRemoveBlock(blockId)
+                }
+              }}
+              className={cn(
+                'text-gray-500 hover:text-red-600',
+                disabled && 'cursor-not-allowed opacity-50'
+              )}
+              disabled={disabled}
+            >
+              <Trash2 className='h-4 w-4' />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side='right'>{getTooltipMessage('Delete Block')}</TooltipContent>
+        </Tooltip>
       </div>
     )
   },

@@ -537,9 +537,32 @@ export async function POST(
 
     logger.info(`[${requestId}] Input passed to workflow:`, parsedBody)
 
+    const sanitizeChatInputPayload = (payload: any) => {
+      if (!payload || typeof payload !== 'object') return payload
+      // Remove known control fields so they aren't treated as workflow input
+      const {
+        selectedOutputs: _selectedOutputs,
+        stream: _stream,
+        isSecureMode: _isSecureMode,
+        workflowTriggerType: _workflowTriggerType,
+        ...rest
+      } = payload
+      return rest
+    }
+
     const extractExecutionParams = (req: NextRequest, body: any) => {
       const internalSecret = req.headers.get('X-Internal-Secret')
       const isInternalCall = internalSecret === env.INTERNAL_API_SECRET
+
+      const resolvedTriggerType: TriggerType =
+        body.workflowTriggerType || (isInternalCall && body.stream ? 'chat' : 'api')
+
+      const resolvedInput =
+        resolvedTriggerType === 'chat'
+          ? sanitizeChatInputPayload(body)
+          : body.input !== undefined
+            ? body.input
+            : body
 
       return {
         isSecureMode: body.isSecureMode !== undefined ? body.isSecureMode : isInternalCall,
@@ -549,9 +572,8 @@ export async function POST(
           (req.headers.get('X-Selected-Outputs')
             ? JSON.parse(req.headers.get('X-Selected-Outputs')!)
             : undefined),
-        workflowTriggerType:
-          body.workflowTriggerType || (isInternalCall && body.stream ? 'chat' : 'api'),
-        input: body.input !== undefined ? body.input : body,
+        workflowTriggerType: resolvedTriggerType,
+        input: resolvedInput,
       }
     }
 

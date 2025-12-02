@@ -774,6 +774,11 @@ export class Executor {
       throw new Error('Unable to determine a trigger block to initialize')
     }
 
+    // Remove any pre-populated state for the init block so we can inject runtime trigger input.
+    if (context.blockStates.has(initBlock.id)) {
+      context.blockStates.delete(initBlock.id)
+    }
+
     if (!context.blockStates.has(initBlock.id)) {
       try {
         // Get inputFormat from either old location (config.params) or new location (metadata.subBlocks)

@@ -4,10 +4,8 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
-import {
-  generateCreativeWorkflowName,
-  getNextWorkflowColor,
-} from '@/stores/workflows/registry/utils'
+import { generateCreativeWorkflowName } from '@/lib/naming'
+import { getNextWorkflowColor } from '@/stores/workflows/registry/utils'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 
 const logger = createLogger('WorkflowQueries')
