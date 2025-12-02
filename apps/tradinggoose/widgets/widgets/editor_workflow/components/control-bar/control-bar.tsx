@@ -28,6 +28,7 @@ import {
   TemplateModal,
   WebhookSettings,
 } from '@/widgets/widgets/editor_workflow/components/control-bar/components'
+import { getBlock } from '@/blocks'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useWorkflowExecution } from '@/hooks/workflow/use-workflow-execution'
 import {
@@ -36,7 +37,6 @@ import {
 } from '@/app/workspace/[workspaceId]/components/use-keyboard-shortcuts'
 import { useOperationQueueStore } from '@/stores/operation-queue/store'
 import { usePanelStore } from '@/stores/panel/store'
-import { useSubscriptionStore } from '@/stores/subscription/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
@@ -381,14 +381,7 @@ export function ControlBar({
         return usage
       }
 
-      // Fallback: use store if API not available
-      const { getUsage, refresh } = useSubscriptionStore.getState()
-      if (forceRefresh) await refresh()
-      const usage = getUsage()
-
-      // Update cache
-      usageDataCache = { data: usage, timestamp: now, expirationMs: usageDataCache.expirationMs }
-      return usage
+      return null
     } catch (error) {
       logger.error('Error checking usage limits:', { error })
       return null
@@ -601,9 +594,10 @@ export function ControlBar({
       handleCancelDebug()
     } else {
       // Check if there are executable blocks before starting debug mode
-      const hasExecutableBlocks = Object.values(blocks).some(
-        (block) => block.type !== 'starter' && block.enabled !== false
-      )
+      const hasExecutableBlocks = Object.values(blocks).some((block) => {
+        const blockConfig = getBlock(block.type)
+        return block.enabled !== false && blockConfig?.category !== 'triggers'
+      })
 
       if (!hasExecutableBlocks) {
         return // Do nothing if no executable blocks
@@ -738,10 +732,11 @@ export function ControlBar({
   const renderDebugModeToggle = () => {
     const canDebug = userPermissions.canRead
 
-    // Check if there are any meaningful blocks in the workflow (excluding just the starter block)
-    const hasExecutableBlocks = Object.values(blocks).some(
-      (block) => block.type !== 'starter' && block.enabled !== false
-    )
+    // Check if there are any meaningful blocks in the workflow (excluding triggers)
+    const hasExecutableBlocks = Object.values(blocks).some((block) => {
+      const blockConfig = getBlock(block.type)
+      return block.enabled !== false && blockConfig?.category !== 'triggers'
+    })
 
     const isDisabled = isExecuting || !canDebug || !hasExecutableBlocks
 

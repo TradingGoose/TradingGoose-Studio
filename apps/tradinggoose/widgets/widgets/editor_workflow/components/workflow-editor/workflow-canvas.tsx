@@ -785,7 +785,7 @@ const WorkflowCanvas = React.memo(
         // Auto-connect logic
         const isAutoConnectEnabled = useGeneralStore.getState().isAutoConnectEnabled
         let autoConnectEdge
-        if (isAutoConnectEnabled && type !== 'starter') {
+        if (isAutoConnectEnabled && blockConfig.category !== 'triggers') {
           const closestBlock = findClosestOutput(centerPosition)
           logger.info('Closest block found:', closestBlock)
           if (closestBlock) {
@@ -1010,7 +1010,7 @@ const WorkflowCanvas = React.memo(
             // Auto-connect logic for blocks inside containers
             const isAutoConnectEnabled = useGeneralStore.getState().isAutoConnectEnabled
             let autoConnectEdge
-            if (isAutoConnectEnabled && data.type !== 'starter') {
+            if (isAutoConnectEnabled && blockConfig?.category !== 'triggers') {
               if (existingChildBlocks.length > 0) {
                 // Connect to the nearest existing child block within the container
                 const closestBlock = existingChildBlocks
@@ -1092,7 +1092,7 @@ const WorkflowCanvas = React.memo(
             // Regular auto-connect logic
             const isAutoConnectEnabled = useGeneralStore.getState().isAutoConnectEnabled
             let autoConnectEdge
-            if (isAutoConnectEnabled && data.type !== 'starter') {
+            if (isAutoConnectEnabled && blockConfig?.category !== 'triggers') {
               const closestBlock = findClosestOutput(position)
               if (closestBlock) {
                 const sourceHandle = determineSourceHandle(closestBlock)
@@ -1494,11 +1494,6 @@ const WorkflowCanvas = React.memo(
             return
           }
 
-          // Prevent incoming connections to starter blocks (still keep separate for backward compatibility)
-          if (targetNode.data?.type === 'starter') {
-            return
-          }
-
           // Get parent information (handle container start node case)
           const sourceParentId =
             blocks[sourceNode.id]?.data?.parentId ||
@@ -1574,10 +1569,10 @@ const WorkflowCanvas = React.memo(
         // Get the current parent ID of the node being dragged
         const currentParentId = blocks[node.id]?.data?.parentId || null
 
-        // Check if this is a starter block - starter blocks should never be in containers
-        const isStarterBlock = node.data?.type === 'starter'
-        if (isStarterBlock) {
-          // If it's a starter block, remove any highlighting and don't allow it to be dragged into containers
+        const draggedBlockConfig = node.data?.type ? getBlock(node.data.type) : null
+        const isTriggerBlock = draggedBlockConfig?.category === 'triggers'
+        if (isTriggerBlock) {
+          // If it's a trigger block, remove any highlighting and don't allow it to be dragged into containers
           if (potentialParentId) {
             const prevElement = document.querySelector(`[data-id="${potentialParentId}"]`)
             if (prevElement) {
@@ -1586,7 +1581,7 @@ const WorkflowCanvas = React.memo(
             setPotentialParentId(null)
             document.body.style.cursor = ''
           }
-          return // Exit early - don't process any container intersections for starter blocks
+          return // Exit early - triggers can't be nested
         }
 
         // Get the node's absolute position to properly calculate intersections
@@ -1785,17 +1780,17 @@ const WorkflowCanvas = React.memo(
         // Don't process parent changes if the node hasn't actually changed parent or is being moved within same parent
         if (potentialParentId === dragStartParentId) return
 
-        // Check if this is a starter block - starter blocks should never be in containers
-        const isStarterBlock = node.data?.type === 'starter'
-        if (isStarterBlock) {
-          logger.warn('Prevented starter block from being placed inside a container', {
+        const draggedBlockConfig = node.data?.type ? getBlock(node.data.type) : null
+        const isTriggerBlock = draggedBlockConfig?.category === 'triggers'
+        if (isTriggerBlock) {
+          logger.warn('Prevented trigger block from being placed inside a container', {
             blockId: node.id,
             attemptedParentId: potentialParentId,
           })
           // Reset state without updating parent
           setDraggedNodeId(null)
           setPotentialParentId(null)
-          return // Exit early - don't allow starter blocks to have parents
+          return // Exit early - don't allow trigger blocks to have parents
         }
 
         // If we're dragging a container node, do additional checks to prevent circular references

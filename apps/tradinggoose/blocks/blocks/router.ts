@@ -157,11 +157,11 @@ export const RouterBlock: BlockConfig<RouterResponse> = {
       required: true,
       // Hide API key for hosted models and Ollama models
       condition: isHosted
-        ? {
+        ? () => ({
             field: 'model',
             value: getHostedModels(),
             not: true, // Show for all models EXCEPT those listed
-          }
+          })
         : () => ({
             field: 'model',
             value: getCurrentOllamaModels(),

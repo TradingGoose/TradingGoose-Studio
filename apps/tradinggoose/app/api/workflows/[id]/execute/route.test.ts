@@ -101,9 +101,9 @@ describe('Workflow Execution API Route', () => {
     vi.doMock('@/lib/workflows/db-helpers', () => ({
       loadDeployedWorkflowState: vi.fn().mockResolvedValue({
         blocks: {
-          'starter-id': {
-            id: 'starter-id',
-            type: 'starter',
+          'trigger-id': {
+            id: 'trigger-id',
+            type: 'input_trigger',
             name: 'Start',
             position: { x: 100, y: 100 },
             enabled: true,
@@ -125,7 +125,7 @@ describe('Workflow Execution API Route', () => {
         edges: [
           {
             id: 'edge-1',
-            source: 'starter-id',
+            source: 'trigger-id',
             target: 'agent-id',
             sourceHandle: 'source',
             targetHandle: 'target',
@@ -197,9 +197,9 @@ describe('Workflow Execution API Route', () => {
 
     vi.doMock('@/stores/workflows/server-utils', () => ({
       mergeSubblockState: vi.fn().mockReturnValue({
-        'starter-id': {
-          id: 'starter-id',
-          type: 'starter',
+        'trigger-id': {
+          id: 'trigger-id',
+          type: 'input_trigger',
           subBlocks: {},
         },
       }),
@@ -292,7 +292,7 @@ describe('Workflow Execution API Route', () => {
     const Executor = (await import('@/executor')).Executor
     expect(Executor).toHaveBeenCalled()
 
-    expect(executeMock).toHaveBeenCalledWith('workflow-id', 'starter-id')
+    expect(executeMock).toHaveBeenCalledWith('workflow-id', 'trigger-id')
   })
 
   /**
@@ -337,7 +337,7 @@ describe('Workflow Execution API Route', () => {
     const Executor = (await import('@/executor')).Executor
     expect(Executor).toHaveBeenCalled()
 
-    expect(executeMock).toHaveBeenCalledWith('workflow-id', 'starter-id')
+    expect(executeMock).toHaveBeenCalledWith('workflow-id', 'trigger-id')
 
     expect(Executor).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -540,9 +540,9 @@ describe('Workflow Execution API Route', () => {
     vi.doMock('@/lib/workflows/db-helpers', () => ({
       loadDeployedWorkflowState: vi.fn().mockResolvedValue({
         blocks: {
-          'starter-id': {
-            id: 'starter-id',
-            type: 'starter',
+          'trigger-id': {
+            id: 'trigger-id',
+            type: 'input_trigger',
             name: 'Start',
             position: { x: 100, y: 100 },
             enabled: true,
@@ -564,7 +564,7 @@ describe('Workflow Execution API Route', () => {
         edges: [
           {
             id: 'edge-1',
-            source: 'starter-id',
+            source: 'trigger-id',
             target: 'agent-id',
             sourceHandle: 'source',
             targetHandle: 'target',

@@ -128,32 +128,7 @@ const getOutputTypeForPath = (
     // When in trigger mode, derive types from the selected trigger's outputs
     return getBlockOutputType(block.type, outputPath, mergedSubBlocksOverride, true)
   }
-  if (block?.type === 'starter') {
-    // Handle starter block specific outputs
-    const startWorkflowValue =
-      mergedSubBlocksOverride?.startWorkflow?.value ?? getSubBlockValue(blockId, 'startWorkflow')
-
-    if (startWorkflowValue === 'chat') {
-      // Define types for chat mode outputs
-      const chatModeTypes: Record<string, string> = {
-        input: 'string',
-        conversationId: 'string',
-        files: 'files',
-      }
-      return chatModeTypes[outputPath] || 'any'
-    }
-    // For API mode, check inputFormat for custom field types
-    const inputFormatValue =
-      mergedSubBlocksOverride?.inputFormat?.value ?? getSubBlockValue(blockId, 'inputFormat')
-    if (inputFormatValue && Array.isArray(inputFormatValue)) {
-      const field = inputFormatValue.find(
-        (f: { name?: string; type?: string }) => f.name === outputPath
-      )
-      if (field?.type) {
-        return field.type
-      }
-    }
-  } else if (blockConfig?.category === 'triggers') {
+  if (blockConfig?.category === 'triggers') {
     // For trigger blocks, use the dynamic output helper
     const blockState = useWorkflowStore.getState().blocks[blockId]
     const subBlocks = mergedSubBlocksOverride ?? (blockState?.subBlocks || {})
@@ -443,32 +418,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
           blockTags = outputPaths.map((path) => `${normalizedBlockName}.${path}`)
         }
       } else if (!blockConfig.outputs || Object.keys(blockConfig.outputs).length === 0) {
-        if (sourceBlock.type === 'starter') {
-          const startWorkflowValue = mergedSubBlocks?.startWorkflow?.value
-
-          if (startWorkflowValue === 'chat') {
-            // For chat mode, provide input, conversationId, and files
-            blockTags = [
-              `${normalizedBlockName}.input`,
-              `${normalizedBlockName}.conversationId`,
-              `${normalizedBlockName}.files`,
-            ]
-          } else {
-            const inputFormatValue = mergedSubBlocks?.inputFormat?.value
-
-            if (
-              inputFormatValue &&
-              Array.isArray(inputFormatValue) &&
-              inputFormatValue.length > 0
-            ) {
-              blockTags = inputFormatValue
-                .filter((field: { name?: string }) => field.name && field.name.trim() !== '')
-                .map((field: { name: string }) => `${normalizedBlockName}.${field.name}`)
-            } else {
-              blockTags = [normalizedBlockName]
-            }
-          }
-        } else if (sourceBlock.type === 'api_trigger' || sourceBlock.type === 'input_trigger') {
+        if (sourceBlock.type === 'api_trigger' || sourceBlock.type === 'input_trigger') {
           // Handle API trigger and Input Form trigger with inputFormat
           const inputFormatValue = mergedSubBlocks?.inputFormat?.value
 
@@ -483,13 +433,11 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
           blockTags = [normalizedBlockName]
         }
       } else {
-        // For triggers and starter blocks, use dynamic outputs based on live subblock values
-        if (blockConfig.category === 'triggers' || sourceBlock.type === 'starter') {
+        // For trigger blocks, use dynamic outputs based on live subblock values
+        if (blockConfig.category === 'triggers') {
           const dynamicOutputs = getBlockOutputPaths(sourceBlock.type, mergedSubBlocks)
           if (dynamicOutputs.length > 0) {
             blockTags = dynamicOutputs.map((path) => `${normalizedBlockName}.${path}`)
-          } else if (sourceBlock.type === 'starter') {
-            blockTags = [normalizedBlockName]
           } else if (sourceBlock.type === 'generic_webhook') {
             blockTags = [normalizedBlockName]
           } else {
@@ -553,10 +501,13 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
       }
     }
 
-    const starterBlock = Object.values(blocks).find((block) => block.type === 'starter')
-
     const blockDistances: Record<string, number> = {}
-    if (starterBlock) {
+    const triggerBlocks = Object.values(blocks).filter((block) => {
+      const config = getBlock(block.type)
+      return config?.category === 'triggers'
+    })
+
+    if (triggerBlocks.length > 0) {
       const adjList: Record<string, string[]> = {}
       for (const edge of edges) {
         if (!adjList[edge.source]) adjList[edge.source] = []
@@ -564,7 +515,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
       }
 
       const visited = new Set<string>()
-      const queue: [string, number][] = [[starterBlock.id, 0]]
+      const queue: [string, number][] = triggerBlocks.map((block) => [block.id, 0])
 
       while (queue.length > 0) {
         const [currentNodeId, distance] = queue.shift()!
@@ -746,23 +697,11 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
       let blockTags: string[]
 
       // For trigger blocks, use the dynamic output helper
-      if (blockConfig.category === 'triggers' || accessibleBlock.type === 'starter') {
+      if (blockConfig.category === 'triggers') {
         const dynamicOutputs = getBlockOutputPaths(accessibleBlock.type, mergedSubBlocks)
 
         if (dynamicOutputs.length > 0) {
           blockTags = dynamicOutputs.map((path) => `${normalizedBlockName}.${path}`)
-        } else if (accessibleBlock.type === 'starter') {
-          // Legacy starter block fallback
-          const startWorkflowValue = mergedSubBlocks?.startWorkflow?.value
-          if (startWorkflowValue === 'chat') {
-            blockTags = [
-              `${normalizedBlockName}.input`,
-              `${normalizedBlockName}.conversationId`,
-              `${normalizedBlockName}.files`,
-            ]
-          } else {
-            blockTags = [normalizedBlockName]
-          }
         } else if (accessibleBlock.type === 'generic_webhook') {
           blockTags = [normalizedBlockName]
         } else {

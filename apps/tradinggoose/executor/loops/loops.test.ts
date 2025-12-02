@@ -39,10 +39,10 @@ describe('LoopManager', () => {
     version: '2.0',
     blocks: [
       {
-        id: 'starter',
+        id: 'trigger',
         position: { x: 0, y: 0 },
-        metadata: { id: BlockType.STARTER, name: 'Start' },
-        config: { tool: BlockType.STARTER, params: {} },
+        metadata: { id: 'input_trigger', name: 'Start' },
+        config: { tool: 'input_trigger', params: {} },
         inputs: {},
         outputs: {},
         enabled: true,
@@ -85,7 +85,7 @@ describe('LoopManager', () => {
       },
     ],
     connections: [
-      { source: 'starter', target: 'loop-1' },
+      { source: 'trigger', target: 'loop-1' },
       { source: 'loop-1', target: 'block-1', sourceHandle: 'loop-start-source' },
       { source: 'block-1', target: 'block-2' },
       { source: 'block-2', target: 'loop-1' },
@@ -108,7 +108,7 @@ describe('LoopManager', () => {
       loopIterations: new Map([['loop-1', 0]]),
       loopItems: new Map(),
       executedBlocks: new Set(),
-      activeExecutionPath: new Set(['starter', 'loop-1']),
+      activeExecutionPath: new Set(['trigger', 'loop-1']),
       completedLoops: new Set(),
     })
   })
@@ -413,7 +413,7 @@ describe('LoopManager', () => {
       const workflow = createWorkflowWithLoop(createBasicLoop())
       workflow.blocks[2].metadata!.id = BlockType.ROUTER // Make block-1 a router
       workflow.connections = [
-        { source: 'starter', target: 'loop-1' },
+        { source: 'trigger', target: 'loop-1' },
         { source: 'loop-1', target: 'block-1', sourceHandle: 'loop-start-source' },
         { source: 'block-1', target: 'block-2' }, // Router selects block-2
         { source: 'block-1', target: 'alternative-block' }, // Alternative path
@@ -439,7 +439,7 @@ describe('LoopManager', () => {
       const workflow = createWorkflowWithLoop(createBasicLoop())
       workflow.blocks[2].metadata!.id = BlockType.CONDITION // Make block-1 a condition
       workflow.connections = [
-        { source: 'starter', target: 'loop-1' },
+        { source: 'trigger', target: 'loop-1' },
         { source: 'loop-1', target: 'block-1', sourceHandle: 'loop-start-source' },
         { source: 'block-1', target: 'block-2', sourceHandle: 'condition-true' },
         { source: 'block-1', target: 'alternative-block', sourceHandle: 'condition-false' },
@@ -464,7 +464,7 @@ describe('LoopManager', () => {
       // Create a workflow with error handling inside the loop
       const workflow = createWorkflowWithLoop(createBasicLoop())
       workflow.connections = [
-        { source: 'starter', target: 'loop-1' },
+        { source: 'trigger', target: 'loop-1' },
         { source: 'loop-1', target: 'block-1', sourceHandle: 'loop-start-source' },
         { source: 'block-1', target: 'block-2', sourceHandle: 'source' },
         { source: 'block-1', target: 'error-handler', sourceHandle: 'error' },
@@ -506,7 +506,7 @@ describe('LoopManager', () => {
       })
       workflow.loops['loop-1'].nodes.push('error-handler')
       workflow.connections = [
-        { source: 'starter', target: 'loop-1' },
+        { source: 'trigger', target: 'loop-1' },
         { source: 'loop-1', target: 'block-1', sourceHandle: 'loop-start-source' },
         { source: 'block-1', target: 'block-2', sourceHandle: 'source' },
         { source: 'block-1', target: 'error-handler', sourceHandle: 'error' },

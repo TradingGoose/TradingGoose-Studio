@@ -452,12 +452,7 @@ export const analyzeWorkflowGraph = (
     const blockConfig = getBlock(block.type)
     const isTriggerBlock = blockConfig?.category === 'triggers'
 
-    if (
-      inDegreeValue === 0 &&
-      outDegreeValue === 0 &&
-      block.type !== 'starter' &&
-      !isTriggerBlock
-    ) {
+    if (inDegreeValue === 0 && outDegreeValue === 0 && !isTriggerBlock) {
       orphanedBlocks.add(blockId)
     }
   })
@@ -467,7 +462,7 @@ export const analyzeWorkflowGraph = (
     const blockConfig = getBlock(blocks[blockId].type)
     const isTriggerBlock = blockConfig?.category === 'triggers'
 
-    if (degree === 0 || blocks[blockId].type === 'starter' || isTriggerBlock) {
+    if (degree === 0 || isTriggerBlock) {
       queue.push(blockId)
       blockLayers.set(blockId, 0)
     }

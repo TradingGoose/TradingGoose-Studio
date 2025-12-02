@@ -42,10 +42,8 @@ function calculateNextRunTime(
   schedule: { cronExpression?: string; lastRanAt?: string },
   blocks: Record<string, BlockState>
 ): Date {
-  const scheduleBlock = Object.values(blocks).find(
-    (block) => block.type === 'starter' || block.type === 'schedule'
-  )
-  if (!scheduleBlock) throw new Error('No starter or schedule block found')
+  const scheduleBlock = Object.values(blocks).find((block) => block.type === 'schedule')
+  if (!scheduleBlock) throw new Error('No schedule trigger block found')
   const scheduleType = getSubBlockValue(scheduleBlock, 'scheduleType')
   const scheduleValues = getScheduleTimeValues(scheduleBlock)
 

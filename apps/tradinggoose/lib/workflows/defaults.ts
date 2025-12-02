@@ -9,7 +9,7 @@ export interface DefaultWorkflowArtifacts {
   startBlockId: string
 }
 
-const START_BLOCK_TYPE = 'starter'
+const START_BLOCK_TYPE = 'input_trigger'
 const DEFAULT_START_POSITION = { x: 0, y: 0 }
 
 function cloneDefaultValue(value: unknown): unknown {

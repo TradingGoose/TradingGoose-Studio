@@ -6,7 +6,7 @@ import { calculateFilledPills, USAGE_PILL_COUNT } from '@/lib/subscription/usage
 import { cn } from '@/lib/utils'
 
 const GRADIENT_BADGE_STYLES =
-  'gradient-text h-[1.125rem] rounded-[6px] border-gradient-primary/20 bg-gradient-to-b from-gradient-primary via-gradient-secondary to-gradient-primary px-2 py-0 font-medium text-xs cursor-pointer'
+  'text-primary h-[1.125rem] rounded-sm border-primary bg-background px-2 py-0 font-bold text-xs cursor-pointer'
 
 interface UsageHeaderProps {
   title: string
@@ -54,9 +54,9 @@ export function UsageHeader({
           <div className='flex items-center gap-2'>
             <span
               className={cn(
-                'font-medium text-[12px]',
+                'font-bold text-sm',
                 gradientTitle
-                  ? 'gradient-text bg-gradient-to-b from-gradient-primary via-gradient-secondary to-gradient-primary'
+                  ? 'text-primary'
                   : 'text-foreground'
               )}
             >

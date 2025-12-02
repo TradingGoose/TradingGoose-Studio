@@ -63,7 +63,7 @@ export function ScheduleConfig({
   // and expose the setter so we can update it
   const [_startWorkflow, setStartWorkflow] = useSubBlockValue(blockId, 'startWorkflow')
 
-  // Determine if this is a schedule trigger block vs starter block
+  // Determine if this block natively represents a schedule trigger
   const blockWithValues = getBlockWithValues(blockId, channelId)
   const isScheduleTriggerBlock = blockWithValues?.type === 'schedule'
 
@@ -197,8 +197,8 @@ export function ScheduleConfig({
         return false
       }
 
-      // For starter blocks, update the startWorkflow value to 'schedule'
-      // For schedule trigger blocks, skip this step as startWorkflow is not needed
+      // For legacy blocks, update the startWorkflow value to 'schedule'
+      // Schedule trigger blocks don't require this flag
       if (!isScheduleTriggerBlock) {
         // 1. First, update the startWorkflow value in SubBlock store to 'schedule'
         setStartWorkflow('schedule')
@@ -312,8 +312,8 @@ export function ScheduleConfig({
 
     setIsDeleting(true)
     try {
-      // For starter blocks, update the startWorkflow value to 'manual'
-      // For schedule trigger blocks, skip this step as startWorkflow is not relevant
+      // For legacy blocks, update the startWorkflow value to 'manual'
+      // Schedule trigger blocks don't require this flag
       if (!isScheduleTriggerBlock) {
         // 1. First update the workflow state to disable scheduling
         setStartWorkflow('manual')

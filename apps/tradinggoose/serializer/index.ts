@@ -360,23 +360,20 @@ export class Serializer {
 
     const params: Record<string, any> = {}
     const isAdvancedMode = block.advancedMode ?? false
-    const isStarterBlock = block.type === 'starter'
 
     // First collect all current values from subBlocks, filtering by mode
     Object.entries(block.subBlocks).forEach(([id, subBlock]) => {
       // Find the corresponding subblock config to check its mode
       const subBlockConfig = blockConfig.subBlocks.find((config) => config.id === id)
 
-      // Include field if it matches current mode OR if it's the starter inputFormat with values
-      const hasStarterInputFormatValues =
-        isStarterBlock &&
-        id === 'inputFormat' &&
+      const hasInputFormatValues =
+        subBlockConfig?.id === 'inputFormat' &&
         Array.isArray(subBlock.value) &&
         subBlock.value.length > 0
 
       if (
         subBlockConfig &&
-        (shouldIncludeField(subBlockConfig, isAdvancedMode) || hasStarterInputFormatValues)
+        (shouldIncludeField(subBlockConfig, isAdvancedMode) || hasInputFormatValues)
       ) {
         params[id] = subBlock.value
       }
@@ -575,16 +572,10 @@ export class Serializer {
     const accessibleMap = new Map<string, Set<string>>()
     const simplifiedEdges = edges.map((edge) => ({ source: edge.source, target: edge.target }))
 
-    const starterBlock = Object.values(blocks).find((block) => block.type === 'starter')
-
     Object.keys(blocks).forEach((blockId) => {
       const ancestorIds = BlockPathCalculator.findAllPathNodes(simplifiedEdges, blockId)
       const accessibleIds = new Set<string>(ancestorIds)
       accessibleIds.add(blockId)
-
-      if (starterBlock) {
-        accessibleIds.add(starterBlock.id)
-      }
 
       Object.values(loops).forEach((loop) => {
         if (!loop?.nodes) return

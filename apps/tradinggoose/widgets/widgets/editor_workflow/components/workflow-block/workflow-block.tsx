@@ -252,8 +252,7 @@ export const WorkflowBlock = memo(
 
     const currentWorkflowId = useWorkflowId()
 
-    // Check if this is a starter block or trigger block
-    const isStarterBlock = type === 'starter'
+    // Check if this is a trigger block
     const isTriggerBlock = config.category === 'triggers'
     const isWebhookTriggerBlock = type === 'webhook'
 
@@ -638,7 +637,7 @@ export const WorkflowBlock = memo(
     }
 
     // Check webhook indicator
-    const showWebhookIndicator = (isStarterBlock || isWebhookTriggerBlock) && blockWebhookStatus
+    const showWebhookIndicator = isWebhookTriggerBlock && blockWebhookStatus
 
     const getProviderName = (providerId: string): string => {
       const providers: Record<string, string> = {
@@ -760,8 +759,8 @@ export const WorkflowBlock = memo(
           )}
 
           <ActionBar blockId={id} blockType={type} disabled={!userPermissions.canEdit} />
-          {/* Connection Blocks - Don't show for trigger blocks, starter blocks, or blocks in trigger mode */}
-          {config.category !== 'triggers' && type !== 'starter' && !displayTriggerMode && (
+          {/* Connection Blocks - Don't show for trigger blocks or blocks in trigger mode */}
+          {config.category !== 'triggers' && !displayTriggerMode && (
             <ConnectionBlocks
               blockId={id}
               setIsConnecting={setIsConnecting}
@@ -770,8 +769,8 @@ export const WorkflowBlock = memo(
             />
           )}
 
-          {/* Input Handle - Don't show for trigger blocks, starter blocks, or blocks in trigger mode */}
-          {config.category !== 'triggers' && type !== 'starter' && !displayTriggerMode && (
+          {/* Input Handle - Don't show for trigger blocks or blocks in trigger mode */}
+          {config.category !== 'triggers' && !displayTriggerMode && (
             <Handle
               type='target'
               position={horizontalHandles ? Position.Left : Position.Top}
@@ -878,7 +877,7 @@ export const WorkflowBlock = memo(
                   Disabled
                 </Badge>
               )}
-              {/* Schedule indicator badge - displayed for starter blocks with active schedules */}
+              {/* Schedule indicator badge - displayed for schedule trigger blocks with active schedules */}
               {shouldShowScheduleBadge && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -926,7 +925,7 @@ export const WorkflowBlock = memo(
                   </TooltipContent>
                 </Tooltip>
               )}
-              {/* Webhook indicator badge - displayed for starter blocks with active webhooks */}
+              {/* Webhook indicator badge - displayed for webhook trigger blocks */}
               {showWebhookIndicator && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -1227,8 +1226,8 @@ export const WorkflowBlock = memo(
                 isValidConnection={(connection) => connection.target !== id}
               />
 
-              {/* Error Handle - Don't show for trigger blocks, starter blocks, or blocks in trigger mode */}
-              {config.category !== 'triggers' && type !== 'starter' && !displayTriggerMode && (
+              {/* Error Handle - Don't show for trigger blocks or blocks in trigger mode */}
+              {config.category !== 'triggers' && !displayTriggerMode && (
                 <Handle
                   type='source'
                   position={horizontalHandles ? Position.Right : Position.Bottom}

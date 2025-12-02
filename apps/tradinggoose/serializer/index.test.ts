@@ -26,15 +26,15 @@ vi.mock('@/blocks', () => ({
   getBlock: (type: string) => {
     // Mock block configurations for different block types
     const mockConfigs: Record<string, any> = {
-      starter: {
-        name: 'Starter',
+      input_trigger: {
+        name: 'Input Trigger',
         description: 'Start of the workflow',
-        category: 'flow',
+        category: 'triggers',
         bgColor: '#4CAF50',
         tools: {
-          access: ['starter'],
+          access: ['input_trigger'],
           config: {
-            tool: () => 'starter',
+            tool: () => 'input_trigger',
           },
         },
         subBlocks: [{ id: 'description', type: 'long-input', label: 'Description' }],
@@ -263,12 +263,12 @@ describe('Serializer', () => {
       // Check if blocks are correctly serialized
       expect(serialized.blocks).toHaveLength(2)
 
-      // Check starter block
-      const starterBlock = serialized.blocks.find((b) => b.id === 'starter')
-      expect(starterBlock).toBeDefined()
-      expect(starterBlock?.metadata?.id).toBe('starter')
-      expect(starterBlock?.config.tool).toBe('starter')
-      expect(starterBlock?.config.params.description).toBe('This is the starter block')
+      // Check trigger block
+      const triggerBlock = serialized.blocks.find((b) => b.id === 'trigger')
+      expect(triggerBlock).toBeDefined()
+      expect(triggerBlock?.metadata?.id).toBe('input_trigger')
+      expect(triggerBlock?.config.tool).toBe('input_trigger')
+      expect(triggerBlock?.config.params.description).toBe('This is the input trigger block')
 
       // Check agent block
       const agentBlock = serialized.blocks.find((b) => b.id === 'agent1')
@@ -279,7 +279,7 @@ describe('Serializer', () => {
 
       // Check if edges are correctly serialized
       expect(serialized.connections).toHaveLength(1)
-      expect(serialized.connections[0].source).toBe('starter')
+      expect(serialized.connections[0].source).toBe('trigger')
       expect(serialized.connections[0].target).toBe('agent1')
     })
 
@@ -433,12 +433,12 @@ describe('Serializer', () => {
       // Check blocks
       expect(Object.keys(deserialized.blocks)).toHaveLength(2)
 
-      // Check starter block
-      const starterBlock = deserialized.blocks.starter
-      expect(starterBlock).toBeDefined()
-      expect(starterBlock.type).toBe('starter')
-      expect(starterBlock.name).toBe('Starter Block')
-      expect(starterBlock.subBlocks.description.value).toBe('This is the starter block')
+      // Check trigger block
+      const triggerBlock = deserialized.blocks.trigger
+      expect(triggerBlock).toBeDefined()
+      expect(triggerBlock.type).toBe('input_trigger')
+      expect(triggerBlock.name).toBe('Input Trigger')
+      expect(triggerBlock.subBlocks.description.value).toBe('This is the input trigger block')
 
       // Check agent block
       const agentBlock = deserialized.blocks.agent1
@@ -450,7 +450,7 @@ describe('Serializer', () => {
 
       // Check edges
       expect(deserialized.edges).toHaveLength(1)
-      expect(deserialized.edges[0].source).toBe('starter')
+      expect(deserialized.edges[0].source).toBe('trigger')
       expect(deserialized.edges[0].target).toBe('agent1')
     })
 

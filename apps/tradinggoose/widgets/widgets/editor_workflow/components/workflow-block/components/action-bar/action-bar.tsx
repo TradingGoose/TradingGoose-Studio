@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
+import { getBlock } from '@/blocks'
 
 interface ActionBarProps {
   blockId: string
@@ -41,7 +42,8 @@ export const ActionBar = memo(
 
     const userPermissions = useUserPermissionsContext()
 
-    const isStarterBlock = blockType === 'starter'
+    const blockConfig = getBlock(blockType)
+    const isTriggerBlock = blockConfig?.category === 'triggers'
 
     const getTooltipMessage = (defaultMessage: string) => {
       if (disabled) {
@@ -97,7 +99,7 @@ export const ActionBar = memo(
           </TooltipContent>
         </Tooltip>
 
-        {!isStarterBlock && (
+        {!isTriggerBlock && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -119,7 +121,7 @@ export const ActionBar = memo(
         )}
 
         {/* Remove from subflow - only show when inside loop/parallel */}
-        {!isStarterBlock && parentId && (parentType === 'loop' || parentType === 'parallel') && (
+        {!isTriggerBlock && parentId && (parentType === 'loop' || parentType === 'parallel') && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -170,7 +172,7 @@ export const ActionBar = memo(
           </TooltipContent>
         </Tooltip>
 
-        {!isStarterBlock && (
+        {!isTriggerBlock && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

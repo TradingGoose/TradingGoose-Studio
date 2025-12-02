@@ -845,12 +845,10 @@ export function useWorkflowExecution() {
         manualTriggers: manualTriggers.map((t) => ({
           type: t.type,
           name: t.name,
-          isLegacy: t.type === 'starter',
         })),
         apiTriggers: apiTriggers.map((t) => ({
           type: t.type,
           name: t.name,
-          isLegacy: t.type === 'starter',
         })),
       })
 
@@ -865,7 +863,7 @@ export function useWorkflowExecution() {
           selectedBlockId = blockEntry[0]
 
           // Extract test values from the API trigger's inputFormat
-          if (selectedTrigger.type === 'api_trigger' || selectedTrigger.type === 'starter') {
+          if (selectedTrigger.type === 'api_trigger') {
             const inputFormatValue = selectedTrigger.subBlocks?.inputFormat?.value
             const testInput = extractTestValuesFromInputFormat(inputFormatValue)
 
@@ -905,49 +903,28 @@ export function useWorkflowExecution() {
           }
         }
       } else {
-        // Fallback: Check for legacy starter block
-        const starterBlock = Object.values(filteredStates).find((block) => block.type === 'starter')
-        if (starterBlock) {
-          // Found a legacy starter block, use it as a manual trigger
-          const blockEntry = Object.entries(filteredStates).find(
-            ([, block]) => block === starterBlock
-          )
-          if (blockEntry) {
-            selectedBlockId = blockEntry[0]
-            selectedTrigger = starterBlock
-            logger.info('Using legacy starter block for manual run')
-          }
-        }
-
-        if (!selectedBlockId || !selectedTrigger) {
-          const error = new Error('Manual run requires a Manual, Input Form, or API Trigger block')
-          logger.error('No manual/input or API triggers found for manual run')
-          setIsExecuting(false)
-          throw error
-        }
+        const error = new Error('Manual run requires a Manual, Input Form, or API Trigger block')
+        logger.error('No manual/input or API triggers found for manual run')
+        setIsExecuting(false)
+        throw error
       }
 
       if (selectedBlockId && selectedTrigger) {
         startBlockId = selectedBlockId
 
-        // Check if the trigger has any outgoing connections (except for legacy starter blocks)
-        // Legacy starter blocks have their own validation in the executor
-        if (selectedTrigger.type !== 'starter') {
-          const outgoingConnections = workflowEdges.filter((edge) => edge.source === startBlockId)
-          if (outgoingConnections.length === 0) {
-            const triggerName = selectedTrigger.name || selectedTrigger.type
-            const error = new Error(`${triggerName} must be connected to other blocks to execute`)
-            logger.error('Trigger has no outgoing connections', { triggerName, startBlockId })
-            setIsExecuting(false)
-            throw error
-          }
+        const outgoingConnections = workflowEdges.filter((edge) => edge.source === startBlockId)
+        if (outgoingConnections.length === 0) {
+          const triggerName = selectedTrigger.name || selectedTrigger.type
+          const error = new Error(`${triggerName} must be connected to other blocks to execute`)
+          logger.error('Trigger has no outgoing connections', { triggerName, startBlockId })
+          setIsExecuting(false)
+          throw error
         }
 
         logger.info('Trigger found for manual run:', {
           startBlockId,
           triggerType: selectedTrigger.type,
           triggerName: selectedTrigger.name,
-          isLegacyStarter: selectedTrigger.type === 'starter',
           usingTestValues: selectedTrigger.type === 'api_trigger',
         })
       }

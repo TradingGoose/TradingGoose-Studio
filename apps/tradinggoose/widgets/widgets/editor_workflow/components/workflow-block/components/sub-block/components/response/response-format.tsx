@@ -1,4 +1,4 @@
-import { ResponseFormat as SharedResponseFormat } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/starter/input-format'
+import { ResponseFormat as SharedResponseFormat } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/input-format/input-format'
 
 export interface JSONProperty {
   id: string

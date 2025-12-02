@@ -85,12 +85,6 @@ export class BlockPathCalculator {
       const pathNodes = BlockPathCalculator.findAllPathNodes(workflow.connections, block.id)
       pathNodes.forEach((nodeId) => accessibleBlocks.add(nodeId))
 
-      // Always allow referencing the starter block (special case)
-      const starterBlock = workflow.blocks.find((b) => b.metadata?.id === 'starter')
-      if (starterBlock && starterBlock.id !== block.id) {
-        accessibleBlocks.add(starterBlock.id)
-      }
-
       accessibleMap.set(block.id, accessibleBlocks)
     }
 
@@ -125,11 +119,12 @@ export class BlockPathCalculator {
           names.push(block.metadata.name.toLowerCase().replace(/\s+/g, ''))
         }
         names.push(accessibleBlockId)
+
+        if (block.metadata?.id === 'input_trigger') {
+          names.push('start')
+        }
       }
     }
-
-    // Add special aliases
-    names.push('start') // Always allow start alias
 
     return [...new Set(names)] // Remove duplicates
   }

@@ -11,14 +11,16 @@ import {
   Trigger,
   Workflow,
 } from '@/app/workspace/[workspaceId]/logs/components/filters/components'
-import { useSubscriptionStore } from '@/stores/subscription/store'
+import { useSubscriptionData } from '@/hooks/queries/subscription'
+import { getSubscriptionStatus } from '@/lib/subscription/helpers'
 
 /**
  * Filters component for logs page - includes timeline and other filter options
  */
 export function Filters() {
-  const { getSubscriptionStatus, isLoading } = useSubscriptionStore()
-  const subscription = getSubscriptionStatus()
+  const { data: subscriptionData, isLoading } = useSubscriptionData()
+  const billingPayload = (subscriptionData as any)?.data ?? subscriptionData
+  const subscription = getSubscriptionStatus(billingPayload)
   const isPaid = subscription.isPaid
 
   const handleUpgradeClick = (e: React.MouseEvent) => {

@@ -33,14 +33,14 @@ export function assignLayers(
     }
   }
 
-  // Only treat blocks as starters if they have no incoming edges
+  // Entry nodes are blocks with no incoming edges
   // This prevents triggers that are mid-flow from being forced to layer 0
-  const starterNodes = Array.from(nodes.values()).filter((node) => node.incoming.size === 0)
+  const entryNodes = Array.from(nodes.values()).filter((node) => node.incoming.size === 0)
 
-  if (starterNodes.length === 0 && nodes.size > 0) {
+  if (entryNodes.length === 0 && nodes.size > 0) {
     const firstNode = Array.from(nodes.values())[0]
-    starterNodes.push(firstNode)
-    logger.warn('No starter blocks found, using first block as starter', { blockId: firstNode.id })
+    entryNodes.push(firstNode)
+    logger.warn('No entry blocks found, using first block as start', { blockId: firstNode.id })
   }
 
   // Use topological sort to ensure proper layering based on dependencies
@@ -49,12 +49,12 @@ export function assignLayers(
 
   for (const node of nodes.values()) {
     inDegreeCount.set(node.id, node.incoming.size)
-    if (starterNodes.includes(node)) {
+    if (entryNodes.includes(node)) {
       node.layer = 0
     }
   }
 
-  const queue: string[] = starterNodes.map((n) => n.id)
+  const queue: string[] = entryNodes.map((n) => n.id)
   const processed = new Set<string>()
 
   while (queue.length > 0) {

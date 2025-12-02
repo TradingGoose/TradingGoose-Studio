@@ -46,7 +46,7 @@ describe('Schedule Utilities', () => {
   describe('getSubBlockValue', () => {
     it.concurrent('should get values from block subBlocks', () => {
       const block: BlockState = {
-        type: 'starter',
+        type: 'schedule',
         subBlocks: {
           scheduleType: { value: 'daily' },
           scheduleTime: { value: '09:30' },
@@ -64,7 +64,7 @@ describe('Schedule Utilities', () => {
 
     it.concurrent('should handle missing subBlocks', () => {
       const block = {
-        type: 'starter',
+        type: 'schedule',
         subBlocks: {}, // Empty subBlocks
       } as BlockState
 
@@ -75,7 +75,7 @@ describe('Schedule Utilities', () => {
   describe('getScheduleTimeValues', () => {
     it.concurrent('should extract all time values from a block', () => {
       const block: BlockState = {
-        type: 'starter',
+        type: 'schedule',
         subBlocks: {
           scheduleTime: { value: '09:30' },
           minutesInterval: { value: '15' },
@@ -109,7 +109,7 @@ describe('Schedule Utilities', () => {
 
     it.concurrent('should use default values for missing fields', () => {
       const block: BlockState = {
-        type: 'starter',
+        type: 'schedule',
         subBlocks: {
           // Minimal config
           scheduleType: { value: 'daily' },
@@ -171,7 +171,7 @@ describe('Schedule Utilities', () => {
 
       // Create a mock block with custom cron expression
       const mockBlock: BlockState = {
-        type: 'starter',
+        type: 'schedule',
         subBlocks: {
           cronExpression: { value: '*/5 * * * *' },
         },

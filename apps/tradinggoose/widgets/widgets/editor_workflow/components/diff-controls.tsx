@@ -332,41 +332,44 @@ export const DiffControls = memo(function DiffControls({
     return null
   }
 
-  const positionClass = constrainToContainer
-    ? 'absolute bottom-6 left-1/2 -translate-x-1/2'
-    : '-translate-x-1/2 fixed bottom-20 left-1/2'
+  const positionClass = cn(
+    constrainToContainer
+      ? 'absolute bottom-3 left-1/2 -translate-x-1/2'
+      : 'fixed bottom-6 left-1/2 -translate-x-1/2',
+    'z-30'
+  )
 
   return (
-    <div className={cn(positionClass, 'z-30')}>
-      <div className='flex items-center gap-2'>
-        {/* Toggle (left, icon-only, no background) */}
+    <div className={positionClass}>
+      <div className='flex items-center gap-1 rounded-md border bg-card p-1 shadow-sm'>
+        {/* Toggle (left, icon-only) */}
         <Button
           variant='ghost'
-          size='sm'
+          size='icon'
           onClick={handleToggleDiff}
-          className='h-8 rounded-full px-2 text-muted-foreground hover:bg-transparent'
+          className='h-7 w-7 rounded-sm hover:bg-background'
           title={isShowingDiff ? 'View original' : 'Preview changes'}
         >
-          {isShowingDiff ? <Eye className='h-5 w-5' /> : <EyeOff className='h-5 w-5' />}
+          {isShowingDiff ? <Eye className='h-4 w-4' /> : <EyeOff className='h-4 w-4' />}
         </Button>
 
-        {/* Reject (middle, light gray, icon-only) */}
+        {/* Reject */}
         <Button
           variant='outline'
           size='sm'
           onClick={handleReject}
-          className='h-8 rounded-md border-gray-200 bg-gray-100 px-3 text-gray-700 hover:bg-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'
+          className='h-7 rounded-sm px-3 w-20 text-xs font-medium'
           title='Reject changes'
         >
           Reject
         </Button>
 
-        {/* Accept (right, brand purple, icon-only) */}
+        {/* Accept */}
         <Button
           variant='default'
           size='sm'
           onClick={handleAccept}
-          className='h-8 rounded-sm bg-primary-hover px-3 text-black hover:bg-primary-hover/90 '
+          className='h-7 rounded-sm px-3 w-20 text-xs text-black'
           title='Accept changes'
         >
           Accept

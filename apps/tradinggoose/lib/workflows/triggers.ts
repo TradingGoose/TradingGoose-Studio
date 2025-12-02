@@ -10,7 +10,6 @@ export const TRIGGER_TYPES = {
   API: 'api_trigger',
   WEBHOOK: 'webhook',
   SCHEDULE: 'schedule',
-  STARTER: 'starter', // Legacy
 } as const
 
 export type TriggerType = (typeof TRIGGER_TYPES)[keyof typeof TRIGGER_TYPES]
@@ -20,7 +19,7 @@ export type TriggerType = (typeof TRIGGER_TYPES)[keyof typeof TRIGGER_TYPES]
  * to concrete trigger block type identifiers used across the system.
  */
 export const TRIGGER_REFERENCE_ALIAS_MAP = {
-  start: TRIGGER_TYPES.STARTER,
+  start: TRIGGER_TYPES.INPUT,
   api: TRIGGER_TYPES.API,
   chat: TRIGGER_TYPES.CHAT,
   manual: TRIGGER_TYPES.INPUT,
@@ -42,9 +41,7 @@ export class TriggerUtils {
       // New trigger blocks (explicit category)
       blockConfig?.category === 'triggers' ||
       // Blocks with trigger mode enabled
-      block.triggerMode === true ||
-      // Legacy starter block
-      block.type === TRIGGER_TYPES.STARTER
+      block.triggerMode === true
     )
   }
 
@@ -66,34 +63,14 @@ export class TriggerUtils {
    * Check if a block is a chat-compatible trigger
    */
   static isChatTrigger(block: { type: string; subBlocks?: any }): boolean {
-    if (block.type === TRIGGER_TYPES.CHAT) {
-      return true
-    }
-
-    // Legacy: starter block in chat mode
-    if (block.type === TRIGGER_TYPES.STARTER) {
-      return block.subBlocks?.startWorkflow?.value === 'chat'
-    }
-
-    return false
+    return block.type === TRIGGER_TYPES.CHAT
   }
 
   /**
    * Check if a block is a manual-compatible trigger
    */
   static isManualTrigger(block: { type: string; subBlocks?: any }): boolean {
-    if (block.type === TRIGGER_TYPES.INPUT || block.type === TRIGGER_TYPES.MANUAL) {
-      return true
-    }
-
-    // Legacy: starter block in manual mode or without explicit mode (default to manual)
-    if (block.type === TRIGGER_TYPES.STARTER) {
-      // If startWorkflow is not set or is set to 'manual', treat as manual trigger
-      const startWorkflowValue = block.subBlocks?.startWorkflow?.value
-      return startWorkflowValue === 'manual' || startWorkflowValue === undefined
-    }
-
-    return false
+    return block.type === TRIGGER_TYPES.INPUT || block.type === TRIGGER_TYPES.MANUAL
   }
 
   /**
@@ -107,17 +84,7 @@ export class TriggerUtils {
       return block.type === TRIGGER_TYPES.INPUT
     }
     // Direct API calls only work with api_trigger
-    if (block.type === TRIGGER_TYPES.API) {
-      return true
-    }
-
-    // Legacy: starter block in API mode
-    if (block.type === TRIGGER_TYPES.STARTER) {
-      const mode = block.subBlocks?.startWorkflow?.value
-      return mode === 'api' || mode === 'run'
-    }
-
-    return false
+    return block.type === TRIGGER_TYPES.API
   }
 
   /**
@@ -194,12 +161,6 @@ export class TriggerUtils {
       }
     }
 
-    // Legacy fallback: look for starter block
-    const starterEntry = entries.find(([, block]) => block.type === TRIGGER_TYPES.STARTER)
-    if (starterEntry) {
-      return { blockId: starterEntry[0], block: starterEntry[1] }
-    }
-
     return null
   }
 
@@ -232,14 +193,6 @@ export class TriggerUtils {
   }
 
   /**
-   * Check if a workflow has a legacy starter block
-   */
-  static hasLegacyStarter<T extends { type: string }>(blocks: T[] | Record<string, T>): boolean {
-    const blockArray = Array.isArray(blocks) ? blocks : Object.values(blocks)
-    return blockArray.some((block) => block.type === TRIGGER_TYPES.STARTER)
-  }
-
-  /**
    * Check if adding a trigger would violate single instance constraint
    */
   static wouldViolateSingleInstance<T extends { type: string }>(
@@ -247,32 +200,6 @@ export class TriggerUtils {
     triggerType: string
   ): boolean {
     const blockArray = Array.isArray(blocks) ? blocks : Object.values(blocks)
-    const hasLegacyStarter = TriggerUtils.hasLegacyStarter(blocks)
-
-    // Legacy starter block can't coexist with Chat, Input, Manual, or API triggers
-    if (hasLegacyStarter) {
-      if (
-        triggerType === TRIGGER_TYPES.CHAT ||
-        triggerType === TRIGGER_TYPES.INPUT ||
-        triggerType === TRIGGER_TYPES.MANUAL ||
-        triggerType === TRIGGER_TYPES.API
-      ) {
-        return true
-      }
-    }
-
-    if (triggerType === TRIGGER_TYPES.STARTER) {
-      const hasModernTriggers = blockArray.some(
-        (block) =>
-          block.type === TRIGGER_TYPES.CHAT ||
-          block.type === TRIGGER_TYPES.INPUT ||
-          block.type === TRIGGER_TYPES.MANUAL ||
-          block.type === TRIGGER_TYPES.API
-      )
-      if (hasModernTriggers) {
-        return true
-      }
-    }
 
     // Only one Input trigger allowed
     if (triggerType === TRIGGER_TYPES.INPUT) {
@@ -310,14 +237,9 @@ export class TriggerUtils {
   static getTriggerAdditionIssue<T extends { type: string }>(
     blocks: T[] | Record<string, T>,
     triggerType: string
-  ): { issue: 'legacy' | 'duplicate'; triggerName: string } | null {
+  ): { issue: 'duplicate'; triggerName: string } | null {
     if (!TriggerUtils.wouldViolateSingleInstance(blocks, triggerType)) {
       return null
-    }
-
-    // Legacy starter present + adding modern trigger → legacy incompatibility
-    if (TriggerUtils.hasLegacyStarter(blocks) && TriggerUtils.isAnyTriggerType(triggerType)) {
-      return { issue: 'legacy', triggerName: 'new trigger' }
     }
 
     // Otherwise treat as duplicate of a single-instance trigger

@@ -101,14 +101,7 @@ function handleSecurityFiltering(request: NextRequest): NextResponse | null {
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl
 
-  const rawSessionCookie = getSessionCookie(request)
-  const sessionCookie = rawSessionCookie?.trim()
-  const hasActiveSession = Boolean(
-    sessionCookie &&
-      sessionCookie !== 'undefined' &&
-      sessionCookie !== 'null' &&
-      sessionCookie !== 'false'
-  )
+  const hasActiveSession = Boolean(getSessionCookie(request))
 
   if (
     url.pathname.startsWith('/workspace') ||

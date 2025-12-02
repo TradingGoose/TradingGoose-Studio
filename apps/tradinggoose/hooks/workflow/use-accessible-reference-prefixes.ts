@@ -27,11 +27,6 @@ export function useAccessibleReferencePrefixes(blockId?: string | null): Set<str
     const accessibleIds = new Set<string>(ancestorIds)
     accessibleIds.add(blockId)
 
-    const starterBlock = Object.values(blocks).find((block) => block.type === 'starter')
-    if (starterBlock) {
-      accessibleIds.add(starterBlock.id)
-    }
-
     const loopValues = Object.values(loops as Record<string, Loop>)
     loopValues.forEach((loop) => {
       if (!loop?.nodes) return
@@ -54,6 +49,10 @@ export function useAccessibleReferencePrefixes(blockId?: string | null): Set<str
       const block = blocks[id]
       if (block?.name) {
         prefixes.add(normalizeBlockName(block.name))
+      }
+
+      if (block?.type === 'input_trigger') {
+        prefixes.add('start')
       }
     })
 

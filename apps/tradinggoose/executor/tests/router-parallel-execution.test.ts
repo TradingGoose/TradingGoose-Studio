@@ -16,8 +16,8 @@ describe('Router and Condition Block Path Selection in Complex Workflows', () =>
         {
           id: 'bd9f4f7d-8aed-4860-a3be-8bebd1931b19',
           position: { x: 0, y: 0 },
-          metadata: { id: BlockType.STARTER, name: 'Start' },
-          config: { tool: BlockType.STARTER, params: {} },
+          metadata: { id: 'input_trigger', name: 'Start' },
+          config: { tool: 'input_trigger', params: {} },
           inputs: {},
           outputs: {},
           enabled: true,

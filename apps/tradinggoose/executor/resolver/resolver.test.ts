@@ -17,10 +17,10 @@ describe('InputResolver', () => {
       version: '1.0',
       blocks: [
         {
-          id: 'starter-block',
-          metadata: { id: BlockType.STARTER, name: 'Start' },
+          id: 'trigger-block',
+          metadata: { id: 'input_trigger', name: 'Start' },
           position: { x: 100, y: 100 },
-          config: { tool: BlockType.STARTER, params: {} },
+          config: { tool: 'input_trigger', params: {} },
           inputs: {},
           outputs: {},
           enabled: true,
@@ -63,7 +63,7 @@ describe('InputResolver', () => {
         },
       ],
       connections: [
-        { source: 'starter-block', target: 'function-block' },
+        { source: 'trigger-block', target: 'function-block' },
         { source: 'function-block', target: 'condition-block' },
         { source: 'condition-block', target: 'api-block' },
         { source: 'api-block', target: 'disabled-block' },
@@ -76,12 +76,12 @@ describe('InputResolver', () => {
       workflow: sampleWorkflow,
       blockStates: new Map([
         [
-          'starter-block',
+          'trigger-block',
           { output: { input: 'Hello World', type: 'text' }, executed: true, executionTime: 0 },
         ],
         ['function-block', { output: { result: '42' }, executed: true, executionTime: 0 }], // String value as it would be in real app
       ]),
-      activeExecutionPath: new Set(['starter-block', 'function-block']),
+      activeExecutionPath: new Set(['trigger-block', 'function-block']),
       blockLogs: [],
       metadata: { duration: 0 },
       environmentVariables: {},
@@ -89,7 +89,7 @@ describe('InputResolver', () => {
       loopIterations: new Map(),
       loopItems: new Map(),
       completedLoops: new Set(),
-      executedBlocks: new Set(['starter-block', 'function-block']),
+      executedBlocks: new Set(['trigger-block', 'function-block']),
     }
 
     mockEnvironmentVars = {
@@ -308,13 +308,13 @@ describe('InputResolver', () => {
         config: {
           tool: 'generic',
           params: {
-            starterRef: '<starter-block.input>',
+            triggerRef: '<trigger-block.input>',
             functionRef: '<function-block.result>',
             nameRef: '<Start.input>',
           },
         },
         inputs: {
-          starterRef: 'string',
+          triggerRef: 'string',
           functionRef: 'string',
           nameRef: 'string',
         },
@@ -324,12 +324,12 @@ describe('InputResolver', () => {
 
       const result = resolver.resolveInputs(block, mockContext)
 
-      expect(result.starterRef).toBe('Hello World')
+      expect(result.triggerRef).toBe('Hello World')
       expect(result.functionRef).toBe('42')
       expect(result.nameRef).toBe('Hello World') // Should resolve using block name
     })
 
-    it('should handle the special "start" alias for starter block', () => {
+    it('should handle the special "start" alias for trigger block', () => {
       const block: SerializedBlock = {
         id: 'test-block',
         metadata: { id: 'generic', name: 'Test Block' },
@@ -1218,10 +1218,10 @@ describe('InputResolver', () => {
         version: '1.0',
         blocks: [
           {
-            id: 'starter-1',
-            metadata: { id: BlockType.STARTER, name: 'Start' },
+            id: 'trigger-1',
+            metadata: { id: 'input_trigger', name: 'Start' },
             position: { x: 0, y: 0 },
-            config: { tool: BlockType.STARTER, params: {} },
+            config: { tool: 'input_trigger', params: {} },
             inputs: {},
             outputs: {},
             enabled: true,
@@ -1255,7 +1255,7 @@ describe('InputResolver', () => {
           },
         ],
         connections: [
-          { source: 'starter-1', target: 'agent-1' },
+          { source: 'trigger-1', target: 'agent-1' },
           { source: 'agent-1', target: 'function-1' },
           // Note: isolated-block has no connections
         ],
@@ -1274,12 +1274,12 @@ describe('InputResolver', () => {
             accessibleBlocks.add(conn.source)
           }
         })
-        // Always allow starter block access
-        const starterBlock = workflowWithConnections.blocks.find(
-          (b) => b.metadata?.id === BlockType.STARTER
+        // Always allow trigger block access
+        const triggerBlock = workflowWithConnections.blocks.find(
+          (b) => b.metadata?.id === 'input_trigger'
         )
-        if (starterBlock) {
-          accessibleBlocks.add(starterBlock.id)
+        if (triggerBlock) {
+          accessibleBlocks.add(triggerBlock.id)
         }
         accessibleBlocksMap.set(block.id, accessibleBlocks)
       })
@@ -1296,12 +1296,12 @@ describe('InputResolver', () => {
             accessibleBlocks.add(conn.source)
           }
         })
-        // Always allow starter block access
-        const starterBlock = workflowWithConnections.blocks.find(
-          (b) => b.metadata?.id === BlockType.STARTER
+        // Always allow trigger block access
+        const triggerBlock = workflowWithConnections.blocks.find(
+          (b) => b.metadata?.id === 'input_trigger'
         )
-        if (starterBlock) {
-          accessibleBlocks.add(starterBlock.id)
+        if (triggerBlock) {
+          accessibleBlocks.add(triggerBlock.id)
         }
         accessibleBlocksMap.set(testId, accessibleBlocks)
       })
@@ -1316,7 +1316,7 @@ describe('InputResolver', () => {
       contextWithConnections = {
         workflowId: 'test-workflow',
         blockStates: new Map([
-          ['starter-1', { output: { input: 'Hello World' }, executed: true, executionTime: 0 }],
+          ['trigger-1', { output: { input: 'Hello World' }, executed: true, executionTime: 0 }],
           ['agent-1', { output: { content: 'Agent response' }, executed: true, executionTime: 0 }],
           [
             'function-1',
@@ -1335,7 +1335,7 @@ describe('InputResolver', () => {
         loopItems: new Map(),
         completedLoops: new Set(),
         executedBlocks: new Set(),
-        activeExecutionPath: new Set(['starter-1', 'agent-1', 'function-1', 'isolated-block']),
+        activeExecutionPath: new Set(['trigger-1', 'agent-1', 'function-1', 'isolated-block']),
         workflow: workflowWithConnections,
       }
     })
@@ -1378,12 +1378,12 @@ describe('InputResolver', () => {
           testBlockAccessible.add(conn.source)
         }
       })
-      // Always allow starter block access
-      const starterBlock = workflowWithConnections.blocks.find(
-        (b) => b.metadata?.id === BlockType.STARTER
+      // Always allow trigger block access
+      const triggerBlock = workflowWithConnections.blocks.find(
+        (b) => b.metadata?.id === 'input_trigger'
       )
-      if (starterBlock) {
-        testBlockAccessible.add(starterBlock.id)
+      if (triggerBlock) {
+        testBlockAccessible.add(triggerBlock.id)
       }
       connectionResolver.accessibleBlocksMap?.set('test-block', testBlockAccessible)
 
@@ -1407,7 +1407,7 @@ describe('InputResolver', () => {
       expect(result.code).toBe('return <isolated-block.content>') // Reference remains as-is
     })
 
-    it('should always allow references to starter block', () => {
+    it('should always allow references to trigger block', () => {
       const functionBlock = workflowWithConnections.blocks[2] // function-1
       const testBlock: SerializedBlock = {
         ...functionBlock,
@@ -1568,12 +1568,12 @@ describe('InputResolver', () => {
           testBlock2Accessible.add(conn.source)
         }
       })
-      // Always allow starter block access
-      const starterBlock = workflowWithConnections.blocks.find(
-        (b) => b.metadata?.id === BlockType.STARTER
+      // Always allow trigger block access
+      const triggerBlock = workflowWithConnections.blocks.find(
+        (b) => b.metadata?.id === 'input_trigger'
       )
-      if (starterBlock) {
-        testBlock2Accessible.add(starterBlock.id)
+      if (triggerBlock) {
+        testBlock2Accessible.add(triggerBlock.id)
       }
       connectionResolver.accessibleBlocksMap?.set('test-block-2', testBlock2Accessible)
 
@@ -1656,12 +1656,12 @@ describe('InputResolver', () => {
             accessibleBlocks.add(conn.source)
           }
         })
-        // Always allow starter block access
-        const starterBlock = extendedWorkflow.blocks.find(
-          (b) => b.metadata?.id === BlockType.STARTER
+        // Always allow trigger block access
+        const triggerBlock = extendedWorkflow.blocks.find(
+          (b) => b.metadata?.id === 'input_trigger'
         )
-        if (starterBlock) {
-          accessibleBlocks.add(starterBlock.id)
+        if (triggerBlock) {
+          accessibleBlocks.add(triggerBlock.id)
         }
         extendedAccessibilityMap.set(block.id, accessibleBlocks)
       })
@@ -1675,12 +1675,12 @@ describe('InputResolver', () => {
             accessibleBlocks.add(conn.source)
           }
         })
-        // Always allow starter block access
-        const starterBlock = extendedWorkflow.blocks.find(
-          (b) => b.metadata?.id === BlockType.STARTER
+        // Always allow trigger block access
+        const triggerBlock = extendedWorkflow.blocks.find(
+          (b) => b.metadata?.id === 'input_trigger'
         )
-        if (starterBlock) {
-          accessibleBlocks.add(starterBlock.id)
+        if (triggerBlock) {
+          accessibleBlocks.add(triggerBlock.id)
         }
         extendedAccessibilityMap.set(testId, accessibleBlocks)
       })
@@ -1758,10 +1758,10 @@ describe('InputResolver', () => {
         version: '1.0',
         blocks: [
           {
-            id: 'starter-1',
-            metadata: { id: BlockType.STARTER, name: 'Start' },
+            id: 'trigger-1',
+            metadata: { id: 'input_trigger', name: 'Start' },
             position: { x: 0, y: 0 },
-            config: { tool: BlockType.STARTER, params: {} },
+            config: { tool: 'input_trigger', params: {} },
             inputs: {},
             outputs: {},
             enabled: true,
@@ -1794,7 +1794,7 @@ describe('InputResolver', () => {
             enabled: true,
           },
         ],
-        connections: [{ source: 'starter-1', target: 'loop-1' }],
+        connections: [{ source: 'trigger-1', target: 'loop-1' }],
         loops: {
           'loop-1': {
             id: 'loop-1',
@@ -1817,10 +1817,10 @@ describe('InputResolver', () => {
             accessibleBlocks.add(conn.source)
           }
         })
-        // Always allow starter block access
-        const starterBlock = loopWorkflow.blocks.find((b) => b.metadata?.id === BlockType.STARTER)
-        if (starterBlock) {
-          accessibleBlocks.add(starterBlock.id)
+        // Always allow trigger block access
+        const triggerBlock = loopWorkflow.blocks.find((b) => b.metadata?.id === 'input_trigger')
+        if (triggerBlock) {
+          accessibleBlocks.add(triggerBlock.id)
         }
         // Allow blocks in same loop to reference each other
         const blockLoop = Object.values(loopWorkflow.loops || {}).find((loop) =>
@@ -1841,11 +1841,6 @@ describe('InputResolver', () => {
             accessibleBlocks.add(conn.source)
           }
         })
-        // Always allow starter block access
-        const starterBlock = loopWorkflow.blocks.find((b) => b.metadata?.id === BlockType.STARTER)
-        if (starterBlock) {
-          accessibleBlocks.add(starterBlock.id)
-        }
         loopAccessibilityMap.set(testId, accessibleBlocks)
       })
 
@@ -1864,7 +1859,7 @@ describe('InputResolver', () => {
         ...contextWithConnections,
         workflow: loopWorkflow,
         blockStates: new Map([
-          ['starter-1', { output: { input: 'Hello' }, executed: true, executionTime: 0 }],
+          ['trigger-1', { output: { input: 'Hello' }, executed: true, executionTime: 0 }],
           ['function-1', { output: { result: 'Result 1' }, executed: true, executionTime: 0 }],
           ['function-2', { output: { result: 'Result 2' }, executed: true, executionTime: 0 }],
         ]),
@@ -2406,9 +2401,9 @@ describe('InputResolver', () => {
         ],
         connections: [
           ...sampleWorkflow.connections,
-          { source: 'starter-block', target: 'array-block' },
-          { source: 'starter-block', target: 'non-array-block' },
-          { source: 'starter-block', target: 'single-array-block' },
+          { source: 'trigger-block', target: 'array-block' },
+          { source: 'trigger-block', target: 'non-array-block' },
+          { source: 'trigger-block', target: 'single-array-block' },
         ],
       }
 
@@ -2605,7 +2600,7 @@ describe('InputResolver', () => {
     })
 
     it.concurrent('should handle start block with 2D array access', () => {
-      arrayContext.blockStates.set('starter-block', {
+      arrayContext.blockStates.set('trigger-block', {
         output: {
           input: 'Hello World',
           type: 'text',
@@ -2935,7 +2930,7 @@ describe('InputResolver', () => {
     it.concurrent('should allow other block references without dots', () => {
       const testAccessibility = new Map<string, Set<string>>()
       const allIds = [
-        'starter-block',
+        'trigger-block',
         'function-block',
         'condition-block',
         'api-block',
@@ -3031,13 +3026,13 @@ describe('InputResolver', () => {
         config: {
           tool: 'generic',
           params: {
-            starterInput: '<start.input>',
+            triggerInput: '<start.input>',
             functionResult: '<function-block.result>',
             variableRef: '<variable.stringVar>',
           },
         },
         inputs: {
-          starterInput: 'string',
+          triggerInput: 'string',
           functionResult: 'string',
           variableRef: 'string',
         },
@@ -3047,7 +3042,7 @@ describe('InputResolver', () => {
 
       const result = resolver.resolveInputs(block, mockContext)
 
-      expect(result.starterInput).toBe('Hello World')
+      expect(result.triggerInput).toBe('Hello World')
       expect(result.functionResult).toBe('42')
       expect(result.variableRef).toBe('Hello')
     })
@@ -3122,9 +3117,9 @@ describe('InputResolver', () => {
         blocks: [
           {
             id: 'start-block',
-            metadata: { id: BlockType.STARTER, name: 'Start', category: 'triggers' },
+            metadata: { id: 'input_trigger', name: 'Start', category: 'triggers' },
             position: { x: 0, y: 0 },
-            config: { tool: BlockType.STARTER, params: {} },
+            config: { tool: 'input_trigger', params: {} },
             inputs: {},
             outputs: {},
             enabled: true,

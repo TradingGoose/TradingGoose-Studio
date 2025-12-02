@@ -98,11 +98,12 @@ export function OutputSelect({
 
     // Process blocks to extract outputs
     blockArray.forEach((block) => {
-      // Skip starter/start blocks
-      if (block.type === 'starter') return
-
-      // Add defensive check to ensure block exists and has required properties
       if (!block || !block.id || !block.type) {
+        return
+      }
+
+      const blockConfig = getBlock(block.type)
+      if (blockConfig?.category === 'triggers') {
         return
       }
 
@@ -111,9 +112,6 @@ export function OutputSelect({
         block.name && typeof block.name === 'string'
           ? block.name.replace(/\s+/g, '').toLowerCase()
           : `block-${block.id}`
-
-      // Get block configuration from registry to get outputs
-      const blockConfig = getBlock(block.type)
 
       // Check for custom response format first
       // In diff mode, get value from diff blocks; otherwise use store
@@ -263,13 +261,12 @@ export function OutputSelect({
     const blockDistances: Record<string, number> = {}
     const edges = useWorkflowStore.getState().edges
 
-    // Find the starter block
-    const starterBlock = Object.values(blocks).find((block) => block.type === 'starter')
-    const starterBlockId = starterBlock?.id
+    const triggerBlocks = Object.values(blocks).filter((block) => {
+      const config = getBlock(block.type)
+      return config?.category === 'triggers'
+    })
 
-    // Calculate distances from starter block if it exists
-    if (starterBlockId) {
-      // Build an adjacency list for faster traversal
+    if (triggerBlocks.length > 0) {
       const adjList: Record<string, string[]> = {}
       for (const edge of edges) {
         if (!adjList[edge.source]) {
@@ -278,9 +275,8 @@ export function OutputSelect({
         adjList[edge.source].push(edge.target)
       }
 
-      // BFS to find distances from starter block
       const visited = new Set<string>()
-      const queue: [string, number][] = [[starterBlockId, 0]] // [nodeId, distance]
+      const queue: [string, number][] = triggerBlocks.map((block) => [block.id, 0])
 
       while (queue.length > 0) {
         const [currentNodeId, distance] = queue.shift()!
@@ -289,10 +285,7 @@ export function OutputSelect({
         visited.add(currentNodeId)
         blockDistances[currentNodeId] = distance
 
-        // Get all outgoing edges from the adjacency list
         const outgoingNodeIds = adjList[currentNodeId] || []
-
-        // Add all target nodes to the queue with incremented distance
         for (const targetId of outgoingNodeIds) {
           queue.push([targetId, distance + 1])
         }

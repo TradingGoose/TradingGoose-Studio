@@ -38,17 +38,9 @@ export class InputResolver {
       ])
     )
 
-    // Add special handling for the starter block - allow referencing it as "start"
-    const starterBlock = workflow.blocks.find((block) => block.metadata?.id === 'starter')
-    if (starterBlock) {
-      this.blockByNormalizedName.set('start', starterBlock)
-      // Also add the normalized actual name if it exists
-      if (starterBlock.metadata?.name) {
-        this.blockByNormalizedName.set(
-          this.normalizeBlockName(starterBlock.metadata.name),
-          starterBlock
-        )
-      }
+    const startAliasBlock = this.findStartAliasBlock()
+    if (startAliasBlock) {
+      this.blockByNormalizedName.set('start', startAliasBlock)
     }
 
     // Create efficient loop lookup map
@@ -66,6 +58,18 @@ export class InputResolver {
         this.parallelsByBlockId.set(blockId, parallelId)
       }
     }
+  }
+
+  private findStartAliasBlock(): SerializedBlock | undefined {
+    const preferredTypes = ['input_trigger', 'api_trigger', 'manual_trigger']
+    for (const type of preferredTypes) {
+      const candidate = this.workflow.blocks.find((block) => block.metadata?.id === type)
+      if (candidate) {
+        return candidate
+      }
+    }
+
+    return this.workflow.blocks.find((block) => block.metadata?.category === 'triggers')
   }
 
   /**
@@ -544,7 +548,7 @@ export class InputResolver {
                   replacementValue,
                   part,
                   path,
-                  'starter block'
+                  'trigger block'
                 )
               } else {
                 // Regular property access with FileReference mapping
@@ -575,7 +579,7 @@ export class InputResolver {
             let formattedValue: string
 
             // Special handling for all blocks referencing trigger input
-            // For starter and chat triggers, check for 'input' field. For API trigger, any field access counts
+            // For start and chat triggers, check for 'input' field. For API trigger, any field access counts
             const isTriggerInputRef =
               (blockRefLower === 'start' && pathParts.join('.').includes('input')) ||
               (blockRefLower === 'chat' && pathParts.join('.').includes('input')) ||
@@ -1089,12 +1093,6 @@ export class InputResolver {
       }
     }
 
-    // Always allow referencing the starter block (special case)
-    const starterBlock = this.workflow.blocks.find((block) => block.metadata?.id === 'starter')
-    if (starterBlock) {
-      accessibleBlocks.add(starterBlock.id)
-    }
-
     // Special case: blocks in the same loop can reference each other
     const currentBlockLoop = this.loopsByBlockId.get(currentBlockId)
     if (currentBlockLoop) {
@@ -1150,14 +1148,6 @@ export class InputResolver {
     blockRef: string,
     currentBlockId: string
   ): { isValid: boolean; resolvedBlockId?: string; errorMessage?: string } {
-    // Special case: 'start' is always allowed
-    if (blockRef.toLowerCase() === 'start') {
-      const starterBlock = this.workflow.blocks.find((block) => block.metadata?.id === 'starter')
-      return starterBlock
-        ? { isValid: true, resolvedBlockId: starterBlock.id }
-        : { isValid: false, errorMessage: 'Starter block not found in workflow' }
-    }
-
     // Check if block exists
     let sourceBlock = this.blockById.get(blockRef)
     if (!sourceBlock) {

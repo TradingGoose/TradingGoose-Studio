@@ -1,8 +1,6 @@
 'use client'
 
-import { signOut } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
-import { clearUserData } from '@/stores'
 
 const logger = createLogger('AuthErrorHandler')
 let isHandlingAuthError = false
@@ -72,23 +70,8 @@ export async function handleAuthError(reason?: string) {
   if (shouldRateLimitRecovery(reason)) return
 
   isHandlingAuthError = true
-  logger.warn('Handling authentication error, clearing client auth state', { reason })
-
-  try {
-    deleteBrowserAuthCookies()
-    await Promise.allSettled([signOut(), safeServerSignOut(), clearUserData()])
-  } catch (error) {
-    logger.error('Failed to clear client auth state', { error })
-  } finally {
-    const target = '/login?reauth=1'
-    if (window.location.pathname !== '/login') {
-      window.location.replace(target)
-    } else {
-      // Already on login, just refresh to remove stale cookies
-      window.location.reload()
-    }
-    isHandlingAuthError = false
-  }
+  logger.warn('Handling authentication error (no-op to preserve session)', { reason })
+  isHandlingAuthError = false
 }
 
 export function isAuthErrorStatus(status?: number | null): boolean {

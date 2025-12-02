@@ -17,20 +17,20 @@ export interface WorkflowStateFixture {
 }
 
 /**
- * Create a minimal workflow with just a starter and one block
+ * Create a minimal workflow with just a input trigger and one block
  */
 export function createMinimalWorkflowState(): WorkflowStateFixture {
   const blocks: Record<string, BlockState> = {
-    starter: {
-      id: 'starter',
-      type: 'starter',
-      name: 'Starter Block',
+    trigger: {
+      id: 'trigger',
+      type: 'trigger',
+      name: 'Input Trigger',
       position: { x: 0, y: 0 },
       subBlocks: {
         description: {
           id: 'description',
           type: 'long-input',
-          value: 'This is the starter block',
+          value: 'This is the input trigger block',
         },
       },
       outputs: {},
@@ -81,7 +81,7 @@ export function createMinimalWorkflowState(): WorkflowStateFixture {
   const edges: Edge[] = [
     {
       id: 'edge1',
-      source: 'starter',
+      source: 'trigger',
       target: 'agent1',
     },
   ]
@@ -96,16 +96,16 @@ export function createMinimalWorkflowState(): WorkflowStateFixture {
  */
 export function createConditionalWorkflowState(): WorkflowStateFixture {
   const blocks: Record<string, BlockState> = {
-    starter: {
-      id: 'starter',
-      type: 'starter',
-      name: 'Starter Block',
+    trigger: {
+      id: 'trigger',
+      type: 'trigger',
+      name: 'Input Trigger',
       position: { x: 0, y: 0 },
       subBlocks: {
         description: {
           id: 'description',
           type: 'long-input',
-          value: 'This is the starter block',
+          value: 'This is the input trigger block',
         },
       },
       outputs: {},
@@ -211,7 +211,7 @@ export function createConditionalWorkflowState(): WorkflowStateFixture {
   const edges: Edge[] = [
     {
       id: 'edge1',
-      source: 'starter',
+      source: 'trigger',
       target: 'condition1',
     },
     {
@@ -238,16 +238,16 @@ export function createConditionalWorkflowState(): WorkflowStateFixture {
  */
 export function createLoopWorkflowState(): WorkflowStateFixture {
   const blocks: Record<string, BlockState> = {
-    starter: {
-      id: 'starter',
-      type: 'starter',
-      name: 'Starter Block',
+    trigger: {
+      id: 'trigger',
+      type: 'trigger',
+      name: 'Input Trigger',
       position: { x: 0, y: 0 },
       subBlocks: {
         description: {
           id: 'description',
           type: 'long-input',
-          value: 'This is the starter block',
+          value: 'This is the input trigger block',
         },
       },
       outputs: {},
@@ -333,7 +333,7 @@ export function createLoopWorkflowState(): WorkflowStateFixture {
   const edges: Edge[] = [
     {
       id: 'edge1',
-      source: 'starter',
+      source: 'trigger',
       target: 'function1',
     },
     {
@@ -372,16 +372,16 @@ export function createLoopWorkflowState(): WorkflowStateFixture {
  */
 export function createComplexWorkflowState(): WorkflowStateFixture {
   const blocks: Record<string, BlockState> = {
-    starter: {
-      id: 'starter',
-      type: 'starter',
-      name: 'Starter Block',
+    trigger: {
+      id: 'trigger',
+      type: 'trigger',
+      name: 'Input Trigger',
       position: { x: 0, y: 0 },
       subBlocks: {
         description: {
           id: 'description',
           type: 'long-input',
-          value: 'This is the starter block',
+          value: 'This is the input trigger block',
         },
       },
       outputs: {},
@@ -487,7 +487,7 @@ export function createComplexWorkflowState(): WorkflowStateFixture {
   const edges: Edge[] = [
     {
       id: 'edge1',
-      source: 'starter',
+      source: 'trigger',
       target: 'api1',
     },
     {
@@ -512,16 +512,16 @@ export function createComplexWorkflowState(): WorkflowStateFixture {
  */
 export function createAgentWithToolsWorkflowState(): WorkflowStateFixture {
   const blocks: Record<string, BlockState> = {
-    starter: {
-      id: 'starter',
-      type: 'starter',
-      name: 'Starter Block',
+    trigger: {
+      id: 'trigger',
+      type: 'trigger',
+      name: 'Input Trigger',
       position: { x: 0, y: 0 },
       subBlocks: {
         description: {
           id: 'description',
           type: 'long-input',
-          value: 'This is the starter block',
+          value: 'This is the input trigger block',
         },
       },
       outputs: {},
@@ -573,7 +573,7 @@ export function createAgentWithToolsWorkflowState(): WorkflowStateFixture {
   const edges: Edge[] = [
     {
       id: 'edge1',
-      source: 'starter',
+      source: 'trigger',
       target: 'agent1',
     },
   ]

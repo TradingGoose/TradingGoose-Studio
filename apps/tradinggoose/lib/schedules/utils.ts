@@ -93,11 +93,11 @@ export function parseTimeString(timeString: string | undefined | null): [number,
 }
 
 /**
- * Get time values from starter block for scheduling
- * @param starterBlock - The starter block containing schedule configuration
+ * Get time values from a schedule trigger block
+ * @param scheduleBlock - The trigger block containing schedule configuration
  * @returns Object with parsed time values
  */
-export function getScheduleTimeValues(starterBlock: BlockState): {
+export function getScheduleTimeValues(scheduleBlock: BlockState): {
   scheduleTime: string
   scheduleStartAt?: string
   minutesInterval: number
@@ -111,36 +111,36 @@ export function getScheduleTimeValues(starterBlock: BlockState): {
   timezone: string
 } {
   // Extract schedule time (common field that can override others)
-  const scheduleTime = getSubBlockValue(starterBlock, 'scheduleTime')
+  const scheduleTime = getSubBlockValue(scheduleBlock, 'scheduleTime')
 
   // Extract schedule start date
-  const scheduleStartAt = getSubBlockValue(starterBlock, 'scheduleStartAt')
+  const scheduleStartAt = getSubBlockValue(scheduleBlock, 'scheduleStartAt')
 
   // Extract timezone (default to UTC)
-  const timezone = getSubBlockValue(starterBlock, 'timezone') || 'UTC'
+  const timezone = getSubBlockValue(scheduleBlock, 'timezone') || 'UTC'
 
   // Get minutes interval (default to 15)
-  const minutesIntervalStr = getSubBlockValue(starterBlock, 'minutesInterval')
+  const minutesIntervalStr = getSubBlockValue(scheduleBlock, 'minutesInterval')
   const minutesInterval = Number.parseInt(minutesIntervalStr) || 15
 
   // Get hourly minute (default to 0)
-  const hourlyMinuteStr = getSubBlockValue(starterBlock, 'hourlyMinute')
+  const hourlyMinuteStr = getSubBlockValue(scheduleBlock, 'hourlyMinute')
   const hourlyMinute = Number.parseInt(hourlyMinuteStr) || 0
 
   // Get daily time
-  const dailyTime = parseTimeString(getSubBlockValue(starterBlock, 'dailyTime'))
+  const dailyTime = parseTimeString(getSubBlockValue(scheduleBlock, 'dailyTime'))
 
   // Get weekly config
-  const weeklyDayStr = getSubBlockValue(starterBlock, 'weeklyDay') || 'MON'
+  const weeklyDayStr = getSubBlockValue(scheduleBlock, 'weeklyDay') || 'MON'
   const weeklyDay = DAY_MAP[weeklyDayStr] || 1
-  const weeklyTime = parseTimeString(getSubBlockValue(starterBlock, 'weeklyDayTime'))
+  const weeklyTime = parseTimeString(getSubBlockValue(scheduleBlock, 'weeklyDayTime'))
 
   // Get monthly config
-  const monthlyDayStr = getSubBlockValue(starterBlock, 'monthlyDay')
+  const monthlyDayStr = getSubBlockValue(scheduleBlock, 'monthlyDay')
   const monthlyDay = Number.parseInt(monthlyDayStr) || 1
-  const monthlyTime = parseTimeString(getSubBlockValue(starterBlock, 'monthlyTime'))
+  const monthlyTime = parseTimeString(getSubBlockValue(scheduleBlock, 'monthlyTime'))
 
-  const cronExpression = getSubBlockValue(starterBlock, 'cronExpression') || null
+  const cronExpression = getSubBlockValue(scheduleBlock, 'cronExpression') || null
 
   // Validate cron expression if provided
   if (cronExpression) {

@@ -456,7 +456,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
         const { getAllBlocks } = await import('@/blocks')
         const all = getAllBlocks()
         const regularBlocks = all
-          .filter((b: any) => b.type !== 'starter' && !b.hideFromToolbar && b.category === 'blocks')
+          .filter((b: any) => !b.hideFromToolbar && b.category === 'blocks')
           .map((b: any) => ({
             id: b.type,
             name: b.name || b.type,
@@ -466,7 +466,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
           .sort((a: any, b: any) => a.name.localeCompare(b.name))
 
         const toolBlocks = all
-          .filter((b: any) => b.type !== 'starter' && !b.hideFromToolbar && b.category === 'tools')
+          .filter((b: any) => !b.hideFromToolbar && b.category === 'tools')
           .map((b: any) => ({
             id: b.type,
             name: b.name || b.type,

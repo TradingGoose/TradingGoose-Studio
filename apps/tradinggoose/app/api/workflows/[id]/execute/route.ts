@@ -316,14 +316,12 @@ export async function executeWorkflow(
     const startBlockId = startBlock.blockId
     const triggerBlock = startBlock.block
 
-    if (triggerBlock.type !== 'starter') {
-      const outgoingConnections = serializedWorkflow.connections.filter(
-        (conn) => conn.source === startBlockId
-      )
-      if (outgoingConnections.length === 0) {
-        logger.error(`[${requestId}] API trigger has no outgoing connections`)
-        throw new Error('API Trigger block must be connected to other blocks to execute')
-      }
+    const outgoingConnections = serializedWorkflow.connections.filter(
+      (conn) => conn.source === startBlockId
+    )
+    if (outgoingConnections.length === 0) {
+      logger.error(`[${requestId}] Trigger block has no outgoing connections`)
+      throw new Error('Trigger block must be connected to other blocks to execute')
     }
 
     const contextExtensions: any = {

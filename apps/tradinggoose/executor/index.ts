@@ -627,7 +627,7 @@ export class Executor {
 
   /**
    * Validates that the workflow meets requirements for execution.
-   * Checks for starter block, webhook trigger block, or schedule trigger block, connections, and loop configurations.
+   * Ensures trigger blocks exist along with valid connections and loop configurations.
    *
    * @param startBlockId - Optional specific block to start from
    * @throws Error if workflow validation fails
@@ -641,41 +641,15 @@ export class Executor {
       return
     }
 
-    const starterBlock = this.actualWorkflow.blocks.find(
-      (block) => block.metadata?.id === BlockType.STARTER
-    )
-
     // Check for any type of trigger block (dedicated triggers or trigger-mode blocks)
     const hasTriggerBlocks = this.actualWorkflow.blocks.some((block) => {
-      // Check if it's a dedicated trigger block (category: 'triggers')
       if (block.metadata?.category === 'triggers') return true
-      // Check if it's a block with trigger mode enabled
       if (block.config?.params?.triggerMode === true) return true
       return false
     })
 
-    if (hasTriggerBlocks) {
-      // When triggers exist (either dedicated or trigger-mode), we allow execution without a starter block
-      // The actual start block will be determined at runtime based on the execution context
-    } else {
-      // Legacy workflows: require a valid starter block and basic connection checks
-      if (!starterBlock || !starterBlock.enabled) {
-        throw new Error('Workflow must have an enabled starter block')
-      }
-
-      const incomingToStarter = this.actualWorkflow.connections.filter(
-        (conn) => conn.target === starterBlock.id
-      )
-      if (incomingToStarter.length > 0) {
-        throw new Error('Starter block cannot have incoming connections')
-      }
-
-      const outgoingFromStarter = this.actualWorkflow.connections.filter(
-        (conn) => conn.source === starterBlock.id
-      )
-      if (outgoingFromStarter.length === 0) {
-        throw new Error('Starter block must have at least one outgoing connection')
-      }
+    if (!hasTriggerBlocks) {
+      throw new Error('Workflow must include at least one trigger block')
     }
 
     // General graph validations
@@ -713,7 +687,7 @@ export class Executor {
 
   /**
    * Creates the initial execution context with predefined states.
-   * Sets up the starter block, webhook trigger block, or schedule trigger block and its connections in the active execution path.
+   * Sets up the initial trigger block and its connections in the active execution path.
    *
    * @param workflowId - Unique identifier for the workflow execution
    * @param startTime - Execution start time
@@ -775,50 +749,38 @@ export class Executor {
     // Determine which block to initialize as the starting point
     let initBlock: SerializedBlock | undefined
     if (startBlockId) {
-      // Starting from a specific block (webhook trigger, schedule trigger, or new trigger blocks)
       initBlock = this.actualWorkflow.blocks.find((block) => block.id === startBlockId)
-    } else {
-      // Default to starter block (legacy) or find any trigger block
-      initBlock = this.actualWorkflow.blocks.find(
-        (block) => block.metadata?.id === BlockType.STARTER
+    } else if (this.isChildExecution) {
+      const inputTriggerBlocks = this.actualWorkflow.blocks.filter(
+        (block) => block.metadata?.id === 'input_trigger'
       )
-
-      // If no starter block, look for appropriate trigger block based on context
-      if (!initBlock) {
-        if (this.isChildExecution) {
-          const inputTriggerBlocks = this.actualWorkflow.blocks.filter(
-            (block) => block.metadata?.id === 'input_trigger'
-          )
-          if (inputTriggerBlocks.length === 1) {
-            initBlock = inputTriggerBlocks[0]
-          } else if (inputTriggerBlocks.length > 1) {
-            throw new Error('Child workflow has multiple Input Trigger blocks. Keep only one.')
-          }
-        } else {
-          // Parent workflows can use any trigger block (dedicated or trigger-mode)
-          const triggerBlocks = this.actualWorkflow.blocks.filter(
-            (block) =>
-              block.metadata?.id === 'input_trigger' ||
-              block.metadata?.id === 'api_trigger' ||
-              block.metadata?.id === 'chat_trigger' ||
-              block.metadata?.category === 'triggers' ||
-              block.config?.params?.triggerMode === true
-          )
-          if (triggerBlocks.length > 0) {
-            initBlock = triggerBlocks[0]
-          }
-        }
+      if (inputTriggerBlocks.length === 1) {
+        initBlock = inputTriggerBlocks[0]
+      } else if (inputTriggerBlocks.length > 1) {
+        throw new Error('Child workflow has multiple Input Trigger blocks. Keep only one.')
+      }
+    } else {
+      const triggerBlocks = this.actualWorkflow.blocks.filter(
+        (block) =>
+          block.metadata?.category === 'triggers' ||
+          block.config?.params?.triggerMode === true
+      )
+      if (triggerBlocks.length > 0) {
+        initBlock = triggerBlocks[0]
       }
     }
 
-    if (initBlock) {
-      // Initialize the starting block with the workflow input
+    if (!initBlock) {
+      throw new Error('Unable to determine a trigger block to initialize')
+    }
+
+    if (!context.blockStates.has(initBlock.id)) {
       try {
         // Get inputFormat from either old location (config.params) or new location (metadata.subBlocks)
         const blockParams = initBlock.config.params
         let inputFormat = blockParams?.inputFormat
 
-        // For new trigger blocks (api_trigger, etc), inputFormat is in metadata.subBlocks
+        // For trigger blocks (api_trigger, etc), inputFormat can live in metadata subBlocks
         const metadataWithSubBlocks = initBlock.metadata as any
         if (!inputFormat && metadataWithSubBlocks?.subBlocks?.inputFormat?.value) {
           inputFormat = metadataWithSubBlocks.subBlocks.inputFormat.value
@@ -891,11 +853,11 @@ export class Executor {
           // Initialize the starting block with structured input
           let blockOutput: any
 
-          // For API/Input triggers, normalize primitives and mirror objects under input
-          if (
+          const isStructuredTrigger =
             initBlock.metadata?.id === 'api_trigger' ||
             initBlock.metadata?.id === 'input_trigger'
-          ) {
+
+          if (isStructuredTrigger) {
             const isObject =
               finalInput !== null && typeof finalInput === 'object' && !Array.isArray(finalInput)
             if (isObject) {
@@ -907,7 +869,6 @@ export class Executor {
               blockOutput = { input: finalInput }
             }
           } else {
-            // For legacy starter blocks, keep the old behavior
             blockOutput = {
               input: finalInput,
               conversationId: this.workflowInput?.conversationId, // Add conversationId to root
@@ -926,29 +887,25 @@ export class Executor {
             executionTime: 0,
           })
 
-          // Create a block log for the starter block if it has files
-          // This ensures files are captured in trace spans and execution logs
-          this.createStartedBlockWithFilesLog(initBlock, blockOutput, context)
+          this.createInitBlockWithFilesLog(initBlock, blockOutput, context)
         } else {
           // Handle triggers without inputFormat
-          let starterOutput: any
+          let triggerOutput: any
 
           // Handle different trigger types
           if (initBlock.metadata?.id === 'chat_trigger') {
-            // Chat trigger: extract input, conversationId, and files
-            starterOutput = {
+            triggerOutput = {
               input: this.workflowInput?.input || '',
               conversationId: this.workflowInput?.conversationId || '',
             }
 
             if (this.workflowInput?.files && Array.isArray(this.workflowInput.files)) {
-              starterOutput.files = this.workflowInput.files
+              triggerOutput.files = this.workflowInput.files
             }
           } else if (
             initBlock.metadata?.id === 'api_trigger' ||
             initBlock.metadata?.id === 'input_trigger'
           ) {
-            // API/Input trigger without inputFormat: normalize primitives and mirror objects under input
             const rawCandidate =
               this.workflowInput?.input !== undefined
                 ? this.workflowInput.input
@@ -958,82 +915,71 @@ export class Executor {
               typeof rawCandidate === 'object' &&
               !Array.isArray(rawCandidate)
             if (isObject) {
-              starterOutput = {
+              triggerOutput = {
                 ...(rawCandidate as Record<string, any>),
                 input: { ...(rawCandidate as Record<string, any>) },
               }
             } else {
-              starterOutput = { input: rawCandidate }
+              triggerOutput = { input: rawCandidate }
             }
+          } else if (initBlock.metadata?.id === 'manual_trigger') {
+            triggerOutput = { input: this.workflowInput ?? {} }
           } else {
-            // Legacy starter block handling
             if (this.workflowInput && typeof this.workflowInput === 'object') {
-              // Check if this is a chat workflow input (has both input and conversationId)
               if (
                 Object.hasOwn(this.workflowInput, 'input') &&
                 Object.hasOwn(this.workflowInput, 'conversationId')
               ) {
-                // Chat workflow: extract input, conversationId, and files to root level
-                starterOutput = {
+                triggerOutput = {
                   input: this.workflowInput.input,
                   conversationId: this.workflowInput.conversationId,
                 }
 
-                // Add files if present
                 if (this.workflowInput.files && Array.isArray(this.workflowInput.files)) {
-                  starterOutput.files = this.workflowInput.files
+                  triggerOutput.files = this.workflowInput.files
                 }
               } else {
-                // API workflow: spread the raw data directly (no wrapping)
-                starterOutput = { ...this.workflowInput }
+                triggerOutput = { ...this.workflowInput }
               }
             } else {
-              // Fallback for primitive input values
-              starterOutput = {
+              triggerOutput = {
                 input: this.workflowInput,
               }
             }
           }
 
           context.blockStates.set(initBlock.id, {
-            output: starterOutput,
+            output: triggerOutput,
             executed: true,
             executionTime: 0,
           })
 
-          // Create a block log for the starter block if it has files
-          // This ensures files are captured in trace spans and execution logs
-          if (starterOutput.files) {
-            this.createStartedBlockWithFilesLog(initBlock, starterOutput, context)
+          if (triggerOutput.files) {
+            this.createInitBlockWithFilesLog(initBlock, triggerOutput, context)
           }
         }
       } catch (e) {
-        logger.warn('Error processing starter block input format:', e)
+        logger.warn('Error processing trigger block input format:', e)
 
         // Error handler fallback - use appropriate structure
         let blockOutput: any
         if (this.workflowInput && typeof this.workflowInput === 'object') {
-          // Check if this is a chat workflow input (has both input and conversationId)
           if (
             Object.hasOwn(this.workflowInput, 'input') &&
             Object.hasOwn(this.workflowInput, 'conversationId')
           ) {
-            // Chat workflow: extract input, conversationId, and files to root level
             blockOutput = {
               input: this.workflowInput.input,
               conversationId: this.workflowInput.conversationId,
             }
 
-            // Add files if present
             if (this.workflowInput.files && Array.isArray(this.workflowInput.files)) {
               blockOutput.files = this.workflowInput.files
             }
           } else {
-            // API workflow: spread the raw data directly (no wrapping)
             blockOutput = { ...this.workflowInput }
           }
         } else {
-          // Primitive input
           blockOutput = {
             input: this.workflowInput,
           }
@@ -1044,22 +990,12 @@ export class Executor {
           executed: true,
           executionTime: 0,
         })
-        this.createStartedBlockWithFilesLog(initBlock, blockOutput, context)
+        this.createInitBlockWithFilesLog(initBlock, blockOutput, context)
       }
-      // Ensure the starting block is in the active execution path
-      context.activeExecutionPath.add(initBlock.id)
-      // Mark the starting block as executed
-      context.executedBlocks.add(initBlock.id)
-
-      // Add all blocks connected to the starting block to the active execution path
-      const connectedToStartBlock = this.actualWorkflow.connections
-        .filter((conn) => conn.source === initBlock.id)
-        .map((conn) => conn.target)
-
-      connectedToStartBlock.forEach((blockId) => {
-        context.activeExecutionPath.add(blockId)
-      })
     }
+
+    // Ensure the starting block is in the active execution path
+    context.activeExecutionPath.add(initBlock.id)
 
     return context
   }
@@ -1782,15 +1718,6 @@ export class Executor {
       throw new Error(`Block ${actualBlockId} not found`)
     }
 
-    // Special case for starter block - it's already been initialized in createExecutionContext
-    // This ensures we don't re-execute the starter block and just return its existing state
-    if (block.metadata?.id === BlockType.STARTER) {
-      const starterState = context.blockStates.get(actualBlockId)
-      if (starterState) {
-        return starterState.output as NormalizedBlockOutput
-      }
-    }
-
     const blockLog = this.createBlockLog(block)
     // Use virtual block ID in logs if applicable
     if (parallelInfo) {
@@ -1813,24 +1740,10 @@ export class Executor {
         throw new Error(`Cannot execute disabled block: ${block.metadata?.name || block.id}`)
       }
 
-      // Check if this block needs the starter block's output
-      // This is especially relevant for API, function, and conditions that might reference <start.input>
-      const starterBlock = this.actualWorkflow.blocks.find(
-        (b) => b.metadata?.id === BlockType.STARTER
-      )
-      if (starterBlock) {
-        const starterState = context.blockStates.get(starterBlock.id)
-        if (!starterState) {
-          logger.warn(
-            `Starter block state not found when executing ${block.metadata?.name || actualBlockId}. This may cause reference errors.`
-          )
-        }
-      }
-
       // Store raw input configuration first for error debugging
       blockLog.input = block.config.params
 
-      // Resolve inputs (which will look up references to other blocks including starter)
+      // Resolve inputs
       const inputs = this.resolver.resolveInputs(block, context)
 
       // Store input data in the block log
@@ -1941,8 +1854,7 @@ export class Executor {
         // Skip console logging for infrastructure blocks and trigger blocks
         // For streaming blocks, we'll add the console entry after stream processing
         const blockConfig = getBlock(block.metadata?.id || '')
-        const isTriggerBlock =
-          blockConfig?.category === 'triggers' || block.metadata?.id === BlockType.STARTER
+        const isTriggerBlock = blockConfig?.category === 'triggers'
         if (
           block.metadata?.id !== BlockType.LOOP &&
           block.metadata?.id !== BlockType.PARALLEL &&
@@ -2069,8 +1981,7 @@ export class Executor {
 
       // Skip console logging for infrastructure blocks and trigger blocks
       const nonStreamBlockConfig = getBlock(block.metadata?.id || '')
-      const isNonStreamTriggerBlock =
-        nonStreamBlockConfig?.category === 'triggers' || block.metadata?.id === BlockType.STARTER
+      const isNonStreamTriggerBlock = nonStreamBlockConfig?.category === 'triggers'
       if (
         block.metadata?.id !== BlockType.LOOP &&
         block.metadata?.id !== BlockType.PARALLEL &&
@@ -2197,8 +2108,7 @@ export class Executor {
 
       // Skip console logging for infrastructure blocks and trigger blocks
       const errorBlockConfig = getBlock(block.metadata?.id || '')
-      const isErrorTriggerBlock =
-        errorBlockConfig?.category === 'triggers' || block.metadata?.id === BlockType.STARTER
+      const isErrorTriggerBlock = errorBlockConfig?.category === 'triggers'
       if (
         block.metadata?.id !== BlockType.LOOP &&
         block.metadata?.id !== BlockType.PARALLEL &&
@@ -2415,10 +2325,11 @@ export class Executor {
    * @returns Whether there was an error path to follow
    */
   private activateErrorPath(blockId: string, context: ExecutionContext): boolean {
-    // Skip for starter blocks which don't have error handles
+    // Skip for trigger blocks (no error handles) and structural blocks
     const block = this.actualWorkflow.blocks.find((b) => b.id === blockId)
+    const blockConfig = block?.metadata?.id ? getBlock(block.metadata.id) : undefined
     if (
-      block?.metadata?.id === BlockType.STARTER ||
+      blockConfig?.category === 'triggers' ||
       block?.metadata?.id === BlockType.CONDITION ||
       block?.metadata?.id === BlockType.LOOP ||
       block?.metadata?.id === BlockType.PARALLEL
@@ -2541,16 +2452,16 @@ export class Executor {
   }
 
   /**
-   * Creates a block log for the starter block if it contains files.
+   * Creates a block log for the initialized trigger block if it contains files.
    * This ensures files are captured in trace spans and execution logs.
    */
-  private createStartedBlockWithFilesLog(
+  private createInitBlockWithFilesLog(
     initBlock: SerializedBlock,
     blockOutput: any,
     context: ExecutionContext
   ): void {
     if (blockOutput.files && Array.isArray(blockOutput.files) && blockOutput.files.length > 0) {
-      const starterBlockLog: BlockLog = {
+      const initBlockLog: BlockLog = {
         blockId: initBlock.id,
         blockName: initBlock.metadata?.name || 'Start',
         blockType: initBlock.metadata?.id || 'start',
@@ -2561,7 +2472,7 @@ export class Executor {
         output: blockOutput,
         durationMs: 0,
       }
-      context.blockLogs.push(starterBlockLog)
+      context.blockLogs.push(initBlockLog)
     }
   }
 
