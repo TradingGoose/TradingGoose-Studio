@@ -7,7 +7,6 @@ import {
   getFreeTierLimit,
   getProTierLimit,
   getTeamTierLimitPerSeat,
-  getEnterpriseTierLimitPerSeat,
 } from '@/lib/billing/subscriptions/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 
@@ -52,9 +51,6 @@ export function getPlanPricing(plan: string): {
       return { basePrice: getProTierLimit() }
     case 'team':
       return { basePrice: getTeamTierLimitPerSeat() } // Per-seat pricing
-    case 'enterprise':
-      // Enterprise uses per-seat allowance when available; falls back to env default
-      return { basePrice: getEnterpriseTierLimitPerSeat() }
     default:
       return { basePrice: 0 }
   }
@@ -235,7 +231,9 @@ export async function getSimplifiedBillingSummary(
     billingPeriodStart: Date | null
     billingPeriodEnd: Date | null
     lastPeriodCost: number
+    lastPeriodCopilotCost: number
     daysRemaining: number
+    copilotCost: number
   }
   organizationData?: {
     seatCount: number
@@ -273,27 +271,38 @@ export async function getSimplifiedBillingSummary(
         .from(member)
         .where(eq(member.organizationId, organizationId))
 
-      const seats = subscription.seats || 1
-      const metadata = (subscription as any)?.metadata ?? {}
-      const perSeatAllowance = Number.isFinite(Number(metadata?.perSeatAllowance))
-        ? Number(metadata.perSeatAllowance)
-        : null
-      const totalAllowance = Number.isFinite(Number(metadata?.totalAllowance))
-        ? Number(metadata.totalAllowance)
-        : null
-
-      const { basePrice: defaultPerSeat } = getPlanPricing(subscription.plan)
-      // Prefer explicit per-seat allowance, otherwise fall back to configured defaults
-      const basePricePerSeat = perSeatAllowance ?? defaultPerSeat
-      // If a total allowance is provided, use it as the base; otherwise seats × per-seat
-      const totalBasePrice = totalAllowance ?? basePricePerSeat * seats
+      const { basePrice: basePricePerSeat } = getPlanPricing(subscription.plan)
+      // Use licensed seats from Stripe as source of truth
+      const licensedSeats = subscription.seats || 1
+      const totalBasePrice = basePricePerSeat * licensedSeats // Based on Stripe subscription
 
       let totalCurrentUsage = 0
+      let totalCopilotCost = 0
+      let totalLastPeriodCopilotCost = 0
 
       // Calculate total team usage across all members
       for (const memberInfo of members) {
         const memberUsageData = await getUserUsageData(memberInfo.userId)
         totalCurrentUsage += memberUsageData.currentUsage
+
+        // Fetch copilot cost for this member
+        const memberStats = await db
+          .select({
+            currentPeriodCopilotCost: userStats.currentPeriodCopilotCost,
+            lastPeriodCopilotCost: userStats.lastPeriodCopilotCost,
+          })
+          .from(userStats)
+          .where(eq(userStats.userId, memberInfo.userId))
+          .limit(1)
+
+        if (memberStats.length > 0) {
+          totalCopilotCost += Number.parseFloat(
+            memberStats[0].currentPeriodCopilotCost?.toString() || '0'
+          )
+          totalLastPeriodCopilotCost += Number.parseFloat(
+            memberStats[0].lastPeriodCopilotCost?.toString() || '0'
+          )
+        }
       }
 
       // Calculate team-level overage: total usage beyond what was already paid to Stripe
@@ -344,7 +353,9 @@ export async function getSimplifiedBillingSummary(
           billingPeriodStart: usageData.billingPeriodStart,
           billingPeriodEnd: usageData.billingPeriodEnd,
           lastPeriodCost: usageData.lastPeriodCost,
+          lastPeriodCopilotCost: totalLastPeriodCopilotCost,
           daysRemaining,
+          copilotCost: totalCopilotCost,
         },
         organizationData: {
           seatCount: licensedSeats,
@@ -359,8 +370,30 @@ export async function getSimplifiedBillingSummary(
     // Individual billing summary
     const { basePrice } = getPlanPricing(plan)
 
+    // Fetch user stats for copilot cost breakdown
+    const userStatsRows = await db
+      .select({
+        currentPeriodCopilotCost: userStats.currentPeriodCopilotCost,
+        lastPeriodCopilotCost: userStats.lastPeriodCopilotCost,
+      })
+      .from(userStats)
+      .where(eq(userStats.userId, userId))
+      .limit(1)
+
+    const copilotCost =
+      userStatsRows.length > 0
+        ? Number.parseFloat(userStatsRows[0].currentPeriodCopilotCost?.toString() || '0')
+        : 0
+
+    const lastPeriodCopilotCost =
+      userStatsRows.length > 0
+        ? Number.parseFloat(userStatsRows[0].lastPeriodCopilotCost?.toString() || '0')
+        : 0
+
     // For team and enterprise plans, calculate total team usage instead of individual usage
     let currentUsage = usageData.currentUsage
+    let totalCopilotCost = copilotCost
+    let totalLastPeriodCopilotCost = lastPeriodCopilotCost
     if ((isTeam || isEnterprise) && subscription?.referenceId) {
       // Get all team members and sum their usage
       const teamMembers = await db
@@ -369,11 +402,34 @@ export async function getSimplifiedBillingSummary(
         .where(eq(member.organizationId, subscription.referenceId))
 
       let totalTeamUsage = 0
+      let totalTeamCopilotCost = 0
+      let totalTeamLastPeriodCopilotCost = 0
       for (const teamMember of teamMembers) {
         const memberUsageData = await getUserUsageData(teamMember.userId)
         totalTeamUsage += memberUsageData.currentUsage
+
+        // Fetch copilot cost for this team member
+        const memberStats = await db
+          .select({
+            currentPeriodCopilotCost: userStats.currentPeriodCopilotCost,
+            lastPeriodCopilotCost: userStats.lastPeriodCopilotCost,
+          })
+          .from(userStats)
+          .where(eq(userStats.userId, teamMember.userId))
+          .limit(1)
+
+        if (memberStats.length > 0) {
+          totalTeamCopilotCost += Number.parseFloat(
+            memberStats[0].currentPeriodCopilotCost?.toString() || '0'
+          )
+          totalTeamLastPeriodCopilotCost += Number.parseFloat(
+            memberStats[0].lastPeriodCopilotCost?.toString() || '0'
+          )
+        }
       }
       currentUsage = totalTeamUsage
+      totalCopilotCost = totalTeamCopilotCost
+      totalLastPeriodCopilotCost = totalTeamLastPeriodCopilotCost
     }
 
     const overageAmount = Math.max(0, currentUsage - basePrice)
@@ -420,11 +476,19 @@ export async function getSimplifiedBillingSummary(
         billingPeriodStart: usageData.billingPeriodStart,
         billingPeriodEnd: usageData.billingPeriodEnd,
         lastPeriodCost: usageData.lastPeriodCost,
+        lastPeriodCopilotCost: totalLastPeriodCopilotCost,
         daysRemaining,
+        copilotCost: totalCopilotCost,
       },
     }
   } catch (error) {
-    logger.error('Failed to get simplified billing summary', { userId, organizationId, error })
+    logger.error('Failed to get simplified billing summary', {
+      userId,
+      organizationId,
+      error,
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    })
     return getDefaultBillingSummary(organizationId ? 'organization' : 'individual')
   }
 }
@@ -465,7 +529,9 @@ function getDefaultBillingSummary(type: 'individual' | 'organization') {
       billingPeriodStart: null,
       billingPeriodEnd: null,
       lastPeriodCost: 0,
+      lastPeriodCopilotCost: 0,
       daysRemaining: 0,
+      copilotCost: 0,
     },
     ...(type === 'organization' && {
       organizationData: {

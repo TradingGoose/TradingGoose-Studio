@@ -13,6 +13,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { hasProcessedMessage, markMessageAsProcessed } from '@/lib/redis'
 import { COPILOT_API_URL_DEFAULT } from '@/lib/sim-agent/constants'
 import { calculateCost } from '@/providers/utils'
+import { checkInternalApiKey } from '@/lib/copilot/utils'
 
 const MODEL_SYNONYMS: Record<string, string> = {
   'claude-sonnet-4.5': 'claude-sonnet-4-5',
@@ -35,6 +36,7 @@ const ContextUsageRequestSchema = z.object({
   bill: z.boolean().optional(),
   assistantMessageId: z.string().optional(),
   billingModel: z.string().optional(),
+  userId: z.string().optional(),
 })
 
 /**
@@ -44,12 +46,6 @@ const ContextUsageRequestSchema = z.object({
 export async function POST(req: NextRequest) {
   try {
     logger.info('[Context Usage API] Request received')
-
-    const session = await getSession()
-    if (!session?.user?.id) {
-      logger.warn('[Context Usage API] No session/user ID')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
 
     const text = await req.text()
     if (!text) {
@@ -79,7 +75,14 @@ export async function POST(req: NextRequest) {
 
     const { chatId, model, workflowId, provider, bill, assistantMessageId, billingModel } =
       parsed.data
-    const userId = session.user.id // Get userId from session, not from request
+    const internalAuth = checkInternalApiKey(req)
+    const session = !internalAuth.success ? await getSession() : null
+
+    const userId = internalAuth.success ? parsed.data.userId : session?.user?.id
+    if (!userId) {
+      logger.warn('[Context Usage API] No session/user ID')
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     logger.info('[Context Usage API] Request validated', {
       chatId,

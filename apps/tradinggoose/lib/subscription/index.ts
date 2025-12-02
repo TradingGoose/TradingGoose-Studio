@@ -1,3 +1,4 @@
+// Export helper functions for subscription data
 export {
   canUpgrade,
   getBillingStatus,
@@ -8,11 +9,10 @@ export {
   isAtLeastPro,
   isAtLeastTeam,
 } from '@/lib/subscription/helpers'
-
+// Export types
 export type {
   BillingStatus,
   SubscriptionData,
-  SubscriptionStore,
   UsageData,
   UsageLimitData,
 } from '@/lib/subscription/types'

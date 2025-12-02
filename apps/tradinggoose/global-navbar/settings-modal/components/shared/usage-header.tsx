@@ -97,7 +97,7 @@ export function UsageHeader({
                 key={i}
                 className='h-[6px] flex-1 rounded-[2px]'
                 style={{
-                  backgroundColor: isFilled ? (isAlmostOut ? '#ef4444' : '#34B5FF') : '#414141',
+                  backgroundColor: isFilled ? (isAlmostOut ? '#ef4444' : '#ffcc00') : '#88888850',
                 }}
               />
             )
