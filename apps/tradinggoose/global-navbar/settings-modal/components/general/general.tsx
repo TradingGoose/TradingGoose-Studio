@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { getEnv, isTruthy } from '@/lib/env'
+import { useGeneralSettings } from '@/hooks/queries/general-settings'
 import { useGeneralStore } from '@/stores/settings/general/store'
 
 const TOOLTIPS = {
@@ -36,7 +37,8 @@ const THEME_ITEM_INACTIVE_CLASSES =
   'border-transparent text-muted-foreground hover:bg-card hover:text-foreground'
 
 export function General() {
-  const isLoading = useGeneralStore((state) => state.isLoading)
+  const { isPending: isSettingsPending } = useGeneralSettings()
+  const storeIsLoading = useGeneralStore((state) => state.isLoading)
   const isTrainingEnabled = isTruthy(getEnv('NEXT_PUBLIC_COPILOT_TRAINING_ENABLED'))
   const theme = useGeneralStore((state) => state.theme)
   const isAutoConnectEnabled = useGeneralStore((state) => state.isAutoConnectEnabled)
@@ -69,6 +71,8 @@ export function General() {
   const toggleFloatingControls = useGeneralStore((state) => state.toggleFloatingControls)
   const toggleTrainingControls = useGeneralStore((state) => state.toggleTrainingControls)
   const setTelemetryEnabled = useGeneralStore((state) => state.setTelemetryEnabled)
+
+  const isLoading = isSettingsPending || storeIsLoading
 
   // Sync theme from store to next-themes when theme changes
   useEffect(() => {

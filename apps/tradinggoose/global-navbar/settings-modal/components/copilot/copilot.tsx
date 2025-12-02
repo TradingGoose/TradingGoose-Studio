@@ -15,14 +15,15 @@ import {
 } from '@/components/ui'
 import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  type CopilotKey,
+  useCopilotKeys,
+  useDeleteCopilotKey,
+  useGenerateCopilotKey,
+} from '@/hooks/queries/copilot-keys'
 import { useCopilotStore } from '@/stores/copilot/store'
 
 const logger = createLogger('CopilotSettings')
-
-interface CopilotKey {
-  id: string
-  displayKey: string
-}
 
 interface ModelOption {
   value: string
@@ -82,8 +83,9 @@ const getModelIcon = (iconType: 'brain' | 'brainCircuit' | 'zap') => {
 }
 
 export function Copilot() {
-  const [keys, setKeys] = useState<CopilotKey[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const { data: keys = [], isPending: isKeysPending } = useCopilotKeys()
+  const generateKey = useGenerateCopilotKey()
+  const deleteKeyMutation = useDeleteCopilotKey()
   const [enabledModelsMap, setEnabledModelsMap] = useState<Record<string, boolean>>({})
   const [isModelsLoading, setIsModelsLoading] = useState(true)
   const hasFetchedModels = useRef(false)
@@ -98,21 +100,6 @@ export function Copilot() {
   // Delete flow state
   const [deleteKey, setDeleteKey] = useState<CopilotKey | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-
-  const fetchKeys = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      const res = await fetch('/api/copilot/api-keys')
-      if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`)
-      const data = await res.json()
-      setKeys(Array.isArray(data.keys) ? (data.keys as CopilotKey[]) : [])
-    } catch (error) {
-      logger.error('Failed to fetch copilot keys', { error })
-      setKeys([])
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
 
   const fetchEnabledModels = useCallback(async () => {
     if (hasFetchedModels.current) return
@@ -144,49 +131,26 @@ export function Copilot() {
   }, [setStoreEnabledModels])
 
   useEffect(() => {
-    if (isHosted) {
-      fetchKeys()
-    }
     fetchEnabledModels()
-  }, [])
+  }, [fetchEnabledModels])
 
   const onGenerate = async () => {
     try {
-      setIsLoading(true)
-      const res = await fetch('/api/copilot/api-keys/generate', { method: 'POST' })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body.error || 'Failed to generate API key')
-      }
-      const data = await res.json()
+      const data = await generateKey.mutateAsync()
       if (data?.key?.apiKey) {
         setNewKey(data.key.apiKey)
         setShowNewKeyDialog(true)
       }
-
-      await fetchKeys()
     } catch (error) {
       logger.error('Failed to generate copilot API key', { error })
-    } finally {
-      setIsLoading(false)
     }
   }
 
   const onDelete = async (id: string) => {
     try {
-      setIsLoading(true)
-      const res = await fetch(`/api/copilot/api-keys?id=${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-      })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body.error || 'Failed to delete API key')
-      }
-      await fetchKeys()
+      await deleteKeyMutation.mutateAsync({ keyId: id })
     } catch (error) {
       logger.error('Failed to delete copilot API key', { error })
-    } finally {
-      setIsLoading(false)
     }
   }
 
@@ -253,7 +217,7 @@ export function Copilot() {
                 variant='ghost'
                 size='sm'
                 className='h-8 rounded-sm border bg-background px-3 shadow-xs hover:bg-card focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
-                disabled={isLoading}
+                disabled={isKeysPending || generateKey.isPending || deleteKeyMutation.isPending}
               >
                 <Plus className='h-3.5 w-3.5 stroke-[2px]' />
                 Create
@@ -262,7 +226,7 @@ export function Copilot() {
 
             {/* API Keys List */}
             <div className='space-y-2'>
-              {isLoading ? (
+              {isKeysPending ? (
                 <>
                   <CopilotKeySkeleton />
                   <CopilotKeySkeleton />
@@ -447,6 +411,7 @@ export function Copilot() {
                 setDeleteKey(null)
               }}
               className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+              disabled={deleteKeyMutation.isPending}
             >
               Delete
             </AlertDialogAction>

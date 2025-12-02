@@ -37,9 +37,16 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  usePersonalEnvironment,
+  useRemoveWorkspaceEnvironment,
+  useSavePersonalEnvironment,
+  useUpsertWorkspaceEnvironment,
+  useWorkspaceEnvironment,
+  type WorkspaceEnvironmentData,
+} from '@/hooks/queries/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { useEnvironmentStore } from '@/stores/settings/environment/store'
 import type { EnvironmentVariable as StoreEnvironmentVariable } from '@/stores/settings/environment/types'
 
 const logger = createLogger('EnvironmentVariables')
@@ -131,19 +138,33 @@ const EnvironmentVariablesComponent = (
   const isModalVariant = variant === 'modal'
   const isPageVariant = variant === 'page'
   const {
-    variables,
-    isLoading,
-    loadWorkspaceEnvironment,
-    upsertWorkspaceEnvironment,
-    removeWorkspaceEnvironmentKeys,
-  } = useEnvironmentStore()
+    data: personalEnvData,
+    isPending: isPersonalLoading,
+  } = usePersonalEnvironment()
+  const { data: workspaceEnvData, isPending: isWorkspacePending } = useWorkspaceEnvironment(
+    workspaceId || '',
+    {
+      select: useCallback(
+        (data: WorkspaceEnvironmentData): WorkspaceEnvironmentData => ({
+          workspace: data.workspace || {},
+          personal: data.personal || {},
+          conflicts: data.conflicts || [],
+          workspaceMeta: data.workspaceMeta,
+          personalMeta: data.personalMeta,
+        }),
+        []
+      ),
+    }
+  )
+  const savePersonalMutation = useSavePersonalEnvironment()
+  const upsertWorkspaceMutation = useUpsertWorkspaceEnvironment()
+  const removeWorkspaceMutation = useRemoveWorkspaceEnvironment()
   const [envVars, setEnvVars] = useState<UIEnvironmentVariable[]>([])
   const [focusedValueIndex, setFocusedValueIndex] = useState<number | null>(null)
   const [showUnsavedChanges, setShowUnsavedChanges] = useState(false)
   const [shouldScrollToBottom, setShouldScrollToBottom] = useState(false)
   const [workspaceVars, setWorkspaceVars] = useState<UIEnvironmentVariable[]>([])
   const [conflicts, setConflicts] = useState<string[]>([])
-  const [isWorkspaceLoading, setIsWorkspaceLoading] = useState(true)
   const initialWorkspaceVarsRef = useRef<UIEnvironmentVariable[]>([])
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -159,6 +180,13 @@ const EnvironmentVariablesComponent = (
   const [editingKeyName, setEditingKeyName] = useState('')
   const [editingValue, setEditingValue] = useState('')
   const editValueInputRef = useRef<HTMLInputElement | null>(null)
+  const variables = personalEnvData || {}
+  const isSaving =
+    savePersonalMutation.isPending ||
+    upsertWorkspaceMutation.isPending ||
+    removeWorkspaceMutation.isPending
+  const isWorkspaceLoading = isWorkspacePending || isSaving
+  const isBusy = isPersonalLoading || isWorkspaceLoading
 
   const filteredEnvVars = useMemo(() => {
     if (!resolvedSearchTerm.trim()) {
@@ -221,7 +249,6 @@ const EnvironmentVariablesComponent = (
       new Set(workspaceVars.map((envVar) => envVar.key).filter((key) => key.length > 0)),
     [workspaceVars]
   )
-  const isBusy = isLoading || isWorkspaceLoading
   const hasConflicts = useMemo(() => {
     return envVars.some((envVar) => !!envVar.key && workspaceKeySet.has(envVar.key))
   }, [envVars, workspaceKeySet])
@@ -261,48 +288,38 @@ const EnvironmentVariablesComponent = (
   }, [isBusy, onLoadingChange])
 
   useEffect(() => {
-    let mounted = true
-      ; (async () => {
-        if (!workspaceId) {
-          setIsWorkspaceLoading(false)
-          return
-        }
-        setIsWorkspaceLoading(true)
-        try {
-          const data = await loadWorkspaceEnvironment(workspaceId)
-          if (!mounted) return
-          const toUIVariables = (
-            input: Record<string, string>,
-            meta?: { createdAt?: string | null; updatedAt?: string | null }
-          ) =>
-            Object.entries(input || {}).map(([key, value]) => ({
-              key,
-              value,
-              id: generateRowId(),
-              createdAt: meta?.createdAt ?? undefined,
-              updatedAt: meta?.updatedAt ?? meta?.createdAt ?? undefined,
-            }))
-
-          const workspaceList = toUIVariables(data.workspace || {}, data.workspaceMeta)
-          const personalList = toUIVariables(data.personal || {}, data.personalMeta)
-
-          setWorkspaceVars(workspaceList)
-          initialWorkspaceVarsRef.current = JSON.parse(JSON.stringify(workspaceList))
-          if (personalList.length) {
-            setEnvVars(personalList)
-            initialVarsRef.current = JSON.parse(JSON.stringify(personalList))
-          }
-          setConflicts(data.conflicts || [])
-        } finally {
-          if (mounted) {
-            setIsWorkspaceLoading(false)
-          }
-        }
-      })()
-    return () => {
-      mounted = false
+    if (!workspaceId) {
+      setWorkspaceVars([])
+      setConflicts([])
+      initialWorkspaceVarsRef.current = []
+      return
     }
-  }, [workspaceId, loadWorkspaceEnvironment])
+
+    if (!workspaceEnvData) return
+
+    const toUIVariables = (
+      input: Record<string, string>,
+      meta?: { createdAt?: string | null; updatedAt?: string | null }
+    ) =>
+      Object.entries(input || {}).map(([key, value]) => ({
+        key,
+        value,
+        id: generateRowId(),
+        createdAt: meta?.createdAt ?? undefined,
+        updatedAt: meta?.updatedAt ?? meta?.createdAt ?? undefined,
+      }))
+
+    const workspaceList = toUIVariables(workspaceEnvData.workspace || {}, workspaceEnvData.workspaceMeta)
+    const personalList = toUIVariables(workspaceEnvData.personal || {}, workspaceEnvData.personalMeta)
+
+    setWorkspaceVars(workspaceList)
+    initialWorkspaceVarsRef.current = JSON.parse(JSON.stringify(workspaceList))
+    if (personalList.length) {
+      setEnvVars(personalList)
+      initialVarsRef.current = JSON.parse(JSON.stringify(personalList))
+    }
+    setConflicts(workspaceEnvData.conflicts || [])
+  }, [workspaceId, workspaceEnvData])
 
   useEffect(() => {
     if (!isModalVariant) return
@@ -545,7 +562,6 @@ const EnvironmentVariablesComponent = (
       if (isModalVariant) {
         onOpenChange?.(false)
       }
-      setIsWorkspaceLoading(true)
 
       const toRecord = (vars: UIEnvironmentVariable[]) =>
         vars
@@ -559,7 +575,7 @@ const EnvironmentVariablesComponent = (
           )
 
       const validVariables = toRecord(envVars)
-      await useEnvironmentStore.getState().saveEnvironmentVariables(validVariables)
+      await savePersonalMutation.mutateAsync({ variables: validVariables })
 
       const before = toRecord(initialWorkspaceVarsRef.current)
       const after = toRecord(workspaceVars)
@@ -577,18 +593,17 @@ const EnvironmentVariablesComponent = (
 
       if (workspaceId) {
         if (Object.keys(toUpsert).length) {
-          await upsertWorkspaceEnvironment(workspaceId, toUpsert)
+          await upsertWorkspaceMutation.mutateAsync({ workspaceId, variables: toUpsert })
         }
         if (toDelete.length) {
-          await removeWorkspaceEnvironmentKeys(workspaceId, toDelete)
+          await removeWorkspaceMutation.mutateAsync({ workspaceId, keys: toDelete })
         }
       }
 
       initialWorkspaceVarsRef.current = JSON.parse(JSON.stringify(workspaceVars))
+      initialVarsRef.current = JSON.parse(JSON.stringify(envVars))
     } catch (error) {
       logger.error('Failed to save environment variables:', error)
-    } finally {
-      setIsWorkspaceLoading(false)
     }
   }
 
@@ -1002,7 +1017,7 @@ const EnvironmentVariablesComponent = (
       {isModalVariant && (
         <div className='px-6 pt-4 pb-2'>
           {/* Search Input */}
-          {isLoading ? (
+          {isPersonalLoading ? (
             <Skeleton className='h-9 w-56 rounded-sm' />
           ) : (
             <div className='flex h-9 w-56 items-center gap-2 rounded-sm border bg-transparent pr-2 pl-3'>
@@ -1030,7 +1045,7 @@ const EnvironmentVariablesComponent = (
         className='scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent min-h-0 flex-1 overflow-y-auto px-6'
       >
         <div className='h-full space-y-2 py-2'>
-          {isLoading || isWorkspaceLoading ? (
+          {isPersonalLoading || isWorkspaceLoading ? (
             <>
               {/* Show 3 skeleton rows */}
               {[1, 2, 3].map((index) => (
@@ -1169,7 +1184,7 @@ const EnvironmentVariablesComponent = (
       {/* Footer */}
       <div className='bg-background'>
         <div className={`flex w-full items-center px-6 py-4 ${footerJustifyClass}`}>
-          {isLoading ? (
+          {isBusy ? (
             isModalVariant ? (
               <>
                 <Skeleton className='h-9 w-[117px] rounded-sm' />
@@ -1195,7 +1210,7 @@ const EnvironmentVariablesComponent = (
                 <TooltipTrigger asChild>
                   <Button
                     onClick={handleSave}
-                    disabled={!hasChanges || hasConflicts}
+                    disabled={!hasChanges || hasConflicts || isBusy}
                     className={`h-9 rounded-sm ${hasConflicts ? 'cursor-not-allowed opacity-50' : ''}`}
                   >
                     Save Changes

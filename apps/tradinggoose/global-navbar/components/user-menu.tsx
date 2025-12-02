@@ -22,11 +22,12 @@ import { Button } from '@/components/ui/button'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
 import { signOut } from '@/lib/auth-client'
 import { isHosted } from '@/lib/environment'
+import { getUserRole } from '@/lib/organization/helpers'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getInitials } from '../utils'
 import { clearUserData } from '@/stores'
-import { useOrganizationStore } from '@/stores/organization'
 import { useGeneralStore } from '@/stores/settings/general/store'
+import { useOrganizations } from '@/hooks/queries/organization'
 import { HelpModal } from '@/global-navbar/settings-modal/components/help/help-modal'
 import type { SettingsSection } from '@/global-navbar/settings-modal/types'
 import {
@@ -86,14 +87,18 @@ export function UserMenu({
   const setTheme = useGeneralStore((state) => state.setTheme)
   const isGeneralLoading = useGeneralStore((state) => state.isLoading)
   const isThemeLoading = useGeneralStore((state) => state.isThemeLoading)
+  const { data: organizationsData } = useOrganizations()
   const currentThemeLabel =
     THEME_OPTIONS.find((option) => option.value === theme)?.label ?? 'Theme'
-  const hasEnterprisePlan = useOrganizationStore((state) => state.hasEnterprisePlan)
-  const activeOrganizationId = useOrganizationStore((state) => state.activeOrganization?.id)
-  const getUserRole = useOrganizationStore((state) => state.getUserRole)
   const [isSSOProviderOwner, setIsSSOProviderOwner] = useState<boolean | null>(null)
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
-  const userRole = useMemo(() => getUserRole(userEmail), [getUserRole, userEmail])
+  const activeOrganization = organizationsData?.activeOrganization
+  const hasEnterprisePlan = organizationsData?.billingData?.data?.isEnterprise ?? false
+  const activeOrganizationId = activeOrganization?.id
+  const userRole = useMemo(
+    () => getUserRole(activeOrganization, userEmail),
+    [activeOrganization, userEmail]
+  )
   const isOwner = userRole === 'owner'
   const isAdmin = userRole === 'admin'
   const hasOrganization = Boolean(activeOrganizationId)

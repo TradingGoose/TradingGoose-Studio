@@ -7,131 +7,35 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
-import { client, useSession } from '@/lib/auth-client'
+import {
+  type ServiceInfo,
+  useConnectOAuthService,
+  useDisconnectOAuthService,
+  useOAuthConnections,
+} from '@/hooks/queries/oauth-connections'
 import { createLogger } from '@/lib/logs/console/logger'
-import { OAUTH_PROVIDERS, type OAuthServiceConfig } from '@/lib/oauth/oauth'
+import { OAUTH_PROVIDERS } from '@/lib/oauth/oauth'
 import { cn } from '@/lib/utils'
 import { GlobalNavbarHeader } from '@/global-navbar'
 
 const logger = createLogger('Integrations')
-
-interface ServiceInfo extends OAuthServiceConfig {
-    isConnected: boolean
-    lastConnected?: string
-    accounts?: { id: string; name: string }[]
-}
 
 export function Integrations() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const params = useParams()
     const workspaceId = params.workspaceId as string
-    const { data: session } = useSession()
-    const userId = session?.user?.id
     const pendingServiceRef = useRef<HTMLDivElement>(null)
 
-    const [services, setServices] = useState<ServiceInfo[]>([])
+    const { data: services = [], isPending: servicesPending, refetch } = useOAuthConnections()
+    const connectService = useConnectOAuthService()
+    const disconnectService = useDisconnectOAuthService()
     const [searchTerm, setSearchTerm] = useState('')
-    const [isLoading, setIsLoading] = useState(true)
     const [isConnecting, setIsConnecting] = useState<string | null>(null)
     const [pendingService, setPendingService] = useState<string | null>(null)
-    const [_pendingScopes, setPendingScopes] = useState<string[]>([])
     const [authSuccess, setAuthSuccess] = useState(false)
     const [showActionRequired, setShowActionRequired] = useState(false)
-    const prevConnectedIdsRef = useRef<Set<string>>(new Set())
-    const connectionAddedRef = useRef<boolean>(false)
-
-    // Define available services from our standardized OAuth providers
-    const defineServices = (): ServiceInfo[] => {
-        const servicesList: ServiceInfo[] = []
-
-        // Convert our standardized providers to ServiceInfo objects
-        Object.values(OAUTH_PROVIDERS).forEach((provider) => {
-            Object.values(provider.services).forEach((service) => {
-                servicesList.push({
-                    ...service,
-                    isConnected: false,
-                    scopes: service.scopes || [],
-                })
-            })
-        })
-
-        return servicesList
-    }
-
-    // Fetch services and their connection status
-    const fetchServices = async () => {
-        if (!userId) return
-
-        setIsLoading(true)
-        try {
-            // Start with the base service definitions
-            const serviceDefinitions = defineServices()
-
-            // Fetch all OAuth connections for the user
-            const response = await fetch('/api/auth/oauth/connections')
-            if (response.ok) {
-                const data = await response.json()
-                const connections = data.connections || []
-
-                // Update services with connection status and account info
-                const updatedServices = serviceDefinitions.map((service) => {
-                    // Find matching connection - now we can do an exact match on providerId
-                    const connection = connections.find((conn: any) => {
-                        // Exact match on providerId is the most reliable
-                        return conn.provider === service.providerId
-                    })
-
-                    // If we found an exact match, use it
-                    if (connection) {
-                        return {
-                            ...service,
-                            isConnected: connection.accounts?.length > 0,
-                            accounts: connection.accounts || [],
-                            lastConnected: connection.lastConnected,
-                        }
-                    }
-
-                    // If no exact match, check if any connection has all the required scopes
-                    const connectionWithScopes = connections.find((conn: any) => {
-                        // Only consider connections from the same base provider
-                        if (!conn.baseProvider || !service.providerId.startsWith(conn.baseProvider)) {
-                            return false
-                        }
-
-                        // Check if all required scopes for this service are included in the connection
-                        if (conn.scopes && service.scopes) {
-                            return service.scopes.every((scope) => conn.scopes.includes(scope))
-                        }
-
-                        return false
-                    })
-
-                    if (connectionWithScopes) {
-                        return {
-                            ...service,
-                            isConnected: connectionWithScopes.accounts?.length > 0,
-                            accounts: connectionWithScopes.accounts || [],
-                            lastConnected: connectionWithScopes.lastConnected,
-                        }
-                    }
-
-                    return service
-                })
-
-                setServices(updatedServices)
-            } else {
-                // If there's an error, just use the base definitions
-                setServices(serviceDefinitions)
-            }
-        } catch (error) {
-            logger.error('Error fetching services:', { error })
-            // Use base definitions on error
-            setServices(defineServices())
-        } finally {
-            setIsLoading(false)
-        }
-    }
+    const isLoading = servicesPending && services.length === 0
 
     // Check for OAuth callback
     useEffect(() => {
@@ -168,9 +72,7 @@ export function Integrations() {
             setAuthSuccess(true)
 
             // Refresh connections to show the new connection
-            if (userId) {
-                fetchServices()
-            }
+            refetch().catch((error) => logger.error('Failed to refresh services after OAuth', error))
 
             // Clear the URL parameters
             router.replace(`/workspace/${workspaceId}/integrations`)
@@ -178,32 +80,7 @@ export function Integrations() {
             logger.error('OAuth error:', { error })
             router.replace(`/workspace/${workspaceId}/integrations`)
         }
-    }, [searchParams, router, userId, workspaceId])
-
-    // Fetch services on mount
-    useEffect(() => {
-        if (userId) {
-            fetchServices()
-        }
-    }, [userId])
-
-    // Track when a new connection is added compared to previous render
-    useEffect(() => {
-        try {
-            const currentConnected = new Set<string>()
-            services.forEach((svc) => {
-                if (svc.isConnected) currentConnected.add(svc.id)
-            })
-            // Detect new connections by comparing to previous connected set
-            for (const id of currentConnected) {
-                if (!prevConnectedIdsRef.current.has(id)) {
-                    connectionAddedRef.current = true
-                    break
-                }
-            }
-            prevConnectedIdsRef.current = currentConnected
-        } catch { }
-    }, [services])
+    }, [searchParams, router, workspaceId, refetch])
 
     // Handle connect button click
     const handleConnect = async (service: ServiceInfo) => {
@@ -216,12 +93,20 @@ export function Integrations() {
                 scopes: service.scopes,
             })
 
-            await client.oauth2.link({
+            if (typeof window !== 'undefined') {
+                localStorage.setItem(
+                    'pending_oauth_state',
+                    JSON.stringify({ serviceId: service.id, scopes: service.scopes })
+                )
+            }
+
+            await connectService.mutateAsync({
                 providerId: service.providerId,
                 callbackURL: window.location.href,
             })
         } catch (error) {
             logger.error('OAuth connection error:', { error })
+        } finally {
             setIsConnecting(null)
         }
     }
@@ -230,35 +115,12 @@ export function Integrations() {
     const handleDisconnect = async (service: ServiceInfo, accountId: string) => {
         setIsConnecting(`${service.id}-${accountId}`)
         try {
-            // Call the API to disconnect the account
-            const response = await fetch('/api/auth/oauth/disconnect', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    provider: service.providerId.split('-')[0],
-                    providerId: service.providerId,
-                }),
+            await disconnectService.mutateAsync({
+                provider: service.providerId.split('-')[0],
+                providerId: service.providerId,
+                serviceId: service.id,
+                accountId,
             })
-
-            if (response.ok) {
-                // Update the local state by removing the disconnected account
-                setServices((prev) =>
-                    prev.map((svc) => {
-                        if (svc.id === service.id) {
-                            return {
-                                ...svc,
-                                accounts: svc.accounts?.filter((acc) => acc.id !== accountId) || [],
-                                isConnected: (svc.accounts?.length || 0) > 1,
-                            }
-                        }
-                        return svc
-                    })
-                )
-            } else {
-                logger.error('Error disconnecting service')
-            }
         } catch (error) {
             logger.error('Error disconnecting service:', { error })
         } finally {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,10 +15,11 @@ import {
 import { Button } from '@/components/ui/button'
 import { useSession, useSubscription } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getSubscriptionStatus } from '@/lib/subscription/helpers'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { cn } from '@/lib/utils'
-import { useOrganizationStore } from '@/stores/organization'
-import { useSubscriptionStore } from '@/stores/subscription/store'
+import { organizationKeys, useOrganizations } from '@/hooks/queries/organization'
+import { subscriptionKeys, useSubscriptionData } from '@/hooks/queries/subscription'
 
 const logger = createLogger('CancelSubscription')
 
@@ -40,9 +42,13 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
 
   const { data: session } = useSession()
   const betterAuthSubscription = useSubscription()
-  const { activeOrganization, loadOrganizationSubscription, refreshOrganization } =
-    useOrganizationStore()
-  const { getSubscriptionStatus, refresh } = useSubscriptionStore()
+  const { data: orgsData } = useOrganizations()
+  const { data: subData } = useSubscriptionData()
+  const queryClient = useQueryClient()
+
+  const activeOrganization = orgsData?.activeOrganization
+  const billingPayload = (subData as any)?.data ?? subData
+  const currentSubscriptionStatus = getSubscriptionStatus(billingPayload)
 
   // Clear error after 3 seconds
   useEffect(() => {
@@ -66,7 +72,7 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
     setError(null)
 
     try {
-      const subscriptionStatus = getSubscriptionStatus()
+      const subscriptionStatus = currentSubscriptionStatus
       const activeOrgId = activeOrganization?.id
 
       let referenceId = session.user.id
@@ -74,9 +80,7 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
 
       if (subscriptionStatus.isTeam && activeOrgId) {
         referenceId = activeOrgId
-        // Get subscription ID for team/enterprise
-        const orgSubscription = useOrganizationStore.getState().subscriptionData
-        subscriptionId = orgSubscription?.id
+        subscriptionId = billingPayload?.id
       }
 
       logger.info('Canceling subscription', {
@@ -124,7 +128,7 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
     setError(null)
 
     try {
-      const subscriptionStatus = getSubscriptionStatus()
+      const subscriptionStatus = currentSubscriptionStatus
       const activeOrgId = activeOrganization?.id
 
       if (isCancelAtPeriodEnd) {
@@ -136,9 +140,8 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
         let subscriptionId: string | undefined
 
         if ((subscriptionStatus.isTeam || subscriptionStatus.isEnterprise) && activeOrgId) {
-          const orgSubscription = useOrganizationStore.getState().subscriptionData
           referenceId = activeOrgId
-          subscriptionId = orgSubscription?.id
+          subscriptionId = billingPayload?.id
         } else {
           // For personal subscriptions, use user ID and let better-auth find the subscription
           referenceId = session.user.id
@@ -158,10 +161,12 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
         logger.info('Subscription restored successfully', result)
       }
 
-      await refresh()
+      // Invalidate queries to refresh data
+      await queryClient.invalidateQueries({ queryKey: subscriptionKeys.user() })
       if (activeOrgId) {
-        await loadOrganizationSubscription(activeOrgId)
-        await refreshOrganization().catch(() => {})
+        await queryClient.invalidateQueries({ queryKey: organizationKeys.detail(activeOrgId) })
+        await queryClient.invalidateQueries({ queryKey: organizationKeys.billing(activeOrgId) })
+        await queryClient.invalidateQueries({ queryKey: organizationKeys.lists() })
       }
 
       setIsDialogOpen(false)
@@ -278,7 +283,7 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
             </AlertDialogCancel>
 
             {(() => {
-              const subscriptionStatus = getSubscriptionStatus()
+              const subscriptionStatus = currentSubscriptionStatus
               if (subscriptionStatus.isPaid && isCancelAtPeriodEnd) {
                 return (
                   <AlertDialogAction

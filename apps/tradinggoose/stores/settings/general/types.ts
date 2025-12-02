@@ -4,10 +4,12 @@ export interface General {
   isConsoleExpandedByDefault: boolean
   showFloatingControls: boolean
   showTrainingControls: boolean
+  superUserModeEnabled: boolean
   theme: 'system' | 'light' | 'dark'
   telemetryEnabled: boolean
   isLoading: boolean
   error: string | null
+  isErrorNotificationsEnabled: boolean
   isAutoConnectLoading: boolean
   isAutoPanLoading: boolean
   isConsoleExpandedByDefaultLoading: boolean
@@ -20,6 +22,7 @@ export interface General {
 }
 
 export interface GeneralActions {
+  setSettings: (settings: Partial<General>) => void
   toggleAutoConnect: () => Promise<void>
   toggleAutoPan: () => Promise<void>
   toggleConsoleExpandedByDefault: () => Promise<void>
@@ -43,4 +46,6 @@ export type UserSettings = {
   showTrainingControls: boolean
   telemetryEnabled: boolean
   isBillingUsageNotificationsEnabled: boolean
+  superUserModeEnabled: boolean
+  errorNotificationsEnabled: boolean
 }

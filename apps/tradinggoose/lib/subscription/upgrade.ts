@@ -1,8 +1,8 @@
 import { useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { client, useSession, useSubscription } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useOrganizationStore } from '@/stores/organization'
-import { useSubscriptionStore } from '@/stores/subscription/store'
+import { organizationKeys } from '@/hooks/queries/organization'
 
 const logger = createLogger('SubscriptionUpgrade')
 
@@ -18,8 +18,7 @@ const CONSTANTS = {
 export function useSubscriptionUpgrade() {
   const { data: session } = useSession()
   const betterAuthSubscription = useSubscription()
-  const { loadData: loadOrganizationData } = useOrganizationStore()
-  const refreshSubscriptionData = useSubscriptionStore((state) => state.refresh)
+  const queryClient = useQueryClient()
 
   const handleUpgrade = useCallback(
     async (targetPlan: TargetPlan) => {
@@ -44,7 +43,7 @@ export function useSubscriptionUpgrade() {
       // For team plans, create organization first and use its ID as referenceId
       if (targetPlan === 'team') {
         try {
-          // Prefer an existing org where the user is owner/admin before creating a new one
+          // Check if user already has an organization where they are owner/admin
           const orgsResponse = await fetch('/api/organizations')
           if (orgsResponse.ok) {
             const orgsData = await orgsResponse.json()
@@ -61,7 +60,7 @@ export function useSubscriptionUpgrade() {
             }
           }
 
-          // Only create a new organization if no suitable one exists
+          // Only create new organization if no suitable one exists
           if (referenceId === userId) {
             logger.info('Creating organization for team plan upgrade', {
               userId,
@@ -85,7 +84,6 @@ export function useSubscriptionUpgrade() {
                 errorData.message || `Failed to create organization: ${response.statusText}`
               )
             }
-
             const result = await response.json()
 
             logger.info('Organization API response', {
@@ -105,7 +103,7 @@ export function useSubscriptionUpgrade() {
           try {
             await client.organization.setActive({ organizationId: referenceId })
 
-            logger.info('Set organization as active and updated referenceId', {
+            logger.info('Set organization as active', {
               organizationId: referenceId,
               oldReferenceId: userId,
               newReferenceId: referenceId,
@@ -191,19 +189,12 @@ export function useSubscriptionUpgrade() {
         // For team plans, refresh organization data to ensure UI updates
         if (targetPlan === 'team') {
           try {
-            await loadOrganizationData()
+            await queryClient.invalidateQueries({ queryKey: organizationKeys.lists() })
             logger.info('Refreshed organization data after team upgrade')
           } catch (error) {
             logger.warn('Failed to refresh organization data after upgrade', error)
             // Don't fail the entire upgrade if data refresh fails
           }
-        }
-
-        try {
-          await refreshSubscriptionData()
-          logger.info('Refreshed subscription data after upgrade')
-        } catch (refreshError) {
-          logger.warn('Failed to refresh subscription data after upgrade', refreshError)
         }
 
         logger.info('Subscription upgrade completed successfully', {
@@ -226,7 +217,7 @@ export function useSubscriptionUpgrade() {
         )
       }
     },
-    [session?.user?.id, betterAuthSubscription, loadOrganizationData, refreshSubscriptionData]
+    [session?.user?.id, betterAuthSubscription, queryClient]
   )
 
   return { handleUpgrade }

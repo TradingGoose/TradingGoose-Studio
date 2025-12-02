@@ -1,7 +1,11 @@
 import type React from 'react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import {
+  usePersonalEnvironment,
+  useWorkspaceEnvironment,
+  type WorkspaceEnvironmentData,
+} from '@/hooks/queries/environment'
 import { cn } from '@/lib/utils'
-import { useEnvironmentStore } from '@/stores/settings/environment/store'
 
 interface EnvVarDropdownProps {
   visible: boolean
@@ -33,31 +37,28 @@ export const EnvVarDropdown: React.FC<EnvVarDropdownProps> = ({
   workspaceId,
   maxHeight = 'none',
 }) => {
-  const loadWorkspaceEnvironment = useEnvironmentStore((state) => state.loadWorkspaceEnvironment)
-  const userEnvVars = useEnvironmentStore((state) => Object.keys(state.variables))
-  const [workspaceEnvData, setWorkspaceEnvData] = useState<{
-    workspace: Record<string, string>
-    personal: Record<string, string>
-    conflicts: string[]
-  }>({ workspace: {}, personal: {}, conflicts: [] })
+  const { data: personalEnv = {} } = usePersonalEnvironment()
+  const { data: workspaceEnvData } = useWorkspaceEnvironment(workspaceId || '', {
+    select: useCallback(
+      (data: WorkspaceEnvironmentData): WorkspaceEnvironmentData => ({
+        workspace: data.workspace || {},
+        personal: data.personal || {},
+        conflicts: data.conflicts || [],
+      }),
+      []
+    ),
+  })
+  const userEnvVars = Object.keys(personalEnv)
   const [selectedIndex, setSelectedIndex] = useState(0)
 
   // Load workspace environment variables when workspaceId changes
-  useEffect(() => {
-    if (workspaceId && visible) {
-      loadWorkspaceEnvironment(workspaceId).then((data) => {
-        setWorkspaceEnvData(data)
-      })
-    }
-  }, [workspaceId, visible, loadWorkspaceEnvironment])
-
   // Combine and organize environment variables
   const envVarGroups: EnvVarGroup[] = []
 
   if (workspaceId) {
     // When workspaceId is provided, show both workspace and user env vars
-    const workspaceVars = Object.keys(workspaceEnvData.workspace)
-    const personalVars = Object.keys(workspaceEnvData.personal)
+    const workspaceVars = Object.keys(workspaceEnvData?.workspace || {})
+    const personalVars = Object.keys(workspaceEnvData?.personal || {})
 
     if (workspaceVars.length > 0) {
       envVarGroups.push({ label: 'Workspace', variables: workspaceVars })

@@ -11,6 +11,7 @@ export interface EnvironmentState {
 
 export interface EnvironmentStore extends EnvironmentState {
   loadEnvironmentVariables: () => Promise<void>
+  setVariables: (variables: Record<string, EnvironmentVariable>) => void
   saveEnvironmentVariables: (variables: Record<string, string>) => Promise<void>
 
   loadWorkspaceEnvironment: (workspaceId: string) => Promise<{

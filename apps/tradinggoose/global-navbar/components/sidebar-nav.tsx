@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import Link from 'next/link'
 import {
   SidebarGroup,
@@ -15,8 +15,13 @@ import { UsageHeader } from '@/global-navbar/settings-modal/components/shared/us
 import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
-import { useOrganizationStore } from '@/stores/organization'
-import { useSubscriptionStore } from '@/stores/subscription/store'
+import {
+  getBillingStatus,
+  getSubscriptionStatus,
+  getUsage,
+} from '@/lib/subscription/helpers'
+import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
+import { useSubscriptionData } from '@/hooks/queries/subscription'
 import type { NavSection } from '../types'
 
 interface SidebarNavProps {
@@ -97,19 +102,21 @@ export function SidebarUsageIndicator({ onOpenSubscriptionSettings }: SidebarUsa
   const billingEnabled = useMemo(() => {
     const runtimeFlag = getEnv('NEXT_PUBLIC_BILLING_ENABLED')
     const buildFlag = process.env.NEXT_PUBLIC_BILLING_ENABLED ?? process.env.BILLING_ENABLED
-    return isTruthy(runtimeFlag ?? buildFlag)
+    return isTruthy(runtimeFlag ?? buildFlag ?? true)
   }, [])
-  const loadSubscriptionData = useSubscriptionStore((subscriptionState) => subscriptionState.loadData)
-  const subscriptionData = useSubscriptionStore((subscriptionState) => subscriptionState.subscriptionData)
-  const isSubscriptionLoading = useSubscriptionStore((subscriptionState) => subscriptionState.isLoading)
-  const subscription = useSubscriptionStore((subscriptionState) => subscriptionState.getSubscriptionStatus())
-  const usage = useSubscriptionStore((subscriptionState) => subscriptionState.getUsage())
-  const billingStatus = useSubscriptionStore((subscriptionState) => subscriptionState.getBillingStatus())
-  const activeOrganizationId = useOrganizationStore((orgState) => orgState.activeOrganization?.id)
-  const organizationBillingData = useOrganizationStore((orgState) => orgState.organizationBillingData)
-  const isLoadingOrgBilling = useOrganizationStore((orgState) => orgState.isLoadingOrgBilling)
-  const loadOrganizationBillingData = useOrganizationStore(
-    (orgState) => orgState.loadOrganizationBillingData
+  const {
+    data: subscriptionData,
+    isLoading: isSubscriptionLoading,
+    isError: isSubscriptionError,
+  } = useSubscriptionData()
+  const billingPayload = (subscriptionData as any)?.data ?? subscriptionData
+  const subscription = getSubscriptionStatus(billingPayload)
+  const usage = getUsage(billingPayload)
+  const billingStatus = getBillingStatus(billingPayload)
+  const { data: organizationsData } = useOrganizations()
+  const activeOrganizationId = organizationsData?.activeOrganization?.id
+  const { data: organizationBillingData, isLoading: isLoadingOrgBilling } = useOrganizationBilling(
+    activeOrganizationId || ''
   )
 
   const normalizedBillingStatus: 'ok' | 'warning' | 'exceeded' | 'blocked' =
@@ -145,29 +152,10 @@ export function SidebarUsageIndicator({ onOpenSubscriptionSettings }: SidebarUsa
     ? `${subscription.plan.charAt(0).toUpperCase()}${subscription.plan.slice(1)}`
     : 'Free'
   const shouldShowUsageHeader =
-    billingEnabled && (Boolean(subscriptionData) || isSubscriptionLoading)
+    billingEnabled && (Boolean(subscriptionData) || isSubscriptionLoading || isSubscriptionError)
   const showUsageSkeleton =
     shouldShowUsageHeader &&
-    (!subscriptionData ||
-      (isOrganizationPlan && !organizationBillingData && isLoadingOrgBilling))
-
-  useEffect(() => {
-    if (!billingEnabled) return
-    void loadSubscriptionData()
-  }, [billingEnabled, loadSubscriptionData])
-
-  useEffect(() => {
-    if (!billingEnabled) return
-    if (!activeOrganizationId) return
-    if (!subscription.isTeam && !subscription.isEnterprise) return
-    void loadOrganizationBillingData(activeOrganizationId)
-  }, [
-    activeOrganizationId,
-    billingEnabled,
-    loadOrganizationBillingData,
-    subscription.isEnterprise,
-    subscription.isTeam,
-  ])
+    (!subscriptionData || (isOrganizationPlan && !organizationBillingData && isLoadingOrgBilling))
 
   const handleOpenSubscriptionSettings = () => {
     if (!billingEnabled) return

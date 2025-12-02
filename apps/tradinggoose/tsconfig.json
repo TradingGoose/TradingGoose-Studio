@@ -17,6 +17,9 @@
       "@/*": [
         "./*"
       ],
+      "@apps/tradinggoose/hooks/queries/*": [
+        "./hooks/queries/*"
+      ],
       "@/components/*": [
         "components/*"
       ],

@@ -3,9 +3,10 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { Check, Pencil, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useUpdateOrganizationUsageLimit } from '@/hooks/queries/organization'
+import { useUpdateUsageLimit } from '@/hooks/queries/subscription'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
-import { useSubscriptionStore } from '@/stores/subscription/store'
 
 const logger = createLogger('UsageLimit')
 
@@ -37,34 +38,46 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
     ref
   ) => {
     const [inputValue, setInputValue] = useState(currentLimit.toString())
-    const [isSaving, setIsSaving] = useState(false)
     const [hasError, setHasError] = useState(false)
     const [errorType, setErrorType] = useState<'general' | 'belowUsage' | null>(null)
     const [isEditing, setIsEditing] = useState(false)
+    const [pendingLimit, setPendingLimit] = useState<number | null>(null)
     const inputRef = useRef<HTMLInputElement>(null)
 
-    const { updateUsageLimit } = useSubscriptionStore()
+    const updateUserLimitMutation = useUpdateUsageLimit()
+    const updateOrgLimitMutation = useUpdateOrganizationUsageLimit()
+
+    const isUpdating =
+      context === 'organization'
+        ? updateOrgLimitMutation.isPending
+        : updateUserLimitMutation.isPending
 
     const handleStartEdit = () => {
       if (!canEdit) return
       setIsEditing(true)
-      setInputValue(currentLimit.toString())
+      const displayLimit = pendingLimit !== null ? pendingLimit : currentLimit
+      setInputValue(displayLimit.toString())
     }
 
-    // Expose startEdit method through ref
     useImperativeHandle(
       ref,
       () => ({
         startEdit: handleStartEdit,
       }),
-      [canEdit, currentLimit]
+      [canEdit, currentLimit, pendingLimit]
     )
 
     useEffect(() => {
-      setInputValue(currentLimit.toString())
-    }, [currentLimit])
+      if (pendingLimit !== null) {
+        if (currentLimit === pendingLimit) {
+          setPendingLimit(null)
+          setInputValue(currentLimit.toString())
+        }
+      } else {
+        setInputValue(currentLimit.toString())
+      }
+    }, [currentLimit, pendingLimit])
 
-    // Focus input when entering edit mode
     useEffect(() => {
       if (isEditing && inputRef.current) {
         inputRef.current.focus()
@@ -72,7 +85,6 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
       }
     }, [isEditing])
 
-    // Clear error after 2 seconds
     useEffect(() => {
       if (hasError) {
         const timer = setTimeout(() => {
@@ -92,11 +104,9 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
         return
       }
 
-      // Check if new limit is below current usage
       if (newLimit < currentUsage) {
         setHasError(true)
         setErrorType('belowUsage')
-        // Don't reset input value - let user see what they typed
         return
       }
 
@@ -105,56 +115,46 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
         return
       }
 
-      setIsSaving(true)
-
       try {
         if (context === 'organization') {
           if (!organizationId) {
-            throw new Error('Organization ID is required')
+            logger.error('Organization ID is required for organization context')
+            setErrorType('general')
+            setHasError(true)
+            return
           }
 
-          const response = await fetch('/api/usage', {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ context: 'organization', organizationId, limit: newLimit }),
-          })
-
-          const data = await response.json()
-          if (!response.ok) {
-            throw new Error(data.error || 'Failed to update limit')
-          }
+          await updateOrgLimitMutation.mutateAsync({ organizationId, limit: newLimit })
         } else {
-          const result = await updateUsageLimit(newLimit)
-          if (!result.success) {
-            throw new Error(result.error || 'Failed to update limit')
-          }
+          await updateUserLimitMutation.mutateAsync({ limit: newLimit })
         }
 
+        setPendingLimit(newLimit)
         setInputValue(newLimit.toString())
         onLimitUpdated?.(newLimit)
         setIsEditing(false)
         setErrorType(null)
-      } catch (error) {
-        logger.error('Failed to update usage limit', { error })
+        setHasError(false)
+      } catch (err) {
+        logger.error('Failed to update usage limit', { error: err })
 
-        // Check if the error is about being below current usage
-        if (error instanceof Error && error.message.includes('below current usage')) {
+        const message = err instanceof Error ? err.message : String(err)
+        if (message.includes('below current usage')) {
           setErrorType('belowUsage')
         } else {
           setErrorType('general')
         }
 
+        setPendingLimit(null)
+        setInputValue(currentLimit.toString())
         setHasError(true)
-      } finally {
-        setIsSaving(false)
       }
     }
 
     const handleCancelEdit = () => {
       setIsEditing(false)
-      setInputValue(currentLimit.toString())
+      const displayLimit = pendingLimit !== null ? pendingLimit : currentLimit
+      setInputValue(displayLimit.toString())
       setHasError(false)
       setErrorType(null)
     }
@@ -181,7 +181,6 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
               onBlur={(e) => {
-                // Don't submit if clicking on the button (it will handle submission)
                 const relatedTarget = e.relatedTarget as HTMLElement
                 if (relatedTarget?.closest('button')) {
                   return
@@ -196,7 +195,7 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
               )}
               min={minimumLimit}
               step='1'
-              disabled={isSaving}
+              disabled={isUpdating}
               autoComplete='off'
               autoCorrect='off'
               autoCapitalize='off'
@@ -205,7 +204,9 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
             />
           </>
         ) : (
-          <span className='text-muted-foreground text-xs tabular-nums'>${currentLimit}</span>
+          <span className='text-muted-foreground text-xs tabular-nums'>
+            ${pendingLimit !== null ? pendingLimit : currentLimit}
+          </span>
         )}
         {canEdit && (
           <Button
@@ -218,7 +219,7 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
                 : 'text-muted-foreground hover:text-foreground'
             )}
             onClick={isEditing ? handleSubmit : handleStartEdit}
-            disabled={isSaving}
+            disabled={isUpdating}
           >
             {isEditing ? (
               hasError ? (

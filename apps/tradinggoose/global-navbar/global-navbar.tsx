@@ -17,8 +17,8 @@ import { useSession } from '@/lib/auth-client'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { getEnv, isTruthy } from '@/lib/env'
 import { generateWorkspaceName } from '@/lib/naming'
+import { useOrganizations } from '@/hooks/queries/organization'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { useOrganizationStore } from '@/stores/organization'
 import { NavbarHeader } from './components/navbar-header'
 import { SidebarNav, SidebarUsageIndicator } from './components/sidebar-nav'
 import { UserMenu } from './components/user-menu'
@@ -43,6 +43,7 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const brand = React.useMemo(() => getBrandConfig(), [])
   const { data: sessionData, isPending: isSessionLoading } = useSession()
+  const { data: organizationsData } = useOrganizations()
   const switchToWorkspace = useWorkflowRegistry((state) => state.switchToWorkspace)
   const workspaceId = React.useMemo(() => getWorkspaceIdFromPath(pathname), [pathname])
   const workspaceNavItems = React.useMemo(() => createWorkspaceNav(workspaceId), [workspaceId])
@@ -54,9 +55,9 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
   const billingEnabled = React.useMemo(() => {
     const runtimeFlag = getEnv('NEXT_PUBLIC_BILLING_ENABLED')
     const buildFlag = process.env.NEXT_PUBLIC_BILLING_ENABLED ?? process.env.BILLING_ENABLED
-    return isTruthy(runtimeFlag ?? buildFlag)
+    return isTruthy(runtimeFlag ?? buildFlag ?? true)
   }, [])
-  const hasOrganization = useOrganizationStore((state) => Boolean(state.activeOrganization?.id))
+  const hasOrganization = Boolean(organizationsData?.activeOrganization?.id)
   const canManageTeam = billingEnabled && hasOrganization
   const [workspaces, setWorkspaces] = React.useState<Workspace[]>([])
   const [activeWorkspace, setActiveWorkspace] = React.useState<Workspace | null>(null)
