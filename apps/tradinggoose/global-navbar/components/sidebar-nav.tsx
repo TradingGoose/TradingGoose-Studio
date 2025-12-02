@@ -81,17 +81,16 @@ function UsageHeaderSkeleton() {
   return (
     <div className='space-y-2 rounded-md border bg-background p-3 shadow-xs'>
       <div className='flex items-center justify-between'>
-        <div className='flex items-center gap-2'>
-          <Skeleton className='h-4 w-16' />
-          <Skeleton className='h-[1.125rem] w-16 rounded-[6px]' />
+        <div className='flex items-center gap-2 justify-between'>
+          <Skeleton className='h-4 w-10 rounded-full' />
+          <Skeleton className='h-4 w-10 rounded-full' />
         </div>
-        <div className='flex items-center gap-1'>
-          <Skeleton className='h-3 w-10' />
-          <Skeleton className='h-3 w-10' />
+        <div className='flex items-center gap-1 justify-between'>
+          <Skeleton className='h-3 w-full rounded-full' />
+          <Skeleton className='h-3 w-full rounded-full' />
         </div>
       </div>
       <Skeleton className='h-2 w-full rounded' />
-      <Skeleton className='h-2 w-2/3 rounded' />
     </div>
   )
 }
@@ -127,17 +126,17 @@ export function SidebarUsageIndicator({ onOpenSubscriptionSettings }: SidebarUsa
     : usage.current
   const usageLimit = isOrganizationPlan
     ? organizationBillingData?.totalUsageLimit ??
-      organizationBillingData?.minimumBillingAmount ??
-      usage.limit
+    organizationBillingData?.minimumBillingAmount ??
+    usage.limit
     : usage.limit
   const percentUsedRaw = isOrganizationPlan
     ? (() => {
-        const totalLimit = organizationBillingData?.totalUsageLimit
-        if (totalLimit && totalLimit > 0) {
-          return ((organizationBillingData?.totalCurrentUsage ?? 0) / totalLimit) * 100
-        }
-        return usage.percentUsed
-      })()
+      const totalLimit = organizationBillingData?.totalUsageLimit
+      if (totalLimit && totalLimit > 0) {
+        return ((organizationBillingData?.totalCurrentUsage ?? 0) / totalLimit) * 100
+      }
+      return usage.percentUsed
+    })()
     : usage.percentUsed
   const percentUsed = Math.max(0, Math.min(Math.round(percentUsedRaw ?? 0), 100))
   const safeCurrentUsage = Number.isFinite(currentUsage) ? Number(currentUsage) : 0
