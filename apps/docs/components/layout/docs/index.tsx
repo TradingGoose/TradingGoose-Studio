@@ -50,6 +50,7 @@ import {
 } from '../../ui/popover';
 import type * as PageTree from 'fumadocs-core/page-tree';
 import {
+  DocsBreadcrumb,
   LayoutBody,
   LayoutTabs,
   Navbar,
@@ -82,8 +83,9 @@ import {
   Zap,
 } from 'lucide-react';
 import type { JSX } from 'react';
+import { getFolderSlug, getPageSlug } from '@/lib/page-tree';
 
-const folderIconMap: Record<string, JSX.Element> = {
+const nodeIconMap: Record<string, JSX.Element> = {
   introduction: <Sparkles />,
   'getting-started': <Flag />,
   triggers: <Zap />,
@@ -99,32 +101,36 @@ const folderIconMap: Record<string, JSX.Element> = {
   sdks: <Code2 />,
 };
 
-function normalizeKey(value: string | undefined) {
-  return value?.trim().toLowerCase().replace(/\s+/g, '-');
-}
+function addNodeIcons(root: PageTree.Root): PageTree.Root {
+  const withItemIcon = (item: PageTree.Item): PageTree.Item => {
+    const slug = getPageSlug(item);
+    const icon = item.icon ?? (slug ? nodeIconMap[slug] : undefined);
+    if (!icon) return item;
+    return {
+      ...item,
+      icon,
+    };
+  };
 
-function getFolderSlug(item: PageTree.Folder) {
-  const fromIndex = normalizeKey(
-    item.index?.url?.split('/').filter(Boolean).pop() ?? undefined,
-  );
-  if (fromIndex) return fromIndex;
-
-  return normalizeKey(
-    typeof item.name === 'string' ? item.name : String(item.name ?? ''),
-  );
-}
-
-function addFolderIcons(root: PageTree.Root): PageTree.Root {
   const mapNode = (node: PageTree.Node): PageTree.Node => {
     if (node.type === 'folder') {
       const slug = getFolderSlug(node);
-      const icon = node.icon ?? (slug ? folderIconMap[slug] : undefined);
+      const icon = node.icon ?? (slug ? nodeIconMap[slug] : undefined);
 
       return {
         ...node,
         icon,
-        children: node.children.map(mapNode),
+        index: node.index ? withItemIcon(node.index) : undefined,
+        children: node.children.map((child) => {
+          if (child.type === 'folder') return mapNode(child);
+          if (child.type === 'page') return withItemIcon(child);
+          return child;
+        }),
       };
+    }
+
+    if (node.type === 'page') {
+      return withItemIcon(node);
     }
 
     return node;
@@ -133,6 +139,7 @@ function addFolderIcons(root: PageTree.Root): PageTree.Root {
   return {
     ...root,
     children: root.children.map(mapNode),
+    fallback: root.fallback ? addNodeIcons(root.fallback) : undefined,
   };
 }
 
@@ -297,7 +304,7 @@ export function DocsLayout(props: DocsLayoutProps) {
     [props.tree],
   );
   const treeWithIcons = useMemo(
-    () => addFolderIcons(treeWithPromotedIndexes),
+    () => addNodeIcons(treeWithPromotedIndexes),
     [treeWithPromotedIndexes],
   );
   const tabs = useMemo(() => {
@@ -550,13 +557,12 @@ function DocsNavbar({
         <span className="hidden h-6 w-px bg-fd-border md:block" />
         <div className="flex w-full flex-nowrap gap-4 text-sm text-fd-muted-foreground">
           <div className="flex min-w-0 flex-grow basis-0 items-center gap-3">
-            <Link
+            <DocsBreadcrumb
+              icon={<BookOpen className="size-4" />}
+              label={navTitle}
               href={nav.url ?? '/'}
-              className="hidden items-center gap-2 sm:flex"
-            >
-              <BookOpen className="size-4" />
-              <span className="text-sm text-fd-foreground">{navTitle}</span>
-            </Link>
+              className="hidden min-w-0 flex-1 sm:flex"
+            />
             <div className="hidden items-center gap-4 md:flex">
               {navLinks.map((item, i) => (
                 <NavbarLinkItem

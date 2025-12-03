@@ -9,6 +9,16 @@ import Link from 'fumadocs-core/link'
 import { usePathname } from 'fumadocs-core/framework'
 import { isTabActive } from '../../../lib/is-active'
 import type { Option } from '../../root-toggle'
+import { useTreeContext, useTreePath } from 'fumadocs-ui/contexts/tree'
+import type * as PageTree from 'fumadocs-core/page-tree'
+import {
+  findFolderPathBySegments,
+  getFolderHref,
+  getFolderSlug,
+  getPageSlug,
+  humanizeSlug,
+  supportedLanguages,
+} from '@/lib/page-tree'
 
 export function Navbar(props: ComponentProps<'header'>) {
   return (
@@ -108,4 +118,104 @@ function LayoutTab({ option: { title, url, unlisted, props }, selected = false }
       {title}
     </Link>
   )
+}
+
+type DocsBreadcrumbProps = {
+  icon?: ReactNode
+  label: ReactNode
+  href?: string
+  className?: string
+}
+
+export function DocsBreadcrumb({ icon, label, href = '/', className }: DocsBreadcrumbProps) {
+  const { root } = useTreeContext()
+  const path = useTreePath() ?? []
+  const pathname = usePathname()
+
+  const slugSegments = useMemo(() => getSlugSegments(pathname), [pathname])
+
+  const nodes = useMemo(() => {
+    const filtered = path.filter(
+      (node): node is Exclude<PageTree.Node, PageTree.Separator> =>
+        node.type === 'folder' || node.type === 'page',
+    )
+
+    if (filtered.length > 0) return filtered
+    if (slugSegments.length === 0) return []
+
+    const fallback = findFolderPathBySegments(root, slugSegments)
+    return fallback ?? []
+  }, [path, root, slugSegments])
+
+  return (
+    <div
+      className={cn(
+        'flex min-w-0 items-center gap-1 text-xs text-fd-muted-foreground',
+        className,
+      )}
+    >
+      <Link href={href} className='flex shrink-0 items-center gap-2 text-sm text-fd-foreground font-medium'>
+        {icon}
+        <span className='truncate'>{label}</span>
+      </Link>
+      {nodes.map((node, index) => {
+        const isLast = index === nodes.length - 1
+        const href = node.type === 'page' ? node.url : getFolderHref(node)
+        const label = renderNodeLabel(node)
+
+        return (
+          <div key={nodeKey(node, index)} className='flex min-w-0 items-center gap-1'>
+            <span className='text-fd-border'>/</span>
+            {href && !isLast ? (
+              <Link
+                href={href}
+                className='truncate text-xs text-fd-muted-foreground transition-colors hover:text-fd-foreground'
+              >
+                {label}
+              </Link>
+            ) : (
+              <span className='truncate text-xs text-fd-muted-foreground'>{label}</span>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function renderNodeLabel(node: Exclude<PageTree.Node, PageTree.Separator>) {
+  if (typeof node.name === 'string' && node.name.trim().length > 0) {
+    return node.name
+  }
+
+  if (node.type === 'folder') {
+    const slug = getFolderSlug(node)
+    if (slug) return humanizeSlug(slug)
+  }
+
+  if (node.type === 'page') {
+    const slug = getPageSlug(node)
+    if (slug) return humanizeSlug(slug)
+  }
+
+  return node.name ?? 'Untitled'
+}
+
+function nodeKey(node: Exclude<PageTree.Node, PageTree.Separator>, index: number) {
+  if (node.$id) return `${node.$id}-${index}`
+  if (node.type === 'page') return `${node.url}-${index}`
+  const slug = node.type === 'folder' ? getFolderSlug(node) : undefined
+  if (slug) return `${slug}-${index}`
+  return `crumb-${index}`
+}
+
+function getSlugSegments(pathname: string) {
+  const parts = pathname.split('/').filter(Boolean)
+  if (parts.length === 0) return parts
+
+  if (supportedLanguages.includes(parts[0] as (typeof supportedLanguages)[number])) {
+    return parts.slice(1)
+  }
+
+  return parts
 }

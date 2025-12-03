@@ -119,6 +119,7 @@ export default async function Layout({ children, params }: LayoutProps) {
             }}
             nav={{
               title: 'Documentations',
+              url: `/${locale}`,
               logo: (
                 <div className="flex h-8 w-8 items-center justify-center bg-fd-primary rounded-md">
                   <Image

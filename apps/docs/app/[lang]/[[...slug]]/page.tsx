@@ -1,68 +1,118 @@
 import { findNeighbour } from 'fumadocs-core/server'
+import type * as PageTree from 'fumadocs-core/page-tree'
 import defaultMdxComponents from 'fumadocs-ui/mdx'
 import { DocsBody, DocsDescription, DocsPage, DocsTitle } from '@/components/layout/page'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowRight, ChevronLeft, ChevronRight, FileText, FolderOpen } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { StructuredData } from '@/components/structured-data'
 import { CodeBlock } from '@/components/ui/code-block'
 import { CopyPageButton } from '@/components/ui/copy-page-button'
 import { source } from '@/lib/source'
+import {
+  findFolderBySegments,
+  getFolderSlug,
+  humanizeSlug,
+  normalizeKey,
+  supportedLanguages,
+} from '@/lib/page-tree'
+import type { ReactNode } from 'react'
+import { Card } from 'fumadocs-ui/components/card'
 
 export default async function Page(props: { params: Promise<{ slug?: string[]; lang: string }> }) {
   const params = await props.params
-  const page = source.getPage(params.slug, params.lang)
-  if (!page) notFound()
-
-  const MDX = page.data.body
+  const slugSegments = params.slug ?? []
   const baseUrl = 'https://docs.sim.ai'
 
-  const pageTreeRecord = source.pageTree as Record<string, any>
+  const pageTreeRecord = source.pageTree as Record<string, PageTree.Root>
   const pageTree =
     pageTreeRecord[params.lang] ?? pageTreeRecord.en ?? Object.values(pageTreeRecord)[0]
-  const neighbours = pageTree ? findNeighbour(pageTree, page.url) : null
+  const page =
+    source.getPage(slugSegments, params.lang) ??
+    (slugSegments.length === 0 ? source.getPage(['index'], params.lang) : null)
 
-  const generateBreadcrumbs = () => {
-    const breadcrumbs: Array<{ name: string; url: string }> = [
-      {
-        name: 'Home',
-        url: baseUrl,
-      },
-    ]
+  if (!page) {
+    const fallback = pageTree ? buildCategoryFallback(pageTree, slugSegments, params.lang) : null
+    if (!fallback) notFound()
 
-    const urlParts = page.url.split('/').filter(Boolean)
-    let currentPath = ''
+    const breadcrumbs = generateBreadcrumbs(fallback.url, fallback.titleText, baseUrl)
 
-    urlParts.forEach((part, index) => {
-      if (index === 0 && ['en', 'es', 'fr', 'de', 'ja', 'zh'].includes(part)) {
-        currentPath = `/${part}`
-        return
-      }
+    return (
+      <>
+        <StructuredData
+          title={fallback.titleText}
+          description={fallback.descriptionText}
+          url={`${baseUrl}${fallback.url}`}
+          lang={params.lang}
+          breadcrumb={breadcrumbs}
+        />
+        <DocsPage
+          toc={[]}
+          full={false}
+          tableOfContent={{
+            style: 'clerk',
+            enabled: false,
+            single: false,
+          }}
+          article={{
+            className: 'scroll-smooth max-sm:pb-16',
+          }}
+          tableOfContentPopover={{
+            style: 'clerk',
+            enabled: false,
+          }}
+          footer={{
+            enabled: false,
+          }}
+        >
+          <DocsBody className='space-y-8'>
+            <DocsTitle>{fallback.title}</DocsTitle>
+            {fallback.description ? (
+              <DocsDescription>{fallback.description}</DocsDescription>
+            ) : null}
 
-      currentPath += `/${part}`
+            <CategoryHero fallback={fallback} />
 
-      const name = part
-        .split('-')
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ')
-
-      if (index === urlParts.length - 1) {
-        breadcrumbs.push({
-          name: page.data.title,
-          url: `${baseUrl}${page.url}`,
-        })
-      } else {
-        breadcrumbs.push({
-          name: name,
-          url: `${baseUrl}${currentPath}`,
-        })
-      }
-    })
-
-    return breadcrumbs
+            {fallback.items.length > 0 ? (
+              <div className='grid gap-4 md:grid-cols-2'>
+                {fallback.items.map((item) => (
+                  <Card
+                    key={item.key}
+                    href={item.href}
+                    title={item.label}
+                    className='group flex h-full flex-col gap-4 rounded-2xl border border-border/70 bg-card/40 p-5 transition hover:border-primary/50 hover:bg-card/60'
+                  >
+                    <div className='flex items-start gap-4'>
+                      <div className='flex-1 space-y-1'>
+                        <div className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
+                          Learn More
+                        </div>
+                        {item.description ? (
+                          <p className='text-sm text-muted-foreground line-clamp-2'>
+                            {item.description}
+                          </p>
+                        ) : null}
+                      </div>
+                      <ArrowRight className='mt-1 h-4 w-4 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-foreground' />
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className='rounded-2xl border border-dashed border-border/60 bg-muted/20 px-4 py-6 text-sm text-muted-foreground'>
+                We’re still preparing the guides for this section. Check back soon for updates.
+              </div>
+            )}
+          </DocsBody>
+        </DocsPage>
+      </>
+    )
   }
 
-  const breadcrumbs = generateBreadcrumbs()
+  const MDX = page.data.body
+  const neighbours = pageTree ? findNeighbour(pageTree, page.url) : null
+
+  const breadcrumbs = generateBreadcrumbs(page.url, page.data.title, baseUrl)
 
   const CustomFooter = () => (
     <div className='mt-12'>
@@ -217,6 +267,195 @@ ${page.data.content || ''}`}
   )
 }
 
+function generateBreadcrumbs(targetUrl: string, pageTitle: string, baseUrl: string) {
+  const breadcrumbs: Array<{ name: string; url: string }> = [
+    {
+      name: 'Home',
+      url: baseUrl,
+    },
+  ]
+
+  const urlParts = targetUrl.split('/').filter(Boolean)
+  let currentPath = ''
+
+  urlParts.forEach((part, index) => {
+    if (
+      index === 0 &&
+      supportedLanguages.includes(part as (typeof supportedLanguages)[number])
+    ) {
+      currentPath = `/${part}`
+      return
+    }
+
+    currentPath += `/${part}`
+
+    if (index === urlParts.length - 1) {
+      breadcrumbs.push({
+        name: pageTitle,
+        url: `${baseUrl}${targetUrl}`,
+      })
+    } else {
+      breadcrumbs.push({
+        name: humanizeSlug(part),
+        url: `${baseUrl}${currentPath}`,
+      })
+    }
+  })
+
+  return breadcrumbs
+}
+
+type CategoryItem = {
+  key: string
+  label: ReactNode
+  description?: ReactNode
+  href: string
+  icon?: ReactNode
+  kind: 'folder' | 'page'
+}
+
+type CategoryFallback = {
+  title: ReactNode
+  titleText: string
+  description?: ReactNode
+  descriptionText: string
+  items: CategoryItem[]
+  url: string
+}
+
+function CategoryHero({ fallback }: { fallback: CategoryFallback }) {
+  const totalEntries = fallback.items.length
+  const pageCount = fallback.items.filter((item) => item.kind === 'page').length
+  const collectionCount = fallback.items.filter((item) => item.kind === 'folder').length
+
+  const stats: Array<{ label: string; value: number; helper: string }> = [
+    {
+      label: 'Entries',
+      value: totalEntries,
+      helper: 'Guides & references in this section',
+    },
+  ]
+
+  if (pageCount > 0 && pageCount !== totalEntries) {
+    stats.push({
+      label: 'Articles',
+      value: pageCount,
+      helper: 'Standalone guides',
+    })
+  }
+
+  if (collectionCount > 0) {
+    stats.push({
+      label: 'Collections',
+      value: collectionCount,
+      helper: 'Nested sub-sections',
+    })
+  }
+
+  const heroDescription =
+    fallback.descriptionText ||
+    `Jump into curated references, how-tos, and sub-sections that live inside ${fallback.titleText}.`
+
+  return (
+    <div className='rounded-3xl border border-border/70 bg-gradient-to-br from-card/70 via-card to-muted/30 p-6 shadow-sm md:p-8'>
+      <div className='flex flex-col gap-6 md:flex-row md:items-center md:justify-between'>
+        <div className='space-y-3 text-base text-muted-foreground md:max-w-2xl'>
+          <p className='text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground/80'>
+            Section Overview
+          </p>
+          <p>{heroDescription}</p>
+        </div>
+        <div className='grid w-full gap-3 min-[400px]:grid-cols-2 md:max-w-md'>
+          {stats.map((stat) => (
+            <div
+              key={stat.label}
+              className='rounded-2xl border border-border/60 bg-background/80 px-4 py-3 text-sm shadow-sm'
+            >
+              <p className='text-xs font-semibold uppercase tracking-wide text-muted-foreground'>
+                {stat.label}
+              </p>
+              <p className='text-2xl font-semibold text-foreground'>{stat.value}</p>
+              <p className='text-xs text-muted-foreground'>{stat.helper}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function buildCategoryFallback(
+  tree: PageTree.Root | undefined,
+  slugSegments: string[],
+  lang: string,
+): CategoryFallback | null {
+  if (!tree || slugSegments.length === 0) return null
+  const folder = findFolderBySegments(tree, slugSegments)
+  if (!folder) return null
+
+  const titleText =
+    typeof folder.name === 'string' && folder.name.trim().length > 0
+      ? folder.name
+      : humanizeSlug(slugSegments[slugSegments.length - 1])
+
+  const descriptionText =
+    typeof folder.description === 'string' ? folder.description : ''
+
+  const baseHref = `/${[lang, ...slugSegments].join('/')}`
+
+  const mappedItems = folder.children.map((child): CategoryItem | null => {
+    if (child.type === 'page') {
+      const item: CategoryItem = {
+        key: child.url,
+        label: child.name,
+        href: child.url,
+        icon: child.icon,
+        kind: 'page',
+      }
+
+      if (child.description) {
+        item.description = child.description
+      }
+
+      return item
+    }
+
+    if (child.type === 'folder') {
+      const slug = getFolderSlug(child)
+      if (!slug) return null
+
+      const href = child.index?.url ?? `/${[lang, ...slugSegments, slug].join('/')}`
+      const item: CategoryItem = {
+        key: child.$id ?? href,
+        label: child.name,
+        href,
+        icon: child.icon,
+        kind: 'folder',
+      }
+
+      if (child.description) {
+        item.description = child.description
+      }
+
+      return item
+    }
+
+    return null
+  })
+
+  const items = mappedItems.filter((item): item is CategoryItem => item !== null)
+
+  return {
+    title: folder.name ?? titleText,
+    titleText,
+    description: folder.description,
+    descriptionText,
+    items,
+    url: baseHref,
+  }
+}
+
+
 export async function generateStaticParams() {
   return source.generateParams()
 }
@@ -225,16 +464,90 @@ export async function generateMetadata(props: {
   params: Promise<{ slug?: string[]; lang: string }>
 }) {
   const params = await props.params
-  const page = source.getPage(params.slug, params.lang)
-  if (!page) notFound()
-
+  const slugSegments = params.slug ?? []
   const baseUrl = 'https://docs.sim.ai'
+  const defaultDescription = 'Sim visual workflow builder for AI applications documentation'
+
+  const pageTreeRecord = source.pageTree as Record<string, PageTree.Root>
+  const pageTree =
+    pageTreeRecord[params.lang] ?? pageTreeRecord.en ?? Object.values(pageTreeRecord)[0]
+
+  const page =
+    source.getPage(slugSegments, params.lang) ??
+    (slugSegments.length === 0 ? source.getPage(['index'], params.lang) : null)
+  if (!page) {
+    const fallback = pageTree ? buildCategoryFallback(pageTree, slugSegments, params.lang) : null
+    if (!fallback) notFound()
+
+    const fallbackUrl = `${baseUrl}${fallback.url}`
+    const pathWithoutLang = fallback.url.replace(`/${params.lang}`, '')
+    const description = fallback.descriptionText || defaultDescription
+
+    return {
+      title: fallback.titleText,
+      description,
+      keywords: [
+        'AI workflow builder',
+        'visual workflow editor',
+        'AI automation',
+        'workflow automation',
+        'AI agents',
+        'no-code AI',
+        'drag and drop workflows',
+        fallback.titleText.toLowerCase().split(' '),
+      ]
+        .flat()
+        .filter(Boolean),
+      authors: [{ name: 'Sim Team' }],
+      category: 'Developer Tools',
+      openGraph: {
+        title: fallback.titleText,
+        description,
+        url: fallbackUrl,
+        siteName: 'Sim Documentation',
+        type: 'website',
+        locale: params.lang === 'en' ? 'en_US' : `${params.lang}_${params.lang.toUpperCase()}`,
+        alternateLocale: ['en', 'es', 'fr', 'de', 'ja', 'zh']
+          .filter((lang) => lang !== params.lang)
+          .map((lang) => (lang === 'en' ? 'en_US' : `${lang}_${lang.toUpperCase()}`)),
+      },
+      twitter: {
+        card: 'summary',
+        title: fallback.titleText,
+        description,
+      },
+      robots: {
+        index: true,
+        follow: true,
+        googleBot: {
+          index: true,
+          follow: true,
+          'max-video-preview': -1,
+          'max-image-preview': 'large',
+          'max-snippet': -1,
+        },
+      },
+      canonical: fallbackUrl,
+      alternates: {
+        canonical: fallbackUrl,
+        languages: {
+          'x-default': `${baseUrl}${pathWithoutLang}`,
+          en: `${baseUrl}${pathWithoutLang}`,
+          es: `${baseUrl}/es${pathWithoutLang}`,
+          fr: `${baseUrl}/fr${pathWithoutLang}`,
+          de: `${baseUrl}/de${pathWithoutLang}`,
+          ja: `${baseUrl}/ja${pathWithoutLang}`,
+          zh: `${baseUrl}/zh${pathWithoutLang}`,
+        },
+      },
+    }
+  }
+
   const fullUrl = `${baseUrl}${page.url}`
 
   return {
     title: page.data.title,
-    description:
-      page.data.description || 'Sim visual workflow builder for AI applications documentation',
+    description: page.data.description || defaultDescription,
     keywords: [
       'AI workflow builder',
       'visual workflow editor',
@@ -251,8 +564,7 @@ export async function generateMetadata(props: {
     category: 'Developer Tools',
     openGraph: {
       title: page.data.title,
-      description:
-        page.data.description || 'Sim visual workflow builder for AI applications documentation',
+      description: page.data.description || defaultDescription,
       url: fullUrl,
       siteName: 'Sim Documentation',
       type: 'article',
@@ -264,8 +576,7 @@ export async function generateMetadata(props: {
     twitter: {
       card: 'summary',
       title: page.data.title,
-      description:
-        page.data.description || 'Sim visual workflow builder for AI applications documentation',
+      description: page.data.description || defaultDescription,
     },
     robots: {
       index: true,
