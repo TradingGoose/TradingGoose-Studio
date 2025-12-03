@@ -6,7 +6,7 @@ import type { AiRouterProvider } from '../llm/ai-router'
 import { log } from '../core/logger'
 import { recordUsageSnapshot } from '../services/usage'
 import { mapToolCall, closeSession, type Session } from './state'
-import { billingConfig, postContextUsage } from '../services/billing'
+import { billingConfig, postContextUsage, validateUsageLimit } from '../services/billing'
 import type { AuthContext } from '../core/auth'
 
 export interface RunTurnInput {
@@ -65,6 +65,8 @@ export async function runTurn(input: RunTurnInput) {
     auth,
   } = input
   const effectiveMode = mode || session.mode || 'agent'
+  const billingEnabled = billingConfig.internalApiSecret && billingConfig.officialTgUrl
+  const billingAssistantId = messageId || crypto.randomUUID()
 
   const workflowSummary = (() => {
     const wfTool = [...session.messages]
@@ -77,6 +79,39 @@ export async function runTurn(input: RunTurnInput) {
   })()
 
   const providerToUse = provider ?? session.provider
+
+  // Validate usage before generating a new response to avoid overspending during long sessions
+  if (billingEnabled && session.userId) {
+    const usageCheck = await validateUsageLimit({
+      userId: session.userId,
+      officialTgUrl: billingConfig.officialTgUrl,
+      internalApiSecret: billingConfig.internalApiSecret,
+    })
+    if (!usageCheck.allowed) {
+      const usageMessage =
+        'Usage limit exceeded. To continue using this service, upgrade your plan or top up on credits.'
+      log.info('Usage exceeded during runTurn; aborting generation', {
+        chatId: session.chatId,
+        userId: session.userId,
+        status: usageCheck.status,
+      })
+      // Send a user-visible content chunk so the frontend shows the usage message even on stream error
+      await session.stream.writeSSE({
+        data: JSON.stringify({ type: 'content', data: usageMessage }),
+      })
+      await session.stream.writeSSE({
+        data: JSON.stringify({
+          type: 'error',
+          data: usageMessage,
+          error: usageMessage,
+          status: usageCheck.status ?? 402,
+        }),
+      })
+      await finalizeSession(session, session.conversationId)
+      return
+    }
+  }
+
   let agentResult: Awaited<ReturnType<typeof generateAgentResponse>>
   try {
     log.debug('Calling generateAgentResponse (streaming)', {
@@ -117,24 +152,19 @@ export async function runTurn(input: RunTurnInput) {
     )
   }
 
-  const shouldBill =
-    auth &&
-    !auth.isServiceKey &&
-    auth.userId &&
-    billingConfig.internalApiSecret &&
-    billingConfig.officialTgUrl
+  const shouldBill = billingEnabled && !!session.userId
   if (shouldBill) {
     const billingResult = await postContextUsage({
       chatId: session.chatId,
       model: modelUsed,
       workflowId: session.workflowId,
-      userId: auth!.userId!,
+      userId: session.userId,
       provider: providerToUse,
-      assistantMessageId: messageId || version,
+      assistantMessageId: billingAssistantId,
     })
     if (!billingResult.success) {
       log.warn('Context usage billing failed (stream)', {
-        userId: auth?.userId,
+        userId: session.userId,
         status: billingResult.status,
         error: billingResult.error,
       })
@@ -297,6 +327,22 @@ export async function runTurn(input: RunTurnInput) {
     return
   }
 
+  if (isAiRouterError) {
+    const statusMatch = replyText.match(/copilot error:\s*(\d{3})/i)
+    const inferredStatus = statusMatch ? Number.parseInt(statusMatch[1], 10) : undefined
+    // Send a single error and close the stream to avoid duplicated text
+    await session.stream.writeSSE({
+      data: JSON.stringify({
+        type: 'error',
+        data: replyText,
+        error: replyText,
+        status: inferredStatus,
+      }),
+    })
+    await finalizeSession(session, session.conversationId)
+    return
+  }
+
   if (replyText && replyText.trim().length > 0) {
     for (const chunk of chunkMessage(replyText)) {
       await session.stream.writeSSE({ data: JSON.stringify({ type: 'content', data: chunk }) })
@@ -306,8 +352,8 @@ export async function runTurn(input: RunTurnInput) {
 
   const pendingTools = session.pendingToolCallIds?.size ?? 0
   const pendingReviews = session.pendingReviewToolCallIds?.size ?? 0
-  if (!isAiRouterError && pendingTools === 0 && pendingReviews === 0) {
-    await finalizeSession(session, messageId || version)
+  if (pendingTools === 0 && pendingReviews === 0) {
+    await finalizeSession(session, session.conversationId)
   } else {
     log.info('Session kept open awaiting tool results', {
       chatId: session.chatId,

@@ -45,22 +45,34 @@ export const registerChatRoutes = (app: Hono<AppBindings>) => {
       messages,
     } = parsed.data
 
+    const effectiveConversationId =
+      conversationId ?? crypto.randomBytes(16).toString('hex').toUpperCase()
+
     const effectiveMode = mode || 'agent'
     const effectiveChatId = chatId || `chat_${nanoid()}`
     const effectiveUserId = (auth?.userId || userId) as string
     const responseId = crypto.randomUUID()
-    const shouldValidateUsage =
-      auth &&
-      !auth.isServiceKey &&
-      auth.userId &&
-      billingConfig.internalApiSecret &&
-      billingConfig.officialTgUrl
+    const billingEnabled = billingConfig.internalApiSecret && billingConfig.officialTgUrl
+    const isOfficialRequest = !!auth && (auth.userId || auth.isServiceKey)
+    const shouldValidateUsage = !!billingEnabled && isOfficialRequest && !!effectiveUserId
 
     if (!stream) {
       const history =
         Array.isArray(messages) && messages.length > 0
           ? messages.map((m) => ({ role: m.role, content: m.content }))
           : []
+
+      if (shouldValidateUsage) {
+        const usageCheck = await validateUsageLimit({
+          userId: effectiveUserId,
+          officialTgUrl: billingConfig.officialTgUrl,
+          internalApiSecret: billingConfig.internalApiSecret,
+        })
+        if (!usageCheck.allowed) {
+          return c.json({ error: 'Usage limit exceeded or validation failed' }, usageCheck.status ?? 402)
+        }
+      }
+
       log.debug('Calling generateAgentResponse (non-stream)', {
         mode: effectiveMode,
         model,
@@ -101,35 +113,19 @@ export const registerChatRoutes = (app: Hono<AppBindings>) => {
         )
       }
 
-      if (shouldValidateUsage) {
-        const usageCheck = await validateUsageLimit({
-          userId: auth!.userId!,
-          officialTgUrl: billingConfig.officialTgUrl,
-          internalApiSecret: billingConfig.internalApiSecret,
-        })
-        if (!usageCheck.allowed) {
-          return c.json({ error: 'Usage limit exceeded or validation failed' }, usageCheck.status ?? 402)
-        }
-      }
-
-      const shouldBill =
-        auth &&
-        !auth.isServiceKey &&
-        auth.userId &&
-        billingConfig.internalApiSecret &&
-        billingConfig.officialTgUrl
+      const shouldBill = !!billingEnabled && isOfficialRequest && !!effectiveUserId
       if (shouldBill) {
         const billingResult = await postContextUsage({
           chatId: effectiveChatId,
           model: modelUsed,
           workflowId,
-          userId: auth!.userId!,
+          userId: effectiveUserId,
           provider,
           assistantMessageId: messageId || responseId,
         })
         if (!billingResult.success) {
           log.warn('Context usage billing failed (non-stream)', {
-            userId: auth?.userId,
+            userId: effectiveUserId,
             status: billingResult.status,
             error: billingResult.error,
           })
@@ -163,6 +159,7 @@ export const registerChatRoutes = (app: Hono<AppBindings>) => {
         operations: agentResult.operations,
         toolCalls: normalizedToolCalls,
         model: modelUsed,
+        conversationId: effectiveConversationId,
         tokens:
           agentResult.tokens ||
           agentResult.tokenUsage ||
@@ -191,7 +188,7 @@ export const registerChatRoutes = (app: Hono<AppBindings>) => {
 
     if (shouldValidateUsage) {
       const usageCheck = await validateUsageLimit({
-        userId: auth!.userId!,
+        userId: effectiveUserId,
         officialTgUrl: billingConfig.officialTgUrl,
         internalApiSecret: billingConfig.internalApiSecret,
       })
@@ -215,6 +212,7 @@ export const registerChatRoutes = (app: Hono<AppBindings>) => {
         chatId: effectiveChatId,
         userId: effectiveUserId,
         workflowId,
+        conversationId: effectiveConversationId,
         mode,
         model,
         provider,
@@ -240,7 +238,10 @@ export const registerChatRoutes = (app: Hono<AppBindings>) => {
         data: JSON.stringify({ type: 'chat_id', chatId: effectiveChatId }),
       })
       await stream.writeSSE({
-        data: JSON.stringify({ type: 'start', data: { responseId, messageId, version, conversationId } }),
+        data: JSON.stringify({
+          type: 'start',
+          data: { responseId, messageId, version, conversationId: effectiveConversationId },
+        }),
       })
 
       await runTurn({

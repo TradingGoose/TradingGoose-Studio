@@ -20,6 +20,7 @@ export interface Session {
   chatId: string
   userId: string
   workflowId: string
+  conversationId: string
   mode: 'ask' | 'agent'
   model?: string
   provider?: AiRouterProvider

@@ -71,6 +71,79 @@ const groupChats = (chats: CopilotChat[]) => {
   return Object.entries(groups).filter(([, list]) => list.length > 0)
 }
 
+interface ChatHistoryGroupProps {
+  label: string
+  chats: CopilotChat[]
+  onSelect: (chat: CopilotChat) => Promise<void> | void
+  onDelete: (chatId: string) => Promise<void> | void
+  isSendingMessage: boolean
+}
+
+interface ChatHistoryItemProps {
+  chat: CopilotChat
+  onSelect: (chat: CopilotChat) => Promise<void> | void
+  onDelete: (chatId: string) => Promise<void> | void
+  isSendingMessage: boolean
+}
+
+function ChatHistoryItem({ chat, onSelect, onDelete, isSendingMessage }: ChatHistoryItemProps) {
+  return (
+    <DropdownMenuItem
+      className='flex w-full items-center justify-between gap-3 rounded-sm py-2 text-left text-sm transition-colors focus:bg-muted data-[highlighted]:bg-muted'
+      onSelect={(event) => {
+        event.preventDefault()
+        void onSelect(chat)
+      }}
+    >
+      <div className='min-w-0'>
+        <p className='truncate min-w-0 font-medium text-foreground'>{chat.title || 'New Chat'}</p>
+        <p className='text-xs text-muted-foreground'>Updated {formatRelativeTime(chat.updatedAt)}</p>
+      </div>
+      <button
+        type='button'
+        onClick={(event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          void onDelete(chat.id)
+        }}
+        disabled={isSendingMessage}
+        aria-label='Delete chat'
+      >
+        <span className='text-sm hover:text-destructive leading-none'>×</span>
+      </button>
+    </DropdownMenuItem >
+  )
+}
+
+function ChatHistoryGroup({
+  label,
+  chats,
+  onSelect,
+  onDelete,
+  isSendingMessage,
+}: ChatHistoryGroupProps) {
+  if (chats.length === 0) return null
+
+  return (
+    <div className='space-y-1.5'>
+      <p className='text-xs font-semibold uppercase tracking-wide text-muted-foreground'>
+        {label}
+      </p>
+      <div className='space-y-1'>
+        {chats.map((chat) => (
+          <ChatHistoryItem
+            key={chat.id}
+            chat={chat}
+            onSelect={onSelect}
+            onDelete={onDelete}
+            isSendingMessage={isSendingMessage}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function CopilotHeader({ channelId }: { channelId: string }) {
   const store = useMemo(() => getCopilotStore(channelId), [channelId])
 
@@ -101,9 +174,33 @@ export function CopilotHeader({ channelId }: { channelId: string }) {
   }
 
   const title = currentChat?.title || 'New Chat'
+  const dropdownMenuBody = (() => {
+    if (isLoadingChats) {
+      return <div className='p-3 text-sm text-muted-foreground'>Loading…</div>
+    }
+
+    if (grouped.length === 0) {
+      return <div className='p-3 text-sm text-muted-foreground'>No chats yet</div>
+    }
+
+    return (
+      <div className='space-y-4 p-2'>
+        {grouped.map(([label, chatsInGroup]) => (
+          <ChatHistoryGroup
+            key={label}
+            label={label}
+            chats={chatsInGroup}
+            onSelect={handleSelectChat}
+            onDelete={handleDeleteChat}
+            isSendingMessage={isSendingMessage}
+          />
+        ))}
+      </div>
+    )
+  })()
 
   return (
-    <div className='flex items-center gap-2'>
+    <div className='flex w-full min-w-0 items-center gap-2'>
       <DropdownMenu onOpenChange={(open) => open && handleRefresh()}>
         <DropdownMenuTrigger asChild>
           <button
@@ -112,64 +209,18 @@ export function CopilotHeader({ channelId }: { channelId: string }) {
             aria-label='Open chat history'
           >
             <Clock3 className='h-4 w-4 text-muted-foreground' />
-            <span className='min-w-0 flex-1 truncate text-left text-sm font-medium text-foreground'>
+            <span className='min-w-0 flex-1 truncate text-left text-sm font-medium'>
               {title}
             </span>
             <ChevronDown className='h-4 w-4 text-muted-foreground' />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className='w-72 p-0'>
-          <ScrollArea className='max-h-72'>
-            <div className='divide-y divide-border/50'>
-              {isLoadingChats ? (
-                <div className='p-3 text-sm text-muted-foreground'>Loading…</div>
-              ) : grouped.length === 0 ? (
-                <div className='p-3 text-sm text-muted-foreground'>No chats yet</div>
-              ) : (
-                grouped.map(([label, chatsInGroup]) => (
-                  <div key={label}>
-                    <div className='bg-muted/60 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground'>
-                      {label}
-                    </div>
-                    <div className='flex flex-col'>
-                      {chatsInGroup.map((chat) => (
-                        <DropdownMenuItem
-                          key={chat.id}
-                          className='flex items-center justify-between gap-2'
-                          onSelect={(event) => {
-                            event.preventDefault()
-                            void handleSelectChat(chat)
-                          }}
-                        >
-                          <div className='min-w-0'>
-                            <p className='truncate text-sm font-medium text-foreground'>
-                              {chat.title || 'New Chat'}
-                            </p>
-                            <p className='text-[11px] text-muted-foreground'>
-                              Updated {formatRelativeTime(chat.updatedAt)}
-                            </p>
-                          </div>
-                          <button
-                            type='button'
-                            className={widgetHeaderIconButtonClassName()}
-                            onClick={(event) => {
-                              event.preventDefault()
-                              event.stopPropagation()
-                              void handleDeleteChat(chat.id)
-                            }}
-                            disabled={isSendingMessage}
-                            aria-label='Delete chat'
-                          >
-                            <span className='text-sm leading-none'>×</span>
-                          </button>
-                        </DropdownMenuItem>
-                      ))}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </ScrollArea>
+        <DropdownMenuContent
+          side='bottom'
+          sideOffset={6}
+          className='w-[var(--radix-dropdown-menu-trigger-width)] overflow-hidden p-0'
+        >
+          <ScrollArea className='max-h-72 pr-1'>{dropdownMenuBody}</ScrollArea>
         </DropdownMenuContent>
       </DropdownMenu>
 
