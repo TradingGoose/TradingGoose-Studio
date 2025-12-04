@@ -85,7 +85,6 @@ export function getBlocksForSidebar(): BlockConfig[] {
   const allBlocks = getAllBlocks()
   return allBlocks.filter((block) => {
     if (block.hideFromToolbar) return false
-    if (block.type === 'starter') return false // Legacy block
     // Only exclude blocks with 'triggers' category
     // Tools with trigger capability should still appear in blocks tab
     return block.category !== 'triggers'

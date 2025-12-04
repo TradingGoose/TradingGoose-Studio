@@ -2,9 +2,9 @@ import { Body, Container, Head, Html, Preview, Section, Text } from '@react-emai
 import { format } from 'date-fns'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { getBaseUrl } from '@/lib/urls/utils'
-import { baseStyles } from './base-styles'
-import EmailFooter from './footer'
-import EmailHeader from './header'
+import { baseStyles } from '@/components/emails/base-styles'
+import EmailFooter from '@/components/emails/footer'
+import EmailHeader from '@/components/emails/header'
 
 interface HelpConfirmationEmailProps {
   userEmail?: string

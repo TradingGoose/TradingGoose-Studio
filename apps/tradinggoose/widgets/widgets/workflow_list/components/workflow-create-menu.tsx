@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateFolderName } from '@/lib/naming'
 import { cn } from '@/lib/utils'
@@ -239,29 +240,32 @@ export function DashboardWorkflowCreateMenu({
   const createWorkflowDisabled = !isWorkspaceReady || isMenuDisabled || isCreatingWorkflow
   const createFolderDisabled = !isWorkspaceReady || isMenuDisabled || isCreatingFolder
   const importWorkflowDisabled = !isWorkspaceReady || isMenuDisabled || isImporting
+  const createButtonTooltip = isWorkspaceReady
+    ? 'Create Folder or Workflow (press for more options)'
+    : 'Select a workspace to create workflows'
 
   return (
     <>
       <DropdownMenu open={open} onOpenChange={setOpen}>
-        <DropdownMenuTrigger asChild>
-          <button
-            type='button'
-            className={widgetHeaderIconButtonClassName()}
-            title={
-              isWorkspaceReady
-                ? 'Create workflow (hover, right-click, or long press for more options)'
-                : 'Select a workspace to create workflows'
-            }
-            disabled={isMenuDisabled}
-            onClick={handleButtonClick}
-            onContextMenu={handleContextMenu}
-            onMouseDown={handleMouseDown}
-            onMouseUp={handleMouseUp}
-          >
-            <Plus className={widgetHeaderMenuIconClassName} />
-            <span className='sr-only'>Create workflow</span>
-          </button>
-        </DropdownMenuTrigger>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <button
+                type='button'
+                className={widgetHeaderIconButtonClassName()}
+                disabled={isMenuDisabled}
+                onClick={handleButtonClick}
+                onContextMenu={handleContextMenu}
+                onMouseDown={handleMouseDown}
+                onMouseUp={handleMouseUp}
+              >
+                <Plus className={widgetHeaderMenuIconClassName} />
+                <span className='sr-only'>Create workflow</span>
+              </button>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent side='top'>{createButtonTooltip}</TooltipContent>
+        </Tooltip>
 
         <DropdownMenuContent
           sideOffset={6}

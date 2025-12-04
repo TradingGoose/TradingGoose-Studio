@@ -102,7 +102,7 @@ describe('Executor', () => {
         contextExtensions: {
           stream: true,
           selectedOutputs: ['block1'],
-          edges: [{ source: 'starter', target: 'block1' }],
+          edges: [{ source: 'trigger', target: 'block1' }],
           onStream: mockOnStream,
         },
       })
@@ -155,41 +155,39 @@ describe('Executor', () => {
       expect(validateSpy).toHaveBeenCalledTimes(1)
     })
 
-    it.concurrent('should throw error for workflow without starter block', () => {
+    it.concurrent('should throw error for workflow without trigger block', () => {
       const workflow = createMinimalWorkflow()
-      workflow.blocks = workflow.blocks.filter((block) => block.metadata?.id !== BlockType.STARTER)
+      workflow.blocks = workflow.blocks.filter((block) => block.metadata?.category !== 'triggers')
 
-      expect(() => new Executor(workflow)).toThrow('Workflow must have an enabled starter block')
+      expect(() => new Executor(workflow)).toThrow('Workflow must include at least one trigger block')
     })
 
-    it.concurrent('should throw error for workflow with disabled starter block', () => {
+    it.concurrent('should allow workflows with disabled trigger blocks', () => {
       const workflow = createMinimalWorkflow()
-      workflow.blocks.find((block) => block.metadata?.id === BlockType.STARTER)!.enabled = false
+      workflow.blocks.find((block) => block.metadata?.category === 'triggers')!.enabled = false
 
-      expect(() => new Executor(workflow)).toThrow('Workflow must have an enabled starter block')
+      expect(() => new Executor(workflow)).not.toThrow()
     })
 
-    it.concurrent('should throw error if starter block has incoming connections', () => {
+    it.concurrent('should allow trigger block with incoming connections', () => {
       const workflow = createMinimalWorkflow()
       workflow.connections.push({
         source: 'block1',
-        target: 'starter',
+        target: 'trigger',
       })
 
-      expect(() => new Executor(workflow)).toThrow('Starter block cannot have incoming connections')
+      expect(() => new Executor(workflow)).not.toThrow()
     })
 
-    it.concurrent('should throw error if starter block has no outgoing connections', () => {
+    it.concurrent('should allow trigger block with no outgoing connections', () => {
       const workflow = createMinimalWorkflow()
       workflow.connections = []
 
-      expect(() => new Executor(workflow)).toThrow(
-        'Starter block must have at least one outgoing connection'
-      )
+      expect(() => new Executor(workflow)).not.toThrow()
     })
 
     it.concurrent(
-      'should NOT throw error if starter block has no outgoing connections but has trigger blocks',
+      'should NOT throw error if trigger block has no outgoing connections but has trigger blocks',
       () => {
         const workflow = createMinimalWorkflow()
         workflow.connections = []
@@ -216,7 +214,7 @@ describe('Executor', () => {
     )
 
     it.concurrent(
-      'should NOT throw error if starter block has no outgoing connections but has triggerMode block',
+      'should NOT throw error if trigger block has no outgoing connections but has triggerMode block',
       () => {
         const workflow = createMinimalWorkflow()
         workflow.connections = []
@@ -258,7 +256,7 @@ describe('Executor', () => {
     it.concurrent('should throw error if connection references non-existent target block', () => {
       const workflow = createMinimalWorkflow()
       workflow.connections.push({
-        source: 'starter',
+        source: 'trigger',
         target: 'non-existent-block',
       })
 
@@ -323,7 +321,7 @@ describe('Executor', () => {
       const workflow = createMinimalWorkflow()
       const mockOnStream = vi.fn()
       const selectedOutputs = ['block1', 'block2']
-      const edges = [{ source: 'starter', target: 'block1' }]
+      const edges = [{ source: 'trigger', target: 'block1' }]
 
       const executor = new Executor({
         workflow,
@@ -421,7 +419,7 @@ describe('Executor', () => {
       const executor = new Executor(workflow)
 
       const mockContext = createMockContext()
-      mockContext.blockStates.set('starter', {
+      mockContext.blockStates.set('trigger', {
         output: { input: {} },
         executed: true,
         executionTime: 0,
@@ -468,7 +466,7 @@ describe('Executor', () => {
       const executor = new Executor(workflow)
 
       const context = {
-        executedBlocks: new Set<string>(['starter', 'block1']),
+        executedBlocks: new Set<string>(['trigger', 'block1']),
         activeExecutionPath: new Set<string>(['block1']),
         blockStates: new Map(),
         workflow: workflow,
@@ -489,7 +487,7 @@ describe('Executor', () => {
       expect(context.activeExecutionPath.has('error-handler')).toBe(true)
     })
 
-    it.concurrent('should not activate error paths for starter and condition blocks', () => {
+    it.concurrent('should not activate error paths for trigger and condition blocks', () => {
       const workflow = createWorkflowWithErrorPath()
       const executor = new Executor(workflow)
 
@@ -504,13 +502,13 @@ describe('Executor', () => {
       })
 
       const context = {
-        executedBlocks: new Set<string>(['starter', 'condition-block']),
+        executedBlocks: new Set<string>(['trigger', 'condition-block']),
         activeExecutionPath: new Set<string>(['condition-block']),
         blockStates: new Map(),
         workflow: workflow,
       } as any
 
-      context.blockStates.set('starter', {
+      context.blockStates.set('trigger', {
         output: { error: 'Test error' },
         executed: true,
       })
@@ -522,7 +520,7 @@ describe('Executor', () => {
 
       const activateErrorPath = (executor as any).activateErrorPath.bind(executor)
 
-      expect(activateErrorPath('starter', context)).toBe(false)
+      expect(activateErrorPath('trigger', context)).toBe(false)
       expect(activateErrorPath('condition-block', context)).toBe(false)
     })
 
@@ -531,7 +529,7 @@ describe('Executor', () => {
       const executor = new Executor(workflow)
 
       const context = {
-        executedBlocks: new Set<string>(['starter', 'block1']),
+        executedBlocks: new Set<string>(['trigger', 'block1']),
         activeExecutionPath: new Set<string>(['block1']),
         blockStates: new Map(),
         workflow: workflow,
@@ -663,7 +661,7 @@ describe('Executor', () => {
           {
             id: 'start',
             position: { x: 0, y: 0 },
-            metadata: { id: BlockType.STARTER, name: 'Start' },
+            metadata: { id: 'input_trigger', name: 'Start' },
             config: { tool: 'test-tool', params: {} },
             inputs: {},
             outputs: {},
@@ -910,7 +908,7 @@ describe('Executor', () => {
 
       // Create mock context
       const mockContext = createMockContext()
-      mockContext.blockStates.set('starter', {
+      mockContext.blockStates.set('trigger', {
         output: { input: {} },
         executed: true,
         executionTime: 0,
@@ -982,10 +980,10 @@ describe('Executor', () => {
           version: '1.0',
           blocks: [
             {
-              id: 'starter',
+              id: 'trigger',
               position: { x: 0, y: 0 },
-              metadata: { id: BlockType.STARTER },
-              config: { tool: 'starter', params: {} },
+              metadata: { id: 'input_trigger' },
+              config: { tool: 'input_trigger', params: {} },
               inputs: {},
               outputs: {},
               enabled: true,
@@ -1010,8 +1008,8 @@ describe('Executor', () => {
             },
           ],
           connections: [
-            { source: 'starter', sourceHandle: 'out', target: 'agent1', targetHandle: 'in' },
-            { source: 'starter', sourceHandle: 'out', target: 'agent2', targetHandle: 'in' },
+            { source: 'trigger', sourceHandle: 'out', target: 'agent1', targetHandle: 'in' },
+            { source: 'trigger', sourceHandle: 'out', target: 'agent2', targetHandle: 'in' },
           ],
           loops: {},
           parallels: {},
@@ -1035,7 +1033,7 @@ describe('Executor', () => {
 
         ;(executor as any).createExecutionContext = vi.fn(() => ({
           blockStates: new Map(),
-          executedBlocks: new Set(['starter']),
+          executedBlocks: new Set(['trigger']),
           blockLogs: [],
           metadata: { startTime: new Date().toISOString() },
           pendingBlocks: [],
@@ -1073,10 +1071,10 @@ describe('Executor', () => {
         version: '1.0',
         blocks: [
           {
-            id: 'starter',
+            id: 'trigger',
             position: { x: -100, y: 0 },
-            metadata: { id: BlockType.STARTER, name: 'Starter Block' },
-            config: { tool: 'starter', params: {} },
+            metadata: { id: 'input_trigger', name: 'Input Trigger' },
+            config: { tool: 'input_trigger', params: {} },
             inputs: {} as Record<string, ParamType>,
             outputs: {} as Record<string, BlockOutput>,
             enabled: true,
@@ -1091,7 +1089,7 @@ describe('Executor', () => {
             enabled: true,
           },
         ],
-        connections: [{ source: 'starter', target: 'api-block' }],
+        connections: [{ source: 'trigger', target: 'api-block' }],
         loops: {},
       }
 
@@ -1127,10 +1125,10 @@ describe('Executor', () => {
           version: '1.0',
           blocks: [
             {
-              id: 'starter',
+              id: 'trigger',
               position: { x: 0, y: 0 },
-              metadata: { id: BlockType.STARTER, name: 'Starter Block' },
-              config: { tool: 'starter', params: {} },
+              metadata: { id: 'input_trigger', name: 'Input Trigger' },
+              config: { tool: 'input_trigger', params: {} },
               inputs: {} as Record<string, ParamType>,
               outputs: {} as Record<string, BlockOutput>,
               enabled: true,
@@ -1167,8 +1165,8 @@ describe('Executor', () => {
             },
           ],
           connections: [
-            { source: 'starter', target: 'workflow-block-1' },
-            { source: 'starter', target: 'workflow-block-2' },
+            { source: 'trigger', target: 'workflow-block-1' },
+            { source: 'trigger', target: 'workflow-block-2' },
           ],
           loops: {},
         }
@@ -1194,10 +1192,10 @@ describe('Executor', () => {
         version: '1.0',
         blocks: [
           {
-            id: 'starter',
+            id: 'trigger',
             position: { x: 0, y: 0 },
-            metadata: { id: BlockType.STARTER, name: 'Starter Block' },
-            config: { tool: 'starter', params: {} },
+            metadata: { id: 'input_trigger', name: 'Input Trigger' },
+            config: { tool: 'input_trigger', params: {} },
             inputs: {} as Record<string, ParamType>,
             outputs: {} as Record<string, BlockOutput>,
             enabled: true,
@@ -1218,7 +1216,7 @@ describe('Executor', () => {
             enabled: true,
           },
         ],
-        connections: [{ source: 'starter', target: 'workflow-block' }],
+        connections: [{ source: 'trigger', target: 'workflow-block' }],
         loops: {},
       }
 
@@ -1244,10 +1242,10 @@ describe('Executor', () => {
           version: '1.0',
           blocks: [
             {
-              id: 'starter',
+              id: 'trigger',
               position: { x: 0, y: 0 },
-              metadata: { id: BlockType.STARTER, name: 'Starter Block' },
-              config: { tool: 'starter', params: {} },
+              metadata: { id: 'input_trigger', name: 'Input Trigger' },
+              config: { tool: 'input_trigger', params: {} },
               inputs: {} as Record<string, ParamType>,
               outputs: {} as Record<string, BlockOutput>,
               enabled: true,
@@ -1299,9 +1297,9 @@ describe('Executor', () => {
             },
           ],
           connections: [
-            { source: 'starter', target: 'workflow-block-1' },
-            { source: 'starter', target: 'workflow-block-2' },
-            { source: 'starter', target: 'workflow-block-3' },
+            { source: 'trigger', target: 'workflow-block-1' },
+            { source: 'trigger', target: 'workflow-block-2' },
+            { source: 'trigger', target: 'workflow-block-3' },
           ],
           loops: {},
         }
@@ -1329,10 +1327,10 @@ describe('Executor', () => {
           version: '1.0',
           blocks: [
             {
-              id: 'starter',
+              id: 'trigger',
               position: { x: 0, y: 0 },
-              metadata: { id: BlockType.STARTER, name: 'Starter Block' },
-              config: { tool: 'starter', params: {} },
+              metadata: { id: 'input_trigger', name: 'Input Trigger' },
+              config: { tool: 'input_trigger', params: {} },
               inputs: {} as Record<string, ParamType>,
               outputs: {} as Record<string, BlockOutput>,
               enabled: true,
@@ -1369,8 +1367,8 @@ describe('Executor', () => {
             },
           ],
           connections: [
-            { source: 'starter', target: 'workflow-block-1' },
-            { source: 'starter', target: 'workflow-block-2' },
+            { source: 'trigger', target: 'workflow-block-1' },
+            { source: 'trigger', target: 'workflow-block-2' },
           ],
           loops: {},
         }
@@ -1402,10 +1400,10 @@ describe('Executor', () => {
         version: '1.0',
         blocks: [
           {
-            id: 'starter',
+            id: 'trigger',
             position: { x: 0, y: 0 },
-            metadata: { id: BlockType.STARTER, name: 'Starter Block' },
-            config: { tool: 'starter', params: {} },
+            metadata: { id: 'input_trigger', name: 'Input Trigger' },
+            config: { tool: 'input_trigger', params: {} },
             inputs: {} as Record<string, ParamType>,
             outputs: {} as Record<string, BlockOutput>,
             enabled: true,
@@ -1426,7 +1424,7 @@ describe('Executor', () => {
             enabled: true,
           },
         ],
-        connections: [{ source: 'starter', target: 'workflow-block' }],
+        connections: [{ source: 'trigger', target: 'workflow-block' }],
         loops: {},
       }
 

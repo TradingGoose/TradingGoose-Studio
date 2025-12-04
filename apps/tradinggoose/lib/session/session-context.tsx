@@ -3,7 +3,6 @@
 import type React from 'react'
 import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
 import posthog from 'posthog-js'
-import { handleAuthError, isAuthErrorStatus } from '@/lib/auth/auth-error-handler'
 import { client } from '@/lib/auth-client'
 
 export type AppSession = {
@@ -42,26 +41,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       setIsPending(true)
       setError(null)
       const res = await client.getSession()
-
-      const responseError = (res as any)?.error
-      if (isAuthErrorStatus(responseError?.status)) {
-        await handleAuthError('unauthorized-session')
-        setData(null)
-        return
-      }
-
       setData(res?.data ?? null)
-
-      if (responseError) {
-        setError(new Error(responseError?.message || 'Failed to fetch session'))
-      }
     } catch (e) {
-      const status = (e as any)?.status ?? (e as any)?.response?.status ?? (e as any)?.error?.status
-      if (isAuthErrorStatus(status)) {
-        await handleAuthError('unauthorized-session-error')
-        setData(null)
-        return
-      }
       setError(e instanceof Error ? e : new Error('Failed to fetch session'))
     } finally {
       setIsPending(false)

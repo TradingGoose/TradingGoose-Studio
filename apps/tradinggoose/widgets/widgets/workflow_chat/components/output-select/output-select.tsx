@@ -1,3 +1,5 @@
+'use client'
+
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 import { createPortal } from 'react-dom'
@@ -15,6 +17,7 @@ interface OutputSelectProps {
   disabled?: boolean
   placeholder?: string
   valueMode?: 'id' | 'label'
+  triggerClassName?: string
 }
 
 export function OutputSelect({
@@ -24,6 +27,7 @@ export function OutputSelect({
   disabled = false,
   placeholder = 'Select output sources',
   valueMode = 'id',
+  triggerClassName,
 }: OutputSelectProps) {
   const [isOutputDropdownOpen, setIsOutputDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -98,11 +102,12 @@ export function OutputSelect({
 
     // Process blocks to extract outputs
     blockArray.forEach((block) => {
-      // Skip starter/start blocks
-      if (block.type === 'starter') return
-
-      // Add defensive check to ensure block exists and has required properties
       if (!block || !block.id || !block.type) {
+        return
+      }
+
+      const blockConfig = getBlock(block.type)
+      if (blockConfig?.category === 'triggers') {
         return
       }
 
@@ -111,9 +116,6 @@ export function OutputSelect({
         block.name && typeof block.name === 'string'
           ? block.name.replace(/\s+/g, '').toLowerCase()
           : `block-${block.id}`
-
-      // Get block configuration from registry to get outputs
-      const blockConfig = getBlock(block.type)
 
       // Check for custom response format first
       // In diff mode, get value from diff blocks; otherwise use store
@@ -263,13 +265,12 @@ export function OutputSelect({
     const blockDistances: Record<string, number> = {}
     const edges = useWorkflowStore.getState().edges
 
-    // Find the starter block
-    const starterBlock = Object.values(blocks).find((block) => block.type === 'starter')
-    const starterBlockId = starterBlock?.id
+    const triggerBlocks = Object.values(blocks).filter((block) => {
+      const config = getBlock(block.type)
+      return config?.category === 'triggers'
+    })
 
-    // Calculate distances from starter block if it exists
-    if (starterBlockId) {
-      // Build an adjacency list for faster traversal
+    if (triggerBlocks.length > 0) {
       const adjList: Record<string, string[]> = {}
       for (const edge of edges) {
         if (!adjList[edge.source]) {
@@ -278,9 +279,8 @@ export function OutputSelect({
         adjList[edge.source].push(edge.target)
       }
 
-      // BFS to find distances from starter block
       const visited = new Set<string>()
-      const queue: [string, number][] = [[starterBlockId, 0]] // [nodeId, distance]
+      const queue: [string, number][] = triggerBlocks.map((block) => [block.id, 0])
 
       while (queue.length > 0) {
         const [currentNodeId, distance] = queue.shift()!
@@ -289,10 +289,7 @@ export function OutputSelect({
         visited.add(currentNodeId)
         blockDistances[currentNodeId] = distance
 
-        // Get all outgoing edges from the adjacency list
         const outgoingNodeIds = adjList[currentNodeId] || []
-
-        // Add all target nodes to the queue with incremented distance
         for (const targetId of outgoingNodeIds) {
           queue.push([targetId, distance + 1])
         }
@@ -334,6 +331,18 @@ export function OutputSelect({
     // Try to get the block's color from its configuration
     const blockConfig = getBlock(blockType)
     return blockConfig?.bgColor || '#2F55FF' // Default blue if not found
+  }
+
+  const renderBlockIcon = (blockType: string, blockName: string) => {
+    const blockConfig = getBlock(blockType)
+    const Icon = blockConfig?.icon
+
+    if (Icon) {
+      return <Icon className='text-white !h-3.5 !w-3.5' />
+    }
+
+    const fallback = blockName?.charAt(0)?.toUpperCase() ?? '?'
+    return <span className='font-bold text-white text-xs leading-none'>{fallback}</span>
   }
 
   // Close dropdown when clicking outside
@@ -409,16 +418,21 @@ export function OutputSelect({
       <button
         type='button'
         onClick={() => setIsOutputDropdownOpen(!isOutputDropdownOpen)}
-        className={`flex h-9 w-full items-center justify-between rounded-sm border px-3 py-1.5 font-normal text-sm shadow-xs transition-colors ${isOutputDropdownOpen
-          ? 'border-[#E5E5E5] bg-background text-muted-foreground dark:border-[#414141] '
-          : 'border-[#E5E5E5] bg-background text-muted-foreground hover:text-muted-foreground dark:border-[#414141] '
-          }`}
+        className={
+          triggerClassName ||
+          cn(
+            'flex h-9 w-full items-center justify-between rounded-sm px-3 py-1.5 font-normal text-sm shadow-xs transition-colors',
+            isOutputDropdownOpen
+              ? 'bg-background text-muted-foreground'
+              : 'bg-background text-muted-foreground hover:text-muted-foreground'
+          )
+        }
         disabled={workflowOutputs.length === 0 || disabled}
       >
         {selectedOutputInfo ? (
           <div className='flex w-[calc(100%-24px)] items-center gap-2 overflow-hidden text-left'>
             <div
-              className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded'
+              className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-xs'
               style={{
                 backgroundColor: getOutputColor(
                   selectedOutputInfo.blockId,
@@ -426,9 +440,7 @@ export function OutputSelect({
                 ),
               }}
             >
-              <span className='h-3 w-3 font-bold text-white text-xs'>
-                {selectedOutputInfo.blockName.charAt(0).toUpperCase()}
-              </span>
+              {renderBlockIcon(selectedOutputInfo.blockType, selectedOutputInfo.blockName)}
             </div>
             <span className='truncate text-left'>{selectedOutputsDisplayText}</span>
           </div>
@@ -459,7 +471,7 @@ export function OutputSelect({
             className='mt-0'
             data-rs-scroll-lock-ignore
           >
-            <div className='overflow-hidden rounded-sm border border-[#E5E5E5] bg-background pt-1 shadow-xs dark:border-[#414141] '>
+            <div className='overflow-hidden rounded-sm bg-background pt-1 shadow-xs border border-border'>
               <div
                 className='overflow-y-auto overscroll-contain'
                 style={{ maxHeight: portalStyle.height }}
@@ -470,7 +482,7 @@ export function OutputSelect({
               >
                 {Object.entries(groupedOutputs).map(([blockName, outputs]) => (
                   <div key={blockName}>
-                    <div className='border-[#E5E5E5] border-t px-3 pt-1.5 pb-0.5 font-normal text-muted-foreground text-xs first:border-t-0 dark:border-[#414141]'>
+                    <div className='border-t px-3 pt-1.5 pb-0.5 font-normal text-muted-foreground text-xs first:border-t-0 border-transparent'>
                       {blockName}
                     </div>
                     <div>
@@ -486,14 +498,12 @@ export function OutputSelect({
                           )}
                         >
                           <div
-                            className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded'
+                            className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-xs'
                             style={{
                               backgroundColor: getOutputColor(output.blockId, output.blockType),
                             }}
                           >
-                            <span className='h-3 w-3 font-bold text-white text-xs'>
-                              {blockName.charAt(0).toUpperCase()}
-                            </span>
+                            {renderBlockIcon(output.blockType, blockName)}
                           </div>
                           <span className='flex-1 truncate'>{output.path}</span>
                           {isSelectedValue(output) && (

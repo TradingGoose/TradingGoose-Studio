@@ -6,10 +6,11 @@ import { Alert, AlertDescription, Button, Input, Label } from '@/components/ui'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSession } from '@/lib/auth-client'
 import { isBillingEnabled } from '@/lib/environment'
+import { getUserRole } from '@/lib/organization/helpers'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { cn } from '@/lib/utils'
-import { useOrganizationStore } from '@/stores/organization'
+import { useOrganizations } from '@/hooks/queries/organization'
 
 const logger = createLogger('SSO')
 
@@ -70,7 +71,9 @@ interface SSOProvider {
 
 export function SSO() {
   const { data: session } = useSession()
-  const { activeOrganization, getUserRole, hasEnterprisePlan } = useOrganizationStore()
+  const { data: organizationsData } = useOrganizations()
+  const activeOrganization = organizationsData?.activeOrganization
+  const hasEnterprisePlan = organizationsData?.billingData?.data?.isEnterprise ?? false
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showClientSecret, setShowClientSecret] = useState(false)
@@ -117,7 +120,7 @@ export function SSO() {
 
   const userEmail = session?.user?.email
   const userId = session?.user?.id
-  const userRole = getUserRole(userEmail)
+  const userRole = getUserRole(activeOrganization, userEmail)
   const isOwner = userRole === 'owner'
   const isAdmin = userRole === 'admin'
   const canManageSSO = isOwner || isAdmin

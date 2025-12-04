@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Sparkles } from 'lucide-react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import WorkflowCopilotApp from './components/workflow-copilot-app'
@@ -44,6 +44,39 @@ const WorkflowCopilotWidgetBody = ({
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [panelWidth, setPanelWidth] = useState(0)
   const fallbackPanelWidth = typeof window !== 'undefined' ? window.innerWidth : 1200
+  const chatIdFromParams =
+    params && typeof params === 'object' && 'chatId' in params && params.chatId
+      ? String(params.chatId)
+      : null
+  const copilotChannelId =
+    resolvedPairColor !== 'gray'
+      ? `${channelId}-${panelId && panelId.trim().length > 0 ? panelId : 'panel'}`
+      : channelId
+
+  const handleChatIdChange = useCallback(
+    (nextChatId: string | null) => {
+      if (!onWidgetParamsChange) return
+
+      const normalizedCurrentId = chatIdFromParams ?? null
+      const normalizedNextId = nextChatId ?? null
+      if (normalizedCurrentId === normalizedNextId) return
+
+      const nextParams = { ...(params ?? {}) }
+      if (normalizedNextId) {
+        nextParams.chatId = normalizedNextId
+      } else {
+        delete nextParams.chatId
+      }
+
+      if (resolvedWorkflowId) {
+        nextParams.workflowId = resolvedWorkflowId
+      }
+
+      const hasKeys = Object.keys(nextParams).length > 0
+      onWidgetParamsChange(hasKeys ? nextParams : null)
+    },
+    [chatIdFromParams, onWidgetParamsChange, params, resolvedWorkflowId]
+  )
 
   useEffect(() => {
     const handleResize = () => {
@@ -95,7 +128,10 @@ const WorkflowCopilotWidgetBody = ({
         workflowId={resolvedWorkflowId}
         panelWidth={panelWidth || fallbackPanelWidth}
         channelId={channelId}
+        copilotChannelId={copilotChannelId}
+        chatId={chatIdFromParams}
         pairColor={resolvedPairColor}
+        onChatChange={handleChatIdChange}
       />
     </div>
   )
@@ -115,17 +151,20 @@ export const workflowCopilotWidget: DashboardWidgetDefinition = {
   description: 'AI copilot experience tailored to the selected workflow.',
   component: (props) => <WorkflowCopilotWidgetBody {...props} />,
   renderHeader: ({ widget, panelId }) => {
-    const { channelId } = resolveWidgetChannel({
+    const { channelId, resolvedPairColor } = resolveWidgetChannel({
       pairColor: widget?.pairColor ?? 'gray',
       widget,
       panelId,
       fallbackWidgetKey: 'workflow-copilot',
     })
+    const normalizedPanelId = panelId && panelId.trim().length > 0 ? panelId : 'panel'
+    const copilotChannelId =
+      resolvedPairColor !== 'gray' ? `${channelId}-${normalizedPanelId}` : channelId
 
     return {
       left: null,
-      center: <CopilotHeader channelId={channelId} />,
-      right: <CopilotHeaderActions channelId={channelId} />,
+      center: <CopilotHeader channelId={copilotChannelId} />,
+      right: <CopilotHeaderActions channelId={copilotChannelId} />,
     }
   },
 }

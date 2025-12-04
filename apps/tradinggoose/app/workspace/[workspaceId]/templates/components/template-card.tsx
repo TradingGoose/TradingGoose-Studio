@@ -199,12 +199,15 @@ const extractBlockTypesFromState = (state?: {
 }): string[] => {
   if (!state?.blocks) return []
 
-  // Get unique block types from the state, excluding starter blocks
+  // Get unique block types from the state, excluding trigger blocks
   // Sort the keys to ensure consistent ordering between server and client
   const blockTypes = Object.keys(state.blocks)
     .sort() // Sort keys to ensure consistent order
     .map((key) => state.blocks![key].type)
-    .filter((type) => type !== 'starter')
+    .filter((type) => {
+      const block = getBlock(type)
+      return block?.category !== 'triggers'
+    })
   return [...new Set(blockTypes)]
 }
 
@@ -259,10 +262,13 @@ export function TemplateCard({
   const [isStarLoading, setIsStarLoading] = useState(false)
 
   // Extract block types from state if provided, otherwise use the blocks prop
-  // Filter out starter blocks in both cases and sort for consistent rendering
+  // Filter out trigger blocks in both cases and sort for consistent rendering
   const blockTypes = state
     ? extractBlockTypesFromState(state)
-    : blocks.filter((blockType) => blockType !== 'starter').sort()
+    : blocks.filter((blockType) => {
+      const block = getBlock(blockType)
+      return block?.category !== 'triggers'
+    }).sort()
 
   // Get the icon component
   const iconComponent = getIconComponent(icon)

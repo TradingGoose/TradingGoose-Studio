@@ -37,10 +37,10 @@ describe('Schedule Configuration API Route', () => {
       ...sampleWorkflowState,
       blocks: {
         ...sampleWorkflowState.blocks,
-        'starter-id': {
-          ...sampleWorkflowState.blocks['starter-id'],
+        'trigger-id': {
+          ...sampleWorkflowState.blocks['trigger-id'],
           subBlocks: {
-            ...sampleWorkflowState.blocks['starter-id'].subBlocks,
+            ...sampleWorkflowState.blocks['trigger-id'].subBlocks,
             startWorkflow: { id: 'startWorkflow', type: 'dropdown', value: 'schedule' },
             scheduleType: { id: 'scheduleType', type: 'dropdown', value: 'daily' },
             scheduleTime: { id: 'scheduleTime', type: 'time-input', value: '09:30' },
@@ -75,7 +75,7 @@ describe('Schedule Configuration API Route', () => {
                   {
                     id: 'existing-schedule-id',
                     workflowId: 'workflow-id',
-                    blockId: 'starter-id',
+                    blockId: 'trigger-id',
                     cronExpression: '0 9 * * *',
                     nextRunAt: new Date(),
                     status: 'active',
@@ -151,8 +151,8 @@ describe('Schedule Configuration API Route', () => {
       workflowId: 'workflow-id',
       state: {
         blocks: {
-          'starter-id': {
-            type: 'starter',
+          'trigger-id': {
+            type: 'input_trigger',
             subBlocks: {
               startWorkflow: { value: 'schedule' },
               scheduleType: { value: 'daily' },
@@ -237,8 +237,8 @@ describe('Schedule Configuration API Route', () => {
       workflowId: 'workflow-id',
       state: { 
         blocks: {
-          'starter-id': {
-            type: 'starter',
+          'trigger-id': {
+            type: 'input_trigger',
             subBlocks: {
               startWorkflow: { value: 'manual' }, // Manual trigger
               scheduleType: { value: 'daily' },

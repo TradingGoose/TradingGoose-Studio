@@ -281,7 +281,7 @@ export function WorkflowItem({
     <>
       <span className='flex items-center gap-2'>
         <span
-          className='mr-2 h-2.5 w-2.5 rounded-xs'
+          className='mr-2 h-2.5 w-2.5 rounded-xxs'
           style={{
             backgroundColor: workflow.color,
             boxShadow: `0 0 0 4px ${workflow.color}50`,

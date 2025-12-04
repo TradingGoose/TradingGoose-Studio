@@ -23,48 +23,11 @@ export function LoadingAgent({ size = 'md' }: LoadingAgentProps) {
     <svg
       width={width}
       height={height}
-      viewBox='0 0 21 24'
+      viewBox='0 0 24 24'
       fill='none'
       xmlns='http://www.w3.org/2000/svg'
     >
-      <path
-        d='M15.6667 9.25H4.66667C2.64162 9.25 1 10.8916 1 12.9167V18.4167C1 20.4417 2.64162 22.0833 4.66667 22.0833H15.6667C17.6917 22.0833 19.3333 20.4417 19.3333 18.4167V12.9167C19.3333 10.8916 17.6917 9.25 15.6667 9.25Z'
-        stroke='var(--primary)'
-        strokeWidth='1.8'
-        strokeLinecap='round'
-        strokeLinejoin='round'
-        style={{
-          strokeDasharray: pathLength,
-          strokeDashoffset: pathLength,
-          animation: 'dashLoop 3s linear infinite',
-        }}
-      />
-      <path
-        d='M10.1663 5.58464C11.1789 5.58464 11.9997 4.76382 11.9997 3.7513C11.9997 2.73878 11.1789 1.91797 10.1663 1.91797C9.15382 1.91797 8.33301 2.73878 8.33301 3.7513C8.33301 4.76382 9.15382 5.58464 10.1663 5.58464Z'
-        stroke='var(--primary)'
-        strokeWidth='1.8'
-        strokeLinecap='round'
-        strokeLinejoin='round'
-        style={{
-          strokeDasharray: pathLength,
-          strokeDashoffset: pathLength,
-          animation: 'dashLoop 3s linear infinite',
-          animationDelay: '0.5s',
-        }}
-      />
-      <path
-        d='M10.167 5.58594V9.2526M7.41699 16.5859V14.7526M12.917 14.7526V16.5859'
-        stroke='var(--primary)'
-        strokeWidth='1.8'
-        strokeLinecap='round'
-        strokeLinejoin='round'
-        style={{
-          strokeDasharray: pathLength,
-          strokeDashoffset: pathLength,
-          animation: 'dashLoop 3s linear infinite',
-          animationDelay: '1s',
-        }}
-      />
+      <g stroke="var(--primary)" strokeWidth="1"><circle cx="12" cy="12" r="9.5" fill="none" strokeLinecap="round" strokeWidth="3"><animate attributeName="stroke-dasharray" calcMode="spline" dur="1.125s" keySplines="0.42,0,0.58,1;0.42,0,0.58,1;0.42,0,0.58,1" keyTimes="0;0.475;0.95;1" repeatCount="indefinite" values="0 150;42 150;42 150;42 150" /><animate attributeName="stroke-dashoffset" calcMode="spline" dur="1.125s" keySplines="0.42,0,0.58,1;0.42,0,0.58,1;0.42,0,0.58,1" keyTimes="0;0.475;0.95;1" repeatCount="indefinite" values="0;-16;-59;-59" /></circle><animateTransform attributeName="transform" dur="1.5s" repeatCount="indefinite" type="rotate" values="0 12 12;360 12 12" /></g>
       <style>
         {`
           @keyframes dashLoop {

@@ -81,6 +81,7 @@ export default {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
         xs: 'calc(var(--radius) - 6px)',
+        xxs: 'calc(var(--radius) - 7.5px)',
       },
       transitionProperty: {
         width: 'width',

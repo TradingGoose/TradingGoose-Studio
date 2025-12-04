@@ -1,7 +1,8 @@
 /**
- * Helper functions for subscription-related computations.
- * Mirrors the SIM implementation to keep both apps in sync.
+ * Helper functions for subscription-related computations
+ * These are pure functions that compute values from subscription data
  */
+
 import { DEFAULT_FREE_CREDITS } from '@/lib/billing/constants'
 import type { BillingStatus, SubscriptionData, UsageData } from '@/lib/subscription/types'
 
@@ -14,12 +15,10 @@ const defaultUsage: UsageData = {
   billingPeriodStart: null,
   billingPeriodEnd: null,
   lastPeriodCost: 0,
-  lastPeriodCopilotCost: 0,
-  copilotCost: 0,
 }
 
 /**
- * Get subscription status flags from subscription data.
+ * Get subscription status flags from subscription data
  */
 export function getSubscriptionStatus(subscriptionData: SubscriptionData | null | undefined) {
   return {
@@ -36,14 +35,14 @@ export function getSubscriptionStatus(subscriptionData: SubscriptionData | null 
 }
 
 /**
- * Get usage data from subscription data.
+ * Get usage data from subscription data
  */
 export function getUsage(subscriptionData: SubscriptionData | null | undefined): UsageData {
   return subscriptionData?.usage ?? defaultUsage
 }
 
 /**
- * Get billing status based on usage and blocked state.
+ * Get billing status based on usage and blocked state
  */
 export function getBillingStatus(
   subscriptionData: SubscriptionData | null | undefined
@@ -57,7 +56,7 @@ export function getBillingStatus(
 }
 
 /**
- * Get remaining budget.
+ * Get remaining budget
  */
 export function getRemainingBudget(subscriptionData: SubscriptionData | null | undefined): number {
   const usage = getUsage(subscriptionData)
@@ -65,7 +64,7 @@ export function getRemainingBudget(subscriptionData: SubscriptionData | null | u
 }
 
 /**
- * Get days remaining in billing period.
+ * Get days remaining in billing period
  */
 export function getDaysRemainingInPeriod(
   subscriptionData: SubscriptionData | null | undefined
@@ -82,7 +81,7 @@ export function getDaysRemainingInPeriod(
 }
 
 /**
- * Check if subscription is at least Pro tier.
+ * Check if subscription is at least Pro tier
  */
 export function isAtLeastPro(subscriptionData: SubscriptionData | null | undefined): boolean {
   const status = getSubscriptionStatus(subscriptionData)
@@ -90,7 +89,7 @@ export function isAtLeastPro(subscriptionData: SubscriptionData | null | undefin
 }
 
 /**
- * Check if subscription is at least Team tier.
+ * Check if subscription is at least Team tier
  */
 export function isAtLeastTeam(subscriptionData: SubscriptionData | null | undefined): boolean {
   const status = getSubscriptionStatus(subscriptionData)
@@ -98,7 +97,7 @@ export function isAtLeastTeam(subscriptionData: SubscriptionData | null | undefi
 }
 
 /**
- * Check if user can upgrade.
+ * Check if user can upgrade
  */
 export function canUpgrade(subscriptionData: SubscriptionData | null | undefined): boolean {
   const status = getSubscriptionStatus(subscriptionData)

@@ -90,7 +90,6 @@ export class Routing {
     [BlockType.API]: BlockCategory.REGULAR_BLOCK,
     [BlockType.EVALUATOR]: BlockCategory.REGULAR_BLOCK,
     [BlockType.RESPONSE]: BlockCategory.REGULAR_BLOCK,
-    [BlockType.STARTER]: BlockCategory.REGULAR_BLOCK,
   }
 
   static getCategory(blockType: string): BlockCategory {

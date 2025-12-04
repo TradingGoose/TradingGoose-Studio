@@ -39,6 +39,7 @@
   "dependencies": {
     "@linear/sdk": "40.0.0",
     "@t3-oss/env-nextjs": "0.13.4",
+    "@tanstack/react-query": "5.90.8",
     "cronstrue": "3.3.0",
     "drizzle-orm": "^0.44.5",
     "mongodb": "6.19.0",

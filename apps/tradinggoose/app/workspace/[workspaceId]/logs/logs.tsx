@@ -1,12 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, Info, Loader2, Map as MapIcon, RefreshCw } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { createLogger } from '@/lib/logs/console/logger'
 import { parseQuery, queryToApiParams } from '@/lib/logs/query-parser'
 import { cn } from '@/lib/utils'
 import Timeline from '@/app/workspace/[workspaceId]/logs/components/filters/components/timeline'
@@ -15,12 +14,13 @@ import { Sidebar } from '@/app/workspace/[workspaceId]/logs/components/sidebar/s
 import Dashboard from '@/app/workspace/[workspaceId]/logs/dashboard'
 import { formatDate } from '@/app/workspace/[workspaceId]/logs/utils'
 import { GlobalNavbarHeader } from '@/global-navbar'
+import { useFolders } from '@/hooks/queries/folders'
+import { useLogDetail, useLogsList } from '@/hooks/queries/logs'
 import { useDebounce } from '@/hooks/use-debounce'
 import { useFolderStore } from '@/stores/folders/store'
 import { useFilterStore } from '@/stores/logs/filters/store'
-import type { LogsResponse, WorkflowLog } from '@/stores/logs/filters/types'
+import type { WorkflowLog } from '@/stores/logs/filters/types'
 
-const logger = createLogger('Logs')
 const LOGS_PER_PAGE = 50
 
 const getTriggerColor = (trigger: string | null | undefined): string => {
@@ -59,19 +59,7 @@ export default function Logs() {
   const workspaceId = params.workspaceId as string
 
   const {
-    logs,
-    loading,
-    error,
-    setLogs,
-    setLoading,
-    setError,
     setWorkspaceId,
-    page,
-    setPage,
-    hasMore,
-    setHasMore,
-    isFetchingMore,
-    setIsFetchingMore,
     initializeFromURL,
     timeRange,
     level,
@@ -92,10 +80,6 @@ export default function Logs() {
   const [selectedLogIndex, setSelectedLogIndex] = useState<number>(-1)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [panelLayout, setPanelLayout] = useState<number[] | null>(null)
-  const [isDetailsLoading, setIsDetailsLoading] = useState(false)
-  const detailsCacheRef = useRef<Map<string, any>>(new Map())
-  const detailsAbortRef = useRef<AbortController | null>(null)
-  const currentDetailsIdRef = useRef<string | null>(null)
   const selectedRowRef = useRef<HTMLTableRowElement | null>(null)
   const loaderRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -107,23 +91,68 @@ export default function Logs() {
   const [availableWorkflows, setAvailableWorkflows] = useState<string[]>([])
   const [availableFolders, setAvailableFolders] = useState<string[]>([])
 
-  // Live and refresh state
+  // Live refresh toggle
   const [isLive, setIsLive] = useState(false)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const liveIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const isSearchOpenRef = useRef<boolean>(false)
+
+  const logFilters = useMemo(
+    () => ({
+      timeRange,
+      level,
+      workflowIds,
+      folderIds,
+      triggers,
+      searchQuery: debouncedSearchQuery,
+      limit: LOGS_PER_PAGE,
+    }),
+    [timeRange, level, workflowIds, folderIds, triggers, debouncedSearchQuery]
+  )
+
+  const logsQuery = useLogsList(workspaceId, logFilters, {
+    enabled: Boolean(workspaceId) && isInitialized.current,
+    refetchInterval: isLive ? 5000 : false,
+  })
+
+  const logDetailQuery = useLogDetail(selectedLog?.id)
+
+  const logs = useMemo(() => {
+    if (!logsQuery.data?.pages) return []
+    return logsQuery.data.pages.flatMap((page) => page.logs)
+  }, [logsQuery.data?.pages])
+
+  const hasMore = Boolean(logsQuery.hasNextPage)
+  const isFetchingMore = logsQuery.isFetchingNextPage
+  const isInitialLoading = logsQuery.isLoading && !logsQuery.data
+  const isRefreshing = logsQuery.isRefetching
+  const loading = isInitialLoading
+  const error =
+    logsQuery.error instanceof Error
+      ? logsQuery.error.message
+      : logsQuery.error
+        ? 'Failed to fetch logs'
+        : null
+
+  const detailedSelectedLog = logDetailQuery.data ?? selectedLog
+  const fetchNextPage = logsQuery.fetchNextPage
 
   // Sync local search query with store search query
   useEffect(() => {
     setSearchQuery(storeSearchQuery)
   }, [storeSearchQuery])
 
-  const { fetchFolders, getFolderTree } = useFolderStore()
+  const { getFolderTree } = useFolderStore()
+  const foldersQuery = useFolders(workspaceId)
 
   useEffect(() => {
     let cancelled = false
 
     const fetchSuggestions = async () => {
+      if (!workspaceId) {
+        setAvailableWorkflows([])
+        setAvailableFolders([])
+        return
+      }
+
       try {
         const res = await fetch(`/api/workflows?workspaceId=${encodeURIComponent(workspaceId)}`)
         if (res.ok) {
@@ -136,7 +165,6 @@ export default function Logs() {
           if (!cancelled) setAvailableWorkflows([])
         }
 
-        await fetchFolders(workspaceId)
         const tree = getFolderTree(workspaceId)
 
         const flatten = (nodes: any[], parentPath = ''): string[] => {
@@ -166,7 +194,7 @@ export default function Logs() {
     return () => {
       cancelled = true
     }
-  }, [workspaceId, fetchFolders, getFolderTree])
+  }, [workspaceId, getFolderTree, foldersQuery.data])
 
   useEffect(() => {
     if (isInitialized.current && debouncedSearchQuery !== storeSearchQuery) {
@@ -179,62 +207,6 @@ export default function Logs() {
     const index = logs.findIndex((l) => l.id === log.id)
     setSelectedLogIndex(index)
     setIsSidebarOpen(true)
-    setIsDetailsLoading(true)
-
-    const currentId = log.id
-    const prevId = index > 0 ? logs[index - 1]?.id : undefined
-    const nextId = index < logs.length - 1 ? logs[index + 1]?.id : undefined
-
-    if (detailsAbortRef.current) {
-      try {
-        detailsAbortRef.current.abort()
-      } catch {
-        /* no-op */
-      }
-    }
-    const controller = new AbortController()
-    detailsAbortRef.current = controller
-    currentDetailsIdRef.current = currentId
-
-    const idsToFetch: Array<{ id: string; merge: boolean }> = []
-    const cachedCurrent = currentId ? detailsCacheRef.current.get(currentId) : undefined
-    if (currentId && !cachedCurrent) idsToFetch.push({ id: currentId, merge: true })
-    if (prevId && !detailsCacheRef.current.has(prevId))
-      idsToFetch.push({ id: prevId, merge: false })
-    if (nextId && !detailsCacheRef.current.has(nextId))
-      idsToFetch.push({ id: nextId, merge: false })
-
-    if (cachedCurrent) {
-      setSelectedLog((prev) =>
-        prev && prev.id === currentId
-          ? ({ ...(prev as any), ...(cachedCurrent as any) } as any)
-          : prev
-      )
-      setIsDetailsLoading(false)
-    }
-    if (idsToFetch.length === 0) return
-
-    Promise.all(
-      idsToFetch.map(async ({ id, merge }) => {
-        try {
-          const res = await fetch(`/api/logs/${id}`, { signal: controller.signal })
-          if (!res.ok) return
-          const body = await res.json()
-          const detailed = body?.data
-          if (detailed) {
-            detailsCacheRef.current.set(id, detailed)
-            if (merge && id === currentId) {
-              setSelectedLog((prev) =>
-                prev && prev.id === id ? ({ ...(prev as any), ...(detailed as any) } as any) : prev
-              )
-              if (currentDetailsIdRef.current === id) setIsDetailsLoading(false)
-            }
-          }
-        } catch (e: any) {
-          if (e?.name === 'AbortError') return
-        }
-      })
-    ).catch(() => { })
   }
 
   const handleNavigateNext = useCallback(() => {
@@ -243,54 +215,6 @@ export default function Logs() {
       setSelectedLogIndex(nextIndex)
       const nextLog = logs[nextIndex]
       setSelectedLog(nextLog)
-      if (detailsAbortRef.current) {
-        try {
-          detailsAbortRef.current.abort()
-        } catch {
-          /* no-op */
-        }
-      }
-      const controller = new AbortController()
-      detailsAbortRef.current = controller
-
-      const cached = detailsCacheRef.current.get(nextLog.id)
-      if (cached) {
-        setSelectedLog((prev) =>
-          prev && prev.id === nextLog.id ? ({ ...(prev as any), ...(cached as any) } as any) : prev
-        )
-      } else {
-        const prevId = nextIndex > 0 ? logs[nextIndex - 1]?.id : undefined
-        const afterId = nextIndex < logs.length - 1 ? logs[nextIndex + 1]?.id : undefined
-        const idsToFetch: Array<{ id: string; merge: boolean }> = []
-        if (nextLog.id && !detailsCacheRef.current.has(nextLog.id))
-          idsToFetch.push({ id: nextLog.id, merge: true })
-        if (prevId && !detailsCacheRef.current.has(prevId))
-          idsToFetch.push({ id: prevId, merge: false })
-        if (afterId && !detailsCacheRef.current.has(afterId))
-          idsToFetch.push({ id: afterId, merge: false })
-        Promise.all(
-          idsToFetch.map(async ({ id, merge }) => {
-            try {
-              const res = await fetch(`/api/logs/${id}`, { signal: controller.signal })
-              if (!res.ok) return
-              const body = await res.json()
-              const detailed = body?.data
-              if (detailed) {
-                detailsCacheRef.current.set(id, detailed)
-                if (merge && id === nextLog.id) {
-                  setSelectedLog((prev) =>
-                    prev && prev.id === id
-                      ? ({ ...(prev as any), ...(detailed as any) } as any)
-                      : prev
-                  )
-                }
-              }
-            } catch (e: any) {
-              if (e?.name === 'AbortError') return
-            }
-          })
-        ).catch(() => { })
-      }
     }
   }, [selectedLogIndex, logs])
 
@@ -300,54 +224,6 @@ export default function Logs() {
       setSelectedLogIndex(prevIndex)
       const prevLog = logs[prevIndex]
       setSelectedLog(prevLog)
-      if (detailsAbortRef.current) {
-        try {
-          detailsAbortRef.current.abort()
-        } catch {
-          /* no-op */
-        }
-      }
-      const controller = new AbortController()
-      detailsAbortRef.current = controller
-
-      const cached = detailsCacheRef.current.get(prevLog.id)
-      if (cached) {
-        setSelectedLog((prev) =>
-          prev && prev.id === prevLog.id ? ({ ...(prev as any), ...(cached as any) } as any) : prev
-        )
-      } else {
-        const beforeId = prevIndex > 0 ? logs[prevIndex - 1]?.id : undefined
-        const afterId = prevIndex < logs.length - 1 ? logs[prevIndex + 1]?.id : undefined
-        const idsToFetch: Array<{ id: string; merge: boolean }> = []
-        if (prevLog.id && !detailsCacheRef.current.has(prevLog.id))
-          idsToFetch.push({ id: prevLog.id, merge: true })
-        if (beforeId && !detailsCacheRef.current.has(beforeId))
-          idsToFetch.push({ id: beforeId, merge: false })
-        if (afterId && !detailsCacheRef.current.has(afterId))
-          idsToFetch.push({ id: afterId, merge: false })
-        Promise.all(
-          idsToFetch.map(async ({ id, merge }) => {
-            try {
-              const res = await fetch(`/api/logs/${id}`, { signal: controller.signal })
-              if (!res.ok) return
-              const body = await res.json()
-              const detailed = body?.data
-              if (detailed) {
-                detailsCacheRef.current.set(id, detailed)
-                if (merge && id === prevLog.id) {
-                  setSelectedLog((prev) =>
-                    prev && prev.id === id
-                      ? ({ ...(prev as any), ...(detailed as any) } as any)
-                      : prev
-                  )
-                }
-              }
-            } catch (e: any) {
-              if (e?.name === 'AbortError') return
-            }
-          })
-        ).catch(() => { })
-      }
     }
   }, [selectedLogIndex, logs])
 
@@ -366,101 +242,9 @@ export default function Logs() {
     }
   }, [selectedLogIndex])
 
-  const fetchLogs = useCallback(async (pageNum: number, append = false) => {
-    try {
-      // Don't fetch if workspaceId is not set
-      const { workspaceId: storeWorkspaceId } = useFilterStore.getState()
-      if (!storeWorkspaceId) {
-        return
-      }
-
-      if (pageNum === 1) {
-        setLoading(true)
-      } else {
-        setIsFetchingMore(true)
-      }
-
-      const { buildQueryParams: getCurrentQueryParams } = useFilterStore.getState()
-      const queryParams = getCurrentQueryParams(pageNum, LOGS_PER_PAGE)
-
-      const { searchQuery: currentSearchQuery } = useFilterStore.getState()
-      const parsedQuery = parseQuery(currentSearchQuery)
-      const enhancedParams = queryToApiParams(parsedQuery)
-
-      const allParams = new URLSearchParams(queryParams)
-      Object.entries(enhancedParams).forEach(([key, value]) => {
-        if (key === 'triggers' && allParams.has('triggers')) {
-          const existingTriggers = allParams.get('triggers')?.split(',') || []
-          const searchTriggers = value.split(',')
-          const combined = [...new Set([...existingTriggers, ...searchTriggers])]
-          allParams.set('triggers', combined.join(','))
-        } else {
-          allParams.set(key, value)
-        }
-      })
-
-      allParams.set('details', 'basic')
-      const response = await fetch(`/api/logs?${allParams.toString()}`)
-
-      if (!response.ok) {
-        throw new Error(`Error fetching logs: ${response.statusText}`)
-      }
-
-      const data: LogsResponse = await response.json()
-
-      setHasMore(data.data.length === LOGS_PER_PAGE && data.page < data.totalPages)
-
-      setLogs(data.data, append)
-
-      setError(null)
-    } catch (err) {
-      logger.error('Failed to fetch logs:', { err })
-      setError(err instanceof Error ? err.message : 'An unknown error occurred')
-    } finally {
-      if (pageNum === 1) {
-        setLoading(false)
-      } else {
-        setIsFetchingMore(false)
-      }
-    }
-  }, [])
-
   const handleRefresh = async () => {
-    if (isRefreshing) return
-
-    setIsRefreshing(true)
-
-    try {
-      await fetchLogs(1)
-      setError(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred')
-    } finally {
-      setIsRefreshing(false)
-    }
+    await logsQuery.refetch()
   }
-
-  // Setup or clear the live refresh interval when isLive changes
-  useEffect(() => {
-    if (liveIntervalRef.current) {
-      clearInterval(liveIntervalRef.current)
-      liveIntervalRef.current = null
-    }
-
-    if (isLive) {
-      handleRefresh()
-      liveIntervalRef.current = setInterval(() => {
-        handleRefresh()
-      }, 5000)
-    }
-
-    return () => {
-      if (liveIntervalRef.current) {
-        clearInterval(liveIntervalRef.current)
-        liveIntervalRef.current = null
-      }
-    }
-  }, [isLive])
 
   const toggleLive = () => {
     setIsLive(!isLive)
@@ -503,98 +287,10 @@ export default function Logs() {
     return () => window.removeEventListener('popstate', handlePopState)
   }, [initializeFromURL])
 
-  useEffect(() => {
-    if (!isInitialized.current) {
-      return
-    }
-
-    // Don't fetch if workspaceId is not set yet
-    if (!workspaceId) {
-      return
-    }
-
-    setPage(1)
-    setHasMore(true)
-
-    const fetchWithFilters = async () => {
-      try {
-        setLoading(true)
-
-        const params = new URLSearchParams()
-        params.set('details', 'basic')
-        params.set('limit', LOGS_PER_PAGE.toString())
-        params.set('offset', '0') // Always start from page 1
-        params.set('workspaceId', workspaceId)
-
-        const parsedQuery = parseQuery(debouncedSearchQuery)
-        const enhancedParams = queryToApiParams(parsedQuery)
-
-        if (level !== 'all') params.set('level', level)
-        if (triggers.length > 0) params.set('triggers', triggers.join(','))
-        if (workflowIds.length > 0) params.set('workflowIds', workflowIds.join(','))
-        if (folderIds.length > 0) params.set('folderIds', folderIds.join(','))
-
-        Object.entries(enhancedParams).forEach(([key, value]) => {
-          if (key === 'triggers' && params.has('triggers')) {
-            const storeTriggers = params.get('triggers')?.split(',') || []
-            const searchTriggers = value.split(',')
-            const combined = [...new Set([...storeTriggers, ...searchTriggers])]
-            params.set('triggers', combined.join(','))
-          } else {
-            params.set(key, value)
-          }
-        })
-
-        if (timeRange !== 'All time') {
-          const now = new Date()
-          let startDate: Date
-          switch (timeRange) {
-            case 'Past 30 minutes':
-              startDate = new Date(now.getTime() - 30 * 60 * 1000)
-              break
-            case 'Past hour':
-              startDate = new Date(now.getTime() - 60 * 60 * 1000)
-              break
-            case 'Past 24 hours':
-              startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-              break
-            default:
-              startDate = new Date(0)
-          }
-          params.set('startDate', startDate.toISOString())
-        }
-
-        const response = await fetch(`/api/logs?${params.toString()}`)
-
-        if (!response.ok) {
-          throw new Error(`Error fetching logs: ${response.statusText}`)
-        }
-
-        const data: LogsResponse = await response.json()
-        setHasMore(data.data.length === LOGS_PER_PAGE && data.page < data.totalPages)
-        setLogs(data.data, false)
-        setError(null)
-      } catch (err) {
-        logger.error('Failed to fetch logs:', { err })
-        setError(err instanceof Error ? err.message : 'An unknown error occurred')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchWithFilters()
-  }, [workspaceId, timeRange, level, workflowIds, folderIds, debouncedSearchQuery, triggers])
-
   const loadMoreLogs = useCallback(() => {
-    if (!isFetchingMore && hasMore) {
-      const nextPage = page + 1
-      setPage(nextPage)
-      setIsFetchingMore(true)
-      setTimeout(() => {
-        fetchLogs(nextPage, true)
-      }, 50)
-    }
-  }, [fetchLogs, isFetchingMore, hasMore, page])
+    if (isFetchingMore || !hasMore) return
+    void fetchNextPage()
+  }, [fetchNextPage, hasMore, isFetchingMore])
 
   useEffect(() => {
     if (loading || !hasMore) return
@@ -869,7 +565,7 @@ export default function Logs() {
                   ref={scrollContainerRef}
                   style={{ scrollbarGutter: 'stable' }}
                 >
-                  {loading && page === 1 ? (
+                  {loading ? (
                     <div className='flex h-full items-center justify-center p-5'>
                       <div className='flex items-center gap-2 text-muted-foreground'>
                         <Loader2 className='h-5 w-5 animate-spin' />
@@ -1040,7 +736,7 @@ export default function Logs() {
             className='min-h-0 min-w-0 overflow-auto'
           >
             <Sidebar
-              log={selectedLog}
+              log={detailedSelectedLog}
               isOpen={isSidebarOpen}
               onClose={handleCloseSidebar}
               onNavigateNext={handleNavigateNext}

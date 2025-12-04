@@ -19,7 +19,6 @@ describe('Routing', () => {
       expect(Routing.getCategory(BlockType.FUNCTION)).toBe(BlockCategory.REGULAR_BLOCK)
       expect(Routing.getCategory(BlockType.AGENT)).toBe(BlockCategory.REGULAR_BLOCK)
       expect(Routing.getCategory(BlockType.API)).toBe(BlockCategory.REGULAR_BLOCK)
-      expect(Routing.getCategory(BlockType.STARTER)).toBe(BlockCategory.REGULAR_BLOCK)
       expect(Routing.getCategory(BlockType.RESPONSE)).toBe(BlockCategory.REGULAR_BLOCK)
       expect(Routing.getCategory(BlockType.EVALUATOR)).toBe(BlockCategory.REGULAR_BLOCK)
     })

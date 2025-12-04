@@ -155,13 +155,13 @@ export const createMinimalWorkflow = (): SerializedWorkflow => ({
   version: '1.0',
   blocks: [
     {
-      id: 'starter',
+      id: 'trigger',
       position: { x: 0, y: 0 },
-      config: { tool: 'test-tool', params: {} },
+      config: { tool: 'input_trigger', params: {} },
       inputs: {},
       outputs: {},
       enabled: true,
-      metadata: { id: 'starter', name: 'Starter Block' },
+      metadata: { id: 'input_trigger', name: 'Input Trigger' },
     },
     {
       id: 'block1',
@@ -175,7 +175,7 @@ export const createMinimalWorkflow = (): SerializedWorkflow => ({
   ],
   connections: [
     {
-      source: 'starter',
+      source: 'trigger',
       target: 'block1',
     },
   ],
@@ -186,13 +186,13 @@ export const createWorkflowWithCondition = (): SerializedWorkflow => ({
   version: '1.0',
   blocks: [
     {
-      id: 'starter',
+      id: 'trigger',
       position: { x: 0, y: 0 },
       config: { tool: 'test-tool', params: {} },
       inputs: {},
       outputs: {},
       enabled: true,
-      metadata: { id: 'starter', name: 'Starter Block' },
+      metadata: { id: 'input_trigger', name: 'Input Trigger' },
     },
     {
       id: 'condition1',
@@ -224,7 +224,7 @@ export const createWorkflowWithCondition = (): SerializedWorkflow => ({
   ],
   connections: [
     {
-      source: 'starter',
+      source: 'trigger',
       target: 'condition1',
     },
     {
@@ -245,13 +245,13 @@ export const createWorkflowWithLoop = (): SerializedWorkflow => ({
   version: '1.0',
   blocks: [
     {
-      id: 'starter',
+      id: 'trigger',
       position: { x: 0, y: 0 },
       config: { tool: 'test-tool', params: {} },
       inputs: {},
       outputs: {},
       enabled: true,
-      metadata: { id: 'starter', name: 'Starter Block' },
+      metadata: { id: 'input_trigger', name: 'Input Trigger' },
     },
     {
       id: 'block1',
@@ -274,7 +274,7 @@ export const createWorkflowWithLoop = (): SerializedWorkflow => ({
   ],
   connections: [
     {
-      source: 'starter',
+      source: 'trigger',
       target: 'block1',
     },
     {
@@ -301,13 +301,13 @@ export const createWorkflowWithErrorPath = (): SerializedWorkflow => ({
   version: '1.0',
   blocks: [
     {
-      id: 'starter',
+      id: 'trigger',
       position: { x: 0, y: 0 },
       config: { tool: 'test-tool', params: {} },
       inputs: {},
       outputs: {},
       enabled: true,
-      metadata: { id: 'starter', name: 'Starter Block' },
+      metadata: { id: 'input_trigger', name: 'Input Trigger' },
     },
     {
       id: 'block1',
@@ -339,7 +339,7 @@ export const createWorkflowWithErrorPath = (): SerializedWorkflow => ({
   ],
   connections: [
     {
-      source: 'starter',
+      source: 'trigger',
       target: 'block1',
     },
     {
@@ -360,10 +360,10 @@ export const createWorkflowWithParallel = (distribution?: any): SerializedWorkfl
   version: '2.0',
   blocks: [
     {
-      id: 'starter',
+      id: 'trigger',
       position: { x: 0, y: 0 },
-      metadata: { id: 'starter', name: 'Start' },
-      config: { tool: 'starter', params: {} },
+      metadata: { id: 'input_trigger', name: 'Input Trigger' },
+      config: { tool: 'input_trigger', params: {} },
       inputs: {},
       outputs: {},
       enabled: true,
@@ -402,7 +402,7 @@ export const createWorkflowWithParallel = (distribution?: any): SerializedWorkfl
     },
   ],
   connections: [
-    { source: 'starter', target: 'parallel-1' },
+    { source: 'trigger', target: 'parallel-1' },
     { source: 'parallel-1', target: 'function-1', sourceHandle: 'parallel-start-source' },
     { source: 'parallel-1', target: 'endpoint', sourceHandle: 'parallel-end-source' },
   ],
@@ -420,7 +420,7 @@ export const createWorkflowWithResponse = (): SerializedWorkflow => ({
   version: '1.0',
   blocks: [
     {
-      id: 'starter',
+      id: 'trigger',
       position: { x: 0, y: 0 },
       config: { tool: 'test-tool', params: {} },
       inputs: {
@@ -432,7 +432,7 @@ export const createWorkflowWithResponse = (): SerializedWorkflow => ({
         },
       },
       enabled: true,
-      metadata: { id: 'starter', name: 'Starter Block' },
+      metadata: { id: 'input_trigger', name: 'Input Trigger' },
     },
     {
       id: 'response',
@@ -454,7 +454,7 @@ export const createWorkflowWithResponse = (): SerializedWorkflow => ({
       metadata: { id: 'response', name: 'Response Block' },
     },
   ],
-  connections: [{ source: 'starter', target: 'response' }],
+  connections: [{ source: 'trigger', target: 'response' }],
   loops: {},
 })
 
@@ -781,10 +781,10 @@ export const createWorkflowWithParallelArray = (
   version: '2.0',
   blocks: [
     {
-      id: 'starter',
+      id: 'trigger',
       position: { x: 0, y: 0 },
-      metadata: { id: 'starter', name: 'Start' },
-      config: { tool: 'starter', params: {} },
+      metadata: { id: 'input_trigger', name: 'Input Trigger' },
+      config: { tool: 'input_trigger', params: {} },
       inputs: {},
       outputs: {},
       enabled: true,
@@ -823,7 +823,7 @@ export const createWorkflowWithParallelArray = (
     },
   ],
   connections: [
-    { source: 'starter', target: 'parallel-1' },
+    { source: 'trigger', target: 'parallel-1' },
     { source: 'parallel-1', target: 'function-1', sourceHandle: 'parallel-start-source' },
     { source: 'parallel-1', target: 'endpoint', sourceHandle: 'parallel-end-source' },
   ],
@@ -846,10 +846,10 @@ export const createWorkflowWithParallelObject = (
   version: '2.0',
   blocks: [
     {
-      id: 'starter',
+      id: 'trigger',
       position: { x: 0, y: 0 },
-      metadata: { id: 'starter', name: 'Start' },
-      config: { tool: 'starter', params: {} },
+      metadata: { id: 'input_trigger', name: 'Input Trigger' },
+      config: { tool: 'input_trigger', params: {} },
       inputs: {},
       outputs: {},
       enabled: true,
@@ -888,7 +888,7 @@ export const createWorkflowWithParallelObject = (
     },
   ],
   connections: [
-    { source: 'starter', target: 'parallel-1' },
+    { source: 'trigger', target: 'parallel-1' },
     { source: 'parallel-1', target: 'function-1', sourceHandle: 'parallel-start-source' },
     { source: 'parallel-1', target: 'endpoint', sourceHandle: 'parallel-end-source' },
   ],

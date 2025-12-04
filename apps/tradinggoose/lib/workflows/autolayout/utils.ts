@@ -127,10 +127,6 @@ export function getBlocksByParent(blocks: Record<string, BlockState>): {
   return { root, children }
 }
 
-export function isStarterBlock(block: BlockState): boolean {
-  if (TriggerUtils.isTriggerBlock({ type: block.type, triggerMode: block.triggerMode })) {
-    return true
-  }
-
-  return false
+export function isTriggerEntryBlock(block: BlockState): boolean {
+  return TriggerUtils.isTriggerBlock({ type: block.type, triggerMode: block.triggerMode })
 }

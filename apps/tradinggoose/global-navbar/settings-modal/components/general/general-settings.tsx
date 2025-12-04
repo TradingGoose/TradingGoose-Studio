@@ -2,19 +2,19 @@
 
 import { useEffect } from 'react'
 import { General } from './general'
-import { useGeneralStore } from '@/stores/settings/general/store'
+import { useGeneralSettings } from '@/hooks/queries/general-settings'
 
 interface GeneralSettingsProps {
   isActive: boolean
 }
 
 export function GeneralSettings({ isActive }: GeneralSettingsProps) {
-  const loadSettings = useGeneralStore((state) => state.loadSettings)
+  const { refetch } = useGeneralSettings()
 
   useEffect(() => {
     if (!isActive) return
-    void loadSettings()
-  }, [isActive, loadSettings])
+    void refetch()
+  }, [isActive, refetch])
 
   return <General />
 }

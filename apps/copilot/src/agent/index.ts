@@ -17,6 +17,7 @@ export async function generateAgentResponse(options: {
   model?: string
   mode: AgentMode
   provider?: AiRouterProvider
+  appendUserMessage?: boolean
 }): Promise<AgentResponse> {
   const allowedTools = toolsForMode(options.mode)
   const messages = buildMessages({
@@ -27,6 +28,7 @@ export async function generateAgentResponse(options: {
     userName: options.userName,
     allowedTools,
     mode: options.mode,
+    appendUserMessage: options.appendUserMessage,
   })
   const tools = buildToolsForAiRouter(allowedTools)
 

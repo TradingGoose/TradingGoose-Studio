@@ -34,6 +34,11 @@ export function getEnterpriseTierLimitPerSeat(): number {
   return env.ENTERPRISE_TIER_COST_LIMIT || DEFAULT_ENTERPRISE_TIER_COST_LIMIT
 }
 
+/**
+ * Subscription statuses that count as active for billing purposes
+ */
+export const BILLING_ACTIVE_SUBSCRIPTION_STATUSES = ['active', 'trialing'] as const
+
 export function checkEnterprisePlan(subscription: any): boolean {
   return subscription?.plan === 'enterprise' && subscription?.status === 'active'
 }

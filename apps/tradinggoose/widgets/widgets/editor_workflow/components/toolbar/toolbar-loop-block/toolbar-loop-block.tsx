@@ -4,9 +4,9 @@ import { useCallback } from 'react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
 import { LoopTool } from '@/widgets/widgets/editor_workflow/components/subflows/loop/loop-config'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
 
 type LoopToolbarItemProps = {
   disabled?: boolean
@@ -64,7 +64,7 @@ export default function LoopToolbarItem({ disabled = false, channelId }: LoopToo
       )}
     >
       <div
-        className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-[6px]'
+        className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm'
         style={{ backgroundColor: LoopTool.bgColor }}
       >
         <LoopTool.icon

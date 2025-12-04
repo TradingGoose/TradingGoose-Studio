@@ -7,7 +7,9 @@ import {
   BadgeCheck,
   Brain,
   ChevronsUpDown,
+  CreditCard,
   LifeBuoy,
+  Star,
   LogIn,
   LogOut,
   Monitor,
@@ -18,15 +20,18 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Button } from '@/components/ui/button'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
 import { signOut } from '@/lib/auth-client'
 import { isHosted } from '@/lib/environment'
+import { getUserRole } from '@/lib/organization/helpers'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getSubscriptionStatus } from '@/lib/subscription/helpers'
+import { getBaseUrl } from '@/lib/urls/utils'
 import { getInitials } from '../utils'
 import { clearUserData } from '@/stores'
-import { useOrganizationStore } from '@/stores/organization'
 import { useGeneralStore } from '@/stores/settings/general/store'
+import { useOrganizations } from '@/hooks/queries/organization'
+import { useSubscriptionData } from '@/hooks/queries/subscription'
 import { HelpModal } from '@/global-navbar/settings-modal/components/help/help-modal'
 import type { SettingsSection } from '@/global-navbar/settings-modal/types'
 import {
@@ -77,6 +82,7 @@ export function UserMenu({
 }: UserMenuProps) {
   const router = useRouter()
   const [isSigningOut, setIsSigningOut] = useState(false)
+  const [isOpeningBillingPortal, setIsOpeningBillingPortal] = useState(false)
   const [avatarOverride, setAvatarOverride] = useState<{
     url: string | null
     version: number | string | null
@@ -86,14 +92,22 @@ export function UserMenu({
   const setTheme = useGeneralStore((state) => state.setTheme)
   const isGeneralLoading = useGeneralStore((state) => state.isLoading)
   const isThemeLoading = useGeneralStore((state) => state.isThemeLoading)
+  const { data: organizationsData } = useOrganizations()
   const currentThemeLabel =
     THEME_OPTIONS.find((option) => option.value === theme)?.label ?? 'Theme'
-  const hasEnterprisePlan = useOrganizationStore((state) => state.hasEnterprisePlan)
-  const activeOrganizationId = useOrganizationStore((state) => state.activeOrganization?.id)
-  const getUserRole = useOrganizationStore((state) => state.getUserRole)
   const [isSSOProviderOwner, setIsSSOProviderOwner] = useState<boolean | null>(null)
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
-  const userRole = useMemo(() => getUserRole(userEmail), [getUserRole, userEmail])
+  const activeOrganization = organizationsData?.activeOrganization
+  const hasEnterprisePlan = organizationsData?.billingData?.data?.isEnterprise ?? false
+  const activeOrganizationId = activeOrganization?.id
+  const { data: subscriptionData, isLoading: isSubscriptionLoading } = useSubscriptionData()
+  const billingPayload = (subscriptionData as any)?.data ?? subscriptionData
+  const subscription = getSubscriptionStatus(billingPayload)
+  const isOrganizationPlan = subscription.isTeam || subscription.isEnterprise
+  const userRole = useMemo(
+    () => getUserRole(activeOrganization, userEmail),
+    [activeOrganization, userEmail]
+  )
   const isOwner = userRole === 'owner'
   const isAdmin = userRole === 'admin'
   const hasOrganization = Boolean(activeOrganizationId)
@@ -229,6 +243,43 @@ export function UserMenu({
     }
   }
 
+  const handleOpenBillingPortal = async () => {
+    if (isOpeningBillingPortal || isSubscriptionLoading) return
+
+    const context = isOrganizationPlan ? ('organization' as const) : ('user' as const)
+    if (context === 'organization' && !activeOrganizationId) {
+      logger.error('Cannot open billing portal without an active organization', {
+        plan: subscription.plan,
+      })
+      alert('Select an organization to manage billing.')
+      return
+    }
+
+    setIsOpeningBillingPortal(true)
+    try {
+      const res = await fetch('/api/billing/portal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          context,
+          organizationId: context === 'organization' ? activeOrganizationId : undefined,
+          returnUrl: `${getBaseUrl()}/workspace?billing=updated`,
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok || !data?.url) {
+        throw new Error(data?.error || 'Failed to start billing portal')
+      }
+      window.location.href = data.url
+    } catch (error) {
+      logger.error('Failed to open billing portal from user menu', { error })
+      alert(error instanceof Error ? error.message : 'Failed to open billing portal')
+    } finally {
+      setIsOpeningBillingPortal(false)
+    }
+  }
+
   return (
     <>
       <SidebarMenu>
@@ -333,51 +384,88 @@ export function UserMenu({
                   <Brain />
                   Copilot Settings
                 </DropdownMenuItem>
-                {canManageTeam ? (
-                  <DropdownMenuItem
-                    onSelect={(event) => {
-                      event.preventDefault()
-                      if (onOpenSettings) {
-                        onOpenSettings('team')
-                      } else if (typeof window !== 'undefined') {
-                        window.dispatchEvent(
-                          new CustomEvent('open-settings', { detail: { tab: 'team' } })
-                        )
-                      }
-                    }}
-                  >
-                    <Users />
-                    Team Management
-                  </DropdownMenuItem>
-                ) : null}
-                {canManageSSOSettings ? (
-                  <DropdownMenuItem
-                    onSelect={(event) => {
-                      event.preventDefault()
-                      if (onOpenSettings) {
-                        onOpenSettings('sso')
-                      } else if (typeof window !== 'undefined') {
-                        window.dispatchEvent(
-                          new CustomEvent('open-settings', { detail: { tab: 'sso' } })
-                        )
-                      }
-                    }}
-                  >
-                    <LogIn />
-                    Single Sign-On
-                  </DropdownMenuItem>
-                ) : null}
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={(event) => {
-                  event.preventDefault()
-                  setIsHelpModalOpen(true)
-                }}
-              >
-                <LifeBuoy />
-                Help & Support
-              </DropdownMenuItem>
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault()
+                    if (onOpenSettings) {
+                      onOpenSettings('subscription')
+                    } else if (typeof window !== 'undefined') {
+                      window.dispatchEvent(
+                        new CustomEvent('open-settings', { detail: { tab: 'subscription' } })
+                      )
+                    }
+                  }}
+                >
+                  <Star />
+                  Subscription
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={isOpeningBillingPortal || isSubscriptionLoading}
+                  onSelect={(event) => {
+                    event.preventDefault()
+                    void handleOpenBillingPortal()
+                  }}
+                >
+                  <CreditCard />
+                  {isOpeningBillingPortal ? 'Opening Billing…' : 'Manage Billing'}
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              {(canManageTeam || canManageSSOSettings) && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    {canManageTeam ? (
+                      <DropdownMenuItem
+                        onSelect={(event) => {
+                          event.preventDefault()
+                          if (onOpenSettings) {
+                            onOpenSettings('team')
+                          } else if (typeof window !== 'undefined') {
+                            window.dispatchEvent(
+                              new CustomEvent('open-settings', { detail: { tab: 'team' } })
+                            )
+                          }
+                        }}
+                      >
+                        <Users />
+                        Team Management
+                      </DropdownMenuItem>
+                    ) : null}
+                    {canManageSSOSettings ? (
+                      <DropdownMenuItem
+                        onSelect={(event) => {
+                          event.preventDefault()
+                          if (onOpenSettings) {
+                            onOpenSettings('sso')
+                          } else if (typeof window !== 'undefined') {
+                            window.dispatchEvent(
+                              new CustomEvent('open-settings', { detail: { tab: 'sso' } })
+                            )
+                          }
+                        }}
+                      >
+                        <LogIn />
+                        Single Sign-On
+                      </DropdownMenuItem>
+                    ) : null}
+                  </DropdownMenuGroup>
+                </>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault()
+                    setIsHelpModalOpen(true)
+                  }}
+                >
+                  <LifeBuoy />
+                  Help & Support
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 disabled={isSigningOut}

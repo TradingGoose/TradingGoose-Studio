@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateCreativeWorkflowName } from '@/lib/naming'
+import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { API_ENDPOINTS } from '@/stores/constants'
 import { usePairColorStore } from '@/stores/dashboard/pair-store'
 import { useVariablesStore } from '@/stores/panel/variables/store'
@@ -958,6 +959,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
         // If we're duplicating the active workflow, use current state
         // Otherwise, we need to fetch it from DB or use empty state
         let sourceState: any
+        let defaultSubblockValues: Record<string, Record<string, any>> | null = null
 
         if (sourceId === getActiveWorkflowIdFromState(get())) {
           // Source is the active workflow, copy current state
@@ -968,106 +970,13 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
             parallels: currentWorkflowState.parallels || {},
           }
         } else {
-          // Source is not active workflow, create with starter block for now
-          // In a future enhancement, we could fetch from DB
-          const starterId = crypto.randomUUID()
-          const starterBlock = {
-            id: starterId,
-            type: 'starter' as const,
-            name: 'Start',
-            position: { x: 100, y: 100 },
-            subBlocks: {
-              startWorkflow: {
-                id: 'startWorkflow',
-                type: 'dropdown' as const,
-                value: 'manual',
-              },
-              webhookPath: {
-                id: 'webhookPath',
-                type: 'short-input' as const,
-                value: '',
-              },
-              webhookSecret: {
-                id: 'webhookSecret',
-                type: 'short-input' as const,
-                value: '',
-              },
-              scheduleType: {
-                id: 'scheduleType',
-                type: 'dropdown' as const,
-                value: 'daily',
-              },
-              minutesInterval: {
-                id: 'minutesInterval',
-                type: 'short-input' as const,
-                value: '',
-              },
-              minutesStartingAt: {
-                id: 'minutesStartingAt',
-                type: 'short-input' as const,
-                value: '',
-              },
-              hourlyMinute: {
-                id: 'hourlyMinute',
-                type: 'short-input' as const,
-                value: '',
-              },
-              dailyTime: {
-                id: 'dailyTime',
-                type: 'short-input' as const,
-                value: '',
-              },
-              weeklyDay: {
-                id: 'weeklyDay',
-                type: 'dropdown' as const,
-                value: 'MON',
-              },
-              weeklyDayTime: {
-                id: 'weeklyDayTime',
-                type: 'short-input' as const,
-                value: '',
-              },
-              monthlyDay: {
-                id: 'monthlyDay',
-                type: 'short-input' as const,
-                value: '',
-              },
-              monthlyTime: {
-                id: 'monthlyTime',
-                type: 'short-input' as const,
-                value: '',
-              },
-              cronExpression: {
-                id: 'cronExpression',
-                type: 'short-input' as const,
-                value: '',
-              },
-              timezone: {
-                id: 'timezone',
-                type: 'dropdown' as const,
-                value: 'UTC',
-              },
-            },
-            outputs: {
-              response: {
-                type: {
-                  input: 'any',
-                },
-              },
-            },
-            enabled: true,
-            horizontalHandles: true,
-            isWide: false,
-            advancedMode: false,
-            triggerMode: false,
-            height: 0,
-          }
-
+          const defaultArtifacts = buildDefaultWorkflowArtifacts()
+          defaultSubblockValues = defaultArtifacts.subBlockValues
           sourceState = {
-            blocks: { [starterId]: starterBlock },
-            edges: [],
-            loops: {},
-            parallels: {},
+            blocks: defaultArtifacts.workflowState.blocks,
+            edges: defaultArtifacts.workflowState.edges,
+            loops: defaultArtifacts.workflowState.loops,
+            parallels: defaultArtifacts.workflowState.parallels,
           }
         }
 
@@ -1103,15 +1012,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
             },
           }))
         } else {
-          // Initialize subblock values for starter block
-          const subblockValues: Record<string, Record<string, any>> = {}
-          Object.entries(newState.blocks).forEach(([blockId, block]) => {
-            const blockState = block as any
-            subblockValues[blockId] = {}
-            Object.entries(blockState.subBlocks || {}).forEach(([subblockId, subblock]) => {
-              subblockValues[blockId][subblockId] = (subblock as any).value
-            })
-          })
+          const subblockValues = defaultSubblockValues || {}
 
           useSubBlockStore.setState((state) => ({
             workflowValues: {

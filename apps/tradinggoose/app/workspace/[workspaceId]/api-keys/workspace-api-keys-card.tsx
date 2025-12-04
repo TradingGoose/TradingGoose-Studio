@@ -11,6 +11,12 @@ import {
   type Ref,
 } from 'react'
 import {
+  useApiKeys,
+  useCreateApiKey,
+  useDeleteApiKey,
+  type ApiKey,
+} from '@/hooks/queries/api-keys'
+import {
   AlertCircle,
   Check,
   Copy,
@@ -36,17 +42,6 @@ import { Alert, AlertDescription, Button, Input, Label, Skeleton } from '@/compo
 import { createLogger } from '@/lib/logs/console/logger'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { cn } from '@/lib/utils'
-
-interface ApiKey {
-  id: string
-  name: string
-  key: string
-  displayKey?: string
-  lastUsed?: string
-  createdAt: string
-  expiresAt?: string
-  createdBy?: string
-}
 
 interface WorkspaceApiKeysCardProps {
   workspaceId?: string
@@ -114,10 +109,8 @@ const WorkspaceApiKeysCardComponent = (
     ? 'Generate and manage workspace-scoped API keys for MCP servers or other integrations.'
     : 'Generate and manage personal API keys for MCP servers or other integrations.'
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [internalSearchTerm, setInternalSearchTerm] = useState('')
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [isSubmittingCreate, setIsSubmittingCreate] = useState(false)
   const [newKeyName, setNewKeyName] = useState('')
   const [newKey, setNewKey] = useState<ApiKey | null>(null)
   const [showNewKeyDialog, setShowNewKeyDialog] = useState(false)
@@ -126,8 +119,6 @@ const WorkspaceApiKeysCardComponent = (
   const [deleteConfirmationName, setDeleteConfirmationName] = useState('')
   const [copySuccess, setCopySuccess] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const abortRef = useRef<AbortController | null>(null)
   const [revealedKeys, setRevealedKeys] = useState<Record<string, boolean>>({})
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null)
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -136,6 +127,27 @@ const WorkspaceApiKeysCardComponent = (
   const [isUpdatingKeyName, setIsUpdatingKeyName] = useState(false)
   const [renameError, setRenameError] = useState<string | null>(null)
   const editKeyNameInputRef = useRef<HTMLInputElement | null>(null)
+  const {
+    data: apiKeysData,
+    isPending: isApiKeysPending,
+    error: apiKeysError,
+    refetch: refetchApiKeys,
+  } = useApiKeys(workspaceId ?? '')
+  const createApiKeyMutation = useCreateApiKey()
+  const deleteApiKeyMutation = useDeleteApiKey()
+
+  useEffect(() => {
+    if (!apiKeysData) {
+      setApiKeys([])
+      return
+    }
+    const scopedKeys = isWorkspaceScope ? apiKeysData.workspaceKeys : apiKeysData.personalKeys
+    setApiKeys(scopedKeys || [])
+  }, [apiKeysData, isWorkspaceScope])
+
+  const loadError = apiKeysError instanceof Error ? apiKeysError.message : null
+  const isLoading = isApiKeysPending
+  const isSubmittingCreate = createApiKeyMutation.isPending
 
   const canManageKeys = isWorkspaceScope ? canManageWorkspaceKeys : true
   const canRenameKeys = isWorkspaceScope && canManageWorkspaceKeys
@@ -158,53 +170,6 @@ const WorkspaceApiKeysCardComponent = (
       onLoadingChange(isLoading)
     }
   }, [isLoading, onLoadingChange])
-
-  const fetchApiKeys = useCallback(async () => {
-    if (isWorkspaceScope && !workspaceId) return
-
-    abortRef.current?.abort()
-    const controller = new AbortController()
-    abortRef.current = controller
-    setIsLoading(true)
-    setLoadError(null)
-
-    try {
-      const endpoint = isWorkspaceScope
-        ? `/api/workspaces/${workspaceId}/api-keys`
-        : '/api/users/me/api-keys'
-
-      const response = await fetch(endpoint, {
-        signal: controller.signal,
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        const message =
-          errorData?.error || 'Unable to fetch API keys. Please try again later.'
-        setLoadError(message)
-        logger.error('Failed to fetch API keys', {
-          scope,
-          status: response.status,
-          errorData,
-        })
-        return
-      }
-
-      const data = await response.json()
-      setApiKeys(data.keys || [])
-    } catch (error) {
-      if ((error as Error)?.name === 'AbortError') return
-      setLoadError('Unable to fetch API keys. Please try again.')
-      logger.error('Error fetching API keys', { error, scope })
-    } finally {
-      setIsLoading(false)
-    }
-  }, [isWorkspaceScope, workspaceId, scope])
-
-  useEffect(() => {
-    void fetchApiKeys()
-    return () => abortRef.current?.abort()
-  }, [fetchApiKeys])
 
   useEffect(() => {
     return () => {
@@ -323,6 +288,7 @@ const WorkspaceApiKeysCardComponent = (
         prev.map((key) => (key.id === editingKeyId ? { ...key, name: trimmedName } : key))
       )
       cancelEditingKey()
+      void refetchApiKeys()
     } catch (error) {
       logger.error('Error renaming API key', { error, scope })
       setRenameError(`Unable to rename ${scopeLabelLower} API key. Please try again.`)
@@ -330,11 +296,11 @@ const WorkspaceApiKeysCardComponent = (
     } finally {
       setIsUpdatingKeyName(false)
     }
-  }, [editingKeyId, editingKeyName, workspaceId, cancelEditingKey, canRenameKeys, isWorkspaceScope, scopeLabelLower, scope])
+  }, [editingKeyId, editingKeyName, workspaceId, cancelEditingKey, canRenameKeys, isWorkspaceScope, scopeLabelLower, scope, refetchApiKeys])
 
   const handleCreateKey = async () => {
     if (!newKeyName.trim() || isSubmittingCreate) return
-    if (isWorkspaceScope && !workspaceId) return
+    if (!workspaceId) return
 
     const trimmedName = newKeyName.trim()
     const isDuplicate = apiKeys.some((key) => key.name === trimmedName)
@@ -343,76 +309,43 @@ const WorkspaceApiKeysCardComponent = (
       return
     }
 
-    setIsSubmittingCreate(true)
     setCreateError(null)
     try {
-      const endpoint = isWorkspaceScope
-        ? `/api/workspaces/${workspaceId}/api-keys`
-        : '/api/users/me/api-keys'
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: trimmedName }),
+      const data = await createApiKeyMutation.mutateAsync({
+        workspaceId,
+        name: trimmedName,
+        keyType: isWorkspaceScope ? 'workspace' : 'personal',
       })
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        const serverMessage = typeof errorData?.error === 'string' ? errorData.error : null
-
-        if (response.status === 409 || serverMessage?.toLowerCase().includes('already exists')) {
-          setCreateError(
-            serverMessage || `A ${scopeLabelLower} API key named "${trimmedName}" already exists.`
-          )
-        } else {
-          setCreateError(
-            serverMessage || `Failed to create ${scopeLabelLower} API key. Please try again.`
-          )
-        }
-
-        logger.error('Failed to create API key', {
-          scope,
-          status: response.status,
-          errorData,
-        })
-        return
-      }
-
-      const data = await response.json()
       setNewKey(data.key)
       setShowNewKeyDialog(true)
       setIsCreateDialogOpen(false)
       setNewKeyName('')
-      await fetchApiKeys()
     } catch (error) {
       logger.error('Error creating API key', { error, scope })
-      setCreateError(`Unable to create ${scopeLabelLower} API key. Please try again.`)
-    } finally {
-      setIsSubmittingCreate(false)
+      const message =
+        error instanceof Error
+          ? error.message
+          : `Failed to create ${scopeLabelLower} API key. Please try again.`
+      setCreateError(message)
     }
   }
 
   const handleDeleteKey = async () => {
     if (!deleteKey) return
-    if (isWorkspaceScope && !workspaceId) return
+    if (!workspaceId) return
 
     try {
       setApiKeys((prev) => prev.filter((key) => key.id !== deleteKey.id))
       setShowDeleteDialog(false)
-      const endpoint = isWorkspaceScope
-        ? `/api/workspaces/${workspaceId}/api-keys/${deleteKey.id}`
-        : `/api/users/me/api-keys/${deleteKey.id}`
-      const response = await fetch(endpoint, {
-        method: 'DELETE',
+      await deleteApiKeyMutation.mutateAsync({
+        workspaceId,
+        keyId: deleteKey.id,
+        keyType: isWorkspaceScope ? 'workspace' : 'personal',
       })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        logger.error('Failed to delete API key', { scope, status: response.status, errorData })
-        await fetchApiKeys()
-      }
     } catch (error) {
       logger.error('Error deleting API key', { error, scope })
-      await fetchApiKeys()
+      await refetchApiKeys()
     } finally {
       setDeleteKey(null)
       setDeleteConfirmationName('')

@@ -34,6 +34,7 @@ import { useTreeContext, useTreePath } from 'fumadocs-ui/contexts/tree';
 import { useMediaQuery } from 'fumadocs-core/utils/use-media-query';
 import { Presence } from '@radix-ui/react-presence';
 import { useSidebarResize } from '../hooks/use-sidebar-resize';
+import { getFolderHref, getFolderSlug } from '@/lib/page-tree';
 
 export interface SidebarProps {
   /**
@@ -69,7 +70,7 @@ interface InternalContext {
 }
 
 const itemVariants = cva(
-  'relative mt-1 flex w-full items-center gap-2  h-8 overflow-hidden rounded-md p-2 ps-(--sidebar-item-offset) text-left text-sm font-sm text-fd-foreground [overflow-wrap:anywhere] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring [&_svg]:size-4 [&_svg]:shrink-0 data-[collapsed=true]:justify-center data-[collapsed=true]:ml-1 data-[collapsed=true]:px-2 data-[collapsed=true]:w-8 data-[collapsed=true]:py-2',
+  'relative mt-1 flex w-full items-center gap-2  h-8 overflow-hidden rounded-md p-2 text-left text-sm font-sm text-fd-foreground [overflow-wrap:anywhere] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring [&_svg]:size-4 [&_svg]:shrink-0 data-[collapsed=true]:justify-center data-[collapsed=true]:ml-1 data-[collapsed=true]:px-2 data-[collapsed=true]:w-8 data-[collapsed=true]:py-2',
   {
     variants: {
       active: {
@@ -652,6 +653,7 @@ function PageTreeFolder({
 }) {
   const { defaultOpenLevel, level } = useInternalContext();
   const path = useTreePath();
+  const folderHref = getFolderHref(item);
 
   return (
     <SidebarFolder
@@ -659,10 +661,10 @@ function PageTreeFolder({
         (item.defaultOpen ?? defaultOpenLevel >= level) || path.includes(item)
       }
     >
-      {item.index ? (
+      {folderHref ? (
         <SidebarFolderLink
-          href={item.index.url}
-          external={item.index.external}
+          href={folderHref}
+          external={item.index?.external}
           icon={item.icon}
           label={item.name}
           {...props}
@@ -679,3 +681,6 @@ function PageTreeFolder({
     </SidebarFolder>
   );
 }
+
+
+

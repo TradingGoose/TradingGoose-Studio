@@ -9,7 +9,7 @@ export async function GET() {
   const allPages = source.getPages()
 
   const getPriority = (url: string): string => {
-    if (url === '/introduction' || url === '/') return '1.0'
+    if (url === '/en' || url === '/') return '1.0'
     if (url === '/getting-started') return '0.9'
     if (url.match(/^\/[^/]+$/)) return '0.8'
     if (url.includes('/sdks/') || url.includes('/tools/')) return '0.7'

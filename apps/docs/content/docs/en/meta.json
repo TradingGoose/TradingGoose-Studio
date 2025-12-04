@@ -3,16 +3,16 @@
   "pages": [
     "./introduction/index",
     "./getting-started/index",
+    "./mcp/index",
+    "./copilot/index",
+    "./permissions/index",
     "triggers",
     "blocks",
     "tools",
     "connections",
-    "mcp",
-    "copilot",
     "knowledgebase",
     "variables",
     "execution",
-    "permissions",
     "sdks"
   ],
   "defaultOpen": false

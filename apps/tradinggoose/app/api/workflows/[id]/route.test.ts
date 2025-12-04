@@ -255,7 +255,7 @@ describe('Workflow By ID API Route', () => {
       }
 
       const mockNormalizedData = {
-        blocks: { 'block-1': { id: 'block-1', type: 'starter' } },
+        blocks: { 'block-1': { id: 'block-1', type: 'input_trigger' } },
         edges: [{ id: 'edge-1', source: 'block-1', target: 'block-2' }],
         loops: {},
         parallels: {},

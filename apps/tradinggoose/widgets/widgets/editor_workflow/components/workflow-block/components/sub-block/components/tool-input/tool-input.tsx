@@ -674,11 +674,11 @@ export function ToolInput({
         selectedTools.map((tool, index) =>
           index === editingToolIndex
             ? {
-                ...tool,
-                title: customTool.title,
-                schema: customTool.schema,
-                code: customTool.code || '',
-              }
+              ...tool,
+              title: customTool.title,
+              schema: customTool.schema,
+              code: customTool.code || '',
+            }
             : tool
         )
       )
@@ -728,12 +728,12 @@ export function ToolInput({
       selectedTools.map((tool, index) =>
         index === toolIndex
           ? {
-              ...tool,
-              params: {
-                ...tool.params,
-                [paramId]: paramValue,
-              },
-            }
+            ...tool,
+            params: {
+              ...tool.params,
+              [paramId]: paramValue,
+            },
+          }
           : tool
       )
     )
@@ -794,11 +794,11 @@ export function ToolInput({
       selectedTools.map((tool, index) =>
         index === toolIndex
           ? {
-              ...tool,
-              toolId: newToolId,
-              operation,
-              params: { ...initialParams, ...preservedParams }, // Preserve all compatible existing values
-            }
+            ...tool,
+            toolId: newToolId,
+            operation,
+            params: { ...initialParams, ...preservedParams }, // Preserve all compatible existing values
+          }
           : tool
       )
     )
@@ -811,9 +811,9 @@ export function ToolInput({
       selectedTools.map((tool, index) =>
         index === toolIndex
           ? {
-              ...tool,
-              usageControl: usageControl as 'auto' | 'force' | 'none',
-            }
+            ...tool,
+            usageControl: usageControl as 'auto' | 'force' | 'none',
+          }
           : tool
       )
     )
@@ -1409,15 +1409,15 @@ export function ToolInput({
             const customToolParams =
               isCustomTool && tool.schema && tool.schema.function?.parameters?.properties
                 ? Object.entries(tool.schema.function.parameters.properties || {}).map(
-                    ([paramId, param]: [string, any]) => ({
-                      id: paramId,
-                      type: param.type || 'string',
-                      description: param.description || '',
-                      visibility: (tool.schema.function.parameters.required?.includes(paramId)
-                        ? 'user-or-llm'
-                        : 'user-only') as 'user-or-llm' | 'user-only' | 'llm-only' | 'hidden',
-                    })
-                  )
+                  ([paramId, param]: [string, any]) => ({
+                    id: paramId,
+                    type: param.type || 'string',
+                    description: param.description || '',
+                    visibility: (tool.schema.function.parameters.required?.includes(paramId)
+                      ? 'user-or-llm'
+                      : 'user-only') as 'user-or-llm' | 'user-only' | 'llm-only' | 'hidden',
+                  })
+                )
                 : []
 
             // For MCP tools, extract parameters from input schema
@@ -1427,15 +1427,15 @@ export function ToolInput({
             const mcpToolParams =
               isMcpTool && mcpToolSchema?.properties
                 ? Object.entries(mcpToolSchema.properties || {}).map(
-                    ([paramId, param]: [string, any]) => ({
-                      id: paramId,
-                      type: param.type || 'string',
-                      description: param.description || '',
-                      visibility: (mcpToolSchema.required?.includes(paramId)
-                        ? 'user-or-llm'
-                        : 'user-only') as 'user-or-llm' | 'user-only' | 'llm-only' | 'hidden',
-                    })
-                  )
+                  ([paramId, param]: [string, any]) => ({
+                    id: paramId,
+                    type: param.type || 'string',
+                    description: param.description || '',
+                    visibility: (mcpToolSchema.required?.includes(paramId)
+                      ? 'user-or-llm'
+                      : 'user-only') as 'user-or-llm' | 'user-only' | 'llm-only' | 'hidden',
+                  })
+                )
                 : []
 
             // Get all parameters to display
@@ -1487,7 +1487,7 @@ export function ToolInput({
                 >
                   <div
                     className={cn(
-                      'flex items-center justify-between bg-accent p-2',
+                      'flex items-center justify-between  bg-accent p-2',
                       'cursor-pointer'
                     )}
                     onClick={() => {
@@ -1500,7 +1500,7 @@ export function ToolInput({
                   >
                     <div className='flex min-w-0 flex-shrink-1 items-center gap-2 overflow-hidden'>
                       <div
-                        className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded'
+                        className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-sm'
                         style={{
                           backgroundColor: isCustomTool
                             ? '#3B82F6' // blue-500 for custom tools
@@ -1527,7 +1527,7 @@ export function ToolInput({
                             <Toggle
                               className='group flex h-6 items-center justify-center rounded-sm px-2 py-0 hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=on]:bg-transparent'
                               pressed={true}
-                              onPressedChange={() => {}}
+                              onPressedChange={() => { }}
                               onClick={(e: React.MouseEvent) => {
                                 e.stopPropagation()
                                 // Cycle through the states: auto -> force -> none -> auto
@@ -1543,11 +1543,10 @@ export function ToolInput({
                               aria-label='Toggle tool usage control'
                             >
                               <span
-                                className={`font-medium text-xs ${
-                                  tool.usageControl === 'auto'
-                                    ? 'block text-muted-foreground'
-                                    : 'hidden'
-                                }`}
+                                className={`font-medium text-xs ${tool.usageControl === 'auto'
+                                  ? 'block text-muted-foreground'
+                                  : 'hidden'
+                                  }`}
                               >
                                 Auto
                               </span>
@@ -1919,30 +1918,30 @@ export function ToolInput({
                     {toolBlocks.some(
                       (block) => customFilter(block.name, searchQuery || '') > 0
                     ) && (
-                      <>
-                        <div className='px-2 pt-2.5 pb-0.5 font-medium text-muted-foreground text-xs'>
-                          Built-in Tools
-                        </div>
-                        <ToolCommand.Group className='-mx-1 -px-1'>
-                          {toolBlocks.map((block) => (
-                            <ToolCommand.Item
-                              key={block.type}
-                              value={block.name}
-                              onSelect={() => handleSelectTool(block)}
-                              className='flex cursor-pointer items-center gap-2'
-                            >
-                              <div
-                                className='flex h-6 w-6 items-center justify-center rounded'
-                                style={{ backgroundColor: block.bgColor }}
+                        <>
+                          <div className='px-2 pt-2.5 pb-0.5 font-medium text-muted-foreground text-xs'>
+                            Built-in Tools
+                          </div>
+                          <ToolCommand.Group className='-mx-1 -px-1'>
+                            {toolBlocks.map((block) => (
+                              <ToolCommand.Item
+                                key={block.type}
+                                value={block.name}
+                                onSelect={() => handleSelectTool(block)}
+                                className='flex cursor-pointer items-center gap-2'
                               >
-                                <IconComponent icon={block.icon} className='h-4 w-4 text-white' />
-                              </div>
-                              <span className='max-w-[140px] truncate'>{block.name}</span>
-                            </ToolCommand.Item>
-                          ))}
-                        </ToolCommand.Group>
-                      </>
-                    )}
+                                <div
+                                  className='flex h-6 w-6 items-center justify-center rounded'
+                                  style={{ backgroundColor: block.bgColor }}
+                                >
+                                  <IconComponent icon={block.icon} className='h-4 w-4 text-white' />
+                                </div>
+                                <span className='max-w-[140px] truncate'>{block.name}</span>
+                              </ToolCommand.Item>
+                            ))}
+                          </ToolCommand.Group>
+                        </>
+                      )}
                   </ToolCommand.Group>
                 </ToolCommand.List>
               </ToolCommand.Root>
@@ -1964,14 +1963,14 @@ export function ToolInput({
         initialValues={
           editingToolIndex !== null && selectedTools[editingToolIndex]?.type === 'custom-tool'
             ? {
-                id: customTools.find(
-                  (tool) =>
-                    tool.schema.function.name ===
-                    selectedTools[editingToolIndex].schema.function.name
-                )?.id,
-                schema: selectedTools[editingToolIndex].schema,
-                code: selectedTools[editingToolIndex].code || '',
-              }
+              id: customTools.find(
+                (tool) =>
+                  tool.schema.function.name ===
+                  selectedTools[editingToolIndex].schema.function.name
+              )?.id,
+              schema: selectedTools[editingToolIndex].schema,
+              code: selectedTools[editingToolIndex].code || '',
+            }
             : undefined
         }
       />

@@ -182,21 +182,21 @@ function calculateBlockPositions(
   const positions: Record<string, { x: number; y: number }> = {}
   const blockIds = Object.keys(yamlWorkflow.blocks)
 
-  // Find starter blocks (no incoming connections)
-  const starterBlocks = blockIds.filter((id) => {
+  // Find entry blocks (no incoming connections)
+  const entryBlocks = blockIds.filter((id) => {
     const block = yamlWorkflow.blocks[id]
     return !block.connections?.incoming || block.connections.incoming.length === 0
   })
 
-  // If no starter blocks found, use first block as starter
-  if (starterBlocks.length === 0 && blockIds.length > 0) {
-    starterBlocks.push(blockIds[0])
+  // If no entry blocks found, use first block as fallback
+  if (entryBlocks.length === 0 && blockIds.length > 0) {
+    entryBlocks.push(blockIds[0])
   }
 
   // Build layers
   const layers: string[][] = []
   const visited = new Set<string>()
-  const queue = [...starterBlocks]
+  const queue = [...entryBlocks]
 
   // BFS to organize blocks into layers
   while (queue.length > 0) {

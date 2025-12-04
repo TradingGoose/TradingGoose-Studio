@@ -549,10 +549,12 @@ export async function POST(req: NextRequest) {
                       try {
                         const displayMessage: string =
                           (event?.data && (event.data.displayMessage as string)) ||
+                          (typeof event?.error === 'string' && event.error) ||
+                          (typeof event?.data === 'string' && event.data) ||
                           'Sorry, I encountered an error. Please try again.'
                         const formatted = `_${displayMessage}_`
-                        // Accumulate so it persists to DB as assistant content
-                        assistantContent += formatted
+                        // Replace any accumulated content with the error text so we don't show mixed output
+                        assistantContent = formatted
                         // Send as content chunk
                         try {
                           controller.enqueue(
@@ -625,9 +627,11 @@ export async function POST(req: NextRequest) {
                   if (event?.type === 'error') {
                     const displayMessage: string =
                       (event?.data && (event.data.displayMessage as string)) ||
+                      (typeof event?.error === 'string' && event.error) ||
+                      (typeof event?.data === 'string' && event.data) ||
                       'Sorry, I encountered an error. Please try again.'
                     const formatted = `_${displayMessage}_`
-                    assistantContent += formatted
+                    assistantContent = formatted
                     try {
                       controller.enqueue(
                         encoder.encode(

@@ -12,7 +12,7 @@ import type { SubBlockStore } from '@/stores/workflows/subblock/types'
  * 2. When workflows are synced to the database, the mergeSubblockState function
  *    in utils.ts combines the block structure with these values
  * 3. If a subblock value exists here but not in the block structure
- *    (e.g., inputFormat in starter block), the merge function will include it
+ *    (e.g., inputFormat in the input trigger block), the merge function will include it
  *    in the synchronized state to ensure persistence
  */
 

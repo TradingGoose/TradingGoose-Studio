@@ -456,7 +456,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
         const { getAllBlocks } = await import('@/blocks')
         const all = getAllBlocks()
         const regularBlocks = all
-          .filter((b: any) => b.type !== 'starter' && !b.hideFromToolbar && b.category === 'blocks')
+          .filter((b: any) => !b.hideFromToolbar && b.category === 'blocks')
           .map((b: any) => ({
             id: b.type,
             name: b.name || b.type,
@@ -466,7 +466,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
           .sort((a: any, b: any) => a.name.localeCompare(b.name))
 
         const toolBlocks = all
-          .filter((b: any) => b.type !== 'starter' && !b.hideFromToolbar && b.category === 'tools')
+          .filter((b: any) => !b.hideFromToolbar && b.category === 'tools')
           .map((b: any) => ({
             id: b.type,
             name: b.name || b.type,
@@ -2132,7 +2132,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       <div ref={containerRef} className={cn('relative flex-none', className)}>
         <div
           className={cn(
-            'relative rounded-md border border-input bg-background px-3 py-1.5 shadow-xs transition-all duration-200 ',
+            'relative rounded-md border border-input bg-background p-2 shadow-xs transition-all duration-200 ',
             isDragging &&
             'border-[var(--primary-hover)] bg-yellow-50/50 dark:border-[var(--primary-hover)] dark:bg-yellow-950/20'
           )}
@@ -2932,7 +2932,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                   key={label}
                                   data-idx={idx}
                                   className={cn(
-                                    'flex cursor-default items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
+                                    'flex cursor-default items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-card/60',
                                     !inAggregated && mentionActiveIndex === idx && 'bg-muted'
                                   )}
                                   role='menuitem'
@@ -3232,10 +3232,10 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
-                    variant='ghost'
+                    variant='outline'
                     size='sm'
                     disabled={!onModeChange}
-                    className='flex h-6 items-center gap-1.5 rounded-full border px-2 py-1 font-medium text-xs focus-visible:ring-0 focus-visible:ring-offset-0'
+                    className='flex h-6 items-center gap-1.5 rounded-sm border px-2 py-1 font-medium text-xs focus-visible:ring-0 focus-visible:ring-offset-0'
                   >
                     {getModeIcon()}
                     <span>{getModeText()}</span>
@@ -3332,7 +3332,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                         variant='ghost'
                         size='sm'
                         className={cn(
-                          'flex h-6 items-center gap-1.5 rounded-full border px-2 py-1 font-medium text-xs focus-visible:ring-0 focus-visible:ring-offset-0',
+                          'flex h-6 items-center gap-1.5 rounded-sm border px-2 py-1 font-medium text-xs focus-visible:ring-0 focus-visible:ring-offset-0',
                           showPurple
                             ? 'border-[var(--primary-hover)] text-[var(--primary-hover)] hover:bg-[color-mix(in_srgb,var(--primary-hover)_8%,transparent)] hover:text-[var(--primary-hover)]'
                             : 'border-border text-foreground'
@@ -3540,7 +3540,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                   onClick={handleSubmit}
                   disabled={!canSubmit}
                   size='icon'
-                  className='h-6 w-6 rounded-full bg-primary-hover text-black shadow-[0_0_0_0_var(--primary-hover)] transition-all duration-200 hover:bg-primary-hover '
+                  className='h-6 w-6 rounded-sm bg-primary-hover text-black shadow-[0_0_0_0_var(--primary-hover)] transition-all duration-200 hover:bg-primary-hover '
                 >
                   {isLoading ? (
                     <Loader2 className='h-3 w-3 animate-spin' />

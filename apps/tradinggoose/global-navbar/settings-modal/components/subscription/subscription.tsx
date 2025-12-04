@@ -2,28 +2,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Skeleton, Switch } from '@/components/ui'
 import { useSession } from '@/lib/auth-client'
+import {
+  getBillingStatus,
+  getSubscriptionStatus,
+  getUsage,
+} from '@/lib/subscription/helpers'
 import { useSubscriptionUpgrade } from '@/lib/subscription/upgrade'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { cn } from '@/lib/utils'
 import { UsageHeader } from '../shared/usage-header'
-import {
-  CancelSubscription,
-  PlanCard,
-  UsageLimit,
-  type UsageLimitRef,
-} from './components'
-import {
-  ENTERPRISE_PLAN_FEATURES,
-  PRO_PLAN_FEATURES,
-  TEAM_PLAN_FEATURES,
-} from './plan-configs'
-import {
-  getSubscriptionPermissions,
-  getVisiblePlans,
-} from './subscription-permissions'
-import { useOrganizationStore } from '@/stores/organization'
+import { CancelSubscription, PlanCard, UsageLimit, type UsageLimitRef } from './components'
+import { ENTERPRISE_PLAN_FEATURES, PRO_PLAN_FEATURES, TEAM_PLAN_FEATURES } from './plan-configs'
+import { getSubscriptionPermissions, getVisiblePlans } from './subscription-permissions'
+import { useGeneralSettings, useUpdateGeneralSetting } from '@/hooks/queries/general-settings'
+import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
+import { useSubscriptionData, useUsageLimitData } from '@/hooks/queries/subscription'
+import { getUserRole } from '@/lib/organization'
 import { useGeneralStore } from '@/stores/settings/general/store'
-import { useSubscriptionStore } from '@/stores/subscription/store'
 
 const CONSTANTS = {
   UPGRADE_ERROR_TIMEOUT: 3000, // 3 seconds
@@ -47,21 +42,17 @@ interface SubscriptionProps {
   onOpenChange: (open: boolean) => void
 }
 
-/**
- * Skeleton component for subscription loading state.
- */
 function SubscriptionSkeleton() {
   return (
     <div className='px-6 pt-4 pb-4'>
       <div className='flex flex-col gap-2'>
-        {/* Current Plan skeleton - matches usage indicator style */}
         <div className='mb-2'>
           <div className='rounded-md border bg-background p-3 shadow-xs'>
             <div className='space-y-2'>
               <div className='flex items-center justify-between'>
                 <div className='flex items-center gap-2'>
                   <Skeleton className='h-5 w-16' />
-                  <Skeleton className='h-[1.125rem] w-14 rounded-[6px]' />
+                  <Skeleton className='h-[1.125rem] w-14 rounded-sm' />
                 </div>
                 <div className='flex items-center gap-1 text-xs tabular-nums'>
                   <Skeleton className='h-4 w-8' />
@@ -74,11 +65,8 @@ function SubscriptionSkeleton() {
           </div>
         </div>
 
-        {/* Plan cards skeleton */}
         <div className='flex flex-col gap-2'>
-          {/* Pro and Team skeleton grid */}
           <div className='grid grid-cols-2 gap-2'>
-            {/* Pro Plan Card Skeleton */}
             <div className='flex flex-col rounded-sm border p-4'>
               <div className='mb-4'>
                 <Skeleton className='mb-2 h-5 w-8' />
@@ -88,27 +76,16 @@ function SubscriptionSkeleton() {
                 </div>
               </div>
               <div className='mb-4 flex-1 space-y-2'>
-                <div className='flex items-start gap-2'>
-                  <Skeleton className='mt-0.5 h-3 w-3 rounded' />
-                  <Skeleton className='h-3 w-20' />
-                </div>
-                <div className='flex items-start gap-2'>
-                  <Skeleton className='mt-0.5 h-3 w-3 rounded' />
-                  <Skeleton className='h-3 w-24' />
-                </div>
-                <div className='flex items-start gap-2'>
-                  <Skeleton className='mt-0.5 h-3 w-3 rounded' />
-                  <Skeleton className='h-3 w-16' />
-                </div>
-                <div className='flex items-start gap-2'>
-                  <Skeleton className='mt-0.5 h-3 w-3 rounded' />
-                  <Skeleton className='h-3 w-20' />
-                </div>
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className='flex items-start gap-2'>
+                    <Skeleton className='mt-0.5 h-3 w-3 rounded' />
+                    <Skeleton className='h-3 w-20' />
+                  </div>
+                ))}
               </div>
               <Skeleton className='h-9 w-full rounded-sm' />
             </div>
 
-            {/* Team Plan Card Skeleton */}
             <div className='flex flex-col rounded-sm border p-4'>
               <div className='mb-4'>
                 <Skeleton className='mb-2 h-5 w-10' />
@@ -118,28 +95,17 @@ function SubscriptionSkeleton() {
                 </div>
               </div>
               <div className='mb-4 flex-1 space-y-2'>
-                <div className='flex items-start gap-2'>
-                  <Skeleton className='mt-0.5 h-3 w-3 rounded' />
-                  <Skeleton className='h-3 w-24' />
-                </div>
-                <div className='flex items-start gap-2'>
-                  <Skeleton className='mt-0.5 h-3 w-3 rounded' />
-                  <Skeleton className='h-3 w-20' />
-                </div>
-                <div className='flex items-start gap-2'>
-                  <Skeleton className='mt-0.5 h-3 w-3 rounded' />
-                  <Skeleton className='h-3 w-16' />
-                </div>
-                <div className='flex items-start gap-2'>
-                  <Skeleton className='mt-0.5 h-3 w-3 rounded' />
-                  <Skeleton className='h-3 w-28' />
-                </div>
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className='flex items-start gap-2'>
+                    <Skeleton className='mt-0.5 h-3 w-3 rounded' />
+                    <Skeleton className='h-3 w-24' />
+                  </div>
+                ))}
               </div>
               <Skeleton className='h-9 w-full rounded-sm' />
             </div>
           </div>
 
-          {/* Enterprise skeleton - horizontal layout */}
           <div className='flex items-center justify-between rounded-sm border p-4'>
             <div>
               <Skeleton className='mb-2 h-5 w-20' />
@@ -171,79 +137,68 @@ function SubscriptionSkeleton() {
 
 const formatPlanName = (plan: string): string => plan.charAt(0).toUpperCase() + plan.slice(1)
 
-/**
- * Subscription management component
- * Handles plan display, upgrades, and billing management
- */
 export function Subscription({ onOpenChange }: SubscriptionProps) {
   const { data: session } = useSession()
   const { handleUpgrade } = useSubscriptionUpgrade()
 
   const {
-    isLoading,
-    getSubscriptionStatus,
-    getUsage,
-    getBillingStatus,
-    usageLimitData,
-    subscriptionData,
-    loadData,
-    loadUsageLimitData,
-  } = useSubscriptionStore()
-
-  const { activeOrganization, organizationBillingData, loadOrganizationBillingData, getUserRole } =
-    useOrganizationStore()
+    data: subscriptionData,
+    isLoading: isSubscriptionLoading,
+    isError: isSubscriptionError,
+  } = useSubscriptionData()
+  const { data: usageLimitResponse, isLoading: isUsageLimitLoading, refetch: refetchUsageLimit } =
+    useUsageLimitData()
+  const { data: organizationsData } = useOrganizations()
+  const activeOrganization = organizationsData?.activeOrganization
+  const activeOrgId = activeOrganization?.id
+  const {
+    data: organizationBillingData,
+    isLoading: isOrgBillingLoading,
+    refetch: refetchOrgBilling,
+  } = useOrganizationBilling(activeOrgId || '')
 
   const [upgradeError, setUpgradeError] = useState<'pro' | 'team' | null>(null)
   const usageLimitRef = useRef<UsageLimitRef | null>(null)
 
-  // Ensure subscription and usage data are loaded on mount
-  useEffect(() => {
-    void loadData()
-    void loadUsageLimitData()
-  }, [loadData, loadUsageLimitData])
+  useGeneralSettings()
 
-  // Get real subscription data from store
-  const subscription = getSubscriptionStatus()
-  const usage = getUsage()
-  const billingStatus = getBillingStatus()
-  const activeOrgId = activeOrganization?.id
+  const billingPayload = (subscriptionData as any)?.data ?? subscriptionData
+  const organizationBillingPayload = (organizationBillingData as any)?.data ?? organizationBillingData
+  const subscription = getSubscriptionStatus(billingPayload)
+  const usage = getUsage(billingPayload)
+  const billingStatus = getBillingStatus(billingPayload)
 
   const defaultMinimumLimit = subscription.isPro ? 20 : 40
+  const usageLimitPayload = (usageLimitResponse as any)?.data ?? usageLimitResponse
   const usageLimitInfo = {
-    currentLimit: usageLimitData?.currentLimit ?? usage.limit,
-    minimumLimit: usageLimitData?.minimumLimit ?? defaultMinimumLimit,
+    currentLimit: usageLimitPayload?.currentLimit ?? usage.limit,
+    minimumLimit: usageLimitPayload?.minimumLimit ?? defaultMinimumLimit,
   }
+
   const isOrganizationPlan = subscription.isTeam || subscription.isEnterprise
   const aggregatedCurrentUsage = safeNumber(
-    isOrganizationPlan ? organizationBillingData?.totalCurrentUsage ?? usage.current : usage.current
+    isOrganizationPlan ? organizationBillingPayload?.totalCurrentUsage ?? usage.current : usage.current
   )
   const aggregatedUsageLimit = safeNumber(
     isOrganizationPlan
-      ? organizationBillingData?.totalUsageLimit ??
-        organizationBillingData?.minimumBillingAmount ??
-        usage.limit
+      ? organizationBillingPayload?.totalUsageLimit ??
+      organizationBillingPayload?.minimumBillingAmount ??
+      usage.limit
       : usage.limit
   )
   const percentUsedRaw = isOrganizationPlan
     ? (() => {
-        const totalLimit = organizationBillingData?.totalUsageLimit
-        if (totalLimit && totalLimit > 0) {
-          return ((organizationBillingData?.totalCurrentUsage ?? 0) / totalLimit) * 100
-        }
-        return usage.percentUsed
-      })()
+      const totalLimit = organizationBillingPayload?.totalUsageLimit
+      if (totalLimit && totalLimit > 0) {
+        return ((organizationBillingPayload?.totalCurrentUsage ?? 0) / totalLimit) * 100
+      }
+      return usage.percentUsed
+    })()
     : usage.percentUsed
   const percentUsedClamped = Math.max(0, Math.min(Math.round(percentUsedRaw ?? 0), 100))
   const normalizedBillingStatus =
     billingStatus === 'unknown' ? 'ok' : (billingStatus as 'ok' | 'warning' | 'exceeded' | 'blocked')
 
-  useEffect(() => {
-    if ((subscription.isTeam || subscription.isEnterprise) && activeOrgId) {
-      loadOrganizationBillingData(activeOrgId)
-    }
-  }, [activeOrgId, subscription.isTeam, subscription.isEnterprise, loadOrganizationBillingData])
-
-  // Auto-clear upgrade error
   useEffect(() => {
     if (upgradeError) {
       const timer = setTimeout(() => {
@@ -253,11 +208,9 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     }
   }, [upgradeError])
 
-  // User role and permissions
-  const userRole = getUserRole(session?.user?.email)
+  const userRole = getUserRole(activeOrganization, session?.user?.email)
   const isTeamAdmin = ['owner', 'admin'].includes(userRole)
 
-  // Get permissions based on subscription state and user role
   const permissions = getSubscriptionPermissions(
     {
       isFree: subscription.isFree,
@@ -274,7 +227,6 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     }
   )
 
-  // Get visible plans based on current subscription
   const visiblePlans = getVisiblePlans(
     {
       isFree: subscription.isFree,
@@ -291,7 +243,6 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     }
   )
 
-  // UI state computed values
   const showBadge = permissions.canEditUsageLimit && !permissions.showTeamMemberView
   const badgeText = subscription.isFree ? 'Upgrade' : 'Increase Limit'
 
@@ -308,71 +259,14 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
       try {
         await handleUpgrade(targetPlan)
       } catch (error) {
+        setUpgradeError(targetPlan)
         alert(error instanceof Error ? error.message : 'Unknown error occurred')
       }
     },
     [handleUpgrade]
   )
 
-  const renderPlanCard = useCallback(
-    (planType: 'pro' | 'team' | 'enterprise', layout: 'vertical' | 'horizontal' = 'vertical') => {
-      const handleContactEnterprise = () => window.open(CONSTANTS.TYPEFORM_ENTERPRISE_URL, '_blank')
-
-      switch (planType) {
-        case 'pro':
-          return (
-            <PlanCard
-              key='pro'
-              name='Pro'
-              price={CONSTANTS.PRO_PRICE}
-              priceSubtext='/month'
-              features={PRO_PLAN_FEATURES}
-              buttonText={subscription.isFree ? 'Upgrade' : 'Upgrade to Pro'}
-              onButtonClick={() => handleUpgradeWithErrorHandling('pro')}
-              isError={upgradeError === 'pro'}
-              layout={layout}
-            />
-          )
-
-        case 'team':
-          return (
-            <PlanCard
-              key='team'
-              name='Team'
-              price={CONSTANTS.TEAM_PRICE}
-              priceSubtext='/month'
-              features={TEAM_PLAN_FEATURES}
-              buttonText={subscription.isFree ? 'Upgrade' : 'Upgrade to Team'}
-              onButtonClick={() => handleUpgradeWithErrorHandling('team')}
-              isError={upgradeError === 'team'}
-              layout={layout}
-            />
-          )
-
-        case 'enterprise':
-          return (
-            <PlanCard
-              key='enterprise'
-              name='Enterprise'
-              price={<span className='font-semibold text-xl'>Custom</span>}
-              priceSubtext={
-                layout === 'horizontal'
-                  ? 'Custom solutions tailored to your enterprise needs'
-                  : undefined
-              }
-              features={ENTERPRISE_PLAN_FEATURES}
-              buttonText='Contact'
-              onButtonClick={handleContactEnterprise}
-              layout={layout}
-            />
-          )
-
-        default:
-          return null
-      }
-    },
-    [subscription.isFree, upgradeError, handleUpgrade]
-  )
+  const isLoading = isSubscriptionLoading || isUsageLimitLoading || isOrgBillingLoading
 
   if (isLoading) {
     return <SubscriptionSkeleton />
@@ -381,7 +275,6 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   return (
     <div className='px-6 pt-4 pb-4'>
       <div className='flex flex-col gap-2'>
-        {/* Current Plan & Usage Overview - Styled like usage-indicator */}
         <div className='mb-2'>
           <UsageHeader
             title={formatPlanName(subscription.plan)}
@@ -391,7 +284,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
             onBadgeClick={handleBadgeClick}
             seatsText={
               permissions.canManageTeam || subscription.isEnterprise
-                ? `${organizationBillingData?.totalSeats || subscription.seats || 1} seats`
+                ? `${organizationBillingPayload?.totalSeats || subscription.seats || 1} seats`
                 : undefined
             }
             current={aggregatedCurrentUsage}
@@ -399,11 +292,11 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
               isOrganizationPlan
                 ? aggregatedUsageLimit
                 : !subscription.isFree &&
-                    (permissions.canEditUsageLimit || permissions.showTeamMemberView)
-                  ? safeNumber(usage.current) // UsageLimit renders the actual limit
+                  (permissions.canEditUsageLimit || permissions.showTeamMemberView)
+                  ? safeNumber(usage.current)
                   : safeNumber(usage.limit)
             }
-            isBlocked={Boolean(subscriptionData?.billingBlocked)}
+            isBlocked={Boolean(billingPayload?.billingBlocked)}
             status={normalizedBillingStatus}
             percentUsed={percentUsedClamped}
             onResolvePayment={async () => {
@@ -443,7 +336,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                   minimumLimit={
                     subscription.isTeam && isTeamAdmin
                       ? safeNumber(
-                        organizationBillingData?.minimumBillingAmount ?? defaultMinimumLimit
+                        organizationBillingPayload?.minimumBillingAmount ?? usageLimitInfo.minimumLimit
                       )
                       : usageLimitInfo.minimumLimit
                   }
@@ -451,9 +344,9 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                   organizationId={subscription.isTeam && isTeamAdmin ? activeOrgId : undefined}
                   onLimitUpdated={async () => {
                     if (subscription.isTeam && isTeamAdmin && activeOrgId) {
-                      await loadOrganizationBillingData(activeOrgId, true)
+                      await refetchOrgBilling()
                     } else {
-                      await loadUsageLimitData()
+                      await refetchUsageLimit()
                     }
                   }}
                 />
@@ -463,7 +356,6 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           />
         </div>
 
-        {/* Team Member Notice */}
         {permissions.showTeamMemberView && (
           <div className='text-center'>
             <p className='text-muted-foreground text-xs'>
@@ -472,15 +364,12 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           </div>
         )}
 
-        {/* Upgrade Plans */}
         {permissions.showUpgradePlans && (
           <div className='flex flex-col gap-2'>
-            {/* Render plans based on what should be visible */}
             {(() => {
               const totalPlans = visiblePlans.length
               const hasEnterprise = visiblePlans.includes('enterprise')
 
-              // Special handling for Pro users - show team and enterprise side by side
               if (subscription.isPro && totalPlans === 2) {
                 return (
                   <div className='grid grid-cols-2 gap-2'>
@@ -489,12 +378,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                 )
               }
 
-              // Default behavior for other users
               const otherPlans = visiblePlans.filter((p) => p !== 'enterprise')
-
-              // Layout logic:
-              // Free users (3 plans): Pro and Team vertical in grid, Enterprise horizontal below
-              // Team admins (1 plan): Enterprise horizontal
               const enterpriseLayout =
                 totalPlans === 1 || totalPlans === 3 ? 'horizontal' : 'vertical'
 
@@ -511,7 +395,6 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                     </div>
                   )}
 
-                  {/* Enterprise plan */}
                   {hasEnterprise && renderPlanCard('enterprise', enterpriseLayout)}
                 </>
               )
@@ -519,17 +402,15 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           </div>
         )}
 
-        {/* Next Billing Date */}
-        {subscription.isPaid && subscriptionData?.periodEnd && (
+        {subscription.isPaid && billingPayload?.periodEnd && (
           <div className='mt-4 flex items-center justify-between'>
             <span className='font-medium text-sm'>Next Billing Date</span>
             <span className='text-muted-foreground text-sm'>
-              {new Date(subscriptionData.periodEnd).toLocaleDateString()}
+              {new Date(billingPayload.periodEnd).toLocaleDateString()}
             </span>
           </div>
         )}
 
-        {/* Billing usage notifications toggle */}
         {subscription.isPaid && <BillingUsageNotificationsToggle />}
 
         {subscription.isEnterprise && (
@@ -540,7 +421,6 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           </div>
         )}
 
-        {/* Cancel Subscription */}
         {permissions.canCancelSubscription && (
           <div className='mt-2'>
             <CancelSubscription
@@ -550,8 +430,8 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                 isPaid: subscription.isPaid,
               }}
               subscriptionData={{
-                periodEnd: subscriptionData?.periodEnd || null,
-                cancelAtPeriodEnd: subscriptionData?.cancelAtPeriodEnd,
+                periodEnd: billingPayload?.periodEnd || null,
+                cancelAtPeriodEnd: billingPayload?.cancelAtPeriodEnd,
               }}
             />
           </div>
@@ -559,17 +439,72 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
       </div>
     </div>
   )
+
+  function renderPlanCard(
+    planType: 'pro' | 'team' | 'enterprise',
+    layout: 'vertical' | 'horizontal' = 'vertical'
+  ) {
+    const handleContactEnterprise = () => window.open(CONSTANTS.TYPEFORM_ENTERPRISE_URL, '_blank')
+
+    switch (planType) {
+      case 'pro':
+        return (
+          <PlanCard
+            key='pro'
+            name='Pro'
+            price={CONSTANTS.PRO_PRICE}
+            priceSubtext='/month'
+            features={PRO_PLAN_FEATURES}
+            buttonText={subscription.isFree ? 'Upgrade' : 'Upgrade to Pro'}
+            onButtonClick={() => handleUpgradeWithErrorHandling('pro')}
+            isError={upgradeError === 'pro'}
+            layout={layout}
+          />
+        )
+
+      case 'team':
+        return (
+          <PlanCard
+            key='team'
+            name='Team'
+            price={CONSTANTS.TEAM_PRICE}
+            priceSubtext='/month'
+            features={TEAM_PLAN_FEATURES}
+            buttonText={subscription.isFree ? 'Upgrade' : 'Upgrade to Team'}
+            onButtonClick={() => handleUpgradeWithErrorHandling('team')}
+            isError={upgradeError === 'team'}
+            layout={layout}
+          />
+        )
+
+      case 'enterprise':
+        return (
+          <PlanCard
+            key='enterprise'
+            name='Enterprise'
+            price={<span className='font-semibold text-xl'>Custom</span>}
+            priceSubtext={
+              layout === 'horizontal'
+                ? 'Custom solutions tailored to your enterprise needs'
+                : undefined
+            }
+            features={ENTERPRISE_PLAN_FEATURES}
+            buttonText='Contact'
+            onButtonClick={handleContactEnterprise}
+            layout={layout}
+          />
+        )
+
+      default:
+        return null
+    }
+  }
 }
 
 function BillingUsageNotificationsToggle() {
-  const isLoading = useGeneralStore((s) => s.isBillingUsageNotificationsLoading)
   const enabled = useGeneralStore((s) => s.isBillingUsageNotificationsEnabled)
-  const setEnabled = useGeneralStore((s) => s.setBillingUsageNotificationsEnabled)
-  const loadSettings = useGeneralStore((s) => s.loadSettings)
-
-  useEffect(() => {
-    void loadSettings()
-  }, [loadSettings])
+  const updateSetting = useUpdateGeneralSetting()
+  const isLoading = updateSetting.isPending
 
   return (
     <div className='mt-4 flex items-center justify-between'>
@@ -581,7 +516,9 @@ function BillingUsageNotificationsToggle() {
         checked={!!enabled}
         disabled={isLoading}
         onCheckedChange={(v: boolean) => {
-          void setEnabled(v)
+          if (v !== enabled) {
+            updateSetting.mutate({ key: 'billingUsageNotificationsEnabled', value: v })
+          }
         }}
       />
     </div>

@@ -64,7 +64,7 @@ try {
   if (diffStore?.isShowingDiff || diffStore?.diffWorkflow) {
     diffStore.clearDiff()
   }
-} catch {}
+} catch { }
 
 // Known class-based client tools: map tool name -> instantiator
 const CLIENT_TOOL_INSTANTIATORS: Record<string, (id: string) => any> = {
@@ -139,7 +139,7 @@ function ensureClientToolInstance(toolName: string | undefined, toolCallId: stri
       const inst = make(toolCallId)
       registerClientTool(toolCallId, inst)
     }
-  } catch {}
+  } catch { }
 }
 
 // Constants
@@ -175,14 +175,14 @@ function resolveToolDisplay(
       const cand = meta?.[key]
       if (cand?.text || cand?.icon) return { text: cand.text, icon: cand.icon }
     }
-  } catch {}
+  } catch { }
   // Humanized fallback as last resort
   try {
     if (toolName) {
       const text = toolName.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
       return { text, icon: undefined as any }
     }
-  } catch {}
+  } catch { }
   return undefined
 }
 
@@ -273,7 +273,7 @@ function abortAllInProgressTools(set: any, get: () => CopilotStore) {
         return { messages: msgs }
       })
     }
-  } catch {}
+  } catch { }
 }
 
 // Normalize loaded messages so assistant messages render correctly from DB
@@ -297,75 +297,75 @@ function normalizeMessagesForUI(messages: CopilotMessage[]): CopilotMessage[] {
       // Use existing contentBlocks ordering if present; otherwise only render text content
       const blocks: any[] = Array.isArray(message.contentBlocks)
         ? (message.contentBlocks as any[]).map((b: any) => {
-            if (b?.type === 'tool_call' && b.toolCall) {
-              // Ensure client tool instance is registered for this tool call
-              ensureClientToolInstance(b.toolCall?.name, b.toolCall?.id)
+          if (b?.type === 'tool_call' && b.toolCall) {
+            // Ensure client tool instance is registered for this tool call
+            ensureClientToolInstance(b.toolCall?.name, b.toolCall?.id)
 
-              return {
-                ...b,
-                toolCall: {
-                  ...b.toolCall,
-                  state:
-                    isRejectedState(b.toolCall?.state) ||
+            return {
+              ...b,
+              toolCall: {
+                ...b.toolCall,
+                state:
+                  isRejectedState(b.toolCall?.state) ||
                     isReviewState(b.toolCall?.state) ||
                     isBackgroundState(b.toolCall?.state) ||
                     b.toolCall?.state === ClientToolCallState.success ||
                     b.toolCall?.state === ClientToolCallState.error ||
                     b.toolCall?.state === ClientToolCallState.aborted
-                      ? b.toolCall.state
-                      : ClientToolCallState.rejected,
-                  display: resolveToolDisplay(
-                    b.toolCall?.name,
-                    (isRejectedState(b.toolCall?.state) ||
+                    ? b.toolCall.state
+                    : ClientToolCallState.rejected,
+                display: resolveToolDisplay(
+                  b.toolCall?.name,
+                  (isRejectedState(b.toolCall?.state) ||
                     isReviewState(b.toolCall?.state) ||
                     isBackgroundState(b.toolCall?.state) ||
                     b.toolCall?.state === ClientToolCallState.success ||
                     b.toolCall?.state === ClientToolCallState.error ||
                     b.toolCall?.state === ClientToolCallState.aborted
-                      ? (b.toolCall?.state as any)
-                      : ClientToolCallState.rejected) as any,
-                    b.toolCall?.id,
-                    b.toolCall?.params
-                  ),
-                },
-              }
+                    ? (b.toolCall?.state as any)
+                    : ClientToolCallState.rejected) as any,
+                  b.toolCall?.id,
+                  b.toolCall?.params
+                ),
+              },
             }
-            return b
-          })
+          }
+          return b
+        })
         : []
 
       // Prepare toolCalls with display for non-block UI components, but do not fabricate blocks
       const updatedToolCalls = Array.isArray((message as any).toolCalls)
         ? (message as any).toolCalls.map((tc: any) => {
-            // Ensure client tool instance is registered for this tool call
-            ensureClientToolInstance(tc?.name, tc?.id)
+          // Ensure client tool instance is registered for this tool call
+          ensureClientToolInstance(tc?.name, tc?.id)
 
-            return {
-              ...tc,
-              state:
-                isRejectedState(tc?.state) ||
+          return {
+            ...tc,
+            state:
+              isRejectedState(tc?.state) ||
                 isReviewState(tc?.state) ||
                 isBackgroundState(tc?.state) ||
                 tc?.state === ClientToolCallState.success ||
                 tc?.state === ClientToolCallState.error ||
                 tc?.state === ClientToolCallState.aborted
-                  ? tc.state
-                  : ClientToolCallState.rejected,
-              display: resolveToolDisplay(
-                tc?.name,
-                (isRejectedState(tc?.state) ||
+                ? tc.state
+                : ClientToolCallState.rejected,
+            display: resolveToolDisplay(
+              tc?.name,
+              (isRejectedState(tc?.state) ||
                 isReviewState(tc?.state) ||
                 isBackgroundState(tc?.state) ||
                 tc?.state === ClientToolCallState.success ||
                 tc?.state === ClientToolCallState.error ||
                 tc?.state === ClientToolCallState.aborted
-                  ? (tc?.state as any)
-                  : ClientToolCallState.rejected) as any,
-                tc?.id,
-                tc?.params
-              ),
-            }
-          })
+                ? (tc?.state as any)
+                : ClientToolCallState.rejected) as any,
+              tc?.id,
+              tc?.params
+            ),
+          }
+        })
         : (message as any).toolCalls
 
       return {
@@ -413,9 +413,9 @@ const contentBlockPool = new ObjectPool(
     obj.type = ''
     obj.content = ''
     obj.timestamp = 0
-    ;(obj as any).toolCall = null
-    ;(obj as any).startTime = undefined
-    ;(obj as any).duration = undefined
+      ; (obj as any).toolCall = null
+      ; (obj as any).startTime = undefined
+      ; (obj as any).duration = undefined
   }
 )
 
@@ -457,10 +457,10 @@ function createUserMessage(
     ...(contexts && contexts.length > 0 && { contexts }),
     ...(contexts &&
       contexts.length > 0 && {
-        contentBlocks: [
-          { type: 'contexts', contexts: contexts as any, timestamp: Date.now() },
-        ] as any,
-      }),
+      contentBlocks: [
+        { type: 'contexts', contexts: contexts as any, timestamp: Date.now() },
+      ] as any,
+    }),
   }
 }
 
@@ -514,21 +514,21 @@ function validateMessagesForLLM(messages: CopilotMessage[]): any[] {
         timestamp: msg.timestamp,
         ...(Array.isArray((msg as any).toolCalls) &&
           (msg as any).toolCalls.length > 0 && {
-            toolCalls: (msg as any).toolCalls,
-          }),
+          toolCalls: (msg as any).toolCalls,
+        }),
         ...(Array.isArray(msg.contentBlocks) &&
           msg.contentBlocks.length > 0 && {
-            // Persist full contentBlocks including thinking so history can render it
-            contentBlocks: msg.contentBlocks,
-          }),
+          // Persist full contentBlocks including thinking so history can render it
+          contentBlocks: msg.contentBlocks,
+        }),
         ...(msg.fileAttachments &&
           msg.fileAttachments.length > 0 && {
-            fileAttachments: msg.fileAttachments,
-          }),
+          fileAttachments: msg.fileAttachments,
+        }),
         ...((msg as any).contexts &&
           Array.isArray((msg as any).contexts) && {
-            contexts: (msg as any).contexts,
-          }),
+          contexts: (msg as any).contexts,
+        }),
       }
     })
     .filter((m) => {
@@ -617,7 +617,7 @@ const sseHandlers: Record<string, SSEHandler> = {
             if (todoId) {
               get().updatePlanTodoStatus(todoId, 'completed')
             }
-          } catch {}
+          } catch { }
         }
 
         // If mark_todo_in_progress succeeded, set todo executing in planTodos
@@ -632,7 +632,7 @@ const sseHandlers: Record<string, SSEHandler> = {
             if (todoId) {
               get().updatePlanTodoStatus(todoId, 'executing')
             }
-          } catch {}
+          } catch { }
         }
       }
 
@@ -668,7 +668,7 @@ const sseHandlers: Record<string, SSEHandler> = {
         }
       }
       updateStreamingMessage(set, context)
-    } catch {}
+    } catch { }
   },
   tool_error: (data, context, get, set) => {
     try {
@@ -730,7 +730,7 @@ const sseHandlers: Record<string, SSEHandler> = {
         }
       }
       updateStreamingMessage(set, context)
-    } catch {}
+    } catch { }
   },
   tool_generating: (data, context, get, set) => {
     const { toolCallId, toolName } = data
@@ -782,18 +782,18 @@ const sseHandlers: Record<string, SSEHandler> = {
     const existing = toolCallsById[id]
     const next: CopilotToolCall = existing
       ? {
-          ...existing,
-          state: ClientToolCallState.pending,
-          ...(args ? { params: args } : {}),
-          display: resolveToolDisplay(name, ClientToolCallState.pending, id, args),
-        }
+        ...existing,
+        state: ClientToolCallState.pending,
+        ...(args ? { params: args } : {}),
+        display: resolveToolDisplay(name, ClientToolCallState.pending, id, args),
+      }
       : {
-          id,
-          name: name || 'unknown_tool',
-          state: ClientToolCallState.pending,
-          ...(args ? { params: args } : {}),
-          display: resolveToolDisplay(name, ClientToolCallState.pending, id, args),
-        }
+        id,
+        name: name || 'unknown_tool',
+        state: ClientToolCallState.pending,
+        ...(args ? { params: args } : {}),
+        display: resolveToolDisplay(name, ClientToolCallState.pending, id, args),
+      }
     const updated = { ...toolCallsById, [id]: next }
     set({ toolCallsById: updated })
     logger.info('[toolCallsById] → pending', { id, name, params: args })
@@ -893,7 +893,7 @@ const sseHandlers: Record<string, SSEHandler> = {
                       data: result?.data,
                     }),
                   })
-                } catch {}
+                } catch { }
               })
               .catch((e) => {
                 const errorMap = { ...get().toolCallsById }
@@ -960,7 +960,7 @@ const sseHandlers: Record<string, SSEHandler> = {
             })
         }, 0)
       }
-    } catch {}
+    } catch { }
   },
   reasoning: (data, context, _get, set) => {
     const phase = (data && (data.phase || data?.data?.phase)) as string | undefined
@@ -970,7 +970,7 @@ const sseHandlers: Record<string, SSEHandler> = {
         context.currentThinkingBlock.type = THINKING_BLOCK_TYPE
         context.currentThinkingBlock.content = ''
         context.currentThinkingBlock.timestamp = Date.now()
-        ;(context.currentThinkingBlock as any).startTime = Date.now()
+          ; (context.currentThinkingBlock as any).startTime = Date.now()
         context.contentBlocks.push(context.currentThinkingBlock)
       }
       context.isInThinkingBlock = true
@@ -980,7 +980,7 @@ const sseHandlers: Record<string, SSEHandler> = {
     }
     if (phase === 'end') {
       if (context.currentThinkingBlock) {
-        ;(context.currentThinkingBlock as any).duration =
+        ; (context.currentThinkingBlock as any).duration =
           Date.now() - ((context.currentThinkingBlock as any).startTime || Date.now())
       }
       context.isInThinkingBlock = false
@@ -998,7 +998,7 @@ const sseHandlers: Record<string, SSEHandler> = {
       context.currentThinkingBlock.type = THINKING_BLOCK_TYPE
       context.currentThinkingBlock.content = chunk
       context.currentThinkingBlock.timestamp = Date.now()
-      ;(context.currentThinkingBlock as any).startTime = Date.now()
+        ; (context.currentThinkingBlock as any).startTime = Date.now()
       context.contentBlocks.push(context.currentThinkingBlock)
     }
     context.isInThinkingBlock = true
@@ -1136,10 +1136,10 @@ const sseHandlers: Record<string, SSEHandler> = {
       messages: state.messages.map((msg) =>
         msg.id === context.messageId
           ? {
-              ...msg,
-              content: context.accumulatedContent || 'An error occurred.',
-              error: data.error,
-            }
+            ...msg,
+            content: context.accumulatedContent || 'An error occurred.',
+            error: data.error,
+          }
           : msg
       ),
     }))
@@ -1181,7 +1181,7 @@ const sseHandlers: Record<string, SSEHandler> = {
     context.currentTextBlock = null
     updateStreamingMessage(set, context)
   },
-  default: () => {},
+  default: () => { },
 }
 
 // Debounced UI update queue for smoother streaming
@@ -1344,7 +1344,7 @@ const createCopilotStoreInstance = () =>
         abortAllInProgressTools(set, get)
         try {
           useWorkflowDiffStore.getState().clearDiff()
-        } catch {}
+        } catch { }
 
         set({
           ...initialState,
@@ -1378,7 +1378,7 @@ const createCopilotStoreInstance = () =>
         abortAllInProgressTools(set, get)
         try {
           useWorkflowDiffStore.getState().clearDiff()
-        } catch {}
+        } catch { }
 
         // Capture previous chat/messages for optimistic background save
         const previousChat = currentChat
@@ -1402,9 +1402,9 @@ const createCopilotStoreInstance = () =>
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ chatId: previousChat.id, messages: dbMessages }),
-            }).catch(() => {})
+            }).catch(() => { })
           }
-        } catch {}
+        } catch { }
 
         // Refresh selected chat from server to ensure we have latest messages/tool calls
         try {
@@ -1439,13 +1439,13 @@ const createCopilotStoreInstance = () =>
               })
               try {
                 await get().loadMessageCheckpoints(latestChat.id)
-              } catch {}
+              } catch { }
               // Fetch context usage for the selected chat
               logger.info('[Context Usage] Chat selected, fetching usage')
               await get().fetchContextUsage()
             }
           }
-        } catch {}
+        } catch { }
       },
 
       createNewChat: async () => {
@@ -1456,7 +1456,7 @@ const createCopilotStoreInstance = () =>
         abortAllInProgressTools(set, get)
         try {
           useWorkflowDiffStore.getState().clearDiff()
-        } catch {}
+        } catch { }
 
         // Background-save the current chat before clearing (optimistic)
         try {
@@ -1468,9 +1468,9 @@ const createCopilotStoreInstance = () =>
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ chatId: currentChat.id, messages: dbMessages }),
-            }).catch(() => {})
+            }).catch(() => { })
           }
-        } catch {}
+        } catch { }
 
         logger.info('[Context Usage] New chat created, clearing context usage')
         set({
@@ -1574,7 +1574,7 @@ const createCopilotStoreInstance = () =>
                 }
                 try {
                   await get().loadMessageCheckpoints(updatedCurrentChat.id)
-                } catch {}
+                } catch { }
               } else if (!isSendingMessage && !suppressAutoSelect) {
                 const mostRecentChat: CopilotChat = data.chats[0]
                 const normalizedMessages = normalizeMessagesForUI(mostRecentChat.messages || [])
@@ -1598,7 +1598,7 @@ const createCopilotStoreInstance = () =>
                 })
                 try {
                   await get().loadMessageCheckpoints(mostRecentChat.id)
-                } catch {}
+                } catch { }
               }
             } else {
               set({ currentChat: null, messages: [] })
@@ -1684,14 +1684,14 @@ const createCopilotStoreInstance = () =>
               contextsCount: Array.isArray(contexts) ? contexts.length : 0,
               contextsPreview: Array.isArray(contexts)
                 ? contexts.map((c: any) => ({
-                    kind: c?.kind,
-                    chatId: (c as any)?.chatId,
-                    workflowId: (c as any)?.workflowId,
-                    label: (c as any)?.label,
-                  }))
+                  kind: c?.kind,
+                  chatId: (c as any)?.chatId,
+                  workflowId: (c as any)?.workflowId,
+                  label: (c as any)?.label,
+                }))
                 : undefined,
             })
-          } catch {}
+          } catch { }
 
           const result = await sendStreamingMessage({
             message,
@@ -1725,7 +1725,7 @@ const createCopilotStoreInstance = () =>
             let errorContent = result.error || 'Failed to send message'
             if (result.status === 401) {
               errorContent =
-                '_Unauthorized request. You need a valid API key to use the copilot. You can get one by going to [sim.ai](https://sim.ai) settings and generating one there._'
+                '_Unauthorized request. You need a valid API key to use the copilot. You can get one by going to [TradingGoose.ai](https://tradinggoose.ai) settings and generating one there._'
             } else if (result.status === 402) {
               errorContent =
                 '_Usage limit exceeded. To continue using this service, upgrade your plan or top up on credits._'
@@ -1805,8 +1805,8 @@ const createCopilotStoreInstance = () =>
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ chatId: currentChat.id, messages: dbMessages }),
-              }).catch(() => {})
-            } catch {}
+              }).catch(() => { })
+            } catch { }
           }
 
           // Fetch context usage after abort
@@ -1906,7 +1906,7 @@ const createCopilotStoreInstance = () =>
             display: resolveToolDisplay(current.name, norm, id, current.params),
           }
           set({ toolCallsById: map })
-        } catch {}
+        } catch { }
       },
       updatePreviewToolCallState: (
         toolCallState: 'accepted' | 'rejected' | 'error',
@@ -2023,7 +2023,7 @@ const createCopilotStoreInstance = () =>
                 let body: string | undefined
                 try {
                   body = await res.text()
-                } catch {}
+                } catch { }
                 logger.warn('[mark-complete] proxy responded non-OK', {
                   toolCallId: id,
                   toolName: current.name,
@@ -2039,14 +2039,14 @@ const createCopilotStoreInstance = () =>
                 error: error instanceof Error ? error.message : String(error),
               })
             })
-        } catch {}
+        } catch { }
       },
 
       sendDocsMessage: async (query: string) => {
         await get().sendMessage(query)
       },
 
-      saveChatMessages: async (_chatId: string) => {},
+      saveChatMessages: async (_chatId: string) => { },
 
       loadCheckpoints: async (_chatId: string) => set({ checkpoints: [] }),
 
@@ -2098,7 +2098,7 @@ const createCopilotStoreInstance = () =>
             // Clear any active diff preview
             try {
               useWorkflowDiffStore.getState().clearDiff()
-            } catch {}
+            } catch { }
 
             // Apply to main workflow store
             useWorkflowStore.setState({
@@ -2145,7 +2145,7 @@ const createCopilotStoreInstance = () =>
       },
 
       // Preview YAML (stubbed/no-op)
-      setPreviewYaml: async (_yamlContent: string) => {},
+      setPreviewYaml: async (_yamlContent: string) => { },
       clearPreviewYaml: async () => {
         set((state) => ({
           currentChat: state.currentChat ? { ...state.currentChat, previewYaml: null } : null,
@@ -2221,10 +2221,10 @@ const createCopilotStoreInstance = () =>
             messages: state.messages.map((msg) =>
               msg.id === assistantMessageId
                 ? {
-                    ...msg,
-                    content: finalContent,
-                    contentBlocks: context.contentBlocks,
-                  }
+                  ...msg,
+                  content: finalContent,
+                  contentBlocks: context.contentBlocks,
+                }
                 : msg
             ),
             isSendingMessage: false,
@@ -2247,13 +2247,13 @@ const createCopilotStoreInstance = () =>
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ chatId: currentChat.id, messages: dbMessages }),
               })
-            } catch {}
+            } catch { }
           }
 
           // Post copilot_stats record (input/output tokens can be null for now)
           try {
             // Removed: stats sending now occurs only on accept/reject with minimal payload
-          } catch {}
+          } catch { }
 
           // Fetch context usage after response completes
           logger.info('[Context Usage] Stream completed, fetching usage')
@@ -2282,7 +2282,7 @@ const createCopilotStoreInstance = () =>
         abortAllInProgressTools(set, get)
         try {
           useWorkflowDiffStore.getState().clearDiff()
-        } catch {}
+        } catch { }
 
         set({
           currentChat: newChat,
@@ -2299,7 +2299,7 @@ const createCopilotStoreInstance = () =>
       clearError: () => set({ error: null }),
       clearSaveError: () => set({ saveError: null }),
       clearCheckpointError: () => set({ checkpointError: null }),
-      retrySave: async (_chatId: string) => {},
+      retrySave: async (_chatId: string) => { },
 
       cleanup: () => {
         const { isSendingMessage } = get()
@@ -2312,7 +2312,7 @@ const createCopilotStoreInstance = () =>
         // Clear any diff on cleanup
         try {
           useWorkflowDiffStore.getState().clearDiff()
-        } catch {}
+        } catch { }
       },
 
       reset: () => {
@@ -2341,8 +2341,8 @@ const createCopilotStoreInstance = () =>
       closePlanTodos: () => set({ showPlanTodos: false }),
 
       // Diff updates are out of scope for minimal store
-      updateDiffStore: async (_yamlContent: string) => {},
-      updateDiffStoreWithWorkflowState: async (_workflowState: any) => {},
+      updateDiffStore: async (_yamlContent: string) => { },
+      updateDiffStoreWithWorkflowState: async (_workflowState: any) => { },
 
       setSelectedModel: async (model) => {
         logger.info('[Context Usage] Model changed', { from: get().selectedModel, to: model })
@@ -2545,4 +2545,4 @@ try {
     }
     targetStore.setState({ toolCallsById: updated })
   })
-} catch {}
+} catch { }

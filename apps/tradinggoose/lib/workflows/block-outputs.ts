@@ -28,50 +28,6 @@ export function getBlockOutputs(
   // Start with the static outputs defined in the config
   let outputs = { ...(blockConfig.outputs || {}) }
 
-  // Special handling for starter block (legacy)
-  if (blockType === 'starter') {
-    const startWorkflowValue = subBlocks?.startWorkflow?.value
-
-    if (startWorkflowValue === 'chat') {
-      // Chat mode outputs
-      return {
-        input: { type: 'string', description: 'User message' },
-        conversationId: { type: 'string', description: 'Conversation ID' },
-        files: { type: 'files', description: 'Uploaded files' },
-      }
-    }
-    if (
-      startWorkflowValue === 'api' ||
-      startWorkflowValue === 'run' ||
-      startWorkflowValue === 'manual'
-    ) {
-      // API/manual mode - use inputFormat fields only
-      let inputFormatValue = subBlocks?.inputFormat?.value
-      outputs = {}
-
-      if (
-        inputFormatValue !== null &&
-        inputFormatValue !== undefined &&
-        !Array.isArray(inputFormatValue)
-      ) {
-        inputFormatValue = []
-      }
-
-      if (Array.isArray(inputFormatValue)) {
-        inputFormatValue.forEach((field: { name?: string; type?: string }) => {
-          if (field?.name && field.name.trim() !== '') {
-            outputs[field.name] = {
-              type: (field.type || 'any') as any,
-              description: `Field from input format`,
-            }
-          }
-        })
-      }
-
-      return outputs
-    }
-  }
-
   // For blocks with inputFormat, add dynamic outputs
   if (hasInputFormat(blockConfig) && subBlocks?.inputFormat?.value) {
     let inputFormatValue = subBlocks.inputFormat.value

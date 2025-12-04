@@ -7,6 +7,10 @@ const Hero = dynamic(() => import('@/app/(landing)/components/hero/hero'), {
   loading: () => <div className='h-[600px] animate-pulse bg-gray-50' />,
 })
 
+const Feature = dynamic(() => import('@/app/(landing)/components/feature/feature'), {
+  loading: () => <div className='h-[600px] animate-pulse bg-gray-50' />,
+})
+
 const LandingPricing = dynamic(
   () => import('@/app/(landing)/components/landing-pricing/landing-pricing'),
   {
@@ -40,6 +44,16 @@ export default function Landing() {
             }
           >
             <Hero />
+          </Suspense>
+          <Suspense
+            fallback={
+              <div
+                className='h-[600px] animate-pulse bg-gray-50'
+                aria-label='Loading feature section'
+              />
+            }
+          >
+            <Feature />
           </Suspense>
           <Suspense
             fallback={

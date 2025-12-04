@@ -1,4 +1,5 @@
 import { findNeighbour } from 'fumadocs-core/server'
+import type * as PageTree from 'fumadocs-core/page-tree'
 import defaultMdxComponents from 'fumadocs-ui/mdx'
 import { DocsBody, DocsDescription, DocsPage, DocsTitle } from '@/components/layout/page'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -8,61 +9,26 @@ import { StructuredData } from '@/components/structured-data'
 import { CodeBlock } from '@/components/ui/code-block'
 import { CopyPageButton } from '@/components/ui/copy-page-button'
 import { source } from '@/lib/source'
+import { humanizeSlug, supportedLanguages } from '@/lib/page-tree'
 
 export default async function Page(props: { params: Promise<{ slug?: string[]; lang: string }> }) {
   const params = await props.params
-  const page = source.getPage(params.slug, params.lang)
+  const slugSegments = params.slug ?? []
+  const baseUrl = 'https://docs.sim.ai'
+
+  const pageTreeRecord = source.pageTree as Record<string, PageTree.Root>
+  const pageTree =
+    pageTreeRecord[params.lang] ?? pageTreeRecord.en ?? Object.values(pageTreeRecord)[0]
+  const page =
+    source.getPage(slugSegments, params.lang) ??
+    (slugSegments.length === 0 ? source.getPage(['index'], params.lang) : null)
+
   if (!page) notFound()
 
   const MDX = page.data.body
-  const baseUrl = 'https://docs.sim.ai'
-
-  const pageTreeRecord = source.pageTree as Record<string, any>
-  const pageTree =
-    pageTreeRecord[params.lang] ?? pageTreeRecord.en ?? Object.values(pageTreeRecord)[0]
   const neighbours = pageTree ? findNeighbour(pageTree, page.url) : null
 
-  const generateBreadcrumbs = () => {
-    const breadcrumbs: Array<{ name: string; url: string }> = [
-      {
-        name: 'Home',
-        url: baseUrl,
-      },
-    ]
-
-    const urlParts = page.url.split('/').filter(Boolean)
-    let currentPath = ''
-
-    urlParts.forEach((part, index) => {
-      if (index === 0 && ['en', 'es', 'fr', 'de', 'ja', 'zh'].includes(part)) {
-        currentPath = `/${part}`
-        return
-      }
-
-      currentPath += `/${part}`
-
-      const name = part
-        .split('-')
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ')
-
-      if (index === urlParts.length - 1) {
-        breadcrumbs.push({
-          name: page.data.title,
-          url: `${baseUrl}${page.url}`,
-        })
-      } else {
-        breadcrumbs.push({
-          name: name,
-          url: `${baseUrl}${currentPath}`,
-        })
-      }
-    })
-
-    return breadcrumbs
-  }
-
-  const breadcrumbs = generateBreadcrumbs()
+  const breadcrumbs = generateBreadcrumbs(page.url, page.data.title, baseUrl)
 
   const CustomFooter = () => (
     <div className='mt-12'>
@@ -217,6 +183,46 @@ ${page.data.content || ''}`}
   )
 }
 
+function generateBreadcrumbs(targetUrl: string, pageTitle: string, baseUrl: string) {
+  const breadcrumbs: Array<{ name: string; url: string }> = [
+    {
+      name: 'Home',
+      url: baseUrl,
+    },
+  ]
+
+  const urlParts = targetUrl.split('/').filter(Boolean)
+  let currentPath = ''
+
+  urlParts.forEach((part, index) => {
+    if (
+      index === 0 &&
+      supportedLanguages.includes(part as (typeof supportedLanguages)[number])
+    ) {
+      currentPath = `/${part}`
+      return
+    }
+
+    currentPath += `/${part}`
+
+    if (index === urlParts.length - 1) {
+      breadcrumbs.push({
+        name: pageTitle,
+        url: `${baseUrl}${targetUrl}`,
+      })
+    } else {
+      breadcrumbs.push({
+        name: humanizeSlug(part),
+        url: `${baseUrl}${currentPath}`,
+      })
+    }
+  })
+
+  return breadcrumbs
+}
+
+
+
 export async function generateStaticParams() {
   return source.generateParams()
 }
@@ -225,16 +231,24 @@ export async function generateMetadata(props: {
   params: Promise<{ slug?: string[]; lang: string }>
 }) {
   const params = await props.params
-  const page = source.getPage(params.slug, params.lang)
+  const slugSegments = params.slug ?? []
+  const baseUrl = 'https://docs.sim.ai'
+  const defaultDescription = 'Sim visual workflow builder for AI applications documentation'
+
+  const pageTreeRecord = source.pageTree as Record<string, PageTree.Root>
+  const pageTree =
+    pageTreeRecord[params.lang] ?? pageTreeRecord.en ?? Object.values(pageTreeRecord)[0]
+
+  const page =
+    source.getPage(slugSegments, params.lang) ??
+    (slugSegments.length === 0 ? source.getPage(['index'], params.lang) : null)
   if (!page) notFound()
 
-  const baseUrl = 'https://docs.sim.ai'
   const fullUrl = `${baseUrl}${page.url}`
 
   return {
     title: page.data.title,
-    description:
-      page.data.description || 'Sim visual workflow builder for AI applications documentation',
+    description: page.data.description || defaultDescription,
     keywords: [
       'AI workflow builder',
       'visual workflow editor',
@@ -251,8 +265,7 @@ export async function generateMetadata(props: {
     category: 'Developer Tools',
     openGraph: {
       title: page.data.title,
-      description:
-        page.data.description || 'Sim visual workflow builder for AI applications documentation',
+      description: page.data.description || defaultDescription,
       url: fullUrl,
       siteName: 'Sim Documentation',
       type: 'article',
@@ -264,8 +277,7 @@ export async function generateMetadata(props: {
     twitter: {
       card: 'summary',
       title: page.data.title,
-      description:
-        page.data.description || 'Sim visual workflow builder for AI applications documentation',
+      description: page.data.description || defaultDescription,
     },
     robots: {
       index: true,

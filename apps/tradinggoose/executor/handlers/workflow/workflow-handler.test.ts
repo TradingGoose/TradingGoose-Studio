@@ -70,10 +70,10 @@ describe('WorkflowBlockHandler', () => {
             state: {
               blocks: [
                 {
-                  id: 'starter',
-                  metadata: { id: BlockType.STARTER, name: 'Starter' },
+                  id: 'trigger',
+                  metadata: { id: 'input_trigger', name: 'Input Trigger' },
                   position: { x: 0, y: 0 },
-                  config: { tool: BlockType.STARTER, params: {} },
+                  config: { tool: 'input_trigger', params: {} },
                   inputs: {},
                   outputs: {},
                   enabled: true,

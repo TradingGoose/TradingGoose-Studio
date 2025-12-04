@@ -7,6 +7,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { PostHogProvider } from '@/lib/posthog/provider'
 import '@/app/globals.css'
 
+import { QueryProvider } from '@/app/query-provider'
 import { SessionProvider } from '@/lib/session/session-context'
 import { ThemeProvider } from '@/app/theme-provider'
 import { ZoomPrevention } from '@/app/zoom-prevention'
@@ -93,14 +94,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body suppressHydrationWarning>
         <PostHogProvider>
           <ThemeProvider>
-            <SessionProvider>
-              <TooltipProvider delayDuration={100} skipDelayDuration={0}>
-                <BrandedLayout>
-                  <ZoomPrevention />
-                  <GlobalNavbar>{children}</GlobalNavbar>
-                </BrandedLayout>
-              </TooltipProvider>
-            </SessionProvider>
+            <QueryProvider>
+              <SessionProvider>
+                <TooltipProvider delayDuration={100} skipDelayDuration={0}>
+                  <BrandedLayout>
+                    <ZoomPrevention />
+                    <GlobalNavbar>{children}</GlobalNavbar>
+                  </BrandedLayout>
+                </TooltipProvider>
+              </SessionProvider>
+            </QueryProvider>
           </ThemeProvider>
         </PostHogProvider>
       </body>

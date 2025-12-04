@@ -22,8 +22,8 @@ export const isTest = env.NODE_ENV === 'test'
  * Is this the hosted version of the application
  */
 export const isHosted =
-  getEnv('NEXT_PUBLIC_APP_URL') === 'https://www.sim.ai' ||
-  getEnv('NEXT_PUBLIC_APP_URL') === 'https://www.staging.sim.ai'
+  getEnv('NEXT_PUBLIC_APP_URL') === 'https://www.tradinggoose.ai' ||
+  getEnv('NEXT_PUBLIC_APP_URL') === 'https://staging.tradinggoose.ai' || true
 
 /**
  * Is billing enforcement enabled

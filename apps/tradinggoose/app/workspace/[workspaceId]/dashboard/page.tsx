@@ -25,11 +25,7 @@ export default async function WorkspaceDashboardPage({
   const session = await getSession()
 
   if (!session?.user?.id) {
-    return (
-      <div className='p-6 text-muted-foreground text-sm'>
-        Please sign in to view this workspace.
-      </div>
-    )
+    return <div></div>
   }
 
   const userId = session.user.id

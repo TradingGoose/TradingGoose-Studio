@@ -123,10 +123,7 @@ export function DeployModal({
 
       // Check for API trigger block first (takes precedence)
       const apiTriggerBlock = blocks.find((block) => block.type === 'api_trigger')
-      // Fall back to legacy starter block
-      const starterBlock = blocks.find((block) => block.type === 'starter')
-
-      const targetBlock = apiTriggerBlock || starterBlock
+      const targetBlock = apiTriggerBlock
 
       if (targetBlock) {
         const inputFormat = useSubBlockStore.getState().getValue(targetBlock.id, 'inputFormat')
@@ -646,8 +643,8 @@ export function DeployModal({
                 <button
                   onClick={() => setActiveTab('api')}
                   className={`rounded-md px-3 py-1 text-sm transition-colors ${activeTab === 'api'
-                      ? 'bg-accent text-foreground'
-                      : 'text-muted-foreground hover:bg-card hover:text-foreground'
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-card hover:text-foreground'
                     }`}
                 >
                   API
@@ -655,8 +652,8 @@ export function DeployModal({
                 <button
                   onClick={() => setActiveTab('chat')}
                   className={`rounded-md px-3 py-1 text-sm transition-colors ${activeTab === 'chat'
-                      ? 'bg-accent text-foreground'
-                      : 'text-muted-foreground hover:bg-card hover:text-foreground'
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-card hover:text-foreground'
                     }`}
                 >
                   Chat
@@ -664,8 +661,8 @@ export function DeployModal({
                 <button
                   onClick={() => setActiveTab('versions')}
                   className={`rounded-md px-3 py-1 text-sm transition-colors ${activeTab === 'versions'
-                      ? 'bg-accent text-foreground'
-                      : 'text-muted-foreground hover:bg-card hover:text-foreground'
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-card hover:text-foreground'
                     }`}
                 >
                   Versions

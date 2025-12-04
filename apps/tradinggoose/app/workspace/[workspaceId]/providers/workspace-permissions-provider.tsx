@@ -2,7 +2,7 @@
 
 import type React from 'react'
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
 import { useUserPermissions, type WorkspaceUserPermissions } from '@/hooks/use-user-permissions'
@@ -12,6 +12,7 @@ import {
 } from '@/hooks/use-workspace-permissions'
 
 const logger = createLogger('WorkspacePermissionsProvider')
+const ACCESS_DENIED_PATTERNS = ['access denied', 'workspace not found', 'user not found']
 
 interface WorkspacePermissionsContextType {
   // Raw workspace permissions data
@@ -59,10 +60,16 @@ export function WorkspacePermissionsProvider({
   workspaceId: workspaceIdProp,
 }: WorkspacePermissionsProviderProps) {
   const params = useParams()
+  const router = useRouter()
   const workspaceId = workspaceIdProp ?? (params?.workspaceId as string | undefined) ?? null
 
   // Manage offline mode state locally
   const [isOfflineMode, setIsOfflineMode] = useState(false)
+  const [hasRedirected, setHasRedirected] = useState(false)
+
+  useEffect(() => {
+    setHasRedirected(false)
+  }, [workspaceId])
 
   // Get operation error state from collaborative workflow
   const { hasOperationError } = useCollaborativeWorkflow()
@@ -134,9 +141,38 @@ export function WorkspacePermissionsProvider({
     ]
   )
 
+  const combinedError = userPermissions.error || permissionsError
+  const normalizedError = combinedError?.toLowerCase() ?? ''
+  const isAccessDeniedError = normalizedError
+    ? ACCESS_DENIED_PATTERNS.some((pattern) => normalizedError.includes(pattern))
+    : false
+
+  const shouldTriggerRedirect =
+    Boolean(
+      workspaceId &&
+        !permissionsLoading &&
+        !userPermissions.isLoading &&
+        (isAccessDeniedError || !userPermissions.canRead)
+    )
+
+  useEffect(() => {
+    if (!shouldTriggerRedirect || hasRedirected) {
+      return
+    }
+
+    setHasRedirected(true)
+    logger.warn('Redirecting user without workspace access', {
+      workspaceId,
+      error: combinedError ?? 'missing read permissions',
+    })
+    router.replace('/workspace')
+  }, [combinedError, hasRedirected, router, shouldTriggerRedirect, workspaceId])
+
+  const shouldBlockRender = hasRedirected || shouldTriggerRedirect
+
   return (
     <WorkspacePermissionsContext.Provider value={contextValue}>
-      {children}
+      {shouldBlockRender ? null : children}
     </WorkspacePermissionsContext.Provider>
   )
 }

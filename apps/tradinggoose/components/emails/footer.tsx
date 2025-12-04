@@ -1,5 +1,5 @@
 import { Container, Img, Link, Section, Text } from '@react-email/components'
-import { baseStyles } from './base-styles'
+import { baseStyles } from '@/components/emails/base-styles'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { isHosted } from '@/lib/environment'
 import { getBaseUrl } from '@/lib/urls/utils'

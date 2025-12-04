@@ -88,8 +88,8 @@ const mockBlocksFromDb = [
   {
     id: 'block-1',
     workflowId: mockWorkflowId,
-    type: 'starter',
-    name: 'Start Block',
+    type: 'input_trigger',
+    name: 'Trigger Block',
     positionX: 100,
     positionY: 100,
     enabled: true,
@@ -162,7 +162,7 @@ const mockWorkflowState: WorkflowState = {
   blocks: {
     'block-1': {
       id: 'block-1',
-      type: 'starter',
+      type: 'input_trigger',
       name: 'Start Block',
       position: { x: 100, y: 100 },
       subBlocks: { input: { id: 'input', type: 'short-input' as const, value: 'test' } },
@@ -262,7 +262,7 @@ describe('Database Helpers', () => {
       // Verify blocks are transformed correctly
       expect(result?.blocks['block-1']).toEqual({
         id: 'block-1',
-        type: 'starter',
+        type: 'input_trigger',
         name: 'Start Block',
         position: { x: 100, y: 100 },
         enabled: true,
@@ -555,7 +555,7 @@ describe('Database Helpers', () => {
       expect(capturedBlockInserts[0]).toMatchObject({
         id: 'block-1',
         workflowId: mockWorkflowId,
-        type: 'starter',
+        type: 'input_trigger',
         name: 'Start Block',
         positionX: '100',
         positionY: '100',

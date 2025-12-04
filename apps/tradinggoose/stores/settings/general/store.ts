@@ -23,6 +23,8 @@ export const useGeneralStore = create<GeneralStore>()(
           isConsoleExpandedByDefault: true,
           showFloatingControls: true,
           showTrainingControls: false,
+          superUserModeEnabled: true,
+          isErrorNotificationsEnabled: true,
           theme: 'system' as const, // Keep for compatibility but not used
           telemetryEnabled: true,
           isLoading: false,
@@ -66,6 +68,14 @@ export const useGeneralStore = create<GeneralStore>()(
 
         return {
           ...store,
+          setSettings: (settings) => {
+            set((state) => ({
+              ...state,
+              ...settings,
+              isLoading: false,
+              error: null,
+            }))
+          },
           // Basic Actions with optimistic updates
           toggleAutoConnect: async () => {
             if (get().isAutoConnectLoading) return
@@ -219,6 +229,8 @@ export const useGeneralStore = create<GeneralStore>()(
                 isConsoleExpandedByDefault: data.consoleExpandedByDefault ?? true,
                 showFloatingControls: data.showFloatingControls ?? true,
                 showTrainingControls: data.showTrainingControls ?? false,
+                superUserModeEnabled: data.superUserModeEnabled ?? true,
+                isErrorNotificationsEnabled: data.errorNotificationsEnabled ?? true,
                 theme: data.theme || 'system',
                 telemetryEnabled: data.telemetryEnabled,
                 isBillingUsageNotificationsEnabled: data.billingUsageNotificationsEnabled ?? true,
@@ -252,10 +264,14 @@ export const useGeneralStore = create<GeneralStore>()(
             }
 
             try {
+              const apiKey =
+                key === 'isBillingUsageNotificationsEnabled'
+                  ? 'billingUsageNotificationsEnabled'
+                  : key
               const response = await fetch('/api/users/me/settings', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ [key]: value }),
+                body: JSON.stringify({ [apiKey]: value }),
               })
 
               if (!response.ok) {

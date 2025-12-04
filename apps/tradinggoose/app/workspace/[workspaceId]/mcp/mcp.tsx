@@ -460,7 +460,7 @@ export function McpServers() {
                             })}
                           </div>
                         ) : (
-                          <div className='rounded-2xl border bg-card p-10 text-center shadow-sm'>
+                          <div className='rounded-md border bg-card p-10 text-center shadow-sm'>
                             <p className='font-medium'>No MCP servers yet</p>
                             <p className='mt-2 text-muted-foreground'>
                               Configure MCP servers to extend your workflows with custom tools.

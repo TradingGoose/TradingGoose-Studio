@@ -7,6 +7,7 @@ import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { snapshotService } from '@/lib/logs/execution/snapshot/service'
 import { isUsingCloudStorage, StorageService } from '@/lib/uploads'
+import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,7 +30,11 @@ export async function GET(request: NextRequest) {
       .from(user)
       .leftJoin(
         subscription,
-        sql`${user.id} = ${subscription.referenceId} AND ${subscription.status} = 'active' AND ${subscription.plan} IN ('pro', 'team', 'enterprise')`
+        and(
+          eq(user.id, subscription.referenceId),
+          inArray(subscription.status, BILLING_ACTIVE_SUBSCRIPTION_STATUSES),
+          inArray(subscription.plan, ['pro', 'team', 'enterprise'])
+        )
       )
       .where(sql`${subscription.id} IS NULL`)
 

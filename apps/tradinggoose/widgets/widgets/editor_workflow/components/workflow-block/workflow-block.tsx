@@ -252,8 +252,7 @@ export const WorkflowBlock = memo(
 
     const currentWorkflowId = useWorkflowId()
 
-    // Check if this is a starter block or trigger block
-    const isStarterBlock = type === 'starter'
+    // Check if this is a trigger block
     const isTriggerBlock = config.category === 'triggers'
     const isWebhookTriggerBlock = type === 'webhook'
 
@@ -638,7 +637,7 @@ export const WorkflowBlock = memo(
     }
 
     // Check webhook indicator
-    const showWebhookIndicator = (isStarterBlock || isWebhookTriggerBlock) && blockWebhookStatus
+    const showWebhookIndicator = isWebhookTriggerBlock && blockWebhookStatus
 
     const getProviderName = (providerId: string): string => {
       const providers: Record<string, string> = {
@@ -737,7 +736,7 @@ export const WorkflowBlock = memo(
         <Card
           ref={blockRef}
           className={cn(
-            'rounded-sm relative cursor-default select-none shadow-md',
+            'rounded-lg relative cursor-default select-none shadow-xs border border-border',
             'transition-block-bg transition-ring',
             displayIsWide ? 'w-[480px]' : 'w-[320px]',
             !isEnabled && 'shadow-sm',
@@ -760,8 +759,8 @@ export const WorkflowBlock = memo(
           )}
 
           <ActionBar blockId={id} blockType={type} disabled={!userPermissions.canEdit} />
-          {/* Connection Blocks - Don't show for trigger blocks, starter blocks, or blocks in trigger mode */}
-          {config.category !== 'triggers' && type !== 'starter' && !displayTriggerMode && (
+          {/* Connection Blocks - Don't show for trigger blocks or blocks in trigger mode */}
+          {config.category !== 'triggers' && !displayTriggerMode && (
             <ConnectionBlocks
               blockId={id}
               setIsConnecting={setIsConnecting}
@@ -770,8 +769,8 @@ export const WorkflowBlock = memo(
             />
           )}
 
-          {/* Input Handle - Don't show for trigger blocks, starter blocks, or blocks in trigger mode */}
-          {config.category !== 'triggers' && type !== 'starter' && !displayTriggerMode && (
+          {/* Input Handle - Don't show for trigger blocks or blocks in trigger mode */}
+          {config.category !== 'triggers' && !displayTriggerMode && (
             <Handle
               type='target'
               position={horizontalHandles ? Position.Left : Position.Top}
@@ -878,7 +877,7 @@ export const WorkflowBlock = memo(
                   Disabled
                 </Badge>
               )}
-              {/* Schedule indicator badge - displayed for starter blocks with active schedules */}
+              {/* Schedule indicator badge - displayed for schedule trigger blocks with active schedules */}
               {shouldShowScheduleBadge && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -926,7 +925,7 @@ export const WorkflowBlock = memo(
                   </TooltipContent>
                 </Tooltip>
               )}
-              {/* Webhook indicator badge - displayed for starter blocks with active webhooks */}
+              {/* Webhook indicator badge - displayed for webhook trigger blocks */}
               {showWebhookIndicator && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -962,7 +961,7 @@ export const WorkflowBlock = memo(
                   <TooltipTrigger asChild>
                     <Button
                       variant='ghost'
-                      size='sm'
+                      size='icon'
                       onClick={() => {
                         if (currentWorkflow.isDiffMode) {
                           setDiffAdvancedMode((prev) => !prev)
@@ -999,7 +998,7 @@ export const WorkflowBlock = memo(
                   <TooltipTrigger asChild>
                     <Button
                       variant='ghost'
-                      size='sm'
+                      size='icon'
                       onClick={() => {
                         if (currentWorkflow.isDiffMode) {
                           setDiffTriggerMode((prev) => !prev)
@@ -1036,7 +1035,7 @@ export const WorkflowBlock = memo(
                   <TooltipTrigger asChild>
                     <Button
                       variant='ghost'
-                      size='sm'
+                      size='icon'
                       className='h-7 p-1 text-gray-500'
                       onClick={(e) => {
                         e.stopPropagation()
@@ -1052,7 +1051,7 @@ export const WorkflowBlock = memo(
                 config.longDescription && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant='ghost' size='sm' className='h-7 p-1 text-gray-500'>
+                      <Button variant='ghost' size='icon' className='h-7 p-1 text-gray-500'>
                         <Info className='h-5 w-5' />
                       </Button>
                     </TooltipTrigger>
@@ -1107,7 +1106,7 @@ export const WorkflowBlock = memo(
                   <TooltipTrigger asChild>
                     <Button
                       variant='ghost'
-                      size='sm'
+                      size='icon'
                       onClick={() => {
                         if (currentWorkflow.isDiffMode) {
                           setDiffIsWide((prev) => !prev)
@@ -1227,8 +1226,8 @@ export const WorkflowBlock = memo(
                 isValidConnection={(connection) => connection.target !== id}
               />
 
-              {/* Error Handle - Don't show for trigger blocks, starter blocks, or blocks in trigger mode */}
-              {config.category !== 'triggers' && type !== 'starter' && !displayTriggerMode && (
+              {/* Error Handle - Don't show for trigger blocks or blocks in trigger mode */}
+              {config.category !== 'triggers' && !displayTriggerMode && (
                 <Handle
                   type='source'
                   position={horizontalHandles ? Position.Right : Position.Bottom}

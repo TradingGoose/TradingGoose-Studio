@@ -242,8 +242,15 @@ export const useWorkflowWidgetState = ({
       return
     }
 
-    onWidgetParamsChange({ workflowId: resolvedWorkflowId })
-  }, [resolvedPairColor, resolvedWorkflowId, requestedWorkflowId, onWidgetParamsChange])
+    const nextParams = { ...(params ?? {}), workflowId: resolvedWorkflowId }
+    onWidgetParamsChange(nextParams)
+  }, [
+    resolvedPairColor,
+    resolvedWorkflowId,
+    requestedWorkflowId,
+    onWidgetParamsChange,
+    params,
+  ])
 
   return {
     resolvedPairColor,

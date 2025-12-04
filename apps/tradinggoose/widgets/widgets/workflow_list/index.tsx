@@ -334,7 +334,6 @@ const WorkflowListHeaderRight = ({ workspaceId }: { workspaceId?: string }) => {
   return (
     <WorkspacePermissionsProvider workspaceId={workspaceId}>
       <div className='flex items-center gap-2'>
-        <span className='text-muted-foreground text-xs'>Explorer</span>
         <DashboardWorkflowCreateMenu
           workspaceId={workspaceId}
           onWorkflowCreated={handleWorkflowCreated}

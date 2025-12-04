@@ -65,6 +65,7 @@ export function buildMessages(input: {
   userName?: string
   allowedTools: Array<{ name: string; description: string; arguments: string }>
   mode: AgentMode
+  appendUserMessage?: boolean
 }): AiRouterMessage[] {
   const msgs: AiRouterMessage[] = []
   msgs.push({ role: 'system', content: SYSTEM_PROMPT })
@@ -79,6 +80,8 @@ export function buildMessages(input: {
   }
 
   msgs.push(...mapHistoryMessages(input.history))
-  msgs.push({ role: 'user', content: input.userMessage })
+  if (input.appendUserMessage !== false && input.userMessage && input.userMessage.length > 0) {
+    msgs.push({ role: 'user', content: input.userMessage })
+  }
   return msgs
 }

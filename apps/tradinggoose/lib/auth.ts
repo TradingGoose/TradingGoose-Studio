@@ -71,7 +71,8 @@ export const auth = betterAuth({
   }),
   session: {
     cookieCache: {
-      enabled: false, // Disable cookie-cached sessions to avoid stale auth after account deletion
+      enabled: true,
+      maxAge: 24 * 60 * 60, // 24 hours in seconds
     },
     expiresIn: 30 * 24 * 60 * 60, // 30 days (how long a session can last overall)
     updateAge: 24 * 60 * 60, // 24 hours (how often to refresh the expiry)
@@ -1562,34 +1563,13 @@ function isUnauthorizedSessionError(error: unknown) {
 
 export async function getSession(headersOverride?: Headers) {
   const hdrs = headersOverride ?? (await headers())
-
   try {
-    const session = await auth.api.getSession({
+    return await auth.api.getSession({
       headers: hdrs,
     })
-
-    const userId = session?.user?.id ?? session?.session?.userId
-    if (userId) {
-      const userExists = await db.query.user.findFirst({
-        where: eq(schema.user.id, userId),
-        columns: { id: true },
-      })
-
-      if (!userExists) {
-        logger.warn('Session user not found; invalidating session', { userId })
-        return null
-      }
-    }
-
-    return session
   } catch (error) {
-    if (isUnauthorizedSessionError(error)) {
-      logger.warn('Unauthorized session detected; returning null', { error })
-      return null
-    }
-
-    logger.error('Unexpected error fetching session', { error })
-    throw error
+    logger.warn('Failed to fetch session', { error })
+    return null
   }
 }
 

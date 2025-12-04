@@ -15,10 +15,10 @@ describe('Nested Routing Fix - Router → Condition → Target', () => {
       version: '2.0',
       blocks: [
         {
-          id: 'starter',
+          id: 'trigger',
           position: { x: 0, y: 0 },
-          metadata: { id: BlockType.STARTER, name: 'Start' },
-          config: { tool: BlockType.STARTER, params: {} },
+          metadata: { id: 'input_trigger', name: 'Input Trigger' },
+          config: { tool: 'input_trigger', params: {} },
           inputs: {},
           outputs: {},
           enabled: true,
@@ -79,7 +79,7 @@ describe('Nested Routing Fix - Router → Condition → Target', () => {
         },
       ],
       connections: [
-        { source: 'starter', target: 'router-1' },
+        { source: 'trigger', target: 'router-1' },
         { source: 'router-1', target: 'function-2' },
         { source: 'router-1', target: 'condition-1' },
         {
@@ -125,9 +125,9 @@ describe('Nested Routing Fix - Router → Condition → Target', () => {
       workflow,
     }
 
-    // Initialize starter as executed and in active path
-    mockContext.executedBlocks.add('starter')
-    mockContext.activeExecutionPath.add('starter')
+    // Initialize trigger as executed and in active path
+    mockContext.executedBlocks.add('trigger')
+    mockContext.activeExecutionPath.add('trigger')
     mockContext.activeExecutionPath.add('router-1')
   })
 

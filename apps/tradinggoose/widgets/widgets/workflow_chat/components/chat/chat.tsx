@@ -12,7 +12,7 @@ import {
   parseOutputContentSafely,
 } from '@/lib/response-format'
 import { cn } from '@/lib/utils'
-import { ChatMessage, OutputSelect } from '..'
+import { ChatMessage } from '..'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useWorkflowExecution } from '@/hooks/workflow/use-workflow-execution'
 import type { BlockLog, ExecutionResult } from '@/executor/types'
@@ -42,8 +42,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
   const {
     messages,
     addMessage,
-    selectedWorkflowOutputs,
-    setSelectedWorkflowOutput,
+    getSelectedWorkflowOutput,
     appendMessageContent,
     finalizeMessageStream,
     getConversationId,
@@ -109,27 +108,12 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
     setHistoryIndex(-1)
   }, [currentWorkflowId, userMessages])
 
-  // Get selected workflow outputs
+  // Get selected workflow outputs (shared by workflow)
   const selectedOutputs = useMemo(() => {
     if (!currentWorkflowId) return []
-    const selected = selectedWorkflowOutputs[currentWorkflowId]
-
-    if (!selected || selected.length === 0) {
-      // Return empty array when nothing is explicitly selected
-      return []
-    }
-
-    // Ensure we have no duplicates in the selection
-    const dedupedSelection = [...new Set(selected)]
-
-    // If deduplication removed items, update the store
-    if (dedupedSelection.length !== selected.length) {
-      setSelectedWorkflowOutput(currentWorkflowId, dedupedSelection)
-      return dedupedSelection
-    }
-
-    return selected
-  }, [selectedWorkflowOutputs, currentWorkflowId, setSelectedWorkflowOutput])
+    const outputs = getSelectedWorkflowOutput(currentWorkflowId)
+    return outputs?.length ? [...new Set(outputs)] : []
+  }, [currentWorkflowId, getSelectedWorkflowOutput])
 
   // Focus input helper with proper cleanup
   const focusInput = useCallback((delay = 0) => {
@@ -484,7 +468,6 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
     addMessage,
     handleRunWorkflow,
     selectedOutputs,
-    setSelectedWorkflowOutput,
     appendMessageContent,
     finalizeMessageStream,
     focusInput,
@@ -524,37 +507,8 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
     [handleSendMessage, promptHistory, historyIndex, setChatMessage]
   )
 
-  // Handle output selection
-  const handleOutputSelection = useCallback(
-    (values: string[]) => {
-      // Ensure no duplicates in selection
-      const dedupedValues = [...new Set(values)]
-
-      if (currentWorkflowId) {
-        // If array is empty, explicitly set to empty array to ensure complete reset
-        if (dedupedValues.length === 0) {
-          setSelectedWorkflowOutput(currentWorkflowId, [])
-        } else {
-          setSelectedWorkflowOutput(currentWorkflowId, dedupedValues)
-        }
-      }
-    },
-    [currentWorkflowId, setSelectedWorkflowOutput]
-  )
-
   return (
     <div className='flex h-full flex-col p-2'>
-      {/* Output Source Dropdown */}
-      <div className='flex-none pb-2'>
-        <OutputSelect
-          workflowId={currentWorkflowId}
-          selectedOutputs={selectedOutputs}
-          onOutputSelect={handleOutputSelection}
-          disabled={!currentWorkflowId}
-          placeholder='Select output sources'
-        />
-      </div>
-
       {/* Main layout with fixed heights to ensure input stays visible */}
       <div className='flex flex-1 flex-col overflow-hidden'>
         {/* Chat messages section - Scrollable area */}
@@ -836,7 +790,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
                 }}
                 onKeyDown={handleKeyPress}
                 placeholder={isDragOver ? 'Drop files here...' : 'Type a message...'}
-                className='h-8 flex-1 border-0 bg-transparent font-sans text-foreground text-sm shadow-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
+                className='h-7 flex-1 border-0 bg-transparent font-sans text-foreground text-sm shadow-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
                 disabled={!currentWorkflowId || isExecuting || isUploadingFiles}
               />
 
@@ -850,7 +804,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
                   isExecuting ||
                   isUploadingFiles
                 }
-                className='h-6 w-6 shrink-0 rounded-full bg-primary-hover text-black shadow-[0_0_0_0_var(--primary-hover)] transition-all duration-200 hover:bg-primary-hover '
+                className='h-6 w-6 shrink-0 rounded-sm bg-primary-hover text-black shadow-[0_0_0_0_var(--primary-hover)] transition-all duration-200 hover:bg-primary-hover '
               >
                 <ArrowUp className='h-3 w-3' />
               </Button>

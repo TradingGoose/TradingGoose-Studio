@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { TooltipProvider } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import {
   getBlocksForSidebar,
@@ -18,10 +18,10 @@ import {
   hasTriggerCapability,
 } from '@/lib/workflows/trigger-utils'
 import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import type { BlockConfig } from '@/blocks/types'
 import { ToolbarBlock } from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-block'
 import LoopToolbarItem from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-loop-block'
 import ParallelToolbarItem from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-parallel-block'
-import type { BlockConfig } from '@/blocks/types'
 import {
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
@@ -188,21 +188,28 @@ function ToolbarDropdown({
     }
   }, [])
 
+  const tooltipText = `Browse ${label.toLowerCase()}`
+
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange} modal={false}>
-      <DropdownMenuTrigger asChild>
-        <button
-          className={widgetHeaderControlClassName(
-            'font-semibold text-muted-foreground hover:text-foreground'
-          )}
-          type='button'
-        >
-          <span className='flex items-center gap-2'>
-            <span className='text-xs'>{label}</span>
-            <ChevronDown className='h-3.5 w-3.5' />
-          </span>
-        </button>
-      </DropdownMenuTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <button
+              className={widgetHeaderControlClassName(
+                'font-semibold text-muted-foreground hover:text-foreground'
+              )}
+              type='button'
+            >
+              <span className='flex items-center gap-2'>
+                <span className='text-xs'>{label}</span>
+                <ChevronDown className='h-3.5 w-3.5' />
+              </span>
+            </button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent side='top'>{tooltipText}</TooltipContent>
+      </Tooltip>
       <DropdownMenuContent
         align='start'
         sideOffset={6}

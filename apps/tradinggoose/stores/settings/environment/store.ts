@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { handleAuthError } from '@/lib/auth/auth-error-handler'
+import { fetchPersonalEnvironment, fetchWorkspaceEnvironment } from '@/lib/environment/api'
 import { createLogger } from '@/lib/logs/console/logger'
 import { API_ENDPOINTS } from '@/stores/constants'
 import type { EnvironmentStore, EnvironmentVariable } from '@/stores/settings/environment/types'
@@ -15,28 +16,12 @@ export const useEnvironmentStore = create<EnvironmentStore>()((set, get) => ({
     try {
       set({ isLoading: true, error: null })
 
-      const response = await fetch(API_ENDPOINTS.ENVIRONMENT)
+      const data = await fetchPersonalEnvironment()
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          await handleAuthError('environment-store:load')
-        }
-        throw new Error(`Failed to load environment variables: ${response.statusText}`)
-      }
-
-      const { data } = await response.json()
-
-      if (data && typeof data === 'object') {
-        set({
-          variables: data,
-          isLoading: false,
-        })
-      } else {
-        set({
-          variables: {},
-          isLoading: false,
-        })
-      }
+      set({
+        variables: data,
+        isLoading: false,
+      })
     } catch (error) {
       logger.error('Error loading environment variables:', { error })
       set({
@@ -44,6 +29,10 @@ export const useEnvironmentStore = create<EnvironmentStore>()((set, get) => ({
         isLoading: false,
       })
     }
+  },
+
+  setVariables: (variables: Record<string, EnvironmentVariable>) => {
+    set({ variables })
   },
 
   saveEnvironmentVariables: async (variables: Record<string, string>) => {
@@ -99,15 +88,7 @@ export const useEnvironmentStore = create<EnvironmentStore>()((set, get) => ({
     try {
       set({ isLoading: true, error: null })
 
-      const response = await fetch(API_ENDPOINTS.WORKSPACE_ENVIRONMENT(workspaceId))
-      if (!response.ok) {
-        if (response.status === 401) {
-          await handleAuthError('environment-store:load-workspace')
-        }
-        throw new Error(`Failed to load workspace environment: ${response.statusText}`)
-      }
-
-      const { data } = await response.json()
+      const data = await fetchWorkspaceEnvironment(workspaceId)
       set({ isLoading: false })
       return data as {
         workspace: Record<string, string>

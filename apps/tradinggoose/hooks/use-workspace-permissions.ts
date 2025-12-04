@@ -181,9 +181,11 @@ export function useWorkspacePermissions(workspaceId: string | null): UseWorkspac
     [workspaceId, setRecord]
   )
 
+  const isInitialLoad = Boolean(workspaceId) && !record
+
   return {
     permissions: record?.permissions ?? null,
-    loading: record?.loading ?? false,
+    loading: record?.loading ?? isInitialLoad,
     error: record?.error ?? null,
     updatePermissions,
     refetch,

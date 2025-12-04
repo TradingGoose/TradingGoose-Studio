@@ -19,26 +19,11 @@ interface InputTriggerBlock {
   }
 }
 
-interface StarterBlockLegacy {
-  type: 'starter'
-  subBlocks?: {
-    inputFormat?: { value?: InputFormatField[] }
-  }
-  config?: {
-    params?: {
-      inputFormat?: InputFormatField[]
-    }
-  }
-}
 
 function isInputTriggerBlock(value: unknown): value is InputTriggerBlock {
   return (
     !!value && typeof value === 'object' && (value as { type?: unknown }).type === 'input_trigger'
   )
-}
-
-function isStarterBlock(value: unknown): value is StarterBlockLegacy {
-  return !!value && typeof value === 'object' && (value as { type?: unknown }).type === 'starter'
 }
 
 function isInputFormatField(value: unknown): value is InputFormatField {
@@ -97,21 +82,6 @@ export function InputMapping({
           const inputFormat = triggerEntry[1].subBlocks?.inputFormat?.value
           if (Array.isArray(inputFormat)) {
             const fields = (inputFormat as unknown[])
-              .filter(isInputFormatField)
-              .map((f) => ({ name: f.name, type: f.type }))
-            if (isMounted) setChildInputFields(fields)
-            return
-          }
-        }
-
-        const starterEntry = Object.entries(blocks).find(([, b]) => isStarterBlock(b))
-        if (starterEntry && isStarterBlock(starterEntry[1])) {
-          const starter = starterEntry[1]
-          const subBlockFormat = starter.subBlocks?.inputFormat?.value
-          const legacyParamsFormat = starter.config?.params?.inputFormat
-          const chosen = Array.isArray(subBlockFormat) ? subBlockFormat : legacyParamsFormat
-          if (Array.isArray(chosen)) {
-            const fields = (chosen as unknown[])
               .filter(isInputFormatField)
               .map((f) => ({ name: f.name, type: f.type }))
             if (isMounted) setChildInputFields(fields)

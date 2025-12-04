@@ -98,7 +98,7 @@ export function TriggerList({ onSelect, className }: TriggerListProps) {
           className='flex flex-1 items-center gap-[10px]'
         >
           <div
-            className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-[6px]'
+            className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm'
             style={{ backgroundColor: trigger.color }}
           >
             {Icon ? (
@@ -137,93 +137,93 @@ export function TriggerList({ onSelect, className }: TriggerListProps) {
   const triggerModal =
     showList && isClient
       ? createPortal(
-          <div className='fixed inset-0 z-[1000] flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm'>
-            <div
-              ref={listRef}
-              className={cn(
-                'pointer-events-auto',
-                'max-h-[80vh] w-full max-w-[700px]',
-                'rounded-xl border border-border',
-                'bg-background/95 backdrop-blur-lg',
-                'shadow-2xl',
-                'flex flex-col',
-                'relative'
-              )}
+        <div className='fixed inset-0 z-[1000] flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm'>
+          <div
+            ref={listRef}
+            className={cn(
+              'pointer-events-auto',
+              'max-h-[80vh] w-full max-w-[700px]',
+              'rounded-xl border border-border',
+              'bg-background/95 backdrop-blur-lg',
+              'shadow-2xl',
+              'flex flex-col',
+              'relative'
+            )}
+          >
+            {/* Search */}
+            <div className='flex items-center border-b px-4 py-1'>
+              <Search className='h-4 w-4 font-sans text-muted-foreground text-xl' />
+              <Input
+                placeholder='Search triggers'
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className='!font-[350] border-0 bg-transparent font-sans text-muted-foreground leading-10 tracking-normal placeholder:text-muted-foreground focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
+                autoFocus
+              />
+            </div>
+
+            {/* Close button */}
+            <button
+              onClick={handleClose}
+              className='absolute top-4 right-4 h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground focus:outline-none disabled:pointer-events-none'
+              tabIndex={-1}
             >
-              {/* Search */}
-              <div className='flex items-center border-b px-4 py-1'>
-                <Search className='h-4 w-4 font-sans text-muted-foreground text-xl' />
-                <Input
-                  placeholder='Search triggers'
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className='!font-[350] border-0 bg-transparent font-sans text-muted-foreground leading-10 tracking-normal placeholder:text-muted-foreground focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
-                  autoFocus
-                />
-              </div>
+              <X className='h-4 w-4' />
+              <span className='sr-only'>Close</span>
+            </button>
 
-              {/* Close button */}
-              <button
-                onClick={handleClose}
-                className='absolute top-4 right-4 h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground focus:outline-none disabled:pointer-events-none'
-                tabIndex={-1}
-              >
-                <X className='h-4 w-4' />
-                <span className='sr-only'>Close</span>
-              </button>
-
-              {/* Trigger List */}
-              <div
-                className='flex-1 overflow-y-auto'
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-              >
-                <div className='space-y-4 pt-4 pb-4'>
-                  {/* Core Triggers Section */}
-                  {coreOptions.length > 0 && (
-                    <div>
-                      <h3 className='mb-2 ml-4 font-normal font-sans text-[13px] text-muted-foreground leading-none tracking-normal'>
-                        Core Triggers
-                      </h3>
-                      <div className='px-4 pb-1'>
-                        <div className='grid grid-cols-3 gap-2'>
-                          {coreOptions.map((trigger) => (
-                            <TriggerItem key={trigger.id} trigger={trigger} />
-                          ))}
-                        </div>
+            {/* Trigger List */}
+            <div
+              className='flex-1 overflow-y-auto'
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+              <div className='space-y-4 pt-4 pb-4'>
+                {/* Core Triggers Section */}
+                {coreOptions.length > 0 && (
+                  <div>
+                    <h3 className='mb-2 ml-4 font-normal font-sans text-[13px] text-muted-foreground leading-none tracking-normal'>
+                      Core Triggers
+                    </h3>
+                    <div className='px-4 pb-1'>
+                      <div className='grid grid-cols-3 gap-2'>
+                        {coreOptions.map((trigger) => (
+                          <TriggerItem key={trigger.id} trigger={trigger} />
+                        ))}
                       </div>
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {/* Integration Triggers Section */}
-                  {integrationOptions.length > 0 && (
-                    <div>
-                      <h3 className='mb-2 ml-4 font-normal font-sans text-[13px] text-muted-foreground leading-none tracking-normal'>
-                        Integration Triggers
-                      </h3>
-                      <div
-                        className='max-h-[300px] overflow-y-auto px-4 pb-1'
-                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                      >
-                        <div className='grid grid-cols-3 gap-2'>
-                          {integrationOptions.map((trigger) => (
-                            <TriggerItem key={trigger.id} trigger={trigger} />
-                          ))}
-                        </div>
+                {/* Integration Triggers Section */}
+                {integrationOptions.length > 0 && (
+                  <div>
+                    <h3 className='mb-2 ml-4 font-normal font-sans text-[13px] text-muted-foreground leading-none tracking-normal'>
+                      Integration Triggers
+                    </h3>
+                    <div
+                      className='max-h-[300px] overflow-y-auto px-4 pb-1'
+                      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                    >
+                      <div className='grid grid-cols-3 gap-2'>
+                        {integrationOptions.map((trigger) => (
+                          <TriggerItem key={trigger.id} trigger={trigger} />
+                        ))}
                       </div>
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {filteredOptions.length === 0 && (
-                    <div className='ml-6 py-12 text-center'>
-                      <p className='text-muted-foreground'>No results found for "{searchQuery}"</p>
-                    </div>
-                  )}
-                </div>
+                {filteredOptions.length === 0 && (
+                  <div className='ml-6 py-12 text-center'>
+                    <p className='text-muted-foreground'>No results found for "{searchQuery}"</p>
+                  </div>
+                )}
               </div>
             </div>
-          </div>,
-          document.body
-        )
+          </div>
+        </div>,
+        document.body
+      )
       : null
 
   return (

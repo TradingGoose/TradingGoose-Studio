@@ -83,10 +83,10 @@ export interface CapturedWorkflowValues {
 
 export const sampleWorkflowState = {
   blocks: {
-    'starter-id': {
-      id: 'starter-id',
-      type: 'starter',
-      name: 'Start',
+    'trigger-id': {
+      id: 'trigger-id',
+      type: 'input_trigger',
+      name: 'Input Trigger',
       position: { x: 100, y: 100 },
       subBlocks: {
         startWorkflow: { id: 'startWorkflow', type: 'dropdown', value: 'manual' },
@@ -135,7 +135,7 @@ export const sampleWorkflowState = {
   edges: [
     {
       id: 'edge-id',
-      source: 'starter-id',
+      source: 'trigger-id',
       target: 'agent-id',
       sourceHandle: 'source',
       targetHandle: 'target',
@@ -343,8 +343,8 @@ export function mockExecutionDependencies() {
         version: '1.0',
         blocks: [
           {
-            id: 'starter-id',
-            metadata: { id: 'starter', name: 'Start' },
+            id: 'trigger-id',
+            metadata: { id: 'input_trigger', name: 'Input Trigger' },
             config: {},
             inputs: {},
             outputs: {},
@@ -363,7 +363,7 @@ export function mockExecutionDependencies() {
         ],
         connections: [
           {
-            source: 'starter-id',
+            source: 'trigger-id',
             target: 'agent-id',
           },
         ],
