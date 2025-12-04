@@ -95,15 +95,15 @@ function WidgetSurfaceComponent({
   return (
     <div className='box-border flex h-full max-h-full min-h-0 w-full min-w-0 max-w-full flex-1 basis-0 p-1'>
       <Card className='flex h-full max-h-full min-h-0 w-full max-w-full flex-1 flex-col overflow-hidden rounded-lg border border-border bg-background'>
-        <header className='border-border/80 border-b text-accent-foreground bg-muted/40'>
+        <header className='h-10 border-border/80 border-b text-accent-foreground bg-muted/40'>
           <div
             ref={headerScrollRef}
             onWheel={handleHorizontalWheel}
             className='flex w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
             aria-label='Widget header'
           >
-            <div className='flex w-full flex-nowrap gap-4 font-medium text-accent-foreground text-sm p-1'>
-              <div className='flex flex-grow basis-0 items-center justify-start gap-2 whitespace-nowrap text-left'>
+            <div className='flex w-full flex-nowrap gap-4 font-medium text-accent-foreground items-center text-sm py-1'>
+              <div className='flex h-8 flex-grow basis-0 items-center justify-start gap-2 whitespace-nowrap text-left pl-1'>
                 <PairColorDropdown color={pairColor} onChange={handlePairColorSelect} />
                 <WidgetSelector
                   currentKey={widgetKey}
@@ -112,10 +112,10 @@ function WidgetSurfaceComponent({
                 />
                 {renderHeaderSlot(header?.left ?? registryHeader?.left)}
               </div>
-              <div className='flex flex-grow basis-0 items-center justify-center gap-2 whitespace-nowrap  text-center'>
+              <div className='flex h-8 flex-grow basis-0 items-center justify-center gap-2 whitespace-nowrap  text-center'>
                 {renderHeaderSlot(header?.center ?? registryHeader?.center)}
               </div>
-              <div className='flex flex-grow basis-0 items-center justify-end gap-2 whitespace-nowrap text-right'>
+              <div className='flex h-8 flex-grow basis-0 items-center justify-end gap-2 whitespace-nowrap text-right pr-1'>
                 {renderHeaderSlot(header?.right ?? registryHeader?.right)}
                 {onPanelSplit || onPanelSplitHorizontal || onPanelClose ? (
                   <WidgetActionMenu

@@ -13,13 +13,17 @@ import {
   WorkflowWidgetControlBar,
 } from '@/widgets/widgets/editor_workflow/components/workflow-controlbar'
 import { WorkflowToolbar } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar'
+import {
+  WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
+  type WorkflowWidgetSelectEventDetail,
+} from '@/widgets/events'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import { isPairColor } from '@/widgets/pair-colors'
+import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
+import { WorkflowDropdown } from '@/widgets/widgets/shared/components/workflow-dropdown'
 
 const WORKFLOW_WIDGET_UI_CONFIG: WorkflowCanvasUIConfig = {
-  panel: false,
-  controlBar: false,
   floatingControls: true,
   trainingControls: true,
   // Respect user toggle for training controls in the widget
@@ -36,6 +40,42 @@ const WorkflowEditorWidgetBody = ({
   widget,
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
+  useEffect(() => {
+    if (!onWidgetParamsChange || pairColor !== 'gray') {
+      return
+    }
+
+    const handleWorkflowSelect = (event: Event) => {
+      const detail = (event as CustomEvent<WorkflowWidgetSelectEventDetail>).detail
+      if (!detail?.workflowId) {
+        return
+      }
+      if (panelId && detail.panelId && detail.panelId !== panelId) {
+        return
+      }
+      if (widget?.key && detail.widgetKey && detail.widgetKey !== widget.key) {
+        return
+      }
+
+      const currentParams =
+        widget?.params && typeof widget.params === 'object'
+          ? (widget.params as Record<string, unknown>)
+          : {}
+      onWidgetParamsChange({ ...currentParams, workflowId: detail.workflowId })
+    }
+
+    window.addEventListener(
+      WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
+      handleWorkflowSelect as EventListener
+    )
+    return () => {
+      window.removeEventListener(
+        WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
+        handleWorkflowSelect as EventListener
+      )
+    }
+  }, [onWidgetParamsChange, pairColor, panelId, widget?.key, widget?.params])
+
   const workspaceId = context?.workspaceId
   const widgetKey = widget?.key ?? 'workflow-editor'
   const {
@@ -172,6 +212,54 @@ const WidgetStateMessage = ({ message }: { message: string }) => (
   </div>
 )
 
+type WorkflowEditorHeaderSelectorProps = {
+  workspaceId?: string
+  widget?: WidgetInstance | null
+  panelId?: string
+}
+
+const WorkflowEditorHeaderSelector = ({
+  workspaceId,
+  widget,
+  panelId,
+}: WorkflowEditorHeaderSelectorProps) => {
+  const { resolvedPairColor, resolvedWorkflowId } = useWorkflowWidgetState({
+    workspaceId,
+    pairColor: widget?.pairColor ?? 'gray',
+    widget: widget as WidgetComponentProps['widget'],
+    panelId,
+    params: widget?.params ?? null,
+    fallbackWidgetKey: 'workflow-editor',
+    loggerScope: 'workflow editor header',
+    activateWorkflow: false,
+  })
+
+  const handleWorkflowChange = (workflowId: string) => {
+    if (resolvedPairColor !== 'gray') {
+      return
+    }
+
+    window.dispatchEvent(
+      new CustomEvent<WorkflowWidgetSelectEventDetail>(WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT, {
+        detail: {
+          panelId,
+          widgetKey: widget?.key,
+          workflowId,
+        },
+      })
+    )
+  }
+
+  return (
+    <WorkflowDropdown
+      workspaceId={workspaceId}
+      pairColor={resolvedPairColor}
+      value={resolvedWorkflowId}
+      onChange={handleWorkflowChange}
+    />
+  )
+}
+
 export const workflowEditorWidget: DashboardWidgetDefinition = {
   key: 'editor_workflow',
   title: 'Workflow Editor',
@@ -184,22 +272,17 @@ export const workflowEditorWidget: DashboardWidgetDefinition = {
     const widgetKey = widget?.key ?? 'workflow-editor'
     const channelId = getWorkflowWidgetChannelId(resolvedPairColor, widgetKey, panelId)
 
-    const workflowId =
-      widget?.params && typeof widget.params === 'object' && 'workflowId' in widget.params
-        ? (widget.params.workflowId as string)
-        : 'default'
-
     return {
-      left: [
-        <WorkflowToolbar
-          key='workflow-toolbar'
+      left: (
+        <WorkflowToolbar workspaceId={context?.workspaceId} channelId={channelId} />
+      ),
+      center: (
+        <WorkflowEditorHeaderSelector
           workspaceId={context?.workspaceId}
-          channelId={channelId}
-        />,
-        <span key='workflow-label' className='text-xs'>
-          Workflow: {workflowId}
-        </span>,
-      ],
+          widget={widget}
+          panelId={panelId}
+        />
+      ),
       right: (
         <WorkflowWidgetControlBar
           workspaceId={context?.workspaceId}

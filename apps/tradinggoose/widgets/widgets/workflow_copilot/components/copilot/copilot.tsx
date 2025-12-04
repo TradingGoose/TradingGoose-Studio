@@ -17,6 +17,7 @@ import type { MessageFileAttachment, UserInputRef } from '../user-input/user-inp
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { usePreviewStore } from '@/stores/copilot/preview-store'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
+import type { PairColor } from '@/widgets/pair-colors'
 
 const logger = createLogger('Copilot')
 
@@ -37,6 +38,9 @@ const DEFAULT_ENABLED_MODELS: Record<string, boolean> = {
 
 interface CopilotProps {
   panelWidth: number
+  initialChatId?: string | null
+  onChatIdChange?: (chatId: string | null) => void
+  pairColor?: PairColor
 }
 
 interface CopilotRef {
@@ -44,7 +48,8 @@ interface CopilotRef {
   setInputValueAndFocus: (value: string) => void
 }
 
-export const Copilot = forwardRef<CopilotRef, CopilotProps>(({ panelWidth }, ref) => {
+export const Copilot = forwardRef<CopilotRef, CopilotProps>(
+  ({ panelWidth, initialChatId = null, onChatIdChange, pairColor: _pairColor }, ref) => {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const userInputRef = useRef<UserInputRef>(null)
   const [showCheckpoints] = useState(false)
@@ -56,6 +61,8 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(({ panelWidth }, ref
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
   const [isEditingMessage, setIsEditingMessage] = useState(false)
   const [revertingMessageId, setRevertingMessageId] = useState<string | null>(null)
+  const pendingChatIdRef = useRef<string | null>(initialChatId ?? null)
+  const lastNotifiedChatIdRef = useRef<string | null>(initialChatId ?? null)
 
   // Scroll state
   const [isNearBottom, setIsNearBottom] = useState(true)
@@ -72,6 +79,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(({ panelWidth }, ref
   // Use the new copilot store
   const {
     messages,
+    chats,
     isLoadingChats,
     isSendingMessage,
     isAborting,
@@ -87,6 +95,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(({ panelWidth }, ref
     chatsLoadedForWorkflow,
     setWorkflowId: setCopilotWorkflowId,
     loadChats,
+    selectChat,
     enabledModels,
     setEnabledModels,
     selectedModel,
@@ -96,6 +105,10 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(({ panelWidth }, ref
     fetchContextUsage,
   } = useCopilotStore()
   const copilotStoreApi = useCopilotStoreApi()
+
+  useEffect(() => {
+    pendingChatIdRef.current = initialChatId ?? null
+  }, [initialChatId])
 
   // Load user's enabled models on mount
   useEffect(() => {
@@ -201,6 +214,33 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(({ panelWidth }, ref
     }
   }, [activeWorkflowId, isLoadingChats, chatsLoadedForWorkflow, isInitialized])
 
+  // Align selected chat with the widget-provided chatId when available
+  useEffect(() => {
+    const targetChatId = pendingChatIdRef.current
+    if (!targetChatId) return
+    if (!activeWorkflowId) return
+    if (currentChat?.id === targetChatId) {
+      pendingChatIdRef.current = null
+      return
+    }
+    if (isLoadingChats || chatsLoadedForWorkflow !== activeWorkflowId) return
+
+    const match = (chats || []).find((chat) => chat.id === targetChatId)
+    if (match) {
+      pendingChatIdRef.current = null
+      selectChat(match).catch(() => { })
+    } else {
+      pendingChatIdRef.current = null
+    }
+  }, [
+    activeWorkflowId,
+    chats,
+    chatsLoadedForWorkflow,
+    currentChat?.id,
+    isLoadingChats,
+    selectChat,
+  ])
+
   // Fetch context usage when component is initialized and has a current chat
   useEffect(() => {
     if (isInitialized && currentChat?.id && activeWorkflowId) {
@@ -210,6 +250,20 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(({ panelWidth }, ref
       })
     }
   }, [isInitialized, currentChat?.id, activeWorkflowId, fetchContextUsage])
+
+  // Keep widget params in sync with the active chat
+  useEffect(() => {
+    if (!onChatIdChange) return
+    if (!isInitialized) return
+
+    const nextId = currentChat?.id ?? null
+    if (nextId === lastNotifiedChatIdRef.current) return
+
+    if (nextId || lastNotifiedChatIdRef.current !== null) {
+      lastNotifiedChatIdRef.current = nextId
+      onChatIdChange(nextId)
+    }
+  }, [currentChat?.id, isInitialized, onChatIdChange])
 
   // Clear any existing preview when component mounts or workflow changes
   useEffect(() => {

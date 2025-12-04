@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 const BASE_CONTROL_CLASS =
-  'inline-flex items-center gap-1 rounded-sm border border-border/70 bg-background p-1.5 text-xs font-medium text-foreground transition-colors hover:bg-card  disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
+  'inline-flex max-h-8  items-center gap-1 rounded-sm border border-border/70 bg-background p-1 text-xs font-medium text-foreground transition-colors hover:bg-card  disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
 const ICON_BUTTON_CLASS = cn(
   BASE_CONTROL_CLASS,
   'h-7 w-7 shrink-0 justify-center shadow-xs text-muted-foreground hover:text-foreground'
@@ -18,7 +18,7 @@ export const widgetHeaderMenuContentClassName = cn(
   'fade-in-0 zoom-in-95 data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
   'data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2',
   'data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
-  'z-50 animate-in overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-sm',
+  'z-50 animate-in overflow-hidden rounded-sm border bg-background p-1 text-popover-foreground shadow-sm',
   'data-[state=closed]:animate-out'
 )
 

@@ -17,7 +17,10 @@ interface WorkflowCopilotAppProps {
   workflowId: string
   panelWidth: number
   channelId?: string
+  copilotChannelId?: string
   pairColor: PairColor
+  chatId?: string | null
+  onChatChange?: (chatId: string | null) => void
 }
 
 const WorkflowCopilotApp = ({
@@ -25,9 +28,13 @@ const WorkflowCopilotApp = ({
   workflowId,
   panelWidth,
   channelId = DEFAULT_WORKFLOW_CHANNEL_ID,
+  copilotChannelId,
   pairColor,
+  chatId,
+  onChatChange,
 }: WorkflowCopilotAppProps) => {
   const session = useSession()
+  const copilotStoreChannel = copilotChannelId ?? channelId
 
   const user = session.data?.user
     ? {
@@ -46,9 +53,15 @@ const WorkflowCopilotApp = ({
           channelId={channelId}
         >
           <WorkflowStoreProvider channelId={channelId} workflowId={workflowId}>
-            <CopilotStoreProvider channelId={channelId}>
+            <CopilotStoreProvider channelId={copilotStoreChannel}>
               <div className='flex h-full w-full flex-col overflow-hidden bg-[hsl(var(--workflow-background))]'>
-                <Copilot panelWidth={panelWidth} pairColor={pairColor} />
+                <Copilot
+                  key={copilotStoreChannel}
+                  panelWidth={panelWidth}
+                  pairColor={pairColor}
+                  initialChatId={chatId ?? null}
+                  onChatIdChange={onChatChange}
+                />
               </div>
             </CopilotStoreProvider>
           </WorkflowStoreProvider>

@@ -100,7 +100,7 @@ export function ConnectionBlocks({
         onDragStart={(e) => handleDragStart(e, connection)}
         onDragEnd={handleDragEnd}
         className={cn(
-          'group flex w-max items-center gap-2 rounded-lg border bg-card p-2 shadow-sm transition-colors',
+          'group flex w-max items-center gap-2 rounded-md border bg-card p-1 shadow-xs transition-colors',
           !isDisabled
             ? 'cursor-grab hover:bg-card active:cursor-grabbing'
             : 'cursor-not-allowed opacity-60'
@@ -109,13 +109,13 @@ export function ConnectionBlocks({
         {/* Block icon with color */}
         {Icon && (
           <div
-            className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded'
+            className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-sm'
             style={{ backgroundColor: bgColor }}
           >
             <Icon className='h-3 w-3 text-white' />
           </div>
         )}
-        <div className='text-sm'>
+        <div className='text-xs'>
           <span className='font-medium leading-none'>{displayName}</span>
         </div>
       </Card>
@@ -133,7 +133,7 @@ export function ConnectionBlocks({
   // When ports are horizontal: connection blocks on top, aligned to left, closest blocks on bottom row
   // When ports are vertical (default): connection blocks on left, stack vertically, aligned to right
   const containerClasses = horizontalHandles
-    ? 'absolute bottom-full left-0 flex max-w-[600px] flex-wrap-reverse gap-2 pb-3'
+    ? 'absolute bottom-full left-0 flex max-w-[600px] flex-wrap-reverse gap-2 pb-2'
     : 'absolute top-0 right-full flex max-h-[400px] max-w-[200px] flex-col items-end gap-2 overflow-y-auto pr-3'
 
   return <div className={containerClasses}>{connectionCards}</div>

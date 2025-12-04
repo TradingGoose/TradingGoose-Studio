@@ -1343,8 +1343,8 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                           'hover:bg-card hover:text-accent-foreground',
                           'focus:bg-accent focus:text-accent-foreground focus:outline-none',
                           tagIndex === selectedIndex &&
-                            tagIndex >= 0 &&
-                            'bg-accent text-accent-foreground'
+                          tagIndex >= 0 &&
+                          'bg-accent text-accent-foreground'
                         )}
                         {...createTagEventHandlers(
                           tag,
@@ -1523,7 +1523,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                                 disabled={false}
                               >
                                 <div
-                                  className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded'
+                                  className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-sm'
                                   style={{ backgroundColor: blockColor }}
                                 >
                                   <span className='h-3 w-3 font-bold text-white text-xs'>
@@ -1617,7 +1617,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                                           }}
                                         >
                                           <div
-                                            className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded'
+                                            className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-sm'
                                             style={{ backgroundColor: blockColor }}
                                           >
                                             <span className='h-3 w-3 font-bold text-white text-xs'>

@@ -1,14 +1,20 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { Braces, Plus } from 'lucide-react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import WorkflowVariablesApp from './components/workflow-variables-app'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import {
+  WORKFLOW_VARIABLES_ADD_EVENT,
+  WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
+  type WorkflowWidgetSelectEventDetail,
+} from '@/widgets/events'
 import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
-import { WORKFLOW_VARIABLES_ADD_EVENT } from '@/widgets/events'
-import { widgetHeaderIconButtonClassName } from '@/widgets/widgets/shared/components/widget-header-control'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
+import { widgetHeaderIconButtonClassName } from '@/widgets/widgets/shared/components/widget-header-control'
+import { WorkflowDropdown } from '@/widgets/widgets/shared/components/workflow-dropdown'
+import WorkflowVariablesApp from './components/workflow-variables-app'
 
 const WidgetStateMessage = ({ message }: { message: string }) => (
   <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))] px-4 text-center text-muted-foreground text-xs'>
@@ -27,6 +33,7 @@ const WorkflowVariablesWidgetBody = ({
   const workspaceId = context?.workspaceId
   const {
     channelId,
+    resolvedPairColor,
     resolvedWorkflowId,
     hasLoadedWorkflows,
     loadError,
@@ -42,6 +49,53 @@ const WorkflowVariablesWidgetBody = ({
     fallbackWidgetKey: 'workflow-variables',
     loggerScope: 'workflow variables widget',
   })
+
+  useEffect(() => {
+    if (!onWidgetParamsChange || resolvedPairColor !== 'gray') {
+      return
+    }
+
+    const handleWorkflowSelect = (event: Event) => {
+      const detail = (event as CustomEvent<WorkflowWidgetSelectEventDetail>).detail
+      if (!detail || !detail.workflowId) {
+        return
+      }
+
+      if (panelId && detail.panelId && detail.panelId !== panelId) {
+        return
+      }
+
+      if (widget?.key && detail.widgetKey && detail.widgetKey !== widget.key) {
+        return
+      }
+
+      const currentParams = (widget?.params && typeof widget.params === 'object'
+        ? widget.params
+        : {}) as Record<string, unknown>
+      onWidgetParamsChange({
+        ...currentParams,
+        workflowId: detail.workflowId,
+      })
+    }
+
+    window.addEventListener(
+      WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
+      handleWorkflowSelect as EventListener
+    )
+
+    return () => {
+      window.removeEventListener(
+        WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
+        handleWorkflowSelect as EventListener
+      )
+    }
+  }, [
+    onWidgetParamsChange,
+    panelId,
+    resolvedPairColor,
+    widget?.key,
+    widget?.params,
+  ])
 
   if (!workspaceId) {
     return <WidgetStateMessage message='Select a workspace to load workflows.' />
@@ -114,7 +168,7 @@ const WorkflowVariablesHeaderActions = ({
   )
 
   const resolvedWorkflowId =
-    resolvedPairColor === 'gray' ? paramsWorkflowId ?? activeWorkflowId : activeWorkflowId
+    resolvedPairColor === 'gray' ? (paramsWorkflowId ?? activeWorkflowId) : activeWorkflowId
 
   const isDisabled = !workspaceId || !resolvedWorkflowId
 
@@ -129,16 +183,77 @@ const WorkflowVariablesHeaderActions = ({
   }, [isDisabled, resolvedWorkflowId, panelId, channelId, widgetKey])
 
   return (
-    <button
-      type='button'
-      className={widgetHeaderIconButtonClassName()}
-      title={isDisabled ? 'Select a workflow to add variables' : 'Add variable'}
-      disabled={isDisabled}
-      onClick={handleAddVariable}
-    >
-      <Plus className='h-3.5 w-3.5' />
-      <span className='sr-only'>Add variable</span>
-    </button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type='button'
+          className={widgetHeaderIconButtonClassName()}
+          disabled={isDisabled}
+          onClick={handleAddVariable}
+        >
+          <Plus className='h-3.5 w-3.5' />
+          <span className='sr-only'>Add variable</span>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side='top'>
+        {isDisabled ? 'Select a workflow to add variables' : 'Add workflow variable'}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
+type WorkflowVariablesHeaderWorkflowSelectorProps = {
+  workspaceId?: string
+  widget?: WidgetInstance | null
+  panelId?: string
+}
+
+const WorkflowVariablesHeaderWorkflowSelector = ({
+  workspaceId,
+  widget,
+  panelId,
+}: WorkflowVariablesHeaderWorkflowSelectorProps) => {
+  const { resolvedPairColor, resolvedWorkflowId } = useWorkflowWidgetState({
+    workspaceId,
+    pairColor: widget?.pairColor ?? 'gray',
+    widget,
+    panelId,
+    params: widget?.params ?? null,
+    fallbackWidgetKey: 'workflow-variables',
+    loggerScope: 'workflow variables header',
+    activateWorkflow: false,
+  })
+
+  const handleWorkflowChange = useCallback(
+    (workflowId: string) => {
+      if (resolvedPairColor !== 'gray') {
+        return
+      }
+
+      window.dispatchEvent(
+        new CustomEvent<WorkflowWidgetSelectEventDetail>(
+          WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
+          {
+            detail: {
+              panelId,
+              widgetKey: widget?.key,
+              workflowId,
+            },
+          }
+        )
+      )
+    },
+    [panelId, resolvedPairColor, widget?.key]
+  )
+
+  return (
+    <WorkflowDropdown
+      workspaceId={workspaceId}
+      pairColor={resolvedPairColor}
+      value={resolvedWorkflowId}
+      onChange={handleWorkflowChange}
+      triggerClassName='w-auto min-w-[240px]'
+    />
   )
 }
 
@@ -156,11 +271,12 @@ export const workflowVariablesWidget: DashboardWidgetDefinition = {
         : null
 
     return {
-      left: <span className='font-medium text-accent-foreground text-xs'>Variables</span>,
       center: (
-        <span className='text-muted-foreground text-xs'>
-          {workflowId ? `Workflow: ${workflowId}` : 'Linked workflow'}
-        </span>
+        <WorkflowVariablesHeaderWorkflowSelector
+          workspaceId={context?.workspaceId}
+          widget={widget}
+          panelId={panelId}
+        />
       ),
       right: (
         <WorkflowVariablesHeaderActions

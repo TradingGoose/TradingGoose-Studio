@@ -2,8 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { Activity } from 'lucide-react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import WorkflowConsoleApp from './components/workflow-console-app'
+import {
+  WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
+  type WorkflowWidgetSelectEventDetail,
+} from '@/widgets/events'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
+import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
+import { WorkflowDropdown } from '@/widgets/widgets/shared/components/workflow-dropdown'
 
 const WorkflowConsoleWidgetBody = ({
   params,
@@ -13,6 +19,42 @@ const WorkflowConsoleWidgetBody = ({
   widget,
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
+  useEffect(() => {
+    if (!onWidgetParamsChange || pairColor !== 'gray') {
+      return
+    }
+
+    const handleWorkflowSelect = (event: Event) => {
+      const detail = (event as CustomEvent<WorkflowWidgetSelectEventDetail>).detail
+      if (!detail?.workflowId) {
+        return
+      }
+      if (panelId && detail.panelId && detail.panelId !== panelId) {
+        return
+      }
+      if (widget?.key && detail.widgetKey && detail.widgetKey !== widget.key) {
+        return
+      }
+
+      const currentParams =
+        widget?.params && typeof widget.params === 'object'
+          ? (widget.params as Record<string, unknown>)
+          : {}
+      onWidgetParamsChange({ ...currentParams, workflowId: detail.workflowId })
+    }
+
+    window.addEventListener(
+      WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
+      handleWorkflowSelect as EventListener
+    )
+    return () => {
+      window.removeEventListener(
+        WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
+        handleWorkflowSelect as EventListener
+      )
+    }
+  }, [onWidgetParamsChange, panelId, pairColor, widget?.key, widget?.params])
+
   const workspaceId = context?.workspaceId
   const {
     channelId,
@@ -97,6 +139,54 @@ const WidgetStateMessage = ({ message }: { message: string }) => (
   </div>
 )
 
+type WorkflowConsoleHeaderSelectorProps = {
+  workspaceId?: string
+  widget?: WidgetInstance | null
+  panelId?: string
+}
+
+const WorkflowConsoleHeaderSelector = ({
+  workspaceId,
+  widget,
+  panelId,
+}: WorkflowConsoleHeaderSelectorProps) => {
+  const { resolvedPairColor, resolvedWorkflowId } = useWorkflowWidgetState({
+    workspaceId,
+    pairColor: widget?.pairColor ?? 'gray',
+    widget,
+    panelId,
+    params: widget?.params ?? null,
+    fallbackWidgetKey: 'workflow-console',
+    loggerScope: 'workflow console header',
+    activateWorkflow: false,
+  })
+
+  const handleWorkflowChange = (workflowId: string) => {
+    if (resolvedPairColor !== 'gray') {
+      return
+    }
+
+    window.dispatchEvent(
+      new CustomEvent<WorkflowWidgetSelectEventDetail>(WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT, {
+        detail: {
+          panelId,
+          widgetKey: widget?.key,
+          workflowId,
+        },
+      })
+    )
+  }
+
+  return (
+    <WorkflowDropdown
+      workspaceId={workspaceId}
+      pairColor={resolvedPairColor}
+      value={resolvedWorkflowId}
+      onChange={handleWorkflowChange}
+    />
+  )
+}
+
 export const workflowConsoleWidget: DashboardWidgetDefinition = {
   key: 'workflow_console',
   title: 'Workflow Console',
@@ -104,15 +194,16 @@ export const workflowConsoleWidget: DashboardWidgetDefinition = {
   category: 'utility',
   description: 'Live workflow execution console with logs and streaming output.',
   component: (props) => <WorkflowConsoleWidgetBody {...props} />,
-  renderHeader: ({ widget }) => {
-    const workflowId =
-      widget?.params && typeof widget.params === 'object' && 'workflowId' in widget.params
-        ? (widget.params.workflowId as string)
-        : 'default'
-
+  renderHeader: ({ widget, context, panelId }) => {
     return {
       left: <span className='font-medium text-accent-foreground text-xs'>Console</span>,
-      center: <span className='text-muted-foreground text-xs'>Workflow: {workflowId}</span>,
+      center: (
+        <WorkflowConsoleHeaderSelector
+          workspaceId={context?.workspaceId}
+          widget={widget}
+          panelId={panelId}
+        />
+      ),
     }
   },
 }

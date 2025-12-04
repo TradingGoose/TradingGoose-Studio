@@ -266,9 +266,9 @@ export function TemplateCard({
   const blockTypes = state
     ? extractBlockTypesFromState(state)
     : blocks.filter((blockType) => {
-        const block = getBlock(blockType)
-        return block?.category !== 'triggers'
-      }).sort()
+      const block = getBlock(blockType)
+      return block?.category !== 'triggers'
+    }).sort()
 
   // Get the icon component
   const iconComponent = getIconComponent(icon)

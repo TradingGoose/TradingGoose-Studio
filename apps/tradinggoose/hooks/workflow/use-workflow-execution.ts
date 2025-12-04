@@ -123,6 +123,33 @@ export function useWorkflowExecution() {
   } = useExecutionStore()
   const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null)
 
+  const resolveSelectedOutputsForWorkflow = useCallback(
+    async (workflowId: string, selectionChannelId?: string): Promise<string[]> => {
+      const chatStore = await import('@/stores/panel/chat/store').then((mod) => mod.useChatStore)
+      const state = chatStore.getState()
+
+      const candidateChannels =
+        selectionChannelId && selectionChannelId.trim().length > 0
+          ? [selectionChannelId]
+          : [channelId, 'default'].filter((value): value is string => Boolean(value))
+
+      for (const candidate of candidateChannels) {
+        const outputs = state.getSelectedWorkflowOutput(workflowId, candidate)
+        if (outputs?.length) {
+          return [...new Set(outputs)]
+        }
+      }
+
+      const prefix = `${workflowId}::`
+      const fallbackEntry = Object.entries(state.selectedWorkflowOutputs).find(
+        ([key, outputs]) => key.startsWith(prefix) && outputs?.length
+      )
+
+      return fallbackEntry ? [...new Set(fallbackEntry[1])] : []
+    },
+    [channelId]
+  )
+
   /**
    * Validates debug state before performing debug operations
    */
@@ -388,7 +415,7 @@ export function useWorkflowExecution() {
                     if (isUploadErrorCapable(workflowInput)) {
                       try {
                         workflowInput.onUploadError(message)
-                      } catch {}
+                      } catch { }
                     }
                   }
                 }
@@ -399,7 +426,7 @@ export function useWorkflowExecution() {
                 if (isUploadErrorCapable(workflowInput)) {
                   try {
                     workflowInput.onUploadError('Unexpected error uploading files')
-                  } catch {}
+                  } catch { }
                 }
                 // Continue execution even if file upload fails
                 workflowInput.files = []
@@ -407,6 +434,17 @@ export function useWorkflowExecution() {
             }
 
             const streamCompletionTimes = new Map<string, number>()
+            const selectionChannelId =
+              workflowInput &&
+                typeof workflowInput === 'object' &&
+                !Array.isArray(workflowInput) &&
+                'selectionChannelId' in workflowInput
+                ? (workflowInput as any).selectionChannelId
+                : undefined
+            const selectedOutputsForExecution = await resolveSelectedOutputsForWorkflow(
+              activeWorkflowId,
+              selectionChannelId
+            )
 
             const onStream = async (streamingExecution: StreamingExecution) => {
               const promise = (async () => {
@@ -455,14 +493,7 @@ export function useWorkflowExecution() {
 
             // Handle non-streaming blocks (like Function blocks)
             const onBlockComplete = async (blockId: string, output: any) => {
-              // Get selected outputs from chat store
-              const chatStore = await import('@/stores/panel/chat/store').then(
-                (mod) => mod.useChatStore
-              )
-              const selectedOutputs = chatStore
-                .getState()
-                .getSelectedWorkflowOutput(activeWorkflowId)
-
+              const selectedOutputs = selectedOutputsForExecution
               if (!selectedOutputs?.length) return
 
               const { extractBlockIdFromOutputId, extractPathFromOutputId, traverseObjectPath } =
@@ -524,7 +555,7 @@ export function useWorkflowExecution() {
                 if (!result.metadata) {
                   result.metadata = { duration: 0, startTime: new Date().toISOString() }
                 }
-                ;(result.metadata as any).source = 'chat'
+                ; (result.metadata as any).source = 'chat'
 
                 // Update block logs with actual stream completion times
                 if (result.logs && streamCompletionTimes.size > 0) {
@@ -635,7 +666,7 @@ export function useWorkflowExecution() {
             if (!result.metadata) {
               result.metadata = { duration: 0, startTime: new Date().toISOString() }
             }
-            ;(result.metadata as any).source = 'chat'
+            ; (result.metadata as any).source = 'chat'
           }
 
           persistLogs(executionId, result).catch((err) => {
@@ -800,9 +831,14 @@ export function useWorkflowExecution() {
     // If this is a chat execution, get the selected outputs
     let selectedOutputs: string[] | undefined
     if (isExecutingFromChat && activeWorkflowId) {
-      // Get selected outputs from chat store
-      const chatStore = await import('@/stores/panel/chat/store').then((mod) => mod.useChatStore)
-      selectedOutputs = chatStore.getState().getSelectedWorkflowOutput(activeWorkflowId)
+      const selectionChannelId =
+        workflowInput &&
+          typeof workflowInput === 'object' &&
+          !Array.isArray(workflowInput) &&
+          'selectionChannelId' in workflowInput
+          ? (workflowInput as any).selectionChannelId
+          : undefined
+      selectedOutputs = await resolveSelectedOutputsForWorkflow(activeWorkflowId, selectionChannelId)
     }
 
     // Helper to extract test values from inputFormat subblock
@@ -1015,7 +1051,7 @@ export function useWorkflowExecution() {
             blockName,
             blockType,
           })
-        } catch {}
+        } catch { }
       }
 
       errorResult = {

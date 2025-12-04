@@ -48,7 +48,7 @@ export function UsageHeader({
   const isAlmostOut = filledPillsCount === USAGE_PILL_COUNT
 
   return (
-    <div className='rounded-[8px] border bg-background p-3 shadow-xs'>
+    <div className='rounded-md border bg-background p-3 shadow-xs'>
       <div className='space-y-2'>
         <div className='flex items-center justify-between'>
           <div className='flex items-center gap-2'>
@@ -95,7 +95,7 @@ export function UsageHeader({
             return (
               <div
                 key={i}
-                className='h-[6px] flex-1 rounded-[2px]'
+                className='h-[6px] flex-1 rounded-xs'
                 style={{
                   backgroundColor: isFilled ? (isAlmostOut ? '#ef4444' : '#ffcc00') : '#88888850',
                 }}
@@ -122,7 +122,7 @@ export function UsageHeader({
         )}
 
         {!isBlocked && status === 'exceeded' && (
-          <div className='rounded-[6px] bg-amber-900/10 px-2 py-1'>
+          <div className='rounded-sm bg-amber-900/10 px-2 py-1'>
             <span className='text-amber-600 text-xs'>
               Usage limit exceeded. Increase your limit to continue.
             </span>
@@ -130,7 +130,7 @@ export function UsageHeader({
         )}
 
         {!isBlocked && status === 'warning' && (
-          <div className='rounded-[6px] bg-yellow-900/10 px-2 py-1'>
+          <div className='rounded-sm bg-yellow-900/10 px-2 py-1'>
             <span className='text-xs text-yellow-600'>
               {typeof percentUsed === 'number' ? `${percentUsed}%` : '80%+'} of your limit used.
             </span>

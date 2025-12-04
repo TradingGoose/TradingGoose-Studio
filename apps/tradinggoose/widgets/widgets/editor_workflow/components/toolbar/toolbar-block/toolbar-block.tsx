@@ -4,9 +4,9 @@ import { useCallback } from 'react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import type { BlockConfig } from '@/blocks/types'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 export type ToolbarBlockProps = {
   config: BlockConfig
@@ -68,7 +68,7 @@ export function ToolbarBlock({
       )}
     >
       <div
-        className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-[6px]'
+        className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm'
         style={{ backgroundColor: config.bgColor }}
       >
         <config.icon

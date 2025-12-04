@@ -52,7 +52,7 @@ function SubscriptionSkeleton() {
               <div className='flex items-center justify-between'>
                 <div className='flex items-center gap-2'>
                   <Skeleton className='h-5 w-16' />
-                  <Skeleton className='h-[1.125rem] w-14 rounded-[6px]' />
+                  <Skeleton className='h-[1.125rem] w-14 rounded-sm' />
                 </div>
                 <div className='flex items-center gap-1 text-xs tabular-nums'>
                   <Skeleton className='h-4 w-8' />
@@ -182,18 +182,18 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   const aggregatedUsageLimit = safeNumber(
     isOrganizationPlan
       ? organizationBillingPayload?.totalUsageLimit ??
-        organizationBillingPayload?.minimumBillingAmount ??
-        usage.limit
+      organizationBillingPayload?.minimumBillingAmount ??
+      usage.limit
       : usage.limit
   )
   const percentUsedRaw = isOrganizationPlan
     ? (() => {
-        const totalLimit = organizationBillingPayload?.totalUsageLimit
-        if (totalLimit && totalLimit > 0) {
-          return ((organizationBillingPayload?.totalCurrentUsage ?? 0) / totalLimit) * 100
-        }
-        return usage.percentUsed
-      })()
+      const totalLimit = organizationBillingPayload?.totalUsageLimit
+      if (totalLimit && totalLimit > 0) {
+        return ((organizationBillingPayload?.totalCurrentUsage ?? 0) / totalLimit) * 100
+      }
+      return usage.percentUsed
+    })()
     : usage.percentUsed
   const percentUsedClamped = Math.max(0, Math.min(Math.round(percentUsedRaw ?? 0), 100))
   const normalizedBillingStatus =
@@ -292,7 +292,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
               isOrganizationPlan
                 ? aggregatedUsageLimit
                 : !subscription.isFree &&
-                    (permissions.canEditUsageLimit || permissions.showTeamMemberView)
+                  (permissions.canEditUsageLimit || permissions.showTeamMemberView)
                   ? safeNumber(usage.current)
                   : safeNumber(usage.limit)
             }

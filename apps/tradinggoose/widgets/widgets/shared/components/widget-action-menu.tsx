@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import {
   widgetHeaderIconButtonClassName,
@@ -52,24 +53,30 @@ export function WidgetActionMenu({
   const [open, setOpen] = useState(false)
   const closeMenu = () => setOpen(false)
 
+  const tooltipText = allDisabled ? 'Actions unavailable' : 'Widget actions'
+
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild>
-        <button
-          type='button'
-          disabled={allDisabled}
-          className={widgetHeaderIconButtonClassName()}
-          aria-label='Widget actions'
-          title='Widget actions'
-          onClick={() => {
-            if (!allDisabled) {
-              setOpen((prev) => !prev)
-            }
-          }}
-        >
-          <EllipsisVertical className='h-3.5 w-3.5' />
-        </button>
-      </DropdownMenuTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <button
+              type='button'
+              disabled={allDisabled}
+              className={widgetHeaderIconButtonClassName()}
+              aria-label='Widget actions'
+              onClick={() => {
+                if (!allDisabled) {
+                  setOpen((prev) => !prev)
+                }
+              }}
+            >
+              <EllipsisVertical className='h-3.5 w-3.5' />
+            </button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent side='top'>{tooltipText}</TooltipContent>
+      </Tooltip>
       <DropdownMenuContent
         sideOffset={6}
         className={cn(widgetHeaderMenuContentClassName, 'w-48 p-1')}

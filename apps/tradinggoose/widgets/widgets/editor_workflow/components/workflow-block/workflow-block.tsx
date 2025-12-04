@@ -736,7 +736,7 @@ export const WorkflowBlock = memo(
         <Card
           ref={blockRef}
           className={cn(
-            'rounded-sm relative cursor-default select-none shadow-md',
+            'rounded-lg relative cursor-default select-none shadow-xs border border-border',
             'transition-block-bg transition-ring',
             displayIsWide ? 'w-[480px]' : 'w-[320px]',
             !isEnabled && 'shadow-sm',
@@ -961,7 +961,7 @@ export const WorkflowBlock = memo(
                   <TooltipTrigger asChild>
                     <Button
                       variant='ghost'
-                      size='sm'
+                      size='icon'
                       onClick={() => {
                         if (currentWorkflow.isDiffMode) {
                           setDiffAdvancedMode((prev) => !prev)
@@ -998,7 +998,7 @@ export const WorkflowBlock = memo(
                   <TooltipTrigger asChild>
                     <Button
                       variant='ghost'
-                      size='sm'
+                      size='icon'
                       onClick={() => {
                         if (currentWorkflow.isDiffMode) {
                           setDiffTriggerMode((prev) => !prev)
@@ -1035,7 +1035,7 @@ export const WorkflowBlock = memo(
                   <TooltipTrigger asChild>
                     <Button
                       variant='ghost'
-                      size='sm'
+                      size='icon'
                       className='h-7 p-1 text-gray-500'
                       onClick={(e) => {
                         e.stopPropagation()
@@ -1051,7 +1051,7 @@ export const WorkflowBlock = memo(
                 config.longDescription && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant='ghost' size='sm' className='h-7 p-1 text-gray-500'>
+                      <Button variant='ghost' size='icon' className='h-7 p-1 text-gray-500'>
                         <Info className='h-5 w-5' />
                       </Button>
                     </TooltipTrigger>
@@ -1106,7 +1106,7 @@ export const WorkflowBlock = memo(
                   <TooltipTrigger asChild>
                     <Button
                       variant='ghost'
-                      size='sm'
+                      size='icon'
                       onClick={() => {
                         if (currentWorkflow.isDiffMode) {
                           setDiffIsWide((prev) => !prev)

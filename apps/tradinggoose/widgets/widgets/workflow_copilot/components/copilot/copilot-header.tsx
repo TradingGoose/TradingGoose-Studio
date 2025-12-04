@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { ChevronDown, Clock3, Plus } from 'lucide-react'
 import {
   DropdownMenu,
@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { getCopilotStore } from '@/stores/copilot/store'
 import type { CopilotChat } from '@/stores/copilot/types'
@@ -89,14 +90,14 @@ interface ChatHistoryItemProps {
 function ChatHistoryItem({ chat, onSelect, onDelete, isSendingMessage }: ChatHistoryItemProps) {
   return (
     <DropdownMenuItem
-      className='flex w-full items-center justify-between gap-3 rounded-sm py-2 text-left text-sm transition-colors focus:bg-muted data-[highlighted]:bg-muted'
+      className='flex w-full items-center justify-between gap-3 rounded-xs py-2 text-left text-sm font-normal text-foreground transition-colors focus:bg-muted data-[highlighted]:bg-muted'
       onSelect={(event) => {
         event.preventDefault()
         void onSelect(chat)
       }}
     >
       <div className='min-w-0'>
-        <p className='truncate min-w-0 font-medium text-foreground'>{chat.title || 'New Chat'}</p>
+        <p className='truncate min-w-0 text-foreground'>{chat.title || 'New Chat'}</p>
         <p className='text-xs text-muted-foreground'>Updated {formatRelativeTime(chat.updatedAt)}</p>
       </div>
       <button
@@ -126,7 +127,7 @@ function ChatHistoryGroup({
 
   return (
     <div className='space-y-1.5'>
-      <p className='text-xs font-semibold uppercase tracking-wide text-muted-foreground'>
+      <p className='text-xs font-normal text-muted-foreground'>
         {label}
       </p>
       <div className='space-y-1'>
@@ -146,6 +147,7 @@ function ChatHistoryGroup({
 
 export function CopilotHeader({ channelId }: { channelId: string }) {
   const store = useMemo(() => getCopilotStore(channelId), [channelId])
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
 
   const subscribe = useCallback(store.subscribe, [store])
   const getSnapshot = useCallback(() => store.getState(), [store])
@@ -201,26 +203,42 @@ export function CopilotHeader({ channelId }: { channelId: string }) {
 
   return (
     <div className='flex w-full min-w-0 items-center gap-2'>
-      <DropdownMenu onOpenChange={(open) => open && handleRefresh()}>
+      <DropdownMenu
+        onOpenChange={(open) => {
+          setIsMenuOpen(open)
+          if (open) void handleRefresh()
+        }}
+      >
         <DropdownMenuTrigger asChild>
           <button
             type='button'
-            className={widgetHeaderControlClassName('flex w-full items-center gap-2 min-w-0')}
+            className={widgetHeaderControlClassName(
+              'flex items-center gap-2 min-w-[240px] justify-between'
+            )}
             aria-label='Open chat history'
           >
-            <Clock3 className='h-4 w-4 text-muted-foreground' />
+            <div className='p-1 bg-muted rounded-xs'>
+              <Clock3 className='h-3 w-3 text-muted-foreground' />
+            </div>
             <span className='min-w-0 flex-1 truncate text-left text-sm font-medium'>
               {title}
             </span>
-            <ChevronDown className='h-4 w-4 text-muted-foreground' />
+            <ChevronDown
+              className={cn(
+                'h-4 w-4 text-muted-foreground transition-transform',
+                isMenuOpen ? 'rotate-180' : ''
+              )}
+            />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           side='bottom'
           sideOffset={6}
-          className='w-[var(--radix-dropdown-menu-trigger-width)] overflow-hidden p-0'
+          className='w-[var(--radix-dropdown-menu-trigger-width)] overflow-hidden rounded-sm bg-background p-0 text-sm text-foreground shadow-xs'
         >
-          <ScrollArea className='max-h-72 pr-1'>{dropdownMenuBody}</ScrollArea>
+          <ScrollArea className='max-h-72 bg-background pr-1 text-sm text-foreground'>
+            {dropdownMenuBody}
+          </ScrollArea>
         </DropdownMenuContent>
       </DropdownMenu>
 

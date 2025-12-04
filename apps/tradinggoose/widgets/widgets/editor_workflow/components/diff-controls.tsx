@@ -341,7 +341,7 @@ export const DiffControls = memo(function DiffControls({
 
   return (
     <div className={positionClass}>
-      <div className='flex items-center gap-1 rounded-md border bg-card p-1 shadow-sm'>
+      <div className='flex items-center gap-1 rounded-md border bg-card p-1 shadow-xs'>
         {/* Toggle (left, icon-only) */}
         <Button
           variant='ghost'

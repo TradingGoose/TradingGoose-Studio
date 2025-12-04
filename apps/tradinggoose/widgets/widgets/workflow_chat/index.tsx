@@ -1,8 +1,21 @@
-import { MessageCircle } from 'lucide-react'
+'use client'
+
+import { useCallback, useMemo } from 'react'
+import { Ban, MessageCircle } from 'lucide-react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import WorkflowChatApp from './components/workflow-chat-app'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useChatStore } from '@/stores/panel/chat/store'
+import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { WorkflowStoreProvider } from '@/stores/workflows/workflow/store-client'
+import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
+import {
+  widgetHeaderControlClassName,
+  widgetHeaderIconButtonClassName,
+} from '@/widgets/widgets/shared/components/widget-header-control'
+import { OutputSelect } from './components'
+import WorkflowChatApp from './components/workflow-chat-app'
 
 const ChatWidgetBody = ({
   params,
@@ -76,6 +89,116 @@ const WidgetStateMessage = ({ message }: { message: string }) => (
   </div>
 )
 
+function useChannelWorkflowId(channelId: string, fallbackWorkflowId?: string | null) {
+  return useWorkflowRegistry(
+    useCallback(
+      (state) => {
+        try {
+          return state.getActiveWorkflowId(channelId) ?? fallbackWorkflowId ?? null
+        } catch {
+          return fallbackWorkflowId ?? null
+        }
+      },
+      [channelId, fallbackWorkflowId]
+    )
+  )
+}
+
+function ChatOutputsHeader({
+  channelId,
+  fallbackWorkflowId,
+  triggerClassName,
+}: {
+  channelId: string
+  fallbackWorkflowId?: string | null
+  triggerClassName?: string
+}) {
+  const { selectedWorkflowOutputs, setSelectedWorkflowOutput } = useChatStore()
+  const workflowId = useChannelWorkflowId(channelId, fallbackWorkflowId)
+
+  const selectedOutputs = useMemo(() => {
+    if (!workflowId) return []
+    const selected = selectedWorkflowOutputs[workflowId]
+    if (!selected || selected.length === 0) return []
+    return [...new Set(selected)]
+  }, [selectedWorkflowOutputs, workflowId])
+
+  const handleSelect = useCallback(
+    (values: string[]) => {
+      if (!workflowId) return
+      const deduped = [...new Set(values)]
+      setSelectedWorkflowOutput(workflowId, deduped)
+    },
+    [setSelectedWorkflowOutput, workflowId]
+  )
+
+  return (
+    <WorkflowStoreProvider channelId={channelId} workflowId={workflowId ?? undefined}>
+      <div className='flex min-w-0 items-center gap-2'>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className='min-w-[220px]'>
+              <OutputSelect
+                workflowId={workflowId}
+                selectedOutputs={selectedOutputs}
+                onOutputSelect={handleSelect}
+                disabled={!workflowId}
+                placeholder='Select outputs'
+                triggerClassName={triggerClassName}
+              />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side='top'>Select workflow outputs</TooltipContent>
+        </Tooltip>
+      </div>
+    </WorkflowStoreProvider>
+  )
+}
+
+function ClearChatButton({
+  channelId,
+  fallbackWorkflowId,
+}: {
+  channelId: string
+  fallbackWorkflowId?: string | null
+}) {
+  const workflowId = useChannelWorkflowId(channelId, fallbackWorkflowId)
+  const clearChat = useChatStore((state) => state.clearChat)
+  const hasMessages = useChatStore(
+    useCallback(
+      (state) =>
+        !!(workflowId && state.messages.some((message) => message.workflowId === workflowId)),
+      [workflowId]
+    )
+  )
+
+  const handleClearChat = useCallback(() => {
+    if (!workflowId) return
+    clearChat(workflowId)
+  }, [clearChat, workflowId])
+
+  const isDisabled = !workflowId || !hasMessages
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className='inline-flex'>
+          <button
+            type='button'
+            className={widgetHeaderIconButtonClassName()}
+            onClick={handleClearChat}
+            aria-label='Clear chat'
+            disabled={isDisabled}
+          >
+            <Ban className='h-3.5 w-3.5' />
+          </button>
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side='top'>Clear Chat</TooltipContent>
+    </Tooltip>
+  )
+}
+
 export const chatWidget: DashboardWidgetDefinition = {
   key: 'workflow_chat',
   title: 'Workflow Chat',
@@ -83,20 +206,31 @@ export const chatWidget: DashboardWidgetDefinition = {
   category: 'utility',
   description: 'Chat interface to interact with workflow blocks.',
   component: (props) => <ChatWidgetBody {...props} />,
-  renderHeader: ({ widget }) => {
-    const workflowId =
+  renderHeader: ({ widget, panelId }) => {
+    const { channelId, resolvedPairColor } = resolveWidgetChannel({
+      pairColor: widget?.pairColor ?? 'gray',
+      widget,
+      panelId,
+      fallbackWidgetKey: 'workflow-chat',
+    })
+    const workflowIdParam =
       widget?.params && typeof widget.params === 'object' && 'workflowId' in widget.params
         ? (widget.params.workflowId as string)
-        : 'default'
+        : null
 
     return {
-      left: <span className='font-medium text-accent-foreground text-xs'>Chat</span>,
-      center: <span className='text-muted-foreground text-xs'>Idle</span>,
-      right: (
-        <button className='rounded-md border border-border px-2 py-1 font-medium text-accent-foreground text-xs hover:bg-card/20'>
-          New chat
-        </button>
+      center: (
+        <div className='flex items-center gap-2'>
+          <ChatOutputsHeader
+            channelId={channelId}
+            fallbackWorkflowId={workflowIdParam}
+            triggerClassName={widgetHeaderControlClassName(
+              'flex items-center gap-2 min-w-[240px]'
+            )}
+          />
+        </div>
       ),
+      right: <ClearChatButton channelId={channelId} fallbackWorkflowId={workflowIdParam} />,
     }
   },
 }
