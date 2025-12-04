@@ -44,6 +44,7 @@
   }
 }
 
+
 .landing-loop-animated-dash {
   animation: dash-animation 1.5s linear infinite;
   /* Ensure animation works in React Flow context */
@@ -67,6 +68,12 @@
     /* Core Colors */
     --background: 0 0% 100%;
     --foreground: 240 10% 3.922%;
+    --color-neutral-100: #f4f4f5;
+    --color-neutral-300: #d4d4d8;
+    --color-neutral-500: #71717a;
+    --color-neutral-700: #52525b;
+    --color-neutral-800: #3f3f46;
+    --color-neutral-900: #18181b;
 
     /* Card Colors */
     --card: 0 0% 97.5%;
@@ -148,6 +155,12 @@
     /* Core Colors */
     --background: 240 10% 3.922%;
     --foreground: 0 0% 98.039%;
+    --color-neutral-100: #27272a;
+    --color-neutral-300: #3f3f46;
+    --color-neutral-500: #52525b;
+    --color-neutral-700: #3f3f46;
+    --color-neutral-800: #27272a;
+    --color-neutral-900: #0f0f10;
 
     /* Card Colors */
     --card: 240 10% 9.922%;
@@ -350,6 +363,48 @@ input[type="search"]::-ms-clear {
    ANIMATIONS & UTILITIES
    ========================================================================== */
 @layer utilities {
+
+  /* Hero ripple helpers */
+  @keyframes cell-ripple {
+    0% {
+      transform: scale(0.95);
+      opacity: 0.8;
+    }
+
+    60% {
+      transform: scale(1.05);
+      opacity: 0.4;
+    }
+
+    100% {
+      transform: scale(1.12);
+      opacity: 0;
+    }
+  }
+
+  .animate-cell-ripple {
+    animation-name: cell-ripple;
+    animation-duration: var(--duration, 500ms);
+    animation-delay: var(--delay, 0ms);
+    animation-timing-function: ease-out;
+    animation-iteration-count: 1;
+    animation-fill-mode: none;
+  }
+
+  .mask-radial-from-20\% {
+    --mask-radial-position: 50% 50%;
+    --mask-radial-inner: 60%;
+    mask-image: radial-gradient(circle at var(--mask-radial-position), rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.0) var(--mask-radial-inner), transparent 100%);
+    mask-size: 100%;
+    mask-repeat: no-repeat;
+    -webkit-mask-image: radial-gradient(circle at var(--mask-radial-position), rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.0) var(--mask-radial-inner), transparent 100%);
+    -webkit-mask-size: 100%;
+    -webkit-mask-repeat: no-repeat;
+  }
+
+  .mask-radial-at-top {
+    --mask-radial-position: 50% 0%;
+  }
 
   /* Animation Performance */
   .animation-container {

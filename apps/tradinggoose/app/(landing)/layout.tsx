@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Background from '@/app/(landing)/components/background/background'
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://sim.ai'),
@@ -14,5 +15,5 @@ export const metadata: Metadata = {
 }
 
 export default function LandingLayout({ children }: { children: React.ReactNode }) {
-  return children
+  return <Background>{children}</Background>
 }

@@ -9,11 +9,17 @@ import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { WorkflowStoreProvider } from '@/stores/workflows/workflow/store-client'
 import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
+import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import {
   widgetHeaderControlClassName,
   widgetHeaderIconButtonClassName,
 } from '@/widgets/widgets/shared/components/widget-header-control'
+import { WorkflowDropdown } from '@/widgets/widgets/shared/components/workflow-dropdown'
+import {
+  emitWorkflowSelectionChange,
+  useWorkflowSelectionPersistence,
+} from '@/widgets/utils/workflow-selection'
 import { OutputSelect } from './components'
 import WorkflowChatApp from './components/workflow-chat-app'
 
@@ -28,6 +34,7 @@ const ChatWidgetBody = ({
   const workspaceId = context?.workspaceId
   const {
     channelId,
+    resolvedPairColor,
     resolvedWorkflowId,
     hasLoadedWorkflows,
     loadError,
@@ -43,6 +50,13 @@ const ChatWidgetBody = ({
     onWidgetParamsChange,
     fallbackWidgetKey: 'workflow-chat',
     loggerScope: 'workflow chat widget',
+  })
+  useWorkflowSelectionPersistence({
+    onWidgetParamsChange,
+    panelId,
+    widget,
+    pairColor: resolvedPairColor,
+    params,
   })
   if (!workspaceId) {
     return <WidgetStateMessage message='Select a workspace to load workflows.' />
@@ -155,6 +169,54 @@ function ChatOutputsHeader({
   )
 }
 
+type ChatWorkflowHeaderSelectorProps = {
+  workspaceId?: string
+  widget?: WidgetInstance | null
+  panelId?: string
+}
+
+const ChatWorkflowHeaderSelector = ({
+  workspaceId,
+  widget,
+  panelId,
+}: ChatWorkflowHeaderSelectorProps) => {
+  const { resolvedPairColor, resolvedWorkflowId } = useWorkflowWidgetState({
+    workspaceId,
+    pairColor: widget?.pairColor ?? 'gray',
+    widget,
+    panelId,
+    params: widget?.params ?? null,
+    fallbackWidgetKey: 'workflow-chat',
+    loggerScope: 'workflow chat header',
+    activateWorkflow: false,
+  })
+
+  const handleWorkflowChange = useCallback(
+    (workflowId: string) => {
+      if (resolvedPairColor !== 'gray') {
+        return
+      }
+
+      emitWorkflowSelectionChange({
+        panelId,
+        widgetKey: widget?.key ?? undefined,
+        workflowId,
+      })
+    },
+    [panelId, resolvedPairColor, widget?.key]
+  )
+
+  return (
+    <WorkflowDropdown
+      workspaceId={workspaceId}
+      pairColor={resolvedPairColor}
+      value={resolvedWorkflowId}
+      onChange={handleWorkflowChange}
+      triggerClassName='w-auto min-w-[240px]'
+    />
+  )
+}
+
 function ClearChatButton({
   channelId,
   fallbackWorkflowId,
@@ -206,8 +268,8 @@ export const chatWidget: DashboardWidgetDefinition = {
   category: 'utility',
   description: 'Chat interface to interact with workflow blocks.',
   component: (props) => <ChatWidgetBody {...props} />,
-  renderHeader: ({ widget, panelId }) => {
-    const { channelId, resolvedPairColor } = resolveWidgetChannel({
+  renderHeader: ({ widget, context, panelId }) => {
+    const { channelId } = resolveWidgetChannel({
       pairColor: widget?.pairColor ?? 'gray',
       widget,
       panelId,
@@ -219,7 +281,7 @@ export const chatWidget: DashboardWidgetDefinition = {
         : null
 
     return {
-      center: (
+      left: (
         <div className='flex items-center gap-2'>
           <ChatOutputsHeader
             channelId={channelId}
@@ -229,6 +291,13 @@ export const chatWidget: DashboardWidgetDefinition = {
             )}
           />
         </div>
+      ),
+      center: (
+        <ChatWorkflowHeaderSelector
+          workspaceId={context?.workspaceId}
+          widget={widget}
+          panelId={panelId}
+        />
       ),
       right: <ClearChatButton channelId={channelId} fallbackWorkflowId={workflowIdParam} />,
     }

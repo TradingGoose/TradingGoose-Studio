@@ -2352,7 +2352,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                 >
                   <div
                     ref={mentionMenuRef}
-                    className='flex flex-col overflow-hidden rounded-sm border bg-popover p-1 text-foreground shadow-md'
+                    className='flex flex-col overflow-hidden rounded-sm border bg-background p-1 text-foreground shadow-md'
                     style={{
                       maxHeight: mentionPortalStyle.maxHeight,
                       height: '100%',

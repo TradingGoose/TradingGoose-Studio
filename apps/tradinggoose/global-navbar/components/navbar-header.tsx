@@ -15,25 +15,25 @@ interface NavbarHeaderProps {
 
 export function NavbarHeader({ workspaceName, brandName, pageTitle, pageIcon }: NavbarHeaderProps) {
   const { slots } = useGlobalNavbarHeaderContext()
+  const leftSlotContent =
+    slots?.left === undefined ? (
+      <DefaultPageTitle title={pageTitle ?? workspaceName ?? brandName} icon={pageIcon} />
+    ) : (
+      slots.left ?? null
+    )
 
   return (
     <header className='relative z-10 flex h-14 items-center gap-3 border-b px-4'>
-      <SidebarTrigger className='text-muted-foreground' />
-      <Separator orientation='vertical' className='h-6' />
-      <div className='flex w-full flex-nowrap gap-4 text-sm'>
-        <div className='flex min-w-0 flex-grow basis-0 items-center justify-start gap-2'>
-          {renderHeaderSlot(
-            slots?.left === undefined ? (
-              <DefaultPageTitle title={pageTitle ?? workspaceName ?? brandName} icon={pageIcon} />
-            ) : (
-              slots.left
-            )
-          )}
+      <div className='flex w-full flex-nowrap gap-2 text-sm'>
+        <div className='flex min-w-0 flex-grow basis-[30%] items-center justify-start gap-2'>
+          <SidebarTrigger className='text-muted-foreground' />
+          <Separator orientation='vertical' className='h-6' />
+          {renderHeaderSlot(leftSlotContent)}
         </div>
-        <div className='flex min-w-0 flex-grow basis-0 items-center justify-center gap-2 overflow-visible'>
+        <div className='flex min-w-0 flex-grow basis-[40%] items-center justify-center gap-2 overflow-visible'>
           {renderHeaderSlot(slots?.center ?? null)}
         </div>
-        <div className='flex min-w-0 flex-grow basis-0 items-center justify-end gap-2 overflow-visible'>
+        <div className='flex min-w-0 flex-grow basis-[30%] items-center justify-end gap-2 overflow-visible'>
           {renderHeaderSlot(slots?.right ?? null)}
         </div>
       </div>

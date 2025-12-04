@@ -1,10 +1,22 @@
 'use client'
 
+import type { MouseEvent } from 'react'
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowRight, ChevronRight } from 'lucide-react'
+import { MenuIcon } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
+import { Separator } from '@/components/ui/separator'
 import { GithubIcon } from '@/components/icons'
 import { useBrandConfig } from '@/lib/branding/branding'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -20,8 +32,6 @@ interface NavProps {
 
 export default function Nav({ hideAuthButtons = false, variant = 'landing' }: NavProps = {}) {
   const [githubStars, setGithubStars] = useState('17.4k')
-  const [isHovered, setIsHovered] = useState(false)
-  const [isLoginHovered, setIsLoginHovered] = useState(false)
   const router = useRouter()
   const brand = useBrandConfig()
 
@@ -44,7 +54,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
   }, [variant])
 
   const handleLoginClick = useCallback(
-    (e: React.MouseEvent) => {
+    (e: MouseEvent<HTMLButtonElement>) => {
       e.preventDefault()
       router.push('/login?reauth=1')
     },
@@ -55,62 +65,49 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
     window.open('https://form.typeform.com/to/jqCO12pF', '_blank', 'noopener,noreferrer')
   }, [])
 
-  const NavLinks = () => (
-    <>
-      <li>
-        <Link
-          href='https://docs.sim.ai'
-          target='_blank'
-          rel='noopener noreferrer'
-          className='text-[16px] text-muted-foreground transition-colors hover:text-foreground'
-          prefetch={false}
-        >
-          Docs
-        </Link>
-      </li>
-      <li>
-        <Link
-          href='#pricing'
-          className='text-[16px] text-muted-foreground transition-colors hover:text-foreground'
-          scroll={true}
-        >
-          Pricing
-        </Link>
-      </li>
-      <li>
-        <button
-          onClick={handleEnterpriseClick}
-          className='text-[16px] text-muted-foreground transition-colors hover:text-foreground'
-          type='button'
-          aria-label='Contact for Enterprise pricing'
-        >
-          Enterprise
-        </button>
-      </li>
-      <li>
-        <a
-          href='https://github.com/simstudioai/sim'
-          target='_blank'
-          rel='noopener noreferrer'
-          className='flex items-center gap-2 text-[16px] text-muted-foreground transition-colors hover:text-foreground'
-          aria-label={`GitHub repository - ${githubStars} stars`}
-        >
-          <GithubIcon className='h-[16px] w-[16px]' aria-hidden='true' />
-          <span aria-live='polite'>{githubStars}</span>
-        </a>
-      </li>
-    </>
+  const desktopNavLinks = variant === 'landing' && (
+    <div className='text-muted-foreground hidden items-center gap-6 text-sm font-medium md:flex'>
+      <Link
+        href='https://docs.sim.ai'
+        target='_blank'
+        rel='noopener noreferrer'
+        className='transition-colors hover:text-foreground'
+        prefetch={false}
+      >
+        Docs
+      </Link>
+      <Link href='#pricing' className='transition-colors hover:text-foreground' scroll>
+        Pricing
+      </Link>
+      <button
+        onClick={handleEnterpriseClick}
+        className='transition-colors hover:text-foreground'
+        type='button'
+        aria-label='Contact for Enterprise pricing'
+      >
+        Enterprise
+      </button>
+      <a
+        href='https://github.com/simstudioai/sim'
+        target='_blank'
+        rel='noopener noreferrer'
+        className='flex items-center gap-2 transition-colors hover:text-foreground'
+        aria-label={`GitHub repository - ${githubStars} stars`}
+      >
+        <GithubIcon className='h-4 w-4' aria-hidden='true' />
+        <span aria-live='polite'>{githubStars}</span>
+      </a>
+    </div>
   )
 
   return (
     <nav
       aria-label='Primary navigation'
-      className={`${soehne.className} flex w-full items-center justify-between px-4 ${variant === 'auth' ? 'pt-[20px] sm:pt-[16.5px]' : 'pt-[12px] sm:pt-[8.5px]'
-        } pb-[21px] sm:px-8 md:px-[44px]`}
+      className={`${soehne.className} sticky inset-x-0 top-0 z-50 w-full border-b border-border/60 bg-background/55 backdrop-blur supports-[backdrop-filter]:bg-background/55`}
       itemScope
       itemType='https://schema.org/SiteNavigationElement'
     >
-      <div className='flex items-center gap-[34px]'>
+      <div className='mx-auto flex w-full items-center justify-between gap-4 px-4 py-2 sm:px-6 md:px-10'>
         <Link
           href='/?from=nav'
           aria-label={`${brand.name} home`}
@@ -120,10 +117,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
           <span itemProp='name' className='sr-only'>
             {brand.name} Home
           </span>
-          <span
-            className='flex items-center gap-2 text-[18px] font-semibold tracking-tight text-foreground'
-            aria-hidden='true'
-          >
+          <span className='flex items-center gap-2 text-[18px] font-semibold tracking-tight text-foreground' aria-hidden='true'>
             <Image
               src='/icon.svg'
               alt=''
@@ -137,57 +131,99 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
             {brand.name}
           </span>
         </Link>
-        {/* Desktop Navigation Links - only show on landing */}
-        {variant === 'landing' && (
-          <ul className='hidden items-center justify-center gap-[20px] pt-[4px] md:flex'>
-            <NavLinks />
-          </ul>
-        )}
-      </div>
 
-      {/* Auth Buttons - show regardless of deployment */}
-      {!hideAuthButtons && (
-        <div className='flex items-center justify-center gap-[16px] pt-[1.5px]'>
-          <button
-            onClick={handleLoginClick}
-            onMouseEnter={() => setIsLoginHovered(true)}
-            onMouseLeave={() => setIsLoginHovered(false)}
-            className='group hidden text-[16px] text-foreground/60 transition-colors hover:text-foreground md:block'
-            type='button'
-            aria-label='Log in to your account'
-          >
-            <span className='flex items-center gap-1'>
-              Log in
-              <span className='inline-flex transition-transform duration-200 group-hover:translate-x-0.5'>
-                {isLoginHovered ? (
-                  <ArrowRight className='h-4 w-4' aria-hidden='true' />
-                ) : (
-                  <ChevronRight className='h-4 w-4' aria-hidden='true' />
-                )}
-              </span>
-            </span>
-          </button>
-          <Link
-            href='/signup'
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-            className='group inline-flex items-center justify-center gap-2 rounded-sm bg-primary py-[6px] pr-[10px] pl-[12px] text-[14px] text-black transition-all hover:bg-primary-hover sm:text-[16px]'
-            aria-label='Get started with Sim - Sign up for free'
-            prefetch={true}
-          >
-            <span className='flex items-center gap-1'>
-              Get started
-              <span className='inline-flex transition-transform duration-200 group-hover:translate-x-0.5'>
-                {isHovered ? (
-                  <ArrowRight className='h-4 w-4' aria-hidden='true' />
-                ) : (
-                  <ChevronRight className='h-4 w-4' aria-hidden='true' />
-                )}
-              </span>
-            </span>
-          </Link>
+        <div className='flex items-center gap-3 sm:gap-4'>
+          {desktopNavLinks}
+          {variant === 'landing' && <Separator orientation='vertical' className='hidden h-6 md:block' />}
+
+          {!hideAuthButtons && (
+            <>
+              <Button
+                variant='ghost'
+                size='sm'
+                className='hidden rounded-md text-base font-medium text-foreground md:inline-flex'
+                onClick={handleLoginClick}
+                type='button'
+                aria-label='Log in to your account'
+              >
+                Log in
+              </Button>
+              <Button
+                className='hidden rounded-md text-base text-black md:inline-flex'
+                size='sm'
+                asChild
+                aria-label='Get started with Sim - Sign up for free'
+              >
+                <Link href='/signup' prefetch>
+                  Get started
+                </Link>
+              </Button>
+            </>
+          )}
+
+          {variant === 'landing' && (
+            <DropdownMenu>
+              <DropdownMenuTrigger className='md:hidden' asChild>
+                <Button variant='outline' size='icon'>
+                  <MenuIcon className='h-5 w-5' />
+                  <span className='sr-only'>Menu</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className='w-64' align='end'>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem>
+                    <Link
+                      href='https://docs.sim.ai'
+                      target='_blank'
+                      rel='noopener noreferrer'
+                      className='w-full'
+                      prefetch={false}
+                    >
+                      Docs
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Link href='#pricing' scroll className='w-full'>
+                      Pricing
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={handleEnterpriseClick}>
+                    Enterprise
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <a
+                      href='https://github.com/simstudioai/sim'
+                      target='_blank'
+                      rel='noopener noreferrer'
+                      className='flex w-full items-center gap-2'
+                    >
+                      <GithubIcon className='h-4 w-4' aria-hidden='true' />
+                      <span aria-live='polite'>{githubStars}</span>
+                    </a>
+                  </DropdownMenuItem>
+                  {!hideAuthButtons && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className='!bg-transparent'>
+                        <Button className='w-full justify-start' variant='ghost' size='sm' onClick={handleLoginClick} aria-label='Log in to your account'>
+                          Log in
+                        </Button>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className='!bg-transparent'>
+                        <Button className='w-full justify-start rounded-lg' size='sm' asChild aria-label='Get started with Sim - Sign up for free'>
+                          <Link href='/signup' prefetch>
+                            Get started
+                          </Link>
+                        </Button>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
-      )}
+      </div>
     </nav>
   )
 }
