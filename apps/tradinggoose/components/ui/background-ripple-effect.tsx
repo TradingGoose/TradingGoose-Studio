@@ -72,7 +72,7 @@ const BackgroundRippleEffect = ({
     <div
       ref={ref}
       className={cn(
-        'absolute inset-0 h-full w-full object-center',
+        'fixed z-[-1] inset-0 h-full w-full object-center',
         '[--cell-border-color:var(--color-neutral-50)] [--cell-fill-color:transparent] [--cell-shadow-color:var(--color-neutral-500)]'
       )}
     >

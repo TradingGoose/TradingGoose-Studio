@@ -342,7 +342,7 @@ export function OutputSelect({
     }
 
     const fallback = blockName?.charAt(0)?.toUpperCase() ?? '?'
-    return <span className='font-bold text-white text-xs leading-none'>{fallback}</span>
+    return <div className='font-bold text-white text-xs leading-none'>{fallback}</div>
   }
 
   // Close dropdown when clicking outside
@@ -445,14 +445,20 @@ export function OutputSelect({
             <span className='truncate text-left'>{selectedOutputsDisplayText}</span>
           </div>
         ) : (
-          <span className='w-[calc(100%-24px)] truncate text-left'>
-            {selectedOutputsDisplayText}
-          </span>
-        )}
+          <div className='flex w-[calc(100%-24px)] items-center gap-2 overflow-hidden text-left'>
+            <div className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-xs bg-muted'>
+              <div className='font-bold text-white text-xs leading-none'>?</div>
+            </div>
+            <span className='w-[calc(100%-24px)] truncate text-left'>
+              {selectedOutputsDisplayText}
+            </span>
+          </div>
+        )
+        }
         <ChevronDown
           className={`ml-1 h-4 w-4 flex-shrink-0 transition-transform ${isOutputDropdownOpen ? 'rotate-180' : ''}`}
         />
-      </button>
+      </button >
 
       {isOutputDropdownOpen &&
         workflowOutputs.length > 0 &&
@@ -519,6 +525,6 @@ export function OutputSelect({
           </div>,
           document.body
         )}
-    </div>
+    </div >
   )
 }

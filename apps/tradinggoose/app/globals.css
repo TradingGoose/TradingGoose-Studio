@@ -68,12 +68,17 @@
     /* Core Colors */
     --background: 0 0% 100%;
     --foreground: 240 10% 3.922%;
-    --color-neutral-100: #f4f4f5;
-    --color-neutral-300: #d4d4d8;
-    --color-neutral-500: #71717a;
-    --color-neutral-700: #52525b;
-    --color-neutral-800: #3f3f46;
-    --color-neutral-900: #18181b;
+    --color-neutral-50: oklch(0.985 0 0);
+    --color-neutral-100: oklch(0.97 0 0);
+    --color-neutral-200: oklch(0.922 0 0);
+    --color-neutral-300: oklch(0.87 0 0);
+    --color-neutral-400: oklch(0.708 0 0);
+    --color-neutral-500: oklch(0.556 0 0);
+    --color-neutral-600: oklch(0.439 0 0);
+    --color-neutral-700: oklch(0.371 0 0);
+    --color-neutral-800: oklch(0.269 0 0);
+    --color-neutral-900: oklch(0.205 0 0);
+    --color-neutral-950: oklch(0.145 0 0);
 
     /* Card Colors */
     --card: 0 0% 97.5%;
@@ -155,12 +160,17 @@
     /* Core Colors */
     --background: 240 10% 3.922%;
     --foreground: 0 0% 98.039%;
-    --color-neutral-100: #27272a;
-    --color-neutral-300: #3f3f46;
-    --color-neutral-500: #52525b;
-    --color-neutral-700: #3f3f46;
-    --color-neutral-800: #27272a;
-    --color-neutral-900: #0f0f10;
+    --color-neutral-50: oklch(0.985 0 0);
+    --color-neutral-100: oklch(0.97 0 0);
+    --color-neutral-200: oklch(0.922 0 0);
+    --color-neutral-300: oklch(0.87 0 0);
+    --color-neutral-400: oklch(0.708 0 0);
+    --color-neutral-500: oklch(0.556 0 0);
+    --color-neutral-600: oklch(0.439 0 0);
+    --color-neutral-700: oklch(0.371 0 0);
+    --color-neutral-800: oklch(0.269 0 0);
+    --color-neutral-900: oklch(0.205 0 0);
+    --color-neutral-950: oklch(0.145 0 0);
 
     /* Card Colors */
     --card: 240 10% 9.922%;
