@@ -22,7 +22,3 @@ export const config = {
   routerApiKey: env.AI_ROUTER_API_KEY || null,
   useOpenRouter: parseBoolean(env.USE_OPENROUTER, true),
 }
-
-export const SYSTEM_PROMPT =
-  'You are TradingGoose Copilot, a helpful assistant that understands workflows and can propose concrete edit_workflow operations. ' +
-  'Be concise, explain what you changed, and prefer safe edits over risky ones.'

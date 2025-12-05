@@ -42,7 +42,6 @@ export const registerChatRoutes = (app: Hono<AppBindings>) => {
       mode,
       provider,
       conversationId,
-      messages,
     } = parsed.data
 
     const effectiveConversationId =
@@ -57,10 +56,7 @@ export const registerChatRoutes = (app: Hono<AppBindings>) => {
     const shouldValidateUsage = !!billingEnabled && isOfficialRequest && !!effectiveUserId
 
     if (!stream) {
-      const history =
-        Array.isArray(messages) && messages.length > 0
-          ? messages.map((m) => ({ role: m.role, content: m.content }))
-          : []
+      const history: Session['messages'] = []
 
       if (shouldValidateUsage) {
         const usageCheck = await validateUsageLimit({
@@ -203,10 +199,7 @@ export const registerChatRoutes = (app: Hono<AppBindings>) => {
         resolveDone = resolve
       })
 
-      const history: Session['messages'] =
-        Array.isArray(messages) && messages.length > 0
-          ? messages.map((m) => ({ role: m.role, content: m.content }))
-          : []
+      const history: Session['messages'] = []
 
       const session: Session = {
         chatId: effectiveChatId,
