@@ -73,7 +73,7 @@ export default async function Layout({ children, params }: LayoutProps) {
   const structuredData = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
-    name: 'Sim Documentation',
+    name: 'TradingGoose Documentation',
     description:
       'Comprehensive documentation for Sim - the visual workflow builder for AI Agent Workflows.',
     url: 'https://docs.sim.ai',

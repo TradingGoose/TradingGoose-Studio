@@ -35,7 +35,7 @@ export async function GET() {
       })
     })
 
-    const manifest = `# Sim Documentation
+    const manifest = `# TradingGoose Documentation
 
 > Visual Workflow Builder for AI Applications
 
@@ -48,14 +48,14 @@ This file provides an overview of our documentation. For full content of all pag
 ## Main Sections
 
 ${Object.entries(sections)
-  .map(([section, items]) => {
-    const sectionTitle = section
-      .split('-')
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ')
-    return `### ${sectionTitle}\n\n${items.map((item) => `- ${item.title}: ${item.url}${item.description ? `\n  ${item.description}` : ''}`).join('\n')}`
-  })
-  .join('\n\n')}
+        .map(([section, items]) => {
+          const sectionTitle = section
+            .split('-')
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ')
+          return `### ${sectionTitle}\n\n${items.map((item) => `- ${item.title}: ${item.url}${item.description ? `\n  ${item.description}` : ''}`).join('\n')}`
+        })
+        .join('\n\n')}
 
 ## Additional Resources
 

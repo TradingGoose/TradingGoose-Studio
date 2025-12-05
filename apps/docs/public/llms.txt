@@ -1,4 +1,4 @@
-# Sim Documentation
+# TradingGoose Documentation
 
 Sim is a visual workflow builder for AI applications that lets you build AI agent workflows visually. Create powerful AI agents, automation workflows, and data processing pipelines by connecting blocks on a canvas—no coding required.
 
