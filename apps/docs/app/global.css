@@ -3,41 +3,41 @@
 @import "fumadocs-ui/css/preset.css";
 
 @theme .root {
-  --color-fd-background: hsl(0, 0%, 100%);
-  --color-fd-foreground: hsl(240, 10%, 3.922%);
+  --color-fd-background: hsl(0 0% 100%);
+  --color-fd-foreground: hsl(20 14.3% 4.1%);
   --color-fd-muted: hsl(240 4.762% 95.882%);
   --color-fd-muted-foreground: hsl(240 4.237% 46.275%);
   --color-fd-popover: hsl(0 0% 100%);
   --color-fd-popover-foreground: hsl(240 10% 3.922%);
-  --color-fd-card: hsl(0, 0%, 94.7%);
-  --color-fd-card-foreground: hsl(0, 0%, 3.9%);
-  --color-fd-border: hsla(0, 0%, 80%, 50%);
+  --color-fd-card: hsl(0 0% 99%);
+  --color-fd-card-foreground: hsl(20 14.3% 4.1%);
+  --color-fd-border: hsl(240 5.882% 90%);
   --color-fd-primary: #febb00;
-  --color-fd-primary-foreground: hsl(0, 0%, 98%);
-  --color-fd-secondary: hsl(0, 0%, 97.5%);
-  --color-fd-secondary-foreground: hsl(0, 0%, 9%);
-  --color-fd-accent: hsla(0, 0%, 0%, 5%);
-  --color-fd-accent-foreground: hsl(0, 0%, 9%);
-  --color-fd-ring: hsl(0, 0%, 63.9%);
+  --color-fd-primary-foreground: #000000;
+  --color-fd-secondary: hsl(160 4.8% 90.9%);
+  --color-fd-secondary-foreground: hsl(24 9.8% 10%);
+  --color-fd-accent: #f4f4f5;
+  --color-fd-accent-foreground: #18181b;
+  --color-fd-ring: hsl(48 100% 50%);
 }
 
 .dark {
-  --color-fd-background: hsl(240, 10%, 4%);
-  --color-fd-foreground: hsl(0, 0%, 98.039%);
-  --color-fd-muted: hsl(0, 0%, 12.9%);
-  --color-fd-muted-foreground: hsla(0, 0%, 70%, 0.8);
-  --color-fd-popover: hsl(0, 0%, 11.6%);
-  --color-fd-popover-foreground: hsl(0, 0%, 86.9%);
-  --color-fd-card: hsl(0, 0%, 9.8%);
-  --color-fd-card-foreground: hsl(0, 0%, 98%);
-  --color-fd-border: hsla(0, 0%, 40%, 20%);
+  --color-fd-background: hsl(20 14.3% 2.9%);
+  --color-fd-foreground: hsl(60 9.1% 97.8%);
+  --color-fd-muted: hsl(240 3.704% 15.882%);
+  --color-fd-muted-foreground: hsl(240 5.495% 64.314%);
+  --color-fd-popover: hsl(240 5.882% 10%);
+  --color-fd-popover-foreground: hsl(0 0% 98.039%);
+  --color-fd-card: hsl(20 14.3% 4.1%);
+  --color-fd-card-foreground: hsl(60 9.1% 97.8%);
+  --color-fd-border: hsl(0 0% 10%);
   --color-fd-primary: #ffcc00;
-  --color-fd-primary-foreground: hsl(0, 0%, 9%);
-  --color-fd-secondary: hsl(0, 0%, 12.9%);
-  --color-fd-secondary-foreground: hsl(0, 0%, 92%);
-  --color-fd-accent: hsla(0, 0%, 40.9%, 30%);
-  --color-fd-accent-foreground: hsl(0, 0%, 90%);
-  --color-fd-ring: hsl(0, 0%, 54.9%);
+  --color-fd-primary-foreground: #000000;
+  --color-fd-secondary: hsl(12 6.5% 15.1%);
+  --color-fd-secondary-foreground: hsl(60 9.1% 97.8%);
+  --color-fd-accent: rgb(39, 39, 42);
+  --color-fd-accent-foreground: #fafafa;
+  --color-fd-ring: hsl(48 100% 50%);
 }
 
 :root {
@@ -63,12 +63,12 @@
 
   60% {
     transform: scale(1.05);
-    opacity: 0.4;
+    opacity: 0.5;
   }
 
   100% {
     transform: scale(1.12);
-    opacity: 0;
+    opacity: 0.2;
   }
 }
 

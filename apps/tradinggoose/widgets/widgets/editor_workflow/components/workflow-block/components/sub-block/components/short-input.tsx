@@ -47,6 +47,7 @@ export function ShortInput({
 }: ShortInputProps) {
   // Local state for immediate UI updates during streaming
   const [localContent, setLocalContent] = useState<string>('')
+  const setStoreValueRef = useRef<((value: string) => void) | null>(null)
   const [isFocused, setIsFocused] = useState(false)
   const [showEnvVars, setShowEnvVars] = useState(false)
   const [showTags, setShowTags] = useState(false)
@@ -67,6 +68,10 @@ export function ShortInput({
         onGeneratedContent: (content) => {
           // Final content update
           setLocalContent(content)
+          if (!isPreview && !disabled) {
+            // Persist the generated content to the store after streaming
+            setStoreValueRef.current?.(content)
+          }
         },
       })
     : null
@@ -77,6 +82,7 @@ export function ShortInput({
       logger.debug('Wand streaming ended, value persisted', { blockId, subBlockId })
     },
   })
+  setStoreValueRef.current = setStoreValue
 
   const [searchTerm, setSearchTerm] = useState('')
   const [cursorPosition, setCursorPosition] = useState(0)

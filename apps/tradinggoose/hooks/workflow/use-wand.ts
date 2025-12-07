@@ -164,7 +164,7 @@ export function useWand({
         // Keep track of the current prompt for history
         const currentPrompt = prompt
 
-        const response = await fetch('/api/wand-generate', {
+        const response = await fetch('/api/wand-copilot', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -173,7 +173,7 @@ export function useWand({
           body: JSON.stringify({
             prompt: userMessage,
             systemPrompt: systemPrompt, // Send the processed system prompt with context
-            stream: true,
+            streaming: true,
             history: wandConfig.maintainHistory ? conversationHistory : [], // Include history if enabled
           }),
           signal: abortControllerRef.current.signal,

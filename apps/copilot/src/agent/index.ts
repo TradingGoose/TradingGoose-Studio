@@ -19,6 +19,7 @@ export async function generateAgentResponse(options: {
   mode: AgentMode
   provider?: AiRouterProvider
   appendUserMessage?: boolean
+  customSystemPrompt?: string
 }): Promise<AgentResponse> {
   const modeDefinition = getCopilotModeDefinition(options.mode)
   const allowedTools = toolsForMode(modeDefinition)
@@ -31,6 +32,7 @@ export async function generateAgentResponse(options: {
     allowedTools,
     modeDefinition,
     appendUserMessage: options.appendUserMessage,
+    customSystemPrompt: options.customSystemPrompt,
   })
   const tools = buildToolsForAiRouter(allowedTools)
 

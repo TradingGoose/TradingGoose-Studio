@@ -80,10 +80,15 @@ export function buildMessages(input: {
   userName?: string
   allowedTools: Array<{ name: string; description: string; arguments: string }>
   modeDefinition: CopilotModeDefinition
+  customSystemPrompt?: string
   appendUserMessage?: boolean
 }): AiRouterMessage[] {
   const msgs: AiRouterMessage[] = []
-  msgs.push({ role: 'system', content: input.modeDefinition.systemPrompt })
+  const systemPromptContent =
+    input.customSystemPrompt && input.customSystemPrompt.trim() !== ''
+      ? input.customSystemPrompt
+      : input.modeDefinition.systemPrompt
+  msgs.push({ role: 'system', content: systemPromptContent })
   msgs.push({
     role: 'system',
     content: buildToolingInstruction(input.modeDefinition, input.allowedTools),

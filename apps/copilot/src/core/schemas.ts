@@ -25,7 +25,16 @@ export const ChatRequestSchema = z.object({
       })
     )
     .optional(),
+  history: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant', 'system', 'tool']),
+        content: z.string(),
+      })
+    )
+    .optional(),
   chatId: z.string().optional(),
+  systemPrompt: z.string().optional(),
   fileAttachments: z.any().optional(),
 })
 

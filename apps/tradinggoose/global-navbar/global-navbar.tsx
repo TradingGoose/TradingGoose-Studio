@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { useSession } from '@/lib/auth-client'
 import { getBrandConfig } from '@/lib/branding/branding'
-import { getEnv, isTruthy } from '@/lib/env'
+import { isBillingEnabled } from '@/lib/environment'
 import { generateWorkspaceName } from '@/lib/naming'
 import { useOrganizations } from '@/hooks/queries/organization'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
@@ -52,11 +52,7 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
     [pathname, workspaceNavItems]
   )
   const activeNavItem = React.useMemo(() => navMain.find((item) => item.isActive), [navMain])
-  const billingEnabled = React.useMemo(() => {
-    const runtimeFlag = getEnv('NEXT_PUBLIC_BILLING_ENABLED')
-    const buildFlag = process.env.NEXT_PUBLIC_BILLING_ENABLED ?? process.env.BILLING_ENABLED
-    return isTruthy(runtimeFlag ?? buildFlag ?? true)
-  }, [])
+  const billingEnabled = isBillingEnabled
   const hasOrganization = Boolean(organizationsData?.activeOrganization?.id)
   const canManageTeam = billingEnabled && hasOrganization
   const [workspaces, setWorkspaces] = React.useState<Workspace[]>([])

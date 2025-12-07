@@ -52,7 +52,6 @@ export const env = createEnv({
     STRIPE_ENTERPRISE_PRICE_ID: z.string().min(1).optional(),           // Stripe price ID for enterprise tier
     ENTERPRISE_TIER_COST_LIMIT: z.number().optional(),                  // Cost limit for enterprise tier users
     ENTERPRISE_STORAGE_LIMIT_GB: z.number().optional().default(500),     // Default storage limit in GB for enterprise tier (can be overridden per org)
-    BILLING_ENABLED: z.boolean().optional(),                 // Enable billing enforcement and usage tracking
     OVERAGE_THRESHOLD_DOLLARS: z.number().optional().default(50),      // Dollar threshold for incremental overage billing (default: $50)
 
     // Email & Communication

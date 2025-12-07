@@ -51,6 +51,7 @@ export function LongInput({
   disabled,
 }: LongInputProps) {
   const workspaceId = useWorkspaceId()
+  const setStoreValueRef = useRef<((value: string) => void) | null>(null)
   // Local state for immediate UI updates during streaming
   const [localContent, setLocalContent] = useState<string>('')
 
@@ -70,6 +71,10 @@ export function LongInput({
         onGeneratedContent: (content) => {
           // Final content update (fallback)
           setLocalContent(content)
+          if (!isPreview && !disabled) {
+            // Persist the generated content to the store after streaming
+            setStoreValueRef.current?.(content)
+          }
         },
       })
     : null
@@ -81,6 +86,7 @@ export function LongInput({
       logger.debug('Wand streaming ended, value persisted', { blockId, subBlockId })
     },
   })
+  setStoreValueRef.current = setStoreValue
 
   const emitTagSelection = useTagSelection(blockId, subBlockId)
 

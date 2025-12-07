@@ -21,7 +21,7 @@ export interface Session {
   userId: string
   workflowId: string
   conversationId: string
-  mode: 'ask' | 'agent'
+  mode: 'ask' | 'agent' | 'wand'
   model?: string
   provider?: AiRouterProvider
   stream: {

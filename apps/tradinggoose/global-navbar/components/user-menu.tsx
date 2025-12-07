@@ -22,7 +22,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
 import { signOut } from '@/lib/auth-client'
-import { isHosted } from '@/lib/environment'
+import { isBillingEnabled, isHosted } from '@/lib/environment'
 import { getUserRole } from '@/lib/organization/helpers'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getSubscriptionStatus } from '@/lib/subscription/helpers'
@@ -100,6 +100,7 @@ export function UserMenu({
   const activeOrganization = organizationsData?.activeOrganization
   const hasEnterprisePlan = organizationsData?.billingData?.data?.isEnterprise ?? false
   const activeOrganizationId = activeOrganization?.id
+  const billingEnabled = isBillingEnabled
   const { data: subscriptionData, isLoading: isSubscriptionLoading } = useSubscriptionData()
   const billingPayload = (subscriptionData as any)?.data ?? subscriptionData
   const subscription = getSubscriptionStatus(billingPayload)
@@ -244,6 +245,7 @@ export function UserMenu({
   }
 
   const handleOpenBillingPortal = async () => {
+    if (!billingEnabled) return
     if (isOpeningBillingPortal || isSubscriptionLoading) return
 
     const context = isOrganizationPlan ? ('organization' as const) : ('user' as const)
@@ -385,34 +387,38 @@ export function UserMenu({
                   Copilot Settings
                 </DropdownMenuItem>
               </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownMenuItem
-                  onSelect={(event) => {
-                    event.preventDefault()
-                    if (onOpenSettings) {
-                      onOpenSettings('subscription')
-                    } else if (typeof window !== 'undefined') {
-                      window.dispatchEvent(
-                        new CustomEvent('open-settings', { detail: { tab: 'subscription' } })
-                      )
-                    }
-                  }}
-                >
-                  <Star />
-                  Subscription
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={isOpeningBillingPortal || isSubscriptionLoading}
-                  onSelect={(event) => {
-                    event.preventDefault()
-                    void handleOpenBillingPortal()
-                  }}
-                >
-                  <CreditCard />
-                  {isOpeningBillingPortal ? 'Opening Billing…' : 'Manage Billing'}
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
+              {billingEnabled ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      onSelect={(event) => {
+                        event.preventDefault()
+                        if (onOpenSettings) {
+                          onOpenSettings('subscription')
+                        } else if (typeof window !== 'undefined') {
+                          window.dispatchEvent(
+                            new CustomEvent('open-settings', { detail: { tab: 'subscription' } })
+                          )
+                        }
+                      }}
+                    >
+                      <Star />
+                      Subscription
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={isOpeningBillingPortal || isSubscriptionLoading}
+                      onSelect={(event) => {
+                        event.preventDefault()
+                        void handleOpenBillingPortal()
+                      }}
+                    >
+                      <CreditCard />
+                      {isOpeningBillingPortal ? 'Opening Billing…' : 'Manage Billing'}
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </>
+              ) : null}
               {(canManageTeam || canManageSSOSettings) && (
                 <>
                   <DropdownMenuSeparator />

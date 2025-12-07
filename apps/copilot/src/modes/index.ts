@@ -1,5 +1,6 @@
 import { agentMode } from './agent'
 import { askMode } from './ask'
+import { wandMode } from './wand'
 
 export interface CopilotModeDefinition {
   id: string
@@ -9,7 +10,7 @@ export interface CopilotModeDefinition {
   allowedToolNames?: string[]
 }
 
-const MODE_LIST = [agentMode, askMode] as const
+const MODE_LIST = [agentMode, askMode, wandMode] as const
 
 export type CopilotModeId = (typeof MODE_LIST)[number]['id']
 

@@ -28,7 +28,7 @@ export const isHosted =
 /**
  * Is billing enforcement enabled
  */
-export const isBillingEnabled = isTruthy(env.BILLING_ENABLED)
+export const isBillingEnabled = isTruthy(env.NEXT_PUBLIC_BILLING_ENABLED)
 
 /**
  * Is email verification enabled
