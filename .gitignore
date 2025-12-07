@@ -52,6 +52,7 @@ next-env.d.ts
 /apps/docs/.source
 /apps/docs/.contentlayer
 /apps/docs/.content-collections
+/CURSOR_MEMORY
 
 # database instantiation
 **/postgres_data/
