@@ -55,25 +55,25 @@ export function ShortInput({
   // Wand functionality (only if wandConfig is enabled)
   const wandHook = config.wandConfig?.enabled
     ? useWand({
-      wandConfig: config.wandConfig,
-      currentValue: localContent,
-      onStreamStart: () => {
-        // Clear the content when streaming starts
-        setLocalContent('')
-      },
-      onStreamChunk: (chunk) => {
-        // Update local content with each chunk as it arrives
-        setLocalContent((current) => current + chunk)
-      },
-      onGeneratedContent: (content) => {
-        // Final content update
-        setLocalContent(content)
-        if (!isPreview && !disabled) {
-          // Persist the generated content to the store after streaming
-          setStoreValueRef.current?.(content)
-        }
-      },
-    })
+        wandConfig: config.wandConfig,
+        currentValue: localContent,
+        onStreamStart: () => {
+          // Clear the content when streaming starts
+          setLocalContent('')
+        },
+        onStreamChunk: (chunk) => {
+          // Update local content with each chunk as it arrives
+          setLocalContent((current) => current + chunk)
+        },
+        onGeneratedContent: (content) => {
+          // Final content update
+          setLocalContent(content)
+          if (!isPreview && !disabled) {
+            // Persist the generated content to the store after streaming
+            setStoreValueRef.current?.(content)
+          }
+        },
+      })
     : null
   // State management - useSubBlockValue with explicit streaming control
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlockId, false, {
@@ -370,7 +370,7 @@ export function ShortInput({
         onCancel={
           wandHook?.isStreaming
             ? wandHook?.cancelGeneration
-            : wandHook?.hidePromptInline || (() => { })
+            : wandHook?.hidePromptInline || (() => {})
         }
         onChange={(value: string) => wandHook?.updatePromptValue?.(value)}
         placeholder={config.wandConfig?.placeholder || 'Describe what you want to generate...'}
@@ -382,8 +382,8 @@ export function ShortInput({
           className={cn(
             'allow-scroll w-full overflow-auto text-transparent caret-foreground [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground/50 [&::-webkit-scrollbar]:hidden',
             isConnecting &&
-            config?.connectionDroppable !== false &&
-            'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500'
+              config?.connectionDroppable !== false &&
+              'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500'
           )}
           placeholder={placeholder ?? ''}
           type='text'
@@ -432,9 +432,9 @@ export function ShortInput({
             {password && !isFocused
               ? '•'.repeat(value?.toString().length ?? 0)
               : formatDisplayText(value?.toString() ?? '', {
-                accessiblePrefixes,
-                highlightAll: !accessiblePrefixes,
-              })}
+                  accessiblePrefixes,
+                  highlightAll: !accessiblePrefixes,
+                })}
           </div>
         </div>
 
@@ -449,7 +449,7 @@ export function ShortInput({
               }
               disabled={wandHook.isLoading || wandHook.isStreaming || disabled}
               aria-label='Generate content with AI'
-              className='h-8 w-8 rounded-full border border-transparent bg-muted/80 text-muted-foreground shadow-sm transition-all duration-200 hover:bg-primary-hover/20 hover:text-foreground hover:shadow'
+              className='h-8 w-8 rounded-full border border-transparent bg-muted/80 text-muted-foreground shadow-sm transition-all duration-200 hover:border-primary/20 hover:bg-card hover:text-foreground hover:shadow'
             >
               <Wand2 className='h-4 w-4' />
             </Button>
