@@ -1,0 +1,57 @@
+import { config } from '../core/config'
+import { getAiRouterCompletion } from '../llm/ai-router'
+import type { AiRouterProvider } from '../llm/ai-router'
+import type { SessionMessage } from '../chat/state'
+import { buildMessages } from './messages'
+import { buildToolsForAiRouter, toolsForMode } from './tooling'
+import type { AgentContextItem, AgentMode, AgentResponse } from './types'
+import { getCopilotModeDefinition } from '../modes'
+
+export type { AgentContextItem, AgentMode, AgentResponse } from './types'
+
+export async function generateAgentResponse(options: {
+  message: string
+  workflowSummary?: string
+  contexts?: AgentContextItem[]
+  messages?: SessionMessage[]
+  userName?: string
+  model?: string
+  mode: AgentMode
+  provider?: AiRouterProvider
+  appendUserMessage?: boolean
+  customSystemPrompt?: string
+}): Promise<AgentResponse> {
+  const modeDefinition = getCopilotModeDefinition(options.mode)
+  const allowedTools = toolsForMode(modeDefinition)
+  const messages = buildMessages({
+    userMessage: options.message,
+    workflowSummary: options.workflowSummary,
+    contexts: options.contexts,
+    history: options.messages,
+    userName: options.userName,
+    allowedTools,
+    modeDefinition,
+    appendUserMessage: options.appendUserMessage,
+    customSystemPrompt: options.customSystemPrompt,
+  })
+  const tools = buildToolsForAiRouter(allowedTools)
+
+  const completion = await getAiRouterCompletion({
+    messages,
+    tools,
+    model: options.model,
+    mode: modeDefinition.id as AgentMode,
+    provider: options.provider,
+  })
+
+  return {
+    reply: completion.content,
+    operations: completion.operations,
+    reasoning: completion.reasoning,
+    toolCalls: completion.toolCalls,
+    model: completion.model || options.model || config.defaultModel,
+    usage: completion.usage,
+    tokenUsage: completion.tokenUsage,
+    tokens: completion.tokens,
+  }
+}
