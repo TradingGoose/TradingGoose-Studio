@@ -137,7 +137,6 @@ export interface SubBlockConfig {
     icon?: React.ComponentType<{ className?: string }>
     group?: string
   }[])
-  optionsStore?: 'marketProviders'
   min?: number
   max?: number
   columns?: string[]

@@ -14,7 +14,7 @@ import LogMarkdownRenderer from '@/app/workspace/[workspaceId]/logs/components/s
 import { ToolCallsDisplay } from '@/app/workspace/[workspaceId]/logs/components/tool-calls/tool-calls-display'
 import { TraceSpans } from '@/app/workspace/[workspaceId]/logs/components/trace-spans/trace-spans'
 import { formatDate } from '@/app/workspace/[workspaceId]/logs/utils'
-import { formatCost } from '@/providers/ai/utils'
+import { formatCost } from '@/providers/utils'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 
 interface LogSidebarProps {
@@ -291,7 +291,7 @@ export function Sidebar({
     <div className='flex h-full min-h-0 min-w-0 flex-col p-1'>
       <div className='flex h-full min-h-0 flex-col rounded-lg border border-border'>
         {/* Header */}
-        <div className='z-[9] flex items-center justify-between border-b p-2'>
+        <div className='z-[9] flex items-center justify-between border-b px-3 pt-3 pb-1'>
           <h2 className='font-[450] text-base text-card-foreground'>Log Details</h2>
           <div className='flex items-center gap-2'>
             <TooltipProvider>
@@ -300,7 +300,7 @@ export function Sidebar({
                   <Button
                     variant='ghost'
                     size='icon'
-                    className='h-7 w-7 p-0'
+                    className='h-8 w-8 p-0'
                     onClick={() => hasPrev && handleNavigate(onNavigatePrev!)}
                     disabled={!hasPrev}
                     aria-label='Previous log'
@@ -318,7 +318,7 @@ export function Sidebar({
                   <Button
                     variant='ghost'
                     size='icon'
-                    className='h-7 w-7 p-0'
+                    className='h-8 w-8 p-0'
                     onClick={() => hasNext && handleNavigate(onNavigateNext!)}
                     disabled={!hasNext}
                     aria-label='Next log'
@@ -333,7 +333,7 @@ export function Sidebar({
             <Button
               variant='ghost'
               size='icon'
-              className='h-7 w-7 p-0'
+              className='h-8 w-8 p-0'
               onClick={onClose}
               aria-label='Close'
             >

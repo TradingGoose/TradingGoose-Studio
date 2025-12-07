@@ -1,10 +1,10 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BookOpen, Code, Info, RectangleHorizontal, RectangleVertical, Zap } from 'lucide-react'
-import { Handle, type NodeProps, Position, useStore, useUpdateNodeInternals } from 'reactflow'
+import { Handle, type NodeProps, Position, useUpdateNodeInternals } from 'reactflow'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Tooltip, TooltipContent, TooltipEnvironmentProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { parseCronToHumanReadable } from '@/lib/schedules/utils'
@@ -76,28 +76,6 @@ export const WorkflowBlock = memo(
     const contentRef = useRef<HTMLDivElement>(null)
     const nameInputRef = useRef<HTMLInputElement>(null)
     const updateNodeInternals = useUpdateNodeInternals()
-    const [tooltipContainer, setTooltipContainer] = useState<HTMLElement | null>(null)
-    const tooltipScale = useStore(
-      useCallback((state: any) => {
-        if (Array.isArray(state.transform)) {
-          return state.transform[2] ?? 1
-        }
-        if (state.viewport && typeof state.viewport.zoom === 'number') {
-          return state.viewport.zoom
-        }
-        return 1
-      }, []),
-      useCallback((a: number, b: number) => Math.abs(a - b) < 0.001, [])
-    )
-    const normalizedTooltipScale = Number.isFinite(tooltipScale) ? tooltipScale : 1
-
-    // Portal tooltips into the canvas viewport so they scale with React Flow zoom
-    useEffect(() => {
-      if (!blockRef.current) return
-      const viewport = blockRef.current.closest('.react-flow__viewport') as HTMLElement | null
-      const renderer = blockRef.current.closest('.react-flow__renderer') as HTMLElement | null
-      setTooltipContainer(viewport ?? renderer)
-    }, [])
 
     // Use the clean abstraction for current workflow state
     const currentWorkflow = useCurrentWorkflow()
@@ -190,15 +168,6 @@ export const WorkflowBlock = memo(
     const blockWidth = currentWorkflow.isDiffMode
       ? (currentWorkflow.blocks[id]?.layout?.measuredWidth ?? 0)
       : (storeBlockLayout?.measuredWidth ?? 0)
-
-    const tooltipPortalContainer = tooltipContainer ?? undefined
-    const tooltipEnvironmentValue = useMemo(
-      () => ({
-        container: tooltipPortalContainer,
-        scale: normalizedTooltipScale,
-      }),
-      [tooltipPortalContainer, normalizedTooltipScale]
-    )
 
     // Get per-block webhook status by checking if webhook is configured
     const activeWorkflowId = useWorkflowRegistry(resolveActiveWorkflowId)
@@ -564,26 +533,20 @@ export const WorkflowBlock = memo(
           typeof block.condition === 'function' ? block.condition() : block.condition
 
         // Get the values of the fields this block depends on from the appropriate state
-        const normalizeValue = (value: any) =>
-          value && typeof value === 'object' && 'id' in value ? (value as any).id : value
-        const normalizedFieldValue = normalizeValue(stateToUse[actualCondition.field]?.value)
+        const fieldValue = stateToUse[actualCondition.field]?.value
         const andFieldValue = actualCondition.and
-          ? normalizeValue(stateToUse[actualCondition.and.field]?.value)
+          ? stateToUse[actualCondition.and.field]?.value
           : undefined
 
         // Check if the condition value is an array
         const isValueMatch = Array.isArray(actualCondition.value)
-          ? normalizedFieldValue != null &&
+          ? fieldValue != null &&
           (actualCondition.not
-            ? !actualCondition.value.includes(
-              normalizedFieldValue as string | number | boolean
-            )
-            : actualCondition.value.includes(
-              normalizedFieldValue as string | number | boolean
-            ))
+            ? !actualCondition.value.includes(fieldValue as string | number | boolean)
+            : actualCondition.value.includes(fieldValue as string | number | boolean))
           : actualCondition.not
-            ? normalizedFieldValue !== actualCondition.value
-            : normalizedFieldValue === actualCondition.value
+            ? fieldValue !== actualCondition.value
+            : fieldValue === actualCondition.value
 
         // Check both conditions if 'and' is present
         const isAndValueMatch =
@@ -769,9 +732,8 @@ export const WorkflowBlock = memo(
     }, [childWorkflowId])
 
     return (
-      <TooltipEnvironmentProvider value={tooltipEnvironmentValue}>
-        <div className='group relative'>
-          <Card
+      <div className='group relative'>
+        <Card
           ref={blockRef}
           className={cn(
             'rounded-lg relative cursor-default select-none shadow-xs border border-border',
@@ -1319,9 +1281,8 @@ export const WorkflowBlock = memo(
               </>
             )
           }
-        </Card>
-      </div>
-    </TooltipEnvironmentProvider>
+        </Card >
+      </div >
     )
   },
   (prevProps, nextProps) => {
