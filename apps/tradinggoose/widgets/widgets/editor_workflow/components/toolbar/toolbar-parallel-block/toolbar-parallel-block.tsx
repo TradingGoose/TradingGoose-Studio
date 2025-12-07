@@ -68,11 +68,11 @@ export default function ParallelToolbarItem({
     >
       <div
         className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm'
-        style={{ backgroundColor: ParallelTool.bgColor }}
+        style={{ backgroundColor: ParallelTool.bgColor + '30', color: ParallelTool.bgColor }}
       >
         <ParallelTool.icon
           className={cn(
-            'h-[14px] w-[14px] text-white transition-transform duration-200',
+            'h-[14px] w-[14px] transition-transform duration-200',
             !disabled && 'group-hover:scale-110'
           )}
         />

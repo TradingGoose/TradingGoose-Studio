@@ -32,7 +32,7 @@ export const WorkflowEdge = ({
     targetX,
     targetY,
     targetPosition,
-    borderRadius: 8,
+    borderRadius: Infinity,
     offset: isHorizontal ? 30 : 20,
   })
 
@@ -114,7 +114,7 @@ export const WorkflowEdge = ({
       {isSelected && (
         <EdgeLabelRenderer>
           <div
-            className='nodrag nopan flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-[#FAFBFC] shadow-sm'
+            className='nodrag nopan flex border-red-500 border-[1.5px] h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-background rounded-full shadow-sm'
             style={{
               transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
               pointerEvents: 'all',

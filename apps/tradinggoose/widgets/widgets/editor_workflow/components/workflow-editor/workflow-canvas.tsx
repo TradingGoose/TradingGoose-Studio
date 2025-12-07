@@ -27,6 +27,7 @@ import {
 } from '@/widgets/widgets/editor_workflow/components/trigger-warning-dialog'
 import { WorkflowBlock } from '@/widgets/widgets/editor_workflow/components/workflow-block/workflow-block'
 import { WorkflowEdge } from '@/widgets/widgets/editor_workflow/components/workflow-edge/workflow-edge'
+import { WorkflowConnectionLine } from '@/widgets/widgets/editor_workflow/components/workflow-edge/workflow-connection-line'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useCurrentWorkflow } from '@/hooks/workflow'
 import {
@@ -2021,7 +2022,6 @@ const WorkflowCanvas = React.memo(
                 color='hsl(var(--workflow-dots))'
                 size={4}
                 gap={40}
-                style={{ backgroundColor: 'hsl(var(--workflow-background))' }}
               />
             </div>
           </div>
@@ -2076,6 +2076,7 @@ const WorkflowCanvas = React.memo(
             proOptions={{ hideAttribution: true }}
             connectionLineStyle={connectionLineStyle}
             connectionLineType={ConnectionLineType.SmoothStep}
+            connectionLineComponent={WorkflowConnectionLine}
             onNodeClick={(e, _node) => {
               e.stopPropagation()
             }}
@@ -2107,7 +2108,6 @@ const WorkflowCanvas = React.memo(
               color='hsl(var(--workflow-dots))'
               size={4}
               gap={40}
-              style={{ backgroundColor: 'hsl(var(--workflow-background))' }}
             />
           </ReactFlow>
 

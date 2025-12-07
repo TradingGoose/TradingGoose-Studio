@@ -38,10 +38,10 @@ const WorkflowCopilotApp = ({
 
   const user = session.data?.user
     ? {
-        id: session.data.user.id,
-        name: session.data.user.name ?? undefined,
-        email: session.data.user.email,
-      }
+      id: session.data.user.id,
+      name: session.data.user.name ?? undefined,
+      email: session.data.user.email,
+    }
     : undefined
 
   return (
@@ -54,7 +54,7 @@ const WorkflowCopilotApp = ({
         >
           <WorkflowStoreProvider channelId={channelId} workflowId={workflowId}>
             <CopilotStoreProvider channelId={copilotStoreChannel}>
-              <div className='flex h-full w-full flex-col overflow-hidden bg-[hsl(var(--workflow-background))]'>
+              <div className='flex h-full w-full flex-col overflow-hidden '>
                 <Copilot
                   key={copilotStoreChannel}
                   panelWidth={panelWidth}

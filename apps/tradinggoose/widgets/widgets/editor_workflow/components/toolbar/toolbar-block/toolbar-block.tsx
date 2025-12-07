@@ -68,12 +68,15 @@ export function ToolbarBlock({
       )}
     >
       <div
-        className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm'
-        style={{ backgroundColor: config.bgColor }}
+        className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-secondary/60 text-foreground'
+        style={{
+          backgroundColor: config.bgColor ? `${config.bgColor}30` : undefined,
+          color: config.bgColor || undefined,
+        }}
       >
         <config.icon
           className={cn(
-            'text-white transition-transform duration-200',
+            'transition-transform duration-200',
             !disabled && 'group-hover:scale-110',
             '!h-4 !w-4'
           )}

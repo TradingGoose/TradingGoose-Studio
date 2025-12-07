@@ -11,7 +11,7 @@ export const DiscordBlock: BlockConfig<DiscordResponse> = {
   longDescription:
     'Integrate Discord into the workflow. Can send and get messages, get server information, and get a user’s information.',
   category: 'tools',
-  bgColor: '#5865F2',
+  bgColor: undefined,
   icon: DiscordIcon,
   subBlocks: [
     {

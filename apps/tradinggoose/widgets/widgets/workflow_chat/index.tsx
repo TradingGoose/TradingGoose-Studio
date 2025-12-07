@@ -68,7 +68,7 @@ const ChatWidgetBody = ({
 
   if (!hasLoadedWorkflows || isLoading) {
     return (
-      <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))]'>
+      <div className='flex h-full w-full items-center justify-center bg-background'>
         <LoadingAgent size='md' />
       </div>
     )
@@ -80,14 +80,14 @@ const ChatWidgetBody = ({
 
   if (!resolvedWorkflowId) {
     return (
-      <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))]'>
+      <div className='flex h-full w-full items-center justify-center bg-background'>
         <LoadingAgent size='md' />
       </div>
     )
   }
 
   return (
-    <div className='flex h-full w-full overflow-hidden bg-[hsl(var(--workflow-background))]'>
+    <div className='flex h-full w-full overflow-hidden bg-background'>
       <WorkflowChatApp
         workspaceId={workspaceId}
         workflowId={resolvedWorkflowId}
@@ -98,7 +98,7 @@ const ChatWidgetBody = ({
 }
 
 const WidgetStateMessage = ({ message }: { message: string }) => (
-  <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))] px-4 text-center text-muted-foreground text-xs'>
+  <div className='flex h-full w-full items-center justify-center bg-background px-4 text-center text-muted-foreground text-xs'>
     {message}
   </div>
 )

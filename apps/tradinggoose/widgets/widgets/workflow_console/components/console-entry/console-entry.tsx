@@ -20,6 +20,13 @@ import { getBlock } from '@/blocks'
 import type { ConsoleEntry as ConsoleEntryType } from '@/stores/panel/console/types'
 import { useGeneralStore } from '@/stores/settings/general/store'
 
+const sanitizeHexColor = (value?: string) => {
+  if (!value) return undefined
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+  return trimmed.startsWith('#') ? trimmed : `#${trimmed}`
+}
+
 const logger = createLogger('ConsoleEntry')
 
 interface ConsoleEntryProps {
@@ -369,8 +376,10 @@ export function ConsoleEntry({ entry, consoleWidth }: ConsoleEntryProps) {
 
   // Special handling for serialization errors
   const BlockIcon = entry.blockType === 'serializer' ? AlertTriangle : blockConfig?.icon
-  const blockColor =
-    entry.blockType === 'serializer' ? '#EF4444' : blockConfig?.bgColor || '#6B7280'
+  const defaultBlockColor = '#6B7280'
+  const rawBlockColor = entry.blockType === 'serializer' ? '#EF4444' : blockConfig?.bgColor
+  const sanitizedBlockColor = sanitizeHexColor(rawBlockColor) ?? defaultBlockColor
+  const iconBackgroundColor = sanitizedBlockColor ? `${sanitizedBlockColor}30` : undefined
 
   // Handle image load error callback
   const handleImageLoadError = (hasError: boolean) => {
@@ -383,10 +392,13 @@ export function ConsoleEntry({ entry, consoleWidth }: ConsoleEntryProps) {
       <div className='flex items-center gap-2'>
         {BlockIcon && (
           <div
-            className='flex h-5 w-5 items-center justify-center rounded-md'
-            style={{ backgroundColor: blockColor }}
+            className='flex h-5 w-5 items-center justify-center rounded-md bg-secondary text-foreground'
+            style={{
+              backgroundColor: iconBackgroundColor,
+              color: sanitizedBlockColor,
+            }}
           >
-            <BlockIcon className='h-3 w-3 text-white' />
+            <BlockIcon className='h-3 w-3' />
           </div>
         )}
         <span className='font-normal text-base text-sm leading-normal'>
@@ -397,9 +409,8 @@ export function ConsoleEntry({ entry, consoleWidth }: ConsoleEntryProps) {
       {/* Duration tag | Time tag | Input/Output tags */}
       <div className='flex items-center gap-2'>
         <div
-          className={`flex h-5 items-center rounded-lg px-2 ${
-            entry.error ? 'bg-[#F6D2D2] dark:bg-[#442929]' : 'bg-secondary'
-          }`}
+          className={`flex h-5 items-center rounded-lg px-2 ${entry.error ? 'bg-[#F6D2D2] dark:bg-[#442929]' : 'bg-secondary'
+            }`}
         >
           {entry.error ? (
             <div className='flex items-center gap-1'>
@@ -434,21 +445,19 @@ export function ConsoleEntry({ entry, consoleWidth }: ConsoleEntryProps) {
           <>
             <button
               onClick={() => setShowInput(false)}
-              className={`flex h-5 items-center rounded-lg px-2 transition-colors ${
-                !showInput
+              className={`flex h-5 items-center rounded-lg px-2 transition-colors ${!showInput
                   ? 'border-[#e5e5e5] bg-[#f5f5f5] text-[#1a1a1a] dark:border-[#424242] dark:bg-[#1f1f1f] dark:text-[#ffffff]'
                   : 'bg-secondary text-muted-foreground hover:bg-secondary hover:text-card-foreground'
-              }`}
+                }`}
             >
               <span className='font-normal text-xs leading-normal'>Output</span>
             </button>
             <button
               onClick={() => setShowInput(true)}
-              className={`flex h-5 items-center rounded-lg px-2 transition-colors ${
-                showInput
+              className={`flex h-5 items-center rounded-lg px-2 transition-colors ${showInput
                   ? 'border-[#e5e5e5] bg-[#f5f5f5] text-[#1a1a1a] dark:border-[#424242] dark:bg-[#1f1f1f] dark:text-[#ffffff]'
                   : 'bg-secondary text-muted-foreground hover:bg-secondary hover:text-card-foreground'
-              }`}
+                }`}
             >
               <span className='font-normal text-xs leading-normal'>Input</span>
             </button>

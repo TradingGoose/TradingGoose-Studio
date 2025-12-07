@@ -65,11 +65,11 @@ export default function LoopToolbarItem({ disabled = false, channelId }: LoopToo
     >
       <div
         className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm'
-        style={{ backgroundColor: LoopTool.bgColor }}
+        style={{ backgroundColor: LoopTool.bgColor + '30', color: LoopTool.bgColor }}
       >
         <LoopTool.icon
           className={cn(
-            'h-[14px] w-[14px] text-white transition-transform duration-200',
+            'h-[14px] w-[14px] transition-transform duration-200',
             !disabled && 'group-hover:scale-110'
           )}
         />

@@ -103,7 +103,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
   return (
     <nav
       aria-label='Primary navigation'
-      className={`${soehne.className} sticky inset-x-0 top-0 z-50 w-full border-b border-border bg-background/55 backdrop-blur supports-[backdrop-filter]:bg-background/55`}
+      className={`${soehne.className} sticky inset-x-0 top-0 z-50 w-full border-b border-border backdrop-blur supports-[backdrop-filter]:bg-background/20`}
       itemScope
       itemType='https://schema.org/SiteNavigationElement'
     >

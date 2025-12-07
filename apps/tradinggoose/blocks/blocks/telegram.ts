@@ -12,7 +12,7 @@ export const TelegramBlock: BlockConfig<TelegramResponse> = {
     'Integrate Telegram into the workflow. Can send and delete messages. Can be used in trigger mode to trigger a workflow when a message is sent to a chat.',
   docsLink: 'https://docs.sim.ai/tools/telegram',
   category: 'tools',
-  bgColor: '#E0E0E0',
+  bgColor: undefined,
   icon: TelegramIcon,
   triggerAllowed: true,
   subBlocks: [

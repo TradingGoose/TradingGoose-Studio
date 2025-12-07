@@ -12,7 +12,7 @@ export const GoogleDocsBlock: BlockConfig<GoogleDocsResponse> = {
     'Integrate Google Docs into the workflow. Can read, write, and create documents.',
   docsLink: 'https://docs.sim.ai/tools/google_docs',
   category: 'tools',
-  bgColor: '#E0E0E0',
+  bgColor: undefined,
   icon: GoogleDocsIcon,
   subBlocks: [
     // Operation selector

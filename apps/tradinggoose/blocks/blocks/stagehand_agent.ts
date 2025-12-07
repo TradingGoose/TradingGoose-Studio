@@ -11,7 +11,7 @@ export const StagehandAgentBlock: BlockConfig<StagehandAgentResponse> = {
     'Integrate Stagehand Agent into the workflow. Can navigate the web and perform tasks.',
   docsLink: 'https://docs.sim.ai/tools/stagehand_agent',
   category: 'tools',
-  bgColor: '#FFC83C',
+  bgColor: undefined,
   icon: StagehandIcon,
   subBlocks: [
     {

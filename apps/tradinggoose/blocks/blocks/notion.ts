@@ -12,7 +12,7 @@ export const NotionBlock: BlockConfig<NotionResponse> = {
     'Integrate with Notion into the workflow. Can read page, read database, create page, create database, append content, query database, and search workspace.',
   docsLink: 'https://docs.sim.ai/tools/notion',
   category: 'tools',
-  bgColor: '#181C1E',
+  bgColor: '',
   icon: NotionIcon,
   subBlocks: [
     {

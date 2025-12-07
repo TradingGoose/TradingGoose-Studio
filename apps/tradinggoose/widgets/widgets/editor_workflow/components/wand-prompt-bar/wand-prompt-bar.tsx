@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { SendIcon, XIcon } from 'lucide-react'
+import { Send, XIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -117,20 +117,20 @@ export function WandPromptBar({
           variant='ghost'
           size='icon'
           onClick={handleCancel}
-          className='h-8 w-8 rounded-full text-muted-foreground hover:bg-card hover:text-foreground'
+          className='h-8 w-8 rounded-sm text-muted-foreground hover:bg-card hover:text-foreground'
         >
           <XIcon className='h-4 w-4' />
         </Button>
 
         {!isStreaming && (
           <Button
-            variant='ghost'
+            variant='default'
             size='icon'
             onClick={() => onSubmit(promptValue)}
-            className='h-8 w-8 rounded-full text-muted-foreground hover:bg-[var(--primary)]/10 hover:text-foreground'
+            className='h-8 w-8 rounded-sm'
             disabled={isLoading || isStreaming || !promptValue.trim()}
           >
-            <SendIcon className='h-4 w-4' />
+            <Send className='h-4 w-4' />
           </Button>
         )}
       </div>
@@ -170,18 +170,12 @@ export function WandPromptBar({
           border-radius: 50%;
           background: radial-gradient(
             circle,
-            hsl(var(--primary) / 0.9) 0%,
-            hsl(var(--primary) / 0.4) 60%,
+            var(--primary) 0%,
+            var(--primary-hover) 60%,
             transparent 80%
           );
           animation: smoke-pulse 1.8s ease-in-out infinite;
           opacity: 0.9;
-        }
-
-        .dark .status-indicator.streaming::before {
-          background: #6b7280;
-          opacity: 0.9;
-          animation: smoke-pulse 1.8s ease-in-out infinite;
         }
 
       `}</style>

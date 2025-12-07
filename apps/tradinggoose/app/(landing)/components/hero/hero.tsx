@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 
 import Image from 'next/image'
 import {
@@ -14,10 +14,67 @@ import {
 } from 'lucide-react'
 
 import { AnimatedBeam } from '@/components/ui/animated-beam'
+import { MotionPreset } from '@/components/ui/motion-preset'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
 const Hero = () => {
+  const imageContainerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const container = imageContainerRef.current
+
+    if (!container) return
+
+    // Check if screen is large enough for 3D effects (1024px+)
+    const checkScreenSize = () => window.innerWidth >= 1024
+
+    /**
+     * Handle mouse movement for 3D tilt effect
+     * Calculates rotation based on mouse position relative to container center
+     */
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!checkScreenSize()) return
+
+      const rect = container.getBoundingClientRect()
+
+      // Calculate rotation angles (reduced multiplier for subtle effect)
+      const x = (e.clientX - rect.left - rect.width / 2) * 0.0075
+      const y = (e.clientY - rect.top - rect.height / 2) * 0.0075
+
+      // Apply 3D transform with perspective and slight scale
+      container.style.transform = `perspective(1000px) rotateX(${y}deg) rotateY(${x}deg) scale3d(1.01, 1.01, 1.01)`
+      container.style.boxShadow = '0 20px 50px rgba(0, 0, 0, 0.15)'
+    }
+
+    // Initialize hover state with smooth transition
+    const handleMouseEnter = (e: MouseEvent) => {
+      if (!checkScreenSize()) return
+
+      container.style.transition = 'transform 0.2s ease, box-shadow 0.2s ease'
+      handleMouseMove(e)
+    }
+
+    // Reset to neutral position when mouse leaves
+    const handleMouseLeave = () => {
+      container.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) scale3d(1, 1, 1)'
+      container.style.boxShadow = 'none'
+      container.style.transition = 'transform 0.5s ease, box-shadow 0.5s ease'
+    }
+
+    // Add event listeners for 3D tilt interaction
+    container.addEventListener('mouseenter', handleMouseEnter)
+    container.addEventListener('mousemove', handleMouseMove)
+    container.addEventListener('mouseleave', handleMouseLeave)
+
+    // Cleanup event listeners on unmount
+    return () => {
+      container.removeEventListener('mouseenter', handleMouseEnter)
+      container.removeEventListener('mousemove', handleMouseMove)
+      container.removeEventListener('mouseleave', handleMouseLeave)
+    }
+  }, [])
+
   const containerRef = useRef<HTMLDivElement>(null)
   const iconRef1 = useRef<HTMLDivElement>(null)
   const iconRef2 = useRef<HTMLDivElement>(null)
@@ -36,7 +93,7 @@ const Hero = () => {
   const spanRef8 = useRef<HTMLSpanElement>(null)
 
   return (
-    <section className='relative flex-1 overflow-hidden py-8 sm:py-16 lg:py-24'>
+    <section className='flex-1 pt-8 sm:pt-16 lg:pt-24'>
       <div className='relative z-10 mx-auto flex max-w-7xl flex-col items-center gap-8 px-4 sm:gap-16 sm:px-6 lg:gap-24 lg:px-8'>
         <div className='flex flex-col items-center gap-4 text-center'>
           <Badge variant='outline' className='relative z-10 text-sm font-normal'>
@@ -275,6 +332,38 @@ const Hero = () => {
             duration={4.5}
             className='-z-[1] md:hidden'
           />
+        </div>
+      </div>
+      <div className="mx-auto flex max-w-7xl flex-col mt-20 items-center px-4 sm:px-6 lg:px-8">
+        <div className='flex flex-col items-center text-center'>
+          {/* Hero Image with 3D Tilt Effect */}
+          <MotionPreset
+            ref={imageContainerRef}
+            fade
+            zoom={{ initialScale: 0.5 }}
+            delay={1.3}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            className='rounded-xl'
+          >
+            <Image
+              src='https://cdn.shadcnstudio.com/ss-assets/blocks/marketing/hero/image-18.png'
+              alt='hero-image'
+              width={1200}
+              height={675}
+              className='w-full rounded-xl object-cover dark:hidden'
+              sizes='200vw'
+              priority
+            />
+            <Image
+              src='https://cdn.shadcnstudio.com/ss-assets/blocks/marketing/hero/image-18-dark.png'
+              alt='hero-image'
+              width={1200}
+              height={675}
+              className='hidden w-full rounded-xl object-cover dark:inline-block'
+              sizes='200vw'
+              priority
+            />
+          </MotionPreset>
         </div>
       </div>
     </section>

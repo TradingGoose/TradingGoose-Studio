@@ -12,7 +12,7 @@ export const MicrosoftExcelBlock: BlockConfig<MicrosoftExcelResponse> = {
     'Integrate Microsoft Excel into the workflow. Can read, write, update, and add to table.',
   docsLink: 'https://docs.sim.ai/tools/microsoft_excel',
   category: 'tools',
-  bgColor: '#E0E0E0',
+  bgColor: undefined,
   icon: MicrosoftExcelIcon,
   subBlocks: [
     {

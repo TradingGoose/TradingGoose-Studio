@@ -17,7 +17,7 @@ export const StagehandBlock: BlockConfig<StagehandExtractResponse> = {
     'Integrate Stagehand into the workflow. Can extract structured data from webpages.',
   docsLink: 'https://docs.sim.ai/tools/stagehand',
   category: 'tools',
-  bgColor: '#FFC83C',
+  bgColor: undefined,
   icon: StagehandIcon,
   subBlocks: [
     {

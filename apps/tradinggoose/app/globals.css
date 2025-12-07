@@ -67,22 +67,11 @@
   .light {
     /* Core Colors */
     --background: 0 0% 100%;
-    --foreground: 240 10% 3.922%;
-    --color-neutral-50: oklch(0.985 0 0);
-    --color-neutral-100: oklch(0.97 0 0);
-    --color-neutral-200: oklch(0.922 0 0);
-    --color-neutral-300: oklch(0.87 0 0);
-    --color-neutral-400: oklch(0.708 0 0);
-    --color-neutral-500: oklch(0.556 0 0);
-    --color-neutral-600: oklch(0.439 0 0);
-    --color-neutral-700: oklch(0.371 0 0);
-    --color-neutral-800: oklch(0.269 0 0);
-    --color-neutral-900: oklch(0.205 0 0);
-    --color-neutral-950: oklch(0.145 0 0);
+    --foreground: 20 14.3% 4.1%;
 
     /* Card Colors */
-    --card: 0 0% 97.5%;
-    --card-foreground: 240 10% 3.922%;
+    --card: 0 0% 99%;
+    --card-foreground: 20 14.3% 4.1%;
 
     /* Popover Colors */
     --popover: 0 0% 100%;
@@ -94,8 +83,8 @@
     --primary-hover: #febb00cc;
 
     /* Secondary Colors */
-    --secondary: 240 4.762% 95.882%;
-    --secondary-foreground: 240 5.882% 10%;
+    --secondary: 160 4.8% 90.9%;
+    --secondary-foreground: 24 9.8% 10%;
 
     /* Muted Colors */
     --muted: 240 4.762% 95.882%;
@@ -124,8 +113,6 @@
     --scrollbar-thumb-hover: 0 0% 55%;
     --scrollbar-size: 8px;
 
-    /* Workflow Properties */
-    --workflow-background: 0 0% 100%;
     --workflow-dots: 0 0% 94.5%;
     --card-background: 0 0% 99.2%;
     --card-border: 0 0% 89.8%;
@@ -158,23 +145,12 @@
   /* Dark Mode Theme */
   .dark {
     /* Core Colors */
-    --background: 240 10% 3.922%;
-    --foreground: 0 0% 98.039%;
-    --color-neutral-50: oklch(0.985 0 0);
-    --color-neutral-100: oklch(0.97 0 0);
-    --color-neutral-200: oklch(0.922 0 0);
-    --color-neutral-300: oklch(0.87 0 0);
-    --color-neutral-400: oklch(0.708 0 0);
-    --color-neutral-500: oklch(0.556 0 0);
-    --color-neutral-600: oklch(0.439 0 0);
-    --color-neutral-700: oklch(0.371 0 0);
-    --color-neutral-800: oklch(0.269 0 0);
-    --color-neutral-900: oklch(0.205 0 0);
-    --color-neutral-950: oklch(0.145 0 0);
+    --background: 20 14.3% 2.9%;
+    --foreground: 60 9.1% 97.8%;
 
     /* Card Colors */
-    --card: 240 10% 9.922%;
-    --card-foreground: 0 0% 98.039%;
+    --card: 20 14.3% 4.1%;
+    --card-foreground: 60 9.1% 97.8%;
 
     /* Popover Colors */
     --popover: 240 5.882% 10%;
@@ -186,8 +162,8 @@
     --primary-hover: #ffcc00cc;
 
     /* Secondary Colors */
-    --secondary: 240 3.704% 15.882%;
-    --secondary-foreground: 0 0% 98.039%;
+    --secondary: 12 6.5% 15.1%;
+    --secondary-foreground: 60 9.1% 97.8%;
 
     /* Muted Colors */
     --muted: 240 3.704% 15.882%;
@@ -212,8 +188,6 @@
     --scrollbar-thumb: 0 0% 30%;
     --scrollbar-thumb-hover: 0 0% 40%;
 
-    /* Workflow Properties */
-    --workflow-background: 0 0% 3.9%;
     --workflow-dots: 0 0% 7.5%;
     --card-background: 0 0% 9.0%;
     --card-border: 0 0% 22.7%;
@@ -383,12 +357,12 @@ input[type="search"]::-ms-clear {
 
     60% {
       transform: scale(1.05);
-      opacity: 0.4;
+      opacity: 0.5;
     }
 
     100% {
       transform: scale(1.12);
-      opacity: 0;
+      opacity: 0.2;
     }
   }
 

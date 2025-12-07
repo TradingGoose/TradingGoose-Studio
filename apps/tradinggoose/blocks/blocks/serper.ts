@@ -11,7 +11,7 @@ export const SerperBlock: BlockConfig<SearchResponse> = {
   longDescription: 'Integrate Serper into the workflow. Can search the web.',
   docsLink: 'https://docs.sim.ai/tools/serper',
   category: 'tools',
-  bgColor: '#2B3543',
+  bgColor: undefined,
   icon: SerperIcon,
   subBlocks: [
     {

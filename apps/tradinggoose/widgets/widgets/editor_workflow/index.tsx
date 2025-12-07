@@ -141,7 +141,7 @@ const WorkflowEditorWidgetBody = ({
 
   if (!hasLoadedWorkflows || isLoading) {
     return (
-      <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))]'>
+      <div className='flex h-full w-full items-center justify-center '>
         <LoadingAgent size='md' />
       </div>
     )
@@ -153,7 +153,7 @@ const WorkflowEditorWidgetBody = ({
 
   if (!resolvedWorkflowId) {
     return (
-      <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))]'>
+      <div className='flex h-full w-full items-center justify-center '>
         <LoadingAgent size='md' />
       </div>
     )
@@ -162,7 +162,7 @@ const WorkflowEditorWidgetBody = ({
   return (
     <div
       ref={setContainerRef}
-      className='relative flex h-full w-full overflow-hidden bg-[hsl(var(--workflow-background))]'
+      className='relative flex h-full w-full overflow-hidden '
     >
       <WorkflowUIConfigProvider value={WORKFLOW_WIDGET_UI_CONFIG}>
         <WorkflowEditorApp
@@ -179,7 +179,7 @@ const WorkflowEditorWidgetBody = ({
 }
 
 const WidgetStateMessage = ({ message }: { message: string }) => (
-  <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))] px-4 text-center text-muted-foreground text-xs'>
+  <div className='flex h-full w-full items-center justify-center  px-4 text-center text-muted-foreground text-xs'>
     {message}
   </div>
 )

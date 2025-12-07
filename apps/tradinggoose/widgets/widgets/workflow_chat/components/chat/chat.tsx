@@ -1,7 +1,7 @@
 'use client'
 
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertCircle, ArrowUp, File, FileText, Image, Paperclip, X } from 'lucide-react'
+import { AlertCircle, Send, File, FileText, Image, Paperclip, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -806,7 +806,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
                 }
                 className='h-6 w-6 shrink-0 rounded-sm bg-primary-hover text-black shadow-[0_0_0_0_var(--primary-hover)] transition-all duration-200 hover:bg-primary-hover '
               >
-                <ArrowUp className='h-3 w-3' />
+                <Send className='h-3 w-3' />
               </Button>
             </div>
           </div>

@@ -10,7 +10,7 @@ export const ParallelBlock: BlockConfig<ToolResponse> = {
   longDescription: 'Integrate Parallel AI into the workflow. Can search the web.',
   docsLink: 'https://docs.parallel.ai/search-api/search-quickstart',
   category: 'tools',
-  bgColor: '#E0E0E0',
+  bgColor: undefined,
   icon: ParallelIcon,
   subBlocks: [
     {

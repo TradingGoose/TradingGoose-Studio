@@ -12,7 +12,7 @@ export const XBlock: BlockConfig<XResponse> = {
     'Integrate X into the workflow. Can post a new tweet, get tweet details, search tweets, and get user profile.',
   docsLink: 'https://docs.sim.ai/tools/x',
   category: 'tools',
-  bgColor: '#000000', // X's black color
+  bgColor: '', // X's black color
   icon: xIcon,
   subBlocks: [
     {

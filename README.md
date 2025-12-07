@@ -54,11 +54,20 @@ cd ../..
 bun run dev:full
 ```
 
-## Documentation
+## Tech Stack
 
-- **[Product Requirements (PRD)](../TradingGoose-Studio-PRD/docs/product/prd.md)** — Goals, scope, and features
-- **[Architecture](../TradingGoose-Studio-PRD/docs/architecture/README.md)** — System design
-
+- **Framework**: [Next.js](https://nextjs.org/) (App Router)
+- **Runtime**: [Bun](https://bun.sh/)
+- **Database**: PostgreSQL with [Drizzle ORM](https://orm.drizzle.team)
+- **Authentication**: [Better Auth](https://better-auth.com)
+- **UI**: [Shadcn](https://ui.shadcn.com/), [Tailwind CSS](https://tailwindcss.com)
+- **State Management**: [Zustand](https://zustand-demo.pmnd.rs/)
+- **Flow Editor**: [ReactFlow](https://reactflow.dev/)
+- **Docs**: [Fumadocs](https://fumadocs.vercel.app/)
+- **Monorepo**: [Turborepo](https://turborepo.org/)
+- **Realtime**: [Socket.io](https://socket.io/)
+- **Background Jobs**: [Trigger.dev](https://trigger.dev/)
+- **Remote Code Execution**: [E2B](https://www.e2b.dev/)
 ---
 
 ## License

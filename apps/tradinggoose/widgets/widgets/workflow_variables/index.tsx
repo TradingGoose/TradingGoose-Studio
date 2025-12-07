@@ -17,7 +17,7 @@ import {
 import WorkflowVariablesApp from './components/workflow-variables-app'
 
 const WidgetStateMessage = ({ message }: { message: string }) => (
-  <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))] px-4 text-center text-muted-foreground text-xs'>
+  <div className='flex h-full w-full items-center justify-center  px-4 text-center text-muted-foreground text-xs'>
     {message}
   </div>
 )
@@ -68,7 +68,7 @@ const WorkflowVariablesWidgetBody = ({
 
   if (!hasLoadedWorkflows || isLoading) {
     return (
-      <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))]'>
+      <div className='flex h-full w-full items-center justify-center '>
         <LoadingAgent size='md' />
       </div>
     )
@@ -80,14 +80,14 @@ const WorkflowVariablesWidgetBody = ({
 
   if (!resolvedWorkflowId) {
     return (
-      <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))]'>
+      <div className='flex h-full w-full items-center justify-center '>
         <LoadingAgent size='md' />
       </div>
     )
   }
 
   return (
-    <div className='flex h-full w-full overflow-hidden bg-[hsl(var(--workflow-background))]'>
+    <div className='flex h-full w-full overflow-hidden '>
       <WorkflowVariablesApp
         workspaceId={workspaceId}
         workflowId={resolvedWorkflowId}

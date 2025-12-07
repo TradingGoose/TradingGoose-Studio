@@ -10,7 +10,7 @@ import {
   useState,
 } from 'react'
 import {
-  ArrowUp,
+  Send,
   AtSign,
   Blocks,
   BookOpen,
@@ -3545,7 +3545,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                   {isLoading ? (
                     <Loader2 className='h-3 w-3 animate-spin' />
                   ) : (
-                    <ArrowUp className='h-3 w-3' />
+                    <Send className='h-3 w-3' />
                   )}
                 </Button>
               )}

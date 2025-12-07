@@ -72,8 +72,7 @@ const BackgroundRippleEffect = ({
     <div
       ref={ref}
       className={cn(
-        'fixed z-[-1] inset-0 h-full w-full object-center',
-        '[--cell-border-color:var(--color-neutral-50)] [--cell-fill-color:transparent] [--cell-shadow-color:var(--color-neutral-500)]'
+        'fixed z-[-1] inset-0 h-full w-full object-center'
       )}
     >
       <div className='relative flex h-auto w-auto justify-center overflow-hidden'>
@@ -84,8 +83,6 @@ const BackgroundRippleEffect = ({
           rows={rows}
           cols={cols}
           cellSize={cellSize}
-          borderColor='var(--cell-border-color)'
-          fillColor='var(--cell-fill-color)'
           clickedCell={clickedCell}
           hoveredCell={hoveredCell}
           onCellClick={(row, col) => {
@@ -105,8 +102,6 @@ type DivGridProps = {
   rows: number
   cols: number
   cellSize: number // in pixels
-  borderColor: string
-  fillColor: string
   clickedCell: { row: number; col: number } | null
   hoveredCell?: { row: number; col: number } | null
   onCellClick?: (row: number, col: number) => void
@@ -124,8 +119,6 @@ const DivGrid = ({
   rows = 7,
   cols = 30,
   cellSize = 56.815,
-  borderColor = '#3f3f46',
-  fillColor = 'rgba(14,165,233,0.3)',
   clickedCell = null,
   onCellClick = () => { },
   interactive = true,
@@ -166,14 +159,14 @@ const DivGrid = ({
           <div
             key={idx}
             className={cn(
-              'cell relative border-[1px] opacity-40 transition-all duration-150 will-change-transform hover:opacity-60 hover:brightness-95 shadow-[0px_0px_40px_1px_var(--cell-shadow-color)_inset] dark:hover:opacity-90',
+              'cell relative  border-[1px] opacity-50 transition-all duration-150 will-change-transform shadow-inner shadow-md',
+              'bg-amber-400 shadow-amber-500  border-amber-800',
+              'dark:bg-yellow-700 dark:shadow-amber-600 dark:border-amber-400',
               clickedCell && 'animate-cell-ripple [animation-fill-mode:none]',
               !interactive && 'pointer-events-none',
-              isHovered && 'opacity-60 brightness-95'
+              isHovered && 'opacity-90 brightness-95'
             )}
             style={{
-              backgroundColor: fillColor,
-              borderColor: borderColor,
               ...style
             }}
             onClick={interactive ? () => onCellClick?.(rowIdx, colIdx) : undefined}
