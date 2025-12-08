@@ -43,7 +43,7 @@ import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workfl
 import { getAllBlocks } from '@/blocks'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
 import { getProviderFromModel, supportsToolUsageControl } from '@/providers/utils'
-import { useCustomToolsStore } from '@/stores/custom-tools/store'
+import { useCustomTools } from '@/hooks/queries/custom-tools'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import {
@@ -442,7 +442,7 @@ export function ToolInput({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const isWide = useWorkflowStore((state) => state.blocks[blockId]?.isWide)
-  const customTools = useCustomToolsStore((state) => state.getAllTools())
+  const { data: customTools = [] } = useCustomTools(workspaceId)
   const subBlockStore = useSubBlockStore()
 
   // MCP tools integration
