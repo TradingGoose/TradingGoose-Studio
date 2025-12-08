@@ -10,16 +10,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import {
-  BookOpen,
-  Building2,
-  Frame,
-  LibraryBig,
-  ScrollText,
-  Search,
-  Shapes,
-  Workflow,
-} from 'lucide-react'
+import { BookOpen, Building2, Frame, LibraryBig, ScrollText, Search, Shapes } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
@@ -28,8 +19,6 @@ import { type LayoutTab, LayoutTabs } from '@/app/workspace/[workspaceId]/dashbo
 import { GlobalNavbarHeader } from '@/global-navbar'
 import { useKnowledgeBasesList } from '@/hooks/use-knowledge'
 import { type PairColorContext, usePairColorStore } from '@/stores/dashboard/pair-store'
-import { useOrganizationStore } from '@/stores/organization'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import {
   createLayoutNodeId,
   type LayoutNode,
@@ -82,6 +71,14 @@ interface DropdownItem {
   name: string
   href: string
   icon?: ComponentType<any>
+  bgColor?: string
+}
+
+const sanitizeHexColor = (value?: string) => {
+  if (!value) return undefined
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+  return trimmed.startsWith('#') ? trimmed : `#${trimmed}`
 }
 
 const DashboardNode = memo(
@@ -200,15 +197,14 @@ export function DashboardClient({
   const pathname = usePathname()
   const router = useRouter()
   const [docs, setDocs] = useState<DropdownItem[]>([])
+  const [searchWorkspaces, setSearchWorkspaces] = useState<DropdownItem[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const searchContainerRef = useRef<HTMLDivElement | null>(null)
   const docsLoadedRef = useRef(false)
   const docsLoadingRef = useRef(false)
   const brand = useBrandConfig()
-  const { workflows } = useWorkflowRegistry()
   const { knowledgeBases } = useKnowledgeBasesList(workspaceId)
-  const { userWorkspaces } = useOrganizationStore()
 
   const applyLayoutData = useCallback(
     (data: LayoutResponse) => {
@@ -277,6 +273,43 @@ export function DashboardClient({
       return sortLayouts((initialLayouts ?? []).map((layout) => ({ ...layout })))
     })
   }, [initialLayouts, sortLayouts])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadWorkspacesForSearch = async () => {
+      try {
+        const response = await fetch('/api/workspaces')
+        if (!response.ok) {
+          throw new Error(`Failed to load workspaces (${response.status})`)
+        }
+        const payload = (await response.json()) as {
+          workspaces?: Array<{ id: string; name: string }>
+        }
+        if (!isMounted) return
+        const workspaces = Array.isArray(payload?.workspaces) ? payload.workspaces : []
+        setSearchWorkspaces(
+          workspaces.map(
+            (workspace: { id: string; name: string }): DropdownItem => ({
+              id: workspace.id,
+              name: workspace.name,
+              href: `/workspace/${workspace.id}/w`,
+            })
+          )
+        )
+      } catch (error) {
+        if (isMounted) {
+          console.error('Failed to load workspaces for search:', error)
+        }
+      }
+    }
+
+    void loadWorkspacesForSearch()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   useEffect(() => {
     hydratePairStoreFromColorPairs(normalizedInitialColorPairs)
@@ -385,26 +418,6 @@ export function DashboardClient({
     })
   }, [])
 
-  const searchWorkflows = useMemo(
-    () =>
-      Object.values(workflows).map((workflow) => ({
-        id: workflow.id,
-        name: workflow.name,
-        href: `/workspace/${workspaceId}/w/${workflow.id}`,
-      })),
-    [workflows, workspaceId]
-  )
-
-  const searchWorkspaces = useMemo(
-    () =>
-      userWorkspaces.map((workspace) => ({
-        id: workspace.id,
-        name: workspace.name,
-        href: `/workspace/${workspace.id}/w`,
-      })),
-    [userWorkspaces]
-  )
-
   const searchKnowledgeBases = useMemo(
     () =>
       knowledgeBases.map((kb) => ({
@@ -453,6 +466,7 @@ export function DashboardClient({
           id: block.type,
           name: block.name,
           icon: block.icon,
+          bgColor: block.bgColor && block.bgColor.trim() ? block.bgColor : undefined,
           href: block.docsLink!,
         }))
       )
@@ -470,9 +484,6 @@ export function DashboardClient({
   }, [isSearchOpen, loadDocs])
 
   const normalizedQuery = searchQuery.trim().toLowerCase()
-  const filteredWorkflows = normalizedQuery
-    ? searchWorkflows.filter((workflow) => workflow.name.toLowerCase().includes(normalizedQuery))
-    : searchWorkflows
   const filteredWorkspaces = normalizedQuery
     ? searchWorkspaces.filter((workspace) => workspace.name.toLowerCase().includes(normalizedQuery))
     : searchWorkspaces
@@ -486,7 +497,6 @@ export function DashboardClient({
     ? docs.filter((doc) => doc.name.toLowerCase().includes(normalizedQuery))
     : docs
   const hasResults =
-    filteredWorkflows.length > 0 ||
     filteredWorkspaces.length > 0 ||
     filteredKnowledgeBases.length > 0 ||
     filteredPages.length > 0 ||
@@ -670,7 +680,7 @@ export function DashboardClient({
       <div ref={searchContainerRef} className='relative flex flex-1'>
         <Search className='-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground' />
         <Input
-          placeholder='Search workflows...'
+          placeholder='Search workspace content...'
           value={searchQuery}
           onChange={(event) => {
             setSearchQuery(event.target.value)
@@ -685,19 +695,9 @@ export function DashboardClient({
           className='h-9 w-full rounded-md border bg-background pr-3 pl-10 text-sm'
         />
         {showDropdown && (
-          <div className='absolute top-full left-0 z-50 mt-2 w-full max-w-[420px] rounded-md border border-border bg-background shadow-lg'>
+          <div className='absolute top-full left-0 z-50 mt-2 w-full min-w-[220px] rounded-md border border-border bg-background shadow-lg'>
             <div className='max-h-80 overflow-y-auto'>
-              <div className='space-y-4 p-4'>
-                <DropdownSection
-                  title='Workflows'
-                  icon={Workflow}
-                  items={filteredWorkflows}
-                  onSelect={(href) => {
-                    setIsSearchOpen(false)
-                    setSearchQuery('')
-                    router.push(href)
-                  }}
-                />
+              <div className='space-y-2 p-2'>
                 <DropdownSection
                   title='Workspaces'
                   icon={Building2}
@@ -744,7 +744,21 @@ export function DashboardClient({
                             window.open(doc.href, '_blank', 'noopener,noreferrer')
                           }}
                         >
-                          <doc.icon className='h-4 w-4 text-muted-foreground' />
+                          {(() => {
+                            const DocIcon = doc.icon ?? BookOpen
+                            const docColor = sanitizeHexColor(doc.bgColor) ?? undefined
+                            return (
+                              <div
+                                className='flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-secondary/60 text-foreground'
+                                style={{
+                                  backgroundColor: docColor ? `${docColor}30` : undefined,
+                                  color: docColor || undefined,
+                                }}
+                              >
+                                <DocIcon className='h-4 w-4' />
+                              </div>
+                            )
+                          })()}
                           <span className='truncate'>{doc.name}</span>
                         </button>
                       ))}
@@ -1324,6 +1338,7 @@ function DropdownSection({
       <div className='space-y-1'>
         {items.map((item) => {
           const ItemIcon = item.icon ?? Icon
+          const iconColor = sanitizeHexColor(item.bgColor) ?? undefined
 
           return (
             <button
@@ -1331,7 +1346,17 @@ function DropdownSection({
               className='flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-foreground text-sm transition hover:bg-card/50'
               onClick={() => onSelect(item.href)}
             >
-              {ItemIcon && <ItemIcon className='h-4 w-4 text-muted-foreground' />}
+              {ItemIcon && (
+                <div
+                  className='flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-secondary/60 text-foreground'
+                  style={{
+                    backgroundColor: iconColor ? `${iconColor}30` : undefined,
+                    color: iconColor || undefined,
+                  }}
+                >
+                  <ItemIcon className='h-4 w-4' />
+                </div>
+              )}
               <span className='truncate'>{item.name}</span>
             </button>
           )

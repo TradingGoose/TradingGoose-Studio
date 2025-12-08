@@ -26,6 +26,7 @@ interface FolderSectionProps {
   pathname: string
   updateWorkflow: (id: string, updates: Partial<WorkflowMetadata>) => Promise<void>
   updateFolder: (id: string, updates: any) => Promise<any>
+  canDeleteWorkflow: boolean
   renderFolderTree: (
     nodes: FolderTreeNode[],
     level: number,
@@ -82,6 +83,7 @@ function FolderSection({
   pathname,
   updateWorkflow,
   updateFolder,
+  canDeleteWorkflow,
   renderFolderTree,
   parentDragOver = false,
 }: FolderSectionProps) {
@@ -183,6 +185,7 @@ function FolderSection({
                       isDragOver={isAnyDragOver}
                       onSelect={onWorkflowSelect}
                       disableNavigation={disableNavigation}
+                      canDelete={canDeleteWorkflow}
                     />
                   </div>
                 </div>
@@ -235,6 +238,7 @@ function FolderSection({
                       pathname={pathname}
                       updateWorkflow={updateWorkflow}
                       updateFolder={updateFolder}
+                      canDeleteWorkflow={canDeleteWorkflow}
                       renderFolderTree={renderFolderTree}
                       parentDragOver={isAnyDragOver}
                     />
@@ -518,6 +522,7 @@ export function FolderTree({
     },
     {} as Record<string, WorkflowMetadata[]>
   )
+  const canDeleteWorkflow = regularWorkflows.length > 1
 
   const {
     isDragOver: rootDragOver,
@@ -546,6 +551,7 @@ export function FolderTree({
         pathname={pathname}
         updateWorkflow={updateWorkflow}
         updateFolder={updateFolderAPI}
+        canDeleteWorkflow={canDeleteWorkflow}
         renderFolderTree={renderFolderTree}
         parentDragOver={parentDragOver}
       />
@@ -603,6 +609,7 @@ export function FolderTree({
               isDragOver={rootDragOver}
               onSelect={onWorkflowSelect}
               disableNavigation={disableNavigation}
+              canDelete={canDeleteWorkflow}
             />
           ))}
 

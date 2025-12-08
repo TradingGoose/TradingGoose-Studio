@@ -73,6 +73,7 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
   const [deleteError, setDeleteError] = React.useState<string | null>(null)
   const [activeSettingsSection, setActiveSettingsSection] = React.useState<SettingsSection>('account')
   const [isSettingsModalOpen, setIsSettingsModalOpen] = React.useState(false)
+  const [userNameOverride, setUserNameOverride] = React.useState<string | null>(null)
   const [userAvatarOverride, setUserAvatarOverride] = React.useState<{
     url: string | null
     version: number | string | null
@@ -92,7 +93,7 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
   const shouldShowSkeleton = shouldRenderNavbar && isSessionLoading
 
   const userId = sessionData?.user?.id ?? null
-  const userName = sessionData?.user?.name ?? brand.name
+  const userName = userNameOverride ?? sessionData?.user?.name ?? brand.name
   const userEmail = sessionData?.user?.email ?? brand.supportEmail ?? 'help@tradinggoose.ai'
   const userAvatar = userAvatarOverride.url ?? sessionData?.user?.image ?? brand.logoUrl
   const userAvatarVersion =
@@ -160,6 +161,39 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
       window.removeEventListener('open-settings', handleOpenSettings as EventListener)
     }
   }, [openSettings])
+
+  React.useEffect(() => {
+    if (!userId || typeof window === 'undefined') {
+      setUserNameOverride(null)
+      return
+    }
+
+    const key = `user-name-${userId}`
+
+    const readStoredName = () => {
+      const storedName = window.localStorage.getItem(key)
+      setUserNameOverride(storedName !== null ? storedName || null : null)
+    }
+
+    const handleStorage = (event: StorageEvent) => {
+      if (!event.key || event.key !== key) return
+      readStoredName()
+    }
+
+    const handleNameEvent = (event: Event) => {
+      const customEvent = event as CustomEvent<{ name?: string | null }>
+      const detail = customEvent.detail
+      setUserNameOverride(detail && 'name' in detail ? detail?.name ?? null : null)
+    }
+
+    readStoredName()
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener('user-name-updated', handleNameEvent)
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('user-name-updated', handleNameEvent)
+    }
+  }, [userId])
 
   React.useEffect(() => {
     if (!userId || typeof window === 'undefined') return

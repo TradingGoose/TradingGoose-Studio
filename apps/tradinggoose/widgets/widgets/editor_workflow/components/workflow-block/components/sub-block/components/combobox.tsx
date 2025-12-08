@@ -58,6 +58,7 @@ export function ComboBox({
   const [cursorPosition, setCursorPosition] = useState(0)
   const [activeSourceBlockId, setActiveSourceBlockId] = useState<string | null>(null)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
+  const [hasTyped, setHasTyped] = useState(false)
 
   const emitTagSelection = useTagSelection(blockId, subBlockId)
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
@@ -126,16 +127,16 @@ export function ComboBox({
     // Always show all options when dropdown is not open
     if (!open) return evaluatedOptions
 
-    // If no value or value matches an exact option, show all options
-    if (!value) return evaluatedOptions
+    // If no value, show all options
+    const currentValue = value?.toString() ?? ''
+    if (!currentValue) return evaluatedOptions
 
-    const currentValue = value.toString()
     const exactMatch = evaluatedOptions.find(
       (opt) => getOptionValue(opt) === currentValue || getOptionLabel(opt) === currentValue
     )
 
-    // If current value exactly matches an option, show all options (user just selected it)
-    if (exactMatch) return evaluatedOptions
+    // If current value exactly matches an option and user hasn't typed, show all (fresh open)
+    if (exactMatch && !hasTyped) return evaluatedOptions
 
     // Otherwise filter based on current input
     return evaluatedOptions.filter((option) => {
@@ -144,7 +145,7 @@ export function ComboBox({
       const search = currentValue.toLowerCase()
       return label.includes(search) || optionValue.includes(search)
     })
-  }, [evaluatedOptions, value, open, getOptionLabel, getOptionValue])
+  }, [evaluatedOptions, value, open, getOptionLabel, getOptionValue, hasTyped])
 
   // Event handlers
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -155,6 +156,7 @@ export function ComboBox({
 
     const newValue = e.target.value
     const newCursorPosition = e.target.selectionStart ?? 0
+    setHasTyped(true)
 
     // Update store value immediately (allow free text)
     if (!isPreview) {
@@ -177,6 +179,7 @@ export function ComboBox({
     if (!isPreview && !disabled) {
       setStoreValue(selectedValue)
     }
+    setHasTyped(false)
     setOpen(false)
     setHighlightedIndex(-1)
     inputRef.current?.blur()
@@ -203,6 +206,7 @@ export function ComboBox({
     setIsFocused(false)
     setShowEnvVars(false)
     setShowTags(false)
+    setHasTyped(false)
 
     // Delay closing to allow dropdown selection
     setTimeout(() => {
@@ -399,6 +403,19 @@ export function ComboBox({
 
   // Display value with formatting
   const displayValue = value?.toString() ?? ''
+  const selectedOption = useMemo(() => {
+    if (value === null || value === undefined) return undefined
+
+    return evaluatedOptions.find((opt) => {
+      const optionValue = getOptionValue(opt)
+      const optionLabel = getOptionLabel(opt)
+      return optionValue === value || optionLabel === value
+    })
+  }, [evaluatedOptions, value])
+  const SelectedIcon =
+    selectedOption && typeof selectedOption === 'object' && 'icon' in selectedOption
+      ? (selectedOption.icon as React.ComponentType<{ className?: string }>)
+      : null
 
   // Render component
   return (
@@ -410,7 +427,8 @@ export function ComboBox({
             'allow-scroll w-full overflow-auto pr-10 text-transparent caret-foreground placeholder:text-muted-foreground/50',
             isConnecting &&
               config?.connectionDroppable !== false &&
-              'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500'
+              'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500',
+            SelectedIcon ? 'pl-8' : ''
           )}
           placeholder={placeholder}
           value={displayValue}
@@ -427,9 +445,17 @@ export function ComboBox({
           autoComplete='off'
           style={{ overflowX: 'auto' }}
         />
+        {SelectedIcon && (
+          <div className='pointer-events-none absolute top-0 bottom-0 left-0 flex items-center bg-transparent pl-3 text-sm'>
+            <SelectedIcon className='h-3 w-3 opacity-60' />
+          </div>
+        )}
         <div
           ref={overlayRef}
-          className='pointer-events-none absolute top-0 bottom-0 left-0 flex items-center bg-transparent pr-0 pl-3 text-sm'
+          className={cn(
+            'pointer-events-none absolute top-0 bottom-0 left-0 flex items-center bg-transparent pr-0 text-sm',
+            SelectedIcon ? 'pl-8' : 'pl-3'
+          )}
           style={{ right: '42px' }}
         >
           <div className='w-full truncate text-foreground' style={{ scrollbarWidth: 'none' }}>

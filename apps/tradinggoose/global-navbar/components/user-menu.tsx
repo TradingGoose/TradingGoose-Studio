@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import {
-  BadgeCheck,
-  Brain,
+  User,
+  BotMessageSquare,
   ChevronsUpDown,
   CreditCard,
   LifeBuoy,
@@ -60,6 +60,8 @@ const THEME_ITEM_BASE_CLASSES =
 const THEME_ITEM_ACTIVE_CLASSES = 'border-border bg-accent text-accent-foreground shadow-sm'
 const THEME_ITEM_INACTIVE_CLASSES =
   'border-transparent text-muted-foreground hover:bg-card hover:text-foreground'
+
+const DEFAULT_AVATAR_SRC = '/profile/avatar.png'
 
 interface UserMenuProps {
   userName: string
@@ -294,7 +296,11 @@ export function UserMenu({
                 className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
               >
                 <Avatar className='h-8 w-8 rounded-lg'>
-                  {avatarSrc ? <AvatarImage key={avatarSrc} src={avatarSrc} alt={userName} /> : null}
+                  {avatarSrc ? (
+                    <AvatarImage key={avatarSrc} src={avatarSrc} alt={userName} />
+                  ) : (
+                    <AvatarImage src={DEFAULT_AVATAR_SRC} alt='Default avatar' />
+                  )}
                   <AvatarFallback className='rounded-lg'>{getInitials(userName)}</AvatarFallback>
                 </Avatar>
                 <div className='grid flex-1 text-left text-sm leading-tight'>
@@ -353,7 +359,7 @@ export function UserMenu({
                     }
                   }}
                 >
-                  <BadgeCheck />
+                  <User />
                   Account Detail
                 </DropdownMenuItem>
                 <DropdownMenuItem
@@ -383,7 +389,7 @@ export function UserMenu({
                     }
                   }}
                 >
-                  <Brain />
+                  <BotMessageSquare />
                   Copilot Settings
                 </DropdownMenuItem>
               </DropdownMenuGroup>

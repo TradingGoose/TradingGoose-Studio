@@ -629,7 +629,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
 
           {/* Combined input container matching copilot style */}
           <div
-            className={`rounded-md border border-[#E5E5E5] bg-background p-2 shadow-xs transition-all duration-200 dark:border-[#414141]  ${isDragOver
+            className={`rounded-md border border-border bg-background p-2 shadow-xs transition-all duration-200 dark:border-[#414141]  ${isDragOver
               ? 'border-[var(--primary-hover)] bg-amber-50/50 dark:border-[var(--primary-hover)] dark:bg-amber-950/20'
               : ''
               }`}

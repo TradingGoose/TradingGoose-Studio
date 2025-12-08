@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 import { createPortal } from 'react-dom'
-import { extractFieldsFromSchema, parseResponseFormatSafely } from '@/lib/response-format'
 import { cn } from '@/lib/utils'
 import { getBlock } from '@/blocks'
+import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
+import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 
 const sanitizeHexColor = (value?: string) => {
   if (!value) return undefined
@@ -13,9 +14,6 @@ const sanitizeHexColor = (value?: string) => {
   if (!trimmed) return undefined
   return trimmed.startsWith('#') ? trimmed : `#${trimmed}`
 }
-import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 
 interface OutputSelectProps {
   workflowId: string | null
@@ -76,10 +74,6 @@ export function OutputSelect({
   }
 
   // Track subblock store state to ensure proper reactivity
-  const subBlockValues = useSubBlockStore((state) =>
-    workflowId ? state.workflowValues[workflowId] : null
-  )
-
   // Use diff blocks when in diff mode AND diff is ready, otherwise use main blocks
   const workflowBlocks = isShowingDiff && isDiffReady && diffWorkflow ? diffWorkflow.blocks : blocks
 
@@ -126,30 +120,7 @@ export function OutputSelect({
 
       // Check for custom response format first
       // In diff mode, get value from diff blocks; otherwise use store
-      const responseFormatValue =
-        isShowingDiff && isDiffReady && diffWorkflow
-          ? diffWorkflow.blocks[block.id]?.subBlocks?.responseFormat?.value
-          : subBlockValues?.[block.id]?.responseFormat
-      const responseFormat = parseResponseFormatSafely(responseFormatValue, block.id)
-
-      let outputsToProcess: Record<string, any> = {}
-
-      if (responseFormat) {
-        // Use custom schema properties if response format is specified
-        const schemaFields = extractFieldsFromSchema(responseFormat)
-        if (schemaFields.length > 0) {
-          // Convert schema fields to output structure
-          schemaFields.forEach((field) => {
-            outputsToProcess[field.name] = { type: field.type }
-          })
-        } else {
-          // Fallback to block config outputs if schema extraction failed
-          outputsToProcess = blockConfig?.outputs || {}
-        }
-      } else {
-        // Use block config outputs instead of block.outputs
-        outputsToProcess = blockConfig?.outputs || {}
-      }
+      const outputsToProcess: Record<string, any> = blockConfig?.outputs || {}
 
       // Add response outputs
       if (Object.keys(outputsToProcess).length > 0) {
@@ -210,7 +181,7 @@ export function OutputSelect({
     })
 
     return outputs
-  }, [workflowBlocks, workflowId, isShowingDiff, isDiffReady, diffWorkflow, blocks, subBlockValues])
+  }, [workflowBlocks, workflowId, isShowingDiff, isDiffReady, diffWorkflow, blocks])
 
   // Utility to check selected by id or label
   const isSelectedValue = (o: { id: string; label: string }) =>
