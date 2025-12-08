@@ -109,8 +109,9 @@ export async function executeTool(
 
     // If it's a custom tool, use the async version with workflowId
     if (toolId.startsWith('custom_')) {
-      const workflowId = params._context?.workflowId
-      tool = await getToolAsync(toolId, workflowId)
+      const workflowId = params._context?.workflowId || executionContext?.workflowId
+      const workspaceId = params._context?.workspaceId || executionContext?.workspaceId
+      tool = await getToolAsync(toolId, workflowId, workspaceId)
       if (!tool) {
         logger.error(`[${requestId}] Custom tool not found: ${toolId}`)
       }

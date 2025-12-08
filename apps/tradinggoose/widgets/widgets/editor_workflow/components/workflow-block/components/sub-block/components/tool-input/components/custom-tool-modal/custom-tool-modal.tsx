@@ -29,6 +29,11 @@ import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand
 import { CodeEditor } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/code-editor/code-editor'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useWand } from '@/hooks/workflow/use-wand'
+import {
+  useCreateCustomTool,
+  useDeleteCustomTool,
+  useUpdateCustomTool,
+} from '@/hooks/queries/custom-tools'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 
 const logger = createLogger('CustomToolModal')
@@ -253,9 +258,9 @@ try {
   // Schema params keyboard navigation
   const [schemaParamSelectedIndex, setSchemaParamSelectedIndex] = useState(0)
 
-  const addTool = useCustomToolsStore((state) => state.addTool)
-  const updateTool = useCustomToolsStore((state) => state.updateTool)
-  const removeTool = useCustomToolsStore((state) => state.removeTool)
+  const createToolMutation = useCreateCustomTool()
+  const updateToolMutation = useUpdateCustomTool()
+  const deleteToolMutation = useDeleteCustomTool()
 
   // Initialize form with initial values if provided
   useEffect(() => {
@@ -376,7 +381,7 @@ try {
   const isSchemaValid = useMemo(() => validateJsonSchema(jsonSchema), [jsonSchema])
   const isCodeValid = useMemo(() => validateFunctionCode(functionCode), [functionCode])
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSchemaError(null)
     setCodeError(null)
 
@@ -433,7 +438,7 @@ try {
       // Check for duplicate tool name
       const toolName = parsed.function.name
       const customToolsStore = useCustomToolsStore.getState()
-      const existingTools = customToolsStore.getAllTools()
+      const existingTools = customToolsStore.getAllTools(workspaceId)
 
       // If editing, we need to find the original tool to get its ID
       let originalToolId = toolId
@@ -475,20 +480,24 @@ try {
 
       let _finalToolId: string | undefined = originalToolId
 
-      // Only save to the store if we're not reusing an existing tool
       if (isEditing && originalToolId) {
-        // Update existing tool in store
-        updateTool(originalToolId, {
-          title: name,
-          schema,
-          code: functionCode || '',
+        await updateToolMutation.mutateAsync({
+          workspaceId,
+          toolId: originalToolId,
+          updates: {
+            title: name,
+            schema,
+            code: functionCode || '',
+          },
         })
       } else {
-        // Add new tool to store
-        _finalToolId = addTool({
-          title: name,
-          schema,
-          code: functionCode || '',
+        await createToolMutation.mutateAsync({
+          workspaceId,
+          tool: {
+            title: name,
+            schema,
+            code: functionCode || '',
+          },
         })
       }
 
@@ -511,7 +520,11 @@ try {
       handleClose()
     } catch (error) {
       logger.error('Error saving custom tool:', { error })
-      setSchemaError('Failed to save custom tool. Please check your inputs and try again.')
+      setSchemaError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to save custom tool. Please check your inputs and try again.'
+      )
     }
   }
 
@@ -783,19 +796,7 @@ try {
     try {
       setShowDeleteConfirm(false)
 
-      // Call API to delete the tool
-      const response = await fetch(`/api/tools/custom?id=${toolId}`, {
-        method: 'DELETE',
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        const errorMessage = errorData.error || response.statusText || 'Failed to delete tool'
-        throw new Error(errorMessage)
-      }
-
-      // Remove from local store
-      removeTool(toolId)
+      await deleteToolMutation.mutateAsync({ workspaceId, toolId })
       logger.info(`Deleted tool: ${toolId}`)
 
       // Notify parent component if callback provided

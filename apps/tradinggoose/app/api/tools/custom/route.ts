@@ -1,16 +1,18 @@
 import { db } from '@tradinggoose/db'
-import { customTools } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
+import { customTools, workflow } from '@tradinggoose/db/schema'
+import { and, desc, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { getSession } from '@/lib/auth'
+import { checkHybridAuth } from '@/lib/auth/hybrid'
+import { upsertCustomTools } from '@/lib/custom-tools/operations'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
-import { getUserId } from '@/app/api/auth/oauth/utils'
 
 const logger = createLogger('CustomToolsAPI')
 
 const CustomToolSchema = z.object({
+  workspaceId: z.string().min(1, 'workspaceId is required'),
   tools: z.array(
     z.object({
       id: z.string().optional(),
@@ -32,34 +34,59 @@ const CustomToolSchema = z.object({
   ),
 })
 
-// GET - Fetch all custom tools for the user
+// GET - Fetch all custom tools for a workspace
 export async function GET(request: NextRequest) {
   const requestId = generateRequestId()
   const searchParams = request.nextUrl.searchParams
+  const workspaceId = searchParams.get('workspaceId')
   const workflowId = searchParams.get('workflowId')
 
   try {
-    let userId: string | undefined
-
-    // If workflowId is provided, get userId from the workflow
-    if (workflowId) {
-      userId = await getUserId(requestId, workflowId)
-
-      if (!userId) {
-        logger.warn(`[${requestId}] No valid user found for workflow: ${workflowId}`)
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-    } else {
-      // Otherwise use session-based auth (for client-side)
-      const session = await getSession()
-      if (!session?.user?.id) {
-        logger.warn(`[${requestId}] Unauthorized custom tools access attempt`)
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-      userId = session.user.id
+    const authResult = await checkHybridAuth(request, { requireWorkflowId: false })
+    if (!authResult.success || !authResult.userId) {
+      logger.warn(`[${requestId}] Unauthorized custom tools access attempt`)
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const result = await db.select().from(customTools).where(eq(customTools.userId, userId))
+    const userId = authResult.userId
+    let resolvedWorkspaceId: string | null = workspaceId
+
+    if (!resolvedWorkspaceId && workflowId) {
+      const [workflowData] = await db
+        .select({ workspaceId: workflow.workspaceId })
+        .from(workflow)
+        .where(eq(workflow.id, workflowId))
+        .limit(1)
+
+      if (!workflowData?.workspaceId) {
+        logger.warn(`[${requestId}] Workflow not found: ${workflowId}`)
+        return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
+      }
+
+      resolvedWorkspaceId = workflowData.workspaceId
+    }
+
+    if (!resolvedWorkspaceId) {
+      logger.warn(`[${requestId}] Missing workspaceId for custom tools fetch`)
+      return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 })
+    }
+
+    // Skip permission check for internal JWT workflow proxy requests
+    if (!(authResult.authType === 'internal_jwt' && workflowId)) {
+      const permission = await getUserEntityPermissions(userId, 'workspace', resolvedWorkspaceId)
+      if (!permission) {
+        logger.warn(
+          `[${requestId}] User ${userId} does not have access to workspace ${resolvedWorkspaceId}`
+        )
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+      }
+    }
+
+    const result = await db
+      .select()
+      .from(customTools)
+      .where(eq(customTools.workspaceId, resolvedWorkspaceId))
+      .orderBy(desc(customTools.createdAt))
 
     return NextResponse.json({ data: result }, { status: 200 })
   } catch (error) {
@@ -73,8 +100,8 @@ export async function POST(req: NextRequest) {
   const requestId = generateRequestId()
 
   try {
-    const session = await getSession()
-    if (!session?.user?.id) {
+    const authResult = await checkHybridAuth(req, { requireWorkflowId: false })
+    if (!authResult.success || !authResult.userId) {
       logger.warn(`[${requestId}] Unauthorized custom tools update attempt`)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -83,71 +110,44 @@ export async function POST(req: NextRequest) {
 
     try {
       // Validate the request body
-      const { tools } = CustomToolSchema.parse(body)
+      const { tools, workspaceId } = CustomToolSchema.parse(body)
 
-      // Use a transaction for multi-step database operations
-      return await db.transaction(async (tx) => {
-        // Process each tool: either update existing or create new
-        for (const tool of tools) {
-          const nowTime = new Date()
+      const permission = await getUserEntityPermissions(authResult.userId, 'workspace', workspaceId)
+      if (!permission) {
+        logger.warn(
+          `[${requestId}] User ${authResult.userId} does not have access to workspace ${workspaceId}`
+        )
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+      }
 
-          if (tool.id) {
-            // First check if this tool belongs to the user
-            const existingTool = await tx
-              .select()
-              .from(customTools)
-              .where(eq(customTools.id, tool.id))
-              .limit(1)
+      if (permission !== 'admin' && permission !== 'write') {
+        logger.warn(
+          `[${requestId}] User ${authResult.userId} does not have write permission for workspace ${workspaceId}`
+        )
+        return NextResponse.json({ error: 'Write permission required' }, { status: 403 })
+      }
 
-            if (existingTool.length === 0) {
-              // Tool doesn't exist, create it
-              await tx.insert(customTools).values({
-                id: tool.id,
-                userId: session.user.id,
-                title: tool.title,
-                schema: tool.schema,
-                code: tool.code,
-                createdAt: nowTime,
-                updatedAt: nowTime,
-              })
-            } else if (existingTool[0].userId === session.user.id) {
-              // Tool exists and belongs to user, update it
-              await tx
-                .update(customTools)
-                .set({
-                  title: tool.title,
-                  schema: tool.schema,
-                  code: tool.code,
-                  updatedAt: nowTime,
-                })
-                .where(eq(customTools.id, tool.id))
-            } else {
-              // Log and silently continue if user attempts to update a tool they don't own
-              logger.warn(
-                `[${requestId}] Silent continuation on unauthorized tool update attempt: ${tool.id}`
-              )
-            }
-          } else {
-            // No ID provided, create a new tool
-            await tx.insert(customTools).values({
-              id: crypto.randomUUID(),
-              userId: session.user.id,
-              title: tool.title,
-              schema: tool.schema,
-              code: tool.code,
-              createdAt: nowTime,
-              updatedAt: nowTime,
-            })
-          }
-        }
-
-        return NextResponse.json({ success: true })
+      const resultTools = await upsertCustomTools({
+        tools,
+        workspaceId,
+        userId: authResult.userId,
+        requestId,
       })
+
+      return NextResponse.json({ success: true, data: resultTools })
     } catch (validationError) {
       if (validationError instanceof z.ZodError) {
         logger.warn(`[${requestId}] Invalid custom tools data`, {
           errors: validationError.errors,
         })
+
+        const workspaceError = validationError.errors.find(
+          (err) => err.path.length === 1 && err.path[0] === 'workspaceId'
+        )
+        if (workspaceError) {
+          return NextResponse.json({ error: workspaceError.message }, { status: 400 })
+        }
+
         return NextResponse.json(
           { error: 'Invalid request data', details: validationError.errors },
           { status: 400 }
@@ -166,34 +166,49 @@ export async function DELETE(request: NextRequest) {
   const requestId = generateRequestId()
   const searchParams = request.nextUrl.searchParams
   const toolId = searchParams.get('id')
+  const workspaceId = searchParams.get('workspaceId')
 
   if (!toolId) {
     logger.warn(`[${requestId}] Missing tool ID for deletion`)
     return NextResponse.json({ error: 'Tool ID is required' }, { status: 400 })
   }
+  if (!workspaceId) {
+    logger.warn(`[${requestId}] Missing workspaceId for deletion`)
+    return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 })
+  }
 
   try {
-    const session = await getSession()
-    if (!session?.user?.id) {
+    const authResult = await checkHybridAuth(request, { requireWorkflowId: false })
+    if (!authResult.success || !authResult.userId) {
       logger.warn(`[${requestId}] Unauthorized custom tool deletion attempt`)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check if the tool exists and belongs to the user
+    const permission = await getUserEntityPermissions(authResult.userId, 'workspace', workspaceId)
+    if (!permission) {
+      logger.warn(
+        `[${requestId}] User ${authResult.userId} does not have access to workspace ${workspaceId}`
+      )
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+
+    if (permission !== 'admin' && permission !== 'write') {
+      logger.warn(
+        `[${requestId}] User ${authResult.userId} does not have write permission for workspace ${workspaceId}`
+      )
+      return NextResponse.json({ error: 'Write permission required' }, { status: 403 })
+    }
+
+    // Check if the tool exists in this workspace
     const existingTool = await db
       .select()
       .from(customTools)
-      .where(eq(customTools.id, toolId))
+      .where(and(eq(customTools.id, toolId), eq(customTools.workspaceId, workspaceId)))
       .limit(1)
 
     if (existingTool.length === 0) {
       logger.warn(`[${requestId}] Tool not found: ${toolId}`)
       return NextResponse.json({ error: 'Tool not found' }, { status: 404 })
-    }
-
-    if (existingTool[0].userId !== session.user.id) {
-      logger.warn(`[${requestId}] User attempted to delete a tool they don't own: ${toolId}`)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
     // Delete the tool

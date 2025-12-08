@@ -202,7 +202,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     // Extract and persist custom tools to database
     try {
-      const { saved, errors } = await extractAndPersistCustomTools(workflowState, userId)
+      const { saved, errors } = await extractAndPersistCustomTools(
+        workflowState,
+        workflowData.workspaceId ?? null,
+        userId
+      )
 
       if (saved > 0) {
         logger.info(`[${requestId}] Persisted ${saved} custom tool(s) to database`, { workflowId })
