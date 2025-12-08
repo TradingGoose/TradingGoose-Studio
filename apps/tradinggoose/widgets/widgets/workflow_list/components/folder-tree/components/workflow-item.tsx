@@ -354,7 +354,7 @@ export function WorkflowItem({
       <div
         className={clsx(
           'group flex h-8 cursor-pointer items-center rounded-sm px-2 py-2 font-medium font-sans text-sm transition-colors',
-          active && !isDragOver ? 'bg-muted' : 'hover:bg-card',
+          active && !isDragOver ? 'bg-secondary' : 'hover:bg-secondary/60',
           isSelected && selectedWorkflows.size > 1 && !active && !isDragOver ? 'bg-muted' : '',
           isDragging ? 'opacity-50' : ''
         )}
