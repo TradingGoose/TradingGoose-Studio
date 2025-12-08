@@ -1,8 +1,8 @@
+'use client';
 import { X } from 'lucide-react'
 import { BaseEdge, EdgeLabelRenderer, type EdgeProps, getSmoothStepPath } from 'reactflow'
 import type { EdgeDiffStatus } from '@/lib/workflows/diff/types'
 import { useWorkflowDiffStore } from '@/stores/workflow-diff'
-
 interface WorkflowEdgeProps extends EdgeProps {
   sourceHandle?: string | null
   targetHandle?: string | null
@@ -114,7 +114,7 @@ export const WorkflowEdge = ({
       {isSelected && (
         <EdgeLabelRenderer>
           <div
-            className='nodrag nopan flex border-red-500 border-[1.5px] h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-background rounded-full shadow-sm'
+            className='nodrag nopan flex bg-red-100 hover:bg-red-200 dark:bg-red-950 dark:hover:bg-red-900 h-6 w-6 cursor-pointer items-center justify-center rounded-full  rounded-full shadow-sm '
             style={{
               transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
               pointerEvents: 'all',
@@ -130,7 +130,7 @@ export const WorkflowEdge = ({
               }
             }}
           >
-            <X className='h-5 w-5 text-red-500 hover:text-red-600' />
+            <X className='h-5 w-5 text-red-500' />
           </div>
         </EdgeLabelRenderer>
       )}

@@ -1,7 +1,7 @@
 import { EyeIcon } from '@/components/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
-import { getProviderIcon } from '@/providers/ai/utils'
+import { getProviderIcon } from '@/providers/utils'
 import type { VisionResponse } from '@/tools/vision/types'
 
 export const VisionBlock: BlockConfig<VisionResponse> = {

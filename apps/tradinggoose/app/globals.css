@@ -70,7 +70,7 @@
     --foreground: 20 14.3% 4.1%;
 
     /* Card Colors */
-    --card: 0 0% 99%;
+    --card: 0 0% 99.5%;
     --card-foreground: 20 14.3% 4.1%;
 
     /* Popover Colors */
@@ -162,7 +162,7 @@
     --primary-hover: #ffcc00cc;
 
     /* Secondary Colors */
-    --secondary: 12 6.5% 15.1%;
+    --secondary: 240 6.5% 15.1%;
     --secondary-foreground: 60 9.1% 97.8%;
 
     /* Muted Colors */

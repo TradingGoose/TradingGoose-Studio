@@ -9,24 +9,10 @@ import { ResponseBlockHandler } from '@/executor/handlers/response/response-hand
 interface DropdownProps {
   options:
   | Array<
-    | string
-    | {
-      label: string
-      id: string
-      icon?: React.ComponentType<{ className?: string }>
-      group?: string
-      disabled?: boolean
-    }
+    string | { label: string; id: string; icon?: React.ComponentType<{ className?: string }> }
   >
   | (() => Array<
-    | string
-    | {
-      label: string
-      id: string
-      icon?: React.ComponentType<{ className?: string }>
-      group?: string
-      disabled?: boolean
-    }
+    string | { label: string; id: string; icon?: React.ComponentType<{ className?: string }> }
   >)
   defaultValue?: string
   blockId: string
@@ -37,11 +23,6 @@ interface DropdownProps {
   disabled?: boolean
   placeholder?: string
   config?: import('@/blocks/types').SubBlockConfig
-  useStore?: boolean
-  valueOverride?: string
-  onChange?: (value: string) => void
-  enableSearch?: boolean
-  searchPlaceholder?: string
 }
 
 export function Dropdown({
@@ -55,22 +36,14 @@ export function Dropdown({
   disabled,
   placeholder = 'Select an option...',
   config,
-  useStore = true,
-  valueOverride,
-  onChange,
-  className,
-  enableSearch = false,
-  searchPlaceholder = 'Search...',
-}: DropdownProps & { className?: string }) {
+}: DropdownProps) {
   const [storeValue, setStoreValue] = useSubBlockValue<string>(blockId, subBlockId)
   const [storeInitialized, setStoreInitialized] = useState(false)
   const [open, setOpen] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
-  const [searchTerm, setSearchTerm] = useState('')
 
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const searchInputRef = useRef<HTMLInputElement>(null)
   const previousModeRef = useRef<string | null>(null)
 
   // For response dataMode conversion - get builderData and data sub-blocks
@@ -86,36 +59,18 @@ export function Dropdown({
     dataRef.current = data
   }, [builderData, data])
 
-  const isControlled = !useStore
-  // Use preview value when in preview mode, otherwise use store value or prop value or controlled value
-  const value = isPreview
-    ? previewValue
-    : isControlled
-      ? valueOverride
-      : propValue !== undefined
-        ? propValue
-        : storeValue
+  // Use preview value when in preview mode, otherwise use store value or prop value
+  const value = isPreview ? previewValue : propValue !== undefined ? propValue : storeValue
 
   // Evaluate options if it's a function
-  const manifestVersion =
-    config?.optionsStore === 'marketProviders'
-      ? useMarketProviderManifestStore((state) => state.version)
-      : undefined
-
   const evaluatedOptions = useMemo(() => {
     return typeof options === 'function' ? options() : options
-  }, [options, manifestVersion])
+  }, [options])
 
   const getOptionValue = (
     option:
       | string
-      | {
-        label: string
-        id: string
-        icon?: React.ComponentType<{ className?: string }>
-        group?: string
-        disabled?: boolean
-      }
+      | { label: string; id: string; icon?: React.ComponentType<{ className?: string }> }
   ) => {
     return typeof option === 'string' ? option : option.id
   }
@@ -123,13 +78,7 @@ export function Dropdown({
   const getOptionLabel = (
     option:
       | string
-      | {
-        label: string
-        id: string
-        icon?: React.ComponentType<{ className?: string }>
-        group?: string
-        disabled?: boolean
-      }
+      | { label: string; id: string; icon?: React.ComponentType<{ className?: string }> }
   ) => {
     return typeof option === 'string' ? option : option.label
   }
@@ -156,27 +105,13 @@ export function Dropdown({
   // and we know the actual value is null/undefined (not just loading)
   useEffect(() => {
     if (
-      useStore &&
       storeInitialized &&
       (value === null || value === undefined) &&
       defaultOptionValue !== undefined
     ) {
       setStoreValue(defaultOptionValue)
     }
-  }, [useStore, storeInitialized, value, defaultOptionValue, setStoreValue])
-
-  const isSearchEnabled = Boolean(enableSearch)
-  const normalizedSearchTerm = searchTerm.trim().toLowerCase()
-
-  const displayedOptions = useMemo(() => {
-    if (!isSearchEnabled || !normalizedSearchTerm) {
-      return evaluatedOptions
-    }
-
-    return evaluatedOptions.filter((option) =>
-      getOptionLabel(option).toLowerCase().includes(normalizedSearchTerm)
-    )
-  }, [evaluatedOptions, getOptionLabel, isSearchEnabled, normalizedSearchTerm])
+  }, [storeInitialized, value, defaultOptionValue, setStoreValue])
 
   // Helper function to normalize variable references in JSON strings
   const normalizeVariableReferences = (jsonString: string): string => {
@@ -260,14 +195,10 @@ export function Dropdown({
 
   // Event handlers
   const handleSelect = (selectedValue: string) => {
-    if (!isPreview && !disabled && useStore) {
+    if (!isPreview && !disabled) {
       setStoreValue(selectedValue)
     }
-    if (onChange) {
-      onChange(selectedValue)
-    }
     setOpen(false)
-    setSearchTerm('')
     setHighlightedIndex(-1)
     inputRef.current?.blur()
   }
@@ -310,33 +241,22 @@ export function Dropdown({
       e.preventDefault()
       if (!open) {
         setOpen(true)
-        if (displayedOptions.length > 0) {
-          setHighlightedIndex(0)
-        }
-      } else if (displayedOptions.length > 0) {
-        setHighlightedIndex((prev) =>
-          prev < displayedOptions.length - 1 ? prev + 1 : 0
-        )
+        setHighlightedIndex(0)
+      } else {
+        setHighlightedIndex((prev) => (prev < evaluatedOptions.length - 1 ? prev + 1 : 0))
       }
     }
 
     if (e.key === 'ArrowUp') {
       e.preventDefault()
-      if (open && displayedOptions.length > 0) {
-        setHighlightedIndex((prev) =>
-          prev > 0 ? prev - 1 : displayedOptions.length - 1
-        )
+      if (open) {
+        setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : evaluatedOptions.length - 1))
       }
     }
 
-    if (
-      e.key === 'Enter' &&
-      open &&
-      highlightedIndex >= 0 &&
-      highlightedIndex < displayedOptions.length
-    ) {
+    if (e.key === 'Enter' && open && highlightedIndex >= 0) {
       e.preventDefault()
-      const selectedOption = displayedOptions[highlightedIndex]
+      const selectedOption = evaluatedOptions[highlightedIndex]
       if (selectedOption) {
         handleSelect(getOptionValue(selectedOption))
       }
@@ -346,12 +266,12 @@ export function Dropdown({
   // Effects
   useEffect(() => {
     setHighlightedIndex((prev) => {
-      if (prev >= 0 && prev < displayedOptions.length) {
+      if (prev >= 0 && prev < evaluatedOptions.length) {
         return prev
       }
       return -1
     })
-  }, [displayedOptions])
+  }, [evaluatedOptions])
 
   // Scroll highlighted option into view
   useEffect(() => {
@@ -389,22 +309,6 @@ export function Dropdown({
     }
   }, [open])
 
-  useEffect(() => {
-    if (!isSearchEnabled) return
-    if (open) {
-      const timer = setTimeout(() => {
-        searchInputRef.current?.focus()
-      }, 0)
-      return () => clearTimeout(timer)
-    }
-    setSearchTerm('')
-  }, [open, isSearchEnabled])
-
-  useEffect(() => {
-    if (!isSearchEnabled) return
-    setHighlightedIndex(-1)
-  }, [searchTerm, isSearchEnabled])
-
   // Display value
   const displayValue = value?.toString() ?? ''
   const selectedOption = evaluatedOptions.find((opt) => getOptionValue(opt) === value)
@@ -414,33 +318,9 @@ export function Dropdown({
       ? (selectedOption.icon as React.ComponentType<{ className?: string }>)
       : null
 
-  const groupedOptions = useMemo(() => {
-    const groupOrder: string[] = []
-    const grouped: Record<string, typeof displayedOptions> = {}
-
-    displayedOptions.forEach((option) => {
-      const group =
-        typeof option === 'object' && 'group' in option && option.group ? option.group : 'Options'
-      if (!groupOrder.includes(group)) {
-        groupOrder.push(group)
-      }
-      if (!grouped[group]) {
-        grouped[group] = []
-      }
-      grouped[group].push(option)
-    })
-
-    return { groupOrder, grouped }
-  }, [displayedOptions])
-
-  const noOptionsMessage =
-    isSearchEnabled && normalizedSearchTerm
-      ? 'No matching options.'
-      : 'No options available.'
-
   // Render component
   return (
-    <div className={cn('relative w-full', className)}>
+    <div className='relative w-full'>
       <div className='relative'>
         <Input
           ref={inputRef}
@@ -481,81 +361,48 @@ export function Dropdown({
       {open && (
         <div className='absolute top-full left-0 z-[100] mt-1 w-full'>
           <div className='allow-scroll fade-in-0 zoom-in-95 animate-in rounded-md border bg-popover text-popover-foreground shadow-lg'>
-            {isSearchEnabled && (
-              <div className='border-b border-border p-2'>
-                <Input
-                  ref={searchInputRef}
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder={searchPlaceholder}
-                  autoComplete='off'
-                  disabled={disabled}
-                />
-              </div>
-            )}
-            <div className='allow-scroll max-h-48 overflow-y-auto p-1' style={{ scrollbarWidth: 'thin' }}>
-              <div ref={dropdownRef}>
-                {displayedOptions.length === 0 ? (
-                  <div className='py-6 text-center text-muted-foreground text-sm'>
-                    {noOptionsMessage}
-                  </div>
-                ) : (
-                  (() => {
-                    let renderIndex = 0
-                    return groupedOptions.groupOrder.map((group) => {
-                      const groupOptions = groupedOptions.grouped[group] || []
-                      return (
-                        <div key={group}>
-                          {groupedOptions.groupOrder.length > 1 && (
-                            <div className='px-2 pt-2.5 pb-0.5 font-medium text-muted-foreground text-xs'>
-                              {group}
-                            </div>
-                          )}
-                          {groupOptions.map((option) => {
-                            const optionValue = getOptionValue(option)
-                            const optionLabel = getOptionLabel(option)
-                            const OptionIcon =
-                              typeof option === 'object' && 'icon' in option
-                                ? (option.icon as React.ComponentType<{ className?: string }>)
-                                : null
-                            const isSelected = value === optionValue
-                            const isHighlighted = renderIndex === highlightedIndex
-                            const isDisabled =
-                              typeof option === 'object' && 'disabled' in option
-                                ? Boolean(option.disabled)
-                                : false
+            <div
+              ref={dropdownRef}
+              className='allow-scroll max-h-48 overflow-y-auto p-1'
+              style={{ scrollbarWidth: 'thin' }}
+            >
+              {evaluatedOptions.length === 0 ? (
+                <div className='py-6 text-center text-muted-foreground text-sm'>
+                  No options available.
+                </div>
+              ) : (
+                evaluatedOptions.map((option, index) => {
+                  const optionValue = getOptionValue(option)
+                  const optionLabel = getOptionLabel(option)
+                  const OptionIcon =
+                    typeof option === 'object' && 'icon' in option
+                      ? (option.icon as React.ComponentType<{ className?: string }>)
+                      : null
+                  const isSelected = value === optionValue
+                  const isHighlighted = index === highlightedIndex
 
-                            const currentIndex = renderIndex
-                            renderIndex += 1
-
-                            return (
-                              <div
-                                key={optionValue}
-                                data-option-index={currentIndex}
-                                onClick={() => !isDisabled && handleSelect(optionValue)}
-                                onMouseDown={(e) => {
-                                  e.preventDefault()
-                                  if (!isDisabled) handleSelect(optionValue)
-                                }}
-                                onMouseEnter={() => setHighlightedIndex(currentIndex)}
-                                className={cn(
-                                  'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-card hover:text-accent-foreground',
-                                  isHighlighted && 'bg-accent text-accent-foreground',
-                                  isDisabled && 'cursor-not-allowed opacity-60'
-                                )}
-                              >
-                                {OptionIcon && <OptionIcon className='mr-2 h-3 w-3' />}
-                                <span className='flex-1 truncate'>{optionLabel}</span>
-                                {isSelected && <Check className='ml-2 h-4 w-4 flex-shrink-0' />}
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )
-                    })
-                  })()
-                )}
-              </div>
+                  return (
+                    <div
+                      key={optionValue}
+                      data-option-index={index}
+                      onClick={() => handleSelect(optionValue)}
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        handleSelect(optionValue)
+                      }}
+                      onMouseEnter={() => setHighlightedIndex(index)}
+                      className={cn(
+                        'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-card hover:text-accent-foreground',
+                        isHighlighted && 'bg-accent text-accent-foreground'
+                      )}
+                    >
+                      {OptionIcon && <OptionIcon className='mr-2 h-3 w-3' />}
+                      <span className='flex-1 truncate'>{optionLabel}</span>
+                      {isSelected && <Check className='ml-2 h-4 w-4 flex-shrink-0' />}
+                    </div>
+                  )
+                })
+              )}
             </div>
           </div>
         </div>
