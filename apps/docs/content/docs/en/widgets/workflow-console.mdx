@@ -1,0 +1,59 @@
+---
+title: Workflow Console
+description: Real-time workflow execution console with logs and streaming output
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+The Workflow Console widget provides a real-time view of workflow execution, displaying logs, debug information, and streaming output as your workflow runs.
+
+## Overview
+
+| Property | Value |
+|----------|-------|
+| **Key** | `workflow_console` |
+| **Category** | Utility |
+| **Icon** | Activity |
+
+## Features
+
+- **Real-time Logs**: View execution logs as they happen
+- **Streaming Output**: See block outputs in real-time
+- **Execution Status**: Monitor the current state of workflow execution
+- **Error Display**: Quickly identify and debug errors
+- **Log Filtering**: Filter logs by type, block, or severity
+- **Clear Console**: Reset the console output
+
+## Usage
+
+The Workflow Console is essential for:
+
+- Debugging workflow execution
+- Monitoring long-running workflows
+- Viewing intermediate block outputs
+- Identifying errors and bottlenecks
+
+### Log Types
+
+| Type | Description |
+|------|-------------|
+| **Info** | General execution information |
+| **Debug** | Detailed debugging information |
+| **Warning** | Non-critical issues |
+| **Error** | Execution errors and failures |
+| **Output** | Block output data |
+
+### Viewing Execution Flow
+
+The console shows the execution path through your workflow:
+
+1. **Start**: Workflow execution begins
+2. **Block Entry**: Each block starts processing
+3. **Block Output**: Results from each block
+4. **Block Exit**: Block completes
+5. **End**: Workflow execution completes
+
+<Callout>
+This widget supports the **pairColor** mechanism. Pair it with a Workflow Editor to see logs for the workflow you're editing.
+</Callout>
+
