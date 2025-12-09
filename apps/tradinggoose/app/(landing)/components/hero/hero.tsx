@@ -1,278 +1,373 @@
 'use client'
 
-import React from 'react'
-import { ArrowUp } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useRef } from 'react'
+
+import Image from 'next/image'
 import {
-  AirtableIcon,
-  DiscordIcon,
-  GmailIcon,
-  GoogleDriveIcon,
-  GoogleSheetsIcon,
-  JiraIcon,
-  LinearIcon,
-  NotionIcon,
-  OutlookIcon,
-  PineconeIcon,
-  SlackIcon,
-  StripeIcon,
-  SupabaseIcon,
-} from '@/components/icons'
-import { LandingPromptStorage } from '@/lib/browser-storage'
-import { soehne } from '@/app/fonts/soehne/soehne'
-import { IconButton } from './components'
-import type { HeroServiceIcon } from './types'
+  ArrowRightIcon,
+  BotMessageSquareIcon,
+  ChartCandlestick,
+  CodeXmlIcon,
+  ChartLine,
+  Workflow,
+  LayoutDashboardIcon
+} from 'lucide-react'
 
-/**
- * Service-specific template messages for the hero input
- */
-const SERVICE_TEMPLATES = {
-  slack: 'Summarizer agent that summarizes each new message in #general and sends me a DM',
-  gmail: 'Alert agent that flags important Gmail messages in my inbox',
-  outlook:
-    'Auto-forwarding agent that classifies each new Outlook email and forwards to separate inboxes for further analysis',
-  pinecone: 'RAG chat agent that uses memories stored in Pinecone',
-  supabase: 'Natural language to SQL agent to query and update data in Supabase',
-  linear: 'Agent that uses Linear to triage issues, assign owners, and draft updates',
-  discord: 'Moderator agent that responds back to users in my Discord server',
-  airtable: 'Alert agent that validates each new record in a table and prepares a weekly report',
-  stripe: 'Agent that analyzes Stripe payment history to spot churn risks and generate summaries',
-  notion: 'Support agent that appends new support tickets to my Notion workspace',
-  googleSheets: 'Data science agent that analyzes Google Sheets data and generates insights',
-  googleDrive: 'Drive reader agent that summarizes content in my Google Drive',
-  jira: 'Engineering manager agent that uses Jira to update ticket statuses, generate sprint reports, and identify blockers',
-} as const
+import { AnimatedBeam } from '@/components/ui/animated-beam'
+import { MotionPreset } from '@/components/ui/motion-preset'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 
-/**
- * Hero component for the landing page featuring service integrations and CTA
- */
-export default function Hero() {
-  const router = useRouter()
+const Hero = () => {
+  const imageContainerRef = useRef<HTMLDivElement>(null)
 
-  /**
-   * State management for the text input
-   */
-  const [textValue, setTextValue] = React.useState('')
-  const isEmpty = textValue.trim().length === 0
+  useEffect(() => {
+    const container = imageContainerRef.current
 
-  /**
-   * State for responsive icon display
-   */
-  const [visibleIconCount, setVisibleIconCount] = React.useState(13)
-  const [isMobile, setIsMobile] = React.useState(false)
+    if (!container) return
 
-  /**
-   * Auto-hover animation state
-   */
-  const [autoHoverIndex, setAutoHoverIndex] = React.useState(1)
-  const [isUserHovering, setIsUserHovering] = React.useState(false)
-  const [lastHoveredIndex, setLastHoveredIndex] = React.useState<number | null>(null)
-  const intervalRef = React.useRef<NodeJS.Timeout | null>(null)
+    // Check if screen is large enough for 3D effects (1024px+)
+    const checkScreenSize = () => window.innerWidth >= 1024
 
-  /**
-   * Handle service icon click to populate textarea with template
-   */
-  const handleServiceClick = (serviceKey: string) => {
-    if (serviceKey in SERVICE_TEMPLATES) {
-      const templateKey = serviceKey as keyof typeof SERVICE_TEMPLATES
-      setTextValue(SERVICE_TEMPLATES[templateKey])
-    }
-  }
+    /**
+     * Handle mouse movement for 3D tilt effect
+     * Calculates rotation based on mouse position relative to container center
+     */
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!checkScreenSize()) return
 
-  /**
-   * Set visible icon count based on screen size
-   */
-  React.useEffect(() => {
-    const updateVisibleIcons = () => {
-      if (typeof window !== 'undefined') {
-        const mobile = window.innerWidth < 640
-        setVisibleIconCount(mobile ? 6 : 13)
-        setIsMobile(mobile)
-      }
+      const rect = container.getBoundingClientRect()
+
+      // Calculate rotation angles (reduced multiplier for subtle effect)
+      const x = (e.clientX - rect.left - rect.width / 2) * 0.0075
+      const y = (e.clientY - rect.top - rect.height / 2) * 0.0075
+
+      // Apply 3D transform with perspective and slight scale
+      container.style.transform = `perspective(1000px) rotateX(${y}deg) rotateY(${x}deg) scale3d(1.01, 1.01, 1.01)`
+      container.style.boxShadow = '0 20px 50px rgba(0, 0, 0, 0.15)'
     }
 
-    updateVisibleIcons()
-    window.addEventListener('resize', updateVisibleIcons)
+    // Initialize hover state with smooth transition
+    const handleMouseEnter = (e: MouseEvent) => {
+      if (!checkScreenSize()) return
 
-    return () => window.removeEventListener('resize', updateVisibleIcons)
+      container.style.transition = 'transform 0.2s ease, box-shadow 0.2s ease'
+      handleMouseMove(e)
+    }
+
+    // Reset to neutral position when mouse leaves
+    const handleMouseLeave = () => {
+      container.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) scale3d(1, 1, 1)'
+      container.style.boxShadow = 'none'
+      container.style.transition = 'transform 0.5s ease, box-shadow 0.5s ease'
+    }
+
+    // Add event listeners for 3D tilt interaction
+    container.addEventListener('mouseenter', handleMouseEnter)
+    container.addEventListener('mousemove', handleMouseMove)
+    container.addEventListener('mouseleave', handleMouseLeave)
+
+    // Cleanup event listeners on unmount
+    return () => {
+      container.removeEventListener('mouseenter', handleMouseEnter)
+      container.removeEventListener('mousemove', handleMouseMove)
+      container.removeEventListener('mouseleave', handleMouseLeave)
+    }
   }, [])
 
-  /**
-   * Service icons array for easier indexing
-   */
-  const serviceIcons: HeroServiceIcon[] = [
-    { key: 'slack', icon: SlackIcon, label: 'Slack' },
-    { key: 'gmail', icon: GmailIcon, label: 'Gmail' },
-    { key: 'outlook', icon: OutlookIcon, label: 'Outlook' },
-    { key: 'pinecone', icon: PineconeIcon, label: 'Pinecone' },
-    { key: 'supabase', icon: SupabaseIcon, label: 'Supabase' },
-    { key: 'linear', icon: LinearIcon, label: 'Linear', style: { color: '#5E6AD2' } },
-    { key: 'discord', icon: DiscordIcon, label: 'Discord', style: { color: '#5765F2' } },
-    { key: 'airtable', icon: AirtableIcon, label: 'Airtable' },
-    { key: 'stripe', icon: StripeIcon, label: 'Stripe' },
-    { key: 'notion', icon: NotionIcon, label: 'Notion' },
-    { key: 'googleSheets', icon: GoogleSheetsIcon, label: 'Google Sheets' },
-    { key: 'googleDrive', icon: GoogleDriveIcon, label: 'Google Drive' },
-    { key: 'jira', icon: JiraIcon, label: 'Jira' },
-  ]
-
-  /**
-   * Auto-hover animation effect
-   */
-  React.useEffect(() => {
-    // Start the interval when component mounts
-    const startInterval = () => {
-      intervalRef.current = setInterval(() => {
-        setAutoHoverIndex((prev) => (prev + 1) % visibleIconCount)
-      }, 2000)
-    }
-
-    // Only run interval when user is not hovering
-    if (!isUserHovering) {
-      startInterval()
-    }
-
-    // Cleanup on unmount or when hovering state changes
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
-    }
-  }, [isUserHovering, visibleIconCount])
-
-  /**
-   * Handle mouse enter on icon container
-   */
-  const handleIconContainerMouseEnter = () => {
-    setIsUserHovering(true)
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current)
-    }
-  }
-
-  /**
-   * Handle mouse leave on icon container
-   */
-  const handleIconContainerMouseLeave = () => {
-    setIsUserHovering(false)
-    // Start from the next icon after the last hovered one
-    if (lastHoveredIndex !== null) {
-      setAutoHoverIndex((lastHoveredIndex + 1) % visibleIconCount)
-    }
-  }
-
-  /**
-   * Handle form submission
-   */
-  const handleSubmit = () => {
-    if (!isEmpty) {
-      LandingPromptStorage.store(textValue)
-      router.push('/signup')
-    }
-  }
-
-  /**
-   * Handle keyboard shortcuts (Enter to submit)
-   */
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      if (!isEmpty) {
-        handleSubmit()
-      }
-    }
-  }
-
-  const handleIconMouseEnter = (index: number) => {
-    setLastHoveredIndex(index)
-  }
-
-  const handleTextChange = (value: string) => {
-    setTextValue(value)
-  }
-
-  const submitButtonState = isEmpty
-    ? { border: '0.625px solid #E0E0E0', background: '#E5E5E5', boxShadow: 'none', cursor: 'not-allowed' }
-    : {
-        border: '0.625px solid #343434',
-        background: 'linear-gradient(180deg, #060606 0%, #323232 100%)',
-        boxShadow: '0 1.25px 2.5px 0 #9B77FF inset',
-        cursor: 'pointer',
-      }
+  const containerRef = useRef<HTMLDivElement>(null)
+  const iconRef1 = useRef<HTMLDivElement>(null)
+  const iconRef2 = useRef<HTMLDivElement>(null)
+  const iconRef3 = useRef<HTMLDivElement>(null)
+  const iconRef4 = useRef<HTMLDivElement>(null)
+  const iconRef5 = useRef<HTMLDivElement>(null)
+  const iconRef6 = useRef<HTMLDivElement>(null)
+  const iconRef7 = useRef<HTMLDivElement>(null)
+  const spanRef1 = useRef<HTMLSpanElement>(null)
+  const spanRef2 = useRef<HTMLSpanElement>(null)
+  const spanRef3 = useRef<HTMLSpanElement>(null)
+  const spanRef4 = useRef<HTMLSpanElement>(null)
+  const spanRef5 = useRef<HTMLSpanElement>(null)
+  const spanRef6 = useRef<HTMLSpanElement>(null)
+  const spanRef7 = useRef<HTMLSpanElement>(null)
+  const spanRef8 = useRef<HTMLSpanElement>(null)
 
   return (
-    <section
-      id='hero'
-      className={`${soehne.className} flex w-full flex-col items-center justify-center pt-[36px] sm:pt-[80px]`}
-      aria-labelledby='hero-heading'
-    >
-      <h1
-        id='hero-heading'
-        className='px-4 text-center font-medium text-[36px] leading-none tracking-tight sm:px-0 sm:text-[74px]'
-      >
-        Workflows for LLMs
-      </h1>
-      <p className='px-4 pt-[6px] text-center text-[18px] opacity-70 sm:px-0 sm:pt-[10px] sm:text-[22px]'>
-        Build and deploy AI agent workflows
-      </p>
-      <div
-        className='flex items-center justify-center gap-[2px] pt-[18px] sm:pt-[32px]'
-        onMouseEnter={handleIconContainerMouseEnter}
-        onMouseLeave={handleIconContainerMouseLeave}
-      >
-        {serviceIcons.slice(0, visibleIconCount).map((service, index) => {
-          const Icon = service.icon
-          return (
-            <IconButton
-              key={service.key}
-              aria-label={service.label}
-              onClick={() => handleServiceClick(service.key)}
-              onMouseEnter={() => handleIconMouseEnter(index)}
-              style={service.style}
-              isAutoHovered={!isUserHovering && index === autoHoverIndex}
+    <section className='flex-1 pt-8 sm:pt-16 lg:pt-24'>
+      <div className='relative z-10 mx-auto flex max-w-7xl flex-col items-center gap-8 px-4 sm:gap-16 sm:px-6 lg:gap-24 lg:px-8'>
+        <div className='flex flex-col items-center gap-4 text-center'>
+          <Badge variant='outline' className='relative z-10 text-sm font-normal'>
+            TradingGoose Studio is now live! 🚀
+          </Badge>
+
+          <h1 className='relative z-10 text-2xl font-semibold sm:text-3xl lg:text-5xl lg:font-bold'>
+            LLM Workflows for <span className='underline underline-offset-3'>Trading Analysis</span>
+          </h1>
+
+          <p className='relative z-10 text-muted-foreground max-w-4xl text-xl'>
+            Build and deploy AI agent workflows that fit your investment analysis styles
+          </p>
+
+          <div className='relative z-10 mt-6 flex flex-wrap items-center gap-4'>
+            <Button
+              size='sm'
+              className='group relative w-fit overflow-hidden rounded-md px-6 font-bold shadow-md before:absolute before:inset-0 before:rounded-[inherit] before:bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.5)_50%,transparent_75%,transparent_100%)] before:bg-[length:250%_250%,100%_100%] before:bg-[position:200%_0,0_0] before:bg-no-repeat before:transition-[background-position_0s_ease] before:duration-1000 hover:before:bg-[position:-100%_0,0_0] dark:before:bg-[linear-gradient(45deg,transparent_25%,rgba(0,0,0,0.2)_50%,transparent_75%,transparent_100%)]'
+              asChild
             >
-              <Icon className='h-5 w-5 sm:h-6 sm:w-6' />
-            </IconButton>
-          )
-        })}
-      </div>
-      <div className='flex w-full items-center justify-center px-4 pt-[8px] sm:px-8 sm:pt-[12px] md:px-[50px]'>
-        <div className='relative w-full sm:w-[640px]'>
-          <label htmlFor='agent-description' className='sr-only'>
-            Describe the AI agent you want to build
-          </label>
-          <textarea
-            id='agent-description'
-            placeholder={isMobile ? 'Build an AI agent...' : 'Ask Sim to build an agent to read my emails...'}
-            className='h-[100px] w-full resize-none px-3 py-2.5 text-sm sm:h-[120px] sm:px-4 sm:py-3 sm:text-base'
-            value={textValue}
-            onChange={(event) => handleTextChange(event.target.value)}
-            onKeyDown={handleKeyDown}
-            style={{
-              borderRadius: 16,
-              border: 'var(--border-width-border, 1px) solid #E5E5E5',
-              outline: 'none',
-              background: '#FFFFFF',
-              boxShadow:
-                'var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 2px) var(--shadow-xs-blur-radius, 4px) var(--shadow-xs-spread-radius, 0) var(--shadow-xs-color, rgba(0, 0, 0, 0.08))',
-            }}
+              <a href='#'>
+                Get started <ArrowRightIcon className='transition-transform duration-200 group-hover:translate-x-0.5' />
+              </a>
+            </Button>
+            <Button size='sm' asChild className='rounded-md px-6 text-base bg-secondary text-secondary-foreground hover:bg-secondary/50 shadow-md'>
+              <a href='#'>Learn more</a>
+            </Button>
+          </div>
+        </div>
+
+        <div ref={containerRef} className='relative z-10 flex w-full flex-col items-center'>
+          <div className='flex w-full max-w-4xl items-center justify-between'>
+            <div className='flex items-center gap-6 sm:gap-10 md:gap-[7.5rem]'>
+              <div
+                ref={iconRef1}
+                className='bg-background flex size-12 items-center justify-center rounded-xl border-[1.5px] shadow-md lg:size-[3.75rem]'
+              >
+                <ChartCandlestick className='size-7 stroke-1 lg:size-10' />
+              </div>
+              <span ref={spanRef1} className='size-0.5' />
+            </div>
+            <div className='flex items-center gap-6 sm:gap-10 md:gap-[7.5rem]'>
+              <span ref={spanRef2} className='size-0.5' />
+              <div
+                ref={iconRef2}
+                className='bg-background flex size-12 items-center justify-center rounded-xl border-[1.5px] shadow-md lg:size-[3.75rem]'
+              >
+                <LayoutDashboardIcon className='size-7 stroke-1 lg:size-8' />
+              </div>
+            </div>
+          </div>
+
+          <div className='flex w-full items-center justify-between py-2.5'>
+            <div
+              ref={iconRef3}
+              className='bg-background flex size-[3.75rem] shrink-0 items-center justify-center rounded-xl border-[1.5px] shadow-xl md:size-[4.5rem] lg:size-[5.75rem]'
+            >
+              <Workflow className='size-8 stroke-1 md:size-10 lg:size-[3.25rem]' />
+            </div>
+            <div className='flex items-center justify-between md:w-full md:max-w-[17.5rem] lg:max-w-[25rem]'>
+              <div className='flex w-full max-w-14 justify-between sm:max-w-16 md:max-w-20'>
+                <span ref={spanRef3} className='size-0.5' />
+                <span ref={spanRef4} className='size-0.5' />
+              </div>
+              <div ref={iconRef4} className='bg-secondary flex items-center justify-center rounded-xl border p-2'>
+                <div className='bg-primary flex size-16 items-center justify-center rounded-lg border-[1.5px] shadow-xl md:size-[5.75rem]'>
+                  <div className='flex size-12 items-center justify-center rounded-md bg-background md:size-20'>
+                    <Image src='/icon.svg' alt='TradingGoose logo' width={64} height={64} className='h-12 w-12 md:h-20 md:w-20' priority />
+                  </div>
+                </div>
+              </div>
+              <div className='flex w-full max-w-14 justify-between sm:max-w-16 md:max-w-20'>
+                <span ref={spanRef5} className='size-0.5' />
+                <span ref={spanRef6} className='size-0.5' />
+              </div>
+            </div>
+            <div
+              ref={iconRef5}
+              className='bg-background flex size-[3.75rem] shrink-0 items-center justify-center rounded-xl border-[1.5px] shadow-xl md:size-[4.5rem] lg:size-[5.75rem]'
+            >
+              <BotMessageSquareIcon className='size-8 stroke-1 md:size-10 lg:size-[3.25rem]' />
+            </div>
+          </div>
+
+          <div className='flex w-full max-w-4xl items-center justify-between'>
+            <div className='flex items-center gap-6 sm:gap-10 md:gap-[7.5rem]'>
+              <div
+                ref={iconRef6}
+                className='bg-background flex size-12 items-center justify-center rounded-xl border-[1.5px] shadow-md lg:size-[3.75rem]'
+              >
+                <CodeXmlIcon className='size-6 stroke-1 lg:size-8' />
+              </div>
+              <span ref={spanRef7} className='size-0.5' />
+            </div>
+            <div className='flex items-center gap-6 sm:gap-10 md:gap-[7.5rem]'>
+              <span ref={spanRef8} className='size-0.5' />
+              <div
+                ref={iconRef7}
+                className='bg-background flex size-12 items-center justify-center rounded-xl border-[1.5px] shadow-md lg:size-[3.75rem]'
+              >
+                <ChartLine className='size-7 stroke-1 lg:size-[2.75rem]' />
+              </div>
+            </div>
+          </div>
+
+          <AnimatedBeam
+            containerRef={containerRef}
+            fromRef={iconRef1}
+            toRef={spanRef1}
+            gradientStartColor='var(--primary)'
+            duration={4.5}
+            className='-z-[1]'
           />
-          <button
-            type='button'
-            aria-label='Submit description'
-            className='absolute right-2.5 bottom-4 flex h-[30px] w-[30px] items-center justify-center transition-all duration-200 sm:right-[11px] sm:bottom-[16px] sm:h-[34px] sm:w-[34px]'
-            disabled={isEmpty}
-            onClick={!isEmpty ? handleSubmit : undefined}
-            style={{
-              padding: '3.75px 3.438px 3.75px 4.063px',
-              borderRadius: 55,
-              ...submitButtonState,
-            }}
+          <AnimatedBeam
+            containerRef={containerRef}
+            fromRef={spanRef1}
+            toRef={spanRef3}
+            gradientStartColor='var(--primary)'
+            duration={4.5}
+            curvature={-45}
+            className='-z-[1]'
+          />
+          <AnimatedBeam
+            containerRef={containerRef}
+            fromRef={iconRef2}
+            toRef={spanRef2}
+            gradientStartColor='var(--primary)'
+            duration={4.5}
+            className='-z-[1]'
+          />
+          <AnimatedBeam
+            containerRef={containerRef}
+            fromRef={spanRef2}
+            toRef={spanRef6}
+            gradientStartColor='var(--primary)'
+            duration={4.5}
+            curvature={-45}
+            className='-z-[1]'
+          />
+          <AnimatedBeam
+            containerRef={containerRef}
+            fromRef={iconRef6}
+            toRef={spanRef7}
+            gradientStartColor='var(--primary)'
+            duration={4.5}
+            className='-z-[1]'
+          />
+          <AnimatedBeam
+            containerRef={containerRef}
+            fromRef={spanRef7}
+            toRef={spanRef4}
+            gradientStartColor='var(--primary)'
+            duration={4.5}
+            curvature={40}
+            className='-z-[1]'
+          />
+          <AnimatedBeam
+            containerRef={containerRef}
+            fromRef={iconRef7}
+            toRef={spanRef8}
+            gradientStartColor='var(--primary)'
+            duration={4.5}
+            className='-z-[1]'
+          />
+          <AnimatedBeam
+            containerRef={containerRef}
+            fromRef={spanRef8}
+            toRef={spanRef5}
+            gradientStartColor='var(--primary)'
+            duration={4.5}
+            curvature={40}
+            className='-z-[1]'
+          />
+          <AnimatedBeam
+            containerRef={containerRef}
+            fromRef={iconRef3}
+            toRef={spanRef3}
+            gradientStartColor='var(--primary)'
+            duration={4.5}
+            className='-z-[1]'
+          />
+          <AnimatedBeam
+            containerRef={containerRef}
+            fromRef={spanRef3}
+            toRef={spanRef4}
+            gradientStartColor='var(--primary)'
+            duration={4.5}
+            className='-z-[1]'
+          />
+          <AnimatedBeam
+            containerRef={containerRef}
+            fromRef={spanRef4}
+            toRef={iconRef4}
+            gradientStartColor='var(--primary)'
+            duration={4.5}
+            className='-z-[1]'
+          />
+          <AnimatedBeam
+            containerRef={containerRef}
+            fromRef={iconRef4}
+            toRef={spanRef5}
+            gradientStartColor='var(--primary)'
+            duration={4.5}
+            className='-z-[1]'
+          />
+          <AnimatedBeam
+            containerRef={containerRef}
+            fromRef={spanRef5}
+            toRef={spanRef6}
+            gradientStartColor='var(--primary)'
+            duration={4.5}
+            className='-z-[1]'
+          />
+          <AnimatedBeam
+            containerRef={containerRef}
+            fromRef={spanRef6}
+            toRef={iconRef5}
+            gradientStartColor='var(--primary)'
+            duration={4.5}
+            className='-z-[1]'
+          />
+
+          <AnimatedBeam
+            containerRef={containerRef}
+            fromRef={iconRef3}
+            toRef={iconRef4}
+            gradientStartColor='var(--primary)'
+            duration={4.5}
+            className='-z-[1] md:hidden'
+          />
+          <AnimatedBeam
+            containerRef={containerRef}
+            fromRef={iconRef4}
+            toRef={iconRef5}
+            gradientStartColor='var(--primary)'
+            duration={4.5}
+            className='-z-[1] md:hidden'
+          />
+        </div>
+      </div>
+      <div className="mx-auto flex max-w-7xl flex-col mt-20 items-center px-4 sm:px-6 lg:px-8">
+        <div className='flex flex-col items-center text-center'>
+          {/* Hero Image with 3D Tilt Effect */}
+          <MotionPreset
+            ref={imageContainerRef}
+            fade
+            zoom={{ initialScale: 0.5 }}
+            delay={1.3}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            className='rounded-xl'
           >
-            <ArrowUp size={18} className='sm:h-5 sm:w-5' color={isEmpty ? '#999999' : '#FFFFFF'} />
-          </button>
+            <Image
+              src='https://cdn.shadcnstudio.com/ss-assets/blocks/marketing/hero/image-18.png'
+              alt='hero-image'
+              width={1200}
+              height={675}
+              className='w-full rounded-xl object-cover dark:hidden'
+              sizes='200vw'
+              priority
+            />
+            <Image
+              src='https://cdn.shadcnstudio.com/ss-assets/blocks/marketing/hero/image-18-dark.png'
+              alt='hero-image'
+              width={1200}
+              height={675}
+              className='hidden w-full rounded-xl object-cover dark:inline-block'
+              sizes='200vw'
+              priority
+            />
+          </MotionPreset>
         </div>
       </div>
     </section>
   )
 }
+
+export default Hero

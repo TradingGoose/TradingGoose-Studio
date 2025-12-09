@@ -3,7 +3,7 @@ export const revalidate = false
 export async function GET() {
   const baseUrl = 'https://docs.sim.ai'
 
-  const robotsTxt = `# Robots.txt for Sim Documentation
+  const robotsTxt = `# Robots.txt for TradingGoose Documentation
 # Generated on ${new Date().toISOString()}
 
 User-agent: *

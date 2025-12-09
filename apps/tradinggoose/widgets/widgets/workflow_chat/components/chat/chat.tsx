@@ -1,7 +1,7 @@
 'use client'
 
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertCircle, ArrowUp, File, FileText, Image, Paperclip, X } from 'lucide-react'
+import { AlertCircle, Send, File, FileText, Image, Paperclip, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -629,7 +629,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
 
           {/* Combined input container matching copilot style */}
           <div
-            className={`rounded-md border border-[#E5E5E5] bg-background p-2 shadow-xs transition-all duration-200 dark:border-[#414141]  ${isDragOver
+            className={`rounded-md border border-border bg-background p-2 shadow-xs transition-all duration-200 dark:border-[#414141]  ${isDragOver
               ? 'border-[var(--primary-hover)] bg-amber-50/50 dark:border-[var(--primary-hover)] dark:bg-amber-950/20'
               : ''
               }`}
@@ -806,7 +806,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
                 }
                 className='h-6 w-6 shrink-0 rounded-sm bg-primary-hover text-black shadow-[0_0_0_0_var(--primary-hover)] transition-all duration-200 hover:bg-primary-hover '
               >
-                <ArrowUp className='h-3 w-3' />
+                <Send className='h-3 w-3' />
               </Button>
             </div>
           </div>

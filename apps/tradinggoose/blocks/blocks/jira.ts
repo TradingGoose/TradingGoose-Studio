@@ -11,7 +11,7 @@ export const JiraBlock: BlockConfig<JiraResponse> = {
   longDescription: 'Integrate Jira into the workflow. Can read, write, and update issues.',
   docsLink: 'https://docs.sim.ai/tools/jira',
   category: 'tools',
-  bgColor: '#E0E0E0',
+  bgColor: undefined,
   icon: JiraIcon,
   subBlocks: [
     {

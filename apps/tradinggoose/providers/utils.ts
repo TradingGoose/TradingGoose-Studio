@@ -380,9 +380,9 @@ export function transformCustomTool(customTool: any): ProviderToolConfig {
 /**
  * Gets all available custom tools as provider tool configs
  */
-export function getCustomTools(): ProviderToolConfig[] {
+export function getCustomTools(workspaceId?: string): ProviderToolConfig[] {
   // Get custom tools from the store
-  const customTools = useCustomToolsStore.getState().getAllTools()
+  const customTools = useCustomToolsStore.getState().getAllTools(workspaceId)
 
   // Transform each custom tool into a provider tool config
   return customTools.map(transformCustomTool)

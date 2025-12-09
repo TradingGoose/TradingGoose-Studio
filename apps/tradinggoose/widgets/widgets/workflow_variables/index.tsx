@@ -1,23 +1,23 @@
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { Braces, Plus } from 'lucide-react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import {
-  WORKFLOW_VARIABLES_ADD_EVENT,
-  WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
-  type WorkflowWidgetSelectEventDetail,
-} from '@/widgets/events'
+import { WORKFLOW_VARIABLES_ADD_EVENT } from '@/widgets/events'
 import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { widgetHeaderIconButtonClassName } from '@/widgets/widgets/shared/components/widget-header-control'
 import { WorkflowDropdown } from '@/widgets/widgets/shared/components/workflow-dropdown'
+import {
+  emitWorkflowSelectionChange,
+  useWorkflowSelectionPersistence,
+} from '@/widgets/utils/workflow-selection'
 import WorkflowVariablesApp from './components/workflow-variables-app'
 
 const WidgetStateMessage = ({ message }: { message: string }) => (
-  <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))] px-4 text-center text-muted-foreground text-xs'>
+  <div className='flex h-full w-full items-center justify-center  px-4 text-center text-muted-foreground text-xs'>
     {message}
   </div>
 )
@@ -50,52 +50,13 @@ const WorkflowVariablesWidgetBody = ({
     loggerScope: 'workflow variables widget',
   })
 
-  useEffect(() => {
-    if (!onWidgetParamsChange || resolvedPairColor !== 'gray') {
-      return
-    }
-
-    const handleWorkflowSelect = (event: Event) => {
-      const detail = (event as CustomEvent<WorkflowWidgetSelectEventDetail>).detail
-      if (!detail || !detail.workflowId) {
-        return
-      }
-
-      if (panelId && detail.panelId && detail.panelId !== panelId) {
-        return
-      }
-
-      if (widget?.key && detail.widgetKey && detail.widgetKey !== widget.key) {
-        return
-      }
-
-      const currentParams = (widget?.params && typeof widget.params === 'object'
-        ? widget.params
-        : {}) as Record<string, unknown>
-      onWidgetParamsChange({
-        ...currentParams,
-        workflowId: detail.workflowId,
-      })
-    }
-
-    window.addEventListener(
-      WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
-      handleWorkflowSelect as EventListener
-    )
-
-    return () => {
-      window.removeEventListener(
-        WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
-        handleWorkflowSelect as EventListener
-      )
-    }
-  }, [
+  useWorkflowSelectionPersistence({
     onWidgetParamsChange,
     panelId,
-    resolvedPairColor,
-    widget?.key,
-    widget?.params,
-  ])
+    widget,
+    pairColor: resolvedPairColor,
+    params,
+  })
 
   if (!workspaceId) {
     return <WidgetStateMessage message='Select a workspace to load workflows.' />
@@ -107,7 +68,7 @@ const WorkflowVariablesWidgetBody = ({
 
   if (!hasLoadedWorkflows || isLoading) {
     return (
-      <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))]'>
+      <div className='flex h-full w-full items-center justify-center '>
         <LoadingAgent size='md' />
       </div>
     )
@@ -119,14 +80,14 @@ const WorkflowVariablesWidgetBody = ({
 
   if (!resolvedWorkflowId) {
     return (
-      <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))]'>
+      <div className='flex h-full w-full items-center justify-center '>
         <LoadingAgent size='md' />
       </div>
     )
   }
 
   return (
-    <div className='flex h-full w-full overflow-hidden bg-[hsl(var(--workflow-background))]'>
+    <div className='flex h-full w-full overflow-hidden '>
       <WorkflowVariablesApp
         workspaceId={workspaceId}
         workflowId={resolvedWorkflowId}
@@ -230,18 +191,11 @@ const WorkflowVariablesHeaderWorkflowSelector = ({
         return
       }
 
-      window.dispatchEvent(
-        new CustomEvent<WorkflowWidgetSelectEventDetail>(
-          WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
-          {
-            detail: {
-              panelId,
-              widgetKey: widget?.key,
-              workflowId,
-            },
-          }
-        )
-      )
+      emitWorkflowSelectionChange({
+        panelId,
+        widgetKey: widget?.key,
+        workflowId,
+      })
     },
     [panelId, resolvedPairColor, widget?.key]
   )

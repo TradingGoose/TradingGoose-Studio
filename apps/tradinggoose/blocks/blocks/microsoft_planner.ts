@@ -24,7 +24,7 @@ export const MicrosoftPlannerBlock: BlockConfig<MicrosoftPlannerResponse> = {
   longDescription: 'Integrate Microsoft Planner into the workflow. Can read and create tasks.',
   docsLink: 'https://docs.sim.ai/tools/microsoft_planner',
   category: 'tools',
-  bgColor: '#E0E0E0',
+  bgColor: undefined,
   icon: MicrosoftPlannerIcon,
   subBlocks: [
     {

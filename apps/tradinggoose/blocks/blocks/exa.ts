@@ -12,7 +12,7 @@ export const ExaBlock: BlockConfig<ExaResponse> = {
     'Integrate Exa into the workflow. Can search, get contents, find similar links, answer a question, and perform research.',
   docsLink: 'https://docs.sim.ai/tools/exa',
   category: 'tools',
-  bgColor: '#1F40ED',
+  bgColor: undefined,
   icon: ExaAIIcon,
   subBlocks: [
     {

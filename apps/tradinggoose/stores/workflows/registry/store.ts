@@ -1036,7 +1036,8 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
       },
 
       // Delete workflow and clean up associated storage
-      removeWorkflow: async (id: string) => {
+      removeWorkflow: async (id: string, options?: { skipApi?: boolean }) => {
+        const skipApi = options?.skipApi ?? false
         const { workflows } = get()
         const workflowToDelete = workflows[id]
 
@@ -1044,30 +1045,32 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           logger.warn(`Attempted to delete non-existent workflow: ${id}`)
           return
         }
-        set({ isLoading: true, error: null })
+        set({ error: null })
 
-        try {
-          // Call DELETE endpoint to remove from database
-          const response = await fetch(`/api/workflows/${id}`, {
-            method: 'DELETE',
-          })
+        if (!skipApi) {
+          try {
+            const response = await fetch(`/api/workflows/${id}`, {
+              method: 'DELETE',
+            })
 
-          if (!response.ok) {
-            const error = await response.json().catch(() => ({ error: 'Unknown error' }))
-            throw new Error(error.error || 'Failed to delete workflow')
+            if (!response.ok) {
+              const error = await response.json().catch(() => ({ error: 'Unknown error' }))
+              throw new Error(error.error || 'Failed to delete workflow')
+            }
+
+            logger.info(`Successfully deleted workflow ${id} from database`)
+          } catch (error) {
+            logger.error(`Failed to delete workflow ${id} from database:`, error)
+            set({
+              error: `Failed to delete workflow: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            })
+            return
           }
-
-          logger.info(`Successfully deleted workflow ${id} from database`)
-        } catch (error) {
-          logger.error(`Failed to delete workflow ${id} from database:`, error)
-          set({
-            error: `Failed to delete workflow: ${error instanceof Error ? error.message : 'Unknown error'}`,
-            isLoading: false,
-          })
-          return
         }
 
-        // Only update local state after successful deletion from database
+        let clearedActiveWorkflow = false
+
+        // Update local state after deletion
         set((state) => {
           const newWorkflows = { ...state.workflows }
           delete newWorkflows[id]
@@ -1106,11 +1109,27 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
               lastSaved: Date.now(),
             })
 
-            logger.info(
-              `Cleared active workflow ${id} - user will need to manually select another workflow`
-            )
+            clearedActiveWorkflow = true
           }
 
+          return {
+            workflows: newWorkflows,
+            activeWorkflowId: newActiveWorkflowId,
+            activeWorkflowIds: newActiveWorkflowIds,
+            loadedWorkflowIds: newLoadedWorkflowIds,
+            error: null,
+          }
+        })
+
+        if (clearedActiveWorkflow) {
+          logger.info(
+            `Cleared active workflow ${id} - user will need to manually select another workflow`
+          )
+        }
+
+        logger.info(`Removed workflow ${id} from local state${skipApi ? ' (local only)' : ''}`)
+
+        if (!skipApi) {
           // Cancel any schedule for this workflow (async, don't wait)
           fetch(API_ENDPOINTS.SCHEDULE, {
             method: 'POST',
@@ -1126,18 +1145,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           }).catch((error) => {
             logger.error(`Error cancelling schedule for deleted workflow ${id}:`, error)
           })
-
-          logger.info(`Removed workflow ${id} from local state`)
-
-          return {
-            workflows: newWorkflows,
-            activeWorkflowId: newActiveWorkflowId,
-            activeWorkflowIds: newActiveWorkflowIds,
-            loadedWorkflowIds: newLoadedWorkflowIds,
-            error: null,
-            isLoading: false, // Clear loading state after successful deletion
-          }
-        })
+        }
       },
 
       // Update workflow metadata

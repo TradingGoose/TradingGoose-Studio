@@ -12,7 +12,7 @@ export const GoogleCalendarBlock: BlockConfig<GoogleCalendarResponse> = {
     'Integrate Google Calendar into the workflow. Can create, read, update, and list calendar events.',
   docsLink: 'https://docs.sim.ai/tools/google_calendar',
   category: 'tools',
-  bgColor: '#E0E0E0',
+  bgColor: undefined,
   icon: GoogleCalendarIcon,
   subBlocks: [
     {

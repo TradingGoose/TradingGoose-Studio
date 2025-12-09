@@ -11,7 +11,7 @@ export const FirecrawlBlock: BlockConfig<FirecrawlResponse> = {
   longDescription: 'Integrate Firecrawl into the workflow. Can search, scrape, or crawl websites.',
   docsLink: 'https://docs.sim.ai/tools/firecrawl',
   category: 'tools',
-  bgColor: '#181C1E',
+  bgColor: '',
   icon: FirecrawlIcon,
   subBlocks: [
     {

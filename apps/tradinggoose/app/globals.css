@@ -44,6 +44,7 @@
   }
 }
 
+
 .landing-loop-animated-dash {
   animation: dash-animation 1.5s linear infinite;
   /* Ensure animation works in React Flow context */
@@ -66,33 +67,33 @@
   .light {
     /* Core Colors */
     --background: 0 0% 100%;
-    --foreground: 240 10% 3.922%;
+    --foreground: 20 14.3% 4.1%;
 
     /* Card Colors */
-    --card: 0 0% 97.5%;
-    --card-foreground: 240 10% 3.922%;
+    --card: 0 0% 99.5%;
+    --card-foreground: 20 14.3% 4.1%;
 
     /* Popover Colors */
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.922%;
 
     /* Primary Colors */
-    --primary: #febb00;
-    --primary-foreground: #000000;
-    --primary-hover: #febb00cc;
+    --primary: 48, 100%, 50%;
+    --primary-foreground: 20 14.3% 4.1%;
+    --primary-hover: 48, 100%, 50%;
 
     /* Secondary Colors */
-    --secondary: 240 4.762% 95.882%;
-    --secondary-foreground: 240 5.882% 10%;
+    --secondary: 160 4.8% 90.9%;
+    --secondary-foreground: 24 9.8% 10%;
 
     /* Muted Colors */
     --muted: 240 4.762% 95.882%;
     --muted-foreground: 240 4.237% 46.275%;
 
     /* Accent Colors */
-    --accent: #f4f4f5;
-    --accent-foreground: #18181b;
-    --accent-hover: #f4f4f5cc;
+    --accent: 240 4.762% 95.882%;
+    --accent-foreground: 240 5.882% 10%;
+    --accent-hover: 240 4.762% 90.882%;
 
     /* Destructive Colors */
     --destructive: 357.143 100% 45.294%;
@@ -112,8 +113,6 @@
     --scrollbar-thumb-hover: 0 0% 55%;
     --scrollbar-size: 8px;
 
-    /* Workflow Properties */
-    --workflow-background: 0 0% 100%;
     --workflow-dots: 0 0% 94.5%;
     --card-background: 0 0% 99.2%;
     --card-border: 0 0% 89.8%;
@@ -146,34 +145,34 @@
   /* Dark Mode Theme */
   .dark {
     /* Core Colors */
-    --background: 240 10% 3.922%;
-    --foreground: 0 0% 98.039%;
+    --background: 20 14.3% 2.9%;
+    --foreground: 60 9.1% 97.8%;
 
     /* Card Colors */
-    --card: 240 10% 9.922%;
-    --card-foreground: 0 0% 98.039%;
+    --card: 20 14.3% 4.1%;
+    --card-foreground: 60 9.1% 97.8%;
 
     /* Popover Colors */
     --popover: 240 5.882% 10%;
     --popover-foreground: 0 0% 98.039%;
 
     /* Primary Colors */
-    --primary: #ffcc00;
-    --primary-foreground: #000000;
-    --primary-hover: #ffcc00cc;
+    --primary: 48, 100%, 50%;
+    --primary-foreground: 20 14.3% 4.1%;
+    --primary-hover: 48, 100%, 50%;
 
     /* Secondary Colors */
-    --secondary: 240 3.704% 15.882%;
-    --secondary-foreground: 0 0% 98.039%;
+    --secondary: 240 6.5% 15.1%;
+    --secondary-foreground: 60 9.1% 97.8%;
 
     /* Muted Colors */
     --muted: 240 3.704% 15.882%;
     --muted-foreground: 240 5.495% 64.314%;
 
     /* Accent Colors */
-    --accent: rgb(39, 39, 42);
-    --accent-foreground: #fafafa;
-    --accent-hover: #27272acc;
+    --accent: 240 3.704% 15.882%;
+    --accent-foreground: 0 0% 98.039%;
+    --accent-hover: 240 3.704% 10.882%;
 
     /* Destructive Colors */
     --destructive: 358.839 100% 69.608%;
@@ -189,8 +188,6 @@
     --scrollbar-thumb: 0 0% 30%;
     --scrollbar-thumb-hover: 0 0% 40%;
 
-    /* Workflow Properties */
-    --workflow-background: 0 0% 3.9%;
     --workflow-dots: 0 0% 7.5%;
     --card-background: 0 0% 9.0%;
     --card-border: 0 0% 22.7%;
@@ -350,6 +347,48 @@ input[type="search"]::-ms-clear {
    ANIMATIONS & UTILITIES
    ========================================================================== */
 @layer utilities {
+
+  /* Hero ripple helpers */
+  @keyframes cell-ripple {
+    0% {
+      transform: scale(0.95);
+      opacity: 0.8;
+    }
+
+    60% {
+      transform: scale(1.05);
+      opacity: 0.5;
+    }
+
+    100% {
+      transform: scale(1.12);
+      opacity: 0.2;
+    }
+  }
+
+  .animate-cell-ripple {
+    animation-name: cell-ripple;
+    animation-duration: var(--duration, 500ms);
+    animation-delay: var(--delay, 0ms);
+    animation-timing-function: ease-out;
+    animation-iteration-count: 1;
+    animation-fill-mode: none;
+  }
+
+  .mask-radial-from-20\% {
+    --mask-radial-position: 50% 50%;
+    --mask-radial-inner: 60%;
+    mask-image: radial-gradient(circle at var(--mask-radial-position), rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.0) var(--mask-radial-inner), transparent 100%);
+    mask-size: 100%;
+    mask-repeat: no-repeat;
+    -webkit-mask-image: radial-gradient(circle at var(--mask-radial-position), rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.0) var(--mask-radial-inner), transparent 100%);
+    -webkit-mask-size: 100%;
+    -webkit-mask-repeat: no-repeat;
+  }
+
+  .mask-radial-at-top {
+    --mask-radial-position: 50% 0%;
+  }
 
   /* Animation Performance */
   .animation-container {

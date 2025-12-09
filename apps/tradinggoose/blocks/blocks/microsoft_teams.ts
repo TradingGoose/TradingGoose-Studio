@@ -13,7 +13,7 @@ export const MicrosoftTeamsBlock: BlockConfig<MicrosoftTeamsResponse> = {
   docsLink: 'https://docs.sim.ai/tools/microsoft_teams',
   category: 'tools',
   triggerAllowed: true,
-  bgColor: '#E0E0E0',
+  bgColor: undefined,
   icon: MicrosoftTeamsIcon,
   subBlocks: [
     {

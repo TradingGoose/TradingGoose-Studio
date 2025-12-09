@@ -124,7 +124,8 @@ async function fetchOrganizationBilling(orgId: string) {
   if (!response.ok) {
     throw new Error('Failed to fetch organization billing data')
   }
-  return response.json()
+  const payload = await response.json()
+  return payload?.data ?? payload
 }
 
 /**

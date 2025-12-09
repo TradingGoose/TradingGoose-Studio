@@ -13,15 +13,15 @@ import {
   WorkflowWidgetControlBar,
 } from '@/widgets/widgets/editor_workflow/components/workflow-controlbar'
 import { WorkflowToolbar } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar'
-import {
-  WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
-  type WorkflowWidgetSelectEventDetail,
-} from '@/widgets/events'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import { isPairColor } from '@/widgets/pair-colors'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { WorkflowDropdown } from '@/widgets/widgets/shared/components/workflow-dropdown'
+import {
+  emitWorkflowSelectionChange,
+  useWorkflowSelectionPersistence,
+} from '@/widgets/utils/workflow-selection'
 
 const WORKFLOW_WIDGET_UI_CONFIG: WorkflowCanvasUIConfig = {
   floatingControls: true,
@@ -40,46 +40,11 @@ const WorkflowEditorWidgetBody = ({
   widget,
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
-  useEffect(() => {
-    if (!onWidgetParamsChange || pairColor !== 'gray') {
-      return
-    }
-
-    const handleWorkflowSelect = (event: Event) => {
-      const detail = (event as CustomEvent<WorkflowWidgetSelectEventDetail>).detail
-      if (!detail?.workflowId) {
-        return
-      }
-      if (panelId && detail.panelId && detail.panelId !== panelId) {
-        return
-      }
-      if (widget?.key && detail.widgetKey && detail.widgetKey !== widget.key) {
-        return
-      }
-
-      const currentParams =
-        widget?.params && typeof widget.params === 'object'
-          ? (widget.params as Record<string, unknown>)
-          : {}
-      onWidgetParamsChange({ ...currentParams, workflowId: detail.workflowId })
-    }
-
-    window.addEventListener(
-      WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
-      handleWorkflowSelect as EventListener
-    )
-    return () => {
-      window.removeEventListener(
-        WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
-        handleWorkflowSelect as EventListener
-      )
-    }
-  }, [onWidgetParamsChange, pairColor, panelId, widget?.key, widget?.params])
-
   const workspaceId = context?.workspaceId
   const widgetKey = widget?.key ?? 'workflow-editor'
   const {
     channelId,
+    resolvedPairColor,
     resolvedWorkflowId,
     hasLoadedWorkflows,
     loadError,
@@ -95,6 +60,13 @@ const WorkflowEditorWidgetBody = ({
     onWidgetParamsChange,
     fallbackWidgetKey: 'workflow-editor',
     loggerScope: 'workflow editor widget',
+  })
+  useWorkflowSelectionPersistence({
+    onWidgetParamsChange,
+    panelId,
+    widget,
+    pairColor: resolvedPairColor,
+    params,
   })
   const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null)
   const setContainerRef = useCallback((node: HTMLDivElement | null) => {
@@ -169,7 +141,7 @@ const WorkflowEditorWidgetBody = ({
 
   if (!hasLoadedWorkflows || isLoading) {
     return (
-      <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))]'>
+      <div className='flex h-full w-full items-center justify-center '>
         <LoadingAgent size='md' />
       </div>
     )
@@ -181,7 +153,7 @@ const WorkflowEditorWidgetBody = ({
 
   if (!resolvedWorkflowId) {
     return (
-      <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))]'>
+      <div className='flex h-full w-full items-center justify-center '>
         <LoadingAgent size='md' />
       </div>
     )
@@ -190,7 +162,7 @@ const WorkflowEditorWidgetBody = ({
   return (
     <div
       ref={setContainerRef}
-      className='relative flex h-full w-full overflow-hidden bg-[hsl(var(--workflow-background))]'
+      className='relative flex h-full w-full overflow-hidden '
     >
       <WorkflowUIConfigProvider value={WORKFLOW_WIDGET_UI_CONFIG}>
         <WorkflowEditorApp
@@ -207,7 +179,7 @@ const WorkflowEditorWidgetBody = ({
 }
 
 const WidgetStateMessage = ({ message }: { message: string }) => (
-  <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))] px-4 text-center text-muted-foreground text-xs'>
+  <div className='flex h-full w-full items-center justify-center  px-4 text-center text-muted-foreground text-xs'>
     {message}
   </div>
 )
@@ -239,15 +211,11 @@ const WorkflowEditorHeaderSelector = ({
       return
     }
 
-    window.dispatchEvent(
-      new CustomEvent<WorkflowWidgetSelectEventDetail>(WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT, {
-        detail: {
-          panelId,
-          widgetKey: widget?.key,
-          workflowId,
-        },
-      })
-    )
+    emitWorkflowSelectionChange({
+      panelId,
+      widgetKey: widget?.key ?? undefined,
+      workflowId,
+    })
   }
 
   return (

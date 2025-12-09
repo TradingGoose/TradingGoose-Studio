@@ -8,12 +8,12 @@ import { ResponseBlockHandler } from '@/executor/handlers/response/response-hand
 
 interface DropdownProps {
   options:
-    | Array<
-        string | { label: string; id: string; icon?: React.ComponentType<{ className?: string }> }
-      >
-    | (() => Array<
-        string | { label: string; id: string; icon?: React.ComponentType<{ className?: string }> }
-      >)
+  | Array<
+    string | { label: string; id: string; icon?: React.ComponentType<{ className?: string }> }
+  >
+  | (() => Array<
+    string | { label: string; id: string; icon?: React.ComponentType<{ className?: string }> }
+  >)
   defaultValue?: string
   blockId: string
   subBlockId: string

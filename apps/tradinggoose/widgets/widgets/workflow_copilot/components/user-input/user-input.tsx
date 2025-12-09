@@ -10,7 +10,7 @@ import {
   useState,
 } from 'react'
 import {
-  ArrowUp,
+  Send,
   AtSign,
   Blocks,
   BookOpen,
@@ -2352,7 +2352,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                 >
                   <div
                     ref={mentionMenuRef}
-                    className='flex flex-col overflow-hidden rounded-sm border bg-popover p-1 text-foreground shadow-md'
+                    className='flex flex-col overflow-hidden rounded-sm border bg-background p-1 text-foreground shadow-md'
                     style={{
                       maxHeight: mentionPortalStyle.maxHeight,
                       height: '100%',
@@ -3545,7 +3545,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                   {isLoading ? (
                     <Loader2 className='h-3 w-3 animate-spin' />
                   ) : (
-                    <ArrowUp className='h-3 w-3' />
+                    <Send className='h-3 w-3' />
                   )}
                 </Button>
               )}

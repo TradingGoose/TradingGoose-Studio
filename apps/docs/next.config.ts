@@ -9,7 +9,7 @@ const config = {
     return [
       {
         source: '/',
-        destination: '/index',
+        destination: '/en/index',
         permanent: true,
       },
       {

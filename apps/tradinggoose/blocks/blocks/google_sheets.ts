@@ -12,7 +12,7 @@ export const GoogleSheetsBlock: BlockConfig<GoogleSheetsResponse> = {
     'Integrate Google Sheets into the workflow. Can read, write, append, and update data.',
   docsLink: 'https://docs.sim.ai/tools/google_sheets',
   category: 'tools',
-  bgColor: '#E0E0E0',
+  bgColor: undefined,
   icon: GoogleSheetsIcon,
   subBlocks: [
     // Operation selector

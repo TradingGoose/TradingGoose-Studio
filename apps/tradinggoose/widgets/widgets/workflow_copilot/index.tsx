@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Sparkles } from 'lucide-react'
+import { BotMessageSquare } from 'lucide-react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import WorkflowCopilotApp from './components/workflow-copilot-app'
 import { useWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
+import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
+import { WorkflowDropdown } from '@/widgets/widgets/shared/components/workflow-dropdown'
+import {
+  emitWorkflowSelectionChange,
+  useWorkflowSelectionPersistence,
+} from '@/widgets/utils/workflow-selection'
 import { CopilotHeader, CopilotHeaderActions } from './components/copilot/copilot-header'
 
 const WorkflowCopilotWidgetBody = ({
@@ -40,6 +46,13 @@ const WorkflowCopilotWidgetBody = ({
     fallbackWidgetKey: 'workflow-copilot',
     loggerScope: 'workflow copilot widget',
     activateWorkflow: isLinkedToColorPair,
+  })
+  useWorkflowSelectionPersistence({
+    onWidgetParamsChange,
+    panelId,
+    widget,
+    pairColor: resolvedPairColor,
+    params,
   })
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [panelWidth, setPanelWidth] = useState(0)
@@ -100,7 +113,7 @@ const WorkflowCopilotWidgetBody = ({
 
   if (!hasLoadedWorkflows || isLoading) {
     return (
-      <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))]'>
+      <div className='flex h-full w-full items-center justify-center '>
         <LoadingAgent size='md' />
       </div>
     )
@@ -112,7 +125,7 @@ const WorkflowCopilotWidgetBody = ({
 
   if (!resolvedWorkflowId) {
     return (
-      <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))]'>
+      <div className='flex h-full w-full items-center justify-center '>
         <LoadingAgent size='md' />
       </div>
     )
@@ -121,7 +134,7 @@ const WorkflowCopilotWidgetBody = ({
   return (
     <div
       ref={containerRef}
-      className='flex h-full w-full overflow-hidden bg-[hsl(var(--workflow-background))] p-2'
+      className='flex h-full w-full overflow-hidden  p-2'
     >
       <WorkflowCopilotApp
         workspaceId={workspaceId}
@@ -138,19 +151,67 @@ const WorkflowCopilotWidgetBody = ({
 }
 
 const WidgetStateMessage = ({ message }: { message: string }) => (
-  <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))] px-4 text-center text-muted-foreground text-xs'>
+  <div className='flex h-full w-full items-center justify-center  px-4 text-center text-muted-foreground text-xs'>
     {message}
   </div>
 )
 
+type WorkflowCopilotHeaderSelectorProps = {
+  workspaceId?: string
+  widget?: WidgetInstance | null
+  panelId?: string
+}
+
+const WorkflowCopilotHeaderSelector = ({
+  workspaceId,
+  widget,
+  panelId,
+}: WorkflowCopilotHeaderSelectorProps) => {
+  const { resolvedPairColor, resolvedWorkflowId } = useWorkflowWidgetState({
+    workspaceId,
+    pairColor: widget?.pairColor ?? 'gray',
+    widget,
+    panelId,
+    params: widget?.params ?? null,
+    fallbackWidgetKey: 'workflow-copilot',
+    loggerScope: 'workflow copilot header',
+    activateWorkflow: false,
+  })
+
+  const handleWorkflowChange = useCallback(
+    (workflowId: string) => {
+      if (resolvedPairColor !== 'gray') {
+        return
+      }
+
+      emitWorkflowSelectionChange({
+        panelId,
+        widgetKey: widget?.key ?? undefined,
+        workflowId,
+      })
+    },
+    [panelId, resolvedPairColor, widget?.key]
+  )
+
+  return (
+    <WorkflowDropdown
+      workspaceId={workspaceId}
+      pairColor={resolvedPairColor}
+      value={resolvedWorkflowId}
+      onChange={handleWorkflowChange}
+      triggerClassName='w-auto min-w-[240px]'
+    />
+  )
+}
+
 export const workflowCopilotWidget: DashboardWidgetDefinition = {
   key: 'workflow_copilot',
   title: 'Workflow Copilot',
-  icon: Sparkles,
+  icon: BotMessageSquare,
   category: 'utility',
   description: 'AI copilot experience tailored to the selected workflow.',
   component: (props) => <WorkflowCopilotWidgetBody {...props} />,
-  renderHeader: ({ widget, panelId }) => {
+  renderHeader: ({ widget, context, panelId }) => {
     const { channelId, resolvedPairColor } = resolveWidgetChannel({
       pairColor: widget?.pairColor ?? 'gray',
       widget,
@@ -162,8 +223,14 @@ export const workflowCopilotWidget: DashboardWidgetDefinition = {
       resolvedPairColor !== 'gray' ? `${channelId}-${normalizedPanelId}` : channelId
 
     return {
-      left: null,
-      center: <CopilotHeader channelId={copilotChannelId} />,
+      left: <CopilotHeader channelId={copilotChannelId} />,
+      center: (
+        <WorkflowCopilotHeaderSelector
+          workspaceId={context?.workspaceId}
+          widget={widget}
+          panelId={panelId}
+        />
+      ),
       right: <CopilotHeaderActions channelId={copilotChannelId} />,
     }
   },

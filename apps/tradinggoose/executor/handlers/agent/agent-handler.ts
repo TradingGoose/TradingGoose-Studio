@@ -376,7 +376,7 @@ export class AgentBlockHandler implements BlockHandler {
     const transformedTool = await transformBlockTool(tool, {
       selectedOperation: tool.operation,
       getAllBlocks,
-      getToolAsync: (toolId: string) => getToolAsync(toolId, context.workflowId),
+      getToolAsync: (toolId: string) => getToolAsync(toolId, context.workflowId, context.workspaceId),
       getTool,
     })
 

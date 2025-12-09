@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { COPILOT_VERSION } from './constants'
+import { COPILOT_MODE_IDS } from '../modes'
 
 export const ChatRequestSchema = z.object({
   message: z.string().min(1),
@@ -8,7 +9,7 @@ export const ChatRequestSchema = z.object({
   stream: z.boolean().default(true),
   streamToolCalls: z.boolean().default(true),
   model: z.string().optional(),
-  mode: z.enum(['ask', 'agent']).default('agent'),
+  mode: z.enum(COPILOT_MODE_IDS).default('agent'),
   messageId: z.string().optional(),
   version: z.string().optional().default(COPILOT_VERSION),
   provider: z.any().optional(),
@@ -16,18 +17,25 @@ export const ChatRequestSchema = z.object({
   prefetch: z.boolean().optional(),
   userName: z.string().optional(),
   context: z
-    .array(z.object({ type: z.string(), tag: z.string().optional(), content: z.string() }))
-    .optional(),
-  chatId: z.string().optional(),
-  fileAttachments: z.any().optional(),
-  messages: z
     .array(
       z.object({
-        role: z.enum(['user', 'assistant', 'system']),
+        type: z.string(),
+        tag: z.string().optional(),
         content: z.string(),
       })
     )
     .optional(),
+  history: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant', 'system', 'tool']),
+        content: z.string(),
+      })
+    )
+    .optional(),
+  chatId: z.string().optional(),
+  systemPrompt: z.string().optional(),
+  fileAttachments: z.any().optional(),
 })
 
 export const ContextUsageSchema = z.object({

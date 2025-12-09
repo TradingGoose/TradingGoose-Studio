@@ -3,9 +3,11 @@ import { DEFAULT_CONTEXT_WINDOW } from '../core/constants'
 import { ContextUsageSchema } from '../core/schemas'
 import type { AppBindings } from '../core/types'
 import { estimateTokensFallback, getUsageSnapshot } from '../services/usage'
+import { config } from '../core/config'
 
 export const registerContextUsageRoutes = (app: Hono<AppBindings>) => {
   app.post('/api/get-context-usage', async (c) => {
+
     const body = await c.req.json().catch(() => ({}))
     const parsed = ContextUsageSchema.safeParse(body)
     if (!parsed.success) {
@@ -27,18 +29,25 @@ export const registerContextUsageRoutes = (app: Hono<AppBindings>) => {
         : 0)
 
     const usageNumeric = tokensUsed
-    const usagePayload =
+    let usagePayload =
       cachedUsage?.usage ??
       cachedUsage?.tokenUsage ??
       cachedUsage?.tokens ??
       (normalized
         ? {
-            total_tokens: normalized.totalTokens,
-            prompt_tokens: normalized.promptTokens,
-            completion_tokens: normalized.completionTokens,
-            context_window: normalized.contextWindow,
-          }
+          total_tokens: normalized.totalTokens,
+          prompt_tokens: normalized.promptTokens,
+          completion_tokens: normalized.completionTokens,
+          context_window: normalized.contextWindow,
+        }
         : undefined)
+
+    const incomingKey = c.req.header('x-api-key')
+    if (config.internalApiSecret && incomingKey === config.internalApiSecret) {
+      usagePayload.total_tokens = 0
+      usagePayload.promptTokens = 0
+      usagePayload.completion_tokens = 0
+    }
 
     return c.json({
       tokensUsed,

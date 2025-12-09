@@ -10,7 +10,7 @@ export const ArxivBlock: BlockConfig<ArxivResponse> = {
     'Integrates ArXiv into the workflow. Can search for papers, get paper details, and get author papers. Does not require OAuth or an API key.',
   docsLink: 'https://docs.sim.ai/tools/arxiv',
   category: 'tools',
-  bgColor: '#E0E0E0',
+  bgColor: undefined,
   icon: ArxivIcon,
   subBlocks: [
     {

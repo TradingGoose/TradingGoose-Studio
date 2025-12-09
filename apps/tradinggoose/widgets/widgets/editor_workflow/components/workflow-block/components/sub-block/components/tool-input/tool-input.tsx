@@ -43,7 +43,7 @@ import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workfl
 import { getAllBlocks } from '@/blocks'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
 import { getProviderFromModel, supportsToolUsageControl } from '@/providers/utils'
-import { useCustomToolsStore } from '@/stores/custom-tools/store'
+import { useCustomTools } from '@/hooks/queries/custom-tools'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import {
@@ -54,6 +54,13 @@ import {
 } from '@/tools/params'
 
 const logger = createLogger('ToolInput')
+
+const sanitizeHexColor = (value?: string) => {
+  if (!value) return undefined
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+  return trimmed.startsWith('#') ? trimmed : `#${trimmed}`
+}
 
 interface ToolInputProps {
   blockId: string
@@ -435,7 +442,7 @@ export function ToolInput({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const isWide = useWorkflowStore((state) => state.blocks[blockId]?.isWide)
-  const customTools = useCustomToolsStore((state) => state.getAllTools())
+  const { data: customTools = [] } = useCustomTools(workspaceId)
   const subBlockStore = useSubBlockStore()
 
   // MCP tools integration
@@ -904,9 +911,17 @@ export function ToolInput({
     setDragOverIndex(null)
   }
 
-  const IconComponent = ({ icon: Icon, className }: { icon: any; className?: string }) => {
+  const IconComponent = ({
+    icon: Icon,
+    className,
+    style,
+  }: {
+    icon: any
+    className?: string
+    style?: React.CSSProperties
+  }) => {
     if (!Icon) return null
-    return <Icon className={className} />
+    return <Icon className={className} style={style} />
   }
 
   // Check if tool has OAuth requirements
@@ -1233,7 +1248,7 @@ export function ToolInput({
       {selectedTools.length === 0 ? (
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
-            <div className='flex h-10 w-full cursor-pointer items-center justify-center rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background transition-colors hover:bg-card hover:text-accent-foreground'>
+            <div className='flex h-10 w-full cursor-pointer items-center justify-center rounded-md border border-input bg-transparent p-2 text-sm ring-offset-background transition-colors hover:bg-card hover:text-accent-foreground'>
               <div className='flex items-center text-base text-muted-foreground/50 md:text-sm'>
                 <PlusIcon className='mr-2 h-4 w-4' />
                 Add Tool
@@ -1333,8 +1348,14 @@ export function ToolInput({
                             }}
                             className='flex cursor-pointer items-center gap-2'
                           >
-                            <div className='flex h-6 w-6 items-center justify-center rounded bg-blue-500'>
-                              <WrenchIcon className='h-4 w-4 text-white' />
+                            <div
+                              className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-background/60 text-foreground'
+                              style={{
+                                backgroundColor: `${sanitizeHexColor('#3B82F6')}30`,
+                                color: sanitizeHexColor('#3B82F6') || undefined,
+                              }}
+                            >
+                              <WrenchIcon className='h-4 w-4' style={{ color: '#3B82F6' }} />
                             </div>
                             <span className='max-w-[140px] truncate'>{customTool.title}</span>
                           </ToolCommand.Item>
@@ -1368,10 +1389,19 @@ export function ToolInput({
                             className='flex cursor-pointer items-center gap-2'
                           >
                             <div
-                              className='flex h-6 w-6 items-center justify-center rounded'
-                              style={{ backgroundColor: block.bgColor }}
+                              className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-background/60 text-foreground'
+                              style={{
+                                backgroundColor: sanitizeHexColor(block.bgColor)
+                                  ? `${sanitizeHexColor(block.bgColor)}30`
+                                  : undefined,
+                                color: sanitizeHexColor(block.bgColor) || undefined,
+                              }}
                             >
-                              <IconComponent icon={block.icon} className='h-4 w-4 text-white' />
+                              <IconComponent
+                                icon={block.icon}
+                                className='h-4 w-4'
+                                style={{ color: sanitizeHexColor(block.bgColor) || '#FFFFFF' }}
+                              />
                             </div>
                             <span className='max-w-[140px] truncate'>{block.name}</span>
                           </ToolCommand.Item>
@@ -1385,7 +1415,7 @@ export function ToolInput({
           </PopoverContent>
         </Popover>
       ) : (
-        <div className='flex min-h-[2.5rem] w-full flex-wrap gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background'>
+        <div className='flex min-h-[2.5rem] w-full flex-wrap gap-2 rounded-md border border-input bg-transparent p-2 text-sm ring-offset-background'>
           {selectedTools.map((tool, toolIndex) => {
             // Handle custom tools and MCP tools differently
             const isCustomTool = tool.type === 'custom-tool'
@@ -1499,24 +1529,39 @@ export function ToolInput({
                     }}
                   >
                     <div className='flex min-w-0 flex-shrink-1 items-center gap-2 overflow-hidden'>
-                      <div
-                        className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-sm'
-                        style={{
-                          backgroundColor: isCustomTool
-                            ? '#3B82F6' // blue-500 for custom tools
-                            : isMcpTool
-                              ? mcpTool?.bgColor || '#6366F1' // Indigo for MCP tools
-                              : toolBlock?.bgColor,
-                        }}
-                      >
-                        {isCustomTool ? (
-                          <WrenchIcon className='h-3 w-3 text-white' />
-                        ) : isMcpTool ? (
-                          <IconComponent icon={Server} className='h-3 w-3 text-white' />
-                        ) : (
-                          <IconComponent icon={toolBlock?.icon} className='h-3 w-3 text-white' />
-                        )}
-                      </div>
+                      {(() => {
+                        const toolColor = isCustomTool
+                          ? sanitizeHexColor('#3B82F6')
+                          : isMcpTool
+                            ? sanitizeHexColor(mcpTool?.bgColor) ?? sanitizeHexColor('#6366F1')
+                            : sanitizeHexColor(toolBlock?.bgColor)
+                        const iconColor = toolColor || '#FFFFFF'
+                        return (
+                          <div
+                            className='relative flex h-5 w-5 flex-shrink-0 items-center justify-center overflow-hidden rounded-sm bg-background/60 text-foreground'
+                            style={{
+                              backgroundColor: toolColor ? `${toolColor}30` : undefined,
+                              color: iconColor,
+                            }}
+                          >
+                            {isCustomTool ? (
+                              <WrenchIcon className='h-3 w-3' style={{ color: iconColor }} />
+                            ) : isMcpTool ? (
+                              <IconComponent
+                                icon={Server}
+                                className='h-3 w-3'
+                                style={{ color: iconColor }}
+                              />
+                            ) : (
+                              <IconComponent
+                                icon={toolBlock?.icon}
+                                className='h-3 w-3'
+                                style={{ color: iconColor }}
+                              />
+                            )}
+                          </div>
+                        )
+                      })()}
                       <span className='truncate font-medium text-sm'>{tool.title}</span>
                     </div>
                     <div className='ml-2 flex flex-shrink-0 items-center gap-1'>
@@ -1894,8 +1939,14 @@ export function ToolInput({
                               }}
                               className='flex cursor-pointer items-center gap-2'
                             >
-                              <div className='flex h-6 w-6 items-center justify-center rounded bg-blue-500'>
-                                <WrenchIcon className='h-4 w-4 text-white' />
+                              <div
+                                className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-background/60 text-foreground'
+                                style={{
+                                  backgroundColor: `${sanitizeHexColor('#3B82F6')}30`,
+                                  color: sanitizeHexColor('#3B82F6') || undefined,
+                                }}
+                              >
+                                <WrenchIcon className='h-4 w-4' style={{ color: '#3B82F6' }} />
                               </div>
                               <span className='max-w-[140px] truncate'>{customTool.title}</span>
                             </ToolCommand.Item>
@@ -1931,10 +1982,19 @@ export function ToolInput({
                                 className='flex cursor-pointer items-center gap-2'
                               >
                                 <div
-                                  className='flex h-6 w-6 items-center justify-center rounded'
-                                  style={{ backgroundColor: block.bgColor }}
+                                  className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-background/60 text-foreground'
+                                  style={{
+                                    backgroundColor: sanitizeHexColor(block.bgColor)
+                                      ? `${sanitizeHexColor(block.bgColor)}30`
+                                      : undefined,
+                                    color: sanitizeHexColor(block.bgColor) || undefined,
+                                  }}
                                 >
-                                  <IconComponent icon={block.icon} className='h-4 w-4 text-white' />
+                                  <IconComponent
+                                    icon={block.icon}
+                                    className='h-4 w-4'
+                                    style={{ color: sanitizeHexColor(block.bgColor) || '#FFFFFF' }}
+                                  />
                                 </div>
                                 <span className='max-w-[140px] truncate'>{block.name}</span>
                               </ToolCommand.Item>

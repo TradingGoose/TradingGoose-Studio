@@ -7,7 +7,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 export const metadata = {
   metadataBase: new URL('https://docs.sim.ai'),
   title: {
-    default: 'Sim Documentation - Visual Workflow Builder for AI Applications',
+    default: 'TradingGoose Documentation - Visual Workflow Builder for AI Applications',
     template: '%s',
   },
   description:
@@ -52,14 +52,14 @@ export const metadata = {
     locale: 'en_US',
     alternateLocale: ['es_ES', 'fr_FR', 'de_DE', 'ja_JP', 'zh_CN'],
     url: 'https://docs.sim.ai',
-    siteName: 'Sim Documentation',
-    title: 'Sim Documentation - Visual Workflow Builder for AI Applications',
+    siteName: 'TradingGoose Documentation',
+    title: 'TradingGoose Documentation - Visual Workflow Builder for AI Applications',
     description:
       'Comprehensive documentation for Sim - the visual workflow builder for AI applications. Create powerful AI agents, automation workflows, and data processing pipelines.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Sim Documentation - Visual Workflow Builder for AI Applications',
+    title: 'TradingGoose Documentation - Visual Workflow Builder for AI Applications',
     description:
       'Comprehensive documentation for Sim - the visual workflow builder for AI applications.',
     creator: '@simdotai',

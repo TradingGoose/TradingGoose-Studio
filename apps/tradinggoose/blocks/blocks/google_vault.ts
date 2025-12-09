@@ -11,7 +11,7 @@ export const GoogleVaultBlock: BlockConfig = {
     'Connect Google Vault to create exports, list exports, and manage holds within matters.',
   docsLink: 'https://developers.google.com/vault',
   category: 'tools',
-  bgColor: '#E8F0FE',
+  bgColor: undefined,
   icon: GoogleVaultIcon,
   subBlocks: [
     {

@@ -64,4 +64,4 @@ Generate secure secrets using:
 
 For more information and configuration options, see:
 - Chart documentation: https://github.com/simstudioai/sim/tree/main/helm/sim
-- Sim documentation: https://docs.sim.ai
+- TradingGoose Documentation: https://docs.sim.ai

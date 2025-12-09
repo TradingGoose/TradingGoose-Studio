@@ -48,7 +48,7 @@ export function StructuredData({
     inLanguage: lang,
     isPartOf: {
       '@type': 'WebSite',
-      name: 'Sim Documentation',
+      name: 'TradingGoose Documentation',
       url: baseUrl,
     },
     potentialAction: {
@@ -71,7 +71,7 @@ export function StructuredData({
   const websiteStructuredData = url === baseUrl && {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
-    name: 'Sim Documentation',
+    name: 'TradingGoose Documentation',
     url: baseUrl,
     description:
       'Comprehensive documentation for Sim visual workflow builder for AI applications. Create powerful AI agents, automation workflows, and data processing pipelines.',

@@ -99,10 +99,10 @@ export function TriggerList({ onSelect, className }: TriggerListProps) {
         >
           <div
             className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm'
-            style={{ backgroundColor: trigger.color }}
+            style={{ backgroundColor: trigger.color + '30', color: trigger.color }}
           >
             {Icon ? (
-              <Icon className='!h-4 !w-4 text-white' />
+              <Icon className='!h-4 !w-4' />
             ) : (
               <div className='/20 h-4 w-4 rounded' />
             )}

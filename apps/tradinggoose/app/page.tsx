@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Background } from '@/app/(landing)/components'
 import Landing from '@/app/(landing)/landing'
 
 export const metadata: Metadata = {
@@ -85,5 +86,9 @@ export const metadata: Metadata = {
 }
 
 export default function Page() {
-  return <Landing />
+  return (
+    <Background>
+      <Landing />
+    </Background>
+  )
 }

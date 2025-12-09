@@ -812,10 +812,19 @@ export const WorkflowBlock = memo(
           >
             <div className='flex min-w-0 flex-1 items-center gap-3'>
               <div
-                className='flex h-7 w-7 flex-shrink-0 items-center justify-center rounded'
-                style={{ backgroundColor: isEnabled ? config.bgColor : 'gray' }}
+                className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-secondary/60 text-foreground'
+                style={{
+                  backgroundColor: isEnabled
+                    ? config.bgColor
+                      ? `${config.bgColor}30`
+                      : undefined
+                    : 'gray',
+                  color: isEnabled
+                    ? config.bgColor || undefined
+                    : 'black',
+                }}
               >
-                <config.icon className='h-5 w-5 text-white' />
+                <config.icon className={'h-5 w-5'} />
               </div>
               <div className='min-w-0'>
                 {isEditing ? (
@@ -1144,132 +1153,136 @@ export const WorkflowBlock = memo(
           </div>
 
           {/* Block Content - Only render if there are subblocks */}
-          {subBlockRows.length > 0 && (
-            <div
-              ref={contentRef}
-              className='cursor-pointer space-y-4 px-4 pt-3 pb-4'
-              onMouseDown={(e) => {
-                e.stopPropagation()
-              }}
-            >
-              {subBlockRows.map((row, rowIndex) => (
-                <div key={`row-${rowIndex}`} className='flex gap-4'>
-                  {row.map((subBlock) => {
-                    const stableKey = getSubBlockStableKey(subBlock, subBlockState)
+          {
+            subBlockRows.length > 0 && (
+              <div
+                ref={contentRef}
+                className='cursor-pointer space-y-4 px-4 pt-3 pb-4'
+                onMouseDown={(e) => {
+                  e.stopPropagation()
+                }}
+              >
+                {subBlockRows.map((row, rowIndex) => (
+                  <div key={`row-${rowIndex}`} className='flex gap-4'>
+                    {row.map((subBlock) => {
+                      const stableKey = getSubBlockStableKey(subBlock, subBlockState)
 
-                    return (
-                      <div
-                        key={stableKey}
-                        className={cn(
-                          'space-y-1',
-                          subBlock.layout === 'half' ? 'flex-1' : 'w-full'
-                        )}
-                      >
-                        <SubBlock
-                          blockId={id}
-                          config={subBlock}
-                          isConnecting={isConnecting}
-                          isPreview={data.isPreview || currentWorkflow.isDiffMode}
-                          subBlockValues={
-                            data.subBlockValues ||
-                            (currentWorkflow.isDiffMode && currentBlock
-                              ? (currentBlock as any).subBlocks
-                              : undefined)
-                          }
-                          disabled={!userPermissions.canEdit}
-                          fieldDiffStatus={
-                            fieldDiff?.changed_fields?.includes(subBlock.id)
-                              ? 'changed'
-                              : fieldDiff?.unchanged_fields?.includes(subBlock.id)
-                                ? 'unchanged'
-                                : undefined
-                          }
-                          allowExpandInPreview={currentWorkflow.isDiffMode}
-                          isWide={displayIsWide}
-                        />
-                      </div>
-                    )
-                  })}
-                </div>
-              ))}
-            </div>
-          )}
+                      return (
+                        <div
+                          key={stableKey}
+                          className={cn(
+                            'space-y-1',
+                            subBlock.layout === 'half' ? 'flex-1' : 'w-full'
+                          )}
+                        >
+                          <SubBlock
+                            blockId={id}
+                            config={subBlock}
+                            isConnecting={isConnecting}
+                            isPreview={data.isPreview || currentWorkflow.isDiffMode}
+                            subBlockValues={
+                              data.subBlockValues ||
+                              (currentWorkflow.isDiffMode && currentBlock
+                                ? (currentBlock as any).subBlocks
+                                : undefined)
+                            }
+                            disabled={!userPermissions.canEdit}
+                            fieldDiffStatus={
+                              fieldDiff?.changed_fields?.includes(subBlock.id)
+                                ? 'changed'
+                                : fieldDiff?.unchanged_fields?.includes(subBlock.id)
+                                  ? 'unchanged'
+                                  : undefined
+                            }
+                            allowExpandInPreview={currentWorkflow.isDiffMode}
+                            isWide={displayIsWide}
+                          />
+                        </div>
+                      )
+                    })}
+                  </div>
+                ))}
+              </div>
+            )
+          }
 
           {/* Output Handle */}
-          {type !== 'condition' && type !== 'response' && (
-            <>
-              <Handle
-                type='source'
-                position={horizontalHandles ? Position.Right : Position.Bottom}
-                id='source'
-                className={cn(
-                  horizontalHandles ? '!w-[7px] !h-5' : '!w-5 !h-[7px]',
-                  '!bg-slate-300 dark:!bg-slate-500 !rounded-xs !border-none',
-                  '!z-[30]',
-                  'group-hover:!shadow-[0_0_0_3px_rgba(156,163,175,0.15)]',
-                  horizontalHandles
-                    ? 'hover:!w-[10px] hover:!right-[-10px] hover:!rounded-r-full hover:!rounded-l-none'
-                    : 'hover:!h-[10px] hover:!bottom-[-10px] hover:!rounded-b-full hover:!rounded-t-none',
-                  '!cursor-crosshair',
-                  'transition-[colors] duration-150',
-                  horizontalHandles ? '!right-[-7px]' : '!bottom-[-7px]'
-                )}
-                style={{
-                  ...(horizontalHandles
-                    ? { top: '50%', transform: 'translateY(-50%)' }
-                    : { left: '50%', transform: 'translateX(-50%)' }),
-                }}
-                data-nodeid={id}
-                data-handleid='source'
-                isConnectableStart={true}
-                isConnectableEnd={false}
-                isValidConnection={(connection) => connection.target !== id}
-              />
-
-              {/* Error Handle - Don't show for trigger blocks or blocks in trigger mode */}
-              {config.category !== 'triggers' && !displayTriggerMode && (
+          {
+            type !== 'condition' && type !== 'response' && (
+              <>
                 <Handle
                   type='source'
                   position={horizontalHandles ? Position.Right : Position.Bottom}
-                  id='error'
+                  id='source'
                   className={cn(
                     horizontalHandles ? '!w-[7px] !h-5' : '!w-5 !h-[7px]',
-                    '!bg-red-400 dark:!bg-red-500 !rounded-xs !border-none',
+                    '!bg-slate-300 dark:!bg-slate-500 !rounded-xs !border-none',
                     '!z-[30]',
-                    'group-hover:!shadow-[0_0_0_3px_rgba(248,113,113,0.15)]',
+                    'group-hover:!shadow-[0_0_0_3px_rgba(156,163,175,0.15)]',
                     horizontalHandles
                       ? 'hover:!w-[10px] hover:!right-[-10px] hover:!rounded-r-full hover:!rounded-l-none'
                       : 'hover:!h-[10px] hover:!bottom-[-10px] hover:!rounded-b-full hover:!rounded-t-none',
                     '!cursor-crosshair',
-                    'transition-[colors] duration-150'
+                    'transition-[colors] duration-150',
+                    horizontalHandles ? '!right-[-7px]' : '!bottom-[-7px]'
                   )}
                   style={{
-                    position: 'absolute',
                     ...(horizontalHandles
-                      ? {
-                        right: '-8px',
-                        top: 'auto',
-                        bottom: '30px',
-                        transform: 'translateY(0)',
-                      }
-                      : {
-                        bottom: '-7px',
-                        left: 'auto',
-                        right: '30px',
-                        transform: 'translateX(0)',
-                      }),
+                      ? { top: '50%', transform: 'translateY(-50%)' }
+                      : { left: '50%', transform: 'translateX(-50%)' }),
                   }}
                   data-nodeid={id}
-                  data-handleid='error'
+                  data-handleid='source'
                   isConnectableStart={true}
                   isConnectableEnd={false}
                   isValidConnection={(connection) => connection.target !== id}
                 />
-              )}
-            </>
-          )}
-        </Card>
-      </div>
+
+                {/* Error Handle - Don't show for trigger blocks or blocks in trigger mode */}
+                {config.category !== 'triggers' && !displayTriggerMode && (
+                  <Handle
+                    type='source'
+                    position={horizontalHandles ? Position.Right : Position.Bottom}
+                    id='error'
+                    className={cn(
+                      horizontalHandles ? '!w-[7px] !h-5' : '!w-5 !h-[7px]',
+                      '!bg-red-400 dark:!bg-red-500 !rounded-xs !border-none',
+                      '!z-[30]',
+                      'group-hover:!shadow-[0_0_0_3px_rgba(248,113,113,0.15)]',
+                      horizontalHandles
+                        ? 'hover:!w-[10px] hover:!right-[-10px] hover:!rounded-r-full hover:!rounded-l-none'
+                        : 'hover:!h-[10px] hover:!bottom-[-10px] hover:!rounded-b-full hover:!rounded-t-none',
+                      '!cursor-crosshair',
+                      'transition-[colors] duration-150'
+                    )}
+                    style={{
+                      position: 'absolute',
+                      ...(horizontalHandles
+                        ? {
+                          right: '-8px',
+                          top: 'auto',
+                          bottom: '30px',
+                          transform: 'translateY(0)',
+                        }
+                        : {
+                          bottom: '-7px',
+                          left: 'auto',
+                          right: '30px',
+                          transform: 'translateX(0)',
+                        }),
+                    }}
+                    data-nodeid={id}
+                    data-handleid='error'
+                    isConnectableStart={true}
+                    isConnectableEnd={false}
+                    isValidConnection={(connection) => connection.target !== id}
+                  />
+                )}
+              </>
+            )
+          }
+        </Card >
+      </div >
     )
   },
   (prevProps, nextProps) => {

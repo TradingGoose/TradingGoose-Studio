@@ -19,13 +19,14 @@ import {
   humanizeSlug,
   supportedLanguages,
 } from '@/lib/page-tree'
+import { BackgroundRippleEffect } from '../../ui/background-ripple-effect'
 
 export function Navbar(props: ComponentProps<'header'>) {
   return (
     <header
       {...props}
       className={cn(
-        'sticky top-0 z-20 flex flex-col border-b border-fd-border bg-fd-background backdrop-blur supports-[backdrop-filter]:backdrop-blur-xl',
+        'sticky top-0 z-20 flex flex-col border-b border-fd-border bg-fd-background/40 backdrop-blur supports-[backdrop-filter]:backdrop-blur-sm',
         props.className,
       )}
     >
@@ -44,10 +45,11 @@ export function LayoutBody({ sidebar, navbar, children, className, ...props }: L
     <div
       {...props}
       className={cn(
-        'relative flex min-h-screen w-full bg-fd-background text-fd-foreground',
+        'relative flex min-h-screen w-full text-fd-foreground',
         className,
       )}
     >
+      <BackgroundRippleEffect rows={15} cellSize={90} />
       {sidebar}
       <div
         className='flex min-h-screen flex-1 flex-col'

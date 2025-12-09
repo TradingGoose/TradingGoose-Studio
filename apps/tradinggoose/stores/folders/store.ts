@@ -321,6 +321,23 @@ export const useFolderStore = create<FolderState>()(
         }
 
         const responseData = await response.json()
+        const workflowRegistry = useWorkflowRegistry.getState()
+
+        const collectDescendantFolderIds = (folderId: string): string[] => {
+          const childFolders = get().getChildFolders(folderId)
+          return childFolders.flatMap((child) => [child.id, ...collectDescendantFolderIds(child.id)])
+        }
+
+        const descendantFolderIds = collectDescendantFolderIds(id)
+        const allFolderIds = [id, ...descendantFolderIds]
+        const workflowIdsToRemove = Object.values(workflowRegistry.workflows)
+          .filter(
+            (workflow) =>
+              workflow.workspaceId === workspaceId &&
+              workflow.folderId &&
+              allFolderIds.includes(workflow.folderId)
+          )
+          .map((workflow) => workflow.id)
 
         // Remove the folder from local state
         get().removeFolder(id)
@@ -328,18 +345,19 @@ export const useFolderStore = create<FolderState>()(
         // Remove from expanded state
         set((state) => {
           const newExpanded = new Set(state.expandedFolders)
-          newExpanded.delete(id)
+          allFolderIds.forEach((folderId) => newExpanded.delete(folderId))
           return { expandedFolders: newExpanded }
         })
 
         // Remove subfolders from local state
         get().removeSubfoldersRecursively(id)
 
-        // The backend has already deleted the workflows, so we just need to refresh
-        // the workflow registry to sync with the server state
-        const workflowRegistry = useWorkflowRegistry.getState()
-        if (workspaceId) {
-          await workflowRegistry.loadWorkflows(workspaceId)
+        if (workflowIdsToRemove.length > 0) {
+          await Promise.all(
+            workflowIdsToRemove.map((workflowId) =>
+              workflowRegistry.removeWorkflow(workflowId, { skipApi: true })
+            )
+          )
         }
 
         logger.info(

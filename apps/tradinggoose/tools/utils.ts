@@ -297,7 +297,8 @@ export function getTool(toolId: string): ToolConfig | undefined {
 // Get a tool by its ID asynchronously (supports server-side)
 export async function getToolAsync(
   toolId: string,
-  workflowId?: string
+  workflowId?: string,
+  workspaceId?: string
 ): Promise<ToolConfig | undefined> {
   // Check for built-in tools
   const builtInTool = tools[toolId]
@@ -360,9 +361,11 @@ async function getCustomTool(
     const baseUrl = getBaseUrl()
     const url = new URL('/api/tools/custom', baseUrl)
 
-    // Add workflowId as a query parameter if available
+    // Add identifiers as query parameters if available
     if (workflowId) {
       url.searchParams.append('workflowId', workflowId)
+    } else if (workspaceId) {
+      url.searchParams.append('workspaceId', workspaceId)
     }
 
     const response = await fetch(url.toString())

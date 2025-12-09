@@ -26,6 +26,7 @@ interface FolderSectionProps {
   pathname: string
   updateWorkflow: (id: string, updates: Partial<WorkflowMetadata>) => Promise<void>
   updateFolder: (id: string, updates: any) => Promise<any>
+  canDeleteWorkflow: boolean
   renderFolderTree: (
     nodes: FolderTreeNode[],
     level: number,
@@ -82,6 +83,7 @@ function FolderSection({
   pathname,
   updateWorkflow,
   updateFolder,
+  canDeleteWorkflow,
   renderFolderTree,
   parentDragOver = false,
 }: FolderSectionProps) {
@@ -183,6 +185,7 @@ function FolderSection({
                       isDragOver={isAnyDragOver}
                       onSelect={onWorkflowSelect}
                       disableNavigation={disableNavigation}
+                      canDelete={canDeleteWorkflow}
                     />
                   </div>
                 </div>
@@ -235,6 +238,7 @@ function FolderSection({
                       pathname={pathname}
                       updateWorkflow={updateWorkflow}
                       updateFolder={updateFolder}
+                      canDeleteWorkflow={canDeleteWorkflow}
                       renderFolderTree={renderFolderTree}
                       parentDragOver={isAnyDragOver}
                     />
@@ -400,7 +404,6 @@ export function FolderTree({
   const workspaceId = workspaceIdOverride ?? routeContext?.workspaceId ?? null
   const workflowId = workflowIdOverride ?? routeContext?.workflowId ?? null
   const pathname = pathnameOverride ?? routerPathname ?? ''
-  const getFolderTree = useFolderStore((state) => state.getFolderTree)
   const expandedFolders = useFolderStore((state) => state.expandedFolders)
   const fetchFolders = useFolderStore((state) => state.fetchFolders)
   const foldersLoading = useFolderStore((state) => state.isLoading)
@@ -408,6 +411,12 @@ export function FolderTree({
   const updateFolderAPI = useFolderStore((state) => state.updateFolderAPI)
   const getFolderPath = useFolderStore((state) => state.getFolderPath)
   const setExpanded = useFolderStore((state) => state.setExpanded)
+  const folderTree = useFolderStore(
+    useCallback(
+      (state) => (workspaceId ? state.getFolderTree(workspaceId) : []),
+      [workspaceId]
+    )
+  )
   const hasLoadedFolders = useFolderStore((state) =>
     workspaceId ? Boolean(state.loadedWorkspaces[workspaceId]) : false
   )
@@ -503,8 +512,6 @@ export function FolderTree({
     clearSelection()
   }, [workspaceId, clearSelection])
 
-  const folderTree = workspaceId ? getFolderTree(workspaceId) : []
-
   // Group workflows by folder
   const workflowsByFolder = regularWorkflows.reduce(
     (acc, workflow) => {
@@ -515,6 +522,7 @@ export function FolderTree({
     },
     {} as Record<string, WorkflowMetadata[]>
   )
+  const canDeleteWorkflow = regularWorkflows.length > 1
 
   const {
     isDragOver: rootDragOver,
@@ -543,6 +551,7 @@ export function FolderTree({
         pathname={pathname}
         updateWorkflow={updateWorkflow}
         updateFolder={updateFolderAPI}
+        canDeleteWorkflow={canDeleteWorkflow}
         renderFolderTree={renderFolderTree}
         parentDragOver={parentDragOver}
       />
@@ -600,6 +609,7 @@ export function FolderTree({
               isDragOver={rootDragOver}
               onSelect={onWorkflowSelect}
               disableNavigation={disableNavigation}
+              canDelete={canDeleteWorkflow}
             />
           ))}
 

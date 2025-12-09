@@ -11,7 +11,7 @@ export const GoogleDriveBlock: BlockConfig<GoogleDriveResponse> = {
   longDescription: 'Integrate Google Drive into the workflow. Can create, upload, and list files.',
   docsLink: 'https://docs.sim.ai/tools/google_drive',
   category: 'tools',
-  bgColor: '#E0E0E0',
+  bgColor: undefined,
   icon: GoogleDriveIcon,
   subBlocks: [
     // Operation selector

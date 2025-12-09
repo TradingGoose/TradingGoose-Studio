@@ -1,4 +1,6 @@
-export type AgentMode = 'ask' | 'agent'
+import type { CopilotModeId } from '../modes'
+
+export type AgentMode = CopilotModeId
 
 export interface AgentContextItem {
   type: string

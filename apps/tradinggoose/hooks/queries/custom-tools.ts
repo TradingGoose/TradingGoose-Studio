@@ -21,6 +21,7 @@ export type CustomTool = CustomToolDefinition
 type ApiCustomTool = Partial<CustomToolDefinition> & {
   id: string
   title: string
+  workspaceId?: string
   schema: Partial<CustomToolSchema> & {
     function?: Partial<CustomToolSchema['function']> & {
       parameters?: Partial<CustomToolSchema['function']['parameters']>
@@ -40,7 +41,7 @@ function normalizeCustomTool(tool: ApiCustomTool, workspaceId: string): CustomTo
     id: tool.id,
     title: tool.title,
     code: typeof tool.code === 'string' ? tool.code : '',
-    workspaceId: tool.workspaceId ?? workspaceId ?? null,
+    workspaceId: tool.workspaceId ?? workspaceId,
     userId: tool.userId ?? null,
     createdAt:
       typeof tool.createdAt === 'string'
@@ -64,8 +65,8 @@ function normalizeCustomTool(tool: ApiCustomTool, workspaceId: string): CustomTo
   }
 }
 
-function syncCustomToolsToStore(tools: CustomToolDefinition[]) {
-  useCustomToolsStore.getState().setTools(tools)
+function syncCustomToolsToStore(workspaceId: string, tools: CustomToolDefinition[]) {
+  useCustomToolsStore.getState().setTools(workspaceId, tools)
 }
 
 /**
@@ -114,7 +115,7 @@ async function fetchCustomTools(workspaceId: string): Promise<CustomToolDefiniti
       title: tool.title,
       schema: tool.schema,
       code: typeof tool.code === 'string' ? tool.code : '',
-      workspaceId: tool.workspaceId ?? null,
+      workspaceId: tool.workspaceId ?? workspaceId,
       userId: tool.userId ?? null,
       createdAt: tool.createdAt ?? undefined,
       updatedAt: tool.updatedAt ?? undefined,
@@ -143,7 +144,7 @@ export function useCustomTools(workspaceId: string) {
   })
 
   if (query.data) {
-    syncCustomToolsToStore(query.data)
+    syncCustomToolsToStore(workspaceId, query.data)
   }
 
   return query
@@ -301,7 +302,7 @@ export function useUpdateCustomTool() {
  * Delete custom tool mutation
  */
 interface DeleteCustomToolParams {
-  workspaceId: string | null
+  workspaceId: string
   toolId: string
 }
 
@@ -312,9 +313,7 @@ export function useDeleteCustomTool() {
     mutationFn: async ({ workspaceId, toolId }: DeleteCustomToolParams) => {
       logger.info(`Deleting custom tool: ${toolId}`)
 
-      const url = workspaceId
-        ? `${API_ENDPOINT}?id=${toolId}&workspaceId=${workspaceId}`
-        : `${API_ENDPOINT}?id=${toolId}`
+      const url = `${API_ENDPOINT}?id=${toolId}&workspaceId=${workspaceId}`
 
       const response = await fetch(url, {
         method: 'DELETE',
@@ -330,8 +329,6 @@ export function useDeleteCustomTool() {
       return data
     },
     onMutate: async ({ workspaceId, toolId }) => {
-      if (!workspaceId) return
-
       await queryClient.cancelQueries({ queryKey: customToolsKeys.list(workspaceId) })
 
       const previousTools = queryClient.getQueryData<CustomToolDefinition[]>(
@@ -353,9 +350,7 @@ export function useDeleteCustomTool() {
       }
     },
     onSettled: (_data, _error, variables) => {
-      if (variables.workspaceId) {
-        queryClient.invalidateQueries({ queryKey: customToolsKeys.list(variables.workspaceId) })
-      }
+      queryClient.invalidateQueries({ queryKey: customToolsKeys.list(variables.workspaceId) })
     },
   })
 }

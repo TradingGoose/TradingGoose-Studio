@@ -183,7 +183,7 @@ export function SidebarContent(props: ComponentProps<'aside'>) {
         } as object
       }
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-2 p-2 data-[collapsed=true]:px-1 data-[collapsed=true]:py-3">
+      <div className="bg-fd-background flex min-h-0 flex-1 flex-col gap-2 p-2 data-[collapsed=true]:px-1 data-[collapsed=true]:py-3">
         {props.children}
       </div>
       <button

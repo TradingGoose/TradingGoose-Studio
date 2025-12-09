@@ -842,7 +842,7 @@ export function ControlBar({
             onClick={handleRunClick}
             disabled={isButtonDisabled}
           >
-            <Play className={cn('h-3.5 w-3.5', 'fill-current stroke-current')} />
+            <Play className={cn('h-3.5 w-3.5', 'fill-current stroke-none')} />
           </Button>
         </TooltipTrigger>
         <TooltipContent command={getKeyboardShortcutText('Enter', true)}>

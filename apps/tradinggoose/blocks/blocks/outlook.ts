@@ -13,7 +13,7 @@ export const OutlookBlock: BlockConfig<OutlookResponse> = {
   docsLink: 'https://docs.sim.ai/tools/outlook',
   category: 'tools',
   triggerAllowed: true,
-  bgColor: '#E0E0E0',
+  bgColor: undefined,
   icon: OutlookIcon,
   subBlocks: [
     {

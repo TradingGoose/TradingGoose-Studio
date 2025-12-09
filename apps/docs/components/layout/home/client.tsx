@@ -97,7 +97,7 @@ export function NavigationMenuLinkItem({
             external={child.external}
             {...rest}
             className={cn(
-              'flex flex-col gap-2 rounded-lg border bg-fd-card p-3 transition-colors hover:bg-fd-accent/80 hover:text-fd-accent-foreground',
+              'flex flex-col gap-2 rounded-lg border bg-fd-card p-3 transition-colors hover:bg-fd-accent/80 hover:text-fd-accent-foreground hover:backdrop-blur hover:supports-[backdrop-filter]:bg-fd-accent/55',
               rest.className,
             )}
           >

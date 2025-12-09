@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'api.stability.ai',
       },
+      {
+        protocol: 'https',
+        hostname: 'cdn.*.com',
+      },
       // Azure Blob Storage
       {
         protocol: 'https',

@@ -15,7 +15,7 @@ export const SharepointBlock: BlockConfig<SharepointResponse> = {
     'Integrate SharePoint into the workflow. Read/create pages, list sites, and work with lists (read, create, update items). Requires OAuth.',
   docsLink: 'https://docs.sim.ai/tools/sharepoint',
   category: 'tools',
-  bgColor: '#E0E0E0',
+  bgColor: undefined,
   icon: MicrosoftSharepointIcon,
   subBlocks: [
     {
@@ -330,7 +330,7 @@ export const SharepointBlock: BlockConfig<SharepointResponse> = {
                   ? Object.keys(parsedItemFields)
                   : [],
             })
-          } catch {}
+          } catch { }
         }
 
         // Handle file upload files parameter

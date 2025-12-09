@@ -10,7 +10,7 @@ export const WikipediaBlock: BlockConfig<WikipediaResponse> = {
     'Integrate Wikipedia into the workflow. Can get page summary, search pages, get page content, and get random page.',
   docsLink: 'https://docs.sim.ai/tools/wikipedia',
   category: 'tools',
-  bgColor: '#000000',
+  bgColor: '',
   icon: WikipediaIcon,
   subBlocks: [
     {

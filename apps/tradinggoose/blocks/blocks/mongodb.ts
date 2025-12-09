@@ -10,7 +10,7 @@ export const MongoDBBlock: BlockConfig<MongoDBResponse> = {
     'Integrate MongoDB into the workflow. Can find, insert, update, delete, and aggregate data.',
   docsLink: 'https://docs.sim.ai/tools/mongodb',
   category: 'tools',
-  bgColor: '#E0E0E0',
+  bgColor: undefined,
   icon: MongoDBIcon,
   subBlocks: [
     {

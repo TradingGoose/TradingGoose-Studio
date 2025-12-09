@@ -94,11 +94,10 @@ export function ChatMessage({ message }: ChatMessageProps) {
                 return (
                   <div
                     key={attachment.id}
-                    className={`relative overflow-hidden rounded-md border border-border/50 bg-muted/20 ${
-                      attachment.dataUrl?.trim() && attachment.dataUrl.startsWith('data:')
-                        ? 'cursor-pointer'
-                        : ''
-                    } ${isImage ? 'h-16 w-16' : 'flex h-16 min-w-[120px] max-w-[200px] items-center gap-2 px-2'}`}
+                    className={`relative overflow-hidden rounded-md border border-border/50 bg-muted/20 ${attachment.dataUrl?.trim() && attachment.dataUrl.startsWith('data:')
+                      ? 'cursor-pointer'
+                      : ''
+                      } ${isImage ? 'h-16 w-16' : 'flex h-16 min-w-[120px] max-w-[200px] items-center gap-2 px-2'}`}
                     onClick={(e) => {
                       const validDataUrl = attachment.dataUrl?.trim()
                       if (validDataUrl?.startsWith('data:')) {
@@ -127,8 +126,8 @@ export function ChatMessage({ message }: ChatMessageProps) {
                     }}
                   >
                     {isImage &&
-                    attachment.dataUrl?.trim() &&
-                    attachment.dataUrl.startsWith('data:') ? (
+                      attachment.dataUrl?.trim() &&
+                      attachment.dataUrl.startsWith('data:') ? (
                       <img
                         src={attachment.dataUrl}
                         alt={attachment.name}
@@ -162,8 +161,8 @@ export function ChatMessage({ message }: ChatMessageProps) {
         {formattedContent && !formattedContent.startsWith('Uploaded') && (
           <div className='flex justify-end'>
             <div className='max-w-[80%]'>
-              <div className='rounded-md bg-secondary px-3 py-2'>
-                <div className='whitespace-pre-wrap break-words font-normal text-foreground text-sm leading-normal'>
+              <div className='rounded-md bg-primary-hover px-3 py-2'>
+                <div className='whitespace-pre-wrap break-words font-normal text-black text-sm leading-normal'>
                   <WordWrap text={formattedContent} />
                 </div>
               </div>
@@ -176,13 +175,17 @@ export function ChatMessage({ message }: ChatMessageProps) {
 
   // Render agent/workflow messages as full-width text
   return (
-    <div className='w-full py-2 pl-[2px]'>
-      <div className='overflow-wrap-anywhere relative whitespace-normal break-normal font-normal text-sm leading-normal'>
-        <div className='whitespace-pre-wrap break-words text-foreground'>
-          <WordWrap text={formattedContent} />
-          {message.isStreaming && (
-            <span className='ml-1 inline-block h-4 w-2 animate-pulse bg-gray-400 dark:bg-gray-300' />
-          )}
+    <div className='w-full py-2'>
+      <div className="flex justify-start">
+        <div className="max-w-[80%]">
+          <div className='rounded-md bg-muted px-3 py-2'>
+            <div className='whitespace-pre-wrap break-words text-foreground'>
+              <WordWrap text={formattedContent} />
+              {message.isStreaming && (
+                <span className='ml-1 inline-block h-4 w-2 animate-pulse bg-gray-400 dark:bg-gray-300' />
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

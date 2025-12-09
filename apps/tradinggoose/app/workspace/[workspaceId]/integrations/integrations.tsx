@@ -8,10 +8,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  type ServiceInfo,
-  useConnectOAuthService,
-  useDisconnectOAuthService,
-  useOAuthConnections,
+    type ServiceInfo,
+    useConnectOAuthService,
+    useDisconnectOAuthService,
+    useOAuthConnections,
 } from '@/hooks/queries/oauth-connections'
 import { createLogger } from '@/lib/logs/console/logger'
 import { OAUTH_PROVIDERS } from '@/lib/oauth/oauth'
@@ -286,7 +286,7 @@ export function Integrations() {
                                                             ref={pendingService === service.id ? pendingServiceRef : undefined}
                                                         >
                                                             <div className='flex items-center gap-3'>
-                                                                <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-muted'>
+                                                                <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-secondary/60'>
                                                                     {typeof service.icon === 'function'
                                                                         ? service.icon({ className: 'h-5 w-5' })
                                                                         : service.icon}

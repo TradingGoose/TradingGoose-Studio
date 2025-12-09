@@ -5,6 +5,7 @@ import type { SessionMessage } from '../chat/state'
 import { buildMessages } from './messages'
 import { buildToolsForAiRouter, toolsForMode } from './tooling'
 import type { AgentContextItem, AgentMode, AgentResponse } from './types'
+import { getCopilotModeDefinition } from '../modes'
 
 export type { AgentContextItem, AgentMode, AgentResponse } from './types'
 
@@ -18,8 +19,10 @@ export async function generateAgentResponse(options: {
   mode: AgentMode
   provider?: AiRouterProvider
   appendUserMessage?: boolean
+  customSystemPrompt?: string
 }): Promise<AgentResponse> {
-  const allowedTools = toolsForMode(options.mode)
+  const modeDefinition = getCopilotModeDefinition(options.mode)
+  const allowedTools = toolsForMode(modeDefinition)
   const messages = buildMessages({
     userMessage: options.message,
     workflowSummary: options.workflowSummary,
@@ -27,8 +30,9 @@ export async function generateAgentResponse(options: {
     history: options.messages,
     userName: options.userName,
     allowedTools,
-    mode: options.mode,
+    modeDefinition,
     appendUserMessage: options.appendUserMessage,
+    customSystemPrompt: options.customSystemPrompt,
   })
   const tools = buildToolsForAiRouter(allowedTools)
 
@@ -36,7 +40,7 @@ export async function generateAgentResponse(options: {
     messages,
     tools,
     model: options.model,
-    mode: options.mode,
+    mode: modeDefinition.id as AgentMode,
     provider: options.provider,
   })
 

@@ -1,13 +1,4 @@
-import {
-  Braces,
-  Files,
-  Frame,
-  KeyRound,
-  LibraryBig,
-  Map as MapIcon,
-  Server,
-  Waypoints,
-} from 'lucide-react'
+import { Braces, Files, Frame, KeyRound, LibraryBig, Map as MapIcon, Server, Waypoints, Wrench } from 'lucide-react'
 import type { NavItemLink, NavSection } from './types'
 
 export function getWorkspaceIdFromPath(path: string) {
@@ -21,7 +12,7 @@ export function getWorkspaceSwitchPath(path: string, targetWorkspaceId: string, 
 
   // Only allow safe top-level sections to carry over between workspaces.
   // Workflow routes (/w) and deep paths are reset to the dashboard to avoid stale data.
-  const allowedSections = new Set(['dashboard', 'knowledge', 'files', 'logs', 'environment', 'api-keys', 'mcp', 'integrations'])
+  const allowedSections = new Set(['dashboard', 'knowledge', 'custom-tools', 'files', 'logs', 'environment', 'api-keys', 'mcp', 'integrations'])
   const sectionPath = section && allowedSections.has(section) ? `/${section}` : '/dashboard'
 
   const basePath = `/workspace/${targetWorkspaceId}${sectionPath}`
@@ -44,6 +35,7 @@ export function createWorkspaceNav(workspaceId?: string): NavItemLink[] {
   return [
     { title: 'Dashboard', url: `${base}/dashboard`, icon: Frame, section: 'workspace' },
     { title: 'Knowledge', url: `${base}/knowledge`, icon: LibraryBig, section: 'workspace' },
+    { title: 'Custom Tools', url: `${base}/custom-tools`, icon: Wrench, section: 'workspace' },
     { title: 'MCP Servers', url: `${base}/mcp`, icon: Server, section: 'workspace' },
     { title: 'Files', url: `${base}/files`, icon: Files, section: 'workspace' },
     { title: 'Logs', url: `${base}/logs`, icon: MapIcon, section: 'workspace' },

@@ -13,6 +13,8 @@ export interface CustomToolSchema {
 
 export interface CustomToolDefinition {
   id: string
+  workspaceId: string
+  userId: string | null
   title: string
   schema: CustomToolSchema
   code: string
@@ -21,21 +23,12 @@ export interface CustomToolDefinition {
 }
 
 export interface CustomToolsStore {
-  tools: Record<string, CustomToolDefinition>
-  isLoading: boolean
-  error: string | null
+  toolsByWorkspace: Record<string, CustomToolDefinition[]>
+  activeWorkspaceId: string | null
 
-  // CRUD operations
-  addTool: (tool: Omit<CustomToolDefinition, 'id' | 'createdAt' | 'updatedAt'>) => string
-  updateTool: (
-    id: string,
-    updates: Partial<Omit<CustomToolDefinition, 'id' | 'createdAt' | 'updatedAt'>>
-  ) => boolean
-  removeTool: (id: string) => void
-  getTool: (id: string) => CustomToolDefinition | undefined
-  getAllTools: () => CustomToolDefinition[]
-
-  // Server sync operations
-  loadCustomTools: () => Promise<void>
-  sync: () => Promise<void>
+  setTools: (workspaceId: string, tools: CustomToolDefinition[]) => void
+  getTool: (id: string, workspaceId?: string) => CustomToolDefinition | undefined
+  getAllTools: (workspaceId?: string) => CustomToolDefinition[]
+  resetWorkspace: (workspaceId: string) => void
+  resetAll: () => void
 }

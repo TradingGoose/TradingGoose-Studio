@@ -18,8 +18,9 @@ export interface RunTurnInput {
   messageId?: string
   version?: string
   streamToolCalls?: boolean
-  mode?: 'ask' | 'agent'
+  mode?: 'ask' | 'agent' | 'wand'
   provider?: AiRouterProvider
+  systemPrompt?: string
   auth?: AuthContext | null
 }
 
@@ -62,6 +63,7 @@ export async function runTurn(input: RunTurnInput) {
     streamToolCalls = true,
     mode,
     provider,
+    systemPrompt,
     auth,
   } = input
   const effectiveMode = mode || session.mode || 'agent'
@@ -120,7 +122,7 @@ export async function runTurn(input: RunTurnInput) {
       messageLength: userMessage?.length || 0,
       historyCount: session.messages.length,
     })
-    agentResult = await generateAgentResponse({
+      agentResult = await generateAgentResponse({
       message: userMessage,
       workflowSummary,
       contexts: contexts || undefined,
@@ -130,6 +132,7 @@ export async function runTurn(input: RunTurnInput) {
       mode: effectiveMode,
       provider: providerToUse,
       appendUserMessage: false,
+      customSystemPrompt: systemPrompt,
     })
   } catch (error) {
     log.error('generateAgentResponse failed (streaming)', { message: (error as any)?.message })
@@ -173,12 +176,12 @@ export async function runTurn(input: RunTurnInput) {
 
   const toolCallsFromOps =
     streamToolCalls &&
-    agentResult.operations &&
-    agentResult.operations.length > 0 &&
-    (!agentResult.toolCalls || agentResult.toolCalls.length === 0)
+      agentResult.operations &&
+      agentResult.operations.length > 0 &&
+      (!agentResult.toolCalls || agentResult.toolCalls.length === 0)
       ? [
-          { id: nanoid(), name: 'edit_workflow', arguments: { operations: agentResult.operations, workflowId: session.workflowId } },
-        ]
+        { id: nanoid(), name: 'edit_workflow', arguments: { operations: agentResult.operations, workflowId: session.workflowId } },
+      ]
       : []
   const toolCalls = agentResult.toolCalls?.length ? agentResult.toolCalls : toolCallsFromOps
   const normalizedToolCalls = toolCalls.map((tc) => ({
@@ -199,7 +202,7 @@ export async function runTurn(input: RunTurnInput) {
         if (parsed && typeof parsed.reply === 'string') {
           return parsed.reply
         }
-      } catch {}
+      } catch { }
       return null
     }
 

@@ -267,7 +267,7 @@ export async function generateMetadata(props: {
       title: page.data.title,
       description: page.data.description || defaultDescription,
       url: fullUrl,
-      siteName: 'Sim Documentation',
+      siteName: 'TradingGoose Documentation',
       type: 'article',
       locale: params.lang === 'en' ? 'en_US' : `${params.lang}_${params.lang.toUpperCase()}`,
       alternateLocale: ['en', 'es', 'fr', 'de', 'ja', 'zh']

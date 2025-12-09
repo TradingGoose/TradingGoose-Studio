@@ -50,6 +50,7 @@ interface WorkflowItemProps {
   isDragOver?: boolean
   onSelect?: (workflow: WorkflowMetadata) => void
   disableNavigation?: boolean
+  canDelete?: boolean
 }
 
 export function WorkflowItem({
@@ -60,6 +61,7 @@ export function WorkflowItem({
   isDragOver = false,
   onSelect,
   disableNavigation = false,
+  canDelete = true,
 }: WorkflowItemProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -177,7 +179,7 @@ export function WorkflowItem({
   }, [])
 
   const handleDeleteWorkflow = useCallback(async () => {
-    if (!userPermissions.canEdit || isMarketplace) return
+    if (!userPermissions.canEdit || isMarketplace || !canDelete) return
 
     setDeleteState((prev) => ({ ...prev, isDeleting: true }))
 
@@ -201,6 +203,7 @@ export function WorkflowItem({
       setDeleteState((prev) => ({ ...prev, isDeleting: false }))
     }
   }, [
+    canDelete,
     checkPublishedTemplates,
     isMarketplace,
     removeWorkflow,
@@ -211,7 +214,7 @@ export function WorkflowItem({
 
   const handleTemplateAction = useCallback(
     async (action: 'keep' | 'delete') => {
-      if (!userPermissions.canEdit || isMarketplace) return
+      if (!userPermissions.canEdit || isMarketplace || !canDelete) return
 
       setDeleteState((prev) => ({ ...prev, isDeleting: true }))
 
@@ -223,7 +226,7 @@ export function WorkflowItem({
         setDeleteState((prev) => ({ ...prev, isDeleting: false }))
       }
     },
-    [isMarketplace, removeWorkflow, resetDeleteState, userPermissions.canEdit, workflow.id]
+    [canDelete, isMarketplace, removeWorkflow, resetDeleteState, userPermissions.canEdit, workflow.id]
   )
 
   const handleClick = (e: React.MouseEvent) => {
@@ -351,7 +354,7 @@ export function WorkflowItem({
       <div
         className={clsx(
           'group flex h-8 cursor-pointer items-center rounded-sm px-2 py-2 font-medium font-sans text-sm transition-colors',
-          active && !isDragOver ? 'bg-muted' : 'hover:bg-card',
+          active && !isDragOver ? 'bg-secondary' : 'hover:bg-secondary/60',
           isSelected && selectedWorkflows.size > 1 && !active && !isDragOver ? 'bg-muted' : '',
           isDragging ? 'opacity-50' : ''
         )}
@@ -400,23 +403,25 @@ export function WorkflowItem({
               <Pencil className='!h-3.5 !w-3.5' />
               <span className='sr-only'>Rename workflow</span>
             </Button>
-            <Button
-              variant='ghost'
-              size='icon'
-              className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
-              onClick={(e) => {
-                e.stopPropagation()
-                setDeleteState({
-                  showDialog: true,
-                  isDeleting: false,
-                  showTemplateChoice: false,
-                  publishedTemplates: [],
-                })
-              }}
-            >
-              <Trash2 className='!h-3.5 !w-3.5' />
-              <span className='sr-only'>Delete workflow</span>
-            </Button>
+            {canDelete && (
+              <Button
+                variant='ghost'
+                size='icon'
+                className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setDeleteState({
+                    showDialog: true,
+                    isDeleting: false,
+                    showTemplateChoice: false,
+                    publishedTemplates: [],
+                  })
+                }}
+              >
+                <Trash2 className='!h-3.5 !w-3.5' />
+                <span className='sr-only'>Delete workflow</span>
+              </Button>
+            )}
           </div>
         )}
       </div>

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { shallow } from 'zustand/shallow'
-import { extractFieldsFromSchema, parseResponseFormatSafely } from '@/lib/response-format'
 import { cn } from '@/lib/utils'
 import { getBlockOutputPaths, getBlockOutputType } from '@/lib/workflows/block-outputs'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
@@ -68,6 +67,13 @@ const BLOCK_COLORS = {
 const TAG_PREFIXES = {
   VARIABLE: 'variable.',
 } as const
+
+const sanitizeHexColor = (value?: string) => {
+  if (!value) return undefined
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+  return trimmed.startsWith('#') ? trimmed : `#${trimmed}`
+}
 
 const normalizeBlockName = (blockName: string): string => {
   return blockName.replace(/\s+/g, '').toLowerCase()
@@ -377,8 +383,6 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
       const normalizedBlockName = normalizeBlockName(blockName)
 
       const mergedSubBlocks = getMergedSubBlocks(activeSourceBlockId)
-      const responseFormatValue = mergedSubBlocks?.responseFormat?.value
-      const responseFormat = parseResponseFormatSafely(responseFormatValue, activeSourceBlockId)
 
       let blockTags: string[]
 
@@ -408,14 +412,6 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
           )
         } else {
           blockTags = [normalizedBlockName]
-        }
-      } else if (responseFormat) {
-        const schemaFields = extractFieldsFromSchema(responseFormat)
-        if (schemaFields.length > 0) {
-          blockTags = schemaFields.map((field) => `${normalizedBlockName}.${field.name}`)
-        } else {
-          const outputPaths = generateOutputPaths(blockConfig.outputs || {})
-          blockTags = outputPaths.map((path) => `${normalizedBlockName}.${path}`)
         }
       } else if (!blockConfig.outputs || Object.keys(blockConfig.outputs).length === 0) {
         if (sourceBlock.type === 'api_trigger' || sourceBlock.type === 'input_trigger') {
@@ -691,8 +687,6 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
       const normalizedBlockName = normalizeBlockName(blockName)
 
       const mergedSubBlocks = getMergedSubBlocks(accessibleBlockId)
-      const responseFormatValue = mergedSubBlocks?.responseFormat?.value
-      const responseFormat = parseResponseFormatSafely(responseFormatValue, accessibleBlockId)
 
       let blockTags: string[]
 
@@ -733,14 +727,6 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
           )
         } else {
           blockTags = [normalizedBlockName]
-        }
-      } else if (responseFormat) {
-        const schemaFields = extractFieldsFromSchema(responseFormat)
-        if (schemaFields.length > 0) {
-          blockTags = schemaFields.map((field) => `${normalizedBlockName}.${field.name}`)
-        } else {
-          const outputPaths = generateOutputPaths(blockConfig.outputs || {})
-          blockTags = outputPaths.map((path) => `${normalizedBlockName}.${path}`)
         }
       } else if (!blockConfig.outputs || Object.keys(blockConfig.outputs).length === 0) {
         blockTags = [normalizedBlockName]
@@ -1384,13 +1370,15 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                 {variableTags.length > 0 && <div className='my-0' />}
                 {nestedBlockTagGroups.map((group: NestedBlockTagGroup) => {
                   const blockConfig = getBlock(group.blockType)
-                  let blockColor = blockConfig?.bgColor || BLOCK_COLORS.DEFAULT
+                  let blockColor = sanitizeHexColor(blockConfig?.bgColor) || BLOCK_COLORS.DEFAULT
 
                   if (group.blockType === 'loop') {
                     blockColor = BLOCK_COLORS.LOOP
                   } else if (group.blockType === 'parallel') {
                     blockColor = BLOCK_COLORS.PARALLEL
                   }
+
+                  const blockBackground = blockColor ? `${blockColor}30` : undefined
 
                   return (
                     <div key={group.blockId} className='relative'>
@@ -1523,10 +1511,13 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                                 disabled={false}
                               >
                                 <div
-                                  className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-sm'
-                                  style={{ backgroundColor: blockColor }}
+                                  className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-sm bg-background/60 text-foreground'
+                                  style={{ backgroundColor: blockBackground, color: blockColor }}
                                 >
-                                  <span className='h-3 w-3 font-bold text-white text-xs'>
+                                  <span
+                                    className='h-3 w-3 font-bold text-xs'
+                                    style={{ color: blockColor || '#FFFFFF' }}
+                                  >
                                     {tagIcon}
                                   </span>
                                 </div>
@@ -1617,10 +1608,13 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                                           }}
                                         >
                                           <div
-                                            className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-sm'
-                                            style={{ backgroundColor: blockColor }}
+                                            className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-sm bg-background/60 text-foreground'
+                                            style={{ backgroundColor: blockBackground, color: blockColor }}
                                           >
-                                            <span className='h-3 w-3 font-bold text-white text-xs'>
+                                            <span
+                                              className='h-3 w-3 font-bold text-xs'
+                                              style={{ color: blockColor || '#FFFFFF' }}
+                                            >
                                               {group.blockName.charAt(0).toUpperCase()}
                                             </span>
                                           </div>

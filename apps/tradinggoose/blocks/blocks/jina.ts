@@ -10,7 +10,7 @@ export const JinaBlock: BlockConfig<ReadUrlResponse> = {
   longDescription: 'Integrate Jina into the workflow. Extracts content from websites.',
   docsLink: 'https://docs.sim.ai/tools/jina',
   category: 'tools',
-  bgColor: '#333333',
+  bgColor: undefined,
   icon: JinaAIIcon,
   subBlocks: [
     {

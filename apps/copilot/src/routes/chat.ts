@@ -42,7 +42,8 @@ export const registerChatRoutes = (app: Hono<AppBindings>) => {
       mode,
       provider,
       conversationId,
-      messages,
+      systemPrompt,
+      history: requestHistory,
     } = parsed.data
 
     const effectiveConversationId =
@@ -56,12 +57,18 @@ export const registerChatRoutes = (app: Hono<AppBindings>) => {
     const isOfficialRequest = !!auth && (auth.userId || auth.isServiceKey)
     const shouldValidateUsage = !!billingEnabled && isOfficialRequest && !!effectiveUserId
 
-    if (!stream) {
-      const history =
-        Array.isArray(messages) && messages.length > 0
-          ? messages.map((m) => ({ role: m.role, content: m.content }))
-          : []
+    const historyMessages: Session['messages'] =
+      Array.isArray(requestHistory) && requestHistory.length > 0
+        ? requestHistory
+            .map((item) => ({
+              role: item.role,
+              content: item.content,
+            }))
+            .filter((msg) => msg.content.trim().length > 0)
+            .slice(-20)
+        : []
 
+    if (!stream) {
       if (shouldValidateUsage) {
         const usageCheck = await validateUsageLimit({
           userId: effectiveUserId,
@@ -77,7 +84,7 @@ export const registerChatRoutes = (app: Hono<AppBindings>) => {
         mode: effectiveMode,
         model,
         messageLength: message?.length || 0,
-        historyCount: history.length,
+        historyCount: historyMessages.length,
       })
       let agentResult: Awaited<ReturnType<typeof generateAgentResponse>>
       try {
@@ -85,11 +92,12 @@ export const registerChatRoutes = (app: Hono<AppBindings>) => {
           message,
           workflowSummary: undefined,
           contexts: context || undefined,
-          messages: history,
+          messages: historyMessages,
           userName,
           model,
           mode: effectiveMode,
           provider,
+          customSystemPrompt: systemPrompt,
         })
       } catch (error) {
         log.error('generateAgentResponse failed (non-stream)', { message: (error as any)?.message })
@@ -203,11 +211,6 @@ export const registerChatRoutes = (app: Hono<AppBindings>) => {
         resolveDone = resolve
       })
 
-      const history: Session['messages'] =
-        Array.isArray(messages) && messages.length > 0
-          ? messages.map((m) => ({ role: m.role, content: m.content }))
-          : []
-
       const session: Session = {
         chatId: effectiveChatId,
         userId: effectiveUserId,
@@ -217,7 +220,7 @@ export const registerChatRoutes = (app: Hono<AppBindings>) => {
         model,
         provider,
         stream,
-        messages: [...history, { role: 'user', content: message }],
+        messages: [...historyMessages, { role: 'user', content: message }],
         toolCallIds: new Set(),
         pendingToolCallIds: new Set(),
         pendingReviewToolCallIds: new Set(),
@@ -255,6 +258,7 @@ export const registerChatRoutes = (app: Hono<AppBindings>) => {
         streamToolCalls,
         mode,
         provider,
+        systemPrompt,
         auth,
       })
 

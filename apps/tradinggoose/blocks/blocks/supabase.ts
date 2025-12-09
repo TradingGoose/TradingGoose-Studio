@@ -14,7 +14,7 @@ export const SupabaseBlock: BlockConfig<SupabaseResponse> = {
     'Integrate Supabase into the workflow. Can get many rows, get, create, update, delete, and upsert a row.',
   docsLink: 'https://docs.sim.ai/tools/supabase',
   category: 'tools',
-  bgColor: '#1C1C1C',
+  bgColor: undefined,
   icon: SupabaseIcon,
   subBlocks: [
     {

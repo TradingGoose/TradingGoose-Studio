@@ -81,7 +81,7 @@ export function ConnectionBlocks({
 
     // Handle special blocks that aren't in the registry (loop and parallel)
     let Icon = blockConfig?.icon
-    let bgColor = blockConfig?.bgColor || '#6B7280' // Fallback to gray
+    let bgColor = blockConfig?.bgColor || undefined
 
     if (!blockConfig) {
       if (connection.type === 'loop') {
@@ -109,16 +109,20 @@ export function ConnectionBlocks({
         {/* Block icon with color */}
         {Icon && (
           <div
-            className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-sm'
-            style={{ backgroundColor: bgColor }}
+            className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-sm bg-secondary/60 text-foreground'
+            style={{
+              backgroundColor: bgColor ? `${bgColor}30` : undefined,
+              color: bgColor || undefined,
+            }}
           >
-            <Icon className='h-3 w-3 text-white' />
+            <Icon className='h-3 w-3' />
           </div>
-        )}
+        )
+        }
         <div className='text-xs'>
           <span className='font-medium leading-none'>{displayName}</span>
         </div>
-      </Card>
+      </Card >
     )
   }
 

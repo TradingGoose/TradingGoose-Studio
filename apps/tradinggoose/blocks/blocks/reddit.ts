@@ -12,7 +12,7 @@ export const RedditBlock: BlockConfig<RedditResponse> = {
     'Integrate Reddit into the workflow. Can get posts and comments from a subreddit.',
   docsLink: 'https://docs.sim.ai/tools/reddit',
   category: 'tools',
-  bgColor: '#FF5700',
+  bgColor: undefined,
   icon: RedditIcon,
   subBlocks: [
     // Operation selection

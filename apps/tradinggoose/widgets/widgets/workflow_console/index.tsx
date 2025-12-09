@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { Activity } from 'lucide-react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import WorkflowConsoleApp from './components/workflow-console-app'
-import {
-  WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
-  type WorkflowWidgetSelectEventDetail,
-} from '@/widgets/events'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { WorkflowDropdown } from '@/widgets/widgets/shared/components/workflow-dropdown'
+import {
+  emitWorkflowSelectionChange,
+  useWorkflowSelectionPersistence,
+} from '@/widgets/utils/workflow-selection'
 
 const WorkflowConsoleWidgetBody = ({
   params,
@@ -19,45 +19,10 @@ const WorkflowConsoleWidgetBody = ({
   widget,
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
-  useEffect(() => {
-    if (!onWidgetParamsChange || pairColor !== 'gray') {
-      return
-    }
-
-    const handleWorkflowSelect = (event: Event) => {
-      const detail = (event as CustomEvent<WorkflowWidgetSelectEventDetail>).detail
-      if (!detail?.workflowId) {
-        return
-      }
-      if (panelId && detail.panelId && detail.panelId !== panelId) {
-        return
-      }
-      if (widget?.key && detail.widgetKey && detail.widgetKey !== widget.key) {
-        return
-      }
-
-      const currentParams =
-        widget?.params && typeof widget.params === 'object'
-          ? (widget.params as Record<string, unknown>)
-          : {}
-      onWidgetParamsChange({ ...currentParams, workflowId: detail.workflowId })
-    }
-
-    window.addEventListener(
-      WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
-      handleWorkflowSelect as EventListener
-    )
-    return () => {
-      window.removeEventListener(
-        WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
-        handleWorkflowSelect as EventListener
-      )
-    }
-  }, [onWidgetParamsChange, panelId, pairColor, widget?.key, widget?.params])
-
   const workspaceId = context?.workspaceId
   const {
     channelId,
+    resolvedPairColor,
     resolvedWorkflowId,
     hasLoadedWorkflows,
     loadError,
@@ -73,6 +38,13 @@ const WorkflowConsoleWidgetBody = ({
     onWidgetParamsChange,
     fallbackWidgetKey: 'workflow-console',
     loggerScope: 'workflow console widget',
+  })
+  useWorkflowSelectionPersistence({
+    onWidgetParamsChange,
+    panelId,
+    widget,
+    pairColor: resolvedPairColor,
+    params,
   })
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [panelWidth, setPanelWidth] = useState(0)
@@ -100,7 +72,7 @@ const WorkflowConsoleWidgetBody = ({
 
   if (!hasLoadedWorkflows || isLoading) {
     return (
-      <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))]'>
+      <div className='flex h-full w-full items-center justify-center '>
         <LoadingAgent size='md' />
       </div>
     )
@@ -112,7 +84,7 @@ const WorkflowConsoleWidgetBody = ({
 
   if (!resolvedWorkflowId) {
     return (
-      <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))]'>
+      <div className='flex h-full w-full items-center justify-center '>
         <LoadingAgent size='md' />
       </div>
     )
@@ -121,7 +93,7 @@ const WorkflowConsoleWidgetBody = ({
   return (
     <div
       ref={containerRef}
-      className='flex h-full w-full overflow-hidden bg-[hsl(var(--workflow-background))] px-3 py-2'
+      className='flex h-full w-full overflow-hidden  px-3 py-2'
     >
       <WorkflowConsoleApp
         workspaceId={workspaceId}
@@ -134,7 +106,7 @@ const WorkflowConsoleWidgetBody = ({
 }
 
 const WidgetStateMessage = ({ message }: { message: string }) => (
-  <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))] px-4 text-center text-muted-foreground text-xs'>
+  <div className='flex h-full w-full items-center justify-center  px-4 text-center text-muted-foreground text-xs'>
     {message}
   </div>
 )
@@ -166,15 +138,11 @@ const WorkflowConsoleHeaderSelector = ({
       return
     }
 
-    window.dispatchEvent(
-      new CustomEvent<WorkflowWidgetSelectEventDetail>(WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT, {
-        detail: {
-          panelId,
-          widgetKey: widget?.key,
-          workflowId,
-        },
-      })
-    )
+    emitWorkflowSelectionChange({
+      panelId,
+      widgetKey: widget?.key ?? undefined,
+      workflowId,
+    })
   }
 
   return (
