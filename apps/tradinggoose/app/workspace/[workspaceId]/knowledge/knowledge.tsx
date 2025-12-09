@@ -142,10 +142,10 @@ export function Knowledge() {
 
       <Tooltip>
         <TooltipTrigger asChild>
-                          <PrimaryButton
-                            onClick={() => setIsCreateModalOpen(true)}
-                            disabled={!canManageKnowledgeBases}
-                          >
+          <PrimaryButton
+            onClick={() => setIsCreateModalOpen(true)}
+            disabled={!canManageKnowledgeBases}
+          >
             <Plus className='h-3.5 w-3.5' />
             <span>Create</span>
           </PrimaryButton>
@@ -164,7 +164,7 @@ export function Knowledge() {
         <div className='flex min-h-0 min-w-0 flex-1 overflow-hidden p-1'>
           <div className='flex min-h-0 flex-1 flex-col overflow-hidden '>
             <div className='min-h-0 flex-1 overflow-auto'>
-              <div className='p-6'>
+              <div className='p-2'>
                 {/* Error State */}
                 {error && (
                   <div className='mb-4 rounded-md border border-red-200 bg-red-50 p-4'>
@@ -200,7 +200,7 @@ export function Knowledge() {
                           onClick={
                             userPermissions.canEdit === true
                               ? () => setIsCreateModalOpen(true)
-                              : () => {}
+                              : () => { }
                           }
                           icon={<LibraryBig className='h-4 w-4 text-muted-foreground' />}
                         />

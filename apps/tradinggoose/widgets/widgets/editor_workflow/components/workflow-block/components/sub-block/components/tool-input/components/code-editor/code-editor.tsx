@@ -209,7 +209,7 @@ export function CodeEditor({
   return (
     <div
       className={cn(
-        'group relative min-h-[100px] rounded-md border bg-background font-mono text-sm',
+        'group relative min-h-100 rounded-md border bg-background font-mono text-sm',
         className
       )}
     >

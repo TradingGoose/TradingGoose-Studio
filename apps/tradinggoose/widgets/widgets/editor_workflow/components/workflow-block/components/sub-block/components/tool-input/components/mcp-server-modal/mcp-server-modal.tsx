@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useRef, useState } from 'react'
-import { X } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/select'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { McpTransport } from '@/lib/mcp/types'
-import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { useMcpServerTest } from '@/hooks/use-mcp-server-test'
 import { useMcpServersStore } from '@/stores/mcp-servers/store'
@@ -33,8 +33,9 @@ const logger = createLogger('McpServerModal')
 interface McpServerModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onServerCreated?: () => void
+  onServerCreated?: (serverId?: string) => void
   blockId: string
+  workspaceId?: string
 }
 
 interface McpServerFormData {
@@ -49,8 +50,10 @@ export function McpServerModal({
   onOpenChange,
   onServerCreated,
   blockId,
+  workspaceId,
 }: McpServerModalProps) {
-  const workspaceId = useWorkspaceId()
+  const workspaceRoute = useOptionalWorkflowRoute()
+  const resolvedWorkspaceId = workspaceId ?? workspaceRoute?.workspaceId ?? ''
   const [formData, setFormData] = useState<McpServerFormData>({
     name: '',
     transport: 'streamable-http',
@@ -182,7 +185,7 @@ export function McpServerModal({
   )
 
   const handleTestConnection = useCallback(async () => {
-    if (!formData.name.trim() || !formData.url?.trim()) return
+    if (!formData.name.trim() || !formData.url?.trim() || !resolvedWorkspaceId) return
 
     await testConnection({
       name: formData.name,
@@ -190,9 +193,9 @@ export function McpServerModal({
       url: formData.url,
       headers: formData.headers,
       timeout: 30000,
-      workspaceId,
+      workspaceId: resolvedWorkspaceId,
     })
-  }, [formData, testConnection, workspaceId])
+  }, [formData, testConnection, resolvedWorkspaceId])
 
   const handleSubmit = useCallback(async () => {
     if (!formData.name.trim()) {
@@ -202,6 +205,11 @@ export function McpServerModal({
 
     if (!formData.url?.trim()) {
       setLocalError('Server URL is required for HTTP/SSE transport')
+      return
+    }
+
+    if (!resolvedWorkspaceId) {
+      setLocalError('Workspace ID is required to add a server')
       return
     }
 
@@ -217,7 +225,7 @@ export function McpServerModal({
           url: formData.url,
           headers: formData.headers,
           timeout: 30000,
-          workspaceId,
+          workspaceId: resolvedWorkspaceId,
         })
 
         // If test fails, don't proceed
@@ -238,7 +246,7 @@ export function McpServerModal({
         )
       )
 
-      await createServer(workspaceId, {
+      const newServer = await createServer(resolvedWorkspaceId, {
         name: formData.name.trim(),
         transport: formData.transport,
         url: formData.url,
@@ -252,7 +260,7 @@ export function McpServerModal({
       // Close modal and reset form immediately after successful creation
       resetForm()
       onOpenChange(false)
-      onServerCreated?.()
+      onServerCreated?.(newServer?.id)
     } catch (error) {
       logger.error('Failed to add MCP server:', error)
       setLocalError(error instanceof Error ? error.message : 'Failed to add MCP server')
@@ -265,7 +273,7 @@ export function McpServerModal({
     onServerCreated,
     createServer,
     clearError,
-    workspaceId,
+    resolvedWorkspaceId,
   ])
 
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
@@ -361,7 +369,7 @@ export function McpServerModal({
                 searchTerm={searchTerm}
                 inputValue={formData.url || ''}
                 cursorPosition={cursorPosition}
-                workspaceId={workspaceId}
+                workspaceId={resolvedWorkspaceId}
                 onClose={() => {
                   setShowEnvVars(false)
                   setActiveInputField(null)
@@ -469,7 +477,7 @@ export function McpServerModal({
                         searchTerm={searchTerm}
                         inputValue={key}
                         cursorPosition={cursorPosition}
-                        workspaceId={workspaceId}
+                        workspaceId={resolvedWorkspaceId}
                         onClose={() => {
                           setShowEnvVars(false)
                           setActiveInputField(null)
@@ -496,7 +504,7 @@ export function McpServerModal({
                         searchTerm={searchTerm}
                         inputValue={value}
                         cursorPosition={cursorPosition}
-                        workspaceId={workspaceId}
+                        workspaceId={resolvedWorkspaceId}
                         onClose={() => {
                           setShowEnvVars(false)
                           setActiveInputField(null)
@@ -517,6 +525,24 @@ export function McpServerModal({
             </div>
           </div>
 
+          <div className='flex items-center justify-center pt-1 pb-2'>
+            <Button
+              type='button'
+              variant='ghost'
+              size='sm'
+              onClick={() => {
+                setFormData((prev) => ({
+                  ...prev,
+                  headers: { ...(prev.headers || {}), '': '' },
+                }))
+              }}
+              className='h-9 text-foreground'
+            >
+              <Plus className='mr-2 h-3 w-3' />
+              Add Header
+            </Button>
+          </div>
+
           {error && (
             <div className='rounded-md bg-destructive/10 px-3 py-2 text-destructive text-sm'>
               {error}
@@ -530,7 +556,7 @@ export function McpServerModal({
                 <div className='flex items-center gap-2'>
                   <Button
                     type='button'
-                    variant='ghost'
+                    variant='outline'
                     size='sm'
                     onClick={handleTestConnection}
                     disabled={isTestingConnection || !formData.name.trim() || !formData.url?.trim()}
@@ -553,7 +579,7 @@ export function McpServerModal({
               </div>
               <div className='flex gap-2'>
                 <Button
-                  variant='ghost'
+                  variant='secondary'
                   size='sm'
                   onClick={() => {
                     resetForm()

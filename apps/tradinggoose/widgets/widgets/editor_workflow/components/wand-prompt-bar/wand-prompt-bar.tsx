@@ -82,7 +82,7 @@ export function WandPromptBar({
       ref={promptBarRef}
       className={cn(
         '-translate-y-3 absolute right-0 bottom-full left-0 gap-2',
-        'rounded-lg border bg-background shadow-lg',
+        'rounded-md border bg-background shadow-md',
         'z-9999999 transition-all duration-150',
         isExiting ? 'opacity-0' : 'opacity-100',
         className

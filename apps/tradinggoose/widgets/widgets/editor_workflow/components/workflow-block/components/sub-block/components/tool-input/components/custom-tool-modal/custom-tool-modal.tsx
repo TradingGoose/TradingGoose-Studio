@@ -44,6 +44,7 @@ interface CustomToolModalProps {
   onSave: (tool: CustomTool) => void
   onDelete?: (toolId: string) => void
   blockId: string
+  inline?: boolean
   initialValues?: {
     id?: string
     schema: any
@@ -71,6 +72,7 @@ export function CustomToolModal({
   onDelete,
   blockId,
   initialValues,
+  inline = false,
 }: CustomToolModalProps) {
   const workspaceId = useWorkspaceId()
   const [activeSection, setActiveSection] = useState<ToolSection>('schema')
@@ -764,14 +766,6 @@ try {
           e.stopPropagation()
           setSchemaParamSelectedIndex((prev) => Math.max(prev - 1, 0))
           break
-        case 'Enter':
-          e.preventDefault()
-          e.stopPropagation()
-          if (schemaParamSelectedIndex >= 0 && schemaParamSelectedIndex < schemaParameters.length) {
-            const selectedParam = schemaParameters[schemaParamSelectedIndex]
-            handleSchemaParamSelect(selectedParam.name)
-          }
-          break
         case 'Escape':
           e.preventDefault()
           e.stopPropagation()
@@ -783,7 +777,7 @@ try {
 
     // Let other dropdowns handle their own keyboard events if visible
     if (showEnvVars || showTags) {
-      if (['ArrowDown', 'ArrowUp', 'Enter'].includes(e.key)) {
+      if (['ArrowDown', 'ArrowUp'].includes(e.key)) {
         e.preventDefault()
         e.stopPropagation()
       }
@@ -830,140 +824,227 @@ try {
     },
   ]
 
-  return (
-    <>
-      <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent
-          className='flex h-[80vh] flex-col gap-0 p-0 sm:max-w-[700px]'
-          hideCloseButton
-          onKeyDown={(e) => {
-            // Intercept Escape key when dropdowns are open
-            if (e.key === 'Escape' && (showEnvVars || showTags || showSchemaParams)) {
-              e.preventDefault()
-              e.stopPropagation()
-              setShowEnvVars(false)
-              setShowTags(false)
-              setShowSchemaParams(false)
-            }
-          }}
-        >
-          <DialogHeader className='border-b px-6 py-4'>
-            <div className='flex items-center justify-between'>
-              <DialogTitle className='font-medium text-lg'>
-                {isEditing ? 'Edit Agent Tool' : 'Create Agent Tool'}
-              </DialogTitle>
-              <Button variant='ghost' size='icon' className='h-8 w-8 p-0' onClick={handleClose}>
-                <X className='h-4 w-4' />
-                <span className='sr-only'>Close</span>
-              </Button>
-            </div>
-            <DialogDescription className='mt-1.5'>
-              Step {activeSection === 'schema' ? '1' : '2'} of 2:{' '}
-              {activeSection === 'schema' ? 'Define schema' : 'Implement code'}
-            </DialogDescription>
-          </DialogHeader>
+  const headerNode = inline ? (
+    <div className='border-b px-6 py-4 flex items-top justify-between'>
+      <div className='space-y-1'>
+        <h3 className='font-medium text-base'>
+          {isEditing ? 'Edit Custom Tool' : 'Create Custom Tool'}
+        </h3>
+        <p className='text-muted-foreground text-sm'>
+          Define the schema and optional code for this custom tool.
+        </p>
+      </div>
+    </div>
+  ) : (
+    <DialogHeader className='border-b px-6 py-4'>
+      <div className='flex items-center justify-between'>
+        <DialogTitle className='font-medium text-lg'>
+          {isEditing ? 'Edit Agent Tool' : 'Create Agent Tool'}
+        </DialogTitle>
+        <Button variant='ghost' size='icon' className='h-8 w-8 p-0' onClick={handleClose}>
+          <X className='h-4 w-4' />
+          <span className='sr-only'>Close</span>
+        </Button>
+      </div>
+      <DialogDescription className='mt-1.5'>
+        Step {activeSection === 'schema' ? '1' : '2'} of 2:{' '}
+        {activeSection === 'schema' ? 'Define schema' : 'Implement code'}
+      </DialogDescription>
+    </DialogHeader>
+  )
 
-          <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
-            <div className='flex border-b'>
-              {navigationItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveSection(item.id)}
-                  className={cn(
-                    'flex items-center gap-2 border-b-2 px-6 py-3 text-sm transition-colors',
-                    'hover:bg-card/50',
-                    activeSection === item.id
-                      ? 'border-primary font-medium text-foreground'
-                      : 'border-transparent text-muted-foreground hover:text-foreground'
+  const footerNode = inline ? (
+    <div className='mt-auto border-t px-6 py-4'>
+      <div className='flex w-full items-center justify-between'>
+        {isEditing ? <div /> : (
+          <div />
+        )}
+        <div className='flex space-x-2'>
+          <Button variant='secondary' size='sm' onClick={handleClose}>
+            Cancel
+          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Button size='sm' onClick={handleSave} disabled={!isSchemaValid}>
+                  {isEditing ? 'Update Tool' : 'Save Tool'}
+                </Button>
+              </span>
+            </TooltipTrigger>
+            {!isSchemaValid && (
+              <TooltipContent side='top'>
+                <p>Invalid JSON schema</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </div>
+      </div>
+    </div >
+  ) : (
+    <DialogFooter className='mt-auto border-t px-6 py-4'>
+      <div className='flex w-full justify-between'>
+        {isEditing ? (
+          <Button
+            variant='destructive'
+            size='sm'
+            onClick={() => setShowDeleteConfirm(true)}
+            className='gap-1'
+          >
+            <Trash2 className='h-4 w-4' />
+            Delete
+          </Button>
+        ) : (
+          <Button
+            variant='outline'
+            onClick={() => {
+              if (activeSection === 'code') {
+                setActiveSection('schema')
+              }
+            }}
+            disabled={activeSection === 'schema'}
+          >
+            Back
+          </Button>
+        )}
+        <div className='flex space-x-2'>
+          <Button variant='outline' onClick={handleClose}>
+            Cancel
+          </Button>
+          {activeSection === 'schema' ? (
+            <Button onClick={() => setActiveSection('code')} disabled={!isSchemaValid || !!schemaError}>
+              Next
+            </Button>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button onClick={handleSave} disabled={!isSchemaValid}>
+                    {isEditing ? 'Update Tool' : 'Save Tool'}
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {!isSchemaValid && (
+                <TooltipContent side='top'>
+                  <p>Invalid JSON schema</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          )}
+        </div>
+      </div>
+    </DialogFooter>
+  )
+
+  const dialogBody = (
+    <div
+      className={cn(
+        'flex flex-col gap-0 p-0',
+        inline ? 'h-full rounded-md border bg-card shadow-xs' : 'h-[80vh]'
+      )}
+    >
+      {headerNode}
+
+      <div className='flex min-h-0 flex-1 flex-col'>
+        <div className='flex border-b justify-between '>
+          {navigationItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveSection(item.id)}
+              className={cn(
+                'flex items-center w-full justify-center gap-2 border-b-2 px-6 py-3 text-sm transition-colors',
+                'hover:bg-card/50',
+                activeSection === item.id
+                  ? 'border-primary font-medium text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <item.icon className='h-4 w-4' />
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className='relative flex-1 px-6 pt-6 pb-4 overflow-auto'>
+          {/* Schema Section AI Prompt Bar */}
+          {activeSection === 'schema' && (
+            <WandPromptBar
+              isVisible={schemaGeneration.isPromptVisible}
+              isLoading={schemaGeneration.isLoading}
+              isStreaming={schemaGeneration.isStreaming}
+              promptValue={schemaGeneration.promptInputValue}
+              onSubmit={(prompt: string) => schemaGeneration.generateStream({ prompt })}
+              onCancel={
+                schemaGeneration.isStreaming
+                  ? schemaGeneration.cancelGeneration
+                  : schemaGeneration.hidePromptInline
+              }
+              onChange={schemaGeneration.updatePromptValue}
+              placeholder='Describe the JSON schema to generate...'
+              className='!top-0 relative mb-2'
+            />
+          )}
+
+          {/* Code Section AI Prompt Bar */}
+          {activeSection === 'code' && (
+            <WandPromptBar
+              isVisible={codeGeneration.isPromptVisible}
+              isLoading={codeGeneration.isLoading}
+              isStreaming={codeGeneration.isStreaming}
+              promptValue={codeGeneration.promptInputValue}
+              onSubmit={(prompt: string) => codeGeneration.generateStream({ prompt })}
+              onCancel={
+                codeGeneration.isStreaming
+                  ? codeGeneration.cancelGeneration
+                  : codeGeneration.hidePromptInline
+              }
+              onChange={codeGeneration.updatePromptValue}
+              placeholder='Describe the JavaScript code to generate...'
+              className='!top-0 relative mb-2'
+            />
+          )}
+
+          <div
+            className={cn(
+              'flex h-full flex-1 flex-col ',
+              activeSection === 'schema' ? 'block' : 'hidden'
+            )}
+          >
+            <div className='flex min-h-6 mb-2 items-center justify-between'>
+              <div className='flex items-center gap-2'>
+                <FileJson className='h-4 w-4' />
+                <Label htmlFor='json-schema' className='font-medium'>
+                  JSON Schema
+                </Label>
+                {schemaError &&
+                  !schemaGeneration.isStreaming && ( // Hide schema error while streaming
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <AlertTriangle className='h-4 w-4 cursor-pointer text-destructive' />
+                      </TooltipTrigger>
+                      <TooltipContent side='top'>
+                        <p>Invalid JSON</p>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
-                >
-                  <item.icon className='h-4 w-4' />
-                  <span>{item.label}</span>
-                </button>
-              ))}
+              </div>
             </div>
-
-            <div className='relative flex-1 overflow-auto px-6 pt-6 pb-12'>
-              {/* Schema Section AI Prompt Bar */}
-              {activeSection === 'schema' && (
-                <WandPromptBar
-                  isVisible={schemaGeneration.isPromptVisible}
-                  isLoading={schemaGeneration.isLoading}
-                  isStreaming={schemaGeneration.isStreaming}
-                  promptValue={schemaGeneration.promptInputValue}
-                  onSubmit={(prompt: string) => schemaGeneration.generateStream({ prompt })}
-                  onCancel={
-                    schemaGeneration.isStreaming
-                      ? schemaGeneration.cancelGeneration
-                      : schemaGeneration.hidePromptInline
-                  }
-                  onChange={schemaGeneration.updatePromptValue}
-                  placeholder='Describe the JSON schema to generate...'
-                  className='!top-0 relative mb-2'
-                />
-              )}
-
-              {/* Code Section AI Prompt Bar */}
-              {activeSection === 'code' && (
-                <WandPromptBar
-                  isVisible={codeGeneration.isPromptVisible}
-                  isLoading={codeGeneration.isLoading}
-                  isStreaming={codeGeneration.isStreaming}
-                  promptValue={codeGeneration.promptInputValue}
-                  onSubmit={(prompt: string) => codeGeneration.generateStream({ prompt })}
-                  onCancel={
-                    codeGeneration.isStreaming
-                      ? codeGeneration.cancelGeneration
-                      : codeGeneration.hidePromptInline
-                  }
-                  onChange={codeGeneration.updatePromptValue}
-                  placeholder='Describe the JavaScript code to generate...'
-                  className='!top-0 relative mb-2'
-                />
-              )}
-
-              <div
-                className={cn(
-                  'flex h-full flex-1 flex-col',
-                  activeSection === 'schema' ? 'block' : 'hidden'
-                )}
-              >
-                <div className='mb-1 flex min-h-6 items-center justify-between'>
-                  <div className='flex items-center gap-2'>
-                    <FileJson className='h-4 w-4' />
-                    <Label htmlFor='json-schema' className='font-medium'>
-                      JSON Schema
-                    </Label>
-                    {schemaError &&
-                      !schemaGeneration.isStreaming && ( // Hide schema error while streaming
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <AlertTriangle className='h-4 w-4 cursor-pointer text-destructive' />
-                          </TooltipTrigger>
-                          <TooltipContent side='top'>
-                            <p>Invalid JSON</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                  </div>
-                </div>
-                <CodeEditor
-                  value={jsonSchema}
-                  onChange={handleJsonSchemaChange}
-                  language='json'
-                  showWandButton={true}
-                  onWandClick={() => {
-                    logger.debug('Schema AI button clicked')
-                    logger.debug(
-                      'showPromptInline function exists:',
-                      typeof schemaGeneration.showPromptInline === 'function'
-                    )
-                    schemaGeneration.isPromptVisible
-                      ? schemaGeneration.hidePromptInline()
-                      : schemaGeneration.showPromptInline()
-                  }}
-                  wandButtonDisabled={schemaGeneration.isLoading || schemaGeneration.isStreaming}
-                  placeholder={`{
+            <CodeEditor
+              value={jsonSchema}
+              onChange={handleJsonSchemaChange}
+              language='json'
+              showWandButton={true}
+              onWandClick={() => {
+                logger.debug('Schema AI button clicked')
+                logger.debug(
+                  'showPromptInline function exists:',
+                  typeof schemaGeneration.showPromptInline === 'function'
+                )
+                schemaGeneration.isPromptVisible
+                  ? schemaGeneration.hidePromptInline()
+                  : schemaGeneration.showPromptInline()
+              }}
+              wandButtonDisabled={schemaGeneration.isLoading || schemaGeneration.isStreaming}
+              placeholder={`{
   "type": "function",
   "function": {
     "name": "addItemToOrder",
@@ -980,232 +1061,188 @@ try {
     }
   }
 }`}
-                  minHeight='360px'
-                  className={cn(
-                    (schemaGeneration.isLoading || schemaGeneration.isStreaming) &&
-                      'cursor-not-allowed opacity-50'
-                  )}
-                  disabled={schemaGeneration.isLoading || schemaGeneration.isStreaming} // Use disabled prop instead of readOnly
-                  onKeyDown={handleKeyDown} // Pass keydown handler
-                />
-                <div className='h-6' />
-              </div>
-
-              <div
-                className={cn(
-                  'flex h-full flex-1 flex-col pb-6',
-                  activeSection === 'code' ? 'block' : 'hidden'
-                )}
-              >
-                <div className='mb-1 flex min-h-6 items-center justify-between'>
-                  <div className='flex items-center gap-2'>
-                    <Code className='h-4 w-4' />
-                    <Label htmlFor='function-code' className='font-medium'>
-                      Code (optional)
-                    </Label>
-                  </div>
-                  {codeError &&
-                    !codeGeneration.isStreaming && ( // Hide code error while streaming
-                      <div className='ml-4 break-words text-red-600 text-sm'>{codeError}</div>
-                    )}
-                </div>
-                {schemaParameters.length > 0 && (
-                  <div className='mb-2 rounded-md bg-muted/50 p-2'>
-                    <p className='text-muted-foreground text-xs'>
-                      <span className='font-medium'>Available parameters:</span>{' '}
-                      {schemaParameters.map((param, index) => (
-                        <span key={param.name}>
-                          <code className='rounded bg-background px-1 py-0.5 text-foreground'>
-                            {param.name}
-                          </code>
-                          {index < schemaParameters.length - 1 && ', '}
-                        </span>
-                      ))}
-                      {'. '}Start typing a parameter name for autocomplete.
-                    </p>
-                  </div>
-                )}
-                <div ref={codeEditorRef} className='relative'>
-                  <CodeEditor
-                    value={functionCode}
-                    onChange={handleFunctionCodeChange}
-                    language='javascript'
-                    showWandButton={true}
-                    onWandClick={() => {
-                      logger.debug('Code AI button clicked')
-                      logger.debug(
-                        'showPromptInline function exists:',
-                        typeof codeGeneration.showPromptInline === 'function'
-                      )
-                      codeGeneration.isPromptVisible
-                        ? codeGeneration.hidePromptInline()
-                        : codeGeneration.showPromptInline()
-                    }}
-                    wandButtonDisabled={codeGeneration.isLoading || codeGeneration.isStreaming}
-                    placeholder={
-                      '// This code will be executed when the tool is called. You can use environment variables with {{VARIABLE_NAME}}.'
-                    }
-                    minHeight='360px'
-                    className={cn(
-                      codeError && !codeGeneration.isStreaming ? 'border-red-500' : '',
-                      (codeGeneration.isLoading || codeGeneration.isStreaming) &&
-                        'cursor-not-allowed opacity-50'
-                    )}
-                    highlightVariables={true}
-                    disabled={codeGeneration.isLoading || codeGeneration.isStreaming} // Use disabled prop instead of readOnly
-                    onKeyDown={handleKeyDown} // Pass keydown handler
-                    schemaParameters={schemaParameters} // Pass schema parameters for highlighting
-                  />
-
-                  {/* Environment variables dropdown */}
-                  {showEnvVars && (
-                    <EnvVarDropdown
-                      visible={showEnvVars}
-                      onSelect={handleEnvVarSelect}
-                      searchTerm={searchTerm}
-                      inputValue={functionCode}
-                      cursorPosition={cursorPosition}
-                      workspaceId={workspaceId}
-                      onClose={() => {
-                        setShowEnvVars(false)
-                        setSearchTerm('')
-                      }}
-                      className='w-64'
-                      style={{
-                        position: 'absolute',
-                        top: `${dropdownPosition.top}px`,
-                        left: `${dropdownPosition.left}px`,
-                      }}
-                    />
-                  )}
-
-                  {/* Tags dropdown */}
-                  {showTags && (
-                    <TagDropdown
-                      visible={showTags}
-                      onSelect={handleTagSelect}
-                      blockId={blockId}
-                      activeSourceBlockId={activeSourceBlockId}
-                      inputValue={functionCode}
-                      cursorPosition={cursorPosition}
-                      onClose={() => {
-                        setShowTags(false)
-                        setActiveSourceBlockId(null)
-                      }}
-                      className='w-64'
-                      style={{
-                        position: 'absolute',
-                        top: `${dropdownPosition.top}px`,
-                        left: `${dropdownPosition.left}px`,
-                      }}
-                    />
-                  )}
-
-                  {/* Schema parameters dropdown */}
-                  {showSchemaParams && schemaParameters.length > 0 && (
-                    <div
-                      ref={schemaParamsDropdownRef}
-                      className='absolute z-[9999] mt-1 w-64 overflow-visible rounded-md border bg-popover shadow-md'
-                      style={{
-                        top: `${dropdownPosition.top}px`,
-                        left: `${dropdownPosition.left}px`,
-                      }}
-                    >
-                      <div className='py-1'>
-                        <div className='px-2 pt-2.5 pb-0.5 font-medium text-muted-foreground text-xs'>
-                          Available Parameters
-                        </div>
-                        <div>
-                          {schemaParameters.map((param, index) => (
-                            <button
-                              key={param.name}
-                              onClick={() => handleSchemaParamSelect(param.name)}
-                              onMouseEnter={() => setSchemaParamSelectedIndex(index)}
-                              className={cn(
-                                'flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm',
-                                'hover:bg-card hover:text-accent-foreground',
-                                'focus:bg-accent focus:text-accent-foreground focus:outline-none',
-                                index === schemaParamSelectedIndex &&
-                                  'bg-accent text-accent-foreground'
-                              )}
-                            >
-                              <div
-                                className='flex h-5 w-5 items-center justify-center rounded'
-                                style={{ backgroundColor: '#2F8BFF' }}
-                              >
-                                <span className='h-3 w-3 font-bold text-white text-xs'>P</span>
-                              </div>
-                              <span className='flex-1 truncate'>{param.name}</span>
-                              <span className='text-muted-foreground text-xs'>{param.type}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className='h-6' />
-              </div>
-            </div>
+              className={cn(
+                (schemaGeneration.isLoading || schemaGeneration.isStreaming) &&
+                'cursor-not-allowed opacity-50',
+              )}
+              disabled={schemaGeneration.isLoading || schemaGeneration.isStreaming}
+              onKeyDown={handleKeyDown}
+            />
+            <div className='h-6' />
           </div>
 
-          <DialogFooter className='mt-auto border-t px-6 py-4'>
-            <div className='flex w-full justify-between'>
-              {isEditing ? (
-                <Button
-                  variant='destructive'
-                  size='sm'
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className='gap-1'
-                >
-                  <Trash2 className='h-4 w-4' />
-                  Delete
-                </Button>
-              ) : (
-                <Button
-                  variant='outline'
-                  onClick={() => {
-                    if (activeSection === 'code') {
-                      setActiveSection('schema')
-                    }
-                  }}
-                  disabled={activeSection === 'schema'}
-                >
-                  Back
-                </Button>
-              )}
-              <div className='flex space-x-2'>
-                <Button variant='outline' onClick={handleClose}>
-                  Cancel
-                </Button>
-                {activeSection === 'schema' ? (
-                  <Button
-                    onClick={() => setActiveSection('code')}
-                    disabled={!isSchemaValid || !!schemaError}
-                  >
-                    Next
-                  </Button>
-                ) : (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span>
-                        <Button onClick={handleSave} disabled={!isSchemaValid}>
-                          {isEditing ? 'Update Tool' : 'Save Tool'}
-                        </Button>
-                      </span>
-                    </TooltipTrigger>
-                    {!isSchemaValid && (
-                      <TooltipContent side='top'>
-                        <p>Invalid JSON schema</p>
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
-                )}
+          <div
+            className={cn(
+              'flex h-full flex-1 flex-col pb-6 ',
+              activeSection === 'code' ? 'block' : 'hidden'
+            )}
+          >
+            <div className='mb-1 flex min-h-6 items-center justify-between'>
+              <div className='flex items-center gap-2'>
+                <Code className='h-4 w-4' />
+                <Label htmlFor='function-code' className='font-medium'>
+                  Code (optional)
+                </Label>
               </div>
+              {codeError &&
+                !codeGeneration.isStreaming && ( // Hide code error while streaming
+                  <div className='ml-4 break-words text-red-600 text-sm'>{codeError}</div>
+                )}
             </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            {schemaParameters.length > 0 && (
+              <div className='mb-2 rounded-md bg-muted/50 p-2'>
+                <p className='text-muted-foreground text-xs'>
+                  <span className='font-medium'>Available parameters:</span>{' '}
+                  {schemaParameters.map((param, index) => (
+                    <span key={param.name}>
+                      <code className='rounded bg-background px-1 py-0.5 text-foreground'>
+                        {param.name}
+                      </code>
+                      {index < schemaParameters.length - 1 && ', '}
+                    </span>
+                  ))}
+                  {'. '}Start typing a parameter name for autocomplete.
+                </p>
+              </div>
+            )}
+            <div ref={codeEditorRef} className='relative rounded-md'>
+              <CodeEditor
+                value={functionCode}
+                onChange={handleFunctionCodeChange}
+                language='javascript'
+                showWandButton={true}
+                onWandClick={() => {
+                  logger.debug('Code AI button clicked')
+                  logger.debug(
+                    'showPromptInline function exists:',
+                    typeof codeGeneration.showPromptInline === 'function'
+                  )
+                  codeGeneration.isPromptVisible
+                    ? codeGeneration.hidePromptInline()
+                    : codeGeneration.showPromptInline()
+                }}
+                wandButtonDisabled={codeGeneration.isLoading || codeGeneration.isStreaming}
+                placeholder={
+                  '// This code will be executed when the tool is called. You can use environment variables with {{VARIABLE_NAME}}.'
+                }
+                minHeight='360px'
+                className={cn(
+                  codeError && !codeGeneration.isStreaming ? 'border-red-500' : '',
+                  (codeGeneration.isLoading || codeGeneration.isStreaming) &&
+                  'cursor-not-allowed opacity-50 '
+                )}
+                highlightVariables={true}
+                disabled={codeGeneration.isLoading || codeGeneration.isStreaming}
+                onKeyDown={handleKeyDown}
+                schemaParameters={schemaParameters}
+              />
+
+              {/* Environment variables dropdown */}
+              {showEnvVars && (
+                <EnvVarDropdown
+                  visible={showEnvVars}
+                  onSelect={handleEnvVarSelect}
+                  searchTerm={searchTerm}
+                  inputValue={functionCode}
+                  cursorPosition={cursorPosition}
+                  workspaceId={workspaceId}
+                  onClose={() => {
+                    setShowEnvVars(false)
+                    setSearchTerm('')
+                  }}
+                  className='w-64'
+                  style={{
+                    position: 'absolute',
+                    top: `${dropdownPosition.top}px`,
+                    left: `${dropdownPosition.left}px`,
+                  }}
+                />
+              )}
+
+              {/* Tags dropdown */}
+              {showTags && (
+                <TagDropdown
+                  visible={showTags}
+                  onSelect={handleTagSelect}
+                  blockId={blockId}
+                  activeSourceBlockId={activeSourceBlockId}
+                  inputValue={functionCode}
+                  cursorPosition={cursorPosition}
+                  onClose={() => {
+                    setShowTags(false)
+                    setActiveSourceBlockId(null)
+                  }}
+                  className='w-64'
+                  style={{
+                    position: 'absolute',
+                    top: `${dropdownPosition.top}px`,
+                    left: `${dropdownPosition.left}px`,
+                  }}
+                />
+              )}
+
+              {/* Schema parameters dropdown */}
+              {showSchemaParams && schemaParameters.length > 0 && (
+                <div
+                  ref={schemaParamsDropdownRef}
+                  className='absolute z-[9999] mt-1 w-64 overflow-visible rounded-md border bg-popover shadow-md'
+                  style={{
+                    top: `${dropdownPosition.top}px`,
+                    left: `${dropdownPosition.left}px`,
+                  }}
+                >
+                  <div className='py-1'>
+                    <div className='px-2 pt-2.5 pb-0.5 font-medium text-muted-foreground text-xs'>
+                      Available Parameters
+                    </div>
+                    <div>
+                      {schemaParameters.map((param, index) => (
+                        <button
+                          key={param.name}
+                          onClick={() => handleSchemaParamSelect(param.name)}
+                          onMouseEnter={() => setSchemaParamSelectedIndex(index)}
+                          className={cn(
+                            'flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm',
+                            'hover:bg-card hover:text-accent-foreground',
+                            'focus:bg-accent focus:text-accent-foreground focus:outline-none',
+                            index === schemaParamSelectedIndex && 'bg-accent text-accent-foreground'
+                          )}
+                        >
+                          <div
+                            className='flex h-5 w-5 items-center justify-center rounded'
+                            style={{ backgroundColor: '#2F8BFF' }}
+                          >
+                            <span className='h-3 w-3 font-bold text-white text-xs'>P</span>
+                          </div>
+                          <span className='flex-1 truncate'>{param.name}</span>
+                          <span className='text-muted-foreground text-xs'>{param.type}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className='h-6' />
+          </div>
+        </div>
+      </div>
+
+      {footerNode}
+    </div >
+  )
+
+  return (
+    <>
+      {inline ? (
+        open ? dialogBody : null
+      ) : (
+        <Dialog open={open} onOpenChange={handleClose}>
+          <DialogContent className='p-0' hideCloseButton>
+            {dialogBody}
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>

@@ -586,7 +586,7 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
                 pageTitle={activeNavItem?.title}
                 pageIcon={activeNavItem?.icon}
               />
-              <div className='min-h-0 flex-1 overflow-hidden p-1'>
+              <div className='min-h-0 flex-1 overflow-hidden p-3'>
                 <div className='h-full w-full overflow-auto'>{children}</div>
               </div>
             </div>
