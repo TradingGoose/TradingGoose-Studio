@@ -26,6 +26,7 @@ import { GoogleFormsBlock } from '@/blocks/blocks/google_form'
 import { GoogleSheetsBlock } from '@/blocks/blocks/google_sheets'
 import { GoogleVaultBlock } from '@/blocks/blocks/google_vault'
 import { GuardrailsBlock } from '@/blocks/blocks/guardrails'
+import { HistoricalDataBlock } from '@/blocks/blocks/historical_data'
 import { HuggingFaceBlock } from '@/blocks/blocks/huggingface'
 import { HunterBlock } from '@/blocks/blocks/hunter'
 import { ImageGeneratorBlock } from '@/blocks/blocks/image_generator'
@@ -115,6 +116,7 @@ export const registry: Record<string, BlockConfig> = {
   google_search: GoogleSearchBlock,
   google_sheets: GoogleSheetsBlock,
   google_vault: GoogleVaultBlock,
+  historical_data: HistoricalDataBlock,
   huggingface: HuggingFaceBlock,
   hunter: HunterBlock,
   image_generator: ImageGeneratorBlock,

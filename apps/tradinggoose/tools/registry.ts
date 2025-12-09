@@ -65,6 +65,7 @@ import {
   listMattersTool,
 } from '@/tools/google_vault'
 import { guardrailsValidateTool } from '@/tools/guardrails'
+import { historicalDataTool } from '@/tools/historical_data'
 import { requestTool as httpRequest } from '@/tools/http'
 import { huggingfaceChatTool } from '@/tools/huggingface'
 import {
@@ -248,6 +249,7 @@ export const tools: Record<string, ToolConfig> = {
   browser_use_run_task: browserUseRunTaskTool,
   openai_embeddings: openAIEmbeddings,
   http_request: httpRequest,
+  historical_data_fetch: historicalDataTool,
   huggingface_chat: huggingfaceChatTool,
   function_execute: functionExecuteTool,
   vision_tool: visionTool,
