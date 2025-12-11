@@ -70,6 +70,8 @@ import { SupabaseBlock } from '@/blocks/blocks/supabase'
 import { TavilyBlock } from '@/blocks/blocks/tavily'
 import { TelegramBlock } from '@/blocks/blocks/telegram'
 import { ThinkingBlock } from '@/blocks/blocks/thinking'
+import { TradingActionBlock } from '@/blocks/blocks/trading_action'
+import { TradingHoldingsBlock } from '@/blocks/blocks/trading_holdings'
 import { TranslateBlock } from '@/blocks/blocks/translate'
 import { TwilioSMSBlock } from '@/blocks/blocks/twilio'
 import { TypeformBlock } from '@/blocks/blocks/typeform'
@@ -164,6 +166,8 @@ export const registry: Record<string, BlockConfig> = {
   tavily: TavilyBlock,
   telegram: TelegramBlock,
   thinking: ThinkingBlock,
+  trading_action: TradingActionBlock,
+  trading_holdings: TradingHoldingsBlock,
   translate: TranslateBlock,
   twilio_sms: TwilioSMSBlock,
   typeform: TypeformBlock,

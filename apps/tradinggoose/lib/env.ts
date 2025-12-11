@@ -198,6 +198,10 @@ export const env = createEnv({
     LINEAR_CLIENT_SECRET: z.string().optional(),                  // Linear OAuth client secret
     SLACK_CLIENT_ID: z.string().optional(),                  // Slack OAuth client ID
     SLACK_CLIENT_SECRET: z.string().optional(),                  // Slack OAuth client secret
+    TRADIER_CLIENT_ID: z.string().optional(),                  // Tradier OAuth client ID
+    TRADIER_CLIENT_SECRET: z.string().optional(),                  // Tradier OAuth client secret
+    ROBINHOOD_CLIENT_ID: z.string().optional(),                  // Robinhood OAuth client ID
+    ROBINHOOD_CLIENT_SECRET: z.string().optional(),                  // Robinhood OAuth client secret
     REDDIT_CLIENT_ID: z.string().optional(),                  // Reddit OAuth client ID
     REDDIT_CLIENT_SECRET: z.string().optional(),                  // Reddit OAuth client secret
     WEBFLOW_CLIENT_ID: z.string().optional(),                  // Webflow OAuth client ID

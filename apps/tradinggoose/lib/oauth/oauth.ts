@@ -13,6 +13,7 @@ import {
   GoogleSheetsIcon,
   JiraIcon,
   LinearIcon,
+  DollarIcon,
   MicrosoftExcelIcon,
   MicrosoftIcon,
   MicrosoftOneDriveIcon,
@@ -49,6 +50,8 @@ export type OAuthProvider =
   | 'reddit'
   | 'wealthbox'
   | 'webflow'
+  | 'tradier'
+  | 'robinhood'
   | string
 
 export type OAuthService =
@@ -79,6 +82,8 @@ export type OAuthService =
   | 'wealthbox'
   | 'onedrive'
   | 'webflow'
+  | 'tradier'
+  | 'robinhood'
 export interface OAuthProviderConfig {
   id: OAuthProvider
   name: string
@@ -512,6 +517,40 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     },
     defaultService: 'wealthbox',
   },
+  tradier: {
+    id: 'tradier',
+    name: 'Tradier',
+    icon: (props) => DollarIcon(props),
+    services: {
+      tradier: {
+        id: 'tradier',
+        name: 'Tradier',
+        description: 'Trade equities and retrieve account data from Tradier.',
+        providerId: 'tradier',
+        icon: (props) => DollarIcon(props),
+        baseProviderIcon: (props) => DollarIcon(props),
+        scopes: ['read', 'write', 'trade'],
+      },
+    },
+    defaultService: 'tradier',
+  },
+  robinhood: {
+    id: 'robinhood',
+    name: 'Robinhood',
+    icon: (props) => DollarIcon(props),
+    services: {
+      robinhood: {
+        id: 'robinhood',
+        name: 'Robinhood',
+        description: 'Place trades and read holdings from Robinhood.',
+        providerId: 'robinhood',
+        icon: (props) => DollarIcon(props),
+        baseProviderIcon: (props) => DollarIcon(props),
+        scopes: ['internal', 'read', 'trading'],
+      },
+    },
+    defaultService: 'robinhood',
+  },
   webflow: {
     id: 'webflow',
     name: 'Webflow',
@@ -613,6 +652,10 @@ export function getServiceIdFromScopes(provider: OAuthProvider, scopes: string[]
     return 'reddit'
   } else if (provider === 'wealthbox') {
     return 'wealthbox'
+  } else if (provider === 'tradier') {
+    return 'tradier'
+  } else if (provider === 'robinhood') {
+    return 'robinhood'
   } else if (provider === 'webflow') {
     return 'webflow'
   }
@@ -902,6 +945,30 @@ function getProviderAuthConfig(provider: string): ProviderAuthConfig {
         clientId,
         clientSecret,
         useBasicAuth: true,
+      }
+    }
+    case 'tradier': {
+      const { clientId, clientSecret } = getCredentials(
+        env.TRADIER_CLIENT_ID,
+        env.TRADIER_CLIENT_SECRET
+      )
+      return {
+        tokenEndpoint: 'https://api.tradier.com/v1/oauth/token',
+        clientId,
+        clientSecret,
+        useBasicAuth: false,
+      }
+    }
+    case 'robinhood': {
+      const { clientId, clientSecret } = getCredentials(
+        env.ROBINHOOD_CLIENT_ID,
+        env.ROBINHOOD_CLIENT_SECRET
+      )
+      return {
+        tokenEndpoint: 'https://api.robinhood.com/oauth2/token/',
+        clientId,
+        clientSecret,
+        useBasicAuth: false,
       }
     }
     case 'wealthbox': {
