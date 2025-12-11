@@ -1,0 +1,56 @@
+---
+title: Lista de flujos de trabajo
+description: Árbol de carpetas completo con soporte para arrastrar y soltar
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+El widget Lista de flujos de trabajo muestra todos tus flujos de trabajo en un árbol jerárquico de carpetas, permitiéndote organizar, navegar y gestionar tu colección de flujos de trabajo.
+
+## Visión general
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `workflow_list` |
+| **Categoría** | Lista |
+| **Icono** | ListTree |
+
+## Características
+
+- **Árbol de carpetas**: Organización jerárquica de flujos de trabajo
+- **Arrastrar y soltar**: Mover flujos de trabajo entre carpetas
+- **Navegación rápida**: Clic para abrir flujos de trabajo
+- **Menú contextual**: Clic derecho para acciones adicionales
+- **Búsqueda**: Filtrar flujos de trabajo por nombre
+- **Crear nuevo**: Añadir nuevos flujos de trabajo y carpetas
+
+## Uso
+
+El widget Lista de flujos de trabajo refleja la navegación de la barra lateral y proporciona una vista dedicada para gestionar tus flujos de trabajo.
+
+### Organización
+
+- **Carpetas**: Crea carpetas para agrupar flujos de trabajo relacionados
+- **Arrastrar y soltar**: Mueve elementos arrastrándolos a nuevas ubicaciones
+- **Renombrar**: Haz doble clic o usa el menú contextual para renombrar
+- **Eliminar**: Elimina flujos de trabajo o carpetas vacías
+
+### Acciones del menú contextual
+
+Haz clic derecho en un flujo de trabajo o carpeta para acceder a:
+
+| Acción | Descripción |
+|--------|-------------|
+| **Abrir** | Abrir el flujo de trabajo en el editor |
+| **Renombrar** | Cambiar el nombre |
+| **Duplicar** | Crear una copia |
+| **Mover a** | Mover a otra carpeta |
+| **Eliminar** | Eliminar el elemento |
+
+### Selección de flujos de trabajo
+
+Haz clic en un flujo de trabajo para seleccionarlo. Cuando se empareja con otros widgets que usan el mismo color, el flujo de trabajo seleccionado se mostrará en esos widgets.
+
+<Callout>
+Este widget admite el mecanismo **pairColor**. Cuando seleccionas un flujo de trabajo en esta lista, otros widgets emparejados cambiarán automáticamente para mostrar ese flujo de trabajo.
+</Callout>

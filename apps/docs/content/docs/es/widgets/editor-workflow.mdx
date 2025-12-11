@@ -1,0 +1,41 @@
+---
+title: Editor de flujos de trabajo
+description: Interfaz de lienzo para construir y editar flujos de trabajo
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+El Editor de flujos de trabajo es la interfaz visual principal para construir flujos de trabajo de IA en TradingGoose. Proporciona un lienzo donde puedes arrastrar, soltar y conectar bloques para crear potentes canales de automatización.
+
+## Descripción general
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `editor_workflow` |
+| **Categoría** | Editor |
+| **Icono** | Workflow |
+
+## Características
+
+- **Lienzo visual**: Interfaz intuitiva de arrastrar y soltar para el diseño de flujos de trabajo
+- **Colocación de bloques**: Añade bloques desde la biblioteca de bloques al lienzo
+- **Gestión de conexiones**: Dibuja conexiones entre las salidas y entradas de los bloques
+- **Zoom y desplazamiento**: Navega por flujos de trabajo grandes con controles de zoom y desplazamiento
+- **Configuración de bloques**: Haz clic en los bloques para configurar sus ajustes
+- **Validación en tiempo real**: Retroalimentación instantánea sobre la compatibilidad de conexiones
+
+## Uso
+
+El Editor de flujos de trabajo es típicamente el widget principal en tu espacio de trabajo, proporcionando el entorno visual donde diseñas y modificas tus flujos de trabajo de IA.
+
+### Operaciones básicas
+
+1. **Añadir bloques**: Arrastra bloques desde la barra lateral o usa el menú contextual
+2. **Conectar bloques**: Haz clic y arrastra desde un puerto de salida a un puerto de entrada
+3. **Configurar bloques**: Haz clic en un bloque para abrir su panel de configuración
+4. **Eliminar elementos**: Selecciona y presiona Eliminar, o usa el menú contextual
+5. **Deshacer/Rehacer**: Usa Ctrl+Z / Ctrl+Shift+Z para navegar por el historial
+
+<Callout>
+Este widget admite el mecanismo **pairColor** para sincronización con otros widgets de flujo de trabajo como Consola, Chat y Variables.
+</Callout>
