@@ -1,0 +1,64 @@
+---
+title: Workflow Variables
+description: Inspect and edit variables for the selected workflow
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+The Workflow Variables widget provides a dedicated interface for viewing and editing the variables defined in your workflow.
+
+## Overview
+
+| Property | Value |
+|----------|-------|
+| **Key** | `workflow_variables` |
+| **Category** | Utility |
+| **Icon** | Braces |
+
+## Features
+
+- **Variable List**: View all workflow variables at a glance
+- **Inline Editing**: Edit variable values directly
+- **Type Display**: See the data type of each variable
+- **Add/Remove**: Create new variables or delete existing ones
+- **Search**: Filter variables by name
+
+## Usage
+
+The Workflow Variables widget is useful for:
+
+- Inspecting the current state of workflow variables
+- Modifying variable values for testing
+- Understanding the data flow in your workflow
+- Managing workflow-scoped configuration
+
+### Variable Types
+
+Workflow variables can hold different types of data:
+
+| Type | Description |
+|------|-------------|
+| **String** | Text values |
+| **Number** | Numeric values |
+| **Boolean** | True/false values |
+| **Object** | JSON objects |
+| **Array** | Lists of values |
+
+### Editing Variables
+
+1. Click on a variable to select it
+2. Modify the value in the editor
+3. Changes are saved automatically
+4. The workflow uses the updated value on next execution
+
+### Creating Variables
+
+1. Click the "Add Variable" button
+2. Enter a name for the variable
+3. Select the variable type
+4. Set an initial value (optional)
+
+<Callout>
+This widget supports the **pairColor** mechanism. Pair it with a Workflow Editor to view variables for the workflow you're currently editing.
+</Callout>
+

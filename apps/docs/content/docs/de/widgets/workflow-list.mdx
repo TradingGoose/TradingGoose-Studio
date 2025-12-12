@@ -1,0 +1,56 @@
+---
+title: Workflow-Liste
+description: Vollständiger Ordnerbaum mit Drag-and-Drop-Unterstützung
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+Das Workflow-Listen-Widget zeigt alle Ihre Workflows in einer hierarchischen Ordnerstruktur an und ermöglicht es Ihnen, Ihre Workflow-Sammlung zu organisieren, zu navigieren und zu verwalten.
+
+## Übersicht
+
+| Eigenschaft | Wert |
+|----------|-------|
+| **Schlüssel** | `workflow_list` |
+| **Kategorie** | Liste |
+| **Symbol** | ListTree |
+
+## Funktionen
+
+- **Ordnerbaum**: Hierarchische Organisation von Workflows
+- **Drag-and-Drop**: Verschieben von Workflows zwischen Ordnern
+- **Schnelle Navigation**: Klicken zum Öffnen von Workflows
+- **Kontextmenü**: Rechtsklick für zusätzliche Aktionen
+- **Suche**: Filtern von Workflows nach Namen
+- **Neu erstellen**: Hinzufügen neuer Workflows und Ordner
+
+## Verwendung
+
+Das Workflow-Listen-Widget spiegelt die Seitenleistennavigation wider und bietet eine dedizierte Ansicht zur Verwaltung Ihrer Workflows.
+
+### Organisation
+
+- **Ordner**: Erstellen Sie Ordner, um verwandte Workflows zu gruppieren
+- **Drag-and-Drop**: Verschieben Sie Elemente, indem Sie sie an neue Positionen ziehen
+- **Umbenennen**: Doppelklicken oder Kontextmenü verwenden zum Umbenennen
+- **Löschen**: Entfernen von Workflows oder leeren Ordnern
+
+### Kontextmenü-Aktionen
+
+Rechtsklick auf einen Workflow oder Ordner für Zugriff auf:
+
+| Aktion | Beschreibung |
+|--------|-------------|
+| **Öffnen** | Öffnet den Workflow im Editor |
+| **Umbenennen** | Ändert den Namen |
+| **Duplizieren** | Erstellt eine Kopie |
+| **Verschieben nach** | Verschiebt in einen anderen Ordner |
+| **Löschen** | Entfernt das Element |
+
+### Auswählen von Workflows
+
+Klicken Sie auf einen Workflow, um ihn auszuwählen. Bei Kopplung mit anderen Widgets derselben Farbe wird der ausgewählte Workflow in diesen Widgets angezeigt.
+
+<Callout>
+Dieses Widget unterstützt den **pairColor**-Mechanismus. Wenn Sie einen Workflow in dieser Liste auswählen, wechseln andere gekoppelte Widgets automatisch zur Anzeige dieses Workflows.
+</Callout>

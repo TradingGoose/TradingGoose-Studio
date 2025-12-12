@@ -8,6 +8,7 @@
     "./permissions/index",
     "triggers",
     "blocks",
+    "widgets",
     "tools",
     "connections",
     "knowledgebase",

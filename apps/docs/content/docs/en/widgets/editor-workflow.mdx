@@ -1,0 +1,43 @@
+---
+title: Workflow Editor
+description: Canvas interface for building and editing workflows
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+The Workflow Editor is the core visual interface for building AI workflows in TradingGoose. It provides a canvas where you can drag, drop, and connect blocks to create powerful automation pipelines.
+
+## Overview
+
+| Property | Value |
+|----------|-------|
+| **Key** | `editor_workflow` |
+| **Category** | Editor |
+| **Icon** | Workflow |
+
+## Features
+
+- **Visual Canvas**: Intuitive drag-and-drop interface for workflow design
+- **Block Placement**: Add blocks from the block library to the canvas
+- **Connection Management**: Draw connections between block outputs and inputs
+- **Zoom & Pan**: Navigate large workflows with zoom and pan controls
+- **Block Configuration**: Click on blocks to configure their settings
+- **Real-time Validation**: Instant feedback on connection compatibility
+
+## Usage
+
+The Workflow Editor is typically the main widget in your workspace, providing the visual environment where you design and modify your AI workflows.
+
+### Basic Operations
+
+1. **Add Blocks**: Drag blocks from the sidebar or use the context menu
+2. **Connect Blocks**: Click and drag from an output port to an input port
+3. **Configure Blocks**: Click on a block to open its configuration panel
+4. **Delete Elements**: Select and press Delete, or use the context menu
+5. **Undo/Redo**: Use Ctrl+Z / Ctrl+Shift+Z for history navigation
+
+
+<Callout>
+This widget supports the **pairColor** mechanism for synchronization with other workflow widgets like Console, Chat, and Variables.
+</Callout>
+

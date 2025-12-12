@@ -1,0 +1,63 @@
+---
+title: Workflow-Variablen
+description: Variablen für den ausgewählten Workflow prüfen und bearbeiten
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+Das Widget für Workflow-Variablen bietet eine spezielle Oberfläche zum Anzeigen und Bearbeiten der in Ihrem Workflow definierten Variablen.
+
+## Übersicht
+
+| Eigenschaft | Wert |
+|----------|-------|
+| **Schlüssel** | `workflow_variables` |
+| **Kategorie** | Dienstprogramm |
+| **Symbol** | Klammern |
+
+## Funktionen
+
+- **Variablenliste**: Alle Workflow-Variablen auf einen Blick anzeigen
+- **Inline-Bearbeitung**: Variablenwerte direkt bearbeiten
+- **Typanzeige**: Den Datentyp jeder Variable sehen
+- **Hinzufügen/Entfernen**: Neue Variablen erstellen oder bestehende löschen
+- **Suche**: Variablen nach Namen filtern
+
+## Verwendung
+
+Das Widget für Workflow-Variablen ist nützlich für:
+
+- Überprüfen des aktuellen Status der Workflow-Variablen
+- Ändern von Variablenwerten zum Testen
+- Verstehen des Datenflusses in Ihrem Workflow
+- Verwalten der workflow-spezifischen Konfiguration
+
+### Variablentypen
+
+Workflow-Variablen können verschiedene Arten von Daten enthalten:
+
+| Typ | Beschreibung |
+|------|-------------|
+| **String** | Textwerte |
+| **Number** | Numerische Werte |
+| **Boolean** | Wahr/Falsch-Werte |
+| **Object** | JSON-Objekte |
+| **Array** | Listen von Werten |
+
+### Variablen bearbeiten
+
+1. Klicken Sie auf eine Variable, um sie auszuwählen
+2. Ändern Sie den Wert im Editor
+3. Änderungen werden automatisch gespeichert
+4. Der Workflow verwendet den aktualisierten Wert bei der nächsten Ausführung
+
+### Variablen erstellen
+
+1. Klicken Sie auf die Schaltfläche "Variable hinzufügen"
+2. Geben Sie einen Namen für die Variable ein
+3. Wählen Sie den Variablentyp aus
+4. Legen Sie einen Anfangswert fest (optional)
+
+<Callout>
+Dieses Widget unterstützt den **pairColor**-Mechanismus. Kombinieren Sie es mit einem Workflow-Editor, um Variablen für den Workflow anzuzeigen, den Sie gerade bearbeiten.
+</Callout>
