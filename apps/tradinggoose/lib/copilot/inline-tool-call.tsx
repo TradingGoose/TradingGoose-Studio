@@ -448,7 +448,7 @@ export function InlineToolCall({
         colorClass = 'text-red-500'
       } else if (state === (ClientToolCallState as any).success || state === 'success') {
         const isBuildOrEdit = toolCall.name === 'edit_workflow'
-        colorClass = isBuildOrEdit ? 'text-[var(--primary-hover)]' : 'text-green-600'
+        colorClass = isBuildOrEdit ? 'text-primary-hover' : 'text-green-600'
       }
 
       // Only Loader2 should spin

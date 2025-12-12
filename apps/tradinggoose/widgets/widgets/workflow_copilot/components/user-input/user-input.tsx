@@ -1783,7 +1783,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       // Haiku shows purple when selected, other zap models don't
       const colorClass =
         (isBrainModel || isBrainCircuitModel || isHaikuModel) && !agentPrefetch
-          ? 'text-[var(--primary-hover)]'
+          ? 'text-primary-hover'
           : 'text-muted-foreground'
 
       // Match the dropdown icon logic exactly
@@ -2134,7 +2134,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
           className={cn(
             'relative rounded-md border border-input bg-background p-2 shadow-xs transition-all duration-200 ',
             isDragging &&
-            'border-[var(--primary-hover)] bg-yellow-50/50 dark:border-[var(--primary-hover)] dark:bg-yellow-950/20'
+            'border-primary-hover bg-yellow-50/50 dark:border-primary-hover dark:bg-yellow-950/20'
           )}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
@@ -2352,7 +2352,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                 >
                   <div
                     ref={mentionMenuRef}
-                    className='flex flex-col overflow-hidden rounded-sm border bg-background p-1 text-foreground shadow-md'
+                    className='flex flex-col overflow-hidden rounded-sm border bg-popover p-1 text-foreground shadow-md'
                     style={{
                       maxHeight: mentionPortalStyle.maxHeight,
                       height: '100%',
@@ -3334,7 +3334,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                         className={cn(
                           'flex h-6 items-center gap-1.5 rounded-sm border px-2 py-1 font-medium text-xs focus-visible:ring-0 focus-visible:ring-offset-0',
                           showPurple
-                            ? 'border-[var(--primary-hover)] text-[var(--primary-hover)] hover:bg-[color-mix(in_srgb,var(--primary-hover)_8%,transparent)] hover:text-[var(--primary-hover)]'
+                            ? 'border-primary-hover text-primary-hover hover:bg-primary-hover/10 hover:text-primary hover:border-primary'
                             : 'border-border text-foreground'
                         )}
                         title='Choose mode'
@@ -3350,7 +3350,6 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
-                      align='start'
                       side={isNearTop ? 'bottom' : 'top'}
                       className='max-h-[400px] p-0'
                     >

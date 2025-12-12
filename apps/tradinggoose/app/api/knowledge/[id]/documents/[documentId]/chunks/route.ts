@@ -6,7 +6,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { getUserId } from '@/app/api/auth/oauth/utils'
 import { checkDocumentAccess, checkDocumentWriteAccess } from '@/app/api/knowledge/utils'
-import { calculateCost } from '@/providers/utils'
+import { calculateCost } from '@/providers/ai/utils'
 
 const logger = createLogger('DocumentChunksAPI')
 

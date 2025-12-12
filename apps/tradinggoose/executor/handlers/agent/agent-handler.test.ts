@@ -4,8 +4,8 @@ import { getAllBlocks } from '@/blocks'
 import { BlockType } from '@/executor/consts'
 import { AgentBlockHandler } from '@/executor/handlers/agent/agent-handler'
 import type { ExecutionContext, StreamingExecution } from '@/executor/types'
-import { executeProviderRequest } from '@/providers'
-import { getProviderFromModel, transformBlockTool } from '@/providers/utils'
+import { executeProviderRequest } from '@/providers/ai'
+import { getProviderFromModel, transformBlockTool } from '@/providers/ai/utils'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 import { executeTool } from '@/tools'
 
@@ -19,7 +19,7 @@ vi.mock('@/lib/environment', () => ({
   getCostMultiplier: vi.fn().mockReturnValue(1),
 }))
 
-vi.mock('@/providers/utils', () => ({
+vi.mock('@/providers/ai/utils', () => ({
   getProviderFromModel: vi.fn().mockReturnValue('mock-provider'),
   transformBlockTool: vi.fn(),
   getBaseModelProviders: vi.fn().mockReturnValue({ openai: {}, anthropic: {} }),
@@ -48,7 +48,7 @@ vi.mock('@/tools', () => ({
   executeTool: vi.fn(),
 }))
 
-vi.mock('@/providers', () => ({
+vi.mock('@/providers/ai', () => ({
   executeProviderRequest: vi.fn().mockResolvedValue({
     content: 'Mocked response content',
     model: 'mock-model',

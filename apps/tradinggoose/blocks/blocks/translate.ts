@@ -6,7 +6,7 @@ import {
   getHostedModels,
   getProviderIcon,
   providers,
-} from '@/providers/utils'
+} from '@/providers/ai/utils'
 import { useProvidersStore } from '@/stores/providers/store'
 
 const getCurrentOllamaModels = () => {

@@ -14,7 +14,6 @@
 
 TradingGoose Studio is an **AI workflow platform for quantitative trading**.
 
----
 
 ## Quick Start
 

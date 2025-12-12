@@ -3,29 +3,19 @@
     "target": "es2022",
     "module": "esnext",
     "moduleResolution": "bundler",
-    "lib": [
-      "es2022"
-    ],
+    "lib": ["es2022"],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
-      "@tradinggoose/db": [
-        "./index.ts"
-      ],
-      "@tradinggoose/db/*": [
-        "./*"
-      ]
+      "@tradinggoose/db": ["./index.ts"],
+      "@tradinggoose/db/*": ["./*"]
     },
     "resolveJsonModule": true,
     "noEmit": true
   },
-  "include": [
-    "**/*.ts"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules"]
 }

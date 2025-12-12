@@ -124,7 +124,8 @@
     "three": "0.177.0",
     "uuid": "^11.1.0",
     "xlsx": "0.18.5",
-    "zod": "^3.24.2"
+    "zod": "^3.24.2",
+    "zod-to-json-schema": "^3.24.6"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",
