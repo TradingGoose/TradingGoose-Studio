@@ -1,7 +1,7 @@
 import { DollarIcon } from '@/components/icons'
 import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
-import { getProviderFields, getTradingProviders } from '@/providers/trading'
+import { getProviderFields, getTradingProviders } from '@/trading_providers'
 import type { TradingHoldingsResponse } from '@/tools/trading/types'
 
 const providerOptions = getTradingProviders().map((provider) => ({
