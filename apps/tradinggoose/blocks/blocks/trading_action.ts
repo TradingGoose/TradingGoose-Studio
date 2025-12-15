@@ -35,7 +35,7 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
   longDescription:
     'Unified trading action block that supports multiple brokerages with either OAuth or API-key authentication.',
   category: 'tools',
-  bgColor: '#0f766e',
+  bgColor: '#ff766e',
   icon: DollarIcon,
   subBlocks: [
     {
@@ -45,6 +45,7 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       layout: 'full',
       options: providerOptions,
       required: true,
+      value: () => 'alpaca',
     },
     {
       id: 'environment',
@@ -87,26 +88,41 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       condition: { field: 'provider', value: 'robinhood' },
       canonicalParamId: 'credential',
     },
+    // OAuth credential (Alpaca)
+    {
+      id: 'alpacaCredential',
+      title: 'Alpaca Account',
+      type: 'oauth-input',
+      layout: 'full',
+      required: true,
+      provider: 'alpaca',
+      serviceId: 'alpaca',
+      requiredScopes: ['account:write', 'trading', 'data'],
+      placeholder: 'Select Alpaca account',
+      condition: { field: 'provider', value: 'alpaca' },
+      canonicalParamId: 'credential',
+    },
+
     // API key auth (Alpaca)
-    {
-      id: 'apiKey',
-      title: 'API Key',
-      type: 'short-input',
-      layout: 'half',
-      placeholder: 'APCA-API-KEY-ID',
-      condition: { field: 'provider', value: 'alpaca' },
-      required: true,
-    },
-    {
-      id: 'apiSecret',
-      title: 'API Secret',
-      type: 'short-input',
-      layout: 'half',
-      placeholder: 'APCA-API-SECRET-KEY',
-      condition: { field: 'provider', value: 'alpaca' },
-      required: true,
-      password: true,
-    },
+    // {
+    //   id: 'apiKey',
+    //   title: 'API Key',
+    //   type: 'short-input',
+    //   layout: 'half',
+    //   placeholder: 'APCA-API-KEY-ID',
+    //   condition: { field: 'provider', value: 'alpaca' },
+    //   required: true,
+    // },
+    // {
+    //   id: 'apiSecret',
+    //   title: 'API Secret',
+    //   type: 'short-input',
+    //   layout: 'half',
+    //   placeholder: 'APCA-API-SECRET-KEY',
+    //   condition: { field: 'provider', value: 'alpaca' },
+    //   required: true,
+    //   password: true,
+    // },
     {
       id: 'side',
       title: 'Action',
@@ -187,7 +203,7 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       params: (params) => {
         const provider = params.provider
         const credential =
-          params.credential || params.tradierCredential || params.robinhoodCredential
+          params.credential || params.tradierCredential || params.robinhoodCredential || params.alpacaCredential
         const extraFields = getProviderFields(provider, 'order').reduce((acc, field) => {
           const key = `${provider}_${field.id}`
           if (params[key] !== undefined) {
@@ -199,8 +215,6 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
         return {
           provider,
           credential,
-          apiKey: params.apiKey,
-          apiSecret: params.apiSecret,
           environment: params.environment,
           side: params.side,
           symbol: params.symbol,
@@ -217,8 +231,6 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
   inputs: {
     provider: { type: 'string', description: 'Selected trading provider' },
     credential: { type: 'string', description: 'OAuth credential identifier' },
-    apiKey: { type: 'string', description: 'API key for API-key providers' },
-    apiSecret: { type: 'string', description: 'API secret for API-key providers' },
     environment: { type: 'string', description: 'Paper or live environment' },
     side: { type: 'string', description: 'buy or sell' },
     symbol: { type: 'string', description: 'Ticker symbol' },

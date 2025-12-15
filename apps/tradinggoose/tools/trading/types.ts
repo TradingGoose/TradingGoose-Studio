@@ -15,9 +15,11 @@ export interface TradingActionParams {
   stopPrice?: number
   environment?: 'paper' | 'live'
   // Auth
+  credential?: string
   accessToken?: string
-  apiKey?: string
-  apiSecret?: string
+  tradierCredential?: string
+  robinhoodCredential?: string
+  alpacaCredential?: string
   // Provider-specific extras
   accountId?: string
   accountUrl?: string

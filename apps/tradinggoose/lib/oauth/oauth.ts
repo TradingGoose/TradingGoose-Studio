@@ -28,6 +28,7 @@ import {
   WealthboxIcon,
   WebflowIcon,
   xIcon,
+  AlpacaIcon,
 } from '@/components/icons'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -55,6 +56,7 @@ export type OAuthProvider =
   | string
 
 export type OAuthService =
+  | 'alpaca' // <-- here
   | 'google'
   | 'google-email'
   | 'google-drive'
@@ -103,6 +105,23 @@ export interface OAuthServiceConfig {
 }
 
 export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
+  alpaca: {
+    id: 'alpaca',
+    name: 'Alpaca',
+    icon: (props) => AlpacaIcon(props),
+    services: {
+      alpaca: {
+        id: 'alpaca',
+        name: 'Alpaca',
+        description: 'Trade and manage accounts with Alpaca.',
+        providerId: 'alpaca',
+        icon: (props) => AlpacaIcon(props),
+        baseProviderIcon: (props) => AlpacaIcon(props),
+        scopes: ['account:write', 'trading', 'data'],
+      },
+    },
+    defaultService: 'alpaca',
+  },
   google: {
     id: 'google',
     name: 'Google',

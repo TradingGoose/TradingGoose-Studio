@@ -1,27 +1,38 @@
 import type { TradingProviderDefinition } from '@/trading_providers/types'
 
+const buildAuthHeaders = (params: Record<string, any>): Record<string, string> => {
+  if (!!params.accessToken) {
+    return { Authorization: `Bearer ${params.accessToken}` }
+  }
+
+  if (!params.apiKey || !params.apiSecret) {
+    throw new Error('Alpaca access token or API key/secret are required')
+  }
+
+  return {
+    'APCA-API-KEY-ID': params.apiKey,
+    'APCA-API-SECRET-KEY': params.apiSecret,
+  }
+}
+
 export const alpacaProvider: TradingProviderDefinition = {
   id: 'alpaca',
   name: 'Alpaca',
   description: 'Commission-free trading via Alpaca (paper and live).',
-  authType: 'apiKey',
+  authType: 'oauth',
+  oauth: {
+    provider: 'alpaca',
+    scopes: ['account:write', 'trading', 'data'],
+  },
   credentialFields: [
-    { id: 'apiKey', label: 'API Key', description: 'APCA-API-KEY-ID from Alpaca dashboard' },
-    {
-      id: 'apiSecret',
-      label: 'API Secret',
-      secret: true,
-      description: 'APCA-API-SECRET-KEY from Alpaca dashboard',
-    },
+    
   ],
   defaults: {
     orderType: 'market',
     timeInForce: 'day',
   },
   buildOrderRequest: (params) => {
-    if (!params.apiKey || !params.apiSecret) {
-      throw new Error('Alpaca API key and secret are required')
-    }
+    const authHeaders = buildAuthHeaders(params)
 
     const baseUrl =
       params.environment === 'paper'
@@ -52,17 +63,14 @@ export const alpacaProvider: TradingProviderDefinition = {
       url: `${baseUrl}/v2/orders`,
       method: 'POST',
       headers: {
-        'APCA-API-KEY-ID': params.apiKey,
-        'APCA-API-SECRET-KEY': params.apiSecret,
+        ...authHeaders,
         'Content-Type': 'application/json',
       },
       body,
     }
   },
   buildHoldingsRequest: (params) => {
-    if (!params.apiKey || !params.apiSecret) {
-      throw new Error('Alpaca API key and secret are required')
-    }
+    const authHeaders = buildAuthHeaders(params)
 
     const baseUrl =
       params.environment === 'paper'
@@ -72,10 +80,7 @@ export const alpacaProvider: TradingProviderDefinition = {
     return {
       url: `${baseUrl}/v2/positions`,
       method: 'GET',
-      headers: {
-        'APCA-API-KEY-ID': params.apiKey,
-        'APCA-API-SECRET-KEY': params.apiSecret,
-      },
+      headers: authHeaders,
     }
   },
   normalizeOrder: (data: any) => ({
