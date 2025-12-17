@@ -174,6 +174,7 @@ import {
 import { slackCanvasTool, slackMessageReaderTool, slackMessageTool } from '@/tools/slack'
 import { smsSendTool } from '@/tools/sms'
 import { stagehandAgentTool, stagehandExtractTool } from '@/tools/stagehand'
+import { tradingActionTool, tradingHoldingsTool } from '@/tools/trading'
 import {
   supabaseDeleteTool,
   supabaseGetRowTool,
@@ -358,6 +359,8 @@ export const tools: Record<string, ToolConfig> = {
   airtable_update_record: airtableUpdateRecordTool,
   mistral_parser: mistralParserTool,
   thinking_tool: thinkingTool,
+  trading_place_order: tradingActionTool,
+  trading_get_holdings: tradingHoldingsTool,
   stagehand_extract: stagehandExtractTool,
   stagehand_agent: stagehandAgentTool,
   mem0_add_memories: mem0AddMemoriesTool,

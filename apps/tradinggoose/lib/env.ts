@@ -198,11 +198,16 @@ export const env = createEnv({
     LINEAR_CLIENT_SECRET: z.string().optional(),                  // Linear OAuth client secret
     SLACK_CLIENT_ID: z.string().optional(),                  // Slack OAuth client ID
     SLACK_CLIENT_SECRET: z.string().optional(),                  // Slack OAuth client secret
+    TRADIER_CLIENT_ID: z.string().optional(),                  // Tradier OAuth client ID
+    TRADIER_CLIENT_SECRET: z.string().optional(),                  // Tradier OAuth client secret
+    ROBINHOOD_CLIENT_ID: z.string().optional(),                  // Robinhood OAuth client ID
+    ROBINHOOD_CLIENT_SECRET: z.string().optional(),                  // Robinhood OAuth client secret
     REDDIT_CLIENT_ID: z.string().optional(),                  // Reddit OAuth client ID
     REDDIT_CLIENT_SECRET: z.string().optional(),                  // Reddit OAuth client secret
     WEBFLOW_CLIENT_ID: z.string().optional(),                  // Webflow OAuth client ID
     WEBFLOW_CLIENT_SECRET: z.string().optional(),                  // Webflow OAuth client secret
-
+    ALPACA_CLIENT_ID:                      z.string().optional(),  // Alpaca OAuth client ID for Alpaca services
+    ALPACA_CLIENT_SECRET:                  z.string().optional(),  // Alpaca OAuth client secret
     // E2B Remote Code Execution
     E2B_ENABLED: z.string().optional(),                  // Enable E2B remote code execution
     E2B_API_KEY: z.string().optional(),                  // E2B API key for sandbox creation

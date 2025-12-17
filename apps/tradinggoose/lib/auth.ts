@@ -311,6 +311,37 @@ export const auth = betterAuth({
     genericOAuth({
       config: [
         {
+          providerId: 'alpaca',
+          clientId: env.ALPACA_CLIENT_ID as string,
+          clientSecret: env.ALPACA_CLIENT_SECRET as string,
+          authorizationUrl: 'https://app.alpaca.markets/oauth/authorize',
+          tokenUrl: 'https://api.alpaca.markets/oauth/token',
+          scopes: [
+            'account:write', 
+            'trading', 
+            'data'
+          ],
+          getUserInfo: async (tokens) => {
+            // Access provider-specific fields from raw token data
+            const options = {
+              headers: {
+                "Authorization": `Bearer ${tokens.accessToken}`
+              },
+            };
+            const response = await fetch("https://paper-api.alpaca.markets/v2/account", options);
+            const data = await response.json();
+            return {
+              id: data.id,
+              name: data.account_number,
+              email: data.account_number,
+              image: "",
+              emailVerified: false,
+            };
+          },
+          responseType: 'code',
+          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/alpaca`,
+        },
+        {
           providerId: 'github-repo',
           clientId: env.GITHUB_REPO_CLIENT_ID as string,
           clientSecret: env.GITHUB_REPO_CLIENT_SECRET as string,

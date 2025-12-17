@@ -137,6 +137,20 @@ export async function executeTool(
     }
 
     // If we have a credential parameter, fetch the access token
+    // Agents may pass provider-specific credential params (e.g., alpacaCredential); normalize first
+    if (!contextParams.credential) {
+      contextParams.credential =
+        contextParams.alpacaCredential ||
+        contextParams.tradierCredential ||
+        contextParams.robinhoodCredential ||
+        contextParams.credential
+
+      // Avoid leaking provider-specific credential params downstream
+      delete contextParams.alpacaCredential
+      delete contextParams.tradierCredential
+      delete contextParams.robinhoodCredential
+    }
+
     if (contextParams.credential) {
       logger.info(
         `[${requestId}] Tool ${toolId} needs access token for credential: ${contextParams.credential}`
