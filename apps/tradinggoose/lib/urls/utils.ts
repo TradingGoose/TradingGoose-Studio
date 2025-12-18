@@ -9,11 +9,20 @@ import { isProd } from '@/lib/environment'
  */
 export function getBaseUrl(): string {
   const baseUrl = getEnv('NEXT_PUBLIC_APP_URL')
+  const isPreviewDev =
+    getEnv('NEXT_PUBLIC_IS_PREVIEW_DEVELOPMENT') === 'true' ||
+    getEnv('NEXT_PUBLIC_IS_PREVIEW_DEVELOPMENT') === '1'
+  const isReactEmailPreview =
+    !!process.env.EMAILS_DIR_ABSOLUTE_PATH || !!process.env.PREVIEW_SERVER_LOCATION
 
   if (!baseUrl || !baseUrl.trim()) {
-    throw new Error(
-      'NEXT_PUBLIC_APP_URL must be configured for webhooks and callbacks to work correctly'
-    )
+    const fallback = process.env.EMAILS_PREVIEW_BASE_URL || 'http://localhost:3000'
+    if (isProd && !isPreviewDev && !isReactEmailPreview) {
+      // Avoid hard crash in production builds but surface a warning for misconfiguration.
+      // eslint-disable-next-line no-console
+      console.warn('NEXT_PUBLIC_APP_URL missing – falling back to', fallback)
+    }
+    return fallback
   }
 
   if (baseUrl.startsWith('http://') || baseUrl.startsWith('https://')) {

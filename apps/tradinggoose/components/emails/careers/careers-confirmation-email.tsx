@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { Body, Container, Head, Html, Preview, Section, Text } from '@react-email/components'
 import { format } from 'date-fns'
 import { getBrandConfig } from '@/lib/branding/branding'

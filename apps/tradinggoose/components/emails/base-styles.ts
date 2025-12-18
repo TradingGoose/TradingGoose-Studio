@@ -15,7 +15,7 @@ export const baseStyles = {
     padding: '24px 0',
   },
   container: {
-    maxWidth: '420px',
+    maxWidth: '480px',
     width: '100%',
     margin: '0 auto',
     backgroundColor: '#202020',
@@ -25,7 +25,7 @@ export const baseStyles = {
     padding: '32px 28px 28px 28px',
   },
   header: {
-    textAlign: 'center' as const,
+    textAlign: 'left' as const,
     paddingBottom: '8px',
   },
   brandStack: {
@@ -52,10 +52,11 @@ export const baseStyles = {
     fontSize: '14px',
     fontWeight: 600,
     margin: '0',
-    textAlign: 'center' as const,
+    textAlign: 'left' as const,
   },
   content: {
     padding: '4px 0 0 0',
+    textAlign: 'left' as const,
   },
   title: {
     fontSize: '22px',
@@ -63,14 +64,14 @@ export const baseStyles = {
     color: '#cfd5e5',
     fontWeight: 600,
     margin: '12px 0',
-    textAlign: 'center' as const,
+    textAlign: 'left' as const,
   },
   paragraph: {
     fontSize: '15px',
     lineHeight: '1.6',
     color: '#c5cbd8',
     margin: '12px 0',
-    textAlign: 'center' as const,
+    textAlign: 'left' as const,
   },
   button: {
     display: 'inline-block',

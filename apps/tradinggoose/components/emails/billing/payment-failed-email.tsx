@@ -1,3 +1,4 @@
+import * as React from 'react'
 import {
   Body,
   Column,
@@ -19,18 +20,18 @@ import { getBaseUrl } from '@/lib/urls/utils'
 
 interface PaymentFailedEmailProps {
   userName?: string
-  amountDue: number
+  amountDue?: number
   lastFourDigits?: string
-  billingPortalUrl: string
+  billingPortalUrl?: string
   failureReason?: string
   sentDate?: Date
 }
 
 export function PaymentFailedEmail({
-  userName,
-  amountDue,
+  userName = 'there',
+  amountDue = 0,
   lastFourDigits,
-  billingPortalUrl,
+  billingPortalUrl = '#',
   failureReason,
   sentDate = new Date(),
 }: PaymentFailedEmailProps) {
@@ -83,15 +84,7 @@ export function PaymentFailedEmail({
               your payment method.
             </Text>
 
-            <Section
-              style={{
-                backgroundColor: '#fff5f5',
-                border: '1px solid #fed7d7',
-                borderRadius: '5px',
-                padding: '16px',
-                margin: '20px 0',
-              }}
-            >
+            <Section style={baseStyles.codeContainer} >
               <Row>
                 <Column>
                   <Text style={{ ...baseStyles.paragraph, marginBottom: 8, marginTop: 0 }}>

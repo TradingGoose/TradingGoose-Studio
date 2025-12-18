@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { Container, Img, Link, Section, Text } from '@react-email/components'
 import { baseStyles } from '@/components/emails/base-styles'
 import { getBrandConfig } from '@/lib/branding/branding'
@@ -28,19 +29,9 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe }: EmailFooter
                   <tbody>
                     <tr>
                       <td align='center' style={{ padding: '0 8px' }}>
-                        <Link href='https://x.com/simdotai' rel='noopener noreferrer'>
+                        <Link href='https://discord.gg/wavf5JWhuT' rel='noopener noreferrer'>
                           <Img
-                            src={`${baseUrl}/static/x-icon.png`}
-                            width='24'
-                            height='24'
-                            alt='X'
-                          />
-                        </Link>
-                      </td>
-                      <td align='center' style={{ padding: '0 8px' }}>
-                        <Link href='https://discord.gg/Hr4UWYEcTT' rel='noopener noreferrer'>
-                          <Img
-                            src={`${baseUrl}/static/discord-icon.png`}
+                            src='https://cdn-icons-png.flaticon.com/512/5968/5968756.png'
                             width='24'
                             height='24'
                             alt='Discord'
@@ -48,9 +39,9 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe }: EmailFooter
                         </Link>
                       </td>
                       <td align='center' style={{ padding: '0 8px' }}>
-                        <Link href='https://github.com/simstudioai/sim' rel='noopener noreferrer'>
+                        <Link href='https://github.com/TradingGoose/TradingGoose-Studio' rel='noopener noreferrer'>
                           <Img
-                            src={`${baseUrl}/static/github-icon.png`}
+                            src='https://cdn.iconscout.com/icon/free/png-256/free-github-icon-svg-download-png-3073768.png'
                             width='24'
                             height='24'
                             alt='GitHub'

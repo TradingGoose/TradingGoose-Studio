@@ -250,7 +250,7 @@ async function sendInvitationEmail({
 
     const result = await sendEmail({
       to,
-      subject: `You've been invited to join "${workspaceName}" on Sim`,
+      subject: `You've been invited to join "${workspaceName}" on TradingGoose`,
       html: emailHtml,
       from: fromAddress,
       emailType: 'transactional',
