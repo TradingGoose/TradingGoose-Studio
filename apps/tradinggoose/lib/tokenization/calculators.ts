@@ -20,7 +20,7 @@ import {
   logTokenizationDetails,
   validateTokenizationInput,
 } from '@/lib/tokenization/utils'
-import { calculateCost } from '@/providers/utils'
+import { calculateCost } from '@/providers/ai/utils'
 
 const logger = createLogger('TokenizationCalculators')
 

@@ -46,7 +46,7 @@ vi.mock('@/lib/tokenization/estimators', () => ({
   estimateTokenCount: vi.fn().mockReturnValue({ count: 521 }),
 }))
 
-vi.mock('@/providers/utils', () => ({
+vi.mock('@/providers/ai/utils', () => ({
   calculateCost: vi.fn().mockReturnValue({
     input: 0.00001042,
     output: 0,
@@ -557,7 +557,7 @@ describe('Knowledge Search API Route', () => {
 
       it('should call cost calculation functions with correct parameters', async () => {
         const { estimateTokenCount } = await import('@/lib/tokenization/estimators')
-        const { calculateCost } = await import('@/providers/utils')
+        const { calculateCost } = await import('@/providers/ai/utils')
 
         mockGetUserId.mockResolvedValue('user-123')
 
@@ -595,7 +595,7 @@ describe('Knowledge Search API Route', () => {
 
       it('should handle cost calculation with different query lengths', async () => {
         const { estimateTokenCount } = await import('@/lib/tokenization/estimators')
-        const { calculateCost } = await import('@/providers/utils')
+        const { calculateCost } = await import('@/providers/ai/utils')
 
         // Mock different token count for longer query
         vi.mocked(estimateTokenCount).mockReturnValue({

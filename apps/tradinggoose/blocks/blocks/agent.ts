@@ -12,7 +12,7 @@ import {
   MODELS_WITH_VERBOSITY,
   providers,
   supportsTemperature,
-} from '@/providers/utils'
+} from '@/providers/ai/utils'
 
 const getCurrentOllamaModels = () => {
   return useProvidersStore.getState().providers.ollama.models

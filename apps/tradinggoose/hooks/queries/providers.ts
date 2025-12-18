@@ -5,10 +5,10 @@ import type { ProviderName } from '@/stores/providers/types'
 const logger = createLogger('ProviderModelsQuery')
 
 const providerEndpoints: Record<ProviderName, string> = {
-  base: '/api/providers/base/models',
-  ollama: '/api/providers/ollama/models',
+  base: '/api/providers/ai/base/models',
+  ollama: '/api/providers/ai/ollama/models',
   vllm: '/api/providers/vllm/models',
-  openrouter: '/api/providers/openrouter/models',
+  openrouter: '/api/providers/ai/openrouter/models',
 }
 
 async function fetchProviderModels(provider: ProviderName): Promise<string[]> {

@@ -2,13 +2,13 @@ import { ChartBarIcon } from '@/components/icons'
 import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { BlockConfig, ParamType } from '@/blocks/types'
-import type { ProviderId } from '@/providers/types'
+import type { ProviderId } from '@/providers/ai/types'
 import {
   getAllModelProviders,
   getHostedModels,
   getProviderIcon,
   providers,
-} from '@/providers/utils'
+} from '@/providers/ai/utils'
 import { useProvidersStore } from '@/stores/providers/store'
 import type { ToolResponse } from '@/tools/types'
 

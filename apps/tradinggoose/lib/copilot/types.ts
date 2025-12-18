@@ -51,7 +51,7 @@ export interface ParsedMessageContent {
   inlineContent?: InlineContent[]
 }
 
-import type { ProviderId } from '@/providers/types'
+import type { ProviderId } from '@/providers/ai/types'
 // Copilot Tools Type Definitions (from workspace copilot lib)
 import type { CopilotToolCall, ToolState } from '@/stores/copilot/types'
 

@@ -91,7 +91,7 @@ describe('Copilot Chat API Route', () => {
       content: 'Generated Title',
     })
 
-    vi.doMock('@/providers', () => ({
+    vi.doMock('@/providers/ai', () => ({
       executeProviderRequest: mockExecuteProviderRequest,
     }))
 
