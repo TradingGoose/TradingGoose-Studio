@@ -4,6 +4,7 @@ import { z } from 'zod'
 export const ToolIds = z.enum([
   'get_user_workflow',
   'edit_workflow',
+  'preview_edit_workflow',
   'run_workflow',
   'get_workflow_console',
   'get_blocks_and_tools',
@@ -72,6 +73,17 @@ export const ToolArgSchemas = {
   oauth_request_access: z.object({}),
 
   edit_workflow: z.object({
+    operations: z
+      .array(
+        z.object({
+          operation_type: z.enum(['add', 'edit', 'delete']),
+          block_id: z.string(),
+          params: z.record(z.any()).optional(),
+        })
+      )
+      .min(1),
+  }),
+  preview_edit_workflow: z.object({
     operations: z
       .array(
         z.object({
@@ -197,6 +209,10 @@ export const ToolSSESchemas = {
     ToolArgSchemas.set_global_workflow_variables
   ),
   edit_workflow: toolCallSSEFor('edit_workflow', ToolArgSchemas.edit_workflow),
+  preview_edit_workflow: toolCallSSEFor(
+    'preview_edit_workflow',
+    ToolArgSchemas.preview_edit_workflow
+  ),
   run_workflow: toolCallSSEFor('run_workflow', ToolArgSchemas.run_workflow),
   get_workflow_console: toolCallSSEFor('get_workflow_console', ToolArgSchemas.get_workflow_console),
   get_blocks_and_tools: toolCallSSEFor('get_blocks_and_tools', ToolArgSchemas.get_blocks_and_tools),
@@ -294,6 +310,7 @@ export const ToolResultSchemas = {
   }),
 
   edit_workflow: BuildOrEditWorkflowResult,
+  preview_edit_workflow: BuildOrEditWorkflowResult,
   run_workflow: z.object({
     executionId: z.string().optional(),
     message: z.any().optional(),

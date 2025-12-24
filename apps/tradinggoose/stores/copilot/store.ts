@@ -37,6 +37,7 @@ import { GetEnvironmentVariablesClientTool } from '@/lib/copilot/tools/client/us
 import { GetOAuthCredentialsClientTool } from '@/lib/copilot/tools/client/user/get-oauth-credentials'
 import { SetEnvironmentVariablesClientTool } from '@/lib/copilot/tools/client/user/set-environment-variables'
 import { EditWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/edit-workflow'
+import { PreviewEditWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/preview-edit-workflow'
 import { GetGlobalWorkflowVariablesClientTool } from '@/lib/copilot/tools/client/workflow/get-global-workflow-variables'
 import { GetUserWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/get-user-workflow'
 import { GetWorkflowConsoleClientTool } from '@/lib/copilot/tools/client/workflow/get-workflow-console'
@@ -87,6 +88,7 @@ const CLIENT_TOOL_INSTANTIATORS: Record<string, (id: string) => any> = {
   gdrive_request_access: (id) => new GDriveRequestAccessClientTool(id),
   oauth_request_access: (id) => new OAuthRequestAccessClientTool(id),
   edit_workflow: (id) => new EditWorkflowClientTool(id),
+  preview_edit_workflow: (id) => new PreviewEditWorkflowClientTool(id),
   get_user_workflow: (id) => new GetUserWorkflowClientTool(id),
   list_user_workflows: (id) => new ListUserWorkflowsClientTool(id),
   get_workflow_from_name: (id) => new GetWorkflowFromNameClientTool(id),
@@ -118,6 +120,7 @@ export const CLASS_TOOL_METADATA: Record<string, BaseClientToolMetadata | undefi
   mark_todo_in_progress: (MarkTodoInProgressClientTool as any)?.metadata,
   gdrive_request_access: (GDriveRequestAccessClientTool as any)?.metadata,
   edit_workflow: (EditWorkflowClientTool as any)?.metadata,
+  preview_edit_workflow: (PreviewEditWorkflowClientTool as any)?.metadata,
   get_user_workflow: (GetUserWorkflowClientTool as any)?.metadata,
   list_user_workflows: (ListUserWorkflowsClientTool as any)?.metadata,
   get_workflow_from_name: (GetWorkflowFromNameClientTool as any)?.metadata,
@@ -1289,7 +1292,7 @@ async function* parseSSEStream(
 
 // Initial state (subset required for UI/streaming)
 const initialState = {
-  mode: 'agent' as const,
+  mode: 'build' as const,
   selectedModel: 'claude-4.5-sonnet' as CopilotStore['selectedModel'],
   agentPrefetch: false,
   enabledModels: null as string[] | null, // Null means not loaded yet, empty array means all disabled
@@ -1698,7 +1701,7 @@ const createCopilotStoreInstance = () =>
             userMessageId: userMessage.id,
             chatId: currentChat?.id,
             workflowId,
-            mode: mode === 'ask' ? 'ask' : 'agent',
+            mode: mode === 'ask' ? 'ask' : 'build',
             model: get().selectedModel,
             prefetch: get().agentPrefetch,
             createNewChat: !currentChat,
@@ -1834,7 +1837,7 @@ const createCopilotStoreInstance = () =>
             message: 'Please continue your response.',
             chatId: currentChat?.id,
             workflowId,
-            mode: mode === 'ask' ? 'ask' : 'agent',
+            mode: mode === 'ask' ? 'ask' : 'build',
             model: selectedModel,
             prefetch: get().agentPrefetch,
             createNewChat: !currentChat,

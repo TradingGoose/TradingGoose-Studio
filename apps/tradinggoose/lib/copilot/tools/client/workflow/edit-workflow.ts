@@ -90,7 +90,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
       try {
         const diffStore = useWorkflowDiffStore.getState()
         diffStore.setPendingEditToolCallId?.(this.toolCallId)
-      } catch {}
+      } catch { }
 
       // Resolve workflowId
       let workflowId = args?.workflowId
