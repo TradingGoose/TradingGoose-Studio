@@ -12,7 +12,7 @@ export const SlackBlock: BlockConfig<SlackResponse> = {
     'Integrate Slack into the workflow. Can send messages, create canvases, and read messages. Requires Bot Token instead of OAuth in advanced mode. Can be used in trigger mode to trigger a workflow when a message is sent to a channel.',
   docsLink: 'https://docs.sim.ai/tools/slack',
   category: 'tools',
-  bgColor: '#611f69',
+  bgColor: '',
   icon: SlackIcon,
   triggerAllowed: true,
   subBlocks: [

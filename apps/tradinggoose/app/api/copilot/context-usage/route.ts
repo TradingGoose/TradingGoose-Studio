@@ -12,7 +12,7 @@ import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { hasProcessedMessage, markMessageAsProcessed } from '@/lib/redis'
 import { COPILOT_API_URL_DEFAULT } from '@/lib/sim-agent/constants'
-import { calculateCost } from '@/providers/utils'
+import { calculateCost } from '@/providers/ai/utils'
 import { checkInternalApiKey } from '@/lib/copilot/utils'
 
 const MODEL_SYNONYMS: Record<string, string> = {

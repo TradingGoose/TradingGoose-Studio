@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Sparkles } from 'lucide-react'
+import { BotMessageSquare } from 'lucide-react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import WorkflowCopilotApp from './components/workflow-copilot-app'
 import { useWidgetChannel } from '@/widgets/hooks/use-widget-channel'
@@ -113,7 +113,7 @@ const WorkflowCopilotWidgetBody = ({
 
   if (!hasLoadedWorkflows || isLoading) {
     return (
-      <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))]'>
+      <div className='flex h-full w-full items-center justify-center '>
         <LoadingAgent size='md' />
       </div>
     )
@@ -125,7 +125,7 @@ const WorkflowCopilotWidgetBody = ({
 
   if (!resolvedWorkflowId) {
     return (
-      <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))]'>
+      <div className='flex h-full w-full items-center justify-center '>
         <LoadingAgent size='md' />
       </div>
     )
@@ -134,7 +134,7 @@ const WorkflowCopilotWidgetBody = ({
   return (
     <div
       ref={containerRef}
-      className='flex h-full w-full overflow-hidden bg-[hsl(var(--workflow-background))] p-2'
+      className='flex h-full w-full overflow-hidden  p-2'
     >
       <WorkflowCopilotApp
         workspaceId={workspaceId}
@@ -151,7 +151,7 @@ const WorkflowCopilotWidgetBody = ({
 }
 
 const WidgetStateMessage = ({ message }: { message: string }) => (
-  <div className='flex h-full w-full items-center justify-center bg-[hsl(var(--workflow-background))] px-4 text-center text-muted-foreground text-xs'>
+  <div className='flex h-full w-full items-center justify-center  px-4 text-center text-muted-foreground text-xs'>
     {message}
   </div>
 )
@@ -207,7 +207,7 @@ const WorkflowCopilotHeaderSelector = ({
 export const workflowCopilotWidget: DashboardWidgetDefinition = {
   key: 'workflow_copilot',
   title: 'Workflow Copilot',
-  icon: Sparkles,
+  icon: BotMessageSquare,
   category: 'utility',
   description: 'AI copilot experience tailored to the selected workflow.',
   component: (props) => <WorkflowCopilotWidgetBody {...props} />,

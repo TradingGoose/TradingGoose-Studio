@@ -12,7 +12,7 @@ export const GmailBlock: BlockConfig<GmailToolResponse> = {
     'Integrate Gmail into the workflow. Can send, read, and search emails. Can be used in trigger mode to trigger a workflow when a new email is received.',
   docsLink: 'https://docs.sim.ai/tools/gmail',
   category: 'tools',
-  bgColor: '#E0E0E0',
+  bgColor: undefined,
   icon: GmailIcon,
   triggerAllowed: true,
   subBlocks: [

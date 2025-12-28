@@ -11,7 +11,7 @@ export const WhatsAppBlock: BlockConfig<WhatsAppResponse> = {
   longDescription: 'Integrate WhatsApp into the workflow. Can send messages.',
   docsLink: 'https://docs.sim.ai/tools/whatsapp',
   category: 'tools',
-  bgColor: '#25D366',
+  bgColor: undefined,
   icon: WhatsAppIcon,
   triggerAllowed: true,
   subBlocks: [

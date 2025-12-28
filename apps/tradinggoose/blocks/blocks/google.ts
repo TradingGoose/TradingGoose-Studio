@@ -11,7 +11,7 @@ export const GoogleSearchBlock: BlockConfig<GoogleSearchResponse> = {
   longDescription: 'Integrate Google Search into the workflow. Can search the web.',
   docsLink: 'https://docs.sim.ai/tools/google_search',
   category: 'tools',
-  bgColor: '#E0E0E0',
+  bgColor: undefined,
   icon: GoogleIcon,
 
   subBlocks: [

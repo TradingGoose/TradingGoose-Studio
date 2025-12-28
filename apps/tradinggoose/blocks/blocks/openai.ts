@@ -10,7 +10,7 @@ export const OpenAIBlock: BlockConfig = {
   longDescription: 'Integrate Embeddings into the workflow. Can generate embeddings from text.',
   category: 'tools',
   docsLink: 'https://docs.sim.ai/tools/openai',
-  bgColor: '#10a37f',
+  bgColor: undefined,
   icon: OpenAIIcon,
   subBlocks: [
     {

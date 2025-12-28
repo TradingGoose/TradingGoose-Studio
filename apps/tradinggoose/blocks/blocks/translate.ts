@@ -6,7 +6,7 @@ import {
   getHostedModels,
   getProviderIcon,
   providers,
-} from '@/providers/utils'
+} from '@/providers/ai/utils'
 import { useProvidersStore } from '@/stores/providers/store'
 
 const getCurrentOllamaModels = () => {
@@ -32,7 +32,7 @@ export const TranslateBlock: BlockConfig = {
   longDescription: 'Integrate Translate into the workflow. Can translate text to any language.',
   docsLink: 'https://docs.sim.ai/tools/translate',
   category: 'tools',
-  bgColor: '#FF4B4B',
+  bgColor: '',
   icon: TranslateIcon,
   subBlocks: [
     {
@@ -83,15 +83,15 @@ export const TranslateBlock: BlockConfig = {
       // Hide API key for hosted models and Ollama models
       condition: isHosted
         ? {
-            field: 'model',
-            value: getHostedModels(),
-            not: true, // Show for all models EXCEPT those listed
-          }
+          field: 'model',
+          value: getHostedModels(),
+          not: true, // Show for all models EXCEPT those listed
+        }
         : () => ({
-            field: 'model',
-            value: getCurrentOllamaModels(),
-            not: true, // Show for all models EXCEPT Ollama models
-          }),
+          field: 'model',
+          value: getCurrentOllamaModels(),
+          not: true, // Show for all models EXCEPT Ollama models
+        }),
     },
     {
       id: 'azureEndpoint',

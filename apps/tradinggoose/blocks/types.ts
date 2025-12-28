@@ -78,16 +78,16 @@ export type ExtractToolOutput<T> = T extends ToolResponse ? T['output'] : never
 
 export type ToolOutputToValueType<T> = T extends Record<string, any>
   ? {
-      [K in keyof T]: T[K] extends string
-        ? 'string'
-        : T[K] extends number
-          ? 'number'
-          : T[K] extends boolean
-            ? 'boolean'
-            : T[K] extends object
-              ? 'json'
-              : 'any'
-    }
+    [K in keyof T]: T[K] extends string
+    ? 'string'
+    : T[K] extends number
+    ? 'number'
+    : T[K] extends boolean
+    ? 'boolean'
+    : T[K] extends object
+    ? 'json'
+    : 'any'
+  }
   : never
 
 export type BlockOutput =
@@ -125,18 +125,19 @@ export interface SubBlockConfig {
   required?: boolean
   defaultValue?: string | number | boolean | Record<string, unknown> | Array<unknown>
   options?:
-    | {
-        label: string
-        id: string
-        icon?: React.ComponentType<{ className?: string }>
-        group?: string
-      }[]
-    | (() => {
-        label: string
-        id: string
-        icon?: React.ComponentType<{ className?: string }>
-        group?: string
-      }[])
+  | {
+    label: string
+    id: string
+    icon?: React.ComponentType<{ className?: string }>
+    group?: string
+  }[]
+  | (() => {
+    label: string
+    id: string
+    icon?: React.ComponentType<{ className?: string }>
+    group?: string
+  }[])
+  optionsStore?: 'marketProviders'
   min?: number
   max?: number
   columns?: string[]
@@ -151,26 +152,26 @@ export interface SubBlockConfig {
   maxHeight?: number
   selectAllOption?: boolean
   condition?:
-    | {
-        field: string
-        value: string | number | boolean | Array<string | number | boolean>
-        not?: boolean
-        and?: {
-          field: string
-          value: string | number | boolean | Array<string | number | boolean> | undefined
-          not?: boolean
-        }
-      }
-    | (() => {
-        field: string
-        value: string | number | boolean | Array<string | number | boolean>
-        not?: boolean
-        and?: {
-          field: string
-          value: string | number | boolean | Array<string | number | boolean> | undefined
-          not?: boolean
-        }
-      })
+  | {
+    field: string
+    value: string | number | boolean | Array<string | number | boolean>
+    not?: boolean
+    and?: {
+      field: string
+      value: string | number | boolean | Array<string | number | boolean> | undefined
+      not?: boolean
+    }
+  }
+  | (() => {
+    field: string
+    value: string | number | boolean | Array<string | number | boolean>
+    not?: boolean
+    and?: {
+      field: string
+      value: string | number | boolean | Array<string | number | boolean> | undefined
+      not?: boolean
+    }
+  })
   // Props specific to 'code' sub-block type
   language?: 'javascript' | 'json'
   generationType?: GenerationType
@@ -215,7 +216,7 @@ export interface BlockConfig<T extends ToolResponse = ToolResponse> {
   longDescription?: string
   bestPractices?: string
   docsLink?: string
-  bgColor: string
+  bgColor: string | undefined
   icon: BlockIcon
   subBlocks: SubBlockConfig[]
   triggerAllowed?: boolean

@@ -8,7 +8,7 @@ export const Mem0Block: BlockConfig<Mem0Response> = {
   description: 'Agent memory management',
   authMode: AuthMode.ApiKey,
   longDescription: 'Integrate Mem0 into the workflow. Can add, search, and retrieve memories.',
-  bgColor: '#181C1E',
+  bgColor: '',
   icon: Mem0Icon,
   category: 'tools',
   docsLink: 'https://docs.sim.ai/tools/mem0',

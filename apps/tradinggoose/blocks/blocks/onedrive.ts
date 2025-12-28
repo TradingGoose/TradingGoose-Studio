@@ -12,7 +12,7 @@ export const OneDriveBlock: BlockConfig<OneDriveResponse> = {
     'Integrate OneDrive into the workflow. Can create text and Excel files, upload files, and list files.',
   docsLink: 'https://docs.sim.ai/tools/onedrive',
   category: 'tools',
-  bgColor: '#E0E0E0',
+  bgColor: undefined,
   icon: MicrosoftOneDriveIcon,
   subBlocks: [
     // Operation selector

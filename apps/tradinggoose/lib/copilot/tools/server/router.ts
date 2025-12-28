@@ -11,6 +11,7 @@ import { getEnvironmentVariablesServerTool } from '@/lib/copilot/tools/server/us
 import { getOAuthCredentialsServerTool } from '@/lib/copilot/tools/server/user/get-oauth-credentials'
 import { setEnvironmentVariablesServerTool } from '@/lib/copilot/tools/server/user/set-environment-variables'
 import { editWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow'
+import { previewEditWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/preview-edit-workflow'
 import { getWorkflowConsoleServerTool } from '@/lib/copilot/tools/server/workflow/get-workflow-console'
 import {
   ExecuteResponseSuccessSchema,
@@ -36,6 +37,7 @@ serverToolRegistry[getBlocksAndToolsServerTool.name] = getBlocksAndToolsServerTo
 serverToolRegistry[getBlocksMetadataServerTool.name] = getBlocksMetadataServerTool
 serverToolRegistry[getTriggerBlocksServerTool.name] = getTriggerBlocksServerTool
 serverToolRegistry[editWorkflowServerTool.name] = editWorkflowServerTool
+serverToolRegistry[previewEditWorkflowServerTool.name] = previewEditWorkflowServerTool
 serverToolRegistry[getWorkflowConsoleServerTool.name] = getWorkflowConsoleServerTool
 serverToolRegistry[searchDocumentationServerTool.name] = searchDocumentationServerTool
 serverToolRegistry[searchOnlineServerTool.name] = searchOnlineServerTool

@@ -15,7 +15,7 @@ import { BlockType } from '@/executor/consts'
 import { RouterBlockHandler } from '@/executor/handlers/router/router-handler'
 import { PathTracker } from '@/executor/path/path'
 import type { ExecutionContext } from '@/executor/types'
-import { getProviderFromModel } from '@/providers/utils'
+import { getProviderFromModel } from '@/providers/ai/utils'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 
 const mockGenerateRouterPrompt = generateRouterPrompt as Mock

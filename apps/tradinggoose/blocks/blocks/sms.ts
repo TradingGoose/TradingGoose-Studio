@@ -9,7 +9,7 @@ export const SMSBlock: BlockConfig<SMSSendResult> = {
   longDescription:
     'Send SMS messages directly using the internal SMS service powered by Twilio. No external configuration or OAuth required. Perfect for sending notifications, alerts, or general purpose text messages from your workflows. Requires valid phone numbers with country codes.',
   category: 'tools',
-  bgColor: '#E0E0E0',
+  bgColor: undefined,
   icon: SMSIcon,
 
   subBlocks: [

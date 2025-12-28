@@ -14,7 +14,7 @@ import LogMarkdownRenderer from '@/app/workspace/[workspaceId]/logs/components/s
 import { ToolCallsDisplay } from '@/app/workspace/[workspaceId]/logs/components/tool-calls/tool-calls-display'
 import { TraceSpans } from '@/app/workspace/[workspaceId]/logs/components/trace-spans/trace-spans'
 import { formatDate } from '@/app/workspace/[workspaceId]/logs/utils'
-import { formatCost } from '@/providers/utils'
+import { formatCost } from '@/providers/ai/utils'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 
 interface LogSidebarProps {
@@ -73,7 +73,7 @@ const formatJsonContent = (content: string, blockInput?: Record<string, any>): R
   const { isJson, formatted } = tryPrettifyJson(content)
 
   return (
-    <div className='group relative w-full rounded-md bg-secondary/30 p-3'>
+    <div className='group relative w-full rounded-md bg-secondary p-3'>
       <CopyButton text={formatted} className='z-10 h-7 w-7' />
       {isJson ? (
         <pre className='max-h-[500px] w-full overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-all text-sm'>
@@ -124,21 +124,19 @@ const BlockContentDisplay = ({
         <div className='mb-2 flex space-x-1'>
           <button
             onClick={() => setActiveTab('output')}
-            className={`rounded-md px-3 py-1 text-xs transition-colors ${
-              activeTab === 'output'
-                ? 'bg-secondary text-foreground'
-                : 'text-muted-foreground hover:bg-secondary/50'
-            }`}
+            className={`rounded-md px-3 py-1 text-xs transition-colors ${activeTab === 'output'
+              ? 'bg-secondary text-foreground'
+              : 'text-muted-foreground hover:bg-secondary/50'
+              }`}
           >
             Output
           </button>
           <button
             onClick={() => setActiveTab('input')}
-            className={`rounded-md px-3 py-1 text-xs transition-colors ${
-              activeTab === 'input'
-                ? 'bg-secondary text-foreground'
-                : 'text-muted-foreground hover:bg-secondary/50'
-            }`}
+            className={`rounded-md px-3 py-1 text-xs transition-colors ${activeTab === 'input'
+              ? 'bg-secondary text-foreground'
+              : 'text-muted-foreground hover:bg-secondary/50'
+              }`}
           >
             Input
           </button>
@@ -146,7 +144,7 @@ const BlockContentDisplay = ({
       )}
 
       {/* Content based on active tab */}
-      <div className='group relative rounded-md bg-secondary/30 p-3'>
+      <div className='group relative rounded-md bg-secondary p-3'>
         {activeTab === 'output' ? (
           <>
             <CopyButton text={redactedOutput} className='z-10 h-7 w-7' />
@@ -293,7 +291,7 @@ export function Sidebar({
     <div className='flex h-full min-h-0 min-w-0 flex-col p-1'>
       <div className='flex h-full min-h-0 flex-col rounded-lg border border-border'>
         {/* Header */}
-        <div className='z-[9] flex items-center justify-between border-b bg-background px-3 pt-3 pb-1'>
+        <div className='z-[9] flex items-center justify-between border-b p-2'>
           <h2 className='font-[450] text-base text-card-foreground'>Log Details</h2>
           <div className='flex items-center gap-2'>
             <TooltipProvider>
@@ -302,7 +300,7 @@ export function Sidebar({
                   <Button
                     variant='ghost'
                     size='icon'
-                    className='h-8 w-8 p-0'
+                    className='h-7 w-7 p-0'
                     onClick={() => hasPrev && handleNavigate(onNavigatePrev!)}
                     disabled={!hasPrev}
                     aria-label='Previous log'
@@ -320,7 +318,7 @@ export function Sidebar({
                   <Button
                     variant='ghost'
                     size='icon'
-                    className='h-8 w-8 p-0'
+                    className='h-7 w-7 p-0'
                     onClick={() => hasNext && handleNavigate(onNavigateNext!)}
                     disabled={!hasNext}
                     aria-label='Next log'
@@ -335,7 +333,7 @@ export function Sidebar({
             <Button
               variant='ghost'
               size='icon'
-              className='h-8 w-8 p-0'
+              className='h-7 w-7 p-0'
               onClick={onClose}
               aria-label='Close'
             >
@@ -499,7 +497,7 @@ export function Sidebar({
               {log.executionData?.toolCalls && log.executionData.toolCalls.length > 0 && (
                 <div className='w-full'>
                   <h3 className='mb-1 font-medium text-muted-foreground text-xs'>Tool Calls</h3>
-                  <div className='w-full overflow-x-hidden rounded-md bg-secondary/30 p-3'>
+                  <div className='w-full overflow-x-hidden rounded-md bg-secondary p-3'>
                     <ToolCallsDisplay metadata={log.executionData} />
                   </div>
                 </div>

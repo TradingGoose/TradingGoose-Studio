@@ -8,7 +8,7 @@
  * used by the executor.
  */
 import { describe, expect, it, vi } from 'vitest'
-import { getProviderFromModel } from '@/providers/utils'
+import { getProviderFromModel } from '@/providers/ai/utils'
 import {
   createAgentWithToolsWorkflowState,
   createComplexWorkflowState,

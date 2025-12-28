@@ -11,7 +11,7 @@ export const ConfluenceBlock: BlockConfig<ConfluenceResponse> = {
   longDescription: 'Integrate Confluence into the workflow. Can read and update a page.',
   docsLink: 'https://docs.sim.ai/tools/confluence',
   category: 'tools',
-  bgColor: '#E0E0E0',
+  bgColor: undefined,
   icon: ConfluenceIcon,
   subBlocks: [
     {

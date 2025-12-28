@@ -12,7 +12,7 @@ export const HuggingFaceBlock: BlockConfig<HuggingFaceChatResponse> = {
     'Integrate Hugging Face into the workflow. Can generate completions using the Hugging Face Inference API.',
   docsLink: 'https://docs.sim.ai/tools/huggingface',
   category: 'tools',
-  bgColor: '#0B0F19',
+  bgColor: '',
   icon: HuggingFaceIcon,
   subBlocks: [
     {

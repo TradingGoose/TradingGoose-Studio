@@ -1,0 +1,48 @@
+---
+title: Chat de Workflow
+description: Interfaz de chat para interactuar con bloques de flujo de trabajo
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+El widget Chat de Workflow proporciona una interfaz de chat interactiva para comunicarte con tus bloques de flujo de trabajo. Permite interacciones conversacionales con tus flujos de trabajo de IA.
+
+## Descripción general
+
+| Propiedad | Valor |
+|-----------|-------|
+| **Clave** | `workflow_chat` |
+| **Categoría** | Utilidad |
+| **Icono** | MessageCircle |
+
+## Funciones
+
+- **Chat interactivo**: Envía mensajes y recibe respuestas de tu flujo de trabajo
+- **Selección de salida**: Elige qué salidas del flujo mostrar en el chat
+- **Carga de archivos**: Adjunta archivos a tus mensajes para su procesamiento
+- **Transmisión en tiempo real**: Ve las respuestas a medida que se generan
+- **Historial de mensajes**: Consulta y recorre el historial de conversación
+
+## Uso
+
+El widget Chat de Workflow es útil para:
+
+- Probar flujos de trabajo que tienen disparadores basados en chat
+- Interactuar con agentes de IA en tu flujo de trabajo
+- Depurar respuestas del flujo de trabajo
+- Demostrar las capacidades del flujo de trabajo
+
+### Enviar mensajes
+
+1. Escribe tu mensaje en el campo de entrada
+2. Opcionalmente adjunta archivos usando el botón de carga
+3. Presiona Enter o haz clic en Enviar para enviarlo
+4. Observa la respuesta en streaming en tiempo real
+
+### Selección de salida
+
+Puedes seleccionar qué salidas de bloques mostrar en la respuesta del chat. Esto es útil cuando tu flujo de trabajo tiene múltiples bloques de salida y quieres enfocarte en resultados específicos.
+
+<Callout>
+Este widget admite el mecanismo **pairColor**. Emparéjalo con un Editor de Workflow para chatear con el workflow que estás editando.
+</Callout>

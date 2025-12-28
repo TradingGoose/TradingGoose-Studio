@@ -1,0 +1,56 @@
+---
+title: Liste des flux de travail
+description: Arborescence complète des dossiers avec prise en charge du glisser-déposer
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+Le widget Liste des flux de travail affiche tous vos flux de travail dans une arborescence hiérarchique de dossiers, vous permettant d'organiser, de naviguer et de gérer votre collection de flux de travail.
+
+## Aperçu
+
+| Propriété | Valeur |
+|----------|-------|
+| **Clé** | `workflow_list` |
+| **Catégorie** | Liste |
+| **Icône** | ListTree |
+
+## Fonctionnalités
+
+- **Arborescence de dossiers** : Organisation hiérarchique des flux de travail
+- **Glisser-déposer** : Déplacer les flux de travail entre les dossiers
+- **Navigation rapide** : Cliquer pour ouvrir les flux de travail
+- **Menu contextuel** : Clic droit pour des actions supplémentaires
+- **Recherche** : Filtrer les flux de travail par nom
+- **Créer nouveau** : Ajouter de nouveaux flux de travail et dossiers
+
+## Utilisation
+
+Le widget Liste des flux de travail reflète la navigation de la barre latérale et fournit une vue dédiée pour gérer vos flux de travail.
+
+### Organisation
+
+- **Dossiers** : Créer des dossiers pour regrouper les flux de travail associés
+- **Glisser-déposer** : Déplacer des éléments en les faisant glisser vers de nouveaux emplacements
+- **Renommer** : Double-cliquer ou utiliser le menu contextuel pour renommer
+- **Supprimer** : Retirer des flux de travail ou des dossiers vides
+
+### Actions du menu contextuel
+
+Faites un clic droit sur un flux de travail ou un dossier pour accéder à :
+
+| Action | Description |
+|--------|-------------|
+| **Ouvrir** | Ouvrir le flux de travail dans l'éditeur |
+| **Renommer** | Changer le nom |
+| **Dupliquer** | Créer une copie |
+| **Déplacer vers** | Déplacer vers un autre dossier |
+| **Supprimer** | Retirer l'élément |
+
+### Sélection des flux de travail
+
+Cliquez sur un flux de travail pour le sélectionner. Lorsqu'il est associé à d'autres widgets utilisant la même couleur, le flux de travail sélectionné sera affiché dans ces widgets.
+
+<Callout>
+Ce widget prend en charge le mécanisme **pairColor**. Lorsque vous sélectionnez un flux de travail dans cette liste, les autres widgets associés passeront automatiquement à l'affichage de ce flux de travail.
+</Callout>

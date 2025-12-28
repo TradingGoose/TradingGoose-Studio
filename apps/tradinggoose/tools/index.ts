@@ -109,8 +109,9 @@ export async function executeTool(
 
     // If it's a custom tool, use the async version with workflowId
     if (toolId.startsWith('custom_')) {
-      const workflowId = params._context?.workflowId
-      tool = await getToolAsync(toolId, workflowId)
+      const workflowId = params._context?.workflowId || executionContext?.workflowId
+      const workspaceId = params._context?.workspaceId || executionContext?.workspaceId
+      tool = await getToolAsync(toolId, workflowId, workspaceId)
       if (!tool) {
         logger.error(`[${requestId}] Custom tool not found: ${toolId}`)
       }
@@ -136,6 +137,20 @@ export async function executeTool(
     }
 
     // If we have a credential parameter, fetch the access token
+    // Agents may pass provider-specific credential params (e.g., alpacaCredential); normalize first
+    if (!contextParams.credential) {
+      contextParams.credential =
+        contextParams.alpacaCredential ||
+        contextParams.tradierCredential ||
+        contextParams.robinhoodCredential ||
+        contextParams.credential
+
+      // Avoid leaking provider-specific credential params downstream
+      delete contextParams.alpacaCredential
+      delete contextParams.tradierCredential
+      delete contextParams.robinhoodCredential
+    }
+
     if (contextParams.credential) {
       logger.info(
         `[${requestId}] Tool ${toolId} needs access token for credential: ${contextParams.credential}`

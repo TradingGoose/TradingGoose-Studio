@@ -91,7 +91,7 @@ describe('Copilot Chat API Route', () => {
       content: 'Generated Title',
     })
 
-    vi.doMock('@/providers', () => ({
+    vi.doMock('@/providers/ai', () => ({
       executeProviderRequest: mockExecuteProviderRequest,
     }))
 
@@ -220,7 +220,7 @@ describe('Copilot Chat API Route', () => {
             stream: true,
             streamToolCalls: true,
             model: 'claude-4.5-sonnet',
-            mode: 'agent',
+            mode: 'build',
             messageId: 'mock-uuid-1234-5678',
             version: '1.0.2',
             chatId: 'chat-123',
@@ -281,7 +281,7 @@ describe('Copilot Chat API Route', () => {
             stream: true,
             streamToolCalls: true,
             model: 'claude-4.5-sonnet',
-            mode: 'agent',
+            mode: 'build',
             messageId: 'mock-uuid-1234-5678',
             version: '1.0.2',
             chatId: 'chat-123',
@@ -332,7 +332,7 @@ describe('Copilot Chat API Route', () => {
             stream: true,
             streamToolCalls: true,
             model: 'claude-4.5-sonnet',
-            mode: 'agent',
+            mode: 'build',
             messageId: 'mock-uuid-1234-5678',
             version: '1.0.2',
             chatId: 'chat-123',

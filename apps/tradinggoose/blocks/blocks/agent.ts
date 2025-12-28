@@ -12,7 +12,7 @@ import {
   MODELS_WITH_VERBOSITY,
   providers,
   supportsTemperature,
-} from '@/providers/utils'
+} from '@/providers/ai/utils'
 
 const getCurrentOllamaModels = () => {
   return useProvidersStore.getState().providers.ollama.models
@@ -71,7 +71,7 @@ export const AgentBlock: BlockConfig<AgentResponse> = {
   `,
   docsLink: 'https://docs.sim.ai/blocks/agent',
   category: 'blocks',
-  bgColor: '#2873f6ff',
+  bgColor: '#2873f6',
   icon: AgentIcon,
   subBlocks: [
     {
@@ -257,15 +257,15 @@ Create a system prompt appropriately detailed for the request, using clear langu
       // Hide API key for hosted models and Ollama models
       condition: isHosted
         ? {
-            field: 'model',
-            value: getHostedModels(),
-            not: true, // Show for all models EXCEPT those listed
-          }
+          field: 'model',
+          value: getHostedModels(),
+          not: true, // Show for all models EXCEPT those listed
+        }
         : () => ({
-            field: 'model',
-            value: getCurrentOllamaModels(),
-            not: true, // Show for all models EXCEPT Ollama models
-          }),
+          field: 'model',
+          value: getCurrentOllamaModels(),
+          not: true, // Show for all models EXCEPT Ollama models
+        }),
     },
     {
       id: 'azureEndpoint',

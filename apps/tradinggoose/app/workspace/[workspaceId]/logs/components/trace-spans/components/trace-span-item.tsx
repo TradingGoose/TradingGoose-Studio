@@ -15,7 +15,7 @@ import {
   normalizeChildWorkflowSpan,
 } from '@/app/workspace/[workspaceId]/logs/components/trace-spans'
 import { getBlock } from '@/blocks/registry'
-import { getProviderIcon } from '@/providers/utils'
+import { getProviderIcon } from '@/providers/ai/utils'
 import type { TraceSpan } from '@/stores/logs/filters/types'
 import { getTool } from '@/tools/utils'
 
@@ -90,7 +90,7 @@ export function TraceSpanItem({
     if (hasNestedItems) {
       return expanded ? <ChevronDown className='h-4 w-4' /> : <ChevronRight className='h-4 w-4' />
     }
-    if (type === 'agent') return <AgentIcon className='h-3 w-3 text-[var(--primary-hover)]' />
+    if (type === 'agent') return <AgentIcon className='h-3 w-3 text-primary-hover' />
     if (type === 'evaluator') return <ChartBarIcon className='h-3 w-3 text-[#2FA1FF]' />
     if (type === 'condition') return <ConditionalIcon className='h-3 w-3 text-[#FF972F]' />
     if (type === 'router') return <ConnectIcon className='h-3 w-3 text-[#2FA1FF]' />
@@ -153,7 +153,7 @@ export function TraceSpanItem({
       const block = getBlock(type)
       const color = (block as { bgColor?: string } | null)?.bgColor
       if (color) return color as string
-    } catch {}
+    } catch { }
     return getSpanColor(type)
   }
   const spanColor = getBlockColor(span.type)
@@ -373,7 +373,7 @@ export function TraceSpanItem({
                       <span className='cursor-default rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground tabular-nums'>
                         {(() => {
                           try {
-                            const { formatCost } = require('@/providers/utils')
+                            const { formatCost } = require('@/providers/ai/utils')
                             return formatCost(Number(span.cost.total) || 0)
                           } catch {
                             return `$${Number.parseFloat(String(span.cost.total)).toFixed(4)}`
@@ -395,10 +395,10 @@ export function TraceSpanItem({
                         let formatCostFn: (v: number) => string = (v: number) =>
                           `$${Number(v).toFixed(4)}`
                         try {
-                          formatCostFn = require('@/providers/utils').formatCost as (
+                          formatCostFn = require('@/providers/ai/utils').formatCost as (
                             v: number
                           ) => string
-                        } catch {}
+                        } catch { }
                         return (
                           <div className='space-y-0.5'>
                             {typeof input === 'number' && (
@@ -638,9 +638,9 @@ export function TraceSpanItem({
 
                 const childHasSubItems = Boolean(
                   (enrichedChildSpan.children && enrichedChildSpan.children.length > 0) ||
-                    (enrichedChildSpan.toolCalls && enrichedChildSpan.toolCalls.length > 0) ||
-                    enrichedChildSpan.input ||
-                    enrichedChildSpan.output
+                  (enrichedChildSpan.toolCalls && enrichedChildSpan.toolCalls.length > 0) ||
+                  enrichedChildSpan.input ||
+                  enrichedChildSpan.output
                 )
 
                 let childGapMs = 0

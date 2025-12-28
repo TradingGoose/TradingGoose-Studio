@@ -1,0 +1,12 @@
+{
+  "pages": [
+    "index",
+    "workflow-list",
+    "workflow-variables",
+    "workflow-copilot",
+    "workflow-console",
+    "workflow-chat",
+    "editor-workflow"
+  ]
+}
+

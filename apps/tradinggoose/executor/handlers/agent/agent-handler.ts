@@ -11,8 +11,8 @@ import type {
   ToolInput,
 } from '@/executor/handlers/agent/types'
 import type { BlockHandler, ExecutionContext, StreamingExecution } from '@/executor/types'
-import { executeProviderRequest } from '@/providers'
-import { getApiKey, getProviderFromModel, transformBlockTool } from '@/providers/utils'
+import { executeProviderRequest } from '@/providers/ai'
+import { getApiKey, getProviderFromModel, transformBlockTool } from '@/providers/ai/utils'
 import type { SerializedBlock } from '@/serializer/types'
 import { executeTool } from '@/tools'
 import { getTool, getToolAsync } from '@/tools/utils'
@@ -376,7 +376,7 @@ export class AgentBlockHandler implements BlockHandler {
     const transformedTool = await transformBlockTool(tool, {
       selectedOperation: tool.operation,
       getAllBlocks,
-      getToolAsync: (toolId: string) => getToolAsync(toolId, context.workflowId),
+      getToolAsync: (toolId: string) => getToolAsync(toolId, context.workflowId, context.workspaceId),
       getTool,
     })
 

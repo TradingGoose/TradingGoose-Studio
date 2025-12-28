@@ -209,7 +209,7 @@ export function CodeEditor({
   return (
     <div
       className={cn(
-        'group relative min-h-[100px] rounded-md border bg-background font-mono text-sm',
+        'group relative min-h-100 rounded-md border bg-background font-mono text-sm',
         className
       )}
     >
@@ -220,7 +220,7 @@ export function CodeEditor({
           onClick={onWandClick}
           disabled={wandButtonDisabled}
           aria-label='Generate with AI'
-          className='absolute top-2 right-3 z-10 h-8 w-8 rounded-full border border-transparent bg-muted/80 text-muted-foreground opacity-0 shadow-sm transition-all duration-200 hover:border-primary/20 hover:bg-card hover:text-foreground hover:shadow group-hover:opacity-100'
+          className='absolute top-2 right-3 z-10 h-8 w-8 rounded-full border border-transparent bg-muted/80 text-muted-foreground opacity-0 shadow-sm transition-all duration-200 hover:bg-primary-hover/20 hover:text-foreground hover:shadow group-hover:opacity-100'
         >
           <Wand2 className='h-4 w-4' />
         </Button>

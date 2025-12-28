@@ -312,9 +312,9 @@ export function WorkflowPreview({
           onNodeClick={
             onNodeClick
               ? (event, node) => {
-                  logger.debug('Node clicked:', { nodeId: node.id, event })
-                  onNodeClick(node.id, { x: event.clientX, y: event.clientY })
-                }
+                logger.debug('Node clicked:', { nodeId: node.id, event })
+                onNodeClick(node.id, { x: event.clientX, y: event.clientY })
+              }
               : undefined
           }
         >
@@ -322,7 +322,6 @@ export function WorkflowPreview({
             color='hsl(var(--workflow-dots))'
             size={4}
             gap={40}
-            style={{ backgroundColor: 'hsl(var(--workflow-background))' }}
           />
         </ReactFlow>
       </div>

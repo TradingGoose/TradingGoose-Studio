@@ -10,7 +10,7 @@ export const MistralParseBlock: BlockConfig<MistralParserOutput> = {
   longDescription: `Integrate Mistral Parse into the workflow. Can extract text from uploaded PDF documents, or from a URL.`,
   docsLink: 'https://docs.sim.ai/tools/mistral_parse',
   category: 'tools',
-  bgColor: '#000000',
+  bgColor: undefined,
   icon: MistralIcon,
   subBlocks: [
     // Show input method selection

@@ -10,7 +10,7 @@ export const ElevenLabsBlock: BlockConfig<ElevenLabsBlockResponse> = {
   longDescription: 'Integrate ElevenLabs into the workflow. Can convert text to speech.',
   docsLink: 'https://docs.sim.ai/tools/elevenlabs',
   category: 'tools',
-  bgColor: '#181C1E',
+  bgColor: '',
   icon: ElevenLabsIcon,
 
   subBlocks: [

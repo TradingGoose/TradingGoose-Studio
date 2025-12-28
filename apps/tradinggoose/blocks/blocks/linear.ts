@@ -11,7 +11,7 @@ export const LinearBlock: BlockConfig<LinearResponse> = {
   longDescription: 'Integrate Linear into the workflow. Can read and create issues.',
   category: 'tools',
   icon: LinearIcon,
-  bgColor: '#5E6AD2',
+  bgColor: undefined,
   subBlocks: [
     {
       id: 'operation',

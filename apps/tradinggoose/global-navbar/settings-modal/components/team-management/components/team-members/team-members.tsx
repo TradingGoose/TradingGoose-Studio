@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { LogOut, UserX, X } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { Invitation, Member, Organization } from '@/stores/organization'
 
 const logger = createLogger('TeamMembers')
+const DEFAULT_AVATAR_SRC = '/profile/avatar.png'
 
 interface TeamMembersProps {
   organization: Organization
@@ -20,6 +22,7 @@ interface BaseItem {
   name: string
   email: string
   avatarInitial: string
+  avatarUrl?: string | null
   usage: string
 }
 
@@ -95,6 +98,7 @@ export function TeamMembers({
         name,
         email: member.user?.email || '',
         avatarInitial: name.charAt(0).toUpperCase(),
+        avatarUrl: member.user?.image ?? null,
         usage: `$${usageAmount.toFixed(2)}`,
         role: member.role,
         member,
@@ -118,6 +122,7 @@ export function TeamMembers({
         name: emailPrefix,
         email: invitation.email,
         avatarInitial: emailPrefix.charAt(0).toUpperCase(),
+        avatarUrl: null,
         usage: '-',
         invitation,
       }
@@ -163,15 +168,24 @@ export function TeamMembers({
             {/* Member info */}
             <div className='flex flex-1 items-center gap-3'>
               {/* Avatar */}
-              <div
-                className={`flex h-8 w-8 items-center justify-center rounded-full font-medium text-sm ${
-                  item.type === 'member'
-                    ? 'bg-[var(--primary)]/10 text-muted-foreground'
-                    : 'bg-muted text-muted-foreground'
-                }`}
-              >
-                {item.avatarInitial}
-              </div>
+              <Avatar className='h-8 w-8'>
+                {item.type === 'member' && (
+                  <AvatarImage
+                    key={item.avatarUrl ?? DEFAULT_AVATAR_SRC}
+                    src={item.avatarUrl ?? DEFAULT_AVATAR_SRC}
+                    alt={item.name}
+                  />
+                )}
+                <AvatarFallback
+                  className={`border-0 text-sm font-medium ${
+                    item.type === 'member'
+                      ? 'bg-[var(--primary)]/10 text-muted-foreground'
+                      : 'bg-muted text-muted-foreground'
+                  }`}
+                >
+                  {item.avatarInitial}
+                </AvatarFallback>
+              </Avatar>
 
               {/* Name and email */}
               <div className='min-w-0 flex-1'>

@@ -23,12 +23,12 @@ export const isTest = env.NODE_ENV === 'test'
  */
 export const isHosted =
   getEnv('NEXT_PUBLIC_APP_URL') === 'https://www.tradinggoose.ai' ||
-  getEnv('NEXT_PUBLIC_APP_URL') === 'https://staging.tradinggoose.ai' || true
+  getEnv('NEXT_PUBLIC_APP_URL') === 'https://staging.tradinggoose.ai'
 
 /**
  * Is billing enforcement enabled
  */
-export const isBillingEnabled = isTruthy(env.BILLING_ENABLED)
+export const isBillingEnabled = isTruthy(env.NEXT_PUBLIC_BILLING_ENABLED)
 
 /**
  * Is email verification enabled

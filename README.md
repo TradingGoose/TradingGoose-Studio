@@ -14,7 +14,6 @@
 
 TradingGoose Studio is an **AI workflow platform for quantitative trading**.
 
----
 
 ## Quick Start
 
@@ -26,39 +25,56 @@ TradingGoose Studio is an **AI workflow platform for quantitative trading**.
 
 ### Setup Steps
 
-```bash
-# 1. Start Docker (if using Colima on macOS)
+#### 1. Start Docker (if using Colima on macOS)
+```
 colima start
+```
 
-# 2. Install dependencies
+#### 2. Install dependencies
+```
 bun install
+```
 
-# 3. Start PostgreSQL database
+#### 3. Start PostgreSQL database
+```
 docker run --name tradinggoose-db \
   -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=simstudio \
+  -e POSTGRES_DB=tradinggoose \
   -p 5432:5432 -d \
   pgvector/pgvector:pg17
-
-# 4. Setup environment variables
+```
+#### 4. Setup environment variables
+```
 cd apps/tradinggoose && cp .env.example .env
 cd ../../packages/db && cp .env.example .env
-# Edit .env files (see configuration below)
+```
+#### Edit .env files (see configuration below)
 
-# 5. Run database migrations
+#### 5. Run database migrations
+```
 cd packages/db
 bunx drizzle-kit migrate --config=./drizzle.config.ts
-
-# 6. Start development servers
+```
+#### 6. Start development servers
+```
 cd ../..
 bun run dev:full
 ```
 
-## Documentation
+## Tech Stack
 
-- **[Product Requirements (PRD)](../TradingGoose-Studio-PRD/docs/product/prd.md)** — Goals, scope, and features
-- **[Architecture](../TradingGoose-Studio-PRD/docs/architecture/README.md)** — System design
-
+- **Framework**: [Next.js](https://nextjs.org/) (App Router)
+- **Runtime**: [Bun](https://bun.sh/)
+- **Database**: PostgreSQL with [Drizzle ORM](https://orm.drizzle.team)
+- **Authentication**: [Better Auth](https://better-auth.com)
+- **UI**: [Shadcn](https://ui.shadcn.com/), [Tailwind CSS](https://tailwindcss.com)
+- **State Management**: [Zustand](https://zustand-demo.pmnd.rs/)
+- **Flow Editor**: [ReactFlow](https://reactflow.dev/)
+- **Docs**: [Fumadocs](https://fumadocs.vercel.app/)
+- **Monorepo**: [Turborepo](https://turborepo.org/)
+- **Realtime**: [Socket.io](https://socket.io/)
+- **Background Jobs**: [Trigger.dev](https://trigger.dev/)
+- **Remote Code Execution**: [E2B](https://www.e2b.dev/)
 ---
 
 ## License

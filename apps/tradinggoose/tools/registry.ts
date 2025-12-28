@@ -65,6 +65,7 @@ import {
   listMattersTool,
 } from '@/tools/google_vault'
 import { guardrailsValidateTool } from '@/tools/guardrails'
+import { historicalDataTool } from '@/tools/historical_data'
 import { requestTool as httpRequest } from '@/tools/http'
 import { huggingfaceChatTool } from '@/tools/huggingface'
 import {
@@ -173,6 +174,7 @@ import {
 import { slackCanvasTool, slackMessageReaderTool, slackMessageTool } from '@/tools/slack'
 import { smsSendTool } from '@/tools/sms'
 import { stagehandAgentTool, stagehandExtractTool } from '@/tools/stagehand'
+import { tradingActionTool, tradingHoldingsTool } from '@/tools/trading'
 import {
   supabaseDeleteTool,
   supabaseGetRowTool,
@@ -248,6 +250,7 @@ export const tools: Record<string, ToolConfig> = {
   browser_use_run_task: browserUseRunTaskTool,
   openai_embeddings: openAIEmbeddings,
   http_request: httpRequest,
+  historical_data_fetch: historicalDataTool,
   huggingface_chat: huggingfaceChatTool,
   function_execute: functionExecuteTool,
   vision_tool: visionTool,
@@ -356,6 +359,8 @@ export const tools: Record<string, ToolConfig> = {
   airtable_update_record: airtableUpdateRecordTool,
   mistral_parser: mistralParserTool,
   thinking_tool: thinkingTool,
+  trading_place_order: tradingActionTool,
+  trading_get_holdings: tradingHoldingsTool,
   stagehand_extract: stagehandExtractTool,
   stagehand_agent: stagehandAgentTool,
   mem0_add_memories: mem0AddMemoriesTool,

@@ -26,6 +26,8 @@ export function TeamUsage({ hasAdminAccess }: TeamUsageProps) {
     error,
   } = useOrganizationBilling(activeOrg?.id || '')
 
+  const organizationBillingPayload = (billingData as any)?.data ?? billingData
+
   const usageLimitRef = useRef<UsageLimitRef | null>(null)
 
   if (isLoadingOrgBilling) {
@@ -59,14 +61,17 @@ export function TeamUsage({ hasAdminAccess }: TeamUsageProps) {
     )
   }
 
-  if (!billingData) {
+  if (!organizationBillingPayload) {
     return null
   }
 
-  const currentUsage = billingData.totalCurrentUsage || 0
-  const currentCap = billingData.totalUsageLimit || billingData.minimumBillingAmount || 0
-  const minimumBilling = billingData.minimumBillingAmount || 0
-  const seatsCount = billingData.seatsCount || 1
+  const currentUsage = organizationBillingPayload.totalCurrentUsage || 0
+  const currentCap =
+    organizationBillingPayload.totalUsageLimit ||
+    organizationBillingPayload.minimumBillingAmount ||
+    0
+  const minimumBilling = organizationBillingPayload.minimumBillingAmount || 0
+  const seatsCount = organizationBillingPayload.seatsCount || 1
   const percentUsed =
     currentCap > 0 ? Math.round(Math.min((currentUsage / currentCap) * 100, 100)) : 0
   const status: 'ok' | 'warning' | 'exceeded' =
@@ -91,7 +96,7 @@ export function TeamUsage({ hasAdminAccess }: TeamUsageProps) {
       seatsText={`${seatsCount} seats`}
       current={currentUsage}
       limit={currentCap}
-      isBlocked={Boolean(billingData?.billingBlocked)}
+      isBlocked={Boolean(organizationBillingPayload?.billingBlocked)}
       status={status}
       percentUsed={percentUsed}
       onResolvePayment={async () => {

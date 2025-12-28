@@ -11,7 +11,7 @@ export const PerplexityBlock: BlockConfig<PerplexityChatResponse> = {
   authMode: AuthMode.ApiKey,
   docsLink: 'https://docs.sim.ai/tools/perplexity',
   category: 'tools',
-  bgColor: '#20808D', // Perplexity turquoise color
+  bgColor: undefined, // Perplexity turquoise color
   icon: PerplexityIcon,
   subBlocks: [
     {

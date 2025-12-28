@@ -12,7 +12,7 @@ export const TypeformBlock: BlockConfig<TypeformResponse> = {
     'Integrate Typeform into the workflow. Can retrieve responses, download files, and get form insights. Requires API Key.',
   docsLink: 'https://docs.sim.ai/tools/typeform',
   category: 'tools',
-  bgColor: '#262627', // Typeform brand color
+  bgColor: undefined, // Typeform brand color
   icon: TypeformIcon,
   subBlocks: [
     {

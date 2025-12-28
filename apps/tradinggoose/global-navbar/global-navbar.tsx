@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { useSession } from '@/lib/auth-client'
 import { getBrandConfig } from '@/lib/branding/branding'
-import { getEnv, isTruthy } from '@/lib/env'
+import { isBillingEnabled } from '@/lib/environment'
 import { generateWorkspaceName } from '@/lib/naming'
 import { useOrganizations } from '@/hooks/queries/organization'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
@@ -52,11 +52,7 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
     [pathname, workspaceNavItems]
   )
   const activeNavItem = React.useMemo(() => navMain.find((item) => item.isActive), [navMain])
-  const billingEnabled = React.useMemo(() => {
-    const runtimeFlag = getEnv('NEXT_PUBLIC_BILLING_ENABLED')
-    const buildFlag = process.env.NEXT_PUBLIC_BILLING_ENABLED ?? process.env.BILLING_ENABLED
-    return isTruthy(runtimeFlag ?? buildFlag ?? true)
-  }, [])
+  const billingEnabled = isBillingEnabled
   const hasOrganization = Boolean(organizationsData?.activeOrganization?.id)
   const canManageTeam = billingEnabled && hasOrganization
   const [workspaces, setWorkspaces] = React.useState<Workspace[]>([])
@@ -77,6 +73,7 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
   const [deleteError, setDeleteError] = React.useState<string | null>(null)
   const [activeSettingsSection, setActiveSettingsSection] = React.useState<SettingsSection>('account')
   const [isSettingsModalOpen, setIsSettingsModalOpen] = React.useState(false)
+  const [userNameOverride, setUserNameOverride] = React.useState<string | null>(null)
   const [userAvatarOverride, setUserAvatarOverride] = React.useState<{
     url: string | null
     version: number | string | null
@@ -96,7 +93,7 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
   const shouldShowSkeleton = shouldRenderNavbar && isSessionLoading
 
   const userId = sessionData?.user?.id ?? null
-  const userName = sessionData?.user?.name ?? brand.name
+  const userName = userNameOverride ?? sessionData?.user?.name ?? brand.name
   const userEmail = sessionData?.user?.email ?? brand.supportEmail ?? 'help@tradinggoose.ai'
   const userAvatar = userAvatarOverride.url ?? sessionData?.user?.image ?? brand.logoUrl
   const userAvatarVersion =
@@ -164,6 +161,39 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
       window.removeEventListener('open-settings', handleOpenSettings as EventListener)
     }
   }, [openSettings])
+
+  React.useEffect(() => {
+    if (!userId || typeof window === 'undefined') {
+      setUserNameOverride(null)
+      return
+    }
+
+    const key = `user-name-${userId}`
+
+    const readStoredName = () => {
+      const storedName = window.localStorage.getItem(key)
+      setUserNameOverride(storedName !== null ? storedName || null : null)
+    }
+
+    const handleStorage = (event: StorageEvent) => {
+      if (!event.key || event.key !== key) return
+      readStoredName()
+    }
+
+    const handleNameEvent = (event: Event) => {
+      const customEvent = event as CustomEvent<{ name?: string | null }>
+      const detail = customEvent.detail
+      setUserNameOverride(detail && 'name' in detail ? detail?.name ?? null : null)
+    }
+
+    readStoredName()
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener('user-name-updated', handleNameEvent)
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('user-name-updated', handleNameEvent)
+    }
+  }, [userId])
 
   React.useEffect(() => {
     if (!userId || typeof window === 'undefined') return
@@ -556,7 +586,7 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
                 pageTitle={activeNavItem?.title}
                 pageIcon={activeNavItem?.icon}
               />
-              <div className='min-h-0 flex-1 overflow-hidden p-1'>
+              <div className='min-h-0 flex-1 overflow-hidden p-3'>
                 <div className='h-full w-full overflow-auto'>{children}</div>
               </div>
             </div>

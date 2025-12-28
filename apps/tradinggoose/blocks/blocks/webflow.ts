@@ -13,7 +13,7 @@ export const WebflowBlock: BlockConfig<WebflowResponse> = {
   docsLink: 'https://docs.sim.ai/tools/webflow',
   category: 'tools',
   triggerAllowed: true,
-  bgColor: '#E0E0E0',
+  bgColor: undefined,
   icon: WebflowIcon,
   subBlocks: [
     {

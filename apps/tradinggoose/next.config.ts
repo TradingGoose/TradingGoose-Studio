@@ -1,6 +1,6 @@
 import type { NextConfig } from 'next'
 import { env, getEnv, isTruthy } from './lib/env'
-import { isDev, isHosted } from './lib/environment'
+import { isDev, isHosted } from '@/lib/environment'
 import { getMainCSPPolicy, getWorkflowExecutionCSPPolicy } from './lib/security/csp'
 
 const nextConfig: NextConfig = {
@@ -14,6 +14,10 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'api.stability.ai',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn.*.com',
       },
       // Azure Blob Storage
       {

@@ -100,7 +100,7 @@ export function SidebarUsageIndicator({ onOpenSubscriptionSettings }: SidebarUsa
   const logger = createLogger('SidebarUsageIndicator')
   const billingEnabled = useMemo(() => {
     const runtimeFlag = getEnv('NEXT_PUBLIC_BILLING_ENABLED')
-    const buildFlag = process.env.NEXT_PUBLIC_BILLING_ENABLED ?? process.env.BILLING_ENABLED
+    const buildFlag = process.env.NEXT_PUBLIC_BILLING_ENABLED
     return isTruthy(runtimeFlag ?? buildFlag ?? true)
   }, [])
   const {

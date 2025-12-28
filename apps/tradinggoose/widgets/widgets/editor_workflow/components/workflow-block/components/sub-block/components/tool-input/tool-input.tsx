@@ -1,15 +1,6 @@
 import type React from 'react'
-import { useCallback, useEffect, useState } from 'react'
-import { PlusIcon, Server, WrenchIcon, XIcon } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Server, WrenchIcon, XIcon } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { Toggle } from '@/components/ui/toggle'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -21,6 +12,7 @@ import {
   CheckboxList,
   Code,
   ComboBox,
+  Dropdown,
   FileSelectorInput,
   FileUpload,
   LongInput,
@@ -35,15 +27,13 @@ import {
   CustomToolModal,
 } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/custom-tool-modal/custom-tool-modal'
 import { McpServerModal } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/mcp-server-modal/mcp-server-modal'
-import { McpToolsList } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/mcp-tools-list'
-import { ToolCommand } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/tool-command/tool-command'
 import { ToolCredentialSelector } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/tool-credential-selector'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { getAllBlocks } from '@/blocks'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
-import { getProviderFromModel, supportsToolUsageControl } from '@/providers/utils'
-import { useCustomToolsStore } from '@/stores/custom-tools/store'
+import { getProviderFromModel, supportsToolUsageControl } from '@/providers/ai/utils'
+import { useCustomTools } from '@/hooks/queries/custom-tools'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import {
@@ -54,6 +44,13 @@ import {
 } from '@/tools/params'
 
 const logger = createLogger('ToolInput')
+
+const sanitizeHexColor = (value?: string) => {
+  if (!value) return undefined
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+  return trimmed.startsWith('#') ? trimmed : `#${trimmed}`
+}
 
 interface ToolInputProps {
   blockId: string
@@ -427,27 +424,24 @@ export function ToolInput({
 }: ToolInputProps) {
   const workspaceId = useWorkspaceId()
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlockId)
-  const [open, setOpen] = useState(false)
+  const [modelValue] = useSubBlockValue<string | null>(blockId, 'model')
   const [customToolModalOpen, setCustomToolModalOpen] = useState(false)
   const [mcpServerModalOpen, setMcpServerModalOpen] = useState(false)
   const [editingToolIndex, setEditingToolIndex] = useState<number | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [toolSelectorValue, setToolSelectorValue] = useState<string | undefined>()
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const isWide = useWorkflowStore((state) => state.blocks[blockId]?.isWide)
-  const customTools = useCustomToolsStore((state) => state.getAllTools())
+  const { data: customTools = [] } = useCustomTools(workspaceId)
   const subBlockStore = useSubBlockStore()
 
   // MCP tools integration
   const {
     mcpTools,
-    isLoading: mcpLoading,
-    error: mcpError,
     refreshTools,
   } = useMcpTools(workspaceId)
 
   // Get the current model from the 'model' subblock
-  const modelValue = useSubBlockStore.getState().getValue(blockId, 'model')
   const model = typeof modelValue === 'string' ? modelValue : ''
   const provider = model ? getProviderFromModel(model) : ''
   const supportsToolControl = provider ? supportsToolUsageControl(provider) : false
@@ -459,30 +453,50 @@ export function ToolInput({
   // Use preview value when in preview mode, otherwise use store value
   const value = isPreview ? previewValue : storeValue
 
-  // Custom filter function for the Command component
-  const customFilter = useCallback((value: string, search: string) => {
-    if (!search.trim()) return 1
-
-    const normalizedValue = value.toLowerCase()
-    const normalizedSearch = search.toLowerCase()
-
-    // Exact match gets highest priority
-    if (normalizedValue === normalizedSearch) return 1
-
-    // Starts with search term gets high priority
-    if (normalizedValue.startsWith(normalizedSearch)) return 0.8
-
-    // Contains search term gets medium priority
-    if (normalizedValue.includes(normalizedSearch)) return 0.6
-
-    // No match
-    return 0
-  }, [])
-
   const selectedTools: StoredTool[] =
     Array.isArray(value) && value.length > 0 && typeof value[0] === 'object'
       ? (value as unknown as StoredTool[])
       : []
+
+  const toolSelectorOptions = useMemo(
+    () => {
+      const baseOptions: Array<{
+        label: string
+        id: string
+        icon?: React.ComponentType<{ className?: string }>
+        group?: string
+      }> = [
+          { id: 'action:create', label: 'Create Tool', icon: WrenchIcon, group: 'Actions' },
+          { id: 'action:add-mcp', label: 'Add MCP Server', icon: Server, group: 'Actions' },
+        ]
+
+      const customToolOptions =
+        customTools?.map((tool) => ({
+          id: `custom:${tool.id}`,
+          label: tool.title,
+          icon: WrenchIcon,
+          group: 'Custom Tools',
+        })) || []
+
+      const mcpToolOptions =
+        mcpTools?.map((tool) => ({
+          id: `mcp:${tool.id}`,
+          label: `${tool.name} (${tool.serverName})`,
+          icon: tool.icon,
+          group: 'MCP Tools',
+        })) || []
+
+      const builtInOptions = toolBlocks.map((block) => ({
+        id: `builtin:${block.type}`,
+        label: block.name,
+        icon: block.icon,
+        group: 'Built-in Tools',
+      }))
+
+      return [...baseOptions, ...customToolOptions, ...mcpToolOptions, ...builtInOptions]
+    },
+    [customTools, mcpTools, toolBlocks]
+  )
 
   // Check if a tool is already selected (allowing multiple instances for multi-operation tools)
   const isToolAlreadySelected = (toolId: string, blockType: string) => {
@@ -570,6 +584,26 @@ export function ToolInput({
     return {}
   }
 
+  const addToolToStore = (newTool: StoredTool) => {
+    if (isWide) {
+      setStoreValue([
+        ...selectedTools.map((tool, index) => ({
+          ...tool,
+          isExpanded: Math.floor(selectedTools.length / 2) === Math.floor(index / 2),
+        })),
+        newTool,
+      ])
+    } else {
+      setStoreValue([
+        ...selectedTools.map((tool) => ({
+          ...tool,
+          isExpanded: false,
+        })),
+        newTool,
+      ])
+    }
+  }
+
   const handleSelectTool = (toolBlock: (typeof toolBlocks)[0]) => {
     if (isPreview || disabled) return
 
@@ -611,20 +645,67 @@ export function ToolInput({
       usageControl: 'auto',
     }
 
-    // Add tool to selection
-    if (isWide) {
-      setStoreValue([
-        ...selectedTools.map((tool, index) => ({
-          ...tool,
-          isExpanded: Math.floor(selectedTools.length / 2) === Math.floor(index / 2),
-        })),
-        newTool,
-      ])
-    } else {
-      setStoreValue([...selectedTools.map((tool) => ({ ...tool, isExpanded: false })), newTool])
+    addToolToStore(newTool)
+  }
+
+  const handleToolSelection = (selectedId: string) => {
+    if (isPreview || disabled) return
+
+    if (selectedId === 'action:create') {
+      setCustomToolModalOpen(true)
+      setToolSelectorValue(undefined)
+      return
     }
 
-    setOpen(false)
+    if (selectedId === 'action:add-mcp') {
+      setMcpServerModalOpen(true)
+      setToolSelectorValue(undefined)
+      return
+    }
+
+    if (selectedId.startsWith('custom:')) {
+      const customToolId = selectedId.replace('custom:', '')
+      const customTool = customTools.find((tool) => tool.id === customToolId)
+      if (customTool) {
+        handleAddCustomTool(customTool)
+      }
+      setToolSelectorValue(undefined)
+      return
+    }
+
+    if (selectedId.startsWith('mcp:')) {
+      const mcpToolId = selectedId.replace('mcp:', '')
+      const mcpTool = mcpTools.find((tool) => tool.id === mcpToolId)
+      if (mcpTool) {
+        const newTool: StoredTool = {
+          type: 'mcp',
+          title: mcpTool.name,
+          toolId: mcpTool.id,
+          params: {
+            serverId: mcpTool.serverId,
+            toolName: mcpTool.name,
+            serverName: mcpTool.serverName,
+          },
+          isExpanded: true,
+          usageControl: 'auto',
+          schema: mcpTool.inputSchema,
+        }
+
+        handleMcpToolSelect(newTool)
+      }
+      setToolSelectorValue(undefined)
+      return
+    }
+
+    if (selectedId.startsWith('builtin:')) {
+      const blockType = selectedId.replace('builtin:', '')
+      const block = toolBlocks.find((b) => b.type === blockType)
+      if (block) {
+        handleSelectTool(block)
+      }
+    }
+
+    setToolSelectorValue(undefined)
   }
 
   const handleAddCustomTool = (customTool: CustomTool) => {
@@ -643,18 +724,7 @@ export function ToolInput({
       usageControl: 'auto',
     }
 
-    // Add tool to selection
-    if (isWide) {
-      setStoreValue([
-        ...selectedTools.map((tool, index) => ({
-          ...tool,
-          isExpanded: Math.floor(selectedTools.length / 2) === Math.floor(index / 2),
-        })),
-        newTool,
-      ])
-    } else {
-      setStoreValue([...selectedTools.map((tool) => ({ ...tool, isExpanded: false })), newTool])
-    }
+    addToolToStore(newTool)
   }
 
   const handleEditCustomTool = (toolIndex: number) => {
@@ -859,28 +929,8 @@ export function ToolInput({
     setDragOverIndex(null)
   }
 
-  const handleMcpToolSelect = (newTool: StoredTool, closePopover = true) => {
-    if (isWide) {
-      setStoreValue([
-        ...selectedTools.map((tool, index) => ({
-          ...tool,
-          isExpanded: Math.floor(selectedTools.length / 2) === Math.floor(index / 2),
-        })),
-        newTool,
-      ])
-    } else {
-      setStoreValue([
-        ...selectedTools.map((tool) => ({
-          ...tool,
-          isExpanded: false,
-        })),
-        newTool,
-      ])
-    }
-
-    if (closePopover) {
-      setOpen(false)
-    }
+  const handleMcpToolSelect = (newTool: StoredTool) => {
+    addToolToStore(newTool)
   }
 
   const handleDrop = (e: React.DragEvent, dropIndex: number) => {
@@ -904,9 +954,17 @@ export function ToolInput({
     setDragOverIndex(null)
   }
 
-  const IconComponent = ({ icon: Icon, className }: { icon: any; className?: string }) => {
+  const IconComponent = ({
+    icon: Icon,
+    className,
+    style,
+  }: {
+    icon: any
+    className?: string
+    style?: React.CSSProperties
+  }) => {
     if (!Icon) return null
-    return <Icon className={className} />
+    return <Icon className={className} style={style} />
   }
 
   // Check if tool has OAuth requirements
@@ -1005,21 +1063,16 @@ export function ToolInput({
     switch (uiComponent.type) {
       case 'dropdown':
         return (
-          <Select value={value} onValueChange={onChange}>
-            <SelectTrigger className='w-full text-left'>
-              <SelectValue
-                placeholder={uiComponent.placeholder || 'Select option'}
-                className='truncate'
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {uiComponent.options?.map((option: any) => (
-                <SelectItem key={option.id} value={option.id}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Dropdown
+            blockId={blockId}
+            subBlockId={`${subBlockId}-param-${param.id}`}
+            options={uiComponent.options || []}
+            placeholder={uiComponent.placeholder || 'Select option'}
+            useStore={false}
+            valueOverride={value}
+            onChange={onChange}
+            disabled={disabled}
+          />
         )
 
       case 'switch':
@@ -1231,161 +1284,21 @@ export function ToolInput({
   return (
     <div className='w-full'>
       {selectedTools.length === 0 ? (
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <div className='flex h-10 w-full cursor-pointer items-center justify-center rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background transition-colors hover:bg-card hover:text-accent-foreground'>
-              <div className='flex items-center text-base text-muted-foreground/50 md:text-sm'>
-                <PlusIcon className='mr-2 h-4 w-4' />
-                Add Tool
-              </div>
-            </div>
-          </PopoverTrigger>
-          <PopoverContent
-            className='h-[360px] w-[200px] p-0'
-            align='start'
-            side='bottom'
-            sideOffset={6}
-            avoidCollisions={false}
-          >
-            <ToolCommand.Root filter={customFilter}>
-              <ToolCommand.Input placeholder='Search tools...' onValueChange={setSearchQuery} />
-              <ToolCommand.List>
-                <ToolCommand.Empty>No tools found</ToolCommand.Empty>
-                <ToolCommand.Group>
-                  <ToolCommand.Item
-                    value='Create Tool'
-                    onSelect={() => {
-                      if (!isPreview) {
-                        setCustomToolModalOpen(true)
-                        setOpen(false)
-                      }
-                    }}
-                    className='mb-1 flex cursor-pointer items-center gap-2'
-                    disabled={isPreview}
-                  >
-                    <div className='flex h-6 w-6 items-center justify-center rounded border border-muted-foreground/50 border-dashed bg-transparent'>
-                      <WrenchIcon className='h-4 w-4 text-muted-foreground' />
-                    </div>
-                    <span>Create Tool</span>
-                  </ToolCommand.Item>
-
-                  <ToolCommand.Item
-                    value='Add MCP Server'
-                    onSelect={() => {
-                      if (!isPreview) {
-                        setMcpServerModalOpen(true)
-                        setOpen(false)
-                      }
-                    }}
-                    className='mb-1 flex cursor-pointer items-center gap-2'
-                    disabled={isPreview}
-                  >
-                    <div className='flex h-6 w-6 items-center justify-center rounded border border-muted-foreground/50 border-dashed bg-transparent'>
-                      <Server className='h-4 w-4 text-muted-foreground' />
-                    </div>
-                    <span>Add MCP Server</span>
-                  </ToolCommand.Item>
-
-                  {/* Display saved custom tools at the top */}
-                  {customTools.length > 0 && (
-                    <>
-                      <ToolCommand.Separator />
-                      <div className='px-2 pt-2.5 pb-0.5 font-medium text-muted-foreground text-xs'>
-                        Custom Tools
-                      </div>
-                      <ToolCommand.Group className='-mx-1 -px-1'>
-                        {customTools.map((customTool) => (
-                          <ToolCommand.Item
-                            key={customTool.id}
-                            value={customTool.title}
-                            onSelect={() => {
-                              const newTool: StoredTool = {
-                                type: 'custom-tool',
-                                title: customTool.title,
-                                toolId: `custom-${customTool.schema.function.name}`,
-                                params: {},
-                                isExpanded: true,
-                                schema: customTool.schema,
-                                code: customTool.code,
-                                usageControl: 'auto',
-                              }
-
-                              if (isWide) {
-                                setStoreValue([
-                                  ...selectedTools.map((tool, index) => ({
-                                    ...tool,
-                                    isExpanded:
-                                      Math.floor(selectedTools.length / 2) ===
-                                      Math.floor(index / 2),
-                                  })),
-                                  newTool,
-                                ])
-                              } else {
-                                setStoreValue([
-                                  ...selectedTools.map((tool) => ({
-                                    ...tool,
-                                    isExpanded: false,
-                                  })),
-                                  newTool,
-                                ])
-                              }
-                              setOpen(false)
-                            }}
-                            className='flex cursor-pointer items-center gap-2'
-                          >
-                            <div className='flex h-6 w-6 items-center justify-center rounded bg-blue-500'>
-                              <WrenchIcon className='h-4 w-4 text-white' />
-                            </div>
-                            <span className='max-w-[140px] truncate'>{customTool.title}</span>
-                          </ToolCommand.Item>
-                        ))}
-                      </ToolCommand.Group>
-                      <ToolCommand.Separator />
-                    </>
-                  )}
-
-                  {/* Display MCP tools */}
-                  <McpToolsList
-                    mcpTools={mcpTools}
-                    searchQuery={searchQuery || ''}
-                    customFilter={customFilter}
-                    onToolSelect={handleMcpToolSelect}
-                    disabled={isPreview || disabled}
-                  />
-
-                  {/* Display built-in tools */}
-                  {toolBlocks.some((block) => customFilter(block.name, searchQuery || '') > 0) && (
-                    <>
-                      <div className='px-2 pt-2.5 pb-0.5 font-medium text-muted-foreground text-xs'>
-                        Built-in Tools
-                      </div>
-                      <ToolCommand.Group className='-mx-1 -px-1'>
-                        {toolBlocks.map((block) => (
-                          <ToolCommand.Item
-                            key={block.type}
-                            value={block.name}
-                            onSelect={() => handleSelectTool(block)}
-                            className='flex cursor-pointer items-center gap-2'
-                          >
-                            <div
-                              className='flex h-6 w-6 items-center justify-center rounded'
-                              style={{ backgroundColor: block.bgColor }}
-                            >
-                              <IconComponent icon={block.icon} className='h-4 w-4 text-white' />
-                            </div>
-                            <span className='max-w-[140px] truncate'>{block.name}</span>
-                          </ToolCommand.Item>
-                        ))}
-                      </ToolCommand.Group>
-                    </>
-                  )}
-                </ToolCommand.Group>
-              </ToolCommand.List>
-            </ToolCommand.Root>
-          </PopoverContent>
-        </Popover>
+        <Dropdown
+          blockId={blockId}
+          subBlockId={`${subBlockId}-tool-selector`}
+          options={toolSelectorOptions}
+          placeholder='Add Tool'
+          useStore={false}
+          valueOverride={toolSelectorValue}
+          onChange={handleToolSelection}
+          disabled={isPreview || disabled}
+          className='w-full'
+          enableSearch
+          searchPlaceholder='Search tools...'
+        />
       ) : (
-        <div className='flex min-h-[2.5rem] w-full flex-wrap gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background'>
+        <div className='flex min-h-[2.5rem] w-full flex-wrap gap-2 rounded-md border border-input bg-transparent p-2 text-sm ring-offset-background'>
           {selectedTools.map((tool, toolIndex) => {
             // Handle custom tools and MCP tools differently
             const isCustomTool = tool.type === 'custom-tool'
@@ -1487,7 +1400,7 @@ export function ToolInput({
                 >
                   <div
                     className={cn(
-                      'flex items-center justify-between  bg-accent p-2',
+                      'flex items-center justify-between rounded-md bg-accent p-2',
                       'cursor-pointer'
                     )}
                     onClick={() => {
@@ -1499,24 +1412,39 @@ export function ToolInput({
                     }}
                   >
                     <div className='flex min-w-0 flex-shrink-1 items-center gap-2 overflow-hidden'>
-                      <div
-                        className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-sm'
-                        style={{
-                          backgroundColor: isCustomTool
-                            ? '#3B82F6' // blue-500 for custom tools
-                            : isMcpTool
-                              ? mcpTool?.bgColor || '#6366F1' // Indigo for MCP tools
-                              : toolBlock?.bgColor,
-                        }}
-                      >
-                        {isCustomTool ? (
-                          <WrenchIcon className='h-3 w-3 text-white' />
-                        ) : isMcpTool ? (
-                          <IconComponent icon={Server} className='h-3 w-3 text-white' />
-                        ) : (
-                          <IconComponent icon={toolBlock?.icon} className='h-3 w-3 text-white' />
-                        )}
-                      </div>
+                      {(() => {
+                        const toolColor = isCustomTool
+                          ? sanitizeHexColor('#3B82F6')
+                          : isMcpTool
+                            ? sanitizeHexColor(mcpTool?.bgColor) ?? sanitizeHexColor('#6366F1')
+                            : sanitizeHexColor(toolBlock?.bgColor)
+                        const iconColor = toolColor || '#FFFFFF'
+                        return (
+                          <div
+                            className='relative flex h-5 w-5 flex-shrink-0 items-center justify-center overflow-hidden rounded-sm bg-background/60 text-foreground'
+                            style={{
+                              backgroundColor: toolColor ? `${toolColor}30` : undefined,
+                              color: iconColor,
+                            }}
+                          >
+                            {isCustomTool ? (
+                              <WrenchIcon className='h-3 w-3' style={{ color: iconColor }} />
+                            ) : isMcpTool ? (
+                              <IconComponent
+                                icon={Server}
+                                className='h-3 w-3'
+                                style={{ color: iconColor }}
+                              />
+                            ) : (
+                              <IconComponent
+                                icon={toolBlock?.icon}
+                                className='h-3 w-3'
+                                style={{ color: iconColor }}
+                              />
+                            )}
+                          </div>
+                        )
+                      })()}
                       <span className='truncate font-medium text-sm'>{tool.title}</span>
                     </div>
                     <div className='ml-2 flex flex-shrink-0 items-center gap-1'>
@@ -1611,24 +1539,16 @@ export function ToolInput({
                               Operation
                             </div>
                             <div className='w-full min-w-0'>
-                              <Select
-                                value={tool.operation || operationOptions[0].id}
-                                onValueChange={(value) => handleOperationChange(toolIndex, value)}
-                              >
-                                <SelectTrigger className='w-full min-w-0 text-left'>
-                                  <SelectValue
-                                    placeholder='Select operation'
-                                    className='truncate'
-                                  />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {operationOptions.map((option) => (
-                                    <SelectItem key={option.id} value={option.id}>
-                                      {option.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <Dropdown
+                                blockId={blockId}
+                                subBlockId={`${subBlockId}-operation-${toolIndex}`}
+                                options={operationOptions}
+                                placeholder='Select operation'
+                                useStore={false}
+                                valueOverride={tool.operation || operationOptions[0].id}
+                                onChange={(value) => handleOperationChange(toolIndex, value)}
+                                disabled={disabled}
+                              />
                             </div>
                           </div>
                         ) : null
@@ -1796,157 +1716,19 @@ export function ToolInput({
             />
           )}
 
-          <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant='ghost'
-                size='sm'
-                className='h-6 px-2 text-muted-foreground text-xs hover:text-foreground'
-              >
-                <PlusIcon className='h-3 w-3' />
-                Add Tool
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              className='h-[360px] w-[280px] p-0'
-              align='start'
-              side='bottom'
-              sideOffset={6}
-              avoidCollisions={false}
-            >
-              <ToolCommand.Root filter={customFilter}>
-                <ToolCommand.Input placeholder='Search tools...' onValueChange={setSearchQuery} />
-                <ToolCommand.List>
-                  <ToolCommand.Empty>No tools found.</ToolCommand.Empty>
-                  <ToolCommand.Group>
-                    <ToolCommand.Item
-                      value='Create Tool'
-                      onSelect={() => {
-                        setOpen(false)
-                        setCustomToolModalOpen(true)
-                      }}
-                      className='mb-1 flex cursor-pointer items-center gap-2'
-                    >
-                      <div className='flex h-6 w-6 items-center justify-center rounded border border-muted-foreground/50 border-dashed bg-transparent'>
-                        <WrenchIcon className='h-4 w-4 text-muted-foreground' />
-                      </div>
-                      <span>Create Tool</span>
-                    </ToolCommand.Item>
-
-                    <ToolCommand.Item
-                      value='Add MCP Server'
-                      onSelect={() => {
-                        setOpen(false)
-                        setMcpServerModalOpen(true)
-                      }}
-                      className='mb-1 flex cursor-pointer items-center gap-2'
-                    >
-                      <div className='flex h-6 w-6 items-center justify-center rounded border border-muted-foreground/50 border-dashed bg-transparent'>
-                        <Server className='h-4 w-4 text-muted-foreground' />
-                      </div>
-                      <span>Add MCP Server</span>
-                    </ToolCommand.Item>
-
-                    {/* Display saved custom tools at the top */}
-                    {customTools.length > 0 && (
-                      <>
-                        <ToolCommand.Separator />
-                        <div className='px-2 pt-2.5 pb-0.5 font-medium text-muted-foreground text-xs'>
-                          Custom Tools
-                        </div>
-                        <ToolCommand.Group className='-mx-1 -px-1'>
-                          {customTools.map((customTool) => (
-                            <ToolCommand.Item
-                              key={customTool.id}
-                              value={customTool.title}
-                              onSelect={() => {
-                                const newTool: StoredTool = {
-                                  type: 'custom-tool',
-                                  title: customTool.title,
-                                  toolId: `custom-${customTool.schema.function.name}`,
-                                  params: {},
-                                  isExpanded: true,
-                                  schema: customTool.schema,
-                                  code: customTool.code,
-                                  usageControl: 'auto',
-                                }
-
-                                if (isWide) {
-                                  setStoreValue([
-                                    ...selectedTools.map((tool, index) => ({
-                                      ...tool,
-                                      isExpanded:
-                                        Math.floor(selectedTools.length / 2) ===
-                                        Math.floor(index / 2),
-                                    })),
-                                    newTool,
-                                  ])
-                                } else {
-                                  setStoreValue([
-                                    ...selectedTools.map((tool) => ({
-                                      ...tool,
-                                      isExpanded: false,
-                                    })),
-                                    newTool,
-                                  ])
-                                }
-                                setOpen(false)
-                              }}
-                              className='flex cursor-pointer items-center gap-2'
-                            >
-                              <div className='flex h-6 w-6 items-center justify-center rounded bg-blue-500'>
-                                <WrenchIcon className='h-4 w-4 text-white' />
-                              </div>
-                              <span className='max-w-[140px] truncate'>{customTool.title}</span>
-                            </ToolCommand.Item>
-                          ))}
-                        </ToolCommand.Group>
-                        <ToolCommand.Separator />
-                      </>
-                    )}
-
-                    {/* Display MCP tools */}
-                    <McpToolsList
-                      mcpTools={mcpTools}
-                      searchQuery={searchQuery || ''}
-                      customFilter={customFilter}
-                      onToolSelect={(tool) => handleMcpToolSelect(tool, false)}
-                      disabled={false}
-                    />
-
-                    {/* Display built-in tools */}
-                    {toolBlocks.some(
-                      (block) => customFilter(block.name, searchQuery || '') > 0
-                    ) && (
-                        <>
-                          <div className='px-2 pt-2.5 pb-0.5 font-medium text-muted-foreground text-xs'>
-                            Built-in Tools
-                          </div>
-                          <ToolCommand.Group className='-mx-1 -px-1'>
-                            {toolBlocks.map((block) => (
-                              <ToolCommand.Item
-                                key={block.type}
-                                value={block.name}
-                                onSelect={() => handleSelectTool(block)}
-                                className='flex cursor-pointer items-center gap-2'
-                              >
-                                <div
-                                  className='flex h-6 w-6 items-center justify-center rounded'
-                                  style={{ backgroundColor: block.bgColor }}
-                                >
-                                  <IconComponent icon={block.icon} className='h-4 w-4 text-white' />
-                                </div>
-                                <span className='max-w-[140px] truncate'>{block.name}</span>
-                              </ToolCommand.Item>
-                            ))}
-                          </ToolCommand.Group>
-                        </>
-                      )}
-                  </ToolCommand.Group>
-                </ToolCommand.List>
-              </ToolCommand.Root>
-            </PopoverContent>
-          </Popover>
+          <Dropdown
+            blockId={blockId}
+            subBlockId={`${subBlockId}-tool-selector-inline`}
+            options={toolSelectorOptions}
+            placeholder='Add Tool'
+            useStore={false}
+            valueOverride={toolSelectorValue}
+            onChange={handleToolSelection}
+            disabled={disabled || isPreview}
+            className='w-full'
+            enableSearch
+            searchPlaceholder='Search tools...'
+          />
         </div>
       )}
 

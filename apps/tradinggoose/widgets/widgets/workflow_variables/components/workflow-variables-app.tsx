@@ -30,10 +30,10 @@ const WorkflowVariablesApp = ({
 
   const user = session.data?.user
     ? {
-        id: session.data.user.id,
-        name: session.data.user.name ?? undefined,
-        email: session.data.user.email,
-      }
+      id: session.data.user.id,
+      name: session.data.user.name ?? undefined,
+      email: session.data.user.email,
+    }
     : undefined
 
   return (
@@ -95,7 +95,7 @@ const WorkflowVariablesAppContent = ({
   }, [channelId, panelId, handleAddVariable])
 
   return (
-    <div className='flex h-full w-full flex-col overflow-hidden bg-[hsl(var(--workflow-background))] px-3 py-2'>
+    <div className='flex h-full w-full flex-col overflow-hidden  px-3 py-2'>
       <Variables workflowId={workflowId} hideAddButtons />
     </div>
   )

@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { Img, Section, Text } from '@react-email/components'
 import { baseStyles } from '@/components/emails/base-styles'
 import { getBrandConfig } from '@/lib/branding/branding'
@@ -26,14 +27,15 @@ export const EmailHeader = ({ tagline = 'AI-Powered Trading Analysis Workflow Sy
                 style={{ ...baseStyles.logo, display: 'inline-block', verticalAlign: 'middle' }}
               />
             </td>
-            <td style={{ padding: '0 0 0 10px', verticalAlign: 'middle' }}>
+            <td style={{ padding: '0 0 0 0px', verticalAlign: 'middle' }}>
               <span style={{ ...baseStyles.brandName, display: 'inline-block', margin: 0 }}>
                 {brand.name}
               </span>
+              {tagline ? <Text style={baseStyles.tagline}>{tagline}</Text> : null}
             </td>
           </tr>
         </tbody>
-        {tagline ? <Text style={baseStyles.tagline}>{tagline}</Text> : null}
+
       </table>
     </Section>
   )

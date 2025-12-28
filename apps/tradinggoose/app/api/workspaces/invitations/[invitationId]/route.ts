@@ -280,7 +280,7 @@ export async function POST(
 
     const result = await sendEmail({
       to: invitation.email,
-      subject: `You've been invited to join "${ws.name}" on Sim`,
+      subject: `You've been invited to join "${ws.name}" on TradingGoose`,
       html: emailHtml,
       from: getFromEmailAddress(),
       emailType: 'transactional',

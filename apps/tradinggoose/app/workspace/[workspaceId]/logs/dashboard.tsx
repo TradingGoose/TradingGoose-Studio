@@ -18,7 +18,7 @@ import TriggerFilter from '@/app/workspace/[workspaceId]/logs/components/filters
 import LevelFilter from '@/app/workspace/[workspaceId]/logs/components/filters/components/level'
 import { mapToExecutionLog, mapToExecutionLogAlt } from '@/app/workspace/[workspaceId]/logs/utils'
 import { GlobalNavbarHeader } from '@/global-navbar'
-import { formatCost } from '@/providers/utils'
+import { formatCost } from '@/providers/ai/utils'
 import { useFilterStore } from '@/stores/logs/filters/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { LogsFilters } from '@/app/workspace/[workspaceId]/logs/components/dashboard/logs-filters/logs-filters'

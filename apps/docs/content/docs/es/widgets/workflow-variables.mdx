@@ -1,0 +1,63 @@
+---
+title: Variables de flujo de trabajo
+description: Inspecciona y edita variables para el flujo de trabajo seleccionado
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+El widget de Variables de flujo de trabajo proporciona una interfaz dedicada para ver y editar las variables definidas en tu flujo de trabajo.
+
+## Descripción general
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `workflow_variables` |
+| **Categoría** | Utilidad |
+| **Icono** | Llaves |
+
+## Características
+
+- **Lista de variables**: Visualiza todas las variables del flujo de trabajo de un vistazo
+- **Edición en línea**: Edita los valores de las variables directamente
+- **Visualización de tipo**: Observa el tipo de datos de cada variable
+- **Añadir/Eliminar**: Crea nuevas variables o elimina las existentes
+- **Búsqueda**: Filtra variables por nombre
+
+## Uso
+
+El widget de Variables de flujo de trabajo es útil para:
+
+- Inspeccionar el estado actual de las variables del flujo de trabajo
+- Modificar valores de variables para pruebas
+- Comprender el flujo de datos en tu flujo de trabajo
+- Gestionar la configuración con ámbito de flujo de trabajo
+
+### Tipos de variables
+
+Las variables de flujo de trabajo pueden contener diferentes tipos de datos:
+
+| Tipo | Descripción |
+|------|-------------|
+| **String** | Valores de texto |
+| **Number** | Valores numéricos |
+| **Boolean** | Valores verdadero/falso |
+| **Object** | Objetos JSON |
+| **Array** | Listas de valores |
+
+### Edición de variables
+
+1. Haz clic en una variable para seleccionarla
+2. Modifica el valor en el editor
+3. Los cambios se guardan automáticamente
+4. El flujo de trabajo utiliza el valor actualizado en la siguiente ejecución
+
+### Creación de variables
+
+1. Haz clic en el botón "Añadir variable"
+2. Introduce un nombre para la variable
+3. Selecciona el tipo de variable
+4. Establece un valor inicial (opcional)
+
+<Callout>
+Este widget admite el mecanismo **pairColor**. Emparéjalo con un Editor de flujo de trabajo para ver las variables del flujo de trabajo que estás editando actualmente.
+</Callout>

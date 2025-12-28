@@ -69,10 +69,13 @@ describe('Custom Tools', () => {
     vi.mock('@/stores/custom-tools/store', () => ({
       useCustomToolsStore: {
         getState: () => ({
+          activeWorkspaceId: 'workspace-456',
           getTool: (id: string) => {
             if (id === 'custom-tool-123') {
               return {
                 id: 'custom-tool-123',
+                workspaceId: 'workspace-456',
+                userId: 'user-123',
                 title: 'Custom Weather Tool',
                 code: 'return { result: "Weather data" }',
                 schema: {
@@ -95,6 +98,8 @@ describe('Custom Tools', () => {
           getAllTools: () => [
             {
               id: 'custom-tool-123',
+              workspaceId: 'workspace-456',
+              userId: 'user-123',
               title: 'Custom Weather Tool',
               code: 'return { result: "Weather data" }',
               schema: {

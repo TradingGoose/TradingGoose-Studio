@@ -26,6 +26,7 @@ import { GoogleFormsBlock } from '@/blocks/blocks/google_form'
 import { GoogleSheetsBlock } from '@/blocks/blocks/google_sheets'
 import { GoogleVaultBlock } from '@/blocks/blocks/google_vault'
 import { GuardrailsBlock } from '@/blocks/blocks/guardrails'
+import { HistoricalDataBlock } from '@/blocks/blocks/historical_data'
 import { HuggingFaceBlock } from '@/blocks/blocks/huggingface'
 import { HunterBlock } from '@/blocks/blocks/hunter'
 import { ImageGeneratorBlock } from '@/blocks/blocks/image_generator'
@@ -69,6 +70,8 @@ import { SupabaseBlock } from '@/blocks/blocks/supabase'
 import { TavilyBlock } from '@/blocks/blocks/tavily'
 import { TelegramBlock } from '@/blocks/blocks/telegram'
 import { ThinkingBlock } from '@/blocks/blocks/thinking'
+import { TradingActionBlock } from '@/blocks/blocks/trading_action'
+import { TradingHoldingsBlock } from '@/blocks/blocks/trading_holdings'
 import { TranslateBlock } from '@/blocks/blocks/translate'
 import { TwilioSMSBlock } from '@/blocks/blocks/twilio'
 import { TypeformBlock } from '@/blocks/blocks/typeform'
@@ -115,6 +118,7 @@ export const registry: Record<string, BlockConfig> = {
   google_search: GoogleSearchBlock,
   google_sheets: GoogleSheetsBlock,
   google_vault: GoogleVaultBlock,
+  historical_data: HistoricalDataBlock,
   huggingface: HuggingFaceBlock,
   hunter: HunterBlock,
   image_generator: ImageGeneratorBlock,
@@ -162,6 +166,8 @@ export const registry: Record<string, BlockConfig> = {
   tavily: TavilyBlock,
   telegram: TelegramBlock,
   thinking: ThinkingBlock,
+  trading_action: TradingActionBlock,
+  trading_holdings: TradingHoldingsBlock,
   translate: TranslateBlock,
   twilio_sms: TwilioSMSBlock,
   typeform: TypeformBlock,

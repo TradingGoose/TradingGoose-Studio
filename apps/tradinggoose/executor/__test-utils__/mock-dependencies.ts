@@ -40,10 +40,10 @@ vi.mock('@/lib/utils', () => ({
 vi.mock('@/tools')
 
 // Providers
-vi.mock('@/providers', () => ({
+vi.mock('@/providers/ai', () => ({
   executeProviderRequest: vi.fn(),
 }))
-vi.mock('@/providers/utils', async (importOriginal) => {
+vi.mock('@/providers/ai/utils', async (importOriginal) => {
   const actual = await importOriginal()
   return {
     // @ts-ignore

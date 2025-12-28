@@ -27,10 +27,10 @@ const WorkflowConsoleApp = ({
 
   const user = session.data?.user
     ? {
-        id: session.data.user.id,
-        name: session.data.user.name ?? undefined,
-        email: session.data.user.email,
-      }
+      id: session.data.user.id,
+      name: session.data.user.name ?? undefined,
+      email: session.data.user.email,
+    }
     : undefined
 
   return (
@@ -42,7 +42,7 @@ const WorkflowConsoleApp = ({
           channelId={channelId}
         >
           <WorkflowStoreProvider channelId={channelId} workflowId={workflowId}>
-            <div className='flex h-full w-full flex-col overflow-y-auto bg-[hsl(var(--workflow-background))]'>
+            <div className='flex h-full w-full flex-col overflow-y-auto'>
               <Console panelWidth={panelWidth} hideScrollbar={false} />
             </div>
           </WorkflowStoreProvider>
