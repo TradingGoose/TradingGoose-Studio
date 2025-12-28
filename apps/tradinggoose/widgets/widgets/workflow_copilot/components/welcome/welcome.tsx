@@ -4,7 +4,7 @@ import { Blocks, LibraryBig, Workflow } from 'lucide-react'
 
 interface CopilotWelcomeProps {
   onQuestionClick?: (question: string) => void
-  mode?: 'ask' | 'agent'
+  mode?: 'ask' | 'build'
 }
 
 export function CopilotWelcome({ onQuestionClick, mode = 'ask' }: CopilotWelcomeProps) {
@@ -18,7 +18,7 @@ export function CopilotWelcome({ onQuestionClick, mode = 'ask' }: CopilotWelcome
       : 'Build, edit, and optimize workflows'
 
   const capabilities =
-    mode === 'agent'
+    mode === 'build'
       ? [
         {
           title: 'Build & edit workflows',

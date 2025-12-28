@@ -90,8 +90,8 @@ interface UserInputProps {
   isAborting?: boolean
   placeholder?: string
   className?: string
-  mode?: 'ask' | 'agent'
-  onModeChange?: (mode: 'ask' | 'agent') => void
+  mode?: 'ask' | 'build'
+  onModeChange?: (mode: 'ask' | 'build') => void
   value?: string // Controlled value from outside
   onChange?: (value: string) => void // Callback when value changes
   panelWidth?: number // Panel width to adjust truncation
@@ -113,7 +113,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       isAborting = false,
       placeholder,
       className,
-      mode = 'agent',
+      mode = 'build',
       onModeChange,
       value: controlledValue,
       onChange: onControlledChange,
@@ -1721,8 +1721,8 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
 
     const handleModeToggle = () => {
       if (onModeChange) {
-        // Toggle between Ask and Agent
-        onModeChange(mode === 'ask' ? 'agent' : 'ask')
+        // Toggle between Ask and Build
+        onModeChange(mode === 'ask' ? 'build' : 'ask')
       }
     }
 
@@ -1737,7 +1737,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       if (mode === 'ask') {
         return 'Ask'
       }
-      return 'Agent'
+      return 'Build'
     }
 
     // Model selection state comes from global store; access via useCopilotStore
@@ -1895,6 +1895,14 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
         return `${mm}-${dd} ${hh}:${min}`
       } catch {
         return iso
+      }
+    }
+
+    const getWorkflowSwatchStyle = (color?: string) => {
+      const swatchColor = color || '#3972F6'
+      return {
+        backgroundColor: swatchColor,
+        boxShadow: `0 0 0 4px ${swatchColor}50`,
       }
     }
 
@@ -2219,7 +2227,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                 .map((ctx, idx) => (
                   <span
                     key={`selctx-${idx}-${ctx.label}`}
-                    className='inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--primary-hover)_14%,transparent)] px-1.5 py-0.5 text-[11px] text-foreground'
+                    className='inline-flex items-center gap-1 rounded-full bg-primary-hover/20 px-1.5 py-0.5 text-xs text-foreground'
                     title={ctx.label}
                   >
                     {ctx.kind === 'past_chat' ? (
@@ -2458,9 +2466,10 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                         setSubmenuQueryStart(null)
                                       }}
                                     >
-                                      <div
-                                        className='h-3.5 w-3.5 flex-shrink-0 rounded'
-                                        style={{ backgroundColor: wf.color || '#3972F6' }}
+                                      <span
+                                        className='h-2.5 w-2.5 flex-shrink-0 rounded-xxs'
+                                        style={getWorkflowSwatchStyle(wf.color)}
+                                        aria-hidden
                                       />
                                       <span className='truncate'>
                                         {wf.name || 'Untitled Workflow'}
@@ -2532,7 +2541,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={blk.id}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
+                                        'group flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2544,11 +2553,14 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       }}
                                     >
                                       <div
-                                        className='relative flex h-4 w-4 items-center justify-center rounded-xs'
-                                        style={{ backgroundColor: blk.bgColor || '#6B7280' }}
+                                        className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-secondary/60 text-foreground'
+                                        style={{
+                                          backgroundColor: blk.bgColor ? `${blk.bgColor}30` : undefined,
+                                          color: blk.bgColor || undefined,
+                                        }}
                                       >
                                         {blk.iconComponent && (
-                                          <blk.iconComponent className='!h-3 !w-3 text-white' />
+                                          <blk.iconComponent className='!h-4 !w-4 transition-transform duration-200 group-hover:scale-110' />
                                         )}
                                       </div>
                                       <span className='truncate'>{blk.name || blk.id}</span>
@@ -2579,7 +2591,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={blk.id}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
+                                        'group flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2591,11 +2603,14 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       }}
                                     >
                                       <div
-                                        className='relative flex h-4 w-4 items-center justify-center rounded-xs'
-                                        style={{ backgroundColor: blk.bgColor || '#6B7280' }}
+                                        className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-secondary/60 text-foreground'
+                                        style={{
+                                          backgroundColor: blk.bgColor ? `${blk.bgColor}30` : undefined,
+                                          color: blk.bgColor || undefined,
+                                        }}
                                       >
                                         {blk.iconComponent && (
-                                          <blk.iconComponent className='!h-3 !w-3 text-white' />
+                                          <blk.iconComponent className='!h-4 !w-4 transition-transform duration-200 group-hover:scale-110' />
                                         )}
                                       </div>
                                       <span className='truncate'>{blk.name || blk.id}</span>
@@ -2796,7 +2811,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={`${item.type}-${item.id}`}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
+                                        'group flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2818,12 +2833,12 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                         </>
                                       ) : item.type === 'Workflows' ? (
                                         <>
-                                          <div
-                                            className='h-3.5 w-3.5 flex-shrink-0 rounded'
-                                            style={{
-                                              backgroundColor:
-                                                (item.value as any).color || '#3972F6',
-                                            }}
+                                          <span
+                                            className='h-2.5 w-2.5 flex-shrink-0 rounded-xxs'
+                                            style={getWorkflowSwatchStyle(
+                                              (item.value as any).color as string | undefined
+                                            )}
+                                            aria-hidden
                                           />
                                           <span className='truncate'>
                                             {(item.value as any).name || 'Untitled Workflow'}
@@ -2839,16 +2854,18 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       ) : item.type === 'Blocks' ? (
                                         <>
                                           <div
-                                            className='relative flex h-4 w-4 items-center justify-center rounded-xs'
+                                            className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-secondary/60 text-foreground'
                                             style={{
-                                              backgroundColor:
-                                                (item.value as any).bgColor || '#6B7280',
+                                              backgroundColor: (item.value as any).bgColor
+                                                ? `${(item.value as any).bgColor}30`
+                                                : undefined,
+                                              color: (item.value as any).bgColor || undefined,
                                             }}
                                           >
                                             {(() => {
                                               const Icon = (item.value as any).iconComponent
                                               return Icon ? (
-                                                <Icon className='!h-3 !w-3 text-white' />
+                                                <Icon className='!h-4 !w-4 transition-transform duration-200 group-hover:scale-110' />
                                               ) : null
                                             })()}
                                           </div>
@@ -2859,16 +2876,18 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       ) : item.type === 'Workflow Blocks' ? (
                                         <>
                                           <div
-                                            className='relative flex h-4 w-4 items-center justify-center rounded-xs'
+                                            className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-secondary/60 text-foreground'
                                             style={{
-                                              backgroundColor:
-                                                (item.value as any).bgColor || '#6B7280',
+                                              backgroundColor: (item.value as any).bgColor
+                                                ? `${(item.value as any).bgColor}30`
+                                                : undefined,
+                                              color: (item.value as any).bgColor || undefined,
                                             }}
                                           >
                                             {(() => {
                                               const Icon = (item.value as any).iconComponent
                                               return Icon ? (
-                                                <Icon className='!h-3 !w-3 text-white' />
+                                                <Icon className='!h-4 !w-4 transition-transform duration-200 group-hover:scale-110' />
                                               ) : null
                                             })()}
                                           </div>
@@ -3072,7 +3091,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                         key={`${item.type}-${(item.value as any).id}`}
                                         data-idx={filteredLen + idx}
                                         className={cn(
-                                          'flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
+                                          'group flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
                                           inAggregated && submenuActiveIndex === idx && 'bg-muted'
                                         )}
                                         role='menuitem'
@@ -3112,12 +3131,12 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                           </>
                                         ) : item.type === 'Workflows' ? (
                                           <>
-                                            <div
-                                              className='h-3.5 w-3.5 flex-shrink-0 rounded'
-                                              style={{
-                                                backgroundColor:
-                                                  (item.value as any).color || '#3972F6',
-                                              }}
+                                            <span
+                                              className='h-2.5 w-2.5 flex-shrink-0 rounded-xxs'
+                                              style={getWorkflowSwatchStyle(
+                                                (item.value as any).color as string | undefined
+                                              )}
+                                              aria-hidden
                                             />
                                             <span className='truncate'>
                                               {(item.value as any).name || 'Untitled Workflow'}
@@ -3133,16 +3152,18 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                         ) : item.type === 'Blocks' ? (
                                           <>
                                             <div
-                                              className='relative flex h-4 w-4 items-center justify-center rounded-xs'
+                                              className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-secondary/60 text-foreground'
                                               style={{
-                                                backgroundColor:
-                                                  (item.value as any).bgColor || '#6B7280',
+                                                backgroundColor: (item.value as any).bgColor
+                                                  ? `${(item.value as any).bgColor}30`
+                                                  : undefined,
+                                                color: (item.value as any).bgColor || undefined,
                                               }}
                                             >
                                               {(() => {
                                                 const Icon = (item.value as any).iconComponent
                                                 return Icon ? (
-                                                  <Icon className='!h-3 !w-3 text-white' />
+                                                  <Icon className='!h-4 !w-4 transition-transform duration-200 group-hover:scale-110' />
                                                 ) : null
                                               })()}
                                             </div>
@@ -3153,16 +3174,18 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                         ) : item.type === 'Workflow Blocks' ? (
                                           <>
                                             <div
-                                              className='relative flex h-4 w-4 items-center justify-center rounded-xs'
+                                              className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-secondary/60 text-foreground'
                                               style={{
-                                                backgroundColor:
-                                                  (item.value as any).bgColor || '#6B7280',
+                                                backgroundColor: (item.value as any).bgColor
+                                                  ? `${(item.value as any).bgColor}30`
+                                                  : undefined,
+                                                color: (item.value as any).bgColor || undefined,
                                               }}
                                             >
                                               {(() => {
                                                 const Icon = (item.value as any).iconComponent
                                                 return Icon ? (
-                                                  <Icon className='!h-3 !w-3 text-white' />
+                                                  <Icon className='!h-4 !w-4 transition-transform duration-200 group-hover:scale-110' />
                                                 ) : null
                                               })()}
                                             </div>
@@ -3227,7 +3250,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
 
           {/* Bottom Row: Mode Selector + Attach Button + Send Button */}
           <div className='flex items-center justify-between'>
-            {/* Left side: Mode Selector and Depth (if Agent) */}
+            {/* Left side: Mode Selector and Depth (if Build) */}
             <div className='flex items-center gap-1.5'>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -3277,17 +3300,17 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <DropdownMenuItem
-                            onSelect={() => onModeChange?.('agent')}
+                            onSelect={() => onModeChange?.('build')}
                             className={cn(
                               'flex items-center justify-between rounded-sm px-2 py-1.5 text-xs leading-4',
-                              mode === 'agent' && 'bg-muted/40'
+                              mode === 'build' && 'bg-muted/40'
                             )}
                           >
                             <span className='flex items-center gap-1.5'>
                               <Package className='h-3 w-3 text-muted-foreground' />
-                              Agent
+                              Build
                             </span>
-                            {mode === 'agent' && (
+                            {mode === 'build' && (
                               <Check className='h-3 w-3 text-muted-foreground' />
                             )}
                           </DropdownMenuItem>
@@ -3298,7 +3321,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                           align='center'
                           className='max-w-[220px] border bg-popover p-2 text-[11px] text-popover-foreground leading-snug shadow-md'
                         >
-                          Agent mode can build, edit, and interact with your workflows (Recommended)
+                          Build mode can create, edit, and interact with your workflows (Recommended)
                         </TooltipContent>
                       </Tooltip>
                     </div>
@@ -3334,7 +3357,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                         className={cn(
                           'flex h-6 items-center gap-1.5 rounded-sm border px-2 py-1 font-medium text-xs focus-visible:ring-0 focus-visible:ring-offset-0',
                           showPurple
-                            ? 'border-primary-hover text-primary-hover hover:bg-primary-hover/10 hover:text-primary hover:border-primary'
+                            ? 'border-primary text-primary hover:bg-primary-hover/10 hover:text-primary hover:border-primary'
                             : 'border-border text-foreground'
                         )}
                         title='Choose mode'

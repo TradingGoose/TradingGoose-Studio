@@ -5,45 +5,9 @@ import type { StoreApi } from 'zustand'
 import { create, useStore } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { type CopilotChat, sendStreamingMessage } from '@/lib/copilot/api'
-import type {
-  BaseClientToolMetadata,
-  ClientToolDisplay,
-} from '@/lib/copilot/tools/client/base-tool'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
-import { GetBlocksAndToolsClientTool } from '@/lib/copilot/tools/client/blocks/get-blocks-and-tools'
-import { GetBlocksMetadataClientTool } from '@/lib/copilot/tools/client/blocks/get-blocks-metadata'
-import { GetTriggerBlocksClientTool } from '@/lib/copilot/tools/client/blocks/get-trigger-blocks'
-import { GetExamplesRagClientTool } from '@/lib/copilot/tools/client/examples/get-examples-rag'
-import { GetOperationsExamplesClientTool } from '@/lib/copilot/tools/client/examples/get-operations-examples'
-import { GetTriggerExamplesClientTool } from '@/lib/copilot/tools/client/examples/get-trigger-examples'
-import { SummarizeClientTool } from '@/lib/copilot/tools/client/examples/summarize'
-import { ListGDriveFilesClientTool } from '@/lib/copilot/tools/client/gdrive/list-files'
-import { ReadGDriveFileClientTool } from '@/lib/copilot/tools/client/gdrive/read-file'
-import { GDriveRequestAccessClientTool } from '@/lib/copilot/tools/client/google/gdrive-request-access'
-import {
-  getClientTool,
-  registerClientTool,
-  registerToolStateSync,
-} from '@/lib/copilot/tools/client/manager'
-import { CheckoffTodoClientTool } from '@/lib/copilot/tools/client/other/checkoff-todo'
-import { MakeApiRequestClientTool } from '@/lib/copilot/tools/client/other/make-api-request'
-import { MarkTodoInProgressClientTool } from '@/lib/copilot/tools/client/other/mark-todo-in-progress'
-import { OAuthRequestAccessClientTool } from '@/lib/copilot/tools/client/other/oauth-request-access'
-import { PlanClientTool } from '@/lib/copilot/tools/client/other/plan'
-import { SearchDocumentationClientTool } from '@/lib/copilot/tools/client/other/search-documentation'
-import { SearchOnlineClientTool } from '@/lib/copilot/tools/client/other/search-online'
+import { getClientTool, registerToolStateSync } from '@/lib/copilot/tools/client/manager'
 import { createExecutionContext, getTool } from '@/lib/copilot/tools/client/registry'
-import { GetEnvironmentVariablesClientTool } from '@/lib/copilot/tools/client/user/get-environment-variables'
-import { GetOAuthCredentialsClientTool } from '@/lib/copilot/tools/client/user/get-oauth-credentials'
-import { SetEnvironmentVariablesClientTool } from '@/lib/copilot/tools/client/user/set-environment-variables'
-import { EditWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/edit-workflow'
-import { GetGlobalWorkflowVariablesClientTool } from '@/lib/copilot/tools/client/workflow/get-global-workflow-variables'
-import { GetUserWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/get-user-workflow'
-import { GetWorkflowConsoleClientTool } from '@/lib/copilot/tools/client/workflow/get-workflow-console'
-import { GetWorkflowFromNameClientTool } from '@/lib/copilot/tools/client/workflow/get-workflow-from-name'
-import { ListUserWorkflowsClientTool } from '@/lib/copilot/tools/client/workflow/list-user-workflows'
-import { RunWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/run-workflow'
-import { SetGlobalWorkflowVariablesClientTool } from '@/lib/copilot/tools/client/workflow/set-global-workflow-variables'
 import { createLogger } from '@/lib/logs/console/logger'
 import type {
   ChatContext,
@@ -55,6 +19,21 @@ import type {
 import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store'
+import { ensureClientToolInstance } from '@/stores/copilot/tool-registry'
+import {
+  isBackgroundState,
+  isRejectedState,
+  isReviewState,
+  resolveToolDisplay,
+} from '@/stores/copilot/tool-display'
+import {
+  type SSEHandler,
+  type StreamingContext,
+  resetStreamingQueue,
+  updateStreamingMessage,
+} from '@/stores/copilot/streaming'
+
+export { CLASS_TOOL_METADATA } from '@/stores/copilot/tool-registry'
 
 const logger = createLogger('CopilotStore')
 
@@ -66,152 +45,11 @@ try {
   }
 } catch { }
 
-// Known class-based client tools: map tool name -> instantiator
-const CLIENT_TOOL_INSTANTIATORS: Record<string, (id: string) => any> = {
-  run_workflow: (id) => new RunWorkflowClientTool(id),
-  get_workflow_console: (id) => new GetWorkflowConsoleClientTool(id),
-  get_blocks_and_tools: (id) => new GetBlocksAndToolsClientTool(id),
-  get_blocks_metadata: (id) => new GetBlocksMetadataClientTool(id),
-  get_trigger_blocks: (id) => new GetTriggerBlocksClientTool(id),
-  search_online: (id) => new SearchOnlineClientTool(id),
-  search_documentation: (id) => new SearchDocumentationClientTool(id),
-  get_environment_variables: (id) => new GetEnvironmentVariablesClientTool(id),
-  set_environment_variables: (id) => new SetEnvironmentVariablesClientTool(id),
-  list_gdrive_files: (id) => new ListGDriveFilesClientTool(id),
-  read_gdrive_file: (id) => new ReadGDriveFileClientTool(id),
-  get_oauth_credentials: (id) => new GetOAuthCredentialsClientTool(id),
-  make_api_request: (id) => new MakeApiRequestClientTool(id),
-  plan: (id) => new PlanClientTool(id),
-  checkoff_todo: (id) => new CheckoffTodoClientTool(id),
-  mark_todo_in_progress: (id) => new MarkTodoInProgressClientTool(id),
-  gdrive_request_access: (id) => new GDriveRequestAccessClientTool(id),
-  oauth_request_access: (id) => new OAuthRequestAccessClientTool(id),
-  edit_workflow: (id) => new EditWorkflowClientTool(id),
-  get_user_workflow: (id) => new GetUserWorkflowClientTool(id),
-  list_user_workflows: (id) => new ListUserWorkflowsClientTool(id),
-  get_workflow_from_name: (id) => new GetWorkflowFromNameClientTool(id),
-  get_global_workflow_variables: (id) => new GetGlobalWorkflowVariablesClientTool(id),
-  set_global_workflow_variables: (id) => new SetGlobalWorkflowVariablesClientTool(id),
-  get_trigger_examples: (id) => new GetTriggerExamplesClientTool(id),
-  get_examples_rag: (id) => new GetExamplesRagClientTool(id),
-  get_operations_examples: (id) => new GetOperationsExamplesClientTool(id),
-  summarize_conversation: (id) => new SummarizeClientTool(id),
-}
-
-// Read-only static metadata for class-based tools (no instances)
-export const CLASS_TOOL_METADATA: Record<string, BaseClientToolMetadata | undefined> = {
-  run_workflow: (RunWorkflowClientTool as any)?.metadata,
-  get_workflow_console: (GetWorkflowConsoleClientTool as any)?.metadata,
-  get_blocks_and_tools: (GetBlocksAndToolsClientTool as any)?.metadata,
-  get_blocks_metadata: (GetBlocksMetadataClientTool as any)?.metadata,
-  get_trigger_blocks: (GetTriggerBlocksClientTool as any)?.metadata,
-  search_online: (SearchOnlineClientTool as any)?.metadata,
-  search_documentation: (SearchDocumentationClientTool as any)?.metadata,
-  get_environment_variables: (GetEnvironmentVariablesClientTool as any)?.metadata,
-  set_environment_variables: (SetEnvironmentVariablesClientTool as any)?.metadata,
-  list_gdrive_files: (ListGDriveFilesClientTool as any)?.metadata,
-  read_gdrive_file: (ReadGDriveFileClientTool as any)?.metadata,
-  get_oauth_credentials: (GetOAuthCredentialsClientTool as any)?.metadata,
-  make_api_request: (MakeApiRequestClientTool as any)?.metadata,
-  plan: (PlanClientTool as any)?.metadata,
-  checkoff_todo: (CheckoffTodoClientTool as any)?.metadata,
-  mark_todo_in_progress: (MarkTodoInProgressClientTool as any)?.metadata,
-  gdrive_request_access: (GDriveRequestAccessClientTool as any)?.metadata,
-  edit_workflow: (EditWorkflowClientTool as any)?.metadata,
-  get_user_workflow: (GetUserWorkflowClientTool as any)?.metadata,
-  list_user_workflows: (ListUserWorkflowsClientTool as any)?.metadata,
-  get_workflow_from_name: (GetWorkflowFromNameClientTool as any)?.metadata,
-  get_global_workflow_variables: (GetGlobalWorkflowVariablesClientTool as any)?.metadata,
-  set_global_workflow_variables: (SetGlobalWorkflowVariablesClientTool as any)?.metadata,
-  get_trigger_examples: (GetTriggerExamplesClientTool as any)?.metadata,
-  get_examples_rag: (GetExamplesRagClientTool as any)?.metadata,
-  oauth_request_access: (OAuthRequestAccessClientTool as any)?.metadata,
-  get_operations_examples: (GetOperationsExamplesClientTool as any)?.metadata,
-  summarize_conversation: (SummarizeClientTool as any)?.metadata,
-}
-
-function ensureClientToolInstance(toolName: string | undefined, toolCallId: string | undefined) {
-  try {
-    if (!toolName || !toolCallId) return
-    if (getClientTool(toolCallId)) return
-    const make = CLIENT_TOOL_INSTANTIATORS[toolName]
-    if (make) {
-      const inst = make(toolCallId)
-      registerClientTool(toolCallId, inst)
-    }
-  } catch { }
-}
-
 // Constants
 const TEXT_BLOCK_TYPE = 'text'
 const THINKING_BLOCK_TYPE = 'thinking'
 const DATA_PREFIX = 'data: '
 const DATA_PREFIX_LENGTH = 6
-
-// Resolve display text/icon for a tool based on its state
-function resolveToolDisplay(
-  toolName: string | undefined,
-  state: ClientToolCallState,
-  toolCallId?: string,
-  params?: Record<string, any>
-): ClientToolDisplay | undefined {
-  try {
-    if (!toolName) return undefined
-    const def = getTool(toolName) as any
-    const meta = def?.metadata?.displayNames || CLASS_TOOL_METADATA[toolName]?.displayNames || {}
-    // Exact state first
-    const ds = meta?.[state]
-    if (ds?.text || ds?.icon) return { text: ds.text, icon: ds.icon }
-    // Fallback order (prefer pre-execution states for unknown states like pending)
-    const fallbackOrder: ClientToolCallState[] = [
-      (ClientToolCallState as any).generating,
-      (ClientToolCallState as any).executing,
-      (ClientToolCallState as any).review,
-      (ClientToolCallState as any).success,
-      (ClientToolCallState as any).error,
-      (ClientToolCallState as any).rejected,
-    ]
-    for (const key of fallbackOrder) {
-      const cand = meta?.[key]
-      if (cand?.text || cand?.icon) return { text: cand.text, icon: cand.icon }
-    }
-  } catch { }
-  // Humanized fallback as last resort
-  try {
-    if (toolName) {
-      const text = toolName.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-      return { text, icon: undefined as any }
-    }
-  } catch { }
-  return undefined
-}
-
-// Helper: check if a tool state is rejected
-function isRejectedState(state: any): boolean {
-  try {
-    return state === 'rejected' || state === (ClientToolCallState as any).rejected
-  } catch {
-    return state === 'rejected'
-  }
-}
-
-// Helper: check if a tool state is review (terminal for build/edit preview)
-function isReviewState(state: any): boolean {
-  try {
-    return state === 'review' || state === (ClientToolCallState as any).review
-  } catch {
-    return state === 'review'
-  }
-}
-
-// Helper: check if a tool state is background (terminal)
-function isBackgroundState(state: any): boolean {
-  try {
-    return state === 'background' || state === (ClientToolCallState as any).background
-  } catch {
-    return state === 'background'
-  }
-}
 
 // Helper: abort all in-progress client tools and update inline blocks
 function abortAllInProgressTools(set: any, get: () => CopilotStore) {
@@ -542,27 +380,6 @@ function validateMessagesForLLM(messages: CopilotMessage[]): any[] {
       return true
     })
 }
-
-// Streaming context and SSE parsing
-interface StreamingContext {
-  messageId: string
-  accumulatedContent: StringBuilder
-  contentBlocks: any[]
-  currentTextBlock: any | null
-  isInThinkingBlock: boolean
-  currentThinkingBlock: any | null
-  pendingContent: string
-  newChatId?: string
-  doneEventCount: number
-  streamComplete?: boolean
-}
-
-type SSEHandler = (
-  data: any,
-  context: StreamingContext,
-  get: () => CopilotStore,
-  set: any
-) => Promise<void> | void
 
 const sseHandlers: Record<string, SSEHandler> = {
   chat_id: async (data, context, get) => {
@@ -1184,78 +1001,6 @@ const sseHandlers: Record<string, SSEHandler> = {
   default: () => { },
 }
 
-// Debounced UI update queue for smoother streaming
-const streamingUpdateQueue = new Map<string, StreamingContext>()
-let streamingUpdateRAF: number | null = null
-let lastBatchTime = 0
-const MIN_BATCH_INTERVAL = 16
-const MAX_BATCH_INTERVAL = 50
-const MAX_QUEUE_SIZE = 5
-
-function createOptimizedContentBlocks(contentBlocks: any[]): any[] {
-  const result: any[] = new Array(contentBlocks.length)
-  for (let i = 0; i < contentBlocks.length; i++) {
-    const block = contentBlocks[i]
-    result[i] = { ...block }
-  }
-  return result
-}
-
-function updateStreamingMessage(set: any, context: StreamingContext) {
-  const now = performance.now()
-  streamingUpdateQueue.set(context.messageId, context)
-  const timeSinceLastBatch = now - lastBatchTime
-  const shouldFlushImmediately =
-    streamingUpdateQueue.size >= MAX_QUEUE_SIZE || timeSinceLastBatch > MAX_BATCH_INTERVAL
-
-  if (streamingUpdateRAF === null) {
-    const scheduleUpdate = () => {
-      streamingUpdateRAF = requestAnimationFrame(() => {
-        const updates = new Map(streamingUpdateQueue)
-        streamingUpdateQueue.clear()
-        streamingUpdateRAF = null
-        lastBatchTime = performance.now()
-        set((state: CopilotStore) => {
-          if (updates.size === 0) return state
-          const messages = state.messages
-          const lastMessage = messages[messages.length - 1]
-          const lastMessageUpdate = lastMessage ? updates.get(lastMessage.id) : null
-          if (updates.size === 1 && lastMessageUpdate) {
-            const newMessages = [...messages]
-            newMessages[messages.length - 1] = {
-              ...lastMessage,
-              content: '',
-              contentBlocks:
-                lastMessageUpdate.contentBlocks.length > 0
-                  ? createOptimizedContentBlocks(lastMessageUpdate.contentBlocks)
-                  : [],
-            }
-            return { messages: newMessages }
-          }
-          return {
-            messages: messages.map((msg) => {
-              const update = updates.get(msg.id)
-              if (update) {
-                return {
-                  ...msg,
-                  content: '',
-                  contentBlocks:
-                    update.contentBlocks.length > 0
-                      ? createOptimizedContentBlocks(update.contentBlocks)
-                      : [],
-                }
-              }
-              return msg
-            }),
-          }
-        })
-      })
-    }
-    if (shouldFlushImmediately) scheduleUpdate()
-    else setTimeout(scheduleUpdate, Math.max(0, MIN_BATCH_INTERVAL - timeSinceLastBatch))
-  }
-}
-
 async function* parseSSEStream(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   decoder: TextDecoder
@@ -1289,7 +1034,7 @@ async function* parseSSEStream(
 
 // Initial state (subset required for UI/streaming)
 const initialState = {
-  mode: 'agent' as const,
+  mode: 'build' as const,
   selectedModel: 'claude-4.5-sonnet' as CopilotStore['selectedModel'],
   agentPrefetch: false,
   enabledModels: null as string[] | null, // Null means not loaded yet, empty array means all disabled
@@ -1698,7 +1443,7 @@ const createCopilotStoreInstance = () =>
             userMessageId: userMessage.id,
             chatId: currentChat?.id,
             workflowId,
-            mode: mode === 'ask' ? 'ask' : 'agent',
+            mode: mode === 'ask' ? 'ask' : 'build',
             model: get().selectedModel,
             prefetch: get().agentPrefetch,
             createNewChat: !currentChat,
@@ -1834,7 +1579,7 @@ const createCopilotStoreInstance = () =>
             message: 'Please continue your response.',
             chatId: currentChat?.id,
             workflowId,
-            mode: mode === 'ask' ? 'ask' : 'agent',
+            mode: mode === 'ask' ? 'ask' : 'build',
             model: selectedModel,
             prefetch: get().agentPrefetch,
             createNewChat: !currentChat,
@@ -2202,11 +1947,7 @@ const createCopilotStoreInstance = () =>
 
           if (sseHandlers.stream_end) sseHandlers.stream_end({}, context, get, set)
 
-          if (streamingUpdateRAF !== null) {
-            cancelAnimationFrame(streamingUpdateRAF)
-            streamingUpdateRAF = null
-          }
-          streamingUpdateQueue.clear()
+          resetStreamingQueue()
 
           if (context.contentBlocks) {
             context.contentBlocks.forEach((block) => {
@@ -2304,11 +2045,7 @@ const createCopilotStoreInstance = () =>
       cleanup: () => {
         const { isSendingMessage } = get()
         if (isSendingMessage) get().abortMessage()
-        if (streamingUpdateRAF !== null) {
-          cancelAnimationFrame(streamingUpdateRAF)
-          streamingUpdateRAF = null
-        }
-        streamingUpdateQueue.clear()
+        resetStreamingQueue()
         // Clear any diff on cleanup
         try {
           useWorkflowDiffStore.getState().clearDiff()
