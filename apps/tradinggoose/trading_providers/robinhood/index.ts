@@ -7,7 +7,10 @@ export const robinhoodProvider: TradingProviderDefinition = {
   authType: 'oauth',
   oauth: {
     provider: 'robinhood',
+    serviceId: 'robinhood',
     scopes: ['internal', 'read', 'trading'],
+    credentialTitle: 'Robinhood Account',
+    credentialPlaceholder: 'Select or connect Robinhood account',
   },
   fields: [
     {

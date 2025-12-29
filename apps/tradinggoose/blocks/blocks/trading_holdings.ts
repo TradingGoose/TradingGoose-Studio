@@ -1,7 +1,9 @@
 import { DollarIcon } from '@/components/icons'
 import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
+import { buildInputsFromToolParams } from '@/blocks/utils'
 import { getProviderFields, getTradingProviders } from '@/trading_providers'
+import { tradingHoldingsTool } from '@/tools/trading'
 import type { TradingHoldingsResponse } from '@/tools/trading/types'
 
 const providerOptions = getTradingProviders().map((provider) => ({
@@ -135,15 +137,7 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
       },
     },
   },
-  inputs: {
-    provider: { type: 'string', description: 'Selected trading provider' },
-    credential: { type: 'string', description: 'OAuth credential identifier' },
-    apiKey: { type: 'string', description: 'API key for API-key providers' },
-    apiSecret: { type: 'string', description: 'API secret for API-key providers' },
-    environment: { type: 'string', description: 'Paper or live environment' },
-    accountId: { type: 'string', description: 'Provider-specific account identifier' },
-    accountUrl: { type: 'string', description: 'Account resource URL (Robinhood)' },
-  },
+  inputs: buildInputsFromToolParams(tradingHoldingsTool.params),
   outputs: {
     summary: { type: 'string', description: 'Status of holdings retrieval' },
     provider: { type: 'string', description: 'Provider used' },

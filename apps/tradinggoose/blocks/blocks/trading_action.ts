@@ -1,7 +1,9 @@
 import { DollarIcon } from '@/components/icons'
 import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
+import { buildInputsFromToolParams } from '@/blocks/utils'
 import { getProviderFields, getTradingProviders } from '@/trading_providers'
+import { tradingActionTool } from '@/tools/trading'
 import type { TradingActionResponse } from '@/tools/trading/types'
 
 const providerOptions = getTradingProviders().map((provider) => ({
@@ -25,6 +27,28 @@ const providerFieldBlocks = (): SubBlockConfig[] => {
       canonicalParamId: field.id,
     }))
   )
+}
+
+const providerCredentialBlocks = (): SubBlockConfig[] => {
+  const providers = getTradingProviders()
+  return providers
+    .filter((provider) => provider.authType === 'oauth' && provider.oauth)
+    .map((provider) => {
+      const oauth = provider.oauth!
+      return {
+        id: `${provider.id}Credential`,
+        title: oauth.credentialTitle || `${provider.name} Account`,
+        type: 'oauth-input',
+        layout: 'full',
+        required: true,
+        provider: oauth.provider,
+        serviceId: oauth.serviceId || oauth.provider,
+        requiredScopes: oauth.scopes || [],
+        placeholder: oauth.credentialPlaceholder || `Select or connect ${provider.name} account`,
+        condition: { field: 'provider', value: provider.id },
+        canonicalParamId: 'credential',
+      }
+    })
 }
 
 export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
@@ -60,69 +84,9 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       placeholder: 'Select environment',
       required: false,
     },
-    // OAuth credential (Tradier)
-    {
-      id: 'tradierCredential',
-      title: 'Tradier Account',
-      type: 'oauth-input',
-      layout: 'full',
-      required: true,
-      provider: 'tradier',
-      serviceId: 'tradier',
-      requiredScopes: ['read', 'write', 'trade'],
-      placeholder: 'Select or connect Tradier account',
-      condition: { field: 'provider', value: 'tradier' },
-      canonicalParamId: 'credential',
-    },
-    // OAuth credential (Robinhood)
-    {
-      id: 'robinhoodCredential',
-      title: 'Robinhood Account',
-      type: 'oauth-input',
-      layout: 'full',
-      required: true,
-      provider: 'robinhood',
-      serviceId: 'robinhood',
-      requiredScopes: ['internal', 'read', 'trading'],
-      placeholder: 'Select or connect Robinhood account',
-      condition: { field: 'provider', value: 'robinhood' },
-      canonicalParamId: 'credential',
-    },
-    // OAuth credential (Alpaca)
-    {
-      id: 'alpacaCredential',
-      title: 'Alpaca Account',
-      type: 'oauth-input',
-      layout: 'full',
-      required: true,
-      provider: 'alpaca',
-      serviceId: 'alpaca',
-      requiredScopes: ['account:write', 'trading', 'data'],
-      placeholder: 'Select Alpaca account',
-      condition: { field: 'provider', value: 'alpaca' },
-      canonicalParamId: 'credential',
-    },
 
-    // API key auth (Alpaca)
-    // {
-    //   id: 'apiKey',
-    //   title: 'API Key',
-    //   type: 'short-input',
-    //   layout: 'half',
-    //   placeholder: 'APCA-API-KEY-ID',
-    //   condition: { field: 'provider', value: 'alpaca' },
-    //   required: true,
-    // },
-    // {
-    //   id: 'apiSecret',
-    //   title: 'API Secret',
-    //   type: 'short-input',
-    //   layout: 'half',
-    //   placeholder: 'APCA-API-SECRET-KEY',
-    //   condition: { field: 'provider', value: 'alpaca' },
-    //   required: true,
-    //   password: true,
-    // },
+    ...providerCredentialBlocks(),
+    
     {
       id: 'side',
       title: 'Action',
@@ -202,8 +166,17 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       tool: () => 'trading_place_order',
       params: (params) => {
         const provider = params.provider
-        const credential =
-          params.credential || params.tradierCredential || params.robinhoodCredential || params.alpacaCredential
+        const resolveCredential = () => {
+          if (params.credential) return params.credential
+          if (provider) {
+            const providerKey = `${provider}Credential`
+            if (params[providerKey] !== undefined) return params[providerKey]
+          }
+          return getTradingProviders()
+            .map((definition) => params[`${definition.id}Credential`])
+            .find((value) => value !== undefined)
+        }
+        const credential = resolveCredential()
         const extraFields = getProviderFields(provider, 'order').reduce((acc, field) => {
           const key = `${provider}_${field.id}`
           if (params[key] !== undefined) {
@@ -228,21 +201,9 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       },
     },
   },
-  inputs: {
-    provider: { type: 'string', description: 'Selected trading provider' },
-    credential: { type: 'string', description: 'OAuth credential identifier' },
-    environment: { type: 'string', description: 'Paper or live environment' },
-    side: { type: 'string', description: 'buy or sell' },
-    symbol: { type: 'string', description: 'Ticker symbol' },
-    quantity: { type: 'number', description: 'Share quantity' },
-    orderType: { type: 'string', description: 'Order type' },
-    timeInForce: { type: 'string', description: 'Time in force' },
-    limitPrice: { type: 'number', description: 'Limit price for applicable orders' },
-    stopPrice: { type: 'number', description: 'Stop price for applicable orders' },
-    accountId: { type: 'string', description: 'Provider-specific account identifier' },
-    accountUrl: { type: 'string', description: 'Account resource URL (Robinhood)' },
-    instrumentUrl: { type: 'string', description: 'Instrument resource URL (Robinhood orders)' },
-  },
+  inputs: buildInputsFromToolParams(tradingActionTool.params, {
+    include: ['credential'], // include hidden credential to allow wiring while keeping accessToken hidden
+  }),
   outputs: {
     summary: { type: 'string', description: 'Order submission status' },
     provider: { type: 'string', description: 'Provider used' },

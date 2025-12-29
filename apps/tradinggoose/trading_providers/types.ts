@@ -30,7 +30,10 @@ export interface TradingProviderDefinition {
   authType: TradingAuthType
   oauth?: {
     provider: OAuthService
+    serviceId?: OAuthService
     scopes?: string[]
+    credentialTitle?: string
+    credentialPlaceholder?: string
   }
   credentialFields?: Array<{
     id: string

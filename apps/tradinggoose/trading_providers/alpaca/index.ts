@@ -22,11 +22,12 @@ export const alpacaProvider: TradingProviderDefinition = {
   authType: 'oauth',
   oauth: {
     provider: 'alpaca',
+    serviceId: 'alpaca',
     scopes: ['account:write', 'trading', 'data'],
+    credentialTitle: 'Alpaca Account',
+    credentialPlaceholder: 'Select Alpaca account',
   },
-  credentialFields: [
-    
-  ],
+  credentialFields: [],
   defaults: {
     orderType: 'market',
     timeInForce: 'day',

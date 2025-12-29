@@ -7,7 +7,10 @@ export const tradierProvider: TradingProviderDefinition = {
   authType: 'oauth',
   oauth: {
     provider: 'tradier',
+    serviceId: 'tradier',
     scopes: ['read', 'write', 'trade'],
+    credentialTitle: 'Tradier Account',
+    credentialPlaceholder: 'Select or connect Tradier account',
   },
   fields: [
     {
