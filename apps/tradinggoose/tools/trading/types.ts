@@ -29,9 +29,11 @@ export interface TradingActionParams {
 export interface TradingHoldingsParams {
   provider: TradingProviderId
   environment?: 'paper' | 'live'
+  credential?: string
   accessToken?: string
-  apiKey?: string
-  apiSecret?: string
+  tradierCredential?: string
+  robinhoodCredential?: string
+  alpacaCredential?: string
   accountId?: string
   accountUrl?: string
 }

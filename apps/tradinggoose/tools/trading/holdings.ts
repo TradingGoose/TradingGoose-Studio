@@ -40,23 +40,35 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldi
       visibility: 'user-only',
       description: 'Trading environment for Alpaca (paper or live).',
     },
+    credential: {
+      type: 'string',
+      required: false,
+      visibility: 'hidden',
+      description: 'OAuth credential id for the selected broker (populated from selected account).',
+    },
+    tradierCredential: {
+      type: 'string',
+      required: false,
+      visibility: 'user-only',
+      description: 'Tradier OAuth credential id.',
+    },
+    robinhoodCredential: {
+      type: 'string',
+      required: false,
+      visibility: 'user-only',
+      description: 'Robinhood OAuth credential id.',
+    },
+    alpacaCredential: {
+      type: 'string',
+      required: false,
+      visibility: 'user-only',
+      description: 'Alpaca OAuth credential id.',
+    },
     accessToken: {
       type: 'string',
       required: false,
       visibility: 'hidden',
-      description: 'OAuth access token (Tradier/Robinhood).',
-    },
-    apiKey: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'API key (Alpaca).',
-    },
-    apiSecret: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'API secret (Alpaca).',
+      description: 'OAuth access token (injected from credential).',
     },
     accountId: {
       type: 'string',

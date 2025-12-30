@@ -31,6 +31,28 @@ const providerFieldBlocks = (): SubBlockConfig[] => {
   )
 }
 
+const providerCredentialBlocks = (): SubBlockConfig[] => {
+  const providers = getTradingProviders()
+  return providers
+    .filter((provider) => provider.authType === 'oauth' && provider.oauth)
+    .map((provider) => {
+      const oauth = provider.oauth!
+      return {
+        id: `${provider.id}Credential`,
+        title: oauth.credentialTitle || `${provider.name} Account`,
+        type: 'oauth-input',
+        layout: 'full',
+        required: true,
+        provider: oauth.provider,
+        serviceId: oauth.serviceId || oauth.provider,
+        requiredScopes: oauth.scopes || [],
+        placeholder: oauth.credentialPlaceholder || `Select or connect ${provider.name} account`,
+        condition: { field: 'provider', value: provider.id },
+        canonicalParamId: 'credential',
+      }
+    })
+}
+
 export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
   type: 'trading_holdings',
   name: 'Trading Holdings',
@@ -63,51 +85,7 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
       placeholder: 'Select environment',
       required: false,
     },
-    {
-      id: 'tradierCredential',
-      title: 'Tradier Account',
-      type: 'oauth-input',
-      layout: 'full',
-      required: true,
-      provider: 'tradier',
-      serviceId: 'tradier',
-      requiredScopes: ['read', 'write', 'trade'],
-      placeholder: 'Select or connect Tradier account',
-      condition: { field: 'provider', value: 'tradier' },
-      canonicalParamId: 'credential',
-    },
-    {
-      id: 'robinhoodCredential',
-      title: 'Robinhood Account',
-      type: 'oauth-input',
-      layout: 'full',
-      required: true,
-      provider: 'robinhood',
-      serviceId: 'robinhood',
-      requiredScopes: ['internal', 'read', 'trading'],
-      placeholder: 'Select or connect Robinhood account',
-      condition: { field: 'provider', value: 'robinhood' },
-      canonicalParamId: 'credential',
-    },
-    {
-      id: 'apiKey',
-      title: 'API Key',
-      type: 'short-input',
-      layout: 'half',
-      placeholder: 'APCA-API-KEY-ID',
-      condition: { field: 'provider', value: 'alpaca' },
-      required: true,
-    },
-    {
-      id: 'apiSecret',
-      title: 'API Secret',
-      type: 'short-input',
-      layout: 'half',
-      placeholder: 'APCA-API-SECRET-KEY',
-      condition: { field: 'provider', value: 'alpaca' },
-      required: true,
-      password: true,
-    },
+    ...providerCredentialBlocks(),
     ...providerFieldBlocks(),
   ],
   tools: {
@@ -116,8 +94,17 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
       tool: () => 'trading_get_holdings',
       params: (params) => {
         const provider = params.provider
-        const credential =
-          params.credential || params.tradierCredential || params.robinhoodCredential
+        const resolveCredential = () => {
+          if (params.credential) return params.credential
+          if (provider) {
+            const providerKey = `${provider}Credential`
+            if (params[providerKey] !== undefined) return params[providerKey]
+          }
+          return getTradingProviders()
+            .map((definition) => params[`${definition.id}Credential`])
+            .find((value) => value !== undefined)
+        }
+        const credential = resolveCredential()
         const extraFields = getProviderFields(provider, 'holdings').reduce((acc, field) => {
           const key = `${provider}_${field.id}`
           if (params[key] !== undefined) {
@@ -129,15 +116,15 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
         return {
           provider,
           credential,
-          apiKey: params.apiKey,
-          apiSecret: params.apiSecret,
           environment: params.environment,
           ...extraFields,
         }
       },
     },
   },
-  inputs: buildInputsFromToolParams(tradingHoldingsTool.params),
+  inputs: buildInputsFromToolParams(tradingHoldingsTool.params, {
+    include: ['credential'],
+  }),
   outputs: {
     summary: { type: 'string', description: 'Status of holdings retrieval' },
     provider: { type: 'string', description: 'Provider used' },
