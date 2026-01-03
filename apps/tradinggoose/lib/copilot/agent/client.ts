@@ -1,6 +1,6 @@
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
-import { COPILOT_API_URL_DEFAULT } from '@/lib/sim-agent/constants'
+import { COPILOT_API_URL_DEFAULT } from '@/lib/copilot/agent/constants'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('SimAgentClient')
@@ -27,7 +27,7 @@ class SimAgentClient {
   }
 
   /**
-   * Make a request to the sim-agent service
+   * Make a request to the copilot service
    */
   async makeRequest<T = any>(
     endpoint: string,
@@ -49,7 +49,7 @@ class SimAgentClient {
         ...headers,
       }
 
-      logger.info(`[${requestId}] Making request to sim-agent`, {
+      logger.info(`[${requestId}] Making request to copilot`, {
         url,
         method,
         hasBody: !!body,
@@ -131,14 +131,14 @@ class SimAgentClient {
   }
 
   /**
-   * Check if the sim-agent service is healthy
+   * Check if the copilot service is healthy
    */
   async healthCheck() {
     try {
       const response = await this.makeRequest('/health', { method: 'GET' })
       return response.success && response.data?.healthy === true
     } catch (error) {
-      logger.error('Sim-agent health check failed:', error)
+      logger.error('Copilot health check failed:', error)
       return false
     }
   }

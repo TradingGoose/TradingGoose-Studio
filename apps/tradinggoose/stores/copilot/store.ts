@@ -2090,7 +2090,7 @@ const createCopilotStoreInstance = () =>
       setAgentPrefetch: (prefetch) => set({ agentPrefetch: prefetch }),
       setEnabledModels: (models) => set({ enabledModels: models }),
 
-      // Fetch context usage from sim-agent API
+      // Fetch context usage from copilot API
       fetchContextUsage: async (options?: { bill?: boolean; assistantMessageId?: string }) => {
         try {
           const { bill = false, assistantMessageId } = options ?? {}
@@ -2126,7 +2126,7 @@ const createCopilotStoreInstance = () =>
 
           logger.info('[Context Usage] Calling API', requestPayload)
 
-          // Call the backend API route which proxies to sim-agent
+          // Call the backend API route which proxies to copilot
           const response = await fetch('/api/copilot/context-usage', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

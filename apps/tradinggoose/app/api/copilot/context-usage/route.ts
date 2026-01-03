@@ -11,7 +11,7 @@ import { isBillingEnabled } from '@/lib/environment'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { hasProcessedMessage, markMessageAsProcessed } from '@/lib/redis'
-import { COPILOT_API_URL_DEFAULT } from '@/lib/sim-agent/constants'
+import { COPILOT_API_URL_DEFAULT } from '@/lib/copilot/agent/constants'
 import { calculateCost } from '@/providers/ai/utils'
 import { checkInternalApiKey } from '@/lib/copilot/utils'
 
@@ -41,7 +41,7 @@ const ContextUsageRequestSchema = z.object({
 
 /**
  * POST /api/copilot/context-usage
- * Fetch context usage from sim-agent API
+ * Fetch context usage from copilot API
  */
 export async function POST(req: NextRequest) {
   try {
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Call sim-agent API
+    // Call copilot API
     const requestPayload = {
       chatId,
       model,
@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
       ...(providerConfig ? { provider: providerConfig } : {}),
     }
 
-    logger.info('[Context Usage API] Calling sim-agent', {
+    logger.info('[Context Usage API] Calling copilot', {
       url: `${COPILOT_API_URL}/api/get-context-usage`,
       payload: requestPayload,
     })
@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(requestPayload),
     })
 
-    logger.info('[Context Usage API] Sim-agent response', {
+    logger.info('[Context Usage API] Copilot response', {
       status: simAgentResponse.status,
       ok: simAgentResponse.ok,
     })
@@ -154,23 +154,23 @@ export async function POST(req: NextRequest) {
         error: errorText,
       })
       return NextResponse.json(
-        { error: 'Failed to fetch context usage from sim-agent' },
+        { error: 'Failed to fetch context usage from copilot' },
         { status: simAgentResponse.status }
       )
     }
 
     const data = await simAgentResponse.json()
-    logger.info('[Context Usage API] Sim-agent data received', data)
+    logger.info('[Context Usage API] Copilot data received', data)
 
     if (bill && assistantMessageId && isBillingEnabled) {
       try {
-          await billCopilotUsage({
-            userId,
-            assistantMessageId,
-            usage: data,
-            billingModel: billingModel || model,
-            remoteModel: data?.model,
-          })
+        await billCopilotUsage({
+          userId,
+          assistantMessageId,
+          usage: data,
+          billingModel: billingModel || model,
+          remoteModel: data?.model,
+        })
       } catch (billingError) {
         logger.error('Failed to bill copilot usage from context usage API', {
           error: billingError,

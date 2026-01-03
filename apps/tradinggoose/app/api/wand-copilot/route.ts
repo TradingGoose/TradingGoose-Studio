@@ -4,7 +4,7 @@ import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getSession } from '@/lib/auth'
 import { encodeSSE, SSE_HEADERS } from '@/lib/utils'
-import { COPILOT_API_URL_DEFAULT } from '@/lib/sim-agent/constants'
+import { COPILOT_API_URL_DEFAULT } from '@/lib/copilot/agent/constants'
 
 const logger = createLogger('WandCopilot')
 const COPILOT_API_URL = env.COPILOT_API_URL || COPILOT_API_URL_DEFAULT

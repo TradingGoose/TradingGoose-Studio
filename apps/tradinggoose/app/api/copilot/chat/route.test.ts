@@ -105,7 +105,7 @@ describe('Copilot Chat API Route', () => {
     vi.doMock('@/lib/env', () => ({
       env: {
         COPILOT_API_URL: 'http://localhost:8000',
-        COPILOT_API_KEY: 'test-sim-agent-key',
+        COPILOT_API_KEY: 'test-copilot-key',
         BETTER_AUTH_URL: 'http://localhost:3000',
       },
     }))
@@ -211,7 +211,7 @@ describe('Copilot Chat API Route', () => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-api-key': 'test-sim-agent-key',
+            'x-api-key': 'test-copilot-key',
           },
           body: JSON.stringify({
             message: 'Hello',

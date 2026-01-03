@@ -90,8 +90,8 @@ interface UserInputProps {
   isAborting?: boolean
   placeholder?: string
   className?: string
-  mode?: 'ask' | 'agent'
-  onModeChange?: (mode: 'ask' | 'agent') => void
+  mode?: 'ask' | 'build'
+  onModeChange?: (mode: 'ask' | 'build') => void
   value?: string // Controlled value from outside
   onChange?: (value: string) => void // Callback when value changes
   panelWidth?: number // Panel width to adjust truncation
@@ -113,7 +113,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       isAborting = false,
       placeholder,
       className,
-      mode = 'agent',
+      mode = 'build',
       onModeChange,
       value: controlledValue,
       onChange: onControlledChange,
@@ -1721,8 +1721,8 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
 
     const handleModeToggle = () => {
       if (onModeChange) {
-        // Toggle between Ask and Agent
-        onModeChange(mode === 'ask' ? 'agent' : 'ask')
+        // Toggle between Ask and Build modes
+        onModeChange(mode === 'ask' ? 'build' : 'ask')
       }
     }
 
@@ -1737,7 +1737,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       if (mode === 'ask') {
         return 'Ask'
       }
-      return 'Agent'
+      return 'Build'
     }
 
     // Model selection state comes from global store; access via useCopilotStore
@@ -3227,7 +3227,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
 
           {/* Bottom Row: Mode Selector + Attach Button + Send Button */}
           <div className='flex items-center justify-between'>
-            {/* Left side: Mode Selector and Depth (if Agent) */}
+            {/* Left side: Mode Selector and Depth (if Build) */}
             <div className='flex items-center gap-1.5'>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -3277,17 +3277,17 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <DropdownMenuItem
-                            onSelect={() => onModeChange?.('agent')}
+                            onSelect={() => onModeChange?.('build')}
                             className={cn(
                               'flex items-center justify-between rounded-sm px-2 py-1.5 text-xs leading-4',
-                              mode === 'agent' && 'bg-muted/40'
+                              mode === 'build' && 'bg-muted/40'
                             )}
                           >
                             <span className='flex items-center gap-1.5'>
                               <Package className='h-3 w-3 text-muted-foreground' />
-                              Agent
+                              Build
                             </span>
-                            {mode === 'agent' && (
+                            {mode === 'build' && (
                               <Check className='h-3 w-3 text-muted-foreground' />
                             )}
                           </DropdownMenuItem>
@@ -3298,7 +3298,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                           align='center'
                           className='max-w-[220px] border bg-popover p-2 text-[11px] text-popover-foreground leading-snug shadow-md'
                         >
-                          Agent mode can build, edit, and interact with your workflows (Recommended)
+                          Build mode can build, edit, and interact with your workflows (Recommended)
                         </TooltipContent>
                       </Tooltip>
                     </div>
