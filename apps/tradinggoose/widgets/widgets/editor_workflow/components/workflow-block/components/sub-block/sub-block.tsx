@@ -22,6 +22,7 @@ import {
   InputMapping,
   KnowledgeBaseSelector,
   LongInput,
+  MarketSelectorInput,
   McpDynamicArgs,
   McpServerSelector,
   McpToolSelector,
@@ -242,6 +243,17 @@ export const SubBlock = memo(
               previewValue={previewValue}
               disabled={allowExpandInPreview ? false : isDisabled}
               allowExpandInPreview={allowExpandInPreview}
+            />
+          )
+        case 'market-selector':
+          return (
+            <MarketSelectorInput
+              blockId={blockId}
+              subBlockId={config.id}
+              isPreview={isPreview}
+              previewValue={previewValue as string | null | undefined}
+              disabled={isDisabled}
+              config={config}
             />
           )
         case 'checkbox-list':
@@ -553,6 +565,8 @@ export const SubBlock = memo(
 
     const required = isFieldRequired()
 
+    const showLabel = config.type !== 'switch' && config.type !== 'market-selector'
+
     return (
       <div
         className={cn(
@@ -563,7 +577,7 @@ export const SubBlock = memo(
         )}
         onMouseDown={handleMouseDown}
       >
-        {config.type !== 'switch' && (
+        {showLabel && (
           <Label className='flex items-center gap-1'>
             {config.title}
             {required && (

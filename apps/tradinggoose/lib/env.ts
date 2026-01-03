@@ -34,6 +34,10 @@ export const env = createEnv({
     AGENT_INDEXER_URL: z.string().url().optional(),            // URL for agent training data indexer
     AGENT_INDEXER_API_KEY: z.string().min(1).optional(),           // API key for agent indexer authentication
 
+    // Market
+    MARKET_API_KEY: z.string().min(1).optional(),           // API key for TradingGoose-Market
+    MARKET_API_URL: z.string().url().optional(),            // URL for TradingGoose-Market
+
     // Database & Storage
     REDIS_URL: z.string().url().optional(),            // Redis connection string for caching/sessions
 

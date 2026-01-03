@@ -16,6 +16,7 @@ import {
   FileSelectorInput,
   FileUpload,
   LongInput,
+  MarketSelectorInput,
   ProjectSelectorInput,
   ShortInput,
   SliderInput,
@@ -1126,6 +1127,25 @@ export function ToolInput({
           />
         )
 
+      case 'market-selector':
+        return (
+          <MarketSelectorInput
+            blockId={blockId}
+            subBlockId={uniqueSubBlockId}
+            isPreview={isPreview}
+            previewValue={value}
+            value={value}
+            onChange={(listingId) => onChange(listingId ?? '')}
+            disabled={disabled}
+            config={{
+              id: uniqueSubBlockId,
+              type: 'market-selector',
+              options: uiComponent.options,
+              required: param.required,
+            }}
+          />
+        )
+
       case 'channel-selector':
         return (
           <ChannelSelectorSyncWrapper
@@ -1655,19 +1675,22 @@ export function ToolInput({
 
                         // Render standalone parameters
                         standaloneParams.forEach((param) => {
+                          const hideLabel = param.uiComponent?.type === 'market-selector'
                           renderedElements.push(
                             <div key={param.id} className='relative min-w-0 space-y-1.5'>
-                              <div className='flex items-center font-medium text-muted-foreground text-xs'>
-                                {param.uiComponent?.title || formatParameterLabel(param.id)}
-                                {param.required && param.visibility === 'user-only' && (
-                                  <span className='ml-1 text-red-500'>*</span>
-                                )}
-                                {(!param.required || param.visibility !== 'user-only') && (
-                                  <span className='ml-1 text-muted-foreground/60 text-xs'>
-                                    (Optional)
-                                  </span>
-                                )}
-                              </div>
+                              {!hideLabel && (
+                                <div className='flex items-center font-medium text-muted-foreground text-xs'>
+                                  {param.uiComponent?.title || formatParameterLabel(param.id)}
+                                  {param.required && param.visibility === 'user-only' && (
+                                    <span className='ml-1 text-red-500'>*</span>
+                                  )}
+                                  {(!param.required || param.visibility !== 'user-only') && (
+                                    <span className='ml-1 text-muted-foreground/60 text-xs'>
+                                      (Optional)
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                               <div className='relative w-full min-w-0'>
                                 {param.uiComponent ? (
                                   renderParameterInput(
