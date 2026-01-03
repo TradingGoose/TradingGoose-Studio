@@ -92,6 +92,7 @@ export { Progress } from './progress'
 export { RadioGroup, RadioGroupItem } from './radio-group'
 export { ScrollArea, ScrollBar } from './scroll-area'
 export { SearchHighlight } from './search-highlight'
+export { SearchableDropdown } from './searchable-dropdown'
 export {
   Select,
   SelectContent,

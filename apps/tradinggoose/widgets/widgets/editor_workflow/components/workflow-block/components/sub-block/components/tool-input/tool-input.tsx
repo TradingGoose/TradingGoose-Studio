@@ -1029,7 +1029,7 @@ export function ToolInput({
     value: string,
     onChange: (value: string) => void,
     toolIndex?: number,
-    currentToolParams?: Record<string, string>
+    currentToolParams?: Record<string, any>
   ) => {
     // Create unique subBlockId for tool parameters to avoid conflicts
     // Use real blockId so tag dropdown and drag-drop work correctly
@@ -1072,6 +1072,13 @@ export function ToolInput({
             valueOverride={value}
             onChange={onChange}
             disabled={disabled}
+            config={{
+              id: `${subBlockId}-param-${param.id}`,
+              type: 'dropdown',
+              dependsOn: uiComponent.dependsOn,
+              fetchOptions: uiComponent.fetchOptions,
+            }}
+            previewContextValues={currentToolParams}
           />
         )
 
@@ -1668,7 +1675,10 @@ export function ToolInput({
                                     tool.params[param.id] || '',
                                     (value) => handleParamChange(toolIndex, param.id, value),
                                     toolIndex,
-                                    tool.params
+                                    {
+                                      ...tool.params,
+                                      ...(tool.operation ? { operation: tool.operation } : {}),
+                                    }
                                   )
                                 ) : (
                                   <ShortInput

@@ -37,6 +37,12 @@ export interface UIComponentConfig {
   acceptedTypes?: string[]
   multiple?: boolean
   maxSize?: number
+  dependsOn?: string[]
+  fetchOptions?: (
+    blockId: string,
+    subBlockId: string,
+    contextValues?: Record<string, any>
+  ) => Promise<Array<{ label: string; id: string }>>
 }
 
 export interface SubBlockConfig {
@@ -63,6 +69,12 @@ export interface SubBlockConfig {
   acceptedTypes?: string[]
   multiple?: boolean
   maxSize?: number
+  dependsOn?: string[]
+  fetchOptions?: (
+    blockId: string,
+    subBlockId: string,
+    contextValues?: Record<string, any>
+  ) => Promise<Array<{ label: string; id: string }>>
 }
 
 export interface BlockConfig {
@@ -239,6 +251,8 @@ export function getToolParametersConfig(
               acceptedTypes: subBlock.acceptedTypes,
               multiple: subBlock.multiple,
               maxSize: subBlock.maxSize,
+              dependsOn: subBlock.dependsOn,
+              fetchOptions: subBlock.fetchOptions,
             }
           }
         }

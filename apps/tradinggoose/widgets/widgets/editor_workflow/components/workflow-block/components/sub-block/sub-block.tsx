@@ -81,6 +81,10 @@ export const SubBlock = memo(
       return config.required === true
     }
 
+    if (config.hidden) {
+      return null
+    }
+
     // Get preview value for this specific sub-block
     const getPreviewValue = () => {
       if (!isPreview || !subBlockValues) return undefined
@@ -130,6 +134,8 @@ export const SubBlock = memo(
                 options={config.options as { label: string; id: string }[]}
                 defaultValue={typeof config.value === 'function' ? config.value({}) : config.value}
                 placeholder={config.placeholder}
+                enableSearch={config.enableSearch}
+                searchPlaceholder={config.searchPlaceholder}
                 isPreview={isPreview}
                 previewValue={previewValue}
                 disabled={isDisabled}

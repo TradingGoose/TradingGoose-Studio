@@ -137,12 +137,20 @@ export interface SubBlockConfig {
     icon?: React.ComponentType<{ className?: string }>
     group?: string
   }[])
+  // Async options loader for dropdown/combobox-like inputs
+  fetchOptions?: (
+    blockId: string,
+    subBlockId: string,
+    contextValues?: Record<string, any>
+  ) => Promise<Array<{ label: string; id: string }>>
   optionsStore?: 'marketProviders'
   min?: number
   max?: number
   columns?: string[]
   placeholder?: string
   password?: boolean
+  enableSearch?: boolean
+  searchPlaceholder?: string
   connectionDroppable?: boolean
   hidden?: boolean
   description?: string
