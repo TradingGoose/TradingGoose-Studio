@@ -91,9 +91,8 @@
     --muted-foreground: 240 4.237% 46.275%;
 
     /* Accent Colors */
-    --accent: 240 4.762% 95.882%;
+    --accent: 240 4.762% 93.382%;
     --accent-foreground: 240 5.882% 10%;
-    --accent-hover: 240 4.762% 90.882%;
 
     /* Destructive Colors */
     --destructive: 357.143 100% 45.294%;
@@ -170,9 +169,8 @@
     --muted-foreground: 240 5.495% 64.314%;
 
     /* Accent Colors */
-    --accent: 240 3.704% 15.882%;
+    --accent: 240 3.704% 13.282%;
     --accent-foreground: 0 0% 98.039%;
-    --accent-hover: 240 3.704% 10.882%;
 
     /* Destructive Colors */
     --destructive: 358.839 100% 69.608%;
