@@ -51,6 +51,7 @@ export type SubBlockType =
   | 'condition-input' // Conditional logic
   | 'eval-input' // Evaluation input
   | 'time-input' // Time input
+  | 'datetime-input' // Date + time input
   | 'oauth-input' // OAuth credential selector
   | 'webhook-config' // Webhook configuration
   | 'trigger-config' // Trigger configuration
@@ -149,6 +150,18 @@ export interface SubBlockConfig {
   max?: number
   columns?: string[]
   placeholder?: string
+  timezone?: string
+  clearable?: boolean
+  hideCalendarIcon?: boolean
+  minDate?: string | Date
+  maxDate?: string | Date
+  hideTime?: boolean
+  use12HourFormat?: boolean
+  timePicker?: {
+    hour?: boolean
+    minute?: boolean
+    second?: boolean
+  }
   password?: boolean
   enableSearch?: boolean
   searchPlaceholder?: string

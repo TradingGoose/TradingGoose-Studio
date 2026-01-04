@@ -12,6 +12,7 @@ import {
   CheckboxList,
   Code,
   ComboBox,
+  DateTimeInputField,
   Dropdown,
   FileSelectorInput,
   FileUpload,
@@ -201,6 +202,46 @@ function TimeInputSyncWrapper({
     </GenericSyncWrapper>
   )
 }
+
+function DateTimeInputSyncWrapper({
+  blockId,
+  paramId,
+  value,
+  onChange,
+  uiComponent,
+  disabled,
+}: {
+  blockId: string
+  paramId: string
+  value: string
+  onChange: (value: string) => void
+  uiComponent: any
+  disabled: boolean
+}) {
+  return (
+    <GenericSyncWrapper blockId={blockId} paramId={paramId} value={value} onChange={onChange}>
+      <DateTimeInputField
+        blockId={blockId}
+        subBlockId={paramId}
+        disabled={disabled}
+        config={{
+          id: paramId,
+          type: 'datetime-input',
+          timezone: uiComponent.timezone,
+          clearable: uiComponent.clearable,
+          hideCalendarIcon: uiComponent.hideCalendarIcon,
+          minDate: uiComponent.minDate,
+          maxDate: uiComponent.maxDate,
+          hideTime: uiComponent.hideTime,
+          use12HourFormat: uiComponent.use12HourFormat,
+          timePicker: uiComponent.timePicker,
+          placeholder: uiComponent.placeholder,
+        }}
+      />
+    </GenericSyncWrapper>
+  )
+}
+
 
 function SliderInputSyncWrapper({
   blockId,
@@ -1275,6 +1316,19 @@ export function ToolInput({
             disabled={disabled}
           />
         )
+
+      case 'datetime-input':
+        return (
+          <DateTimeInputSyncWrapper
+            blockId={blockId}
+            paramId={param.id}
+            value={value}
+            onChange={onChange}
+            uiComponent={uiComponent}
+            disabled={disabled}
+          />
+        )
+
 
       case 'file-upload':
         return (

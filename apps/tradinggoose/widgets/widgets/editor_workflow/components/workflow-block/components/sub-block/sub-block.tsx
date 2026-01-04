@@ -11,6 +11,7 @@ import {
   ComboBox,
   ConditionInput,
   CredentialSelector,
+  DateTimeInputField,
   DocumentSelector,
   Dropdown,
   EvalInput,
@@ -313,6 +314,17 @@ export const SubBlock = memo(
               isPreview={isPreview}
               previewValue={previewValue}
               disabled={isDisabled}
+            />
+          )
+        case 'datetime-input':
+          return (
+            <DateTimeInputField
+              blockId={blockId}
+              subBlockId={config.id}
+              isPreview={isPreview}
+              previewValue={previewValue as string | null}
+              disabled={isDisabled}
+              config={config}
             />
           )
         case 'file-upload':

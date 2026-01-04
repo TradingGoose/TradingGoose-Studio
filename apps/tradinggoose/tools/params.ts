@@ -32,6 +32,18 @@ export interface UIComponentConfig {
   max?: number
   step?: number
   integer?: boolean
+  timezone?: string
+  clearable?: boolean
+  hideCalendarIcon?: boolean
+  minDate?: string | Date
+  maxDate?: string | Date
+  hideTime?: boolean
+  use12HourFormat?: boolean
+  timePicker?: {
+    hour?: boolean
+    minute?: boolean
+    second?: boolean
+  }
   language?: string
   generationType?: string
   acceptedTypes?: string[]
@@ -64,6 +76,18 @@ export interface SubBlockConfig {
   max?: number
   step?: number
   integer?: boolean
+  timezone?: string
+  clearable?: boolean
+  hideCalendarIcon?: boolean
+  minDate?: string | Date
+  maxDate?: string | Date
+  hideTime?: boolean
+  use12HourFormat?: boolean
+  timePicker?: {
+    hour?: boolean
+    minute?: boolean
+    second?: boolean
+  }
   language?: string
   generationType?: string
   acceptedTypes?: string[]
@@ -246,6 +270,10 @@ export function getToolParametersConfig(
               max: subBlock.max,
               step: subBlock.step,
               integer: subBlock.integer,
+              format: subBlock.format,
+              timezone: subBlock.timezone,
+              clearable: subBlock.clearable,
+              hideCalendarIcon: subBlock.hideCalendarIcon,
               language: subBlock.language,
               generationType: subBlock.generationType,
               acceptedTypes: subBlock.acceptedTypes,
