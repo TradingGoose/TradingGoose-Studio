@@ -6,6 +6,8 @@ import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/w
 import type { SubBlockConfig } from '@/blocks/types'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
 
 interface DropdownProps {
   options:
@@ -89,7 +91,13 @@ export function Dropdown({
     dependsOn: [],
   }
 
-  const activeWorkflowId = useWorkflowRegistry((state) => state.activeWorkflowId)
+  const routeContext = useOptionalWorkflowRoute()
+  const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
+  const activeWorkflowId = useWorkflowRegistry((state) =>
+    typeof state.getActiveWorkflowId === 'function'
+      ? state.getActiveWorkflowId(resolvedChannelId)
+      : state.activeWorkflowId
+  )
   const blockContextValues = useSubBlockStore((state) => {
     if (!activeWorkflowId) return undefined
     return (state.workflowValues[activeWorkflowId] as Record<string, any> | undefined)?.[blockId]
@@ -199,12 +207,13 @@ export function Dropdown({
     if (
       useStore &&
       storeInitialized &&
-      (value === null || value === undefined) &&
+      (value === null || value === undefined || value === '') &&
+      activeWorkflowId &&
       defaultOptionValue !== undefined
     ) {
       setStoreValue(defaultOptionValue)
     }
-  }, [useStore, storeInitialized, value, defaultOptionValue, setStoreValue])
+  }, [useStore, storeInitialized, value, defaultOptionValue, setStoreValue, activeWorkflowId])
 
   useEffect(() => {
     if (fetchOptions && dependsOn.length > 0) {

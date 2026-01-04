@@ -4,6 +4,8 @@ import { useMemo } from 'react'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
 
 /**
  * Centralized dependsOn gating for sub-block components.
@@ -19,7 +21,13 @@ export function useDependsOnGate(
   const isPreview = opts?.isPreview ?? false
   const previewContextValues = opts?.previewContextValues
 
-  const activeWorkflowId = useWorkflowRegistry((s) => s.activeWorkflowId)
+  const routeContext = useOptionalWorkflowRoute()
+  const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
+  const activeWorkflowId = useWorkflowRegistry((state) =>
+    typeof state.getActiveWorkflowId === 'function'
+      ? state.getActiveWorkflowId(resolvedChannelId)
+      : state.activeWorkflowId
+  )
 
   // Use only explicit dependsOn from block config. No inference.
   const dependsOn: string[] = (subBlock.dependsOn as string[] | undefined) || []
