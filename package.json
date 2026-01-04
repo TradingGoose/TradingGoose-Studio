@@ -43,6 +43,7 @@
     "drizzle-orm": "^0.44.5",
     "mongodb": "6.19.0",
     "postgres": "^3.4.5",
+    "react-day-picker": "^9",
     "remark-gfm": "4.0.1",
     "socket.io-client": "4.8.1",
     "twilio": "5.9.0"
