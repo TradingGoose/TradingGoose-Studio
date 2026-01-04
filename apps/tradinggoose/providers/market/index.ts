@@ -2,14 +2,14 @@ import { createLogger } from '@/lib/logs/console/logger'
 import type { MarketProviderRequest, MarketProviderResponse } from '@/providers/market/providers'
 import { alpacaProvider } from '@/providers/market/alpaca'
 import { finnhubProvider } from '@/providers/market/finnhub'
-import { yfinanceProvider } from '@/providers/market/yahoo-finance'
+import { YahooFinanceProvider } from '@/providers/market/yahoo-finance'
 
 const logger = createLogger('MarketProviders')
 
 const providers = {
   alpaca: alpacaProvider,
   finnhub: finnhubProvider,
-  'yahoo-finance': yfinanceProvider,
+  'yahoo-finance': YahooFinanceProvider,
 }
 
 export function getProvider(providerId: string) {
@@ -26,39 +26,38 @@ export async function executeProviderRequest(
     throw new Error(`Market provider not found: ${providerId}`)
   }
 
-  const supportsKind = provider.config.availability.some((entry) => {
-    if (request.kind === 'series') return entry.series
-    if (request.kind === 'news') return entry.news
-    return entry.sentiments
-  })
+  const availability = provider.config.availability
+  const supportsKind = availability[request.kind] ?? false
 
   if (!supportsKind) {
     throw new Error(`Provider ${providerId} does not support ${request.kind}`)
   }
 
-  if (request.kind === 'series') {
-    if (!provider.fetchMarketSeries) {
-      throw new Error(`Provider ${providerId} does not support market series`)
+  switch (request.kind) {
+    case 'series': {
+      if (!provider.fetchMarketSeries) {
+        throw new Error(`Provider ${providerId} does not support market series`)
+      }
+      return provider.fetchMarketSeries(request)
     }
-    return provider.fetchMarketSeries(request)
-  }
-
-  if (request.kind === 'news') {
-    if (!provider.fetchNews) {
-      throw new Error(`Provider ${providerId} does not support news`)
+    case 'news': {
+      if (!provider.fetchNews) {
+        throw new Error(`Provider ${providerId} does not support news`)
+      }
+      return provider.fetchNews(request)
     }
-    return provider.fetchNews(request)
-  }
-
-  if (request.kind === 'sentiments') {
-    if (!provider.fetchSentiments) {
-      throw new Error(`Provider ${providerId} does not support sentiments`)
+    case 'sentiments': {
+      if (!provider.fetchSentiments) {
+        throw new Error(`Provider ${providerId} does not support sentiments`)
+      }
+      return provider.fetchSentiments(request)
     }
-    return provider.fetchSentiments(request)
+    default: {
+      const kind = (request as { kind?: string }).kind ?? 'unknown'
+      logger.warn('Unknown market request kind', { providerId, kind })
+      throw new Error(`Unsupported market request kind: ${kind}`)
+    }
   }
-
-  logger.warn('Unknown market request kind', { providerId, kind: request.kind })
-  throw new Error(`Unsupported market request kind: ${request.kind}`)
 }
 
 export * from './providers'

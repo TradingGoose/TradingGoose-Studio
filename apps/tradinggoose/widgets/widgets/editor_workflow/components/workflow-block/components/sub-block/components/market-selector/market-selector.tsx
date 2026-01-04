@@ -77,7 +77,6 @@ export function MarketSelectorInput({
       instanceId={instanceId}
       disabled={disabled || isPreview}
       listingRequired={config?.required === true}
-      currencyRequired={config?.required === true}
       onListingChange={(listingId) => {
         if (isPreview || disabled) return
         if (onChange) {

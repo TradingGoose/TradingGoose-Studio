@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input'
 import { SearchableDropdown } from '@/components/ui/searchable-dropdown'
 import { useDebounce } from '@/hooks/use-debounce'
 import { cn } from '@/lib/utils'
+import { getMarketProviderConfig } from '@/providers/market/providers'
 import {
   createEmptyMarketSelectorInstance,
   useMarketSelectorStore,
@@ -26,7 +27,6 @@ export interface MarketSelectorComboProps {
   disabled?: boolean
   onListingChange?: (listingId: string | undefined, listing?: ListingOption | null) => void
   listingRequired?: boolean
-  currencyRequired?: boolean
 }
 
 function getListingPrimary(listing: ListingOption): string {
@@ -46,6 +46,26 @@ function getListingFallback(listing: ListingOption): string {
   return base.slice(0, 2).toUpperCase()
 }
 
+function getFlagData(
+  countryCode?: string | null
+): { emoji: string; codepoints: string } | null {
+  if (!countryCode) return null
+  const code = countryCode.trim().toUpperCase()
+  if (code.length !== 2) return null
+  const flagOffset = 0x1f1e6
+  const asciiOffset = 0x41
+  const first = code.codePointAt(0)
+  const second = code.codePointAt(1)
+  if (first == null || second == null) return null
+  if (first < asciiOffset || first > asciiOffset + 25) return null
+  if (second < asciiOffset || second > asciiOffset + 25) return null
+  const firstChar = first - asciiOffset + flagOffset
+  const secondChar = second - asciiOffset + flagOffset
+  const emoji = String.fromCodePoint(firstChar, secondChar)
+  const codepoints = `${firstChar.toString(16)}-${secondChar.toString(16)}`
+  return { emoji, codepoints }
+}
+
 export interface StockSelectorProps {
   instanceId: string
   disabled?: boolean
@@ -57,6 +77,7 @@ export interface CurrencySelectorProps {
   instanceId: string
   disabled?: boolean
   className?: string
+  onCurrencyChange?: (currencyId: string | undefined, currency?: CurrencyOption | null) => void
 }
 
 async function fetchCurrencies(
@@ -102,7 +123,72 @@ function mergeListings(primary: ListingOption[], secondary: ListingOption[], lim
   return Array.from(merged.values()).slice(0, limit)
 }
 
-export function CurrencySelector({ instanceId, disabled, className }: CurrencySelectorProps) {
+function mergeListingGroups(listGroups: ListingOption[][], limit: number) {
+  const merged = new Map<string, ListingOption>()
+  listGroups.forEach((group) => {
+    group.forEach((item) => {
+      if (!merged.has(item.id)) merged.set(item.id, item)
+    })
+  })
+  return Array.from(merged.values()).slice(0, limit)
+}
+
+function rankListingsByQuery(listings: ListingOption[], query: string) {
+  if (!query) return listings
+  const queryLower = query.toLowerCase()
+  return listings
+    .map((listing, index) => {
+      const base = listing.base?.toLowerCase() ?? ''
+      const name = listing.name?.toLowerCase() ?? ''
+      let score = 4
+      if (base === queryLower) {
+        score = 0
+      } else if (name === queryLower) {
+        score = 1
+      } else if (base.startsWith(queryLower)) {
+        score = 2
+      } else if (name.startsWith(queryLower)) {
+        score = 3
+      } else if (base.includes(queryLower)) {
+        score = 4
+      } else if (name.includes(queryLower)) {
+        score = 5
+      }
+      return { listing, score, index }
+    })
+    .sort((a, b) => (a.score !== b.score ? a.score - b.score : a.index - b.index))
+    .map((entry) => entry.listing)
+}
+
+function triggerListingRankUpdate(listingId: string) {
+  if (!listingId) return
+  const query = new URLSearchParams({ listing_id: listingId })
+  void fetch(`/api/market/update/listing-rank?${query.toString()}`, {
+    method: 'POST',
+  }).catch(() => {
+    // Best-effort update; ignore failures to avoid blocking selection.
+  })
+}
+
+function serializeArrayParam(values: string[]): string {
+  return `[${values.join(',')}]`
+}
+
+function uniqueStrings(values: Array<string | undefined | null>): string[] {
+  const unique = new Set<string>()
+  values.forEach((value) => {
+    if (!value) return
+    unique.add(value)
+  })
+  return Array.from(unique.values())
+}
+
+export function CurrencySelector({
+  instanceId,
+  disabled,
+  className,
+  onCurrencyChange,
+}: CurrencySelectorProps) {
   const ensureInstance = useMarketSelectorStore((state) => state.ensureInstance)
   const updateInstance = useMarketSelectorStore((state) => state.updateInstance)
   const instance = useMarketSelectorStore((state) => state.instances[instanceId])
@@ -189,6 +275,7 @@ export function CurrencySelector({ instanceId, disabled, className }: CurrencySe
       selectedListingId: undefined,
       selectedListing: null,
     })
+    onCurrencyChange?.(selected.id, selected)
   }
 
   const currencyOptions = useMemo(
@@ -256,8 +343,8 @@ export function StockSelector({
     selectedListingId,
     selectedListing,
     assetClass,
-    currencyId,
     micCode,
+    providerId,
   } = safeInstance
 
   const debouncedQuery = useDebounce(query, 400)
@@ -265,29 +352,67 @@ export function StockSelector({
   const abortRef = useRef<AbortController | null>(null)
   const [open, setOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const providerConfig = useMemo(
+    () => (providerId ? getMarketProviderConfig(providerId) : null),
+    [providerId]
+  )
+  const providerCurrencyCodes = useMemo(() => {
+    const currency = providerConfig?.availability.currency ?? []
+    return uniqueStrings(currency)
+  }, [providerConfig])
+  const providerAssetClasses = useMemo(() => {
+    const assetClasses = providerConfig?.availability.assetClass ?? []
+    return uniqueStrings(assetClasses)
+  }, [providerConfig])
+  const providerMicCodes = useMemo(() => {
+    const map = providerConfig?.exchangeCodeToMic ?? {}
+    const codes = Object.values(map).flat()
+    return uniqueStrings(codes)
+  }, [providerConfig])
 
   useEffect(() => {
-    const trimmed = debouncedQuery.trim()
-    if (!trimmed) {
-      updateInstance(instanceId, { results: [], isLoading: false, error: undefined })
+    const rawQuery = debouncedQuery
+    const trimmed = rawQuery.trim()
+    if (!open) {
+      if (!trimmed) {
+        updateInstance(instanceId, { results: [], isLoading: false, error: undefined })
+      }
       return
     }
 
     const filters: Record<string, string> = {
-      listing_base: trimmed,
       limit: '50',
     }
-    if (assetClass) filters.asset_class = assetClass
-    if (currencyId) filters.currency_id = currencyId
-    if (micCode) filters.mic_code = micCode
-
-    const nameFilters = {
-      ...filters,
-      listing_name: trimmed,
+    const resolvedAssetClasses = providerAssetClasses.length
+      ? providerAssetClasses
+      : assetClass
+        ? [assetClass]
+        : []
+    if (resolvedAssetClasses.length) {
+      filters.asset_class = serializeArrayParam(resolvedAssetClasses)
     }
-    delete (nameFilters as Record<string, string>).listing_base
 
-    const requestKey = JSON.stringify({ trimmed, assetClass, currencyId, micCode })
+    const resolvedMicCodes = providerMicCodes.length
+      ? providerMicCodes
+      : micCode
+        ? [micCode]
+        : []
+    if (resolvedMicCodes.length) {
+      filters.mic_code = serializeArrayParam(resolvedMicCodes)
+    }
+
+    if (providerCurrencyCodes.length) {
+      filters.currency_code = serializeArrayParam(providerCurrencyCodes)
+    }
+
+    const requestKey = JSON.stringify({
+      trimmed,
+      rawQuery,
+      providerId,
+      assetClasses: resolvedAssetClasses,
+      micCodes: resolvedMicCodes,
+      currencyCodes: providerCurrencyCodes,
+    })
     requestKeyRef.current = requestKey
 
     if (abortRef.current) {
@@ -298,22 +423,34 @@ export function StockSelector({
 
     updateInstance(instanceId, { isLoading: true, error: undefined })
 
-    Promise.allSettled([
-      fetchListings(filters, controller.signal),
-      fetchListings(nameFilters, controller.signal),
-    ])
+    const requests: Array<Promise<ListingOption[]>> = []
+    if (!trimmed) {
+      requests.push(fetchListings(filters, controller.signal))
+    } else {
+      requests.push(fetchListings({ ...filters, listing_name: rawQuery }, controller.signal))
+      requests.push(fetchListings({ ...filters, listing_base: rawQuery }, controller.signal))
+    }
+
+    Promise.allSettled(requests)
       .then((responses) => {
         if (requestKeyRef.current !== requestKey || controller.signal.aborted) return
 
-        const baseResponse = responses[0]
-        const nameResponse = responses[1]
-        const baseResults = baseResponse.status === 'fulfilled' ? baseResponse.value : []
-        const nameResults = nameResponse.status === 'fulfilled' ? nameResponse.value : []
-        const merged = mergeListings(baseResults, nameResults, 50)
+        const successfulGroups = responses
+          .filter((response): response is PromiseFulfilledResult<ListingOption[]> =>
+            response.status === 'fulfilled'
+          )
+          .map((response) => response.value)
+        const merged = rankListingsByQuery(
+          mergeListingGroups(successfulGroups, 50),
+          rawQuery
+        )
 
         let errorMessage: string | undefined
-        if (baseResponse.status === 'rejected' && nameResponse.status === 'rejected') {
-          const reason = baseResponse.reason ?? nameResponse.reason
+        if (responses.every((response) => response.status === 'rejected')) {
+          const firstRejected = responses.find(
+            (response): response is PromiseRejectedResult => response.status === 'rejected'
+          )
+          const reason = firstRejected?.reason
           errorMessage = reason instanceof Error ? reason.message : String(reason || 'Search failed')
         }
 
@@ -330,7 +467,17 @@ export function StockSelector({
           error: err instanceof Error ? err.message : 'Search failed',
         })
       })
-  }, [debouncedQuery, assetClass, currencyId, micCode, instanceId, updateInstance])
+  }, [
+    open,
+    debouncedQuery,
+    providerId,
+    providerAssetClasses,
+    providerMicCodes,
+    providerCurrencyCodes,
+    micCode,
+    instanceId,
+    updateInstance,
+  ])
 
   useEffect(() => {
     if (!selectedListingId) return
@@ -362,6 +509,7 @@ export function StockSelector({
       results: [],
       error: undefined,
     })
+    triggerListingRankUpdate(listing.id)
     onListingChange?.(listing.id, listing)
   }
 
@@ -397,9 +545,7 @@ export function StockSelector({
           )}
         >
           <Avatar className='h-6 w-6 rounded-sm m-1 text-foreground bg-secondary/60'>
-            {selectedListing?.iconUrl ? (
-              <AvatarImage src={selectedListing.iconUrl} alt={selectedPrimary} />
-            ) : null}
+            <AvatarImage src={selectedListing?.iconUrl ?? ''} alt={selectedPrimary} />
             <AvatarFallback className='rounded-sm text-xs text-accent-foreground bg-secondary/60'>
               {selectedListing ? getListingFallback(selectedListing) : '??'}
             </AvatarFallback>
@@ -432,7 +578,7 @@ export function StockSelector({
         onWheel={(event) => event.stopPropagation()}
         onTouchMove={(event) => event.stopPropagation()}
       >
-        <div className='border border-input p-2'>
+        <div className='border border-border p-2 rounded-t-md'>
           <Input
             ref={searchInputRef}
             value={query}
@@ -453,15 +599,21 @@ export function StockSelector({
             <div className='py-6 text-center text-sm text-muted-foreground'>
               {error
                 ? error
-                : query.trim().length
-                  ? 'No listings found.'
-                  : 'Start typing to search listings.'}
+                : 'No listings found.'}
             </div>
           ) : (
             results.map((listing) => {
               const primary = getListingPrimary(listing)
               const secondary = getListingSecondary(listing)
-              const isSelected = selectedListingId === listing.id
+              const assetClassLabel = listing.assetClass?.toUpperCase() ?? ''
+              const quote = listing.quote?.trim() || ''
+              const flagData = getFlagData(listing.countryCode)
+              const prefersFlagImage =
+                typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent)
+              const flagEmoji = flagData?.emoji ?? null
+              const flagImageUrl = flagData
+                ? `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${flagData.codepoints}.svg`
+                : null
               return (
                 <DropdownMenuItem
                   key={listing.id}
@@ -477,12 +629,29 @@ export function StockSelector({
                     </AvatarFallback>
                   </Avatar>
                   <div className='flex min-w-0 flex-1 flex-col gap-0.5 text-start leading-none'>
-                    <span className='max-w-[22ch] truncate text-sm font-semibold'>{primary}</span>
+                    <span className='flex items-center gap-1 text-sm font-semibold'>
+                      <span className='max-w-[22ch] truncate'>
+                        {primary}
+                        {quote ? <span className='text-muted-foreground'>/{quote}</span> : null}
+                      </span>
+                      {prefersFlagImage && flagImageUrl ? (
+                        <img
+                          src={flagImageUrl}
+                          alt={`${listing.countryCode ?? ''} flag`}
+                          className='ml-1 h-3.5 w-3.5'
+                          loading='lazy'
+                        />
+                      ) : flagEmoji ? (
+                        <span className='ml-1 text-xs'>{flagEmoji}</span>
+                      ) : null}
+                    </span>
                     <span className='max-w-[26ch] truncate text-xs text-muted-foreground'>
                       {secondary ?? '—'}
                     </span>
                   </div>
-                  {isSelected ? <Check className='ml-auto h-4 w-4' /> : null}
+                  <span className='ml-auto text-xs font-semibold text-muted-foreground'>
+                    {assetClassLabel}
+                  </span>
                 </DropdownMenuItem>
               )
             })
@@ -499,7 +668,6 @@ export function MarketSelectorCombo({
   disabled,
   onListingChange,
   listingRequired,
-  currencyRequired,
 }: MarketSelectorComboProps) {
   const ensureInstance = useMarketSelectorStore((state) => state.ensureInstance)
 
@@ -509,13 +677,6 @@ export function MarketSelectorCombo({
 
   return (
     <div className={cn('flex w-full flex-col gap-2', className)}>
-      <div className='space-y-1.5'>
-        <div className='flex items-center font-medium text-muted-foreground text-xs'>
-          Currency
-          {currencyRequired ? <span className='ml-1 text-red-500'>*</span> : null}
-        </div>
-        <CurrencySelector instanceId={instanceId} disabled={disabled} />
-      </div>
       <div className='space-y-1.5'>
         <div className='flex items-center font-medium text-muted-foreground text-xs'>
           Listing
