@@ -210,8 +210,8 @@ export const env = createEnv({
     REDDIT_CLIENT_SECRET: z.string().optional(),                  // Reddit OAuth client secret
     WEBFLOW_CLIENT_ID: z.string().optional(),                  // Webflow OAuth client ID
     WEBFLOW_CLIENT_SECRET: z.string().optional(),                  // Webflow OAuth client secret
-    ALPACA_CLIENT_ID:                      z.string().optional(),  // Alpaca OAuth client ID for Alpaca services
-    ALPACA_CLIENT_SECRET:                  z.string().optional(),  // Alpaca OAuth client secret
+    ALPACA_CLIENT_ID: z.string().optional(),  // Alpaca OAuth client ID for Alpaca services
+    ALPACA_CLIENT_SECRET: z.string().optional(),  // Alpaca OAuth client secret
     // E2B Remote Code Execution
     E2B_ENABLED: z.string().optional(),                  // Enable E2B remote code execution
     E2B_API_KEY: z.string().optional(),                  // E2B API key for sandbox creation

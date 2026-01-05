@@ -18,17 +18,7 @@ export interface MarketSeriesParams {
   providerParams?: Record<string, any> | string
 }
 
-export interface MarketSeriesOutput {
-  listingId: string
-  open: number[]
-  high: number[]
-  low: number[]
-  close: number[]
-  date: string[]
-  volume: number[]
-  timezone?: string
-  normalizationMode?: NormalizationMode
-}
+export type MarketSeriesOutput = MarketSeries
 
 const logger = createLogger('MarketSeriesTool')
 
@@ -128,49 +118,6 @@ const parseProviderParams = (value: unknown): Record<string, any> => {
   return {}
 }
 
-const normalizeSeries = (series: MarketSeries): MarketSeriesOutput => {
-  const bars = Array.isArray(series?.bars) ? series.bars : []
-  if (!bars.length) {
-    throw new Error('No data returned for the requested time range')
-  }
-
-  const open: number[] = []
-  const high: number[] = []
-  const low: number[] = []
-  const close: number[] = []
-  const volume: number[] = []
-  const date: string[] = []
-
-  bars.forEach((bar) => {
-    if (!bar) return
-    if (!bar.timeStamp) return
-    if (bar.close == null) return
-
-    open.push(Number(bar.open ?? 0))
-    high.push(Number(bar.high ?? 0))
-    low.push(Number(bar.low ?? 0))
-    close.push(Number(bar.close))
-    volume.push(Number(bar.volume ?? 0))
-    date.push(bar.timeStamp)
-  })
-
-  if (!date.length) {
-    throw new Error('No valid bars returned for the requested time range')
-  }
-
-  return {
-    listingId: series.listingId,
-    open,
-    high,
-    low,
-    close,
-    date,
-    volume,
-    timezone: series.timezone,
-    normalizationMode: series.normalizationMode,
-  }
-}
-
 export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = {
   id: 'historical_data_fetch',
   name: 'Market Series Fetch',
@@ -229,10 +176,14 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
     if (!result.success) return result
 
     try {
-      const normalized = normalizeSeries(result.output as MarketSeries)
-      return { success: true, output: normalized }
+      const series = result.output as MarketSeries
+      const bars = Array.isArray(series?.bars) ? series.bars : []
+      if (!bars.length) {
+        throw new Error('No data returned for the requested time range')
+      }
+      return { success: true, output: series }
     } catch (error: any) {
-      logger.error('Error normalizing market series data', {
+      logger.error('Error validating market series data', {
         provider: params.provider,
         listingId: params.listingId,
         error: error?.message || error,
@@ -246,12 +197,9 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
   },
   outputs: {
     listingId: { type: 'string', description: 'Listing id for the returned series' },
-    open: { type: 'array', description: 'Open prices for each bar' },
-    high: { type: 'array', description: 'High prices for each bar' },
-    low: { type: 'array', description: 'Low prices for each bar' },
-    close: { type: 'array', description: 'Close prices for each bar' },
-    date: { type: 'array', description: 'ISO timestamps for each bar' },
-    volume: { type: 'array', description: 'Volume for each bar' },
+    bars: { type: 'array', description: 'OHLCV bars with timestamps' },
+    start: { type: 'string', description: 'Start of the returned series', optional: true },
+    end: { type: 'string', description: 'End of the returned series', optional: true },
     timezone: { type: 'string', description: 'Exchange timezone for the series', optional: true },
     normalizationMode: { type: 'string', description: 'Normalization mode used', optional: true },
   },

@@ -50,8 +50,9 @@ export async function POST(request: NextRequest) {
         headers.set(key, value)
       }
     })
-    if (env.MARKET_API_KEY) {
-      headers.set('x-api-key', env.MARKET_API_KEY)
+    const apiKey = env.MARKET_API_KEY
+    if (apiKey) {
+      headers.set('x-api-key', apiKey)
     }
 
     logger.info(`[${requestId}] Proxying market update`, {

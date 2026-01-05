@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import type { SubBlockConfig } from '@/blocks/types'
 import { MarketSelectorCombo } from '@/components/market/market-selector-combo'
 import {
@@ -35,6 +35,7 @@ export function MarketSelectorInput({
   const instance = useMarketSelectorStore((state) => state.instances[`${blockId}-${subBlockId}`])
 
   const instanceId = useMemo(() => `${blockId}-${subBlockId}`, [blockId, subBlockId])
+  const previousProviderRef = useRef<string | null | undefined>(undefined)
 
   useEffect(() => {
     ensureInstance(instanceId)
@@ -63,14 +64,47 @@ export function MarketSelectorInput({
 
   useEffect(() => {
     if (isPreview || disabled) return
-    if (providerValue && safeInstance.providerId !== providerValue) {
-      updateInstance(instanceId, { providerId: providerValue })
+    const normalizedProvider = providerValue ?? undefined
+    const prevProvider = previousProviderRef.current
+    const hasPreviousProvider = Boolean(prevProvider)
+    const providerChanged = hasPreviousProvider && prevProvider !== normalizedProvider
+    const needsProviderSync = safeInstance.providerId !== normalizedProvider
+
+    if (!providerChanged && !needsProviderSync) {
+      previousProviderRef.current = normalizedProvider
       return
     }
-    if (!providerValue && safeInstance.providerId) {
-      updateInstance(instanceId, { providerId: undefined })
+
+    if (providerChanged) {
+      updateInstance(instanceId, {
+        providerId: normalizedProvider,
+        query: '',
+        results: [],
+        error: undefined,
+        selectedListingId: undefined,
+        selectedListing: null,
+      })
+
+      if (onChange) {
+        onChange(null)
+      } else {
+        setStoreValue(null)
+      }
+    } else if (needsProviderSync) {
+      updateInstance(instanceId, { providerId: normalizedProvider })
     }
-  }, [providerValue, safeInstance.providerId, instanceId, updateInstance, isPreview, disabled])
+
+    previousProviderRef.current = normalizedProvider
+  }, [
+    providerValue,
+    safeInstance.providerId,
+    instanceId,
+    updateInstance,
+    isPreview,
+    disabled,
+    onChange,
+    setStoreValue,
+  ])
 
   return (
     <MarketSelectorCombo

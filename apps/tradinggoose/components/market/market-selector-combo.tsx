@@ -114,52 +114,6 @@ async function fetchListings(
   return [payload.data]
 }
 
-function mergeListings(primary: ListingOption[], secondary: ListingOption[], limit: number) {
-  const merged = new Map<string, ListingOption>()
-  primary.forEach((item) => merged.set(item.id, item))
-  secondary.forEach((item) => {
-    if (!merged.has(item.id)) merged.set(item.id, item)
-  })
-  return Array.from(merged.values()).slice(0, limit)
-}
-
-function mergeListingGroups(listGroups: ListingOption[][], limit: number) {
-  const merged = new Map<string, ListingOption>()
-  listGroups.forEach((group) => {
-    group.forEach((item) => {
-      if (!merged.has(item.id)) merged.set(item.id, item)
-    })
-  })
-  return Array.from(merged.values()).slice(0, limit)
-}
-
-function rankListingsByQuery(listings: ListingOption[], query: string) {
-  if (!query) return listings
-  const queryLower = query.toLowerCase()
-  return listings
-    .map((listing, index) => {
-      const base = listing.base?.toLowerCase() ?? ''
-      const name = listing.name?.toLowerCase() ?? ''
-      let score = 4
-      if (base === queryLower) {
-        score = 0
-      } else if (name === queryLower) {
-        score = 1
-      } else if (base.startsWith(queryLower)) {
-        score = 2
-      } else if (name.startsWith(queryLower)) {
-        score = 3
-      } else if (base.includes(queryLower)) {
-        score = 4
-      } else if (name.includes(queryLower)) {
-        score = 5
-      }
-      return { listing, score, index }
-    })
-    .sort((a, b) => (a.score !== b.score ? a.score - b.score : a.index - b.index))
-    .map((entry) => entry.listing)
-}
-
 function triggerListingRankUpdate(listingId: string) {
   if (!listingId) return
   const query = new URLSearchParams({ listing_id: listingId })
@@ -423,41 +377,17 @@ export function StockSelector({
 
     updateInstance(instanceId, { isLoading: true, error: undefined })
 
-    const requests: Array<Promise<ListingOption[]>> = []
-    if (!trimmed) {
-      requests.push(fetchListings(filters, controller.signal))
-    } else {
-      requests.push(fetchListings({ ...filters, listing_name: rawQuery }, controller.signal))
-      requests.push(fetchListings({ ...filters, listing_base: rawQuery }, controller.signal))
-    }
+    const requestPromise = !trimmed
+      ? fetchListings(filters, controller.signal)
+      : fetchListings({ ...filters, listing_search_query: rawQuery }, controller.signal)
 
-    Promise.allSettled(requests)
-      .then((responses) => {
+    requestPromise
+      .then((rows) => {
         if (requestKeyRef.current !== requestKey || controller.signal.aborted) return
-
-        const successfulGroups = responses
-          .filter((response): response is PromiseFulfilledResult<ListingOption[]> =>
-            response.status === 'fulfilled'
-          )
-          .map((response) => response.value)
-        const merged = rankListingsByQuery(
-          mergeListingGroups(successfulGroups, 50),
-          rawQuery
-        )
-
-        let errorMessage: string | undefined
-        if (responses.every((response) => response.status === 'rejected')) {
-          const firstRejected = responses.find(
-            (response): response is PromiseRejectedResult => response.status === 'rejected'
-          )
-          const reason = firstRejected?.reason
-          errorMessage = reason instanceof Error ? reason.message : String(reason || 'Search failed')
-        }
-
         updateInstance(instanceId, {
-          results: merged,
+          results: rows,
           isLoading: false,
-          error: errorMessage,
+          error: undefined,
         })
       })
       .catch((err) => {
@@ -537,7 +467,7 @@ export function StockSelector({
           type='button'
           disabled={disabled}
           className={cn(
-            'flex w-full items-center gap-2 rounded-md border-input border p-1 text-left text-sm text-foreground transition-colors',
+            'flex w-full items-center gap-2 rounded-md border-input border p-1 text-left text-sm text-foreground transition-colors hover',
             'data-[state=open]:bg-secondary/20',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
             disabled && 'cursor-not-allowed opacity-50',
