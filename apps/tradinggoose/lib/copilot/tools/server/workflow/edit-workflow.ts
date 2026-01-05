@@ -7,6 +7,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getBlockOutputs } from '@/lib/workflows/block-outputs'
 import { extractAndPersistCustomTools } from '@/lib/workflows/custom-tools-persistence'
 import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
+import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
 import { validateWorkflowState } from '@/lib/workflows/validation'
 import { getAllBlocks } from '@/blocks/registry'
 import { resolveOutputType } from '@/blocks/utils'
@@ -968,10 +969,24 @@ export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
       validationWarnings: validation.warnings.length,
     })
 
+    const finalWorkflowState = validation.sanitizedState || modifiedWorkflowState
+
+    let userWorkflow: string | undefined
+    try {
+      userWorkflow = JSON.stringify(sanitizeForCopilot(finalWorkflowState), null, 2)
+    } catch {
+      userWorkflow = undefined
+    }
+
     // Return the modified workflow state for the client to convert to YAML if needed
     return {
       success: true,
-      workflowState: validation.sanitizedState || modifiedWorkflowState,
+      workflowState: finalWorkflowState,
+      ...(userWorkflow ? { userWorkflow, yamlContent: userWorkflow } : {}),
+      data: {
+        blocksCount: Object.keys(finalWorkflowState.blocks || {}).length,
+        edgesCount: Array.isArray(finalWorkflowState.edges) ? finalWorkflowState.edges.length : 0,
+      },
     }
   },
 }

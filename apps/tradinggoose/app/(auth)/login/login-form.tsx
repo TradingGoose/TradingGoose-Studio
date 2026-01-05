@@ -219,7 +219,7 @@ export default function LoginPage({
 
             // If the backend rejected the request due to an invalid/expired auth state, hard reset auth.
             if (status === 401) {
-              handleAuthError('login-unauthorized').catch(() => {})
+              handleAuthError('login-unauthorized').catch(() => { })
               errorMessage.push('Your session expired. Please try signing in again.')
             }
 
@@ -389,7 +389,7 @@ export default function LoginPage({
           Sign in
         </h1>
         <p className={`${inter.className} font-[380] text-[16px] text-muted-foreground`}>
-          Enter your details
+          Enter your credentials
         </p>
       </div>
 
@@ -492,7 +492,7 @@ export default function LoginPage({
       {showDivider && (
         <div className={`${inter.className} relative my-6 font-light`}>
           <div className='absolute inset-0 flex items-center'>
-            <div className='auth-divider w-full border-t' />
+            <div className='divider w-full border-t' />
           </div>
           <div className='relative flex justify-center text-sm'>
             <span className=' px-4 font-[340] text-muted-foreground'>Or continue with</span>
@@ -529,14 +529,14 @@ export default function LoginPage({
       )}
 
       <div
-        className={`${inter.className} auth-text-muted absolute right-0 bottom-0 left-0 px-8 pb-8 text-center font-[340] text-[13px] leading-relaxed sm:px-8 md:px-[44px]`}
+        className={`${inter.className} text-muted absolute right-0 bottom-0 left-0 px-8 pb-8 text-center font-[340] text-[13px] leading-relaxed sm:px-8 md:px-[44px]`}
       >
         By signing in, you agree to our{' '}
         <Link
           href='/terms'
           target='_blank'
           rel='noopener noreferrer'
-          className='auth-link underline-offset-4 transition hover:underline'
+          className='hover:text-primary underline underline-offset-4'
         >
           Terms of Service
         </Link>{' '}
@@ -545,19 +545,19 @@ export default function LoginPage({
           href='/privacy'
           target='_blank'
           rel='noopener noreferrer'
-          className='auth-link underline-offset-4 transition hover:underline'
+          className='hover:text-primary underline underline-offset-4'
         >
           Privacy Policy
         </Link>
       </div>
 
       <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
-        <DialogContent className='auth-card auth-card-shadow max-w-[540px] rounded-md border backdrop-blur-sm'>
+        <DialogContent className='card card-shadow max-w-[540px] rounded-md border backdrop-blur-sm'>
           <DialogHeader>
-            <DialogTitle className='auth-text-primary font-semibold text-xl tracking-tight'>
+            <DialogTitle className='text-primary font-semibold text-xl tracking-tight'>
               Reset Password
             </DialogTitle>
-            <DialogDescription className='auth-text-secondary text-sm'>
+            <DialogDescription className='text-muted-foreground text-sm'>
               Enter your email address and we'll send you a link to reset your password if your
               account exists.
             </DialogDescription>

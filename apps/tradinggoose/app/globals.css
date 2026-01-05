@@ -443,38 +443,6 @@ input[type="search"]::-ms-clear {
     background-clip: text;
   }
 
-  /* Apply fixed default light theme values for auth components */
-  .auth-card {
-    background-color: rgba(255, 255, 255, 0.9) !important;
-    border-color: #e5e5e5 !important;
-  }
-
-  .auth-text-primary {
-    color: #1a1a1a !important;
-  }
-
-  .auth-text-secondary {
-    color: #4a4a4a !important;
-  }
-
-  .auth-text-muted {
-    color: #737373 !important;
-  }
-
-  .auth-divider {
-    border-color: #e5e5e5 !important;
-  }
-
-  .auth-card-shadow {
-    box-shadow:
-      0 10px 15px -3px rgba(0, 0, 0, 0.05),
-      0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
-  }
-
-  .auth-link {
-    color: #737373 !important;
-  }
-
 
 
   /* Animation Classes */

@@ -1,5 +1,6 @@
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { editWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow'
+import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
 
 interface PreviewEditWorkflowOperation {
   operation_type: 'add' | 'edit' | 'delete' | 'insert_into_subflow' | 'extract_from_subflow'
@@ -118,9 +119,19 @@ export const previewEditWorkflowServerTool: BaseServerTool<PreviewEditWorkflowPa
 
     const preview = summarizeConnections(baseState, result?.workflowState, params.operations)
 
+    let userWorkflow: string | undefined
+    if (result?.workflowState) {
+      try {
+        userWorkflow = JSON.stringify(sanitizeForCopilot(result.workflowState), null, 2)
+      } catch {
+        userWorkflow = undefined
+      }
+    }
+
     return {
       ...result,
       preview,
+      ...(userWorkflow ? { userWorkflow, yamlContent: userWorkflow } : {}),
     }
   },
 }

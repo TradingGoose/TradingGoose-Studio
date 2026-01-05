@@ -10,7 +10,11 @@ const logger = createLogger('WorkspacePage')
 
 export default function WorkspacePage() {
   const router = useRouter()
-  const { data: session, isPending } = useSession()
+  const {
+    data: session,
+    isPending,
+    error: sessionError,
+  } = useSession()
 
   useEffect(() => {
     const redirectToFirstWorkspace = async () => {
@@ -19,10 +23,12 @@ export default function WorkspacePage() {
         return
       }
 
-      // If user is not authenticated, redirect to login
-      if (!session?.user) {
-        logger.info('User not authenticated, redirecting to login')
-        router.replace('/login?reauth=1')
+      // If user is not authenticated (or session failed), redirect to home
+      if (sessionError || !session?.user) {
+        logger.info('User not authenticated, redirecting to home', {
+          hasSessionError: Boolean(sessionError),
+        })
+        router.replace('/')
         return
       }
 
@@ -53,10 +59,30 @@ export default function WorkspacePage() {
         }
 
         // Fetch user's workspaces
-        const response = await fetch('/api/workspaces')
+        const response = await fetch('/api/workspaces', {
+          credentials: 'include',
+        })
+
+        if (response.status === 401 || response.status === 403) {
+          logger.info('Unauthorized to fetch workspaces, redirecting to home', {
+            status: response.status,
+          })
+          router.replace('/')
+          return
+        }
 
         if (!response.ok) {
-          throw new Error('Failed to fetch workspaces')
+          let errorBody = ''
+          try {
+            errorBody = await response.text()
+          } catch {}
+
+          logger.error('Failed to fetch workspaces for redirect', {
+            status: response.status,
+            body: errorBody,
+          })
+          router.replace('/')
+          return
         }
 
         const data = await response.json()
@@ -92,8 +118,8 @@ export default function WorkspacePage() {
             logger.error('Error creating default workspace:', createError)
           }
 
-          // If we can't create a workspace, redirect to login to reset state
-          router.replace('/login?reauth=1')
+          // If we can't create a workspace, redirect home to reset state
+          router.replace('/')
           return
         }
 
@@ -105,16 +131,21 @@ export default function WorkspacePage() {
         router.replace(`/workspace/${firstWorkspace.id}/dashboard`)
       } catch (error) {
         logger.error('Error fetching workspaces for redirect:', error)
-        // Don't redirect if there's an error - let the user stay on the page
+        // Any unexpected error should send the user home.
+        router.replace('/')
       }
     }
 
     // Only run this logic when we're at the root /workspace path
     // If we're already in a specific workspace, the children components will handle it
-    if (typeof window !== 'undefined' && window.location.pathname === '/workspace') {
+    if (typeof window !== 'undefined') {
+      const normalizedPath =
+        window.location.pathname.replace(/\/+$/, '') || '/'
+      if (normalizedPath === '/workspace') {
       redirectToFirstWorkspace()
+      }
     }
-  }, [session, isPending, router])
+  }, [session, isPending, sessionError, router])
 
   // Show loading state while we determine where to redirect
   if (isPending) {
@@ -128,7 +159,7 @@ export default function WorkspacePage() {
   }
 
   // If user is not authenticated, show nothing (redirect will happen)
-  if (!session?.user) {
+  if (sessionError || !session?.user) {
     return null
   }
 

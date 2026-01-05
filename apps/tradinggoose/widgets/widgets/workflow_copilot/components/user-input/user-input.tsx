@@ -2075,22 +2075,24 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
           maxMenuHeight
         )
 
-        // Determine menu width based on submenu state
-        const menuWidth =
+        // Determine menu width based on submenu state (clamped to container width)
+        const preferredMenuWidth =
           openSubmenuFor === 'Blocks'
             ? 320
             : openSubmenuFor === 'Templates' || openSubmenuFor === 'Logs' || aggregatedActive
               ? 384
               : 224
+        const menuWidth = Math.min(preferredMenuWidth, rect.width)
 
-        // Calculate left position: use caret position but ensure menu doesn't go off-screen
+        // Calculate left position and clamp to the input container
         const idealLeft = rect.left + caretLeftOffset
-        const maxLeft = window.innerWidth - menuWidth - margin
-        const finalLeft = Math.min(idealLeft, maxLeft)
+        const minLeft = rect.left
+        const maxLeft = rect.right - menuWidth
+        const finalLeft = Math.min(Math.max(idealLeft, minLeft), maxLeft)
 
         setMentionPortalStyle({
           top: showBelow ? rect.bottom + 4 : rect.top - 4,
-          left: Math.max(rect.left, finalLeft), // Don't go past left edge of container
+          left: finalLeft,
           width: menuWidth,
           maxHeight: maxHeight,
           showBelow,
@@ -2219,7 +2221,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                 .map((ctx, idx) => (
                   <span
                     key={`selctx-${idx}-${ctx.label}`}
-                    className='inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--primary-hover)_14%,transparent)] px-1.5 py-0.5 text-[11px] text-foreground'
+                    className='inline-flex items-center gap-1 rounded-full bg-primary-hover/20 px-1.5 py-0.5 text-[11px] text-foreground'
                     title={ctx.label}
                   >
                     {ctx.kind === 'past_chat' ? (
