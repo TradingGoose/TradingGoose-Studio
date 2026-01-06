@@ -11,12 +11,13 @@ import type {
   AssetClass,
   MarketDataAvailability,
   MarketDataType,
+  MarketLiveRequest,
+  MarketLiveSnapshot,
   MarketNewsRequest,
   MarketSeriesRequest,
   MarketSentimentRequest,
   MarketSeries,
   NewsSeries,
-  NormalizationMode,
   SentimentSeries,
 } from '@/providers/market/types'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
@@ -25,13 +26,13 @@ import { YahooFinanceProviderConfig } from '@/providers/market/yahoo-finance/con
 
 export type { MarketProviderRequest } from '@/providers/market/types'
 
-export type MarketProviderResponse = MarketSeries | NewsSeries | SentimentSeries
+export type MarketProviderResponse = MarketSeries | NewsSeries | SentimentSeries | MarketLiveSnapshot
 
 export interface MarketSeriesInputCapabilities {
   supportsInterval?: boolean
   intervals?: string[]
   supportsStartEnd?: boolean
-  normalizationModes?: NormalizationMode[]
+  normalizationModes?: string[]
 }
 
 export interface MarketNewsInputCapabilities {
@@ -42,10 +43,18 @@ export interface MarketSentimentInputCapabilities {
   supportsStartEnd?: boolean
 }
 
+export interface MarketLiveInputCapabilities {
+  supportsStreaming?: boolean
+  channels?: string[]
+  supportsInterval?: boolean
+  intervals?: string[]
+}
+
 export interface MarketProviderCapabilities {
   series?: MarketSeriesInputCapabilities
   news?: MarketNewsInputCapabilities
   sentiments?: MarketSentimentInputCapabilities
+  live?: MarketLiveInputCapabilities
 }
 
 export type MarketProviderParamType = 'string' | 'number' | 'boolean' | 'json' | 'array'
@@ -102,6 +111,7 @@ export interface MarketProviderParamConfig {
   series?: MarketProviderParamDefinition[]
   news?: MarketProviderParamDefinition[]
   sentiments?: MarketProviderParamDefinition[]
+  live?: MarketProviderParamDefinition[]
 }
 
 export type RuleScopeKey = 'listing' | 'mic' | 'currency' | 'assetClass' | 'country' | 'city'
@@ -138,6 +148,7 @@ export interface MarketProvider {
   fetchMarketSeries?: (request: MarketSeriesRequest) => Promise<MarketSeries>
   fetchNews?: (request: MarketNewsRequest) => Promise<NewsSeries>
   fetchSentiments?: (request: MarketSentimentRequest) => Promise<SentimentSeries>
+  fetchMarketLive?: (request: MarketLiveRequest) => Promise<MarketLiveSnapshot>
 }
 
 export interface ListingContext {
@@ -145,7 +156,7 @@ export interface ListingContext {
   base: string
   quote?: string
   assetClass?: AssetClass
-  primaryMicName?: string
+  primaryMicCode?: string
   micCode?: string
   exchangeCode?: string
   exchangeSuffix?: string
@@ -201,6 +212,7 @@ export function getMarketProviderAvailability(providerId: string): MarketDataAva
       series: false,
       news: false,
       sentiments: false,
+      live: false,
     }
   )
 }
@@ -229,6 +241,9 @@ export function getMarketSentimentCapabilities(
   return getMarketProviderCapabilities(providerId)?.sentiments || null
 }
 
+export function getMarketLiveCapabilities(providerId: string): MarketLiveInputCapabilities | null {
+  return getMarketProviderCapabilities(providerId)?.live || null
+}
 export function getMarketProviderExchangeCodes(providerId: string): string[] {
   return MARKET_PROVIDER_DEFINITIONS[providerId]?.config.exchangeCodes || []
 }
@@ -240,6 +255,7 @@ export function getMarketProviderKinds(providerId: string): MarketDataType[] {
   if (availability.series) kinds.add('series')
   if (availability.news) kinds.add('news')
   if (availability.sentiments) kinds.add('sentiments')
+  if (availability.live) kinds.add('live')
 
   return Array.from(kinds)
 }
@@ -256,7 +272,8 @@ export function getMarketProvidersByKind(kind: MarketDataType): MarketProviderDe
     const availability = provider.config.availability
     if (kind === 'series') return availability.series
     if (kind === 'news') return availability.news
-    return availability.sentiments
+    if (kind === 'sentiments') return availability.sentiments
+    return availability.live
   })
 }
 
@@ -292,7 +309,9 @@ export function getMarketProviderParamDefinitions(
       ? config.params.series
       : kind === 'news'
         ? config.params.news
-        : config.params.sentiments
+        : kind === 'sentiments'
+          ? config.params.sentiments
+          : config.params.live
 
   const combined = [...shared, ...(scoped ?? [])]
   const seen = new Set<string>()

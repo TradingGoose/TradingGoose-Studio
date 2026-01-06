@@ -86,6 +86,30 @@ const formatParamTitle = (paramId: string): string => {
   return paramId.charAt(0).toUpperCase() + paramId.slice(1)
 }
 
+const sanitizeInterval = (provider: string | undefined, interval?: string): string | undefined => {
+  if (!interval) return undefined
+  if (!provider) return interval
+  const capabilities = getMarketSeriesCapabilities(provider)
+  if (!capabilities) return interval
+  if (capabilities.supportsInterval === false) return undefined
+  const intervals = capabilities.intervals ?? []
+  if (intervals.length > 0 && !intervals.includes(interval)) return undefined
+  return interval
+}
+
+const sanitizeNormalizationMode = (
+  provider: string | undefined,
+  mode?: string
+): string | undefined => {
+  if (!mode) return undefined
+  if (!provider) return mode
+  const capabilities = getMarketSeriesCapabilities(provider)
+  if (!capabilities) return mode
+  const modes = capabilities.normalizationModes ?? []
+  if (modes.length > 0 && !modes.includes(mode)) return undefined
+  return mode
+}
+
 const resolveParamInputType = (paramId: string): SubBlockConfig['type'] => {
   const definition = providerParamRegistry[paramId]?.definition
   if (!definition) return 'short-input'
@@ -191,6 +215,7 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
       type: 'market-selector',
       layout: 'full',
       required: true,
+      dependsOn: ['provider'],
     },
     ...providerParamSubBlocks,
     {
@@ -264,6 +289,7 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
   tools: {
     access: ['historical_data_fetch'],
     config: {
+      tool: () => 'historical_data_fetch',
       params: (params) => {
         let providerParams: Record<string, any> | undefined
         if (params.providerParams) {
@@ -288,19 +314,36 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
           }
         })
 
+        const interval = sanitizeInterval(params.provider, params.interval)
+        const normalizationMode = sanitizeNormalizationMode(params.provider, params.normalizationMode)
+
+        let mergedProviderParams: Record<string, any> | undefined =
+          providerParams && typeof providerParams === 'object'
+            ? { ...providerParams, ...resolvedProviderParams }
+            : Object.keys(resolvedProviderParams).length
+              ? resolvedProviderParams
+              : undefined
+
+        if (mergedProviderParams) {
+          if (interval === undefined) {
+            delete mergedProviderParams.interval
+          }
+          if (normalizationMode === undefined) {
+            delete mergedProviderParams.normalizationMode
+          }
+          if (!Object.keys(mergedProviderParams).length) {
+            mergedProviderParams = undefined
+          }
+        }
+
         return {
           provider: params.provider,
           listingId: params.listingId,
-          interval: params.interval || undefined,
+          interval,
           start: params.start,
           end: params.end,
-          normalizationMode: params.normalizationMode || undefined,
-          providerParams:
-            providerParams && typeof providerParams === 'object'
-              ? { ...providerParams, ...resolvedProviderParams }
-              : Object.keys(resolvedProviderParams).length
-                ? resolvedProviderParams
-                : undefined,
+          normalizationMode,
+          providerParams: mergedProviderParams,
           ...resolvedProviderParams,
         }
       },
@@ -331,6 +374,9 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
   },
   outputs: {
     listingId: { type: 'string', description: 'Listing id for the returned series' },
+    listingBase: { type: 'string', description: 'Listing base symbol' },
+    listingQuote: { type: 'string', description: 'Listing quote currency' },
+    primaryMicCode: { type: 'string', description: 'Primary MIC code for the listing' },
     bars: { type: 'array', description: 'OHLCV bars with timestamps' },
     start: { type: 'string', description: 'Start of the returned series' },
     end: { type: 'string', description: 'End of the returned series' },

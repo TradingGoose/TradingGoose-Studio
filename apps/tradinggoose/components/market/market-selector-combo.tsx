@@ -474,9 +474,11 @@ export function StockSelector({
             className
           )}
         >
-          <Avatar className='h-6 w-6 rounded-sm m-1 text-foreground bg-secondary/60'>
-            <AvatarImage src={selectedListing?.iconUrl ?? ''} alt={selectedPrimary} />
-            <AvatarFallback className='rounded-sm text-xs text-accent-foreground bg-secondary/60'>
+          <Avatar className='h-6 w-6 rounded-sm m-1 text-foreground bg-secondary/60 p-1'>
+            {selectedListing?.iconUrl ? (
+              <AvatarImage src={selectedListing.iconUrl} alt={selectedPrimary} />
+            ) : null}
+            <AvatarFallback className='text-xs text-accent-foreground'>
               {selectedListing ? getListingFallback(selectedListing) : '??'}
             </AvatarFallback>
           </Avatar>
@@ -550,11 +552,11 @@ export function StockSelector({
                   onSelect={() => handleSelect(listing)}
                   className='flex items-center gap-2 rounded-md p-2'
                 >
-                  <Avatar className='h-6 w-6 rounded-sm m-1 text-foreground bg-secondary/60'>
+                  <Avatar className='h-6 w-6 rounded-sm m-1 text-foreground bg-secondary/60 p-1'>
                     {listing.iconUrl ? (
                       <AvatarImage src={listing.iconUrl} alt={primary} />
                     ) : null}
-                    <AvatarFallback className='rounded-sm text-xs text-accent-foreground bg-secondary/60'>
+                    <AvatarFallback className='text-xs text-accent-foreground'>
                       {getListingFallback(listing)}
                     </AvatarFallback>
                   </Avatar>

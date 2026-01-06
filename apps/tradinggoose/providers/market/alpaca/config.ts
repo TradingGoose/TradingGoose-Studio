@@ -1,4 +1,4 @@
-import type { MarketProviderConfig } from '@/providers/market/providers'
+import type { MarketProviderConfig, MarketProviderParamDefinition } from '@/providers/market/providers'
 import { alpacaSymbolRules } from '@/providers/market/alpaca/rules'
 import { AssetClass } from '@/providers/market/types'
 
@@ -11,10 +11,11 @@ const availability: MarketProviderConfig['availability'] = {
   series: true,
   news: false,
   sentiments: false,
+  live: true,
 }
 
-const params: MarketProviderConfig['params'] = {
-  series: [
+const authParams: MarketProviderConfig['params'] = {
+  shared: [
     {
       id: 'apiKey',
       type: 'string',
@@ -35,18 +36,42 @@ const params: MarketProviderConfig['params'] = {
       visibility: 'user-only',
       password: true,
     },
+  ],
+}
+
+const feedParam: MarketProviderParamDefinition = {
+  id: 'feed',
+  type: 'string',
+  title: 'Feed',
+  description: 'Alpaca data feed (required for stock bars).',
+  placeholder: 'Select feed',
+  required: true,
+  visibility: 'user-only',
+  inputType: 'dropdown',
+  options: [
+    { id: 'sip', label: 'SIP' },
+    { id: 'iex', label: 'IEX' },
+  ],
+}
+
+const params: MarketProviderConfig['params'] = {
+  ...authParams,
+  series: [feedParam],
+  live: [
+    feedParam,
     {
-      id: 'feed',
+      id: 'cryptoRegion',
       type: 'string',
-      title: 'Feed',
-      description: 'Alpaca data feed (required for stock bars).',
-      placeholder: 'Select feed',
-      required: true,
+      title: 'Crypto Region',
+      description: 'Alpaca crypto region (us, us-1, eu-1).',
+      placeholder: 'Select region',
+      required: false,
       visibility: 'user-only',
       inputType: 'dropdown',
       options: [
-        { id: 'sip', label: 'SIP' },
-        { id: 'iex', label: 'IEX' },
+        { id: 'us', label: 'US (Alpaca)' },
+        { id: 'us-1', label: 'US (Kraken)' },
+        { id: 'eu-1', label: 'EU (Kraken)' },
       ],
     },
   ],
@@ -142,7 +167,12 @@ export const alpacaProviderConfig: MarketProviderConfig = {
         '12Month',
       ],
       supportsStartEnd: true,
-      normalizationModes: ['raw', 'adjusted', 'split_adjusted', 'total_return'],
+      normalizationModes: ['raw', 'split', 'dividend', 'spin-off', 'all'],
+    },
+    live: {
+      supportsStreaming: true,
+      channels: ['bars', 'trades', 'quotes'],
+      supportsInterval: false,
     },
   },
   rulePrecedence: {

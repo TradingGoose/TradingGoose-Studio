@@ -22,6 +22,7 @@ const availability: MarketProviderConfig['availability'] = {
   series: true,
   news: true,
   sentiments: false,
+  live: true,
 }
 
 const params: MarketProviderConfig['params'] = {
@@ -57,6 +58,11 @@ export const finnhubProviderConfig: MarketProviderConfig = {
     },
     news: {
       supportsStartEnd: true,
+    },
+    live: {
+      supportsStreaming: true,
+      channels: ['bars'],
+      supportsInterval: false,
     },
   },
   rulePrecedence: {

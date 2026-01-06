@@ -834,6 +834,41 @@ export function ToolInput({
     if (isPreview || disabled) return
 
     const tool = selectedTools[toolIndex]
+    const currentValue = tool.params[paramId] ?? ''
+    if (currentValue === paramValue) {
+      return
+    }
+
+    const dependentParamIds = (() => {
+      const toolParams = getToolParametersConfig(tool.toolId, tool.type)
+      const params = toolParams?.userInputParameters ?? []
+      const dependencyMap = new Map<string, string[]>()
+
+      params.forEach((param) => {
+        const deps = param.uiComponent?.dependsOn ?? []
+        deps.forEach((dep) => {
+          const current = dependencyMap.get(dep) ?? []
+          current.push(param.id)
+          dependencyMap.set(dep, current)
+        })
+      })
+
+      const visited = new Set<string>()
+      const queue = [paramId]
+
+      while (queue.length > 0) {
+        const current = queue.shift()
+        if (!current) continue
+        const dependents = dependencyMap.get(current) ?? []
+        dependents.forEach((dependentId) => {
+          if (visited.has(dependentId)) return
+          visited.add(dependentId)
+          queue.push(dependentId)
+        })
+      }
+
+      return Array.from(visited)
+    })()
 
     // Update the value in the workflow
     setStoreValue(
@@ -844,6 +879,10 @@ export function ToolInput({
             params: {
               ...tool.params,
               [paramId]: paramValue,
+              ...dependentParamIds.reduce<Record<string, string>>((acc, dependentId) => {
+                acc[dependentId] = ''
+                return acc
+              }, {}),
             },
           }
           : tool

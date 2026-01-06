@@ -8,7 +8,7 @@ export type ListingOption = {
   name?: string | null
   iconUrl?: string | null
   assetClass?: string | null
-  primaryMicName?: string | null
+  primaryMicCode?: string | null
   countryCode?: string | null
   cityName?: string | null
   timeZoneName?: string | null

@@ -9,28 +9,16 @@ import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
 
+type DropdownOptionObject = {
+  label: string
+  id: string
+  icon?: React.ComponentType<{ className?: string }>
+  group?: string
+  disabled?: boolean
+}
+
 interface DropdownProps {
-  options:
-  | Array<
-    | string
-    | {
-      label: string
-      id: string
-      icon?: React.ComponentType<{ className?: string }>
-      group?: string
-      disabled?: boolean
-    }
-  >
-  | (() => Array<
-    | string
-    | {
-      label: string
-      id: string
-      icon?: React.ComponentType<{ className?: string }>
-      group?: string
-      disabled?: boolean
-    }
-  >)
+  options: Array<string | DropdownOptionObject> | (() => Array<string | DropdownOptionObject>)
   defaultValue?: string
   blockId: string
   subBlockId: string
@@ -71,6 +59,7 @@ export function Dropdown({
   const [storeInitialized, setStoreInitialized] = useState(false)
   const previousModeRef = useRef<string | null>(null)
   const previousDependencyValuesRef = useRef<string>('')
+  const blockAutoDefaultRef = useRef(false)
 
   // For response dataMode conversion - get builderData and data sub-blocks
   const [builderData, setBuilderData] = useSubBlockValue<any[]>(blockId, 'builderData')
@@ -158,11 +147,11 @@ export function Dropdown({
     return resolved ?? []
   }, [options, config])
 
-  const normalizedFetchedOptions = useMemo(() => {
+  const normalizedFetchedOptions = useMemo<DropdownOptionObject[]>(() => {
     return fetchedOptions.map((opt) => ({ label: opt.label, id: opt.id }))
   }, [fetchedOptions])
 
-  const availableOptions = useMemo(() => {
+  const availableOptions = useMemo<Array<string | DropdownOptionObject>>(() => {
     if (fetchOptions && normalizedFetchedOptions.length > 0) {
       return normalizedFetchedOptions
     }
@@ -183,6 +172,9 @@ export function Dropdown({
     return typeof option === 'string' ? option : option.id
   }
 
+  const optionsReady = fetchOptions ? hasFetchedOptions && !isLoadingOptions && !fetchError : true
+  const hasValue = value !== null && value !== undefined && value !== ''
+
   // Get the default option value (first option or provided defaultValue)
   const defaultOptionValue = useMemo(() => {
     if (defaultValue !== undefined) {
@@ -196,24 +188,35 @@ export function Dropdown({
     return undefined
   }, [defaultValue, availableOptions, getOptionValue])
 
+  useEffect(() => {
+    if (isPreview || !optionsReady || !hasValue) return
+    const isValid = availableOptions.some(
+      (option) => getOptionValue(option as any) === value
+    )
+    if (!isValid) {
+      blockAutoDefaultRef.current = true
+      if (useStore) {
+        setStoreValue('')
+      }
+      if (onChange) {
+        onChange('')
+      }
+    }
+  }, [
+    isPreview,
+    optionsReady,
+    hasValue,
+    availableOptions,
+    value,
+    useStore,
+    setStoreValue,
+    onChange,
+  ])
+
   // Mark store as initialized on first render
   useEffect(() => {
     setStoreInitialized(true)
   }, [])
-
-  // Only set default value once the store is confirmed to be initialized
-  // and we know the actual value is null/undefined (not just loading)
-  useEffect(() => {
-    if (
-      useStore &&
-      storeInitialized &&
-      (value === null || value === undefined || value === '') &&
-      activeWorkflowId &&
-      defaultOptionValue !== undefined
-    ) {
-      setStoreValue(defaultOptionValue)
-    }
-  }, [useStore, storeInitialized, value, defaultOptionValue, setStoreValue, activeWorkflowId])
 
   useEffect(() => {
     if (fetchOptions && dependsOn.length > 0) {
@@ -226,11 +229,41 @@ export function Dropdown({
       ) {
         setFetchedOptions([])
         setHasFetchedOptions(false)
+        blockAutoDefaultRef.current = true
+        if (useStore) {
+          setStoreValue('')
+        }
+        if (onChange) {
+          onChange('')
+        }
       }
 
       previousDependencyValuesRef.current = currentDependencyValuesStr
     }
-  }, [dependencyValues, fetchOptions, dependsOn.length])
+  }, [dependencyValues, fetchOptions, dependsOn.length, onChange, setStoreValue, useStore])
+
+  useEffect(() => {
+    if (value !== null && value !== undefined && value !== '') {
+      blockAutoDefaultRef.current = false
+    }
+  }, [value])
+
+  // Only set default value once the store is confirmed to be initialized
+  // and we know the actual value is null/undefined (not just loading)
+  useEffect(() => {
+    if (
+      useStore &&
+      storeInitialized &&
+      (value === null || value === undefined || value === '') &&
+      activeWorkflowId &&
+      defaultOptionValue !== undefined
+    ) {
+      if (blockAutoDefaultRef.current) {
+        return
+      }
+      setStoreValue(defaultOptionValue)
+    }
+  }, [useStore, storeInitialized, value, defaultOptionValue, setStoreValue, activeWorkflowId])
 
   useEffect(() => {
     if (

@@ -202,6 +202,10 @@ export interface WorkflowActions {
   updateParallelCount: (parallelId: string, count: number) => void
   updateParallelCollection: (parallelId: string, collection: string) => void
   updateParallelType: (parallelId: string, parallelType: 'count' | 'collection') => void
+  replaceWorkflowState: (
+    workflowState: WorkflowState,
+    options?: { updateLastSaved?: boolean }
+  ) => void
   generateLoopBlocks: () => Record<string, Loop>
   generateParallelBlocks: () => Record<string, Parallel>
   setNeedsRedeploymentFlag: (needsRedeployment: boolean) => void

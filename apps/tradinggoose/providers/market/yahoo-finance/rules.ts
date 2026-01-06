@@ -11,6 +11,7 @@ export const yfinanceSymbolRules: MarketSymbolRule[] = [
     assetClass: 'stock',
     country: 'HK',
     template: '{base}.HK',
+    regex: '^{base}/{quote}$',
     active: true,
   },
   {

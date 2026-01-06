@@ -209,6 +209,7 @@ const availability: MarketProviderConfig['availability'] = {
   series: true,
   news: false,
   sentiments: false,
+  live: false,
 }
 
 

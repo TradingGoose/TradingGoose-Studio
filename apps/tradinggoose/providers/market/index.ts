@@ -52,6 +52,12 @@ export async function executeProviderRequest(
       }
       return provider.fetchSentiments(request)
     }
+    case 'live': {
+      if (!provider.fetchMarketLive) {
+        throw new Error(`Provider ${providerId} does not support live market data`)
+      }
+      return provider.fetchMarketLive(request)
+    }
     default: {
       const kind = (request as { kind?: string }).kind ?? 'unknown'
       logger.warn('Unknown market request kind', { providerId, kind })

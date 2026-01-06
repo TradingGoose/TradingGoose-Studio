@@ -103,6 +103,7 @@ export function useCollaborativeWorkflow() {
 
   // Track last applied position timestamps to prevent out-of-order updates
   const lastPositionTimestamps = useRef<Map<string, number>>(new Map())
+  const lastReplaceStateAt = useRef(0)
 
   // Operation queue
   const {
@@ -388,6 +389,36 @@ export function useCollaborativeWorkflow() {
               variablesStore.duplicateVariable(payload.sourceVariableId, payload.id)
               break
           }
+        } else if (target === 'workflow') {
+          switch (operation) {
+            case 'replace-state':
+              if (payload.state) {
+                logger.info('Received workflow state replacement from remote user', {
+                  userId,
+                  blockCount: Object.keys(payload.state.blocks || {}).length,
+                  edgeCount: (payload.state.edges || []).length,
+                  isShowingDiff,
+                })
+
+                workflowStore.replaceWorkflowState(payload.state, { updateLastSaved: true })
+
+                const subBlockValues: Record<string, Record<string, any>> = {}
+                Object.entries(payload.state.blocks || {}).forEach(
+                  ([blockId, block]: [string, any]) => {
+                    subBlockValues[blockId] = {}
+                    Object.entries(block.subBlocks || {}).forEach(
+                      ([subBlockId, subBlock]: [string, any]) => {
+                        subBlockValues[blockId][subBlockId] = subBlock.value
+                      }
+                    )
+                  }
+                )
+                if (activeWorkflowId) {
+                  subBlockStore.setWorkflowValues(activeWorkflowId, subBlockValues)
+                }
+              }
+              break
+          }
         }
       } catch (error) {
         logger.error('Error applying remote operation:', error)
@@ -555,6 +586,48 @@ export function useCollaborativeWorkflow() {
       logger.warn('Operation failed', { operationId, error, retryable })
 
       failOperation(operationId, retryable)
+
+      const errorMessage = typeof error === 'string' ? error : String(error ?? '')
+      const failedOp = queue.find((op) => op.id === operationId)
+      const shouldReplaceState =
+        !retryable &&
+        /not found/i.test(errorMessage) &&
+        failedOp?.operation?.target === 'block' &&
+        activeWorkflowId &&
+        presenceUsers.length <= 1
+
+      if (shouldReplaceState && activeWorkflowId) {
+        const now = Date.now()
+        if (now - lastReplaceStateAt.current < 5000) {
+          return
+        }
+        lastReplaceStateAt.current = now
+
+        const currentState = workflowStore.getWorkflowState()
+        const mergedBlocks = mergeSubblockState(currentState.blocks, activeWorkflowId)
+        const replacementState = {
+          ...currentState,
+          blocks: mergedBlocks,
+          lastSaved: Date.now(),
+        }
+
+        const replaceOperationId = crypto.randomUUID()
+        addToQueue({
+          id: replaceOperationId,
+          operation: {
+            operation: 'replace-state',
+            target: 'workflow',
+            payload: { state: replacementState },
+          },
+          workflowId: activeWorkflowId,
+          userId: session?.user?.id || 'unknown',
+        })
+
+        logger.warn('Replaced workflow state after not-found operation failure', {
+          workflowId: activeWorkflowId,
+          operationId,
+        })
+      }
     }
 
     // Register event handlers
@@ -588,7 +661,11 @@ export function useCollaborativeWorkflow() {
     confirmOperation,
     failOperation,
     emitWorkflowOperation,
+    addToQueue,
     queue,
+    presenceUsers,
+    session?.user?.id,
+    isShowingDiff,
   ])
 
   const executeQueuedOperation = useCallback(
@@ -1044,30 +1121,32 @@ export function useCollaborativeWorkflow() {
         return
       }
 
-      if (!isInActiveRoom()) {
-        logger.debug('Skipping subblock update - not in active workflow', {
+      const inActiveRoom = isInActiveRoom()
+      if (!inActiveRoom) {
+        logger.debug('Skipping socket subblock update - not in active workflow', {
           currentWorkflowId,
           activeWorkflowId,
           blockId,
           subblockId,
         })
-        return
       }
 
-      // Generate operation ID for queue tracking
-      const operationId = crypto.randomUUID()
+      if (inActiveRoom) {
+        // Generate operation ID for queue tracking
+        const operationId = crypto.randomUUID()
 
-      // Add to queue for retry mechanism
-      addToQueue({
-        id: operationId,
-        operation: {
-          operation: 'subblock-update',
-          target: 'subblock',
-          payload: { blockId, subblockId, value },
-        },
-        workflowId: activeWorkflowId || '',
-        userId: session?.user?.id || 'unknown',
-      })
+        // Add to queue for retry mechanism
+        addToQueue({
+          id: operationId,
+          operation: {
+            operation: 'subblock-update',
+            target: 'subblock',
+            payload: { blockId, subblockId, value },
+          },
+          workflowId: activeWorkflowId || '',
+          userId: session?.user?.id || 'unknown',
+        })
+      }
 
       // Apply locally first (immediate UI feedback)
       subBlockStore.setValue(blockId, subblockId, value)

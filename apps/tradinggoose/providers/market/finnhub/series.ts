@@ -167,6 +167,9 @@ export async function fetchFinnhubSeries(
 
   return {
     listingId: request.listingId,
+    listingBase: context.base,
+    listingQuote: context.quote,
+    primaryMicCode: context.micCode ?? context.primaryMicCode,
     start,
     end,
     timezone: context.timeZoneName,

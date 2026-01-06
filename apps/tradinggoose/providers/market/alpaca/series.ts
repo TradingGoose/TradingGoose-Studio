@@ -1,5 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import type { MarketBar, MarketSeries, MarketSeriesRequest, NormalizationMode } from '@/providers/market/types'
+import type { MarketBar, MarketSeries, MarketSeriesRequest } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 
@@ -46,16 +46,14 @@ function resolveTimeframe(interval?: string): string {
   return TIMEFRAME_WHITELIST.has(interval) ? interval : DEFAULT_TIMEFRAME
 }
 
-function resolveAdjustment(
-  mode: NormalizationMode | undefined,
-  override?: string
-): string | undefined {
+const ADJUSTMENT_VALUES = new Set(['raw', 'split', 'dividend', 'spin-off', 'all'])
+
+function resolveAdjustment(mode: string | undefined, override?: string): string | undefined {
   if (override) return override
   if (!mode) return undefined
+  if (ADJUSTMENT_VALUES.has(mode)) return mode
 
   switch (mode) {
-    case 'raw':
-      return 'raw'
     case 'split_adjusted':
       return 'split'
     case 'adjusted':
@@ -240,6 +238,9 @@ export async function fetchAlpacaSeries(
 
   return {
     listingId: request.listingId,
+    listingBase: context.base,
+    listingQuote: context.quote,
+    primaryMicCode: context.micCode ?? context.primaryMicCode,
     start: startTime,
     end: endTime,
     timezone: context.timeZoneName,

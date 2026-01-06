@@ -115,11 +115,22 @@ export const VariableOperationSchema = z.union([
   }),
 ])
 
+export const WorkflowStateOperationSchema = z.object({
+  operation: z.literal('replace-state'),
+  target: z.literal('workflow'),
+  payload: z.object({
+    state: z.any(),
+  }),
+  timestamp: z.number(),
+  operationId: z.string().optional(),
+})
+
 export const WorkflowOperationSchema = z.union([
   BlockOperationSchema,
   EdgeOperationSchema,
   SubflowOperationSchema,
   VariableOperationSchema,
+  WorkflowStateOperationSchema,
 ])
 
 export { PositionSchema, AutoConnectEdgeSchema }

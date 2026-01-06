@@ -1,4 +1,5 @@
 import { setupConnectionHandlers } from '@/socket-server/handlers/connection'
+import { setupMarketHandlers } from '@/socket-server/handlers/market'
 import { setupOperationsHandlers } from '@/socket-server/handlers/operations'
 import { setupPresenceHandlers } from '@/socket-server/handlers/presence'
 import { setupSubblocksHandlers } from '@/socket-server/handlers/subblocks'
@@ -21,6 +22,7 @@ export function setupAllHandlers(socket: AuthenticatedSocket, roomManager: RoomM
   setupVariablesHandlers(socket, roomManager)
   setupPresenceHandlers(socket, roomManager)
   setupConnectionHandlers(socket, roomManager)
+  setupMarketHandlers(socket, roomManager)
 }
 
 export {
@@ -30,4 +32,5 @@ export {
   setupVariablesHandlers,
   setupPresenceHandlers,
   setupConnectionHandlers,
+  setupMarketHandlers,
 }

@@ -5,7 +5,11 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
-import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
+import {
+  loadWorkflowFromNormalizedTables,
+  saveWorkflowToNormalizedTables,
+} from '@/lib/workflows/db-helpers'
+import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('SocketDatabase')
 
@@ -110,6 +114,107 @@ export async function updateSubflowNodeList(dbOrTx: any, workflowId: string, par
   }
 }
 
+// Workflow operations - handles complete state replacement
+async function handleWorkflowOperationTx(
+  tx: any,
+  workflowId: string,
+  operation: string,
+  payload: any
+) {
+  switch (operation) {
+    case 'replace-state': {
+      if (!payload.state) {
+        throw new Error('Missing state for replace-state operation')
+      }
+
+      const { blocks, edges, loops, parallels } = payload.state
+
+      logger.info(`Replacing workflow state for ${workflowId}`, {
+        blockCount: Object.keys(blocks || {}).length,
+        edgeCount: (edges || []).length,
+        loopCount: Object.keys(loops || {}).length,
+        parallelCount: Object.keys(parallels || {}).length,
+      })
+
+      // Delete all existing blocks (this will cascade delete edges via ON DELETE CASCADE)
+      await tx.delete(workflowBlocks).where(eq(workflowBlocks.workflowId, workflowId))
+
+      // Delete all existing subflows
+      await tx.delete(workflowSubflows).where(eq(workflowSubflows.workflowId, workflowId))
+
+      // Insert all blocks from the new state
+      if (blocks && Object.keys(blocks).length > 0) {
+        const blockValues = Object.values(blocks).map((block: any) => ({
+          id: block.id,
+          workflowId,
+          type: block.type,
+          name: block.name,
+          positionX: block.position.x,
+          positionY: block.position.y,
+          data: block.data || {},
+          subBlocks: block.subBlocks || {},
+          outputs: block.outputs || {},
+          enabled: block.enabled ?? true,
+          horizontalHandles: block.horizontalHandles ?? true,
+          isWide: block.isWide ?? false,
+          advancedMode: block.advancedMode ?? false,
+          triggerMode: block.triggerMode ?? false,
+          height: block.height || 0,
+        }))
+
+        await tx.insert(workflowBlocks).values(blockValues)
+      }
+
+      // Insert all edges from the new state
+      if (edges && edges.length > 0) {
+        const edgeValues = edges.map((edge: any) => ({
+          id: edge.id,
+          workflowId,
+          sourceBlockId: edge.source,
+          targetBlockId: edge.target,
+          sourceHandle: edge.sourceHandle || null,
+          targetHandle: edge.targetHandle || null,
+        }))
+
+        await tx.insert(workflowEdges).values(edgeValues)
+      }
+
+      // Insert all loops from the new state
+      if (loops && Object.keys(loops).length > 0) {
+        const loopValues = Object.entries(loops).map(([id, loop]: [string, any]) => ({
+          id,
+          workflowId,
+          type: 'loop',
+          config: loop,
+        }))
+
+        await tx.insert(workflowSubflows).values(loopValues)
+      }
+
+      // Insert all parallels from the new state
+      if (parallels && Object.keys(parallels).length > 0) {
+        const parallelValues = Object.entries(parallels).map(
+          ([id, parallel]: [string, any]) => ({
+            id,
+            workflowId,
+            type: 'parallel',
+            config: parallel,
+          })
+        )
+
+        await tx.insert(workflowSubflows).values(parallelValues)
+      }
+
+      logger.info(`Successfully replaced workflow state for ${workflowId}`)
+      break
+    }
+
+    default:
+      logger.warn(`Unknown workflow operation: ${operation}`)
+      throw new Error(`Unsupported workflow operation: ${operation}`)
+  }
+}
+
 // Get workflow state
 export async function getWorkflowState(workflowId: string) {
   try {
@@ -124,30 +229,65 @@ export async function getWorkflowState(workflowId: string) {
     }
 
     // Load from normalized tables first (same logic as REST API)
-    const normalizedData = await loadWorkflowFromNormalizedTables(workflowId)
+    let normalizedData = await loadWorkflowFromNormalizedTables(workflowId)
+
+    const buildNormalizedState = (data: NonNullable<typeof normalizedData>) => ({
+      deploymentStatuses: {},
+      hasActiveWebhook: false,
+      blocks: data.blocks,
+      edges: data.edges,
+      loops: data.loops,
+      parallels: data.parallels,
+      lastSaved: Date.now(),
+      isDeployed: workflowData[0].isDeployed || false,
+      deployedAt: workflowData[0].deployedAt,
+    })
+
+    if (!normalizedData) {
+      const legacyStateRaw = workflowData[0]?.state
+      const legacyState =
+        legacyStateRaw && typeof legacyStateRaw === 'object'
+          ? (legacyStateRaw as WorkflowState)
+          : null
+
+      const legacyBlocksCount = legacyState?.blocks
+        ? Object.keys(legacyState.blocks).length
+        : 0
+
+      if (legacyState && legacyBlocksCount > 0) {
+        const seedState: WorkflowState = {
+          blocks: legacyState.blocks || {},
+          edges: legacyState.edges || [],
+          loops: legacyState.loops || {},
+          parallels: legacyState.parallels || {},
+          lastSaved: legacyState.lastSaved,
+          lastUpdate: legacyState.lastUpdate,
+          isDeployed: legacyState.isDeployed,
+          deployedAt: legacyState.deployedAt,
+          deploymentStatuses: legacyState.deploymentStatuses,
+          needsRedeployment: legacyState.needsRedeployment,
+          dragStartPosition: legacyState.dragStartPosition,
+        }
+
+        const saveResult = await saveWorkflowToNormalizedTables(workflowId, seedState)
+        if (saveResult.success) {
+          normalizedData = await loadWorkflowFromNormalizedTables(workflowId)
+        } else {
+          logger.warn(`Failed to seed normalized tables for workflow ${workflowId}`, {
+            error: saveResult.error,
+          })
+        }
+      }
+    }
 
     if (normalizedData) {
-      // Use normalized data as source of truth
-      const finalState = {
-        // Default values for expected properties
-        deploymentStatuses: {},
-        hasActiveWebhook: false,
-        // Data from normalized tables
-        blocks: normalizedData.blocks,
-        edges: normalizedData.edges,
-        loops: normalizedData.loops,
-        parallels: normalizedData.parallels,
-        lastSaved: Date.now(),
-        isDeployed: workflowData[0].isDeployed || false,
-        deployedAt: workflowData[0].deployedAt,
-      }
-
       return {
         ...workflowData[0],
-        state: finalState,
+        state: buildNormalizedState(normalizedData),
         lastModified: Date.now(),
       }
     }
+
     // Fallback to JSON blob
     return {
       ...workflowData[0],
@@ -195,6 +335,9 @@ export async function persistWorkflowOperation(workflowId: string, operation: an
           break
         case 'variable':
           await handleVariableOperationTx(tx, workflowId, op, payload, userId)
+          break
+        case 'workflow':
+          await handleWorkflowOperationTx(tx, workflowId, op, payload)
           break
         default:
           throw new Error(`Unknown operation target: ${target}`)

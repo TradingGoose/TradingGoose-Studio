@@ -859,7 +859,7 @@ export const WorkflowBlock = memo(
                       : 'gray',
                     color: isEnabled
                       ? config.bgColor || undefined
-                      : 'black',
+                      : 'white',
                   }}
                 >
                   <config.icon className={'h-5 w-5'} />

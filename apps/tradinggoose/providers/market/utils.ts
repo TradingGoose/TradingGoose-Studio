@@ -33,10 +33,11 @@ export async function resolveListingContext(listingId: string): Promise<ListingC
     throw new Error('Listing not found')
   }
 
+  const primaryMicCode = listing.primaryMicCode as string | undefined
   const primaryMicName = listing.primaryMicName as string | undefined
-  let micCode: string | undefined
+  let micCode: string | undefined = primaryMicCode
 
-  if (primaryMicName) {
+  if (!micCode && primaryMicName) {
     const micRes = await marketClient.makeRequest<ListingResponse>(
       `/api/search/mics?mic_name=${encodeURIComponent(primaryMicName)}`
     )
@@ -53,7 +54,7 @@ export async function resolveListingContext(listingId: string): Promise<ListingC
     base: listing.base as string,
     quote: listing.quote as string | undefined,
     assetClass: listing.assetClass as AssetClass | undefined,
-    primaryMicName,
+    primaryMicCode: micCode ?? primaryMicCode,
     micCode,
     countryCode: listing.countryCode as string | undefined,
     cityName: listing.cityName as string | undefined,

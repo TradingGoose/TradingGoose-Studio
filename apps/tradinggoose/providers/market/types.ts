@@ -1,7 +1,7 @@
 // Minimal OHLCV schema aligned with Lean TradeBar and OpenBB Historical models.
 // Keep it small; adapters can add provider-specific metadata separately.
 
-export const MARKET_DATA_TYPES = ['series', 'news', 'sentiments'] as const
+export const MARKET_DATA_TYPES = ['series', 'news', 'sentiments', 'live'] as const
 export type MarketDataType = (typeof MARKET_DATA_TYPES)[number]
 
 export type MarketDataAvailability = {
@@ -27,38 +27,29 @@ export interface MarketBar {
   volume?: number
 }
 
-export const NORMALIZATION_MODES = [
-  'raw',
-  'adjusted',
-  'split_adjusted',
-  'total_return',
-  'forward_panama_canal',
-  'backwards_panama_canal',
-  'backwards_ratio',
-  'scaled_raw',
-] as const
-export type NormalizationMode = (typeof NORMALIZATION_MODES)[number]
-
 export interface MarketSeries {
   listingId: string
+  listingBase?: string
+  listingQuote?: string
+  primaryMicCode?: string
   start?: string
   end?: string
   timezone?: string // IANA tz, e.g. "America/New_York"
-  normalizationMode?: NormalizationMode
+  normalizationMode?: string
   bars: MarketBar[]
 }
 
 export interface MarketRequestBase {
   listingId: string
   providerParams?: MarketProviderParams
-  start: string | number
-  end: string | number
+  start?: string | number
+  end?: string | number
 }
 
 export interface MarketSeriesRequest extends MarketRequestBase {
   kind: 'series'
   interval?: string
-  normalizationMode?: NormalizationMode
+  normalizationMode?: string
 }
 
 export interface MarketNewsRequest extends MarketRequestBase {
@@ -69,10 +60,17 @@ export interface MarketSentimentRequest extends MarketRequestBase {
   kind: 'sentiments'
 }
 
+export interface MarketLiveRequest extends MarketRequestBase {
+  kind: 'live'
+  interval?: string
+  stream?: string
+}
+
 export type MarketProviderRequest =
   | MarketSeriesRequest
   | MarketNewsRequest
   | MarketSentimentRequest
+  | MarketLiveRequest
 
 export interface MarketProviderParams {
   apiKey?: string
@@ -113,4 +111,15 @@ export interface SentimentPoint {
 
 export interface SentimentSeries {
   items: SentimentPoint[]
+}
+
+export interface MarketLiveSnapshot {
+  listingId: string
+  listingBase?: string
+  listingQuote?: string
+  primaryMicCode?: string
+  interval?: string
+  timezone?: string
+  stream?: string
+  bar: MarketBar
 }

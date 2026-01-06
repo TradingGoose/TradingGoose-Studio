@@ -183,6 +183,44 @@ export function setupOperationsHandlers(
         return
       }
 
+      if (target === 'workflow' && operation === 'replace-state') {
+        // Persist the workflow state replacement to database first
+        await persistWorkflowOperation(workflowId, {
+          operation,
+          target,
+          payload,
+          timestamp: operationTimestamp,
+          userId: session.userId,
+        })
+
+        room.lastModified = Date.now()
+
+        const broadcastData = {
+          operation,
+          target,
+          payload,
+          timestamp: operationTimestamp,
+          senderId: socket.id,
+          userId: session.userId,
+          userName: session.userName,
+          metadata: {
+            workflowId,
+            operationId: crypto.randomUUID(),
+          },
+        }
+
+        socket.to(workflowId).emit('workflow-operation', broadcastData)
+
+        if (operationId) {
+          socket.emit('operation-confirmed', {
+            operationId,
+            serverTimestamp: Date.now(),
+          })
+        }
+
+        return
+      }
+
       // For non-position operations, persist first then broadcast
       await persistWorkflowOperation(workflowId, {
         operation,
@@ -221,13 +259,16 @@ export function setupOperationsHandlers(
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      const isNotFound = /not found/i.test(errorMessage)
+      const isDuplicate = /duplicate|unique/i.test(errorMessage)
+      const isRetryable = !(error instanceof ZodError) && !isNotFound && !isDuplicate
 
       // Emit operation-failed for queue-tracked operations
       if (operationId) {
         socket.emit('operation-failed', {
           operationId,
           error: errorMessage,
-          retryable: !(error instanceof ZodError), // Don't retry validation errors
+          retryable: isRetryable, // Don't retry validation/duplicate/not-found errors
         })
       }
 

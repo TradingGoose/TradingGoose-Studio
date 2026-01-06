@@ -1,11 +1,11 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import type { MarketBar, MarketSeries, MarketSeriesRequest, NormalizationMode } from '@/providers/market/types'
+import type { MarketBar, MarketSeries, MarketSeriesRequest } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 import { YahooFinanceProviderConfig } from '@/providers/market/yahoo-finance/config'
 
 const logger = createLogger('MarketProvider:YFinance')
 
-const NORMALIZED_CLOSE_MODES: NormalizationMode[] = [
+const NORMALIZED_CLOSE_MODES: string[] = [
   'adjusted',
   'split_adjusted',
   'total_return',
@@ -137,6 +137,9 @@ export async function fetchYahooFinanceSeries(
 
   return {
     listingId: request.listingId,
+    listingBase: context.base,
+    listingQuote: context.quote,
+    primaryMicCode: context.micCode ?? context.primaryMicCode,
     start,
     end,
     timezone: result.meta?.exchangeTimezoneName || context.timeZoneName,
