@@ -184,6 +184,7 @@ export function setupOperationsHandlers(
       }
 
       if (target === 'workflow' && operation === 'replace-state') {
+        const originalState = payload?.state
         // Persist the workflow state replacement to database first
         await persistWorkflowOperation(workflowId, {
           operation,
@@ -192,6 +193,8 @@ export function setupOperationsHandlers(
           timestamp: operationTimestamp,
           userId: session.userId,
         })
+
+        const stateRemapped = payload?.state && payload.state !== originalState
 
         room.lastModified = Date.now()
 
@@ -210,6 +213,9 @@ export function setupOperationsHandlers(
         }
 
         socket.to(workflowId).emit('workflow-operation', broadcastData)
+        if (stateRemapped) {
+          socket.emit('workflow-operation', broadcastData)
+        }
 
         if (operationId) {
           socket.emit('operation-confirmed', {

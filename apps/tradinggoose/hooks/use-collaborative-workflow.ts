@@ -103,7 +103,6 @@ export function useCollaborativeWorkflow() {
 
   // Track last applied position timestamps to prevent out-of-order updates
   const lastPositionTimestamps = useRef<Map<string, number>>(new Map())
-  const lastReplaceStateAt = useRef(0)
 
   // Operation queue
   const {
@@ -586,48 +585,6 @@ export function useCollaborativeWorkflow() {
       logger.warn('Operation failed', { operationId, error, retryable })
 
       failOperation(operationId, retryable)
-
-      const errorMessage = typeof error === 'string' ? error : String(error ?? '')
-      const failedOp = queue.find((op) => op.id === operationId)
-      const shouldReplaceState =
-        !retryable &&
-        /not found/i.test(errorMessage) &&
-        failedOp?.operation?.target === 'block' &&
-        activeWorkflowId &&
-        presenceUsers.length <= 1
-
-      if (shouldReplaceState && activeWorkflowId) {
-        const now = Date.now()
-        if (now - lastReplaceStateAt.current < 5000) {
-          return
-        }
-        lastReplaceStateAt.current = now
-
-        const currentState = workflowStore.getWorkflowState()
-        const mergedBlocks = mergeSubblockState(currentState.blocks, activeWorkflowId)
-        const replacementState = {
-          ...currentState,
-          blocks: mergedBlocks,
-          lastSaved: Date.now(),
-        }
-
-        const replaceOperationId = crypto.randomUUID()
-        addToQueue({
-          id: replaceOperationId,
-          operation: {
-            operation: 'replace-state',
-            target: 'workflow',
-            payload: { state: replacementState },
-          },
-          workflowId: activeWorkflowId,
-          userId: session?.user?.id || 'unknown',
-        })
-
-        logger.warn('Replaced workflow state after not-found operation failure', {
-          workflowId: activeWorkflowId,
-          operationId,
-        })
-      }
     }
 
     // Register event handlers

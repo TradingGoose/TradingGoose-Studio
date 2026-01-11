@@ -6,6 +6,7 @@ import postgres from 'postgres'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
+  ensureUniqueBlockIds,
   loadWorkflowFromNormalizedTables,
   saveWorkflowToNormalizedTables,
 } from '@/lib/workflows/db-helpers'
@@ -30,6 +31,25 @@ const db = socketDb
 
 // Constants
 const DEFAULT_LOOP_ITERATIONS = 5
+
+const sanitizeNumberForDecimal = (value: unknown, fallback = '0'): string => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value.toString()
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (trimmed.length === 0) return fallback
+    const parsed = Number(trimmed)
+    if (Number.isFinite(parsed)) return trimmed
+  }
+  return fallback
+}
+
+const normalizeString = (value: unknown): string | null => {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
 
 /**
  * Shared function to handle auto-connect edge insertion
@@ -127,7 +147,13 @@ async function handleWorkflowOperationTx(
         throw new Error('Missing state for replace-state operation')
       }
 
-      const { blocks, edges, loops, parallels } = payload.state
+      const normalizedState = await ensureUniqueBlockIds(workflowId, payload.state)
+      if (normalizedState !== payload.state) {
+        payload.state = normalizedState
+        logger.warn(`Adjusted workflow state to avoid duplicate block ids for ${workflowId}`)
+      }
+
+      const { blocks, edges, loops, parallels } = normalizedState
 
       logger.info(`Replacing workflow state for ${workflowId}`, {
         blockCount: Object.keys(blocks || {}).length,
@@ -143,40 +169,109 @@ async function handleWorkflowOperationTx(
       await tx.delete(workflowSubflows).where(eq(workflowSubflows.workflowId, workflowId))
 
       // Insert all blocks from the new state
-      if (blocks && Object.keys(blocks).length > 0) {
-        const blockValues = Object.values(blocks).map((block: any) => ({
-          id: block.id,
-          workflowId,
-          type: block.type,
-          name: block.name,
-          positionX: block.position.x,
-          positionY: block.position.y,
-          data: block.data || {},
-          subBlocks: block.subBlocks || {},
-          outputs: block.outputs || {},
-          enabled: block.enabled ?? true,
-          horizontalHandles: block.horizontalHandles ?? true,
-          isWide: block.isWide ?? false,
-          advancedMode: block.advancedMode ?? false,
-          triggerMode: block.triggerMode ?? false,
-          height: block.height || 0,
-        }))
+      const blockValues =
+        blocks && Object.keys(blocks).length > 0
+          ? Object.entries(blocks).reduce<Array<typeof workflowBlocks.$inferInsert>>(
+            (acc, [blockKey, block]: [string, any]) => {
+              if (!block || typeof block !== 'object') {
+                logger.warn(`Skipping invalid block when replacing workflow ${workflowId}`)
+                return acc
+              }
 
+              const normalizedKey = normalizeString(blockKey)
+              const normalizedId = normalizeString(block.id)
+              const blockId = normalizedKey ?? normalizedId
+              if (!blockId) {
+                logger.warn(`Skipping block without id when replacing workflow ${workflowId}`)
+                return acc
+              }
+
+              if (normalizedId && normalizedKey && normalizedId !== normalizedKey) {
+                logger.warn(
+                  `Block id mismatch detected for workflow ${workflowId}: key=${normalizedKey}, id=${normalizedId}. Using key.`
+                )
+              }
+
+              const blockType = normalizeString(block.type)
+              if (!blockType) {
+                logger.warn(`Skipping block ${blockId} without type when replacing workflow ${workflowId}`)
+                return acc
+              }
+
+              const blockName = normalizeString(block.name) ?? blockType
+
+              acc.push({
+                id: blockId,
+                workflowId,
+                type: blockType,
+                name: blockName,
+                positionX: sanitizeNumberForDecimal(block.position?.x),
+                positionY: sanitizeNumberForDecimal(block.position?.y),
+                data: block.data ?? {},
+                subBlocks: block.subBlocks ?? {},
+                outputs: block.outputs ?? {},
+                enabled: block.enabled ?? true,
+                horizontalHandles: block.horizontalHandles ?? true,
+                isWide: block.isWide ?? false,
+                advancedMode: block.advancedMode ?? false,
+                triggerMode: block.triggerMode ?? false,
+                height: sanitizeNumberForDecimal(block.height ?? 0),
+              })
+
+              return acc
+            },
+            []
+          )
+          : []
+
+      if (blockValues.length > 0) {
         await tx.insert(workflowBlocks).values(blockValues)
       }
 
+      const validBlockIds = new Set(blockValues.map((block) => block.id))
+
       // Insert all edges from the new state
       if (edges && edges.length > 0) {
-        const edgeValues = edges.map((edge: any) => ({
-          id: edge.id,
-          workflowId,
-          sourceBlockId: edge.source,
-          targetBlockId: edge.target,
-          sourceHandle: edge.sourceHandle || null,
-          targetHandle: edge.targetHandle || null,
-        }))
+        const edgeValues = edges.reduce<Array<typeof workflowEdges.$inferInsert>>(
+          (acc, edge: any) => {
+            if (!edge || typeof edge !== 'object') {
+              logger.warn(`Skipping invalid edge when replacing workflow ${workflowId}`)
+              return acc
+            }
 
-        await tx.insert(workflowEdges).values(edgeValues)
+            const edgeId = normalizeString(edge.id)
+            const sourceId = normalizeString(edge.source)
+            const targetId = normalizeString(edge.target)
+
+            if (!edgeId || !sourceId || !targetId) {
+              logger.warn(`Skipping edge with missing identifiers when replacing workflow ${workflowId}`)
+              return acc
+            }
+
+            if (!validBlockIds.has(sourceId) || !validBlockIds.has(targetId)) {
+              logger.warn(
+                `Skipping edge ${edgeId} referencing missing blocks (${sourceId} -> ${targetId}) for workflow ${workflowId}`
+              )
+              return acc
+            }
+
+            acc.push({
+              id: edgeId,
+              workflowId,
+              sourceBlockId: sourceId,
+              targetBlockId: targetId,
+              sourceHandle: normalizeString(edge.sourceHandle),
+              targetHandle: normalizeString(edge.targetHandle),
+            })
+
+            return acc
+          },
+          []
+        )
+
+        if (edgeValues.length > 0) {
+          await tx.insert(workflowEdges).values(edgeValues)
+        }
       }
 
       // Insert all loops from the new state
@@ -361,6 +456,15 @@ export async function persistWorkflowOperation(workflowId: string, operation: an
       `❌ Error persisting workflow operation (${operation.operation} on ${operation.target}) after ${duration}ms:`,
       error
     )
+    const cause = (error as any)?.cause
+    if (cause) {
+      logger.error('Underlying socket DB error:', {
+        message: cause?.message,
+        code: cause?.code,
+        detail: cause?.detail,
+        constraint: cause?.constraint,
+      })
+    }
     throw error
   }
 }
