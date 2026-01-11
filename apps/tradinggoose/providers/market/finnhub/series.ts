@@ -1,13 +1,26 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import type { MarketBar, MarketSeries, MarketSeriesRequest } from '@/providers/market/types'
+import type {
+  MarketBar,
+  MarketSeries,
+  MarketSeriesRequest,
+  MarketInterval,
+} from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
 
 const logger = createLogger('MarketProvider:Finnhub')
 
-const RESOLUTION_WHITELIST = new Set(
-  finnhubProviderConfig.capabilities?.series?.intervals ?? []
-)
+const FINNHUB_RESOLUTION_MAP: Partial<Record<MarketInterval, string>> = {
+  '1m': '1',
+  '5m': '5',
+  '15m': '15',
+  '30m': '30',
+  '1h': '60',
+  '1d': 'D',
+  '1w': 'W',
+  '1mo': 'M',
+}
+const FINNHUB_RESOLUTIONS = new Set(['1', '5', '15', '30', '60', 'D', 'W', 'M'])
 
 function toUnixSeconds(value?: string | number): number | undefined {
   if (value === undefined || value === null) return undefined
@@ -39,8 +52,10 @@ function toIsoString(value?: string | number): string | undefined {
 function resolveResolution(interval?: string): string {
   const fallback = 'D'
   if (!interval) return fallback
-  if (!RESOLUTION_WHITELIST.size) return interval
-  return RESOLUTION_WHITELIST.has(interval) ? interval : fallback
+  const mapped = FINNHUB_RESOLUTION_MAP[interval as MarketInterval]
+  if (mapped) return mapped
+  if (FINNHUB_RESOLUTIONS.has(interval)) return interval
+  return fallback
 }
 
 type FinnhubEndpoint = 'stock' | 'forex' | 'crypto'
@@ -73,6 +88,25 @@ function resolveEndpoint(
   return 'stock'
 }
 
+function resolveSeriesEndpointUrl(
+  endpoint: FinnhubEndpoint,
+  assetClass?: string
+): string {
+  const mappedAssetClass =
+    endpoint === 'forex'
+      ? 'currency'
+      : endpoint === 'crypto'
+        ? 'crypto'
+        : (assetClass as string | undefined) || 'stock'
+
+  return (
+    finnhubProviderConfig.api_endpoints?.[
+      mappedAssetClass as keyof typeof finnhubProviderConfig.api_endpoints
+    ] ||
+    finnhubProviderConfig.api_endpoints?.default
+  )
+}
+
 export async function fetchFinnhubSeries(
   request: MarketSeriesRequest
 ): Promise<MarketSeries> {
@@ -103,7 +137,11 @@ export async function fetchFinnhubSeries(
     throw new Error('Finnhub API key is required')
   }
 
-  const url = new URL(`https://finnhub.io/api/v1/${endpoint}/candle`)
+  const seriesEndpoint = resolveSeriesEndpointUrl(endpoint, context.assetClass)
+  if (!seriesEndpoint) {
+    throw new Error('Finnhub endpoint is not configured for series requests')
+  }
+  const url = new URL(seriesEndpoint)
   url.searchParams.set('symbol', symbol)
   url.searchParams.set('resolution', resolution)
   url.searchParams.set('from', String(from))

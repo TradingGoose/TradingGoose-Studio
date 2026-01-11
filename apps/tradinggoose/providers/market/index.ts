@@ -1,5 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import type { MarketProviderRequest, MarketProviderResponse } from '@/providers/market/providers'
+import { alphaVantageProvider } from '@/providers/market/alpha-vantage'
 import { alpacaProvider } from '@/providers/market/alpaca'
 import { finnhubProvider } from '@/providers/market/finnhub'
 import { YahooFinanceProvider } from '@/providers/market/yahoo-finance'
@@ -7,6 +8,7 @@ import { YahooFinanceProvider } from '@/providers/market/yahoo-finance'
 const logger = createLogger('MarketProviders')
 
 const providers = {
+  'alpha-vantage': alphaVantageProvider,
   alpaca: alpacaProvider,
   finnhub: finnhubProvider,
   'yahoo-finance': YahooFinanceProvider,
@@ -39,18 +41,6 @@ export async function executeProviderRequest(
         throw new Error(`Provider ${providerId} does not support market series`)
       }
       return provider.fetchMarketSeries(request)
-    }
-    case 'news': {
-      if (!provider.fetchNews) {
-        throw new Error(`Provider ${providerId} does not support news`)
-      }
-      return provider.fetchNews(request)
-    }
-    case 'sentiments': {
-      if (!provider.fetchSentiments) {
-        throw new Error(`Provider ${providerId} does not support sentiments`)
-      }
-      return provider.fetchSentiments(request)
     }
     case 'live': {
       if (!provider.fetchMarketLive) {

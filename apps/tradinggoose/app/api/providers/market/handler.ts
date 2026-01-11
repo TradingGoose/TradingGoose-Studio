@@ -3,8 +3,8 @@ import { z } from 'zod'
 import { createLogger } from '@/lib/logs/console/logger'
 import { executeProviderRequest } from '@/providers/market'
 import type { MarketProviderRequest } from '@/providers/market/providers'
-import type { MarketDataType } from '@/providers/market/types'
-import { MARKET_DATA_TYPES } from '@/providers/market/types'
+import type { MarketDataType, NormalizationMode } from '@/providers/market/types'
+import { MARKET_DATA_TYPES, NORMALIZATION_MODES } from '@/providers/market/types'
 
 const logger = createLogger('ProvidersAPI:Market')
 
@@ -17,7 +17,7 @@ export interface MarketProviderRouteBody {
   interval?: string
   start?: string | number
   end?: string | number
-  normalizationMode?: string
+  normalizationMode?: NormalizationMode
   stream?: string
   providerParams?: Record<string, any>
 }
@@ -42,7 +42,7 @@ export async function handleMarketProviderRequest({
       interval: z.string().optional(),
       start: z.union([z.string(), z.number()]).optional(),
       end: z.union([z.string(), z.number()]).optional(),
-      normalizationMode: z.string().optional(),
+      normalizationMode: z.enum(NORMALIZATION_MODES).optional(),
       stream: z.string().optional(),
       providerParams: z.record(z.any()).optional(),
     })

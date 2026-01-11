@@ -18,7 +18,7 @@ type MicSearchRow = {
 
 export async function resolveListingContext(listingId: string): Promise<ListingContext> {
   const listingRes = await marketClient.makeRequest<ListingResponse>(
-    `/api/search/listings?listing_id=${encodeURIComponent(listingId)}`
+    `/api/v1/search/equity?equity_id=${encodeURIComponent(listingId)}`
   )
 
   if (!listingRes.success) {
@@ -39,7 +39,7 @@ export async function resolveListingContext(listingId: string): Promise<ListingC
 
   if (!micCode && primaryMicName) {
     const micRes = await marketClient.makeRequest<ListingResponse>(
-      `/api/search/mics?mic_name=${encodeURIComponent(primaryMicName)}`
+      `/api/v1/search/mics?mic_name=${encodeURIComponent(primaryMicName)}`
     )
 
     if (micRes.success) {

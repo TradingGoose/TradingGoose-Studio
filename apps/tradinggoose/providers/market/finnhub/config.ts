@@ -14,14 +14,22 @@ const availableAssetClasses: AssetClass[] = [
   'currency',
 ]
 
-const availableCurrencyCodes = ['USD', 'EUR']
+const availableEquityQuoteCodes = ['USD', 'EUR']
+const availableCurrencyBaseCodes = availableEquityQuoteCodes
+const availableCurrencyQuoteCodes = availableEquityQuoteCodes
+const availableCryptoBaseCodes = availableEquityQuoteCodes
+const availableCryptoQuoteCodes = availableEquityQuoteCodes
+const supportsCurrency = availableAssetClasses.includes('currency')
+const supportsCrypto = availableAssetClasses.includes('crypto')
 
 const availability: MarketProviderConfig['availability'] = {
   assetClass: availableAssetClasses,
-  currency: availableCurrencyCodes,
+  availableEquityQuote: availableEquityQuoteCodes,
+  availableCurrencyBase: supportsCurrency ? availableCurrencyBaseCodes : [],
+  availableCurrencyQuote: supportsCurrency ? availableCurrencyQuoteCodes : [],
+  availableCryptoBase: supportsCrypto ? availableCryptoBaseCodes : [],
+  availableCryptoQuote: supportsCrypto ? availableCryptoQuoteCodes : [],
   series: true,
-  news: true,
-  sentiments: false,
   live: true,
 }
 
@@ -48,16 +56,20 @@ const micToExchangeCodeMap: MarketProviderConfig['micToExchangeCode'] = micToExc
 export const finnhubProviderConfig: MarketProviderConfig = {
   id: 'finnhub',
   name: 'Finnhub',
+  utcOffset: 0,
   availability,
   params,
+  api_endpoints: {
+    default: 'https://finnhub.io/api/v1/stock/candle',
+    currency: 'https://finnhub.io/api/v1/forex/candle',
+    crypto: 'https://finnhub.io/api/v1/crypto/candle',
+  },
   capabilities: {
     series: {
       supportsInterval: true,
-      intervals: ['1', '5', '15', '30', '60', 'D', 'W', 'M'],
+      intervals: ['1m', '5m', '15m', '30m', '1h', '1d', '1w', '1mo'],
       supportsStartEnd: true,
-    },
-    news: {
-      supportsStartEnd: true,
+      normalizationModes: [],
     },
     live: {
       supportsStreaming: true,

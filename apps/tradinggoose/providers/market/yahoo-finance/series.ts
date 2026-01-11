@@ -1,15 +1,43 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import type { MarketBar, MarketSeries, MarketSeriesRequest } from '@/providers/market/types'
+import type {
+  MarketBar,
+  MarketSeries,
+  MarketSeriesRequest,
+  MarketInterval,
+  NormalizationMode,
+} from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 import { YahooFinanceProviderConfig } from '@/providers/market/yahoo-finance/config'
 
 const logger = createLogger('MarketProvider:YFinance')
 
-const NORMALIZED_CLOSE_MODES: string[] = [
-  'adjusted',
-  'split_adjusted',
-  'total_return',
-]
+const NORMALIZED_CLOSE_MODES: NormalizationMode[] = ['adjusted']
+
+const YAHOO_INTERVAL_MAP: Partial<Record<MarketInterval, string>> = {
+  '1m': '1m',
+  '2m': '2m',
+  '5m': '5m',
+  '15m': '15m',
+  '30m': '30m',
+  '1h': '60m',
+  '1d': '1d',
+  '1w': '1wk',
+  '1mo': '1mo',
+  '3mo': '3mo',
+}
+const YAHOO_INTERVALS = new Set([
+  '1m',
+  '2m',
+  '5m',
+  '15m',
+  '30m',
+  '60m',
+  '1h',
+  '1d',
+  '1wk',
+  '1mo',
+  '3mo',
+])
 
 function toUnixSeconds(value?: string | number): number | undefined {
   if (value === undefined || value === null) return undefined
@@ -39,7 +67,13 @@ function toIsoString(value?: string | number): string | undefined {
 }
 
 function resolveInterval(request: MarketSeriesRequest): string {
-  return request.interval || (request.providerParams?.interval as string | undefined) || '1d'
+  const interval =
+    request.interval || (request.providerParams?.interval as string | undefined)
+  if (!interval) return '1d'
+  const mapped = YAHOO_INTERVAL_MAP[interval as MarketInterval]
+  if (mapped) return mapped
+  if (YAHOO_INTERVALS.has(interval)) return interval
+  return '1d'
 }
 
 function buildChartUrl(symbol: string, request: MarketSeriesRequest): string {
@@ -60,9 +94,12 @@ function buildChartUrl(symbol: string, request: MarketSeriesRequest): string {
 
   params.set('events', 'div,split')
 
-  return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
-    symbol
-  )}?${params.toString()}`
+  const baseUrl = YahooFinanceProviderConfig.api_endpoints?.default
+  if (!baseUrl) {
+    throw new Error('Yahoo Finance endpoint is not configured for series requests')
+  }
+
+  return `${baseUrl}/${encodeURIComponent(symbol)}?${params.toString()}`
 }
 
 export async function fetchYahooFinanceSeries(

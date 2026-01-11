@@ -1,12 +1,39 @@
 // Minimal OHLCV schema aligned with Lean TradeBar and OpenBB Historical models.
 // Keep it small; adapters can add provider-specific metadata separately.
 
-export const MARKET_DATA_TYPES = ['series', 'news', 'sentiments', 'live'] as const
+export const MARKET_DATA_TYPES = ['series', 'live'] as const
 export type MarketDataType = (typeof MARKET_DATA_TYPES)[number]
 
+export const MARKET_INTERVALS = [
+  '1m',
+  '2m',
+  '3m',
+  '5m',
+  '10m',
+  '15m',
+  '30m',
+  '45m',
+  '1h',
+  '2h',
+  '3h',
+  '4h',
+  '1d',
+  '1w',
+  '2w',
+  '1mo',
+  '3mo',
+  '6mo',
+  '12mo',
+] as const
+export type MarketInterval = (typeof MARKET_INTERVALS)[number]
+
 export type MarketDataAvailability = {
-  currency: string[]
   assetClass: AssetClass[]
+  availableEquityQuote?: string[]
+  availableCurrencyBase?: string[]
+  availableCurrencyQuote?: string[]
+  availableCryptoBase?: string[]
+  availableCryptoQuote?: string[]
 } & Record<MarketDataType, boolean>
 
 export type AssetClass =
@@ -27,15 +54,34 @@ export interface MarketBar {
   volume?: number
 }
 
+export const NORMALIZATION_MODES = [
+  'raw',
+  'adjusted',
+  'split_adjusted',
+  'total_return',
+  'forward_panama_canal',
+  'backwards_panama_canal',
+  'backwards_ratio',
+  'scaled_raw',
+] as const
+export type NormalizationMode = (typeof NORMALIZATION_MODES)[number]
+
 export interface MarketSeries {
   listingId: string
   listingBase?: string
   listingQuote?: string
   primaryMicCode?: string
+  listing?: {
+    equity_id?: string | null
+    base_id?: string | null
+    quote_id?: string | null
+    base_asset_class?: string | null
+    quote_asset_class?: string | null
+  }
   start?: string
   end?: string
   timezone?: string // IANA tz, e.g. "America/New_York"
-  normalizationMode?: string
+  normalizationMode?: NormalizationMode
   bars: MarketBar[]
 }
 
@@ -49,15 +95,7 @@ export interface MarketRequestBase {
 export interface MarketSeriesRequest extends MarketRequestBase {
   kind: 'series'
   interval?: string
-  normalizationMode?: string
-}
-
-export interface MarketNewsRequest extends MarketRequestBase {
-  kind: 'news'
-}
-
-export interface MarketSentimentRequest extends MarketRequestBase {
-  kind: 'sentiments'
+  normalizationMode?: NormalizationMode
 }
 
 export interface MarketLiveRequest extends MarketRequestBase {
@@ -68,8 +106,6 @@ export interface MarketLiveRequest extends MarketRequestBase {
 
 export type MarketProviderRequest =
   | MarketSeriesRequest
-  | MarketNewsRequest
-  | MarketSentimentRequest
   | MarketLiveRequest
 
 export interface MarketProviderParams {
@@ -77,40 +113,6 @@ export interface MarketProviderParams {
   apiSecret?: string
   interval?: string
   [key: string]: any
-}
-
-export interface NewsItem {
-  timeStamp: string // ISO timestamp of publication
-  title: string
-  url?: string
-  source?: string
-  symbols?: string[]
-  sentimentLabel?: SentimentLabel
-  sentimentScore?: number
-}
-
-export interface NewsSeries {
-  items: NewsItem[]
-}
-
-export type SentimentLabel =
-  | 'positive'
-  | 'neutral'
-  | 'negative'
-  | 'bullish'
-  | 'bearish'
-
-export interface SentimentPoint {
-  timeStamp: string
-  symbols?: string[]
-  sentimentLabel?: SentimentLabel
-  sentimentScore?: number
-  sentimentConfidence?: number
-  source?: string
-}
-
-export interface SentimentSeries {
-  items: SentimentPoint[]
 }
 
 export interface MarketLiveSnapshot {

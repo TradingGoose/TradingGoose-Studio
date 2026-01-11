@@ -1,14 +1,38 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import type { MarketBar, MarketSeries, MarketSeriesRequest } from '@/providers/market/types'
+import type {
+  MarketBar,
+  MarketSeries,
+  MarketSeriesRequest,
+  MarketInterval,
+  NormalizationMode,
+} from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 
 const logger = createLogger('MarketProvider:Alpaca')
 
-const DEFAULT_TIMEFRAME = '1Day'
-const TIMEFRAME_WHITELIST = new Set(
-  alpacaProviderConfig.capabilities?.series?.intervals ?? []
-)
+const ALPACA_INTERVAL_MAP: Partial<Record<MarketInterval, string>> = {
+  '1m': '1Min',
+  '2m': '2Min',
+  '3m': '3Min',
+  '5m': '5Min',
+  '10m': '10Min',
+  '15m': '15Min',
+  '30m': '30Min',
+  '45m': '45Min',
+  '1h': '1Hour',
+  '2h': '2Hour',
+  '3h': '3Hour',
+  '4h': '4Hour',
+  '1d': '1Day',
+  '1w': '1Week',
+  '1mo': '1Month',
+  '3mo': '3Month',
+  '6mo': '6Month',
+  '12mo': '12Month',
+}
+const ALPACA_TIMEFRAMES = new Set(Object.values(ALPACA_INTERVAL_MAP))
+const DEFAULT_TIMEFRAME = ALPACA_INTERVAL_MAP['1d'] ?? '1Day'
 
 function toIsoString(value?: string | number): string | undefined {
   if (value === undefined || value === null) return undefined
@@ -42,26 +66,27 @@ function resolveTimeRange(request: MarketSeriesRequest): { start?: string; end?:
 
 function resolveTimeframe(interval?: string): string {
   if (!interval) return DEFAULT_TIMEFRAME
-  if (!TIMEFRAME_WHITELIST.size) return interval
-  return TIMEFRAME_WHITELIST.has(interval) ? interval : DEFAULT_TIMEFRAME
+  const mapped = ALPACA_INTERVAL_MAP[interval as MarketInterval]
+  if (mapped) return mapped
+  if (ALPACA_TIMEFRAMES.has(interval)) return interval
+  return DEFAULT_TIMEFRAME
 }
 
-const ADJUSTMENT_VALUES = new Set(['raw', 'split', 'dividend', 'spin-off', 'all'])
+const NORMALIZATION_TO_ADJUSTMENT: Partial<Record<NormalizationMode, string>> = {
+  raw: 'raw',
+  scaled_raw: 'raw',
+  split_adjusted: 'split',
+  adjusted: 'all',
+  total_return: 'all',
+}
 
-function resolveAdjustment(mode: string | undefined, override?: string): string | undefined {
+function resolveAdjustment(
+  mode: NormalizationMode | undefined,
+  override?: string
+): string | undefined {
   if (override) return override
   if (!mode) return undefined
-  if (ADJUSTMENT_VALUES.has(mode)) return mode
-
-  switch (mode) {
-    case 'split_adjusted':
-      return 'split'
-    case 'adjusted':
-    case 'total_return':
-      return 'all'
-    default:
-      return undefined
-  }
+  return NORMALIZATION_TO_ADJUSTMENT[mode]
 }
 
 function resolveMarket(request: MarketSeriesRequest, assetClass?: string): 'stocks' | 'crypto' {

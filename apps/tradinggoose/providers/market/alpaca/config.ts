@@ -4,13 +4,40 @@ import { AssetClass } from '@/providers/market/types'
 
 const availableAssetClasses: AssetClass[] = ['stock', 'etf', 'crypto']
 
-const availableCurrencyCodes = ['USD', 'USDC', 'USDT', 'BTC']
+const supportsCrypto = availableAssetClasses.includes('crypto')
+const availableEquityQuoteCodes = ['USD']
+const availableCryptoQuoteCodes = ['USD', 'USDC', 'USDT', 'BTC']
+const availableCryptoBaseCodes = [
+  'AAVE',
+  'AVAX',
+  'BAT',
+  'BCH',
+  'BTC',
+  'CRV',
+  'DOGE',
+  'DOT',
+  'ETH',
+  'GRT',
+  'LINK',
+  'LTC',
+  'SHIB',
+  'SKY',
+  'SUSHI',
+  'UNI',
+  'USDC',
+  'USDT',
+  'XRP',
+  'XTZ',
+  'YFI',
+]
 const availability: MarketProviderConfig['availability'] = {
   assetClass: availableAssetClasses,
-  currency: availableCurrencyCodes,
+  availableEquityQuote: availableEquityQuoteCodes,
+  availableCurrencyBase: [],
+  availableCurrencyQuote: [],
+  availableCryptoBase: supportsCrypto ? availableCryptoBaseCodes : [],
+  availableCryptoQuote: supportsCrypto ? availableCryptoQuoteCodes : [],
   series: true,
-  news: false,
-  sentiments: false,
   live: true,
 }
 
@@ -149,25 +176,34 @@ const micToExchangeCodeMap: MarketProviderConfig['micToExchangeCode'] = {
 export const alpacaProviderConfig: MarketProviderConfig = {
   id: 'alpaca',
   name: 'Alpaca',
+  utcOffset: 0,
   availability,
   params,
   capabilities: {
     series: {
       supportsInterval: true,
       intervals: [
-        ...Array.from({ length: 59 }, (_, index) => `${index + 1}Min`),
-        ...Array.from({ length: 23 }, (_, index) => `${index + 1}Hour`),
-        '1Day',
-        '1Week',
-        '1Month',
-        '2Month',
-        '3Month',
-        '4Month',
-        '6Month',
-        '12Month',
+        '1m',
+        '2m',
+        '3m',
+        '5m',
+        '10m',
+        '15m',
+        '30m',
+        '45m',
+        '1h',
+        '2h',
+        '3h',
+        '4h',
+        '1d',
+        '1w',
+        '1mo',
+        '3mo',
+        '6mo',
+        '12mo',
       ],
       supportsStartEnd: true,
-      normalizationModes: ['raw', 'split', 'dividend', 'spin-off', 'all'],
+      normalizationModes: ['raw', 'adjusted', 'split_adjusted'],
     },
     live: {
       supportsStreaming: true,

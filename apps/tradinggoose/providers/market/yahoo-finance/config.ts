@@ -14,7 +14,7 @@ const availableAssetClasses: AssetClass[] = [
   'currency',
 ]
 
-const availableCurrencyCodes = [
+const availableEquityQuoteCodes = [
   '4O',
   'AED',
   'AFN',
@@ -202,13 +202,21 @@ const availableCurrencyCodes = [
   'ZAR',
   'ZMW',
 ]
+const availableCurrencyBaseCodes = availableEquityQuoteCodes
+const availableCurrencyQuoteCodes = availableEquityQuoteCodes
+const availableCryptoBaseCodes = availableEquityQuoteCodes
+const availableCryptoQuoteCodes = availableEquityQuoteCodes
+const supportsCurrency = availableAssetClasses.includes('currency')
+const supportsCrypto = availableAssetClasses.includes('crypto')
 
 const availability: MarketProviderConfig['availability'] = {
   assetClass: availableAssetClasses,
-  currency: availableCurrencyCodes,
+  availableEquityQuote: availableEquityQuoteCodes,
+  availableCurrencyBase: supportsCurrency ? availableCurrencyBaseCodes : [],
+  availableCurrencyQuote: supportsCurrency ? availableCurrencyQuoteCodes : [],
+  availableCryptoBase: supportsCrypto ? availableCryptoBaseCodes : [],
+  availableCryptoQuote: supportsCrypto ? availableCryptoQuoteCodes : [],
   series: true,
-  news: false,
-  sentiments: false,
   live: false,
 }
 
@@ -332,7 +340,11 @@ const micToExchangeCodeMap: MarketProviderConfig['micToExchangeCode'] = micToExc
 export const YahooFinanceProviderConfig: MarketProviderConfig = {
   id: 'yahoo-finance',
   name: 'YahooFinance',
+  utcOffset: 0,
   availability,
+  api_endpoints: {
+    default: 'https://query1.finance.yahoo.com/v8/finance/chart',
+  },
   capabilities: {
     series: {
       supportsInterval: true,
@@ -342,17 +354,14 @@ export const YahooFinanceProviderConfig: MarketProviderConfig = {
         '5m',
         '15m',
         '30m',
-        '60m',
-        '90m',
         '1h',
         '1d',
-        '5d',
-        '1wk',
+        '1w',
         '1mo',
         '3mo',
       ],
       supportsStartEnd: true,
-      normalizationModes: ['raw', 'adjusted', 'split_adjusted', 'total_return'],
+      normalizationModes: ['raw', 'adjusted'],
     },
   },
   rulePrecedence: {

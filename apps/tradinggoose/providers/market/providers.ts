@@ -11,36 +11,27 @@ import type {
   AssetClass,
   MarketDataAvailability,
   MarketDataType,
+  MarketInterval,
   MarketLiveRequest,
   MarketLiveSnapshot,
-  MarketNewsRequest,
   MarketSeriesRequest,
-  MarketSentimentRequest,
   MarketSeries,
-  NewsSeries,
-  SentimentSeries,
+  NormalizationMode,
 } from '@/providers/market/types'
+import { alphaVantageProviderConfig } from '@/providers/market/alpha-vantage/config'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
 import { YahooFinanceProviderConfig } from '@/providers/market/yahoo-finance/config'
 
 export type { MarketProviderRequest } from '@/providers/market/types'
 
-export type MarketProviderResponse = MarketSeries | NewsSeries | SentimentSeries | MarketLiveSnapshot
+export type MarketProviderResponse = MarketSeries | MarketLiveSnapshot
 
 export interface MarketSeriesInputCapabilities {
   supportsInterval?: boolean
-  intervals?: string[]
+  intervals?: MarketInterval[]
   supportsStartEnd?: boolean
-  normalizationModes?: string[]
-}
-
-export interface MarketNewsInputCapabilities {
-  supportsStartEnd?: boolean
-}
-
-export interface MarketSentimentInputCapabilities {
-  supportsStartEnd?: boolean
+  normalizationModes?: NormalizationMode[]
 }
 
 export interface MarketLiveInputCapabilities {
@@ -52,8 +43,6 @@ export interface MarketLiveInputCapabilities {
 
 export interface MarketProviderCapabilities {
   series?: MarketSeriesInputCapabilities
-  news?: MarketNewsInputCapabilities
-  sentiments?: MarketSentimentInputCapabilities
   live?: MarketLiveInputCapabilities
 }
 
@@ -109,10 +98,10 @@ export interface MarketProviderParamDefinition {
 export interface MarketProviderParamConfig {
   shared?: MarketProviderParamDefinition[]
   series?: MarketProviderParamDefinition[]
-  news?: MarketProviderParamDefinition[]
-  sentiments?: MarketProviderParamDefinition[]
   live?: MarketProviderParamDefinition[]
 }
+
+export type MarketProviderSeriesEndpointMap = Partial<Record<AssetClass | 'default', string>>
 
 export type RuleScopeKey = 'listing' | 'mic' | 'currency' | 'assetClass' | 'country' | 'city'
 
@@ -131,9 +120,12 @@ export interface MarketSymbolRule {
 export interface MarketProviderConfig {
   id: string
   name: string
+  // Source timestamp offset relative to UTC in hours (e.g., -5, 0, +3).
+  utcOffset?: number
   availability: MarketDataAvailability
   capabilities?: MarketProviderCapabilities
   params?: MarketProviderParamConfig
+  api_endpoints?: MarketProviderSeriesEndpointMap
   rulePrecedence: Record<string, RuleScopeKey[]>
   exchangeCodeToMic: Record<string, string[]>
   micToExchangeCode: Record<string, string>
@@ -146,8 +138,6 @@ export interface MarketProvider {
   name: string
   config: MarketProviderConfig
   fetchMarketSeries?: (request: MarketSeriesRequest) => Promise<MarketSeries>
-  fetchNews?: (request: MarketNewsRequest) => Promise<NewsSeries>
-  fetchSentiments?: (request: MarketSentimentRequest) => Promise<SentimentSeries>
   fetchMarketLive?: (request: MarketLiveRequest) => Promise<MarketLiveSnapshot>
 }
 
@@ -174,6 +164,12 @@ export interface MarketProviderDefinition {
 }
 
 export const MARKET_PROVIDER_DEFINITIONS: Record<string, MarketProviderDefinition> = {
+  'alpha-vantage': {
+    id: 'alpha-vantage',
+    name: 'Alpha Vantage',
+    description: 'Alpha Vantage market data (time series).',
+    config: alphaVantageProviderConfig,
+  },
   alpaca: {
     id: 'alpaca',
     name: 'Alpaca',
@@ -189,7 +185,7 @@ export const MARKET_PROVIDER_DEFINITIONS: Record<string, MarketProviderDefinitio
   finnhub: {
     id: 'finnhub',
     name: 'Finnhub',
-    description: 'Finnhub market data (candles, news).',
+    description: 'Finnhub market data (candles).',
     config: finnhubProviderConfig,
   },
 }
@@ -208,10 +204,7 @@ export function getMarketProviderAvailability(providerId: string): MarketDataAva
   return (
     MARKET_PROVIDER_DEFINITIONS[providerId]?.config.availability || {
       assetClass: [],
-      currency: [],
       series: false,
-      news: false,
-      sentiments: false,
       live: false,
     }
   )
@@ -229,18 +222,6 @@ export function getMarketSeriesCapabilities(
   return getMarketProviderCapabilities(providerId)?.series || null
 }
 
-export function getMarketNewsCapabilities(
-  providerId: string
-): MarketNewsInputCapabilities | null {
-  return getMarketProviderCapabilities(providerId)?.news || null
-}
-
-export function getMarketSentimentCapabilities(
-  providerId: string
-): MarketSentimentInputCapabilities | null {
-  return getMarketProviderCapabilities(providerId)?.sentiments || null
-}
-
 export function getMarketLiveCapabilities(providerId: string): MarketLiveInputCapabilities | null {
   return getMarketProviderCapabilities(providerId)?.live || null
 }
@@ -253,8 +234,6 @@ export function getMarketProviderKinds(providerId: string): MarketDataType[] {
   const kinds = new Set<MarketDataType>()
 
   if (availability.series) kinds.add('series')
-  if (availability.news) kinds.add('news')
-  if (availability.sentiments) kinds.add('sentiments')
   if (availability.live) kinds.add('live')
 
   return Array.from(kinds)
@@ -271,8 +250,6 @@ export function getMarketProvidersByKind(kind: MarketDataType): MarketProviderDe
   return Object.values(MARKET_PROVIDER_DEFINITIONS).filter((provider) => {
     const availability = provider.config.availability
     if (kind === 'series') return availability.series
-    if (kind === 'news') return availability.news
-    if (kind === 'sentiments') return availability.sentiments
     return availability.live
   })
 }
@@ -307,11 +284,7 @@ export function getMarketProviderParamDefinitions(
   const scoped =
     kind === 'series'
       ? config.params.series
-      : kind === 'news'
-        ? config.params.news
-        : kind === 'sentiments'
-          ? config.params.sentiments
-          : config.params.live
+      : config.params.live
 
   const combined = [...shared, ...(scoped ?? [])]
   const seen = new Set<string>()
