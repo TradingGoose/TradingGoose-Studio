@@ -165,11 +165,9 @@ Create a system prompt appropriately detailed for the request, using clear langu
     {
       id: 'model',
       title: 'Model',
-      type: 'dropdown',
+      type: 'combobox',
       layout: 'half',
-      placeholder: 'Select a model...',
-      enableSearch: true,
-      searchPlaceholder: 'Search models...',
+      placeholder: 'Type or select a model...',
       required: true,
       value: () => {
         const allModels = getAvailableModels()

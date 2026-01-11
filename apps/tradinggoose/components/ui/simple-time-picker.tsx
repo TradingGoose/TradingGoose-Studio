@@ -266,7 +266,7 @@ export function SimpleTimePicker({
                     <div className="flex h-56 grow">
                         {(!timePicker || timePicker.hour) && (
                             <ScrollArea className="h-full flex-grow">
-                                <div className="flex grow flex-col items-stretch overflow-y-auto pe-2 pb-48">
+                                <div className="flex grow flex-col items-stretch overflow-y-auto pe-2">
                                     {hours.map((v) => (
                                         <div ref={v.value === hour ? hourRef : undefined} key={v.value}>
                                             <TimeItem
@@ -283,7 +283,7 @@ export function SimpleTimePicker({
                         )}
                         {(!timePicker || timePicker.minute) && (
                             <ScrollArea className="h-full flex-grow">
-                                <div className="flex grow flex-col items-stretch overflow-y-auto pe-2 pb-48">
+                                <div className="flex grow flex-col items-stretch overflow-y-auto pe-2">
                                     {minutes.map((v) => (
                                         <div ref={v.value === minute ? minuteRef : undefined} key={v.value}>
                                             <TimeItem
@@ -300,7 +300,7 @@ export function SimpleTimePicker({
                         )}
                         {(!timePicker || timePicker.second) && (
                             <ScrollArea className="h-full flex-grow">
-                                <div className="flex grow flex-col items-stretch overflow-y-auto pe-2 pb-48">
+                                <div className="flex grow flex-col items-stretch overflow-y-auto pe-2">
                                     {seconds.map((v) => (
                                         <div ref={v.value === second ? secondRef : undefined} key={v.value}>
                                             <TimeItem

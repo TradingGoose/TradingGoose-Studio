@@ -278,7 +278,7 @@ export function SearchableDropdown({
       </div>
 
       {open && (
-        <div className='absolute left-0 top-full z-[100] mt-1 w-full'>
+        <div className='absolute left-0 top-full z-[100] mt-1 w-full min-w-60'>
           <div className='allow-scroll fade-in-0 zoom-in-95 animate-in rounded-md border bg-popover text-popover-foreground shadow-lg'>
             {enableSearch && (
               <div className='border-b border-border p-2'>

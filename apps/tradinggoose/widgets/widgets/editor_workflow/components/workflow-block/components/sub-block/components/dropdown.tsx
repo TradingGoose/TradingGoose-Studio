@@ -190,6 +190,7 @@ export function Dropdown({
 
   useEffect(() => {
     if (isPreview || !optionsReady || !hasValue) return
+    if (fetchOptions && dependsOn.length > 0) return
     const isValid = availableOptions.some(
       (option) => getOptionValue(option as any) === value
     )
@@ -211,6 +212,8 @@ export function Dropdown({
     useStore,
     setStoreValue,
     onChange,
+    fetchOptions,
+    dependsOn.length,
   ])
 
   // Mark store as initialized on first render
@@ -229,18 +232,11 @@ export function Dropdown({
       ) {
         setFetchedOptions([])
         setHasFetchedOptions(false)
-        blockAutoDefaultRef.current = true
-        if (useStore) {
-          setStoreValue('')
-        }
-        if (onChange) {
-          onChange('')
-        }
       }
 
       previousDependencyValuesRef.current = currentDependencyValuesStr
     }
-  }, [dependencyValues, fetchOptions, dependsOn.length, onChange, setStoreValue, useStore])
+  }, [dependencyValues, fetchOptions, dependsOn.length])
 
   useEffect(() => {
     if (value !== null && value !== undefined && value !== '') {
