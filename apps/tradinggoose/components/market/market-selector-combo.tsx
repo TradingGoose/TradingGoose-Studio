@@ -1,19 +1,29 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, ChevronDown } from 'lucide-react'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { ChevronDown } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { formatDisplayText } from '@/components/ui/formatted-text'
+import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { SearchableDropdown } from '@/components/ui/searchable-dropdown'
 import { useDebounce } from '@/hooks/use-debounce'
+import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { cn } from '@/lib/utils'
 import { getMarketProviderConfig } from '@/providers/market/providers'
+import { MarketListingRow, getListingPrimary } from '@/components/market/market-listing-row'
+import { fetchCurrencies, fetchEquity, fetchListings } from '@/components/market/market-fetchers'
+import {
+  parseCategorizedSearchQuery,
+  serializeArrayParam,
+  type ParsedMarketQuery,
+  uniqueStrings,
+} from '@/components/market/market-search-utils'
+import {
+  triggerCryptoRankUpdate,
+  triggerCurrencyRankUpdate,
+  triggerListingRankUpdate,
+} from '@/components/market/market-rank-updates'
 import {
   createEmptyMarketSelectorInstance,
   useMarketSelectorStore,
@@ -23,54 +33,23 @@ import {
 
 export interface MarketSelectorComboProps {
   instanceId: string
+  blockId?: string
   className?: string
   disabled?: boolean
-  onListingChange?: (listingId: string | undefined, listing?: ListingOption | null) => void
+  onListingChange?: (listing: ListingOption | null) => void
+  onListingValueChange?: (value: string | null) => void
+  onListingTagSelect?: (value: string) => void
   listingRequired?: boolean
-}
-
-function getListingPrimary(listing: ListingOption): string {
-  return listing.base?.trim() || listing.name?.trim() || listing.id
-}
-
-function getListingSecondary(listing: ListingOption): string | null {
-  const base = listing.base?.trim()
-  const name = listing.name?.trim()
-  if (!name) return null
-  if (base && base.toLowerCase() === name.toLowerCase()) return null
-  return name
-}
-
-function getListingFallback(listing: ListingOption): string {
-  const base = listing.base?.trim() || listing.name?.trim() || listing.id
-  return base.slice(0, 2).toUpperCase()
-}
-
-function getFlagData(
-  countryCode?: string | null
-): { emoji: string; codepoints: string } | null {
-  if (!countryCode) return null
-  const code = countryCode.trim().toUpperCase()
-  if (code.length !== 2) return null
-  const flagOffset = 0x1f1e6
-  const asciiOffset = 0x41
-  const first = code.codePointAt(0)
-  const second = code.codePointAt(1)
-  if (first == null || second == null) return null
-  if (first < asciiOffset || first > asciiOffset + 25) return null
-  if (second < asciiOffset || second > asciiOffset + 25) return null
-  const firstChar = first - asciiOffset + flagOffset
-  const secondChar = second - asciiOffset + flagOffset
-  const emoji = String.fromCodePoint(firstChar, secondChar)
-  const codepoints = `${firstChar.toString(16)}-${secondChar.toString(16)}`
-  return { emoji, codepoints }
 }
 
 export interface StockSelectorProps {
   instanceId: string
+  blockId?: string
   disabled?: boolean
   className?: string
-  onListingChange?: (listingId: string | undefined, listing?: ListingOption | null) => void
+  onListingChange?: (listing: ListingOption | null) => void
+  onListingValueChange?: (value: string | null) => void
+  onListingTagSelect?: (value: string) => void
 }
 
 export interface CurrencySelectorProps {
@@ -78,63 +57,6 @@ export interface CurrencySelectorProps {
   disabled?: boolean
   className?: string
   onCurrencyChange?: (currencyId: string | undefined, currency?: CurrencyOption | null) => void
-}
-
-async function fetchCurrencies(
-  params: Record<string, string>,
-  signal?: AbortSignal
-): Promise<CurrencyOption[]> {
-  const query = new URLSearchParams(params)
-  const response = await fetch(`/api/market/search/currencies?${query.toString()}`, { signal })
-  if (!response.ok) {
-    const payload = await response.json().catch(() => null)
-    const message = payload?.error || `Request failed with ${response.status}`
-    throw new Error(message)
-  }
-  const payload = (await response.json()) as { data?: CurrencyOption[] | CurrencyOption | null }
-  if (!payload?.data) return []
-  if (Array.isArray(payload.data)) return payload.data
-  return [payload.data]
-}
-
-async function fetchListings(
-  params: Record<string, string>,
-  signal?: AbortSignal
-): Promise<ListingOption[]> {
-  const query = new URLSearchParams(params)
-  const response = await fetch(`/api/market/search/listings?${query.toString()}`, { signal })
-  if (!response.ok) {
-    const payload = await response.json().catch(() => null)
-    const message = payload?.error || `Request failed with ${response.status}`
-    throw new Error(message)
-  }
-  const payload = (await response.json()) as { data?: ListingOption[] | ListingOption | null }
-  if (!payload?.data) return []
-  if (Array.isArray(payload.data)) return payload.data
-  return [payload.data]
-}
-
-function triggerListingRankUpdate(listingId: string) {
-  if (!listingId) return
-  const query = new URLSearchParams({ listing_id: listingId })
-  void fetch(`/api/market/update/listing-rank?${query.toString()}`, {
-    method: 'POST',
-  }).catch(() => {
-    // Best-effort update; ignore failures to avoid blocking selection.
-  })
-}
-
-function serializeArrayParam(values: string[]): string {
-  return `[${values.join(',')}]`
-}
-
-function uniqueStrings(values: Array<string | undefined | null>): string[] {
-  const unique = new Set<string>()
-  values.forEach((value) => {
-    if (!value) return
-    unique.add(value)
-  })
-  return Array.from(unique.values())
 }
 
 export function CurrencySelector({
@@ -276,9 +198,12 @@ export function CurrencySelector({
 
 export function StockSelector({
   instanceId,
+  blockId,
   disabled,
   className,
   onListingChange,
+  onListingValueChange,
+  onListingTagSelect,
 }: StockSelectorProps) {
   const ensureInstance = useMarketSelectorStore((state) => state.ensureInstance)
   const updateInstance = useMarketSelectorStore((state) => state.updateInstance)
@@ -305,14 +230,30 @@ export function StockSelector({
   const requestKeyRef = useRef<string>('')
   const abortRef = useRef<AbortController | null>(null)
   const [open, setOpen] = useState(false)
-  const searchInputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const [highlightedIndex, setHighlightedIndex] = useState(-1)
+  const [showTags, setShowTags] = useState(false)
+  const [cursorPosition, setCursorPosition] = useState(0)
+  const [activeSourceBlockId, setActiveSourceBlockId] = useState<string | null>(null)
+  const [variableCommitted, setVariableCommitted] = useState(false)
+  const effectiveQuery = open && !query.trim() ? query : debouncedQuery
+  const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
   const providerConfig = useMemo(
     () => (providerId ? getMarketProviderConfig(providerId) : null),
     [providerId]
   )
-  const providerCurrencyCodes = useMemo(() => {
-    const currency = providerConfig?.availability.currency ?? []
-    return uniqueStrings(currency)
+  const providerEquityQuoteCodes = useMemo(() => {
+    const availability = providerConfig?.availability
+    return uniqueStrings(availability?.availableEquityQuote ?? [])
+  }, [providerConfig])
+  const providerCurrencyQuoteCodes = useMemo(() => {
+    const availability = providerConfig?.availability
+    return uniqueStrings(availability?.availableCurrencyQuote ?? [])
+  }, [providerConfig])
+  const providerCryptoQuoteCodes = useMemo(() => {
+    const availability = providerConfig?.availability
+    return uniqueStrings(availability?.availableCryptoQuote ?? [])
   }, [providerConfig])
   const providerAssetClasses = useMemo(() => {
     const assetClasses = providerConfig?.availability.assetClass ?? []
@@ -324,8 +265,45 @@ export function StockSelector({
     return uniqueStrings(codes)
   }, [providerConfig])
 
+  const isVariableListingInput = (value: string) => {
+    const trimmed = value.trim()
+    if (!trimmed) return false
+    return trimmed.startsWith('<')
+  }
+
+  const commitVariableValue = (value: string, source: 'input' | 'tag' = 'input') => {
+    updateInstance(instanceId, {
+      query: value,
+      results: [],
+      isLoading: false,
+      error: undefined,
+      selectedListingId: undefined,
+      selectedListing: null,
+    })
+    setVariableCommitted(true)
+    if (source === 'tag') {
+      onListingTagSelect?.(value)
+      onListingValueChange?.(value)
+      return
+    }
+    onListingValueChange?.(value)
+  }
+
+  const clearVariableValue = () => {
+    updateInstance(instanceId, {
+      query: '',
+      results: [],
+      isLoading: false,
+      error: undefined,
+      selectedListingId: undefined,
+      selectedListing: null,
+    })
+    setVariableCommitted(false)
+    onListingValueChange?.(null)
+  }
+
   useEffect(() => {
-    const rawQuery = debouncedQuery
+    const rawQuery = effectiveQuery
     const trimmed = rawQuery.trim()
     if (!open) {
       if (!trimmed) {
@@ -334,29 +312,62 @@ export function StockSelector({
       return
     }
 
-    const filters: Record<string, string> = {
-      limit: '50',
+    if (isVariableListingInput(trimmed)) {
+      updateInstance(instanceId, { results: [], isLoading: false, error: undefined })
+      return
     }
-    const resolvedAssetClasses = providerAssetClasses.length
-      ? providerAssetClasses
-      : assetClass
-        ? [assetClass]
-        : []
+
+    const queryParams: Record<string, string> = {}
+    const filtersPayload: Record<string, unknown> = {
+      limit: 50,
+    }
+    const parsedQuery: ParsedMarketQuery = trimmed ? parseCategorizedSearchQuery(trimmed) : {}
+    const resolvedAssetClasses = parsedQuery.assetClass
+      ? [parsedQuery.assetClass]
+      : providerAssetClasses.length
+        ? providerAssetClasses
+        : assetClass
+          ? [assetClass]
+          : []
     if (resolvedAssetClasses.length) {
-      filters.asset_class = serializeArrayParam(resolvedAssetClasses)
+      filtersPayload.asset_class = resolvedAssetClasses
     }
+    const normalizedAssetClasses = resolvedAssetClasses.map((value) => value.toLowerCase())
+    const includeCrypto =
+      normalizedAssetClasses.length === 0 || normalizedAssetClasses.includes('crypto')
+    const includeCurrency =
+      normalizedAssetClasses.length === 0 || normalizedAssetClasses.includes('currency')
+    const includeEquity =
+      normalizedAssetClasses.length === 0 ||
+      normalizedAssetClasses.some((value) => value !== 'crypto' && value !== 'currency')
 
     const resolvedMicCodes = providerMicCodes.length
       ? providerMicCodes
       : micCode
         ? [micCode]
         : []
-    if (resolvedMicCodes.length) {
-      filters.mic_code = serializeArrayParam(resolvedMicCodes)
+    if (resolvedMicCodes.length && includeEquity) {
+      filtersPayload.mic = resolvedMicCodes
     }
 
-    if (providerCurrencyCodes.length) {
-      filters.currency_code = serializeArrayParam(providerCurrencyCodes)
+    if (includeEquity && providerEquityQuoteCodes.length) {
+      queryParams.equity_quote_code = serializeArrayParam(providerEquityQuoteCodes)
+    }
+    if (includeCrypto && providerCryptoQuoteCodes.length) {
+      queryParams.crypto_quote_code = serializeArrayParam(providerCryptoQuoteCodes)
+    }
+    if (includeCurrency && providerCurrencyQuoteCodes.length) {
+      queryParams.currency_quote_code = serializeArrayParam(providerCurrencyQuoteCodes)
+    }
+
+    if (trimmed) {
+      queryParams.search_query = rawQuery
+    }
+    if (parsedQuery.region) {
+      filtersPayload.region = [parsedQuery.region]
+    }
+    if (Object.keys(filtersPayload).length > 0) {
+      queryParams.filters = JSON.stringify(filtersPayload)
     }
 
     const requestKey = JSON.stringify({
@@ -365,7 +376,11 @@ export function StockSelector({
       providerId,
       assetClasses: resolvedAssetClasses,
       micCodes: resolvedMicCodes,
-      currencyCodes: providerCurrencyCodes,
+      equityQuoteCodes: providerEquityQuoteCodes,
+      cryptoQuoteCodes: providerCryptoQuoteCodes,
+      currencyQuoteCodes: providerCurrencyQuoteCodes,
+      parsedQuery,
+      filters: filtersPayload,
     })
     requestKeyRef.current = requestKey
 
@@ -377,9 +392,7 @@ export function StockSelector({
 
     updateInstance(instanceId, { isLoading: true, error: undefined })
 
-    const requestPromise = !trimmed
-      ? fetchListings(filters, controller.signal)
-      : fetchListings({ ...filters, listing_search_query: rawQuery }, controller.signal)
+    const requestPromise = fetchListings(queryParams, controller.signal)
 
     requestPromise
       .then((rows) => {
@@ -399,11 +412,13 @@ export function StockSelector({
       })
   }, [
     open,
-    debouncedQuery,
+    effectiveQuery,
     providerId,
     providerAssetClasses,
     providerMicCodes,
-    providerCurrencyCodes,
+    providerEquityQuoteCodes,
+    providerCurrencyQuoteCodes,
+    providerCryptoQuoteCodes,
     micCode,
     instanceId,
     updateInstance,
@@ -414,191 +429,353 @@ export function StockSelector({
     if (selectedListing?.id === selectedListingId) return
 
     let cancelled = false
-    fetchListings({ listing_id: selectedListingId })
-      .then((rows) => {
-        if (cancelled) return
-        const listing = rows[0]
-        if (listing) {
-          updateInstance(instanceId, { selectedListing: listing })
-        }
-      })
-      .catch(() => {
-        // Ignore listing detail failures.
-      })
+    const isEquityId = /^TG_LSTG_/i.test(selectedListingId)
+    if (isEquityId) {
+      fetchEquity({ equity_id: selectedListingId })
+        .then((rows) => {
+          if (cancelled) return
+          const listing = rows[0]
+          if (listing) {
+            updateInstance(instanceId, { selectedListing: listing })
+            onListingChange?.(listing)
+          }
+        })
+        .catch(() => {
+          // Ignore listing detail failures.
+        })
+    }
 
     return () => {
       cancelled = true
     }
-  }, [selectedListingId, selectedListing, instanceId, updateInstance])
+  }, [selectedListingId, selectedListing, assetClass, instanceId, updateInstance, onListingChange])
+
+  const selectedLabel = useMemo(() => {
+    if (!selectedListing) return ''
+    const primary = getListingPrimary(selectedListing)
+    const quote = selectedListing.quote?.trim()
+    return quote ? `${primary}/${quote}` : primary
+  }, [selectedListing])
+
+  const displayValue = open ? query : selectedLabel || query
+  const showRichOverlay = !open && !!selectedListing
+  const showTagOverlay = !open && !selectedListing && Boolean(query?.trim().includes('<'))
+  const showListingDropdown = open && !showTags
+  const hideInputText = showRichOverlay || showTagOverlay
 
   const handleSelect = (listing: ListingOption) => {
+    const primary = getListingPrimary(listing)
+    const quote = listing.quote?.trim()
+    const nextLabel = quote ? `${primary}/${quote}` : primary
     updateInstance(instanceId, {
       selectedListingId: listing.id,
       selectedListing: listing,
-      query: '',
+      query: nextLabel,
       results: [],
       error: undefined,
     })
-    triggerListingRankUpdate(listing.id)
-    onListingChange?.(listing.id, listing)
+    setOpen(false)
+    setHighlightedIndex(-1)
+    setShowTags(false)
+    setVariableCommitted(false)
+    if (listing.equity_id) {
+      triggerListingRankUpdate(listing.equity_id)
+    }
+    if (listing.base_asset_class === 'crypto' && listing.base_id) {
+      triggerCryptoRankUpdate(listing.base_id)
+    }
+    if (listing.base_asset_class === 'currency' && listing.base_id) {
+      triggerCurrencyRankUpdate(listing.base_id)
+    }
+    onListingChange?.(listing)
   }
 
-  const selectedPrimary = selectedListing ? getListingPrimary(selectedListing) : ''
-  const selectedSecondary = selectedListing ? getListingSecondary(selectedListing) : null
+  const handleTagSelect = (value: string) => {
+    const lastOpen = value.lastIndexOf('<')
+    const lastClose = value.indexOf('>', lastOpen + 1)
+    const rawTag =
+      lastOpen >= 0
+        ? value.slice(lastOpen + 1, lastClose >= 0 ? lastClose : value.length)
+        : value
+    const trimmedTag = rawTag.trim()
+    const normalizedValue = trimmedTag ? `<${trimmedTag}>` : value
+    commitVariableValue(normalizedValue, 'tag')
+    setShowTags(false)
+    setOpen(false)
+    setHighlightedIndex(-1)
+    setCursorPosition(normalizedValue.length)
+  }
 
   useEffect(() => {
     if (!open) return
     const timer = setTimeout(() => {
-      searchInputRef.current?.focus()
+      inputRef.current?.focus()
     }, 0)
     return () => clearTimeout(timer)
   }, [open])
 
+  useEffect(() => {
+    if (open) return
+    if (!selectedLabel) return
+    if (query === selectedLabel) return
+    updateInstance(instanceId, { query: selectedLabel })
+  }, [open, query, selectedLabel, instanceId, updateInstance])
+
+  useEffect(() => {
+    setHighlightedIndex((prev) => {
+      if (prev >= 0 && prev < results.length) {
+        return prev
+      }
+      return -1
+    })
+  }, [results])
+
+  useEffect(() => {
+    if (highlightedIndex < 0 || !dropdownRef.current) return
+    const target = dropdownRef.current.querySelector(
+      `[data-option-index="${highlightedIndex}"]`
+    )
+    if (target && target instanceof HTMLElement) {
+      target.scrollIntoView({ block: 'nearest' })
+    }
+  }, [highlightedIndex])
+
   return (
-    <DropdownMenu
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (disabled) return
-        setOpen(nextOpen)
-      }}
+    <div
+      className={cn('relative w-full', className)}
+      data-market-selector
     >
-      <DropdownMenuTrigger asChild>
-        <button
-          type='button'
-          disabled={disabled}
+      <div className='relative'>
+        <Input
+          ref={inputRef}
           className={cn(
-            'flex w-full items-center gap-2 rounded-md border-input border p-1 text-left text-sm text-foreground transition-colors hover',
-            'data-[state=open]:bg-secondary/20',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-            disabled && 'cursor-not-allowed opacity-50',
-            className
+            'w-full pr-10',
+            hideInputText && 'text-transparent caret-transparent placeholder:text-transparent'
           )}
-        >
-          <Avatar className='h-6 w-6 rounded-sm m-1 text-foreground bg-secondary/60 p-1'>
-            {selectedListing?.iconUrl ? (
-              <AvatarImage src={selectedListing.iconUrl} alt={selectedPrimary} />
-            ) : null}
-            <AvatarFallback className='text-xs text-accent-foreground'>
-              {selectedListing ? getListingFallback(selectedListing) : '??'}
-            </AvatarFallback>
-          </Avatar>
-          <div className='flex min-w-0 flex-col gap-0.5 text-start leading-none'>
-            <span
-              className={cn(
-                'max-w-[20ch] truncate text-xs font-semibold',
-                !selectedListing && 'text-muted-foreground font-medium'
-              )}
-            >
-              {selectedListing ? selectedPrimary : 'Select listing'}
-            </span>
-            <span className='max-w-[24ch] truncate text-xs text-muted-foreground'>
-              {selectedListing
-                ? selectedSecondary ?? '—'
-                : 'Search by symbol or name'}
-            </span>
+          placeholder='Search listings...'
+          value={displayValue}
+          onChange={(event) => {
+            if (disabled) return
+            const nextValue = event.target.value
+            const newCursorPosition = event.target.selectionStart ?? nextValue.length
+            setCursorPosition(newCursorPosition)
+            const tagTrigger = blockId ? checkTagTrigger(nextValue, newCursorPosition) : { show: false }
+            setShowTags(Boolean(blockId) && tagTrigger.show)
+
+            if (!nextValue.trim()) {
+              clearVariableValue()
+              setShowTags(false)
+              return
+            }
+
+            const isVariable = isVariableListingInput(nextValue)
+            if (!isVariable && variableCommitted) {
+              setVariableCommitted(false)
+              onListingValueChange?.(null)
+            }
+
+            if (isVariable) {
+              commitVariableValue(nextValue)
+              return
+            }
+
+            const patch: Partial<typeof safeInstance> = { query: nextValue }
+            if (selectedListing && selectedLabel && nextValue.trim() !== selectedLabel) {
+              patch.selectedListingId = undefined
+              patch.selectedListing = null
+            }
+            updateInstance(instanceId, patch)
+          }}
+          onFocus={() => {
+            if (disabled) return
+            setOpen(true)
+            setHighlightedIndex(-1)
+            const position = inputRef.current?.selectionStart ?? query.length
+            setCursorPosition(position)
+            const tagTrigger = blockId ? checkTagTrigger(query, position) : { show: false }
+            setShowTags(Boolean(blockId) && tagTrigger.show)
+          }}
+          onBlur={() => {
+            if (disabled) return
+            setTimeout(() => {
+              const activeElement = document.activeElement
+              if (!activeElement || !activeElement.closest('[data-market-selector]')) {
+                if (isVariableListingInput(query)) {
+                  commitVariableValue(query)
+                }
+                setOpen(false)
+                setHighlightedIndex(-1)
+                if (selectedLabel && query !== selectedLabel) {
+                  updateInstance(instanceId, { query: selectedLabel })
+                }
+              }
+            }, 150)
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              setOpen(false)
+              setHighlightedIndex(-1)
+              setShowTags(false)
+              return
+            }
+
+            if (showTags) {
+              return
+            }
+
+            if (event.key === 'ArrowDown') {
+              event.preventDefault()
+              if (!open) {
+                setOpen(true)
+                if (results.length > 0) {
+                  setHighlightedIndex(0)
+                }
+              } else if (results.length > 0) {
+                setHighlightedIndex((prev) => (prev < results.length - 1 ? prev + 1 : 0))
+              }
+            }
+
+            if (event.key === 'ArrowUp') {
+              event.preventDefault()
+              if (open && results.length > 0) {
+                setHighlightedIndex((prev) =>
+                  prev > 0 ? prev - 1 : results.length - 1
+                )
+              }
+            }
+
+            if (event.key === 'Enter' && open && highlightedIndex >= 0) {
+              event.preventDefault()
+              const selected = results[highlightedIndex]
+              if (selected) {
+                handleSelect(selected)
+              }
+              return
+            }
+
+            if (event.key === 'Enter' && isVariableListingInput(query)) {
+              event.preventDefault()
+              commitVariableValue(query)
+              setOpen(false)
+              setHighlightedIndex(-1)
+            }
+          }}
+          disabled={disabled}
+          autoComplete='off'
+        />
+        {showRichOverlay ? (
+          <div className='pointer-events-none absolute inset-y-0 left-0 flex items-center px-1 w-full'>
+            <MarketListingRow listing={selectedListing} showAssetClass className='w-full' />
           </div>
-          <ChevronDown className='ml-auto h-4 w-4 text-muted-foreground' />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align='center'
-        side='bottom'
-        avoidCollisions
-        className='allow-scroll z-30 w-[var(--radix-dropdown-menu-trigger-width)] p-0 data-[side=top]:mb-2'
-        sideOffset={6}
-        portalled={false}
-        onWheel={(event) => event.stopPropagation()}
-        onTouchMove={(event) => event.stopPropagation()}
-      >
-        <div className='border border-border p-2 rounded-t-md'>
-          <Input
-            ref={searchInputRef}
-            value={query}
-            placeholder='Search listings...'
-            onChange={(event) => updateInstance(instanceId, { query: event.target.value })}
-            onKeyDown={(event) => event.stopPropagation()}
-            disabled={disabled}
-          />
-        </div>
-        <div
-          className='allow-scroll max-h-64 overflow-y-auto p-1'
-          onWheel={(event) => event.stopPropagation()}
-          onTouchMove={(event) => event.stopPropagation()}
-        >
-          {isLoading ? (
-            <div className='py-6 text-center text-sm text-muted-foreground'>Searching...</div>
-          ) : results.length === 0 ? (
-            <div className='py-6 text-center text-sm text-muted-foreground'>
-              {error
-                ? error
-                : 'No listings found.'}
+        ) : null}
+        {showTagOverlay ? (
+          <div className='pointer-events-none absolute inset-y-0 left-0 flex items-center px-3 w-full'>
+            <div className='w-full truncate text-sm'>
+              {formatDisplayText(query, {
+                accessiblePrefixes,
+                highlightAll: !accessiblePrefixes,
+              })}
             </div>
-          ) : (
-            results.map((listing) => {
-              const primary = getListingPrimary(listing)
-              const secondary = getListingSecondary(listing)
-              const assetClassLabel = listing.assetClass?.toUpperCase() ?? ''
-              const quote = listing.quote?.trim() || ''
-              const flagData = getFlagData(listing.countryCode)
-              const prefersFlagImage =
-                typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent)
-              const flagEmoji = flagData?.emoji ?? null
-              const flagImageUrl = flagData
-                ? `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${flagData.codepoints}.svg`
-                : null
-              return (
-                <DropdownMenuItem
-                  key={listing.id}
-                  onSelect={() => handleSelect(listing)}
-                  className='flex items-center gap-2 rounded-md p-2'
-                >
-                  <Avatar className='h-6 w-6 rounded-sm m-1 text-foreground bg-secondary/60 p-1'>
-                    {listing.iconUrl ? (
-                      <AvatarImage src={listing.iconUrl} alt={primary} />
-                    ) : null}
-                    <AvatarFallback className='text-xs text-accent-foreground'>
-                      {getListingFallback(listing)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className='flex min-w-0 flex-1 flex-col gap-0.5 text-start leading-none'>
-                    <span className='flex items-center gap-1 text-sm font-semibold'>
-                      <span className='max-w-[22ch] truncate'>
-                        {primary}
-                        {quote ? <span className='text-muted-foreground'>/{quote}</span> : null}
-                      </span>
-                      {prefersFlagImage && flagImageUrl ? (
-                        <img
-                          src={flagImageUrl}
-                          alt={`${listing.countryCode ?? ''} flag`}
-                          className='ml-1 h-3.5 w-3.5'
-                          loading='lazy'
-                        />
-                      ) : flagEmoji ? (
-                        <span className='ml-1 text-xs'>{flagEmoji}</span>
-                      ) : null}
-                    </span>
-                    <span className='max-w-[26ch] truncate text-xs text-muted-foreground'>
-                      {secondary ?? '—'}
-                    </span>
-                  </div>
-                  <span className='ml-auto text-xs font-semibold text-muted-foreground'>
-                    {assetClassLabel}
-                  </span>
-                </DropdownMenuItem>
-              )
+          </div>
+        ) : null}
+        <Button
+          variant='ghost'
+          size='sm'
+          className='absolute right-1 top-1/2 z-10 h-6 w-6 -translate-y-1/2 p-0 hover:bg-transparent'
+          disabled={disabled}
+          onMouseDown={(event) => {
+            event.preventDefault()
+            if (disabled) return
+            setOpen((prev) => {
+              const next = !prev
+              if (!next) {
+                setShowTags(false)
+              }
+              return next
             })
-          )}
+            if (!open) {
+              inputRef.current?.focus()
+            }
+          }}
+        >
+          <ChevronDown
+            className={cn('h-4 w-4 opacity-0 transition-transform', open && 'rotate-180 opacity-50')}
+          />
+        </Button>
+      </div>
+
+      {showListingDropdown && (
+        <div className='absolute left-0 top-full z-[100] mt-1 w-full'>
+          <div className='allow-scroll fade-in-0 zoom-in-95 animate-in rounded-md border bg-popover text-popover-foreground shadow-lg'>
+            <div
+              ref={dropdownRef}
+              className='allow-scroll max-h-64 overflow-y-auto p-1'
+              style={{ scrollbarWidth: 'thin' }}
+              onMouseLeave={() => setHighlightedIndex(-1)}
+            >
+              {isLoading ? (
+                <div className='py-6 text-center text-sm text-muted-foreground'>
+                  Searching...
+                </div>
+              ) : results.length === 0 ? (
+                <div className='py-6 text-center text-sm text-muted-foreground'>
+                  {error || 'No listings found.'}
+                </div>
+              ) : (
+                results.map((listing, index) => {
+                  const isHighlighted = index === highlightedIndex
+                  return (
+                    <div
+                      key={listing.id}
+                      data-option-index={index}
+                      onMouseEnter={() => setHighlightedIndex(index)}
+                      onMouseDown={(event) => {
+                        event.preventDefault()
+                        handleSelect(listing)
+                      }}
+                      className={cn(
+                        'flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground',
+                        isHighlighted && 'bg-accent text-accent-foreground'
+                      )}
+                    >
+                      <MarketListingRow listing={listing} showAssetClass className='w-full' />
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
         </div>
-      </DropdownMenuContent>
-    </DropdownMenu>
+      )}
+      {blockId ? (
+        <TagDropdown
+          visible={showTags}
+          onSelect={handleTagSelect}
+          blockId={blockId}
+          activeSourceBlockId={activeSourceBlockId}
+          inputValue={query}
+          cursorPosition={cursorPosition}
+          allowVariables={false}
+          allowContextualTags={false}
+          allowedOutputTypes={['json', 'object']}
+          onClose={() => {
+            setShowTags(false)
+            setActiveSourceBlockId(null)
+          }}
+        />
+      ) : null}
+    </div>
   )
 }
 
 export function MarketSelectorCombo({
   instanceId,
+  blockId,
   className,
   disabled,
   onListingChange,
+  onListingValueChange,
+  onListingTagSelect,
   listingRequired,
 }: MarketSelectorComboProps) {
   const ensureInstance = useMarketSelectorStore((state) => state.ensureInstance)
@@ -616,8 +793,11 @@ export function MarketSelectorCombo({
         </div>
         <StockSelector
           instanceId={instanceId}
+          blockId={blockId}
           disabled={disabled}
           onListingChange={onListingChange}
+          onListingValueChange={onListingValueChange}
+          onListingTagSelect={onListingTagSelect}
         />
       </div>
     </div>

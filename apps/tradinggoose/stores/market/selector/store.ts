@@ -12,6 +12,11 @@ export type ListingOption = {
   countryCode?: string | null
   cityName?: string | null
   timeZoneName?: string | null
+  equity_id?: string | null
+  base_id?: string | null
+  quote_id?: string | null
+  base_asset_class?: string | null
+  quote_asset_class?: string | null
 }
 
 export type CurrencyOption = {

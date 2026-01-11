@@ -4,12 +4,13 @@ import {
   getMarketProviderParamCatalog,
   getMarketSeriesCapabilities,
 } from '@/providers/market/providers'
-import type { MarketSeries } from '@/providers/market/types'
+import { resolveListingId, toListingValueObject, type ListingValue } from '@/lib/market/listings'
+import type { MarketSeries, NormalizationMode } from '@/providers/market/types'
 import type { ToolConfig, ToolResponse } from '@/tools/types'
 
 export interface MarketSeriesParams {
   provider: string
-  listingId: string
+  listingId: ListingValue
   interval?: string
   start: string | number
   end: string | number
@@ -132,13 +133,14 @@ const sanitizeInterval = (provider: string, interval?: string): string | undefin
 const sanitizeNormalizationMode = (
   provider: string,
   mode?: string
-): string | undefined => {
+): NormalizationMode | undefined => {
   if (!mode) return undefined
   const capabilities = getMarketSeriesCapabilities(provider)
-  if (!capabilities) return mode
+  if (!capabilities || !('normalizationModes' in capabilities)) return mode as NormalizationMode
   const modes = capabilities.normalizationModes ?? []
-  if (modes.length > 0 && !modes.includes(mode)) return undefined
-  return mode
+  if (modes.length === 0) return undefined
+  if (!modes.includes(mode as NormalizationMode)) return undefined
+  return mode as NormalizationMode
 }
 
 export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = {
@@ -156,6 +158,7 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
     body: (params: MarketSeriesParams) => {
       const rawParams = params as Record<string, any>
       const providerParams = parseProviderParams(rawParams.providerParams)
+      const listingId = resolveListingId(params.listingId)
 
       providerParamIds.forEach((paramId) => {
         const entry = providerParamRegistry[paramId]
@@ -180,7 +183,7 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
         provider: params.provider,
         providerNamespace: 'market',
         kind: 'series',
-        listingId: params.listingId,
+        listingId,
         interval,
         start: params.start,
         end: params.end,
@@ -214,11 +217,16 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
       if (!bars.length) {
         throw new Error('No data returned for the requested time range')
       }
-      return { success: true, output: series }
+      const listing = toListingValueObject(params.listingId)
+      const seriesOutput = { ...series } as MarketSeries & { primaryMicCode?: string }
+      if ('primaryMicCode' in seriesOutput) {
+        delete seriesOutput.primaryMicCode
+      }
+      return { success: true, output: { ...seriesOutput, listing } }
     } catch (error: any) {
       logger.error('Error validating market series data', {
         provider: params.provider,
-        listingId: params.listingId,
+        listingId: resolveListingId(params.listingId) ?? params.listingId,
         error: error?.message || error,
       })
       return {
@@ -229,11 +237,34 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
     }
   },
   outputs: {
-    listingId: { type: 'string', description: 'Listing id for the returned series' },
     listingBase: { type: 'string', description: 'Listing base symbol', optional: true },
     listingQuote: { type: 'string', description: 'Listing quote currency', optional: true },
-    primaryMicCode: { type: 'string', description: 'Primary MIC code for the listing', optional: true },
-    bars: { type: 'array', description: 'OHLCV bars with timestamps' },
+    listing: {
+      type: 'object',
+      description: 'Structured listing identifier payload',
+      properties: {
+        equity_id: { type: 'string', description: 'Equity listing id', optional: true },
+        base_id: { type: 'string', description: 'Base asset id', optional: true },
+        quote_id: { type: 'string', description: 'Quote asset id', optional: true },
+        base_asset_class: { type: 'string', description: 'Base asset class', optional: true },
+        quote_asset_class: { type: 'string', description: 'Quote asset class', optional: true },
+      },
+    },
+    bars: {
+      type: 'array',
+      description: 'OHLCV bars with timestamps',
+      items: {
+        type: 'object',
+        properties: {
+          timeStamp: { type: 'string', description: 'Bar timestamp (ISO)' },
+          open: { type: 'number', description: 'Open price', optional: true },
+          high: { type: 'number', description: 'High price', optional: true },
+          low: { type: 'number', description: 'Low price', optional: true },
+          close: { type: 'number', description: 'Close price' },
+          volume: { type: 'number', description: 'Volume', optional: true },
+        },
+      },
+    },
     start: { type: 'string', description: 'Start of the returned series', optional: true },
     end: { type: 'string', description: 'End of the returned series', optional: true },
     timezone: { type: 'string', description: 'Exchange timezone for the series', optional: true },

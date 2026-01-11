@@ -1190,6 +1190,8 @@ export function useCollaborativeWorkflow() {
       if (isApplyingRemoteChange.current) return
 
       if (!isInActiveRoom()) {
+        // Still apply locally so the UI updates outside of active rooms.
+        subBlockStore.setValue(blockId, subblockId, value)
         logger.debug('Skipping tag selection - not in active workflow', {
           currentWorkflowId,
           activeWorkflowId,

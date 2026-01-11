@@ -10,6 +10,7 @@ import {
   getMarketProvidersByKind,
   getMarketSeriesCapabilities,
 } from '@/providers/market/providers'
+import type { NormalizationMode } from '@/providers/market/types'
 
 interface HistoricalDataResponse extends ToolResponse {
   output: MarketSeriesOutput
@@ -40,12 +41,16 @@ const RESERVED_PARAM_IDS = new Set([
   'start',
   'end',
   'normalizationMode',
-  'providerParams',
 ])
 
 const providerParamCatalog = getMarketProviderParamCatalog('series')
 const providerParamRegistry = providerParamCatalog.registry
-const providerParamIds = providerParamCatalog.order.filter((id) => !RESERVED_PARAM_IDS.has(id))
+const providerParamIds = providerParamCatalog.order.filter((id) => {
+  if (RESERVED_PARAM_IDS.has(id)) return false
+  const definition = providerParamRegistry[id]?.definition
+  if (!definition) return false
+  return definition.mode !== 'advanced'
+})
 
 const isSensitiveParam = (paramId: string): boolean => {
   const lowered = paramId.toLowerCase()
@@ -86,6 +91,24 @@ const formatParamTitle = (paramId: string): string => {
   return paramId.charAt(0).toUpperCase() + paramId.slice(1)
 }
 
+const formatIntervalLabel = (interval: string): string => {
+  const match = interval.match(/^(\d+)(m|h|d|w|mo)$/)
+  if (!match) return interval
+  const value = Number(match[1])
+  const unitCode = match[2]
+  const unit =
+    unitCode === 'm'
+      ? 'minute'
+      : unitCode === 'h'
+        ? 'hour'
+        : unitCode === 'd'
+          ? 'day'
+          : unitCode === 'w'
+            ? 'week'
+            : 'month'
+  return `${value} ${unit}${value === 1 ? '' : 's'}`
+}
+
 const sanitizeInterval = (provider: string | undefined, interval?: string): string | undefined => {
   if (!interval) return undefined
   if (!provider) return interval
@@ -100,14 +123,15 @@ const sanitizeInterval = (provider: string | undefined, interval?: string): stri
 const sanitizeNormalizationMode = (
   provider: string | undefined,
   mode?: string
-): string | undefined => {
+): NormalizationMode | undefined => {
   if (!mode) return undefined
-  if (!provider) return mode
+  if (!provider) return mode as NormalizationMode
   const capabilities = getMarketSeriesCapabilities(provider)
-  if (!capabilities) return mode
+  if (!capabilities || !('normalizationModes' in capabilities)) return mode as NormalizationMode
   const modes = capabilities.normalizationModes ?? []
-  if (modes.length > 0 && !modes.includes(mode)) return undefined
-  return mode
+  if (modes.length === 0) return undefined
+  if (!modes.includes(mode as NormalizationMode)) return undefined
+  return mode as NormalizationMode
 }
 
 const resolveParamInputType = (paramId: string): SubBlockConfig['type'] => {
@@ -137,6 +161,7 @@ const buildProviderParamSubBlocks = (): SubBlockConfig[] =>
       if (!entry) return null
 
       const definition = entry.definition
+      if (definition.mode === 'advanced') return null
       const inputType = resolveParamInputType(paramId)
 
       return {
@@ -234,7 +259,10 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
         if (!provider) return []
         const capabilities = getMarketSeriesCapabilities(provider)
         const intervals = capabilities?.intervals ?? []
-        return intervals.map((interval) => ({ label: interval, id: interval }))
+        return intervals.map((interval) => ({
+          label: formatIntervalLabel(interval),
+          id: interval,
+        }))
       },
     },
     {
@@ -276,34 +304,12 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
       timePicker: { hour: true, minute: true, second: false },
       required: true,
     },
-    {
-      id: 'providerParams',
-      title: 'Provider Params',
-      type: 'code',
-      layout: 'full',
-      mode: 'advanced',
-      language: 'json',
-      placeholder: '{\n  "example": "value"\n}',
-    },
   ],
   tools: {
     access: ['historical_data_fetch'],
     config: {
       tool: () => 'historical_data_fetch',
       params: (params) => {
-        let providerParams: Record<string, any> | undefined
-        if (params.providerParams) {
-          if (typeof params.providerParams === 'string') {
-            try {
-              providerParams = JSON.parse(params.providerParams)
-            } catch (error) {
-              throw new Error('Provider Params must be valid JSON')
-            }
-          } else if (typeof params.providerParams === 'object') {
-            providerParams = params.providerParams as Record<string, any>
-          }
-        }
-
         const resolvedProviderParams: Record<string, any> = {}
         providerParamIds.forEach((paramId) => {
           const entry = providerParamRegistry[paramId]
@@ -318,11 +324,7 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
         const normalizationMode = sanitizeNormalizationMode(params.provider, params.normalizationMode)
 
         let mergedProviderParams: Record<string, any> | undefined =
-          providerParams && typeof providerParams === 'object'
-            ? { ...providerParams, ...resolvedProviderParams }
-            : Object.keys(resolvedProviderParams).length
-              ? resolvedProviderParams
-              : undefined
+          Object.keys(resolvedProviderParams).length ? resolvedProviderParams : undefined
 
         if (mergedProviderParams) {
           if (interval === undefined) {
@@ -356,7 +358,6 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
     start: { type: 'string', description: 'Inclusive start of the interval (ISO or UNIX timestamp)' },
     end: { type: 'string', description: 'Inclusive end of the interval (ISO or UNIX timestamp)' },
     normalizationMode: { type: 'string', description: 'Optional normalization mode' },
-    providerParams: { type: 'json', description: 'Optional provider-specific parameters' },
     ...providerParamIds.reduce<
       Record<string, { type: 'string' | 'number' | 'boolean' | 'json' | 'array'; description?: string }>
     >(
@@ -373,11 +374,16 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
     ),
   },
   outputs: {
-    listingId: { type: 'string', description: 'Listing id for the returned series' },
     listingBase: { type: 'string', description: 'Listing base symbol' },
     listingQuote: { type: 'string', description: 'Listing quote currency' },
-    primaryMicCode: { type: 'string', description: 'Primary MIC code for the listing' },
-    bars: { type: 'array', description: 'OHLCV bars with timestamps' },
+    listing: {
+      type: 'json',
+      description: 'Structured listing identifier payload',
+    },
+    bars: {
+      type: 'array',
+      description: 'OHLCV bars with timestamps',
+    },
     start: { type: 'string', description: 'Start of the returned series' },
     end: { type: 'string', description: 'End of the returned series' },
     timezone: { type: 'string', description: 'Exchange timezone' },

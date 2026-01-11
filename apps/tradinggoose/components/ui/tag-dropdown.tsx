@@ -41,6 +41,9 @@ interface TagDropdownProps {
   cursorPosition: number
   onClose?: () => void
   style?: React.CSSProperties
+  allowVariables?: boolean
+  allowedOutputTypes?: string[]
+  allowContextualTags?: boolean
 }
 
 export const checkTagTrigger = (text: string, cursorPosition: number): { show: boolean } => {
@@ -143,6 +146,9 @@ const getOutputTypeForPath = (
     const operationValue = getSubBlockValue(blockId, 'operation')
     if (blockConfig && operationValue) {
       return getToolOutputType(blockConfig, operationValue, outputPath)
+    }
+    if (blockConfig) {
+      return getBlockOutputType(block.type, outputPath, mergedSubBlocksOverride)
     }
   }
 
@@ -275,6 +281,9 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
   cursorPosition,
   onClose,
   style,
+  allowVariables = true,
+  allowedOutputTypes,
+  allowContextualTags = true,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -526,9 +535,9 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
       }
     }
 
-    const validVariables = workflowVariables.filter(
-      (variable: Variable) => variable.name.trim() !== ''
-    )
+    const validVariables = allowVariables
+      ? workflowVariables.filter((variable: Variable) => variable.name.trim() !== '')
+      : []
 
     const variableTags = validVariables.map(
       (variable: Variable) => `${TAG_PREFIXES.VARIABLE}${normalizeVariableName(variable.name)}`
@@ -547,87 +556,88 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
     )
 
     let loopBlockGroup: BlockTagGroup | null = null
-
-    // Check if blockId IS a loop block (for editing loop config like while condition)
-    const isLoopBlock = blocks[blockId]?.type === 'loop'
-    const currentLoop = isLoopBlock ? loops[blockId] : null
-
-    // Check if blockId is INSIDE a loop
-    const containingLoop = Object.entries(loops).find(([_, loop]) => loop.nodes.includes(blockId))
-
-    let containingLoopBlockId: string | null = null
-
-    // Prioritize current loop if editing the loop block itself
-    if (currentLoop && isLoopBlock) {
-      containingLoopBlockId = blockId
-      const loopType = currentLoop.loopType || 'for'
-      const contextualTags: string[] = ['index', 'currentIteration']
-      if (loopType === 'forEach') {
-        contextualTags.push('currentItem')
-        contextualTags.push('items')
-      }
-
-      const loopBlock = blocks[blockId]
-      if (loopBlock) {
-        const loopBlockName = loopBlock.name || loopBlock.type
-
-        loopBlockGroup = {
-          blockName: loopBlockName,
-          blockId: blockId,
-          blockType: 'loop',
-          tags: contextualTags,
-          distance: 0,
-        }
-      }
-    } else if (containingLoop) {
-      const [loopId, loop] = containingLoop
-      containingLoopBlockId = loopId
-      const loopType = loop.loopType || 'for'
-      const contextualTags: string[] = ['index', 'currentIteration']
-      if (loopType === 'forEach') {
-        contextualTags.push('currentItem')
-        contextualTags.push('items')
-      }
-
-      const containingLoopBlock = blocks[loopId]
-      if (containingLoopBlock) {
-        const loopBlockName = containingLoopBlock.name || containingLoopBlock.type
-
-        loopBlockGroup = {
-          blockName: loopBlockName,
-          blockId: loopId,
-          blockType: 'loop',
-          tags: contextualTags,
-          distance: 0,
-        }
-      }
-    }
-
     let parallelBlockGroup: BlockTagGroup | null = null
-    const containingParallel = Object.entries(parallels || {}).find(([_, parallel]) =>
-      parallel.nodes.includes(blockId)
-    )
+    let containingLoopBlockId: string | null = null
     let containingParallelBlockId: string | null = null
-    if (containingParallel) {
-      const [parallelId, parallel] = containingParallel
-      containingParallelBlockId = parallelId
-      const parallelType = parallel.parallelType || 'count'
-      const contextualTags: string[] = ['index']
-      if (parallelType === 'collection') {
-        contextualTags.push('currentItem')
-        contextualTags.push('items')
+
+    if (allowContextualTags) {
+      // Check if blockId IS a loop block (for editing loop config like while condition)
+      const isLoopBlock = blocks[blockId]?.type === 'loop'
+      const currentLoop = isLoopBlock ? loops[blockId] : null
+
+      // Check if blockId is INSIDE a loop
+      const containingLoop = Object.entries(loops).find(([_, loop]) => loop.nodes.includes(blockId))
+
+      // Prioritize current loop if editing the loop block itself
+      if (currentLoop && isLoopBlock) {
+        containingLoopBlockId = blockId
+        const loopType = currentLoop.loopType || 'for'
+        const contextualTags: string[] = ['index', 'currentIteration']
+        if (loopType === 'forEach') {
+          contextualTags.push('currentItem')
+          contextualTags.push('items')
+        }
+
+        const loopBlock = blocks[blockId]
+        if (loopBlock) {
+          const loopBlockName = loopBlock.name || loopBlock.type
+
+          loopBlockGroup = {
+            blockName: loopBlockName,
+            blockId: blockId,
+            blockType: 'loop',
+            tags: contextualTags,
+            distance: 0,
+          }
+        }
+      } else if (containingLoop) {
+        const [loopId, loop] = containingLoop
+        containingLoopBlockId = loopId
+        const loopType = loop.loopType || 'for'
+        const contextualTags: string[] = ['index', 'currentIteration']
+        if (loopType === 'forEach') {
+          contextualTags.push('currentItem')
+          contextualTags.push('items')
+        }
+
+        const containingLoopBlock = blocks[loopId]
+        if (containingLoopBlock) {
+          const loopBlockName = containingLoopBlock.name || containingLoopBlock.type
+
+          loopBlockGroup = {
+            blockName: loopBlockName,
+            blockId: loopId,
+            blockType: 'loop',
+            tags: contextualTags,
+            distance: 0,
+          }
+        }
       }
 
-      const containingParallelBlock = blocks[parallelId]
-      if (containingParallelBlock) {
-        const parallelBlockName = containingParallelBlock.name || containingParallelBlock.type
+      const containingParallel = Object.entries(parallels || {}).find(([_, parallel]) =>
+        parallel.nodes.includes(blockId)
+      )
+      if (containingParallel) {
+        const [parallelId, parallel] = containingParallel
+        containingParallelBlockId = parallelId
+        const parallelType = parallel.parallelType || 'count'
+        const contextualTags: string[] = ['index']
+        if (parallelType === 'collection') {
+          contextualTags.push('currentItem')
+          contextualTags.push('items')
+        }
 
-        parallelBlockGroup = {
-          blockName: parallelBlockName,
-          blockId: parallelId,
-          blockType: 'parallel',
-          tags: contextualTags,
-          distance: 0,
+        const containingParallelBlock = blocks[parallelId]
+        if (containingParallelBlock) {
+          const parallelBlockName = containingParallelBlock.name || containingParallelBlock.type
+
+          parallelBlockGroup = {
+            blockName: parallelBlockName,
+            blockId: parallelId,
+            blockType: 'parallel',
+            tags: contextualTags,
+            distance: 0,
+          }
         }
       }
     }
@@ -647,6 +657,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
       if (accessibleBlockId === blockId) continue
 
       const blockConfig = getBlock(accessibleBlock.type)
+      const blockState = blocks[accessibleBlockId]
 
       if (!blockConfig) {
         if (accessibleBlock.type === 'loop' || accessibleBlock.type === 'parallel') {
@@ -731,7 +742,6 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
       } else if (!blockConfig.outputs || Object.keys(blockConfig.outputs).length === 0) {
         blockTags = [normalizedBlockName]
       } else {
-        const blockState = blocks[accessibleBlockId]
         if (blockState?.triggerMode && blockConfig.triggers?.enabled) {
           // Use selected trigger (from subblocks) rather than defaulting to the first one
           const dynamicOutputs = getBlockOutputPaths(accessibleBlock.type, mergedSubBlocks, true)
@@ -762,6 +772,24 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
       const shouldShowRootTag = accessibleBlock.type === 'generic_webhook'
       if (!shouldShowRootTag) {
         blockTags = blockTags.filter((tag) => tag !== normalizedBlockName)
+      }
+
+      if (allowedOutputTypes && allowedOutputTypes.length > 0) {
+        const allowedSet = new Set(allowedOutputTypes)
+        blockTags = blockTags.filter((tag) => {
+          const outputPath = tag.startsWith(`${normalizedBlockName}.`)
+            ? tag.slice(normalizedBlockName.length + 1)
+            : ''
+          if (!outputPath) return false
+          const outputType = getOutputTypeForPath(
+            blockState,
+            blockConfig,
+            accessibleBlockId,
+            outputPath,
+            mergedSubBlocks
+          )
+          return allowedSet.has(outputType)
+        })
       }
 
       blockTagGroups.push({
@@ -808,6 +836,9 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
     getMergedSubBlocks,
     loops,
     parallels,
+    allowVariables,
+    allowedOutputTypes,
+    allowContextualTags,
     workflowVariables,
     workflowId,
   ])
@@ -963,7 +994,6 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
       const textAfterCursor = liveValue.slice(liveCursor)
 
       const lastOpenBracket = textBeforeCursor.lastIndexOf('<')
-      if (lastOpenBracket === -1) return
 
       let processedTag = tag
 
@@ -1024,7 +1054,10 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
         }
       }
 
-      const newValue = `${textBeforeCursor.slice(0, lastOpenBracket)}<${processedTag}>${remainingTextAfterCursor}`
+      const newValue =
+        lastOpenBracket === -1
+          ? `${textBeforeCursor}<${processedTag}>${textAfterCursor}`
+          : `${textBeforeCursor.slice(0, lastOpenBracket)}<${processedTag}>${remainingTextAfterCursor}`
 
       onSelect(newValue)
       onClose?.()
