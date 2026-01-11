@@ -5,13 +5,13 @@ import { buildQueryParams, nonEmptyString } from '@/app/api/market/search/valida
 
 export const dynamic = 'force-dynamic'
 
-const ListingRankSchema = z.object({
-  listing_id: nonEmptyString,
+const CurrencyRankSchema = z.object({
+  currency_id: nonEmptyString,
 })
 
 export async function POST(request: NextRequest) {
-  const params = buildQueryParams(request, ['listing_id'])
-  const parsed = ListingRankSchema.safeParse(params)
+  const params = buildQueryParams(request, ['currency_id'])
+  const parsed = CurrencyRankSchema.safeParse(params)
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -20,6 +20,6 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const searchParams = new URLSearchParams({ listing_id: parsed.data.listing_id })
-  return proxyMarketRequest(request, ['update', 'listing-rank'], searchParams)
+  const searchParams = new URLSearchParams({ currency_id: parsed.data.currency_id })
+  return proxyMarketRequest(request, ['update', 'currency-rank'], searchParams)
 }

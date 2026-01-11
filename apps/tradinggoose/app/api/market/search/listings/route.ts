@@ -1,47 +1,34 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { proxyMarketRequest } from '@/app/api/market/proxy'
-import { buildQueryParams, limitMax200, optionalString } from '@/app/api/market/search/validation'
+import { buildQueryParams, optionalString } from '@/app/api/market/search/validation'
 
 export const dynamic = 'force-dynamic'
 
 const ListingsSearchSchema = z.object({
-  listing_id: optionalString,
-  country_id: optionalString,
-  asset_class: optionalString,
-  currency_id: optionalString,
-  currency_name: optionalString,
-  currency_code: optionalString,
-  country_name: optionalString,
-  country_code: optionalString,
-  listing_name: optionalString,
-  listing_base: optionalString,
-  listing_search_query: optionalString,
-  mic_name: optionalString,
-  mic_code: optionalString,
-  mic_id: optionalString,
-  limit: limitMax200,
+  search_query: optionalString,
+  filters: optionalString,
+  equity_quote_name: optionalString,
+  equity_quote_code: optionalString,
+  crypto_quote_name: optionalString,
+  crypto_quote_code: optionalString,
+  currency_quote_name: optionalString,
+  currency_quote_code: optionalString,
 })
 
 const ListingsSearchKeys = [
-  'listing_id',
-  'country_id',
-  'asset_class',
-  'currency_id',
-  'currency_name',
-  'currency_code',
-  'country_name',
-  'country_code',
-  'listing_name',
-  'listing_base',
-  'listing_search_query',
-  'mic_name',
-  'mic_code',
-  'mic_id',
+  'search_query',
+  'filters',
+  'equity_quote_name',
+  'equity_quote_code',
+  'crypto_quote_name',
+  'crypto_quote_code',
+  'currency_quote_name',
+  'currency_quote_code',
 ] as const
 
 export async function GET(request: NextRequest) {
-  const params = buildQueryParams(request, [...ListingsSearchKeys, 'limit'])
+  const params = buildQueryParams(request, [...ListingsSearchKeys])
   const parsed = ListingsSearchSchema.safeParse(params)
 
   if (!parsed.success) {

@@ -92,7 +92,7 @@ export const buildTimeCSPDirectives: CSPDirectives = {
     env.OLLAMA_URL || 'http://localhost:11434',
     env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3002',
     env.NEXT_PUBLIC_SOCKET_URL?.replace('http://', 'ws://').replace('https://', 'wss://') ||
-      'ws://localhost:3002',
+    'ws://localhost:3002',
     'https://api.browser-use.com',
     'https://api.exa.ai',
     'https://api.firecrawl.dev',
@@ -144,7 +144,7 @@ export function generateRuntimeCSP(): string {
     socketUrl.replace('http://', 'ws://').replace('https://', 'wss://') || 'ws://localhost:3002'
   const appUrl = getEnv('NEXT_PUBLIC_APP_URL') || ''
   const ollamaUrl = getEnv('OLLAMA_URL') || 'http://localhost:11434'
-  const marketUrl = getEnv('MARKET_API_URL') || ''
+  const marketUrl = getEnv('MARKET_API_URL') || 'market.tradinggoose.ai'
   const devMarketUrl = getEnv('NODE_ENV') === 'development' ? 'http://localhost:3001' : ''
 
   const brandLogoDomains = getHostnameFromUrl(getEnv('NEXT_PUBLIC_BRAND_LOGO_URL'))
