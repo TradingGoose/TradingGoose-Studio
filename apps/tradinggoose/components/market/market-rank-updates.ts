@@ -1,7 +1,10 @@
-export function triggerListingRankUpdate(listingId: string) {
-  if (!listingId) return
-  const query = new URLSearchParams({ listing_id: listingId })
-  void fetch(`/api/market/update/listing-rank?${query.toString()}`, {
+import type { ListingIdentity } from '@/lib/market/listings'
+
+export function triggerEquityRankUpdate(listing: ListingIdentity | null | undefined) {
+  const equityId = listing?.equity_id ?? null
+  if (!equityId) return
+  const query = new URLSearchParams({ equity_id: equityId })
+  void fetch(`/api/market/update/equity-rank?${query.toString()}`, {
     method: 'POST',
   }).catch(() => {
     // Best-effort update; ignore failures to avoid blocking selection.

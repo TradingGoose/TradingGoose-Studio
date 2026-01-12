@@ -22,7 +22,7 @@ import {
 import {
   triggerCryptoRankUpdate,
   triggerCurrencyRankUpdate,
-  triggerListingRankUpdate,
+  triggerEquityRankUpdate,
 } from '@/components/market/market-rank-updates'
 import {
   createEmptyMarketSelectorInstance,
@@ -478,9 +478,7 @@ export function StockSelector({
     setHighlightedIndex(-1)
     setShowTags(false)
     setVariableCommitted(false)
-    if (listing.equity_id) {
-      triggerListingRankUpdate(listing.equity_id)
-    }
+    triggerEquityRankUpdate(listing)
     if (listing.base_asset_class === 'crypto' && listing.base_id) {
       triggerCryptoRankUpdate(listing.base_id)
     }
