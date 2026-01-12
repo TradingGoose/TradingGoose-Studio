@@ -1,10 +1,11 @@
 import { create } from 'zustand'
+import type { ListingIdentity } from '@/lib/market/listings'
 import type { PairColor } from '@/widgets/pair-colors'
 import { PAIR_COLORS } from '@/widgets/pair-colors'
 
 export type PairColorContext = {
   workflowId?: string
-  ticker?: string
+  listing?: ListingIdentity | null
   updatedAt?: number
   channelId?: string
   copilotChatId?: string | null

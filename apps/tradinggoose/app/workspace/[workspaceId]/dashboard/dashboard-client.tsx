@@ -15,6 +15,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { useBrandConfig } from '@/lib/branding/branding'
+import { resolveListingKey, type ListingIdentity } from '@/lib/market/listings'
 import { type LayoutTab, LayoutTabs } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
 import { GlobalNavbarHeader } from '@/global-navbar'
 import { useKnowledgeBasesList } from '@/hooks/use-knowledge'
@@ -1017,15 +1018,15 @@ function applyPairDataToWidget(
       : {}
 
   const workflowId = pairData.workflowId ?? null
-  const ticker = pairData.ticker ?? null
+  const listing = pairData.listing ?? null
   const copilotChatId = pairData.copilotChatId ?? null
 
-  if (workflowId == null && ticker == null && copilotChatId == null) {
+  if (workflowId == null && listing == null && copilotChatId == null) {
     return widget
   }
 
   baseParams.workflowId = workflowId
-  baseParams.ticker = ticker
+  baseParams.listing = listing
   if (copilotChatId) {
     baseParams.copilotChatId = copilotChatId
   }
@@ -1053,7 +1054,7 @@ function hydratePairStoreFromColorPairs(colorPairs: PersistedColorPairsState) {
     seen.add(pair.color)
     setContext(pair.color, {
       workflowId: pair.workflowId ?? undefined,
-      ticker: pair.ticker ?? undefined,
+      listing: pair.listing ?? undefined,
       copilotChatId: pair.copilotChatId ?? undefined,
     })
   }
@@ -1078,10 +1079,7 @@ function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState 
       typeof context?.workflowId === 'string' && context.workflowId.trim().length > 0
         ? context.workflowId
         : null
-    const ticker =
-      typeof context?.ticker === 'string' && context.ticker.trim().length > 0
-        ? context.ticker
-        : null
+    const listing = hasListingIdentity(context?.listing) ? context?.listing ?? null : null
     const copilotChatId =
       typeof context?.copilotChatId === 'string' && context.copilotChatId.trim().length > 0
         ? context.copilotChatId
@@ -1090,7 +1088,7 @@ function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState 
     pairs.push({
       color,
       workflowId,
-      ticker,
+      listing,
       copilotChatId,
     })
   })
@@ -1104,8 +1102,12 @@ function hasLinkedColorPairs(colorPairs?: PersistedColorPairsState): boolean {
     (pair) =>
       pair?.color &&
       pair.color !== 'gray' &&
-      (pair.workflowId || pair.ticker || pair.copilotChatId)
+      (pair.workflowId || pair.copilotChatId || hasListingIdentity(pair.listing))
   )
+}
+
+function hasListingIdentity(listing?: ListingIdentity | null): boolean {
+  return Boolean(listing && resolveListingKey(listing))
 }
 
 function collectPairColors(node: LayoutNode, set: Set<PairColor> = new Set()): Set<PairColor> {

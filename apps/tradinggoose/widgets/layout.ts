@@ -1,3 +1,4 @@
+import { resolveListingKey, toListingValueObject, type ListingIdentity } from '@/lib/market/listings'
 import type { PairColor } from '@/widgets/pair-colors'
 import { isPairColor } from '@/widgets/pair-colors'
 
@@ -12,7 +13,7 @@ export type LinkedPairColor = Exclude<PairColor, 'gray'>
 export type PersistedColorPair = {
   color: LinkedPairColor
   workflowId?: string | null
-  ticker?: string | null
+  listing?: ListingIdentity | null
   copilotChatId?: string | null
 }
 
@@ -68,6 +69,14 @@ export const createDefaultColorPairsState = (): PersistedColorPairsState => ({
   pairs: [],
 })
 
+const normalizeListingIdentity = (value: unknown): ListingIdentity | null => {
+  if (!value) return null
+  const listing = toListingValueObject(value as any)
+  if (!listing) return null
+  if (!resolveListingKey(listing)) return null
+  return listing
+}
+
 export function normalizeColorPairsState(state?: unknown): PersistedColorPairsState {
   if (!state || typeof state !== 'object') {
     return createDefaultColorPairsState()
@@ -99,21 +108,17 @@ export function normalizeColorPairsState(state?: unknown): PersistedColorPairsSt
       ((raw as { workflowId?: unknown }).workflowId as string).trim().length > 0
         ? ((raw as { workflowId?: unknown }).workflowId as string)
         : null
-    const ticker =
-      typeof (raw as { ticker?: unknown }).ticker === 'string' &&
-      ((raw as { ticker?: unknown }).ticker as string).trim().length > 0
-        ? ((raw as { ticker?: unknown }).ticker as string)
-        : null
     const copilotChatId =
       typeof (raw as { copilotChatId?: unknown }).copilotChatId === 'string' &&
       ((raw as { copilotChatId?: unknown }).copilotChatId as string).trim().length > 0
         ? ((raw as { copilotChatId?: unknown }).copilotChatId as string)
         : null
+    const listing = normalizeListingIdentity((raw as { listing?: unknown }).listing)
 
     normalized.push({
       color: rawColor,
       workflowId,
-      ticker,
+      listing,
       copilotChatId,
     })
     seen.add(rawColor)

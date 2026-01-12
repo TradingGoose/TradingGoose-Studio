@@ -221,14 +221,14 @@ export const useWorkflowWidgetState = ({
 
     setPairContext(resolvedPairColor, {
       workflowId: resolvedWorkflowId,
-      ticker: pairContext.ticker,
+      listing: pairContext.listing,
       channelId,
     })
   }, [
     resolvedPairColor,
     resolvedWorkflowId,
     pairContext.workflowId,
-    pairContext.ticker,
+    pairContext.listing,
     setPairContext,
     channelId,
   ])

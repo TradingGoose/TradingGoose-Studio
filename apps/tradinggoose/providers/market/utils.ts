@@ -32,15 +32,16 @@ export async function resolveListingContext(listing: ListingIdentity): Promise<L
   }
 
   const listingPayload = listingRes.data as ListingResponse | null
-  const listingData = listingPayload?.data
-  const listing = Array.isArray(listingData) ? listingData[0] : listingData
+  const listingRecord = Array.isArray(listingPayload?.data)
+    ? listingPayload?.data[0]
+    : listingPayload?.data
 
-  if (!listing) {
+  if (!listingRecord) {
     throw new Error('Listing not found')
   }
 
-  const primaryMicCode = listing.primaryMicCode as string | undefined
-  const primaryMicName = listing.primaryMicName as string | undefined
+  const primaryMicCode = listingRecord.primaryMicCode as string | undefined
+  const primaryMicName = listingRecord.primaryMicName as string | undefined
   let micCode: string | undefined = primaryMicCode
 
   if (!micCode && primaryMicName) {
@@ -57,15 +58,15 @@ export async function resolveListingContext(listing: ListingIdentity): Promise<L
 
   return {
     listingKey,
-    listing: toListingValueObject(listing),
-    base: listing.base as string,
-    quote: listing.quote as string | undefined,
-    assetClass: listing.assetClass as AssetClass | undefined,
+    listing: toListingValueObject(listingRecord),
+    base: listingRecord.base as string,
+    quote: listingRecord.quote as string | undefined,
+    assetClass: listingRecord.assetClass as AssetClass | undefined,
     primaryMicCode: micCode ?? primaryMicCode,
     micCode,
-    countryCode: listing.countryCode as string | undefined,
-    cityName: listing.cityName as string | undefined,
-    timeZoneName: listing.timeZoneName as string | undefined,
+    countryCode: listingRecord.countryCode as string | undefined,
+    cityName: listingRecord.cityName as string | undefined,
+    timeZoneName: listingRecord.timeZoneName as string | undefined,
   }
 }
 
