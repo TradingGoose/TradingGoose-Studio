@@ -11,6 +11,7 @@ import {
   ComboBox,
   ConditionInput,
   CredentialSelector,
+  DateTimeInputField,
   DocumentSelector,
   Dropdown,
   EvalInput,
@@ -22,6 +23,7 @@ import {
   InputMapping,
   KnowledgeBaseSelector,
   LongInput,
+  MarketSelectorInput,
   McpDynamicArgs,
   McpServerSelector,
   McpToolSelector,
@@ -81,6 +83,10 @@ export const SubBlock = memo(
       return config.required === true
     }
 
+    if (config.hidden) {
+      return null
+    }
+
     // Get preview value for this specific sub-block
     const getPreviewValue = () => {
       if (!isPreview || !subBlockValues) return undefined
@@ -130,6 +136,8 @@ export const SubBlock = memo(
                 options={config.options as { label: string; id: string }[]}
                 defaultValue={typeof config.value === 'function' ? config.value({}) : config.value}
                 placeholder={config.placeholder}
+                enableSearch={config.enableSearch}
+                searchPlaceholder={config.searchPlaceholder}
                 isPreview={isPreview}
                 previewValue={previewValue}
                 disabled={isDisabled}
@@ -238,6 +246,17 @@ export const SubBlock = memo(
               allowExpandInPreview={allowExpandInPreview}
             />
           )
+        case 'market-selector':
+          return (
+            <MarketSelectorInput
+              blockId={blockId}
+              subBlockId={config.id}
+              isPreview={isPreview}
+              previewValue={previewValue as string | null | undefined}
+              disabled={isDisabled}
+              config={config}
+            />
+          )
         case 'checkbox-list':
           return (
             <CheckboxList
@@ -295,6 +314,17 @@ export const SubBlock = memo(
               isPreview={isPreview}
               previewValue={previewValue}
               disabled={isDisabled}
+            />
+          )
+        case 'datetime-input':
+          return (
+            <DateTimeInputField
+              blockId={blockId}
+              subBlockId={config.id}
+              isPreview={isPreview}
+              previewValue={previewValue as string | null}
+              disabled={isDisabled}
+              config={config}
             />
           )
         case 'file-upload':
@@ -547,6 +577,8 @@ export const SubBlock = memo(
 
     const required = isFieldRequired()
 
+    const showLabel = config.type !== 'switch' && config.type !== 'market-selector'
+
     return (
       <div
         className={cn(
@@ -557,7 +589,7 @@ export const SubBlock = memo(
         )}
         onMouseDown={handleMouseDown}
       >
-        {config.type !== 'switch' && (
+        {showLabel && (
           <Label className='flex items-center gap-1'>
             {config.title}
             {required && (

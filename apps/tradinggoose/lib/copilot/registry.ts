@@ -256,6 +256,7 @@ export type ToolSSESchemaMap = typeof ToolSSESchemas
 // Note: Where legacy variability exists, schema captures the common/expected shape for new runtime.
 const BuildOrEditWorkflowResult = z.object({
   yamlContent: z.string(),
+  userWorkflow: z.string().optional(),
   description: z.string().optional(),
   workflowState: z.unknown().optional(),
   data: z

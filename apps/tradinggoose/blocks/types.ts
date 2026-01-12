@@ -51,6 +51,7 @@ export type SubBlockType =
   | 'condition-input' // Conditional logic
   | 'eval-input' // Evaluation input
   | 'time-input' // Time input
+  | 'datetime-input' // Date + time input
   | 'oauth-input' // OAuth credential selector
   | 'webhook-config' // Webhook configuration
   | 'trigger-config' // Trigger configuration
@@ -63,6 +64,7 @@ export type SubBlockType =
   | 'knowledge-tag-filters' // Multiple tag filters for knowledge bases
   | 'document-selector' // Document selector for knowledge bases
   | 'document-tag-entry' // Document tag entry for creating documents
+  | 'market-selector' // Market listing selector (provider/currency/listing)
   | 'mcp-server-selector' // MCP server selector
   | 'mcp-tool-selector' // MCP tool selector
   | 'mcp-dynamic-args' // MCP dynamic arguments based on tool schema
@@ -137,12 +139,32 @@ export interface SubBlockConfig {
     icon?: React.ComponentType<{ className?: string }>
     group?: string
   }[])
+  // Async options loader for dropdown/combobox-like inputs
+  fetchOptions?: (
+    blockId: string,
+    subBlockId: string,
+    contextValues?: Record<string, any>
+  ) => Promise<Array<{ label: string; id: string }>>
   optionsStore?: 'marketProviders'
   min?: number
   max?: number
   columns?: string[]
   placeholder?: string
+  timezone?: string
+  clearable?: boolean
+  hideCalendarIcon?: boolean
+  minDate?: string | Date
+  maxDate?: string | Date
+  hideTime?: boolean
+  use12HourFormat?: boolean
+  timePicker?: {
+    hour?: boolean
+    minute?: boolean
+    second?: boolean
+  }
   password?: boolean
+  enableSearch?: boolean
+  searchPlaceholder?: string
   connectionDroppable?: boolean
   hidden?: boolean
   description?: string

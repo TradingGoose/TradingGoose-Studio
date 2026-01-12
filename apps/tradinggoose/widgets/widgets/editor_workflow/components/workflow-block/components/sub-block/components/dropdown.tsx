@@ -1,33 +1,24 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, ChevronDown } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { cn } from '@/lib/utils'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { SearchableDropdown, type SearchableDropdownOption } from '@/components/ui/searchable-dropdown'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { ResponseBlockHandler } from '@/executor/handlers/response/response-handler'
+import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-depends-on-gate'
+import type { SubBlockConfig } from '@/blocks/types'
+import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { useSubBlockStore } from '@/stores/workflows/subblock/store'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
+
+type DropdownOptionObject = {
+  label: string
+  id: string
+  icon?: React.ComponentType<{ className?: string }>
+  group?: string
+  disabled?: boolean
+}
 
 interface DropdownProps {
-  options:
-  | Array<
-    | string
-    | {
-      label: string
-      id: string
-      icon?: React.ComponentType<{ className?: string }>
-      group?: string
-      disabled?: boolean
-    }
-  >
-  | (() => Array<
-    | string
-    | {
-      label: string
-      id: string
-      icon?: React.ComponentType<{ className?: string }>
-      group?: string
-      disabled?: boolean
-    }
-  >)
+  options: Array<string | DropdownOptionObject> | (() => Array<string | DropdownOptionObject>)
   defaultValue?: string
   blockId: string
   subBlockId: string
@@ -36,12 +27,13 @@ interface DropdownProps {
   previewValue?: string | null
   disabled?: boolean
   placeholder?: string
-  config?: import('@/blocks/types').SubBlockConfig
+  config?: SubBlockConfig
   useStore?: boolean
   valueOverride?: string
   onChange?: (value: string) => void
   enableSearch?: boolean
   searchPlaceholder?: string
+  previewContextValues?: Record<string, any>
 }
 
 export function Dropdown({
@@ -61,17 +53,13 @@ export function Dropdown({
   className,
   enableSearch = false,
   searchPlaceholder = 'Search...',
+  previewContextValues,
 }: DropdownProps & { className?: string }) {
   const [storeValue, setStoreValue] = useSubBlockValue<string>(blockId, subBlockId)
   const [storeInitialized, setStoreInitialized] = useState(false)
-  const [open, setOpen] = useState(false)
-  const [highlightedIndex, setHighlightedIndex] = useState(-1)
-  const [searchTerm, setSearchTerm] = useState('')
-
-  const inputRef = useRef<HTMLInputElement>(null)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-  const searchInputRef = useRef<HTMLInputElement>(null)
   const previousModeRef = useRef<string | null>(null)
+  const previousDependencyValuesRef = useRef<string>('')
+  const blockAutoDefaultRef = useRef(false)
 
   // For response dataMode conversion - get builderData and data sub-blocks
   const [builderData, setBuilderData] = useSubBlockValue<any[]>(blockId, 'builderData')
@@ -86,6 +74,30 @@ export function Dropdown({
     dataRef.current = data
   }, [builderData, data])
 
+  const resolvedConfig: SubBlockConfig = config ?? {
+    id: subBlockId,
+    type: 'dropdown',
+    dependsOn: [],
+  }
+
+  const routeContext = useOptionalWorkflowRoute()
+  const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
+  const activeWorkflowId = useWorkflowRegistry((state) =>
+    typeof state.getActiveWorkflowId === 'function'
+      ? state.getActiveWorkflowId(resolvedChannelId)
+      : state.activeWorkflowId
+  )
+  const blockContextValues = useSubBlockStore((state) => {
+    if (!activeWorkflowId) return undefined
+    return (state.workflowValues[activeWorkflowId] as Record<string, any> | undefined)?.[blockId]
+  })
+
+  const { finalDisabled, dependencyValues, dependsOn } = useDependsOnGate(blockId, resolvedConfig, {
+    disabled: disabled ?? false,
+    isPreview,
+    previewContextValues,
+  })
+
   const isControlled = !useStore
   // Use preview value when in preview mode, otherwise use store value or prop value or controlled value
   const value = isPreview
@@ -96,15 +108,55 @@ export function Dropdown({
         ? propValue
         : storeValue
 
-  // Evaluate options if it's a function
-  const manifestVersion =
-    config?.optionsStore === 'marketProviders'
-      ? useMarketProviderManifestStore((state) => state.version)
-      : undefined
+
+  const fetchOptions = resolvedConfig.fetchOptions
+  const [fetchedOptions, setFetchedOptions] = useState<Array<{ label: string; id: string }>>([])
+  const [isLoadingOptions, setIsLoadingOptions] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+  const [hasFetchedOptions, setHasFetchedOptions] = useState(false)
+
+  const fetchOptionsIfNeeded = useCallback(async () => {
+    if (!fetchOptions || isPreview || finalDisabled) return
+
+    setIsLoadingOptions(true)
+    setFetchError(null)
+    try {
+      const contextValues = previewContextValues ?? blockContextValues
+      const options = await fetchOptions(blockId, subBlockId, contextValues)
+      setFetchedOptions(options)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch options'
+      setFetchError(errorMessage)
+      setFetchedOptions([])
+    } finally {
+      setIsLoadingOptions(false)
+      setHasFetchedOptions(true)
+    }
+  }, [
+    fetchOptions,
+    blockId,
+    subBlockId,
+    isPreview,
+    finalDisabled,
+    previewContextValues,
+    blockContextValues,
+  ])
 
   const evaluatedOptions = useMemo(() => {
-    return typeof options === 'function' ? options() : options
-  }, [options, manifestVersion])
+    const resolved = typeof options === 'function' ? options() : options
+    return resolved ?? []
+  }, [options, config])
+
+  const normalizedFetchedOptions = useMemo<DropdownOptionObject[]>(() => {
+    return fetchedOptions.map((opt) => ({ label: opt.label, id: opt.id }))
+  }, [fetchedOptions])
+
+  const availableOptions = useMemo<Array<string | DropdownOptionObject>>(() => {
+    if (fetchOptions && normalizedFetchedOptions.length > 0) {
+      return normalizedFetchedOptions
+    }
+    return evaluatedOptions ?? []
+  }, [fetchOptions, normalizedFetchedOptions, evaluatedOptions])
 
   const getOptionValue = (
     option:
@@ -120,19 +172,8 @@ export function Dropdown({
     return typeof option === 'string' ? option : option.id
   }
 
-  const getOptionLabel = (
-    option:
-      | string
-      | {
-        label: string
-        id: string
-        icon?: React.ComponentType<{ className?: string }>
-        group?: string
-        disabled?: boolean
-      }
-  ) => {
-    return typeof option === 'string' ? option : option.label
-  }
+  const optionsReady = fetchOptions ? hasFetchedOptions && !isLoadingOptions && !fetchError : true
+  const hasValue = value !== null && value !== undefined && value !== ''
 
   // Get the default option value (first option or provided defaultValue)
   const defaultOptionValue = useMemo(() => {
@@ -140,17 +181,68 @@ export function Dropdown({
       return defaultValue
     }
 
-    if (evaluatedOptions.length > 0) {
-      return getOptionValue(evaluatedOptions[0])
+    if (availableOptions.length > 0) {
+      return getOptionValue(availableOptions[0] as any)
     }
 
     return undefined
-  }, [defaultValue, evaluatedOptions, getOptionValue])
+  }, [defaultValue, availableOptions, getOptionValue])
+
+  useEffect(() => {
+    if (isPreview || !optionsReady || !hasValue) return
+    if (fetchOptions && dependsOn.length > 0) return
+    const isValid = availableOptions.some(
+      (option) => getOptionValue(option as any) === value
+    )
+    if (!isValid) {
+      blockAutoDefaultRef.current = true
+      if (useStore) {
+        setStoreValue('')
+      }
+      if (onChange) {
+        onChange('')
+      }
+    }
+  }, [
+    isPreview,
+    optionsReady,
+    hasValue,
+    availableOptions,
+    value,
+    useStore,
+    setStoreValue,
+    onChange,
+    fetchOptions,
+    dependsOn.length,
+  ])
 
   // Mark store as initialized on first render
   useEffect(() => {
     setStoreInitialized(true)
   }, [])
+
+  useEffect(() => {
+    if (fetchOptions && dependsOn.length > 0) {
+      const currentDependencyValuesStr = JSON.stringify(dependencyValues)
+      const previousDependencyValuesStr = previousDependencyValuesRef.current
+
+      if (
+        previousDependencyValuesStr &&
+        currentDependencyValuesStr !== previousDependencyValuesStr
+      ) {
+        setFetchedOptions([])
+        setHasFetchedOptions(false)
+      }
+
+      previousDependencyValuesRef.current = currentDependencyValuesStr
+    }
+  }, [dependencyValues, fetchOptions, dependsOn.length])
+
+  useEffect(() => {
+    if (value !== null && value !== undefined && value !== '') {
+      blockAutoDefaultRef.current = false
+    }
+  }, [value])
 
   // Only set default value once the store is confirmed to be initialized
   // and we know the actual value is null/undefined (not just loading)
@@ -158,25 +250,36 @@ export function Dropdown({
     if (
       useStore &&
       storeInitialized &&
-      (value === null || value === undefined) &&
+      (value === null || value === undefined || value === '') &&
+      activeWorkflowId &&
       defaultOptionValue !== undefined
     ) {
+      if (blockAutoDefaultRef.current) {
+        return
+      }
       setStoreValue(defaultOptionValue)
     }
-  }, [useStore, storeInitialized, value, defaultOptionValue, setStoreValue])
+  }, [useStore, storeInitialized, value, defaultOptionValue, setStoreValue, activeWorkflowId])
 
-  const isSearchEnabled = Boolean(enableSearch)
-  const normalizedSearchTerm = searchTerm.trim().toLowerCase()
-
-  const displayedOptions = useMemo(() => {
-    if (!isSearchEnabled || !normalizedSearchTerm) {
-      return evaluatedOptions
+  useEffect(() => {
+    if (
+      fetchOptions &&
+      !isPreview &&
+      !finalDisabled &&
+      !hasFetchedOptions &&
+      !isLoadingOptions
+    ) {
+      fetchOptionsIfNeeded()
     }
-
-    return evaluatedOptions.filter((option) =>
-      getOptionLabel(option).toLowerCase().includes(normalizedSearchTerm)
-    )
-  }, [evaluatedOptions, getOptionLabel, isSearchEnabled, normalizedSearchTerm])
+  }, [
+    fetchOptions,
+    isPreview,
+    finalDisabled,
+    hasFetchedOptions,
+    isLoadingOptions,
+    fetchOptionsIfNeeded,
+    dependencyValues,
+  ])
 
   // Helper function to normalize variable references in JSON strings
   const normalizeVariableReferences = (jsonString: string): string => {
@@ -260,306 +363,44 @@ export function Dropdown({
 
   // Event handlers
   const handleSelect = (selectedValue: string) => {
-    if (!isPreview && !disabled && useStore) {
+    if (!isPreview && !finalDisabled && useStore) {
       setStoreValue(selectedValue)
     }
     if (onChange) {
       onChange(selectedValue)
     }
-    setOpen(false)
-    setSearchTerm('')
-    setHighlightedIndex(-1)
-    inputRef.current?.blur()
   }
 
-  const handleDropdownClick = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (!disabled) {
-      setOpen(!open)
-      if (!open) {
-        inputRef.current?.focus()
+  const dropdownOptions = useMemo<SearchableDropdownOption[]>(() => {
+    return availableOptions.map((option) => {
+      if (typeof option === 'string') {
+        return { id: option, label: option }
       }
-    }
-  }
-
-  const handleFocus = () => {
-    setOpen(true)
-    setHighlightedIndex(-1)
-  }
-
-  const handleBlur = () => {
-    // Delay closing to allow dropdown selection
-    setTimeout(() => {
-      const activeElement = document.activeElement
-      if (!activeElement || !activeElement.closest('.absolute.top-full')) {
-        setOpen(false)
-        setHighlightedIndex(-1)
+      return {
+        id: option.id,
+        label: option.label,
+        icon: option.icon,
+        group: option.group,
+        disabled: option.disabled,
       }
-    }, 150)
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Escape') {
-      setOpen(false)
-      setHighlightedIndex(-1)
-      return
-    }
-
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      if (!open) {
-        setOpen(true)
-        if (displayedOptions.length > 0) {
-          setHighlightedIndex(0)
-        }
-      } else if (displayedOptions.length > 0) {
-        setHighlightedIndex((prev) =>
-          prev < displayedOptions.length - 1 ? prev + 1 : 0
-        )
-      }
-    }
-
-    if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      if (open && displayedOptions.length > 0) {
-        setHighlightedIndex((prev) =>
-          prev > 0 ? prev - 1 : displayedOptions.length - 1
-        )
-      }
-    }
-
-    if (
-      e.key === 'Enter' &&
-      open &&
-      highlightedIndex >= 0 &&
-      highlightedIndex < displayedOptions.length
-    ) {
-      e.preventDefault()
-      const selectedOption = displayedOptions[highlightedIndex]
-      if (selectedOption) {
-        handleSelect(getOptionValue(selectedOption))
-      }
-    }
-  }
-
-  // Effects
-  useEffect(() => {
-    setHighlightedIndex((prev) => {
-      if (prev >= 0 && prev < displayedOptions.length) {
-        return prev
-      }
-      return -1
     })
-  }, [displayedOptions])
+  }, [availableOptions])
 
-  // Scroll highlighted option into view
-  useEffect(() => {
-    if (highlightedIndex >= 0 && dropdownRef.current) {
-      const highlightedElement = dropdownRef.current.querySelector(
-        `[data-option-index="${highlightedIndex}"]`
-      )
-      if (highlightedElement) {
-        highlightedElement.scrollIntoView({
-          behavior: 'smooth',
-          block: 'nearest',
-        })
-      }
-    }
-  }, [highlightedIndex])
+  const selectedOption = dropdownOptions.find((option) => option.id === value) ?? null
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Element
-      if (
-        inputRef.current &&
-        !inputRef.current.contains(target) &&
-        !target.closest('.absolute.top-full')
-      ) {
-        setOpen(false)
-        setHighlightedIndex(-1)
-      }
-    }
-
-    if (open) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside)
-      }
-    }
-  }, [open])
-
-  useEffect(() => {
-    if (!isSearchEnabled) return
-    if (open) {
-      const timer = setTimeout(() => {
-        searchInputRef.current?.focus()
-      }, 0)
-      return () => clearTimeout(timer)
-    }
-    setSearchTerm('')
-  }, [open, isSearchEnabled])
-
-  useEffect(() => {
-    if (!isSearchEnabled) return
-    setHighlightedIndex(-1)
-  }, [searchTerm, isSearchEnabled])
-
-  // Display value
-  const displayValue = value?.toString() ?? ''
-  const selectedOption = evaluatedOptions.find((opt) => getOptionValue(opt) === value)
-  const selectedLabel = selectedOption ? getOptionLabel(selectedOption) : displayValue
-  const SelectedIcon =
-    selectedOption && typeof selectedOption === 'object' && 'icon' in selectedOption
-      ? (selectedOption.icon as React.ComponentType<{ className?: string }>)
-      : null
-
-  const groupedOptions = useMemo(() => {
-    const groupOrder: string[] = []
-    const grouped: Record<string, typeof displayedOptions> = {}
-
-    displayedOptions.forEach((option) => {
-      const group =
-        typeof option === 'object' && 'group' in option && option.group ? option.group : 'Options'
-      if (!groupOrder.includes(group)) {
-        groupOrder.push(group)
-      }
-      if (!grouped[group]) {
-        grouped[group] = []
-      }
-      grouped[group].push(option)
-    })
-
-    return { groupOrder, grouped }
-  }, [displayedOptions])
-
-  const noOptionsMessage =
-    isSearchEnabled && normalizedSearchTerm
-      ? 'No matching options.'
-      : 'No options available.'
-
-  // Render component
   return (
-    <div className={cn('relative w-full', className)}>
-      <div className='relative'>
-        <Input
-          ref={inputRef}
-          className={cn(
-            'w-full cursor-pointer overflow-hidden pr-10 text-foreground',
-            SelectedIcon ? 'pl-8' : ''
-          )}
-          placeholder={placeholder}
-          value={selectedLabel || ''}
-          readOnly
-          onFocus={handleFocus}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
-          disabled={disabled}
-          autoComplete='off'
-        />
-        {/* Icon overlay */}
-        {SelectedIcon && (
-          <div className='pointer-events-none absolute top-0 bottom-0 left-0 flex items-center bg-transparent pl-3 text-sm'>
-            <SelectedIcon className='h-3 w-3' />
-          </div>
-        )}
-        {/* Chevron button */}
-        <Button
-          variant='ghost'
-          size='sm'
-          className='-translate-y-1/2 absolute top-1/2 right-1 z-10 h-6 w-6 p-0 hover:bg-transparent'
-          disabled={disabled}
-          onMouseDown={handleDropdownClick}
-        >
-          <ChevronDown
-            className={cn('h-4 w-4 opacity-50 transition-transform', open && 'rotate-180')}
-          />
-        </Button>
-      </div>
-
-      {/* Dropdown */}
-      {open && (
-        <div className='absolute top-full left-0 z-[100] mt-1 w-full'>
-          <div className='allow-scroll fade-in-0 zoom-in-95 animate-in rounded-md border bg-popover text-popover-foreground shadow-lg'>
-            {isSearchEnabled && (
-              <div className='border-b border-border p-2'>
-                <Input
-                  ref={searchInputRef}
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder={searchPlaceholder}
-                  autoComplete='off'
-                  disabled={disabled}
-                />
-              </div>
-            )}
-            <div className='allow-scroll max-h-48 overflow-y-auto p-1' style={{ scrollbarWidth: 'thin' }}>
-              <div ref={dropdownRef}>
-                {displayedOptions.length === 0 ? (
-                  <div className='py-6 text-center text-muted-foreground text-sm'>
-                    {noOptionsMessage}
-                  </div>
-                ) : (
-                  (() => {
-                    let renderIndex = 0
-                    return groupedOptions.groupOrder.map((group) => {
-                      const groupOptions = groupedOptions.grouped[group] || []
-                      return (
-                        <div key={group}>
-                          {groupedOptions.groupOrder.length > 1 && (
-                            <div className='px-2 pt-2.5 pb-0.5 font-medium text-muted-foreground text-xs'>
-                              {group}
-                            </div>
-                          )}
-                          {groupOptions.map((option) => {
-                            const optionValue = getOptionValue(option)
-                            const optionLabel = getOptionLabel(option)
-                            const OptionIcon =
-                              typeof option === 'object' && 'icon' in option
-                                ? (option.icon as React.ComponentType<{ className?: string }>)
-                                : null
-                            const isSelected = value === optionValue
-                            const isHighlighted = renderIndex === highlightedIndex
-                            const isDisabled =
-                              typeof option === 'object' && 'disabled' in option
-                                ? Boolean(option.disabled)
-                                : false
-
-                            const currentIndex = renderIndex
-                            renderIndex += 1
-
-                            return (
-                              <div
-                                key={optionValue}
-                                data-option-index={currentIndex}
-                                onClick={() => !isDisabled && handleSelect(optionValue)}
-                                onMouseDown={(e) => {
-                                  e.preventDefault()
-                                  if (!isDisabled) handleSelect(optionValue)
-                                }}
-                                onMouseEnter={() => setHighlightedIndex(currentIndex)}
-                                className={cn(
-                                  'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-card hover:text-accent-foreground',
-                                  isHighlighted && 'bg-accent text-accent-foreground',
-                                  isDisabled && 'cursor-not-allowed opacity-60'
-                                )}
-                              >
-                                {OptionIcon && <OptionIcon className='mr-2 h-3 w-3' />}
-                                <span className='flex-1 truncate'>{optionLabel}</span>
-                                {isSelected && <Check className='ml-2 h-4 w-4 flex-shrink-0' />}
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )
-                    })
-                  })()
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    <SearchableDropdown
+      value={value ?? undefined}
+      selectedOption={selectedOption}
+      options={dropdownOptions}
+      placeholder={placeholder}
+      disabled={finalDisabled}
+      className={className}
+      enableSearch={enableSearch}
+      searchPlaceholder={searchPlaceholder}
+      isLoading={isLoadingOptions}
+      emptyMessage={fetchError ?? undefined}
+      onChange={(selectedValue) => handleSelect(selectedValue)}
+    />
   )
 }

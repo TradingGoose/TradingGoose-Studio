@@ -232,6 +232,7 @@ export async function POST(req: NextRequest) {
     }
 
     const scheduleType = getSubBlockValue(targetBlock, 'scheduleType')
+    const isScheduleBlock = targetBlock.type === 'schedule'
 
     const scheduleValues = getScheduleTimeValues(targetBlock)
 

@@ -436,10 +436,10 @@ export class WorkflowDiffEngine {
             : [],
           edge_diff: result.diff.diffAnalysis.edge_diff
             ? {
-                new_edges_count: result.diff.diffAnalysis.edge_diff.new_edges.length,
-                deleted_edges_count: result.diff.diffAnalysis.edge_diff.deleted_edges.length,
-                unchanged_edges_count: result.diff.diffAnalysis.edge_diff.unchanged_edges.length,
-              }
+              new_edges_count: result.diff.diffAnalysis.edge_diff.new_edges.length,
+              deleted_edges_count: result.diff.diffAnalysis.edge_diff.deleted_edges.length,
+              unchanged_edges_count: result.diff.diffAnalysis.edge_diff.unchanged_edges.length,
+            }
             : null,
         })
       } else {
@@ -470,7 +470,7 @@ export class WorkflowDiffEngine {
 
   /**
    * Create a diff from a WorkflowState object directly (more efficient than YAML)
-   * This follows the same logic as sim-agent's YamlDiffCreate handler
+   * This follows the same logic as copilot's YamlDiffCreate handler
    */
   async createDiffFromWorkflowState(
     proposedState: WorkflowState,
@@ -559,16 +559,16 @@ export class WorkflowDiffEngine {
         // Merge with existing block if found, otherwise use proposed
         const finalBlock: BlockState & BlockWithDiff = existingBlock
           ? {
-              ...existingBlock,
-              ...proposedBlock,
-              id: finalId,
-              // Preserve position from proposed or fallback to existing
-              position: proposedBlock.position || existingBlock.position,
-            }
+            ...existingBlock,
+            ...proposedBlock,
+            id: finalId,
+            // Preserve position from proposed or fallback to existing
+            position: proposedBlock.position || existingBlock.position,
+          }
           : {
-              ...proposedBlock,
-              id: finalId,
-            }
+            ...proposedBlock,
+            id: finalId,
+          }
 
         // Update parentId in data if it exists and has been remapped
         if (finalBlock.data?.parentId && idMap[finalBlock.data.parentId]) {
@@ -832,7 +832,7 @@ export class WorkflowDiffEngine {
         const currentEdgeSet = new Set<string>()
         const proposedEdgeSet = new Set<string>()
 
-        // Create edge identifiers for current state (using sim-agent format)
+        // Create edge identifiers for current state (using copilot format)
         mergedBaseline.edges.forEach((edge: any) => {
           const edgeId = `${edge.source}-${edge.sourceHandle || 'source'}-${edge.target}-${edge.targetHandle || 'target'}`
           currentEdgeSet.add(edgeId)
@@ -898,7 +898,7 @@ export class WorkflowDiffEngine {
               for (const changedField of fieldDiff.changed_fields) {
                 if (block.subBlocks?.[changedField]) {
                   // Add a diff marker to the subblock itself
-                  ;(block.subBlocks[changedField] as any).is_diff = 'changed'
+                  ; (block.subBlocks[changedField] as any).is_diff = 'changed'
                 }
               }
             }

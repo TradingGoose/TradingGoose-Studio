@@ -13,6 +13,15 @@ function getHostnameFromUrl(url: string | undefined): string[] {
   }
 }
 
+function getOriginFromUrl(url: string | undefined): string[] {
+  if (!url) return []
+  try {
+    return [new URL(url).origin]
+  } catch {
+    return []
+  }
+}
+
 export interface CSPDirectives {
   'default-src'?: string[]
   'script-src'?: string[]
@@ -50,6 +59,7 @@ export const buildTimeCSPDirectives: CSPDirectives = {
     'https://*.google.com',
     'https://*.atlassian.com',
     'https://cdn.discordapp.com',
+    'https://cdn.jsdelivr.net',
     'https://*.githubusercontent.com',
     'https://*.s3.amazonaws.com',
     'https://s3.amazonaws.com',
@@ -66,6 +76,8 @@ export const buildTimeCSPDirectives: CSPDirectives = {
     'https://*.amazonaws.com',
     'https://*.blob.core.windows.net',
     'https://github.com/*',
+    ...getOriginFromUrl(env.MARKET_API_URL),
+    ...(env.NODE_ENV === 'development' ? ['http://localhost:3001'] : []),
     ...getHostnameFromUrl(env.NEXT_PUBLIC_BRAND_LOGO_URL),
     ...getHostnameFromUrl(env.NEXT_PUBLIC_BRAND_FAVICON_URL),
   ],
@@ -80,7 +92,7 @@ export const buildTimeCSPDirectives: CSPDirectives = {
     env.OLLAMA_URL || 'http://localhost:11434',
     env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3002',
     env.NEXT_PUBLIC_SOCKET_URL?.replace('http://', 'ws://').replace('https://', 'wss://') ||
-      'ws://localhost:3002',
+    'ws://localhost:3002',
     'https://api.browser-use.com',
     'https://api.exa.ai',
     'https://api.firecrawl.dev',
@@ -92,6 +104,8 @@ export const buildTimeCSPDirectives: CSPDirectives = {
     'https://*.supabase.co',
     'https://api.github.com',
     'https://github.com/*',
+    ...getOriginFromUrl(env.MARKET_API_URL),
+    ...(env.NODE_ENV === 'development' ? ['http://localhost:3001'] : []),
     ...getHostnameFromUrl(env.NEXT_PUBLIC_BRAND_LOGO_URL),
     ...getHostnameFromUrl(env.NEXT_PUBLIC_PRIVACY_URL),
     ...getHostnameFromUrl(env.NEXT_PUBLIC_TERMS_URL),
@@ -130,6 +144,8 @@ export function generateRuntimeCSP(): string {
     socketUrl.replace('http://', 'ws://').replace('https://', 'wss://') || 'ws://localhost:3002'
   const appUrl = getEnv('NEXT_PUBLIC_APP_URL') || ''
   const ollamaUrl = getEnv('OLLAMA_URL') || 'http://localhost:11434'
+  const marketUrl = getEnv('MARKET_API_URL') || 'market.tradinggoose.ai'
+  const devMarketUrl = getEnv('NODE_ENV') === 'development' ? 'http://localhost:3001' : ''
 
   const brandLogoDomains = getHostnameFromUrl(getEnv('NEXT_PUBLIC_BRAND_LOGO_URL'))
   const brandFaviconDomains = getHostnameFromUrl(getEnv('NEXT_PUBLIC_BRAND_FAVICON_URL'))
@@ -151,10 +167,10 @@ export function generateRuntimeCSP(): string {
     default-src 'self';
     script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.google.com https://apis.google.com;
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-    img-src 'self' data: blob: https://*.googleusercontent.com https://*.google.com https://*.atlassian.com https://cdn.discordapp.com https://*.githubusercontent.com ${brandLogoDomain} ${brandFaviconDomain};
+    img-src 'self' data: blob: https://*.googleusercontent.com https://*.google.com https://*.atlassian.com https://cdn.discordapp.com https://cdn.jsdelivr.net https://*.githubusercontent.com ${brandLogoDomain} ${brandFaviconDomain} ${marketUrl} ${devMarketUrl};
     media-src 'self' blob:;
     font-src 'self' https://fonts.gstatic.com;
-    connect-src 'self' ${appUrl} ${ollamaUrl} ${socketUrl} ${socketWsUrl} https://api.browser-use.com https://api.exa.ai https://api.firecrawl.dev https://*.googleapis.com https://*.amazonaws.com https://*.s3.amazonaws.com https://*.blob.core.windows.net https://api.github.com https://github.com/* https://*.atlassian.com https://*.supabase.co ${dynamicDomainsStr};
+    connect-src 'self' ${appUrl} ${ollamaUrl} ${socketUrl} ${socketWsUrl} ${marketUrl} ${devMarketUrl} https://api.browser-use.com https://api.exa.ai https://api.firecrawl.dev https://*.googleapis.com https://*.amazonaws.com https://*.s3.amazonaws.com https://*.blob.core.windows.net https://api.github.com https://github.com/* https://*.atlassian.com https://*.supabase.co ${dynamicDomainsStr};
     frame-src https://drive.google.com https://docs.google.com https://*.google.com;
     frame-ancestors 'self';
     form-action 'self';

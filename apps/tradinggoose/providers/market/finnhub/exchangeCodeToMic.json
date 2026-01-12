@@ -1,0 +1,246 @@
+{
+  "AD": [
+    "XADS"
+  ],
+  "AS": [
+    "XAMS"
+  ],
+  "AT": [
+    "ASEX"
+  ],
+  "AX": [
+    "XASX"
+  ],
+  "BA": [
+    "XBUE"
+  ],
+  "BC": [
+    "XBOG"
+  ],
+  "BD": [
+    "XBUD"
+  ],
+  "BE": [
+    "XBER"
+  ],
+  "BH": [
+    "XBAH"
+  ],
+  "BK": [
+    "XBKK"
+  ],
+  "BO": [
+    "XBOM"
+  ],
+  "BR": [
+    "XBRU"
+  ],
+  "CA": [
+    "XCAI"
+  ],
+  "CN": [
+    "XCNQ"
+  ],
+  "CO": [
+    "FNDK",
+    "XCSE"
+  ],
+  "CR": [
+    "BVCA"
+  ],
+  "CS": [
+    "XCAS"
+  ],
+  "DB": [
+    "XDFM"
+  ],
+  "DE": [
+    "XETR"
+  ],
+  "DU": [
+    "XDUS"
+  ],
+  "F": [
+    "XFRA"
+  ],
+  "HA": [
+    "XHAN"
+  ],
+  "HE": [
+    "FNFI",
+    "XHEL"
+  ],
+  "HK": [
+    "XHKG"
+  ],
+  "HM": [
+    "XHAM"
+  ],
+  "IC": [
+    "FNIS",
+    "XICE"
+  ],
+  "IR": [
+    "XDUB"
+  ],
+  "IS": [
+    "XIST"
+  ],
+  "JK": [
+    "XIDX"
+  ],
+  "JO": [
+    "XJSE"
+  ],
+  "KL": [
+    "XKLS"
+  ],
+  "KQ": [
+    "XKOS"
+  ],
+  "KS": [
+    "XKRX"
+  ],
+  "KW": [
+    "XKUW"
+  ],
+  "L": [
+    "XLON"
+  ],
+  "LS": [
+    "XLIS"
+  ],
+  "MC": [
+    "XMAD"
+  ],
+  "ME": [
+    "MISX"
+  ],
+  "MI": [
+    "XMIL"
+  ],
+  "MT": [
+    "XMAL"
+  ],
+  "MU": [
+    "XMUN"
+  ],
+  "MX": [
+    "XMEX"
+  ],
+  "NE": [
+    "NEOE"
+  ],
+  "NL": [
+    "XNSA"
+  ],
+  "NS": [
+    "XNSE"
+  ],
+  "NZ": [
+    "XNZE"
+  ],
+  "OL": [
+    "XOSL"
+  ],
+  "OM": [
+    "XMUS"
+  ],
+  "PA": [
+    "XPAR"
+  ],
+  "PM": [
+    "XPHS"
+  ],
+  "PR": [
+    "XPRA"
+  ],
+  "QA": [
+    "DSMD"
+  ],
+  "RG": [
+    "XRIS"
+  ],
+  "RO": [
+    "XBSE"
+  ],
+  "SA": [
+    "BVMF"
+  ],
+  "SG": [
+    "XSTU"
+  ],
+  "SI": [
+    "XSES"
+  ],
+  "SN": [
+    "XSGO"
+  ],
+  "SR": [
+    "XSAU"
+  ],
+  "SS": [
+    "XSHG"
+  ],
+  "ST": [
+    "FNSE",
+    "XSTO"
+  ],
+  "SW": [
+    "XSWX"
+  ],
+  "SZ": [
+    "XSHE"
+  ],
+  "T": [
+    "XJPX"
+  ],
+  "TA": [
+    "XTAE"
+  ],
+  "TG": [
+    "XGAT"
+  ],
+  "TL": [
+    "XTAL"
+  ],
+  "TO": [
+    "XTSE"
+  ],
+  "TW": [
+    "XTAI"
+  ],
+  "TWO": [
+    "ROCO"
+  ],
+  "US": [
+    "ARCX",
+    "BATS",
+    "IEXG",
+    "OOTC",
+    "OTCM",
+    "XASE",
+    "XNAS",
+    "XNCM",
+    "XNGS",
+    "XNMS",
+    "XNYS"
+  ],
+  "V": [
+    "XTSX"
+  ],
+  "VI": [
+    "XWBO"
+  ],
+  "VN": [
+    "HSTC",
+    "XHNX",
+    "XSTC"
+  ],
+  "VS": [
+    "XLIT"
+  ],
+  "WA": [
+    "XWAR"
+  ]
+}

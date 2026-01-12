@@ -2,14 +2,14 @@ import { NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
 import { executeProviderRequest as executeAIProviderRequest } from '@/providers/ai'
-import { getApiKey } from '@/providers/ai/utils'
+import { getApiKey, getProvider } from '@/providers/ai/utils'
 
 const logger = createLogger('ProvidersAPI:AI')
 
 export interface ProviderRouteBody {
   provider?: string
-  providerNamespace?: 'ai' | 'market'
-  providerType?: 'ai' | 'market'
+  providerNamespace?: 'ai'
+  providerType?: 'ai'
   model?: string
   fetcher?: string
   systemPrompt?: string
@@ -71,10 +71,21 @@ export async function handleAIProviderRequest({
     verbosity,
   } = body
 
+  const providerConfig = getProvider(providerId)
+  const resolvedModel = model ?? providerConfig?.defaultModel
+  if (!resolvedModel) {
+    logger.warn(`[${requestId}] Model not specified for provider`, {
+      provider: providerId,
+    })
+    return NextResponse.json({ error: 'Model is required' }, { status: 400 })
+  }
+
+  const resolvedSystemPrompt = systemPrompt ?? ''
+
   logger.info(`[${requestId}] Provider request details`, {
     provider: providerId,
     providerNamespace: 'ai',
-    model,
+    model: resolvedModel,
     hasSystemPrompt: !!systemPrompt,
     hasContext: !!context,
     hasTools: !!tools?.length,
@@ -95,11 +106,11 @@ export async function handleAIProviderRequest({
 
   let finalApiKey: string
   try {
-    finalApiKey = getApiKey(providerId, model, apiKey)
+    finalApiKey = getApiKey(providerId, resolvedModel, apiKey)
   } catch (error) {
     logger.error(`[${requestId}] Failed to get API key:`, {
       provider: providerId,
-      model,
+      model: resolvedModel,
       error: error instanceof Error ? error.message : String(error),
       hasProvidedApiKey: !!apiKey,
     })
@@ -111,14 +122,14 @@ export async function handleAIProviderRequest({
 
   logger.info(`[${requestId}] Executing provider request`, {
     provider: providerId,
-    model,
+    model: resolvedModel,
     workflowId,
     hasApiKey: !!finalApiKey,
   })
 
   const response = await executeAIProviderRequest(providerId, {
-    model,
-    systemPrompt,
+    model: resolvedModel,
+    systemPrompt: resolvedSystemPrompt,
     context,
     tools,
     temperature,
@@ -142,7 +153,7 @@ export async function handleAIProviderRequest({
   const executionTime = Date.now() - startTime
   logger.info(`[${requestId}] Provider request completed successfully`, {
     provider: providerId,
-    model,
+    model: resolvedModel,
     workflowId,
     executionTime,
     responseType:

@@ -77,12 +77,12 @@ export function InviteStatusCard({
         </div>
 
         <div
-          className={`${inter.className} auth-text-muted fixed right-0 bottom-0 left-0 z-50 pb-8 text-center font-[340] text-[13px] leading-relaxed`}
+          className={`${inter.className} text-muted-foreground fixed right-0 bottom-0 left-0 z-50 pb-8 text-center font-[340] text-[13px] leading-relaxed`}
         >
           Need help?{' '}
           <a
             href='mailto:help@tradinggoose.ai'
-            className='auth-link underline-offset-4 transition hover:underline'
+            className='hover:text-primary underline underline-offset-4'
           >
             Contact support
           </a>
@@ -145,12 +145,12 @@ export function InviteStatusCard({
       </div>
 
       <div
-        className={`${inter.className} auth-text-muted fixed right-0 bottom-0 left-0 z-50 pb-8 text-center font-[340] text-[13px] leading-relaxed`}
+        className={`${inter.className} text-muted-foreground fixed right-0 bottom-0 left-0 z-50 pb-8 text-center font-[340] text-[13px] leading-relaxed`}
       >
         Need help?{' '}
         <a
           href={`mailto:${brandConfig.supportEmail}`}
-          className='auth-link underline-offset-4 transition hover:underline'
+          className='hover:text-primary underline underline-offset-4'
         >
           Contact support
         </a>

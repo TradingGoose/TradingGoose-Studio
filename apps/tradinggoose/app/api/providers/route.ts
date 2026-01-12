@@ -1,14 +1,18 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { handleAIProviderRequest, type ProviderRouteBody } from '@/app/api/providers/ai/handler'
-import { handleMarketProviderRequest } from '@/app/api/providers/market/handler'
+import { handleAIProviderRequest, type ProviderRouteBody as AIProviderRouteBody } from '@/app/api/providers/ai/handler'
+import {
+  handleMarketProviderRequest,
+  type MarketProviderRouteBody,
+} from '@/app/api/providers/market/handler'
 
 const logger = createLogger('ProvidersAPI')
 
 export const dynamic = 'force-dynamic'
 
 type ProviderNamespace = 'ai' | 'market'
+type ProviderRouteBody = AIProviderRouteBody | MarketProviderRouteBody
 
 /**
  * Server-side proxy for provider requests

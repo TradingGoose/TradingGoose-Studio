@@ -245,14 +245,14 @@ export default function SSOForm() {
       )}
 
       <div
-        className={`${inter.className} auth-text-muted absolute right-0 bottom-0 left-0 px-8 pb-8 text-center font-[340] text-[13px] leading-relaxed sm:px-8 md:px-[44px]`}
+        className={`${inter.className} text-muted-foreground absolute right-0 bottom-0 left-0 px-8 pb-8 text-center font-[340] text-[13px] leading-relaxed sm:px-8 md:px-[44px]`}
       >
         By signing in, you agree to our{' '}
         <Link
           href='/terms'
           target='_blank'
           rel='noopener noreferrer'
-          className='auth-link underline-offset-4 transition hover:underline'
+          className='hover:text-primary underline underline-offset-4'
         >
           Terms of Service
         </Link>{' '}
@@ -261,7 +261,7 @@ export default function SSOForm() {
           href='/privacy'
           target='_blank'
           rel='noopener noreferrer'
-          className='auth-link underline-offset-4 transition hover:underline'
+          className='hover:text-primary underline underline-offset-4'
         >
           Privacy Policy
         </Link>

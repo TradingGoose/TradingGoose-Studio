@@ -5,13 +5,6 @@ import { Check, ChevronDown } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 import { getBlock } from '@/blocks'
-
-const sanitizeHexColor = (value?: string) => {
-  if (!value) return undefined
-  const trimmed = value.trim()
-  if (!trimmed) return undefined
-  return trimmed.startsWith('#') ? trimmed : `#${trimmed}`
-}
 import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 

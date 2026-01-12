@@ -115,7 +115,7 @@ export function ConnectionBlocks({
               color: bgColor || undefined,
             }}
           >
-            <Icon className='h-3 w-3' />
+            <Icon className='h-4 w-4' />
           </div>
         )
         }

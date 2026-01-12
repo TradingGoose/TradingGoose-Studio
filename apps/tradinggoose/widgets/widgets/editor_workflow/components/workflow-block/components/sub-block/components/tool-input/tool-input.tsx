@@ -12,10 +12,12 @@ import {
   CheckboxList,
   Code,
   ComboBox,
+  DateTimeInputField,
   Dropdown,
   FileSelectorInput,
   FileUpload,
   LongInput,
+  MarketSelectorInput,
   ProjectSelectorInput,
   ShortInput,
   SliderInput,
@@ -200,6 +202,46 @@ function TimeInputSyncWrapper({
     </GenericSyncWrapper>
   )
 }
+
+function DateTimeInputSyncWrapper({
+  blockId,
+  paramId,
+  value,
+  onChange,
+  uiComponent,
+  disabled,
+}: {
+  blockId: string
+  paramId: string
+  value: string
+  onChange: (value: string) => void
+  uiComponent: any
+  disabled: boolean
+}) {
+  return (
+    <GenericSyncWrapper blockId={blockId} paramId={paramId} value={value} onChange={onChange}>
+      <DateTimeInputField
+        blockId={blockId}
+        subBlockId={paramId}
+        disabled={disabled}
+        config={{
+          id: paramId,
+          type: 'datetime-input',
+          timezone: uiComponent.timezone,
+          clearable: uiComponent.clearable,
+          hideCalendarIcon: uiComponent.hideCalendarIcon,
+          minDate: uiComponent.minDate,
+          maxDate: uiComponent.maxDate,
+          hideTime: uiComponent.hideTime,
+          use12HourFormat: uiComponent.use12HourFormat,
+          timePicker: uiComponent.timePicker,
+          placeholder: uiComponent.placeholder,
+        }}
+      />
+    </GenericSyncWrapper>
+  )
+}
+
 
 function SliderInputSyncWrapper({
   blockId,
@@ -792,6 +834,41 @@ export function ToolInput({
     if (isPreview || disabled) return
 
     const tool = selectedTools[toolIndex]
+    const currentValue = tool.params[paramId] ?? ''
+    if (currentValue === paramValue) {
+      return
+    }
+
+    const dependentParamIds = (() => {
+      const toolParams = getToolParametersConfig(tool.toolId, tool.type)
+      const params = toolParams?.userInputParameters ?? []
+      const dependencyMap = new Map<string, string[]>()
+
+      params.forEach((param) => {
+        const deps = param.uiComponent?.dependsOn ?? []
+        deps.forEach((dep) => {
+          const current = dependencyMap.get(dep) ?? []
+          current.push(param.id)
+          dependencyMap.set(dep, current)
+        })
+      })
+
+      const visited = new Set<string>()
+      const queue = [paramId]
+
+      while (queue.length > 0) {
+        const current = queue.shift()
+        if (!current) continue
+        const dependents = dependencyMap.get(current) ?? []
+        dependents.forEach((dependentId) => {
+          if (visited.has(dependentId)) return
+          visited.add(dependentId)
+          queue.push(dependentId)
+        })
+      }
+
+      return Array.from(visited)
+    })()
 
     // Update the value in the workflow
     setStoreValue(
@@ -802,6 +879,10 @@ export function ToolInput({
             params: {
               ...tool.params,
               [paramId]: paramValue,
+              ...dependentParamIds.reduce<Record<string, string>>((acc, dependentId) => {
+                acc[dependentId] = ''
+                return acc
+              }, {}),
             },
           }
           : tool
@@ -1029,7 +1110,7 @@ export function ToolInput({
     value: string,
     onChange: (value: string) => void,
     toolIndex?: number,
-    currentToolParams?: Record<string, string>
+    currentToolParams?: Record<string, any>
   ) => {
     // Create unique subBlockId for tool parameters to avoid conflicts
     // Use real blockId so tag dropdown and drag-drop work correctly
@@ -1072,6 +1153,13 @@ export function ToolInput({
             valueOverride={value}
             onChange={onChange}
             disabled={disabled}
+            config={{
+              id: `${subBlockId}-param-${param.id}`,
+              type: 'dropdown',
+              dependsOn: uiComponent.dependsOn,
+              fetchOptions: uiComponent.fetchOptions,
+            }}
+            previewContextValues={currentToolParams}
           />
         )
 
@@ -1116,6 +1204,25 @@ export function ToolInput({
             value={value}
             onChange={onChange}
             disabled={disabled}
+          />
+        )
+
+      case 'market-selector':
+        return (
+          <MarketSelectorInput
+            blockId={blockId}
+            subBlockId={uniqueSubBlockId}
+            isPreview={isPreview}
+            previewValue={value}
+            value={value}
+            onChange={(listing) => onChange(listing ?? null)}
+            disabled={disabled}
+            config={{
+              id: uniqueSubBlockId,
+              type: 'market-selector',
+              options: uiComponent.options,
+              required: param.required,
+            }}
           />
         )
 
@@ -1248,6 +1355,19 @@ export function ToolInput({
             disabled={disabled}
           />
         )
+
+      case 'datetime-input':
+        return (
+          <DateTimeInputSyncWrapper
+            blockId={blockId}
+            paramId={param.id}
+            value={value}
+            onChange={onChange}
+            uiComponent={uiComponent}
+            disabled={disabled}
+          />
+        )
+
 
       case 'file-upload':
         return (
@@ -1648,19 +1768,22 @@ export function ToolInput({
 
                         // Render standalone parameters
                         standaloneParams.forEach((param) => {
+                          const hideLabel = param.uiComponent?.type === 'market-selector'
                           renderedElements.push(
                             <div key={param.id} className='relative min-w-0 space-y-1.5'>
-                              <div className='flex items-center font-medium text-muted-foreground text-xs'>
-                                {param.uiComponent?.title || formatParameterLabel(param.id)}
-                                {param.required && param.visibility === 'user-only' && (
-                                  <span className='ml-1 text-red-500'>*</span>
-                                )}
-                                {(!param.required || param.visibility !== 'user-only') && (
-                                  <span className='ml-1 text-muted-foreground/60 text-xs'>
-                                    (Optional)
-                                  </span>
-                                )}
-                              </div>
+                              {!hideLabel && (
+                                <div className='flex items-center font-medium text-muted-foreground text-xs'>
+                                  {param.uiComponent?.title || formatParameterLabel(param.id)}
+                                  {param.required && param.visibility === 'user-only' && (
+                                    <span className='ml-1 text-red-500'>*</span>
+                                  )}
+                                  {(!param.required || param.visibility !== 'user-only') && (
+                                    <span className='ml-1 text-muted-foreground/60 text-xs'>
+                                      (Optional)
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                               <div className='relative w-full min-w-0'>
                                 {param.uiComponent ? (
                                   renderParameterInput(
@@ -1668,7 +1791,10 @@ export function ToolInput({
                                     tool.params[param.id] || '',
                                     (value) => handleParamChange(toolIndex, param.id, value),
                                     toolIndex,
-                                    tool.params
+                                    {
+                                      ...tool.params,
+                                      ...(tool.operation ? { operation: tool.operation } : {}),
+                                    }
                                   )
                                 ) : (
                                   <ShortInput

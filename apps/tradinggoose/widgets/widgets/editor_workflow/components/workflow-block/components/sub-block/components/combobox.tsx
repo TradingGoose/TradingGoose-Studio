@@ -492,6 +492,7 @@ export function ComboBox({
               ref={dropdownRef}
               className='allow-scroll max-h-48 overflow-y-auto p-1'
               style={{ scrollbarWidth: 'thin' }}
+              onMouseLeave={() => setHighlightedIndex(-1)}
             >
               {filteredOptions.length === 0 ? (
                 <div className='py-6 text-center text-muted-foreground text-sm'>
@@ -519,7 +520,7 @@ export function ComboBox({
                       }}
                       onMouseEnter={() => setHighlightedIndex(index)}
                       className={cn(
-                        'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-card hover:text-accent-foreground',
+                        'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground',
                         isHighlighted && 'bg-accent text-accent-foreground'
                       )}
                     >
