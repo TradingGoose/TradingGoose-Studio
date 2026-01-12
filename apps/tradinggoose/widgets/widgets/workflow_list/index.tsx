@@ -307,7 +307,6 @@ export const workflowListWidget: DashboardWidgetDefinition = {
   description: 'Full folder tree with drag-and-drop, identical to the workspace sidebar.',
   component: (props) => <WorkflowListWidgetBody {...props} />,
   renderHeader: ({ context }) => ({
-    left: <span className='font-medium text-accent-foreground text-xs'>Workflow folders</span>,
     right: <WorkflowListHeaderRight workspaceId={context?.workspaceId} />,
   }),
 }
