@@ -1,11 +1,13 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
-import { MARKET_API_URL_DEFAULT } from '@/lib/market/client/constants'
+import { MARKET_API_URL_DEFAULT, MARKET_API_VERSION } from '@/lib/market/client/constants'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('MarketProxyAPI')
 const MARKET_API_URL = env.MARKET_API_URL || MARKET_API_URL_DEFAULT
+const VERSION_HEADER = 'x-api-version'
+const VERSION_QUERY_KEYS = ['version', 'v'] as const
 
 const hopByHopHeaders = new Set([
   'connection',
@@ -20,13 +22,41 @@ const hopByHopHeaders = new Set([
   'content-length',
 ])
 
+const getQueryVersion = (params?: URLSearchParams | null) => {
+  if (!params) return null
+  for (const key of VERSION_QUERY_KEYS) {
+    const value = params.get(key)
+    if (value?.trim()) return value.trim()
+  }
+  return null
+}
+
+const normalizeVersion = (raw: string | null) => {
+  if (!raw) return null
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  const match = trimmed.match(/^v?(\d+)(?:\.(\d+))?$/i)
+  if (!match) return null
+  const major = match[1]
+  const minor = match[2] ?? '0'
+  return `${major}.${minor}`
+}
+
+const resolveVersion = (request: NextRequest, overrideSearchParams?: URLSearchParams) => {
+  const overrideVersion = getQueryVersion(overrideSearchParams)
+  const queryVersion = getQueryVersion(request.nextUrl.searchParams)
+  const headerVersion = request.headers.get(VERSION_HEADER)
+  const raw = overrideVersion ?? headerVersion ?? queryVersion ?? MARKET_API_VERSION
+  return normalizeVersion(raw)
+}
+
 const buildTargetUrl = (
   request: NextRequest,
   pathSegments?: string[],
   overrideSearchParams?: URLSearchParams
 ) => {
   const path = pathSegments?.length ? `/${pathSegments.join('/')}` : ''
-  const target = new URL(`/api/v1${path}`, MARKET_API_URL)
+  const target = new URL(`/api${path}`, MARKET_API_URL)
   if (overrideSearchParams) {
     const search = overrideSearchParams.toString()
     target.search = search ? `?${search}` : ''
@@ -36,7 +66,7 @@ const buildTargetUrl = (
   return target.toString()
 }
 
-const buildForwardHeaders = (request: NextRequest) => {
+const buildForwardHeaders = (request: NextRequest, version: string) => {
   const headers = new Headers()
   request.headers.forEach((value, key) => {
     if (!hopByHopHeaders.has(key.toLowerCase())) {
@@ -47,6 +77,7 @@ const buildForwardHeaders = (request: NextRequest) => {
   if (apiKey) {
     headers.set('x-api-key', apiKey)
   }
+  headers.set(VERSION_HEADER, version)
   return headers
 }
 
@@ -56,6 +87,10 @@ export const proxyMarketRequest = async (
   overrideSearchParams?: URLSearchParams
 ) => {
   const requestId = generateRequestId()
+  const version = resolveVersion(request, overrideSearchParams)
+  if (!version) {
+    return NextResponse.json({ error: 'Invalid API version' }, { status: 400 })
+  }
   const targetUrl = buildTargetUrl(request, pathSegments, overrideSearchParams)
 
   try {
@@ -72,7 +107,7 @@ export const proxyMarketRequest = async (
         { status: 405, headers: { Allow: scope === 'search' ? 'GET' : 'POST' } }
       )
     }
-    const headers = buildForwardHeaders(request)
+    const headers = buildForwardHeaders(request, version)
 
     logger.info(`[${requestId}] Proxying market request`, {
       method,
