@@ -242,16 +242,12 @@ function filterBarsByRange(
 export async function fetchAlphaVantageSeries(
   request: MarketSeriesRequest
 ): Promise<MarketSeries> {
-  if (!request.listingId) {
-    throw new Error('listingId is required')
-  }
-
   const apiKey = resolveApiKey(request.providerParams)
   if (!apiKey) {
     throw new Error('Alpha Vantage API key is required')
   }
 
-  const context = await resolveListingContext(request.listingId)
+  const context = await resolveListingContext(request.listing)
   const assetClass = context.assetClass
   const interval = resolveInterval(request)
   const useAdjusted = shouldUseAdjusted(request.normalizationMode)
@@ -322,7 +318,7 @@ export async function fetchAlphaVantageSeries(
   }
 
   logger.info('Fetching Alpha Vantage series', {
-    listingId: request.listingId,
+    listing: context.listingKey,
     functionName,
     interval: intervalParam ?? interval,
   })
@@ -360,7 +356,7 @@ export async function fetchAlphaVantageSeries(
   const timezone = extractTimezone(meta) || context.timeZoneName
 
   return {
-    listingId: request.listingId,
+    listing: request.listing,
     listingBase: context.base,
     listingQuote: context.quote,
     primaryMicCode: context.micCode ?? context.primaryMicCode,

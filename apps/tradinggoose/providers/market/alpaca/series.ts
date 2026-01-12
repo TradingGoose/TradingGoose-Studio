@@ -135,11 +135,7 @@ function resolveBars(payload: any, symbol: string): any[] {
 export async function fetchAlpacaSeries(
   request: MarketSeriesRequest
 ): Promise<MarketSeries> {
-  if (!request.listingId) {
-    throw new Error('listingId is required')
-  }
-
-  const context = await resolveListingContext(request.listingId)
+  const context = await resolveListingContext(request.listing)
   const market = resolveMarket(request, context.assetClass)
 
   if (market === 'crypto' && !context.quote) {
@@ -202,7 +198,7 @@ export async function fetchAlpacaSeries(
   }
 
   logger.info('Fetching Alpaca bars', {
-    listingId: request.listingId,
+    listing: context.listingKey,
     symbol,
     market,
     timeframe,
@@ -262,7 +258,7 @@ export async function fetchAlpacaSeries(
   const endTime = bars.length ? bars[bars.length - 1]?.timeStamp : end
 
   return {
-    listingId: request.listingId,
+    listing: request.listing,
     listingBase: context.base,
     listingQuote: context.quote,
     primaryMicCode: context.micCode ?? context.primaryMicCode,

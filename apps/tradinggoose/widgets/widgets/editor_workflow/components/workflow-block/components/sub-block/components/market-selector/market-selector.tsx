@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useRef } from 'react'
 import type { SubBlockConfig } from '@/blocks/types'
 import { MarketSelectorCombo } from '@/components/market/market-selector-combo'
-import { resolveListingId, toListingValue, type ListingValue } from '@/lib/market/listings'
+import {
+  resolveListingKey,
+  type ListingOption,
+  toListingValue,
+  toListingValueObject,
+  type ListingInputValue,
+} from '@/lib/market/listings'
 import {
   createEmptyMarketSelectorInstance,
   useMarketSelectorStore,
-  type ListingOption,
 } from '@/stores/market/selector/store'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useTagSelection } from '@/hooks/use-tag-selection'
@@ -14,9 +19,9 @@ interface MarketSelectorInputProps {
   blockId: string
   subBlockId: string
   isPreview?: boolean
-  previewValue?: ListingValue
-  value?: ListingValue
-  onChange?: (value: ListingValue) => void
+  previewValue?: ListingInputValue
+  value?: ListingInputValue
+  onChange?: (value: ListingInputValue) => void
   disabled?: boolean
   config?: SubBlockConfig
 }
@@ -48,7 +53,7 @@ export function MarketSelectorInput({
   disabled = false,
   config,
 }: MarketSelectorInputProps) {
-  const [storeValue, setStoreValue] = useSubBlockValue<ListingValue>(blockId, subBlockId)
+  const [storeValue, setStoreValue] = useSubBlockValue<ListingInputValue>(blockId, subBlockId)
   const [providerValue] = useSubBlockValue<string | null>(blockId, 'provider')
   const ensureInstance = useMarketSelectorStore((state) => state.ensureInstance)
   const updateInstance = useMarketSelectorStore((state) => state.updateInstance)
@@ -71,7 +76,7 @@ export function MarketSelectorInput({
     : hasPropValue
       ? normalizedValue
       : storeValue) ?? null
-  const currentListingId = resolveListingId(currentValue)
+  const currentListingKey = resolveListingKey(currentValue)
   const currentListing =
     currentValue && typeof currentValue === 'object'
       ? (() => {
@@ -87,13 +92,13 @@ export function MarketSelectorInput({
   useEffect(() => {
     if (typeof currentValue === 'string' && isVariableListingInput(currentValue)) {
       if (
-        safeInstance.selectedListingId ||
+        safeInstance.selectedListingValue ||
         safeInstance.selectedListing ||
         safeInstance.query !== currentValue
       ) {
         updateInstance(instanceId, {
           query: currentValue,
-          selectedListingId: undefined,
+          selectedListingValue: null,
           selectedListing: null,
         })
       }
@@ -103,12 +108,12 @@ export function MarketSelectorInput({
     if (
       !onChange &&
       typeof currentValue === 'string' &&
-      currentListingId &&
+      currentListingKey &&
       !currentListing &&
       !safeInstance.selectedListing
     ) {
-      if (currentListingId.includes(':')) {
-        const [baseId, quoteId] = currentListingId.split(':')
+      if (currentListingKey.includes(':')) {
+        const [baseId, quoteId] = currentListingKey.split(':')
         setStoreValue({
           equity_id: null,
           base_id: baseId,
@@ -118,7 +123,7 @@ export function MarketSelectorInput({
         })
       } else {
         setStoreValue({
-          equity_id: currentListingId,
+          equity_id: currentListingKey,
           base_id: null,
           quote_id: null,
           base_asset_class: null,
@@ -137,10 +142,10 @@ export function MarketSelectorInput({
       const record = currentValue as Record<string, unknown>
       const baseId = readListingStringField(record, 'base_id')
       const quoteId = readListingStringField(record, 'quote_id')
-      if (baseId && quoteId && currentListingId) {
+      if (baseId && quoteId && currentListingKey) {
         updateInstance(instanceId, {
           selectedListing: {
-            id: currentListingId,
+            id: currentListingKey,
             base: baseId,
             quote: quoteId,
             equity_id: null,
@@ -153,9 +158,12 @@ export function MarketSelectorInput({
       }
     }
 
-    if (currentListingId && safeInstance.selectedListingId !== currentListingId) {
+    const selectedListingKey = resolveListingKey(safeInstance.selectedListingValue)
+    const currentListingValue = currentValue ? toListingValueObject(currentValue) : null
+
+    if (currentListingKey && selectedListingKey !== currentListingKey) {
       updateInstance(instanceId, {
-        selectedListingId: currentListingId,
+        selectedListingValue: currentListingValue,
         ...(currentListing ? { selectedListing: currentListing } : null),
       })
       return
@@ -170,13 +178,13 @@ export function MarketSelectorInput({
       return
     }
 
-    if (!currentListingId && safeInstance.selectedListingId) {
-      updateInstance(instanceId, { selectedListingId: undefined, selectedListing: null })
+    if (!currentListingKey && safeInstance.selectedListingValue) {
+      updateInstance(instanceId, { selectedListingValue: null, selectedListing: null })
     }
   }, [
-    currentListingId,
+    currentListingKey,
     currentListing,
-    safeInstance.selectedListingId,
+    safeInstance.selectedListingValue,
     safeInstance.selectedListing,
     safeInstance.query,
     instanceId,
@@ -207,7 +215,7 @@ export function MarketSelectorInput({
         query: '',
         results: [],
         error: undefined,
-        selectedListingId: undefined,
+        selectedListingValue: null,
         selectedListing: null,
       })
 

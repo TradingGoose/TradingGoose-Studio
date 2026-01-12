@@ -110,11 +110,7 @@ function resolveSeriesEndpointUrl(
 export async function fetchFinnhubSeries(
   request: MarketSeriesRequest
 ): Promise<MarketSeries> {
-  if (!request.listingId) {
-    throw new Error('listingId is required')
-  }
-
-  const context = await resolveListingContext(request.listingId)
+  const context = await resolveListingContext(request.listing)
   const endpoint = resolveEndpoint(request, context.assetClass)
 
   if ((endpoint === 'forex' || context.assetClass === 'currency') && !context.quote) {
@@ -148,7 +144,7 @@ export async function fetchFinnhubSeries(
   url.searchParams.set('to', String(to))
 
   logger.info('Fetching Finnhub candles', {
-    listingId: request.listingId,
+    listing: context.listingKey,
     symbol,
     endpoint,
     resolution,
@@ -204,7 +200,7 @@ export async function fetchFinnhubSeries(
   const end = bars.length ? bars[bars.length - 1]?.timeStamp : toIsoString(request.end)
 
   return {
-    listingId: request.listingId,
+    listing: request.listing,
     listingBase: context.base,
     listingQuote: context.quote,
     primaryMicCode: context.micCode ?? context.primaryMicCode,

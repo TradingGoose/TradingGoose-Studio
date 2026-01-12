@@ -1,6 +1,4 @@
-import type { ListingOption } from '@/stores/market/selector/store'
-
-export type ListingValueObject = {
+export type ListingIdentity = {
   equity_id?: string | null
   base_id?: string | null
   quote_id?: string | null
@@ -8,7 +6,21 @@ export type ListingValueObject = {
   quote_asset_class?: string | null
 }
 
-export type ListingValue = ListingValueObject | string | null | undefined
+export type ListingOption = ListingIdentity & {
+  id: string
+  base: string
+  quote?: string | null
+  name?: string | null
+  iconUrl?: string | null
+  assetClass?: string | null
+  primaryMicCode?: string | null
+  countryCode?: string | null
+  cityName?: string | null
+  timeZoneName?: string | null
+}
+
+export type ListingValue = ListingIdentity | null | undefined
+export type ListingInputValue = ListingIdentity | string | null | undefined
 
 const readListingField = (record: Record<string, unknown>, key: string): string | undefined => {
   const value = record[key]
@@ -21,12 +33,12 @@ const readListingField = (record: Record<string, unknown>, key: string): string 
   return undefined
 }
 
-export const resolveListingId = (value: ListingValue): string | undefined => {
+export const resolveListingKey = (value: ListingInputValue): string | undefined => {
   if (!value) return undefined
   if (typeof value === 'string') return value
 
   const record = value as Record<string, unknown>
-  const equityId = readListingField(record, 'equity_id') ?? readListingField(record, 'listing_id')
+  const equityId = readListingField(record, 'equity_id')
   if (equityId) return equityId
 
   const baseId = readListingField(record, 'base_id')
@@ -41,15 +53,11 @@ export const resolveListingId = (value: ListingValue): string | undefined => {
 
 export const toListingValue = (
   listing: ListingOption | null | undefined
-): ListingValueObject | null => {
+): ListingIdentity | null => {
   if (!listing) return null
 
-  const resolvedEquityId =
-    listing.equity_id ??
-    (listing.base_id && listing.quote_id ? null : listing.id ?? null)
-
   return {
-    equity_id: resolvedEquityId,
+    equity_id: listing.equity_id ?? null,
     base_id: listing.base_id ?? null,
     quote_id: listing.quote_id ?? null,
     base_asset_class: listing.base_asset_class ?? null,
@@ -57,7 +65,7 @@ export const toListingValue = (
   }
 }
 
-export const toListingValueObject = (value: ListingValue): ListingValueObject | null => {
+export const toListingValueObject = (value: ListingInputValue): ListingIdentity | null => {
   if (!value) return null
   if (typeof value === 'string') {
     const trimmed = value.trim()
@@ -82,7 +90,7 @@ export const toListingValueObject = (value: ListingValue): ListingValueObject | 
   }
 
   const record = value as Record<string, unknown>
-  const equityId = readListingField(record, 'equity_id') ?? readListingField(record, 'listing_id')
+  const equityId = readListingField(record, 'equity_id')
   const baseId = readListingField(record, 'base_id')
   const quoteId = readListingField(record, 'quote_id')
   const baseAssetClass = readListingField(record, 'base_asset_class')

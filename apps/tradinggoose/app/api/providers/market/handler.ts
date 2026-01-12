@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createLogger } from '@/lib/logs/console/logger'
+import { resolveListingKey, type ListingIdentity } from '@/lib/market/listings'
 import { executeProviderRequest } from '@/providers/market'
 import type { MarketProviderRequest } from '@/providers/market/providers'
 import type { MarketDataType, NormalizationMode } from '@/providers/market/types'
@@ -13,7 +14,7 @@ export interface MarketProviderRouteBody {
   providerNamespace?: 'market'
   providerType?: 'market'
   kind?: MarketDataType
-  listingId?: string
+  listing?: ListingIdentity
   interval?: string
   start?: string | number
   end?: string | number
@@ -36,9 +37,21 @@ export async function handleMarketProviderRequest({
   startTime,
 }: HandleMarketProviderParams) {
   try {
+    const ListingSchema = z
+      .object({
+        equity_id: z.string().min(1).optional().nullable(),
+        base_id: z.string().min(1).optional().nullable(),
+        quote_id: z.string().min(1).optional().nullable(),
+        base_asset_class: z.string().min(1).optional().nullable(),
+        quote_asset_class: z.string().min(1).optional().nullable(),
+      })
+      .refine((value) => Boolean(value.equity_id || (value.base_id && value.quote_id)), {
+        message: 'listing requires equity_id or base_id + quote_id',
+      })
+
     const MarketProviderRequestSchema = z.object({
       kind: z.enum(MARKET_DATA_TYPES).default('series'),
-      listingId: z.string().min(1),
+      listing: ListingSchema,
       interval: z.string().optional(),
       start: z.union([z.string(), z.number()]).optional(),
       end: z.union([z.string(), z.number()]).optional(),
@@ -49,7 +62,7 @@ export async function handleMarketProviderRequest({
 
     const parsed = MarketProviderRequestSchema.safeParse({
       kind: body.kind ?? 'series',
-      listingId: body.listingId,
+      listing: body.listing,
       interval: body.interval,
       start: body.start,
       end: body.end,
@@ -73,7 +86,7 @@ export async function handleMarketProviderRequest({
     logger.info(`[${requestId}] Executing market provider request`, {
       provider: providerId,
       kind: requestPayload.kind,
-      listingId: requestPayload.listingId,
+      listing: resolveListingKey(requestPayload.listing),
       interval: requestPayload.kind === 'series' ? requestPayload.interval : undefined,
       normalizationMode: requestPayload.normalizationMode,
     })

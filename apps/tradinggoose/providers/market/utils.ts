@@ -1,5 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { marketClient } from '@/lib/market/client'
+import { resolveListingKey, toListingValueObject, type ListingIdentity } from '@/lib/market/listings'
 import type { AssetClass } from '@/providers/market/types'
 import type { ListingContext, MarketProviderConfig, MarketSymbolRule, RuleScopeKey } from './providers'
 
@@ -16,9 +17,14 @@ type MicSearchRow = {
   name: string | null
 }
 
-export async function resolveListingContext(listingId: string): Promise<ListingContext> {
+export async function resolveListingContext(listing: ListingIdentity): Promise<ListingContext> {
+  const listingKey = resolveListingKey(listing)
+  if (!listingKey) {
+    throw new Error('listing is required')
+  }
+
   const listingRes = await marketClient.makeRequest<ListingResponse>(
-    `/api/v1/search/equity?equity_id=${encodeURIComponent(listingId)}`
+    `/api/v1/search/equity?equity_id=${encodeURIComponent(listingKey)}`
   )
 
   if (!listingRes.success) {
@@ -50,7 +56,8 @@ export async function resolveListingContext(listingId: string): Promise<ListingC
   }
 
   return {
-    listingId,
+    listingKey,
+    listing: toListingValueObject(listing),
     base: listing.base as string,
     quote: listing.quote as string | undefined,
     assetClass: listing.assetClass as AssetClass | undefined,
@@ -99,7 +106,7 @@ export function resolveProviderSymbol(
 
 function matchesRule(rule: MarketSymbolRule, context: ListingContext): boolean {
   if (rule.assetClass && rule.assetClass !== context.assetClass) return false
-  if (rule.listingId && rule.listingId !== context.listingId) return false
+  if (rule.listingKey && rule.listingKey !== context.listingKey) return false
   if (rule.mic && rule.mic !== context.micCode) return false
   if (rule.country && rule.country !== context.countryCode) return false
   if (rule.city && rule.city !== context.cityName) return false
@@ -135,7 +142,7 @@ function scoreRule(rule: MarketSymbolRule, precedence: RuleScopeKey[]): number {
   })
 
   let score = 0
-  if (rule.listingId) score += fieldWeights.listing || 0
+  if (rule.listingKey) score += fieldWeights.listing || 0
   if (rule.mic) score += fieldWeights.mic || 0
   if (rule.currency) score += fieldWeights.currency || 0
   if (rule.assetClass) score += fieldWeights.assetClass || 0
@@ -177,8 +184,8 @@ function renderTemplate(template: string, context: ListingContext): string {
         return context.cityName || ''
       case 'assetClass':
         return context.assetClass || ''
-      case 'listingId':
-        return context.listingId
+      case 'listing':
+        return context.listingKey
       default:
         return ''
     }

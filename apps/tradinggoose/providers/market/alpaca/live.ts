@@ -76,10 +76,6 @@ function resolveTimeRange(request: MarketLiveRequest): { start: number; end: num
 export async function fetchAlpacaLiveSnapshot(
   request: MarketLiveRequest
 ): Promise<MarketLiveSnapshot> {
-  if (!request.listingId) {
-    throw new Error('listingId is required')
-  }
-
   const { start, end } = resolveTimeRange(request)
   const providerParams = {
     ...(request.providerParams || {}),
@@ -89,7 +85,7 @@ export async function fetchAlpacaLiveSnapshot(
 
   const seriesRequest: MarketSeriesRequest = {
     kind: 'series',
-    listingId: request.listingId,
+    listing: request.listing,
     interval: request.interval,
     start,
     end,
@@ -97,7 +93,7 @@ export async function fetchAlpacaLiveSnapshot(
   }
 
   logger.info('Fetching Alpaca live snapshot', {
-    listingId: request.listingId,
+    listing: request.listing,
     interval: seriesRequest.interval,
     start,
     end,
@@ -111,7 +107,7 @@ export async function fetchAlpacaLiveSnapshot(
   }
 
   return {
-    listingId: request.listingId,
+    listing: request.listing,
     listingBase: series.listingBase,
     listingQuote: series.listingQuote,
     primaryMicCode: series.primaryMicCode,

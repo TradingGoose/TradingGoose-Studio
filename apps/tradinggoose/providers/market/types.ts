@@ -1,6 +1,8 @@
 // Minimal OHLCV schema aligned with Lean TradeBar and OpenBB Historical models.
 // Keep it small; adapters can add provider-specific metadata separately.
 
+import type { ListingIdentity } from '@/lib/market/listings'
+
 export const MARKET_DATA_TYPES = ['series', 'live'] as const
 export type MarketDataType = (typeof MARKET_DATA_TYPES)[number]
 
@@ -66,18 +68,12 @@ export const NORMALIZATION_MODES = [
 ] as const
 export type NormalizationMode = (typeof NORMALIZATION_MODES)[number]
 
+
 export interface MarketSeries {
-  listingId: string
   listingBase?: string
   listingQuote?: string
   primaryMicCode?: string
-  listing?: {
-    equity_id?: string | null
-    base_id?: string | null
-    quote_id?: string | null
-    base_asset_class?: string | null
-    quote_asset_class?: string | null
-  }
+  listing?: ListingIdentity | null
   start?: string
   end?: string
   timezone?: string // IANA tz, e.g. "America/New_York"
@@ -86,7 +82,7 @@ export interface MarketSeries {
 }
 
 export interface MarketRequestBase {
-  listingId: string
+  listing: ListingIdentity
   providerParams?: MarketProviderParams
   start?: string | number
   end?: string | number
@@ -116,10 +112,10 @@ export interface MarketProviderParams {
 }
 
 export interface MarketLiveSnapshot {
-  listingId: string
   listingBase?: string
   listingQuote?: string
   primaryMicCode?: string
+  listing?: ListingIdentity | null
   interval?: string
   timezone?: string
   stream?: string

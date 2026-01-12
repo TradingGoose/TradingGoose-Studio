@@ -36,7 +36,7 @@ const resolveContextValue = (
 
 const RESERVED_PARAM_IDS = new Set([
   'provider',
-  'listingId',
+  'listing',
   'interval',
   'start',
   'end',
@@ -235,7 +235,7 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
       required: true,
     },
     {
-      id: 'listingId',
+      id: 'listing',
       title: 'Listing',
       type: 'market-selector',
       layout: 'full',
@@ -340,7 +340,7 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
 
         return {
           provider: params.provider,
-          listingId: params.listingId,
+          listing: params.listing,
           interval,
           start: params.start,
           end: params.end,
@@ -353,7 +353,7 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
   },
   inputs: {
     provider: { type: 'string', description: 'Market provider id' },
-    listingId: { type: 'string', description: 'Canonical listing id' },
+    listing: { type: 'json', description: 'Structured listing payload' },
     interval: { type: 'string', description: 'Series interval/timeframe' },
     start: { type: 'string', description: 'Inclusive start of the interval (ISO or UNIX timestamp)' },
     end: { type: 'string', description: 'Inclusive end of the interval (ISO or UNIX timestamp)' },

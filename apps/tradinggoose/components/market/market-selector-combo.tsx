@@ -6,13 +6,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { formatDisplayText } from '@/components/ui/formatted-text'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
-import { SearchableDropdown } from '@/components/ui/searchable-dropdown'
 import { useDebounce } from '@/hooks/use-debounce'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { cn } from '@/lib/utils'
 import { getMarketProviderConfig } from '@/providers/market/providers'
 import { MarketListingRow, getListingPrimary } from '@/components/market/market-listing-row'
-import { fetchCurrencies, fetchEquity, fetchListings } from '@/components/market/market-fetchers'
+import { fetchEquity, fetchListings } from '@/components/market/market-fetchers'
 import {
   parseCategorizedSearchQuery,
   serializeArrayParam,
@@ -24,11 +23,10 @@ import {
   triggerCurrencyRankUpdate,
   triggerEquityRankUpdate,
 } from '@/components/market/market-rank-updates'
+import { resolveListingKey, toListingValue, type ListingOption } from '@/lib/market/listings'
 import {
   createEmptyMarketSelectorInstance,
   useMarketSelectorStore,
-  type CurrencyOption,
-  type ListingOption,
 } from '@/stores/market/selector/store'
 
 export interface MarketSelectorComboProps {
@@ -50,150 +48,6 @@ export interface StockSelectorProps {
   onListingChange?: (listing: ListingOption | null) => void
   onListingValueChange?: (value: string | null) => void
   onListingTagSelect?: (value: string) => void
-}
-
-export interface CurrencySelectorProps {
-  instanceId: string
-  disabled?: boolean
-  className?: string
-  onCurrencyChange?: (currencyId: string | undefined, currency?: CurrencyOption | null) => void
-}
-
-export function CurrencySelector({
-  instanceId,
-  disabled,
-  className,
-  onCurrencyChange,
-}: CurrencySelectorProps) {
-  const ensureInstance = useMarketSelectorStore((state) => state.ensureInstance)
-  const updateInstance = useMarketSelectorStore((state) => state.updateInstance)
-  const instance = useMarketSelectorStore((state) => state.instances[instanceId])
-
-  useEffect(() => {
-    ensureInstance(instanceId)
-  }, [ensureInstance, instanceId])
-
-  const safeInstance = instance ?? createEmptyMarketSelectorInstance()
-  const { currencyId, currency } = safeInstance
-
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<CurrencyOption[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | undefined>(undefined)
-  const debouncedQuery = useDebounce(query, 350)
-  const abortRef = useRef<AbortController | null>(null)
-  const requestKeyRef = useRef<string>('')
-
-  useEffect(() => {
-    const trimmed = debouncedQuery.trim()
-    if (!trimmed) {
-      setResults([])
-      setIsLoading(false)
-      setError(undefined)
-      return
-    }
-
-    if (abortRef.current) {
-      abortRef.current.abort()
-    }
-    const controller = new AbortController()
-    abortRef.current = controller
-
-    const requestKey = JSON.stringify({ trimmed })
-    requestKeyRef.current = requestKey
-
-    setIsLoading(true)
-    setError(undefined)
-
-    fetchCurrencies({ currency_query: trimmed, limit: '50' }, controller.signal)
-      .then((rows) => {
-        if (controller.signal.aborted) return
-        if (requestKeyRef.current !== requestKey) return
-        setResults(rows)
-        setIsLoading(false)
-      })
-      .catch((err) => {
-        if (controller.signal.aborted) return
-        setResults([])
-        setIsLoading(false)
-        setError(err instanceof Error ? err.message : 'Currency search failed')
-      })
-  }, [debouncedQuery])
-
-  useEffect(() => {
-    if (!currencyId) return
-    if (currency?.id === currencyId) return
-
-    let cancelled = false
-    fetchCurrencies({ currency_id: currencyId, limit: '1' })
-      .then((rows) => {
-        if (cancelled) return
-        const selected = rows[0]
-        if (selected) {
-          updateInstance(instanceId, { currencyId: selected.id, currency: selected })
-        }
-      })
-      .catch(() => {
-        // Ignore lookup errors.
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [currencyId, currency, instanceId, updateInstance])
-
-  const handleSelect = (selected: CurrencyOption) => {
-    updateInstance(instanceId, {
-      currencyId: selected.id,
-      currency: selected,
-      results: [],
-      error: undefined,
-      selectedListingId: undefined,
-      selectedListing: null,
-    })
-    onCurrencyChange?.(selected.id, selected)
-  }
-
-  const currencyOptions = useMemo(
-    () =>
-      results.map((option) => ({
-        id: option.id,
-        label: option.code,
-        iconUrl: option.iconUrl ?? undefined,
-      })),
-    [results]
-  )
-
-  const selectedOption = currency
-    ? {
-      id: currency.id,
-      label: currency.code,
-      iconUrl: currency.iconUrl ?? undefined,
-    }
-    : null
-
-  return (
-    <SearchableDropdown
-      value={currencyId}
-      selectedOption={selectedOption}
-      options={currencyOptions}
-      placeholder='Currency'
-      disabled={disabled}
-      className={className}
-      enableSearch
-      searchPlaceholder='Search currencies...'
-      searchValue={query}
-      onSearchChange={setQuery}
-      isLoading={isLoading}
-      loadingMessage='Searching...'
-      emptyMessage={error ? error : 'No currencies found.'}
-      filterOptions={false}
-      onChange={(value) => {
-        const selected = results.find((option) => option.id === value)
-        if (selected) handleSelect(selected)
-      }}
-    />
-  )
 }
 
 export function StockSelector({
@@ -219,10 +73,8 @@ export function StockSelector({
     results,
     isLoading,
     error,
-    selectedListingId,
+    selectedListingValue,
     selectedListing,
-    assetClass,
-    micCode,
     providerId,
   } = safeInstance
 
@@ -277,7 +129,7 @@ export function StockSelector({
       results: [],
       isLoading: false,
       error: undefined,
-      selectedListingId: undefined,
+      selectedListingValue: null,
       selectedListing: null,
     })
     setVariableCommitted(true)
@@ -295,7 +147,7 @@ export function StockSelector({
       results: [],
       isLoading: false,
       error: undefined,
-      selectedListingId: undefined,
+      selectedListingValue: null,
       selectedListing: null,
     })
     setVariableCommitted(false)
@@ -326,9 +178,7 @@ export function StockSelector({
       ? [parsedQuery.assetClass]
       : providerAssetClasses.length
         ? providerAssetClasses
-        : assetClass
-          ? [assetClass]
-          : []
+        : []
     if (resolvedAssetClasses.length) {
       filtersPayload.asset_class = resolvedAssetClasses
     }
@@ -343,9 +193,7 @@ export function StockSelector({
 
     const resolvedMicCodes = providerMicCodes.length
       ? providerMicCodes
-      : micCode
-        ? [micCode]
-        : []
+      : []
     if (resolvedMicCodes.length && includeEquity) {
       filtersPayload.mic = resolvedMicCodes
     }
@@ -419,19 +267,21 @@ export function StockSelector({
     providerEquityQuoteCodes,
     providerCurrencyQuoteCodes,
     providerCryptoQuoteCodes,
-    micCode,
     instanceId,
     updateInstance,
   ])
 
   useEffect(() => {
-    if (!selectedListingId) return
-    if (selectedListing?.id === selectedListingId) return
+    const listingKey = resolveListingKey(selectedListingValue)
+    if (!listingKey) return
+
+    const selectedKey = selectedListing ? resolveListingKey(selectedListing) : undefined
+    if (selectedKey && selectedKey === listingKey) return
 
     let cancelled = false
-    const isEquityId = /^TG_LSTG_/i.test(selectedListingId)
+    const isEquityId = /^TG_LSTG_/i.test(listingKey)
     if (isEquityId) {
-      fetchEquity({ equity_id: selectedListingId })
+      fetchEquity({ equity_id: listingKey })
         .then((rows) => {
           if (cancelled) return
           const listing = rows[0]
@@ -448,7 +298,7 @@ export function StockSelector({
     return () => {
       cancelled = true
     }
-  }, [selectedListingId, selectedListing, assetClass, instanceId, updateInstance, onListingChange])
+  }, [selectedListingValue, selectedListing, instanceId, updateInstance, onListingChange])
 
   const selectedLabel = useMemo(() => {
     if (!selectedListing) return ''
@@ -468,7 +318,7 @@ export function StockSelector({
     const quote = listing.quote?.trim()
     const nextLabel = quote ? `${primary}/${quote}` : primary
     updateInstance(instanceId, {
-      selectedListingId: listing.id,
+      selectedListingValue: toListingValue(listing),
       selectedListing: listing,
       query: nextLabel,
       results: [],
@@ -579,7 +429,7 @@ export function StockSelector({
 
             const patch: Partial<typeof safeInstance> = { query: nextValue }
             if (selectedListing && selectedLabel && nextValue.trim() !== selectedLabel) {
-              patch.selectedListingId = undefined
+              patch.selectedListingValue = null
               patch.selectedListing = null
             }
             updateInstance(instanceId, patch)

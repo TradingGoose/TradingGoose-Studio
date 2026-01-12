@@ -1,5 +1,6 @@
 import { createHash } from 'crypto'
 import { createLogger } from '@/lib/logs/console/logger'
+import { resolveListingKey, type ListingIdentity } from '@/lib/market/listings'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
@@ -20,7 +21,7 @@ export type MarketChannel = 'bars' | 'trades' | 'quotes'
 
 export interface MarketSubscribePayload {
   provider?: MarketProviderId
-  listingId?: string
+  listing?: ListingIdentity
   channel?: MarketChannel
   interval?: string
   market?: AlpacaMarket
@@ -33,14 +34,14 @@ export interface MarketSubscribePayload {
 
 export interface MarketUnsubscribePayload {
   subscriptionId?: string
-  listingId?: string
+  listing?: ListingIdentity
   symbol?: string
   provider?: MarketProviderId
 }
 
 export interface MarketSubscriptionInfo {
   subscriptionId: string
-  listingId: string
+  listing: ListingIdentity | null
   symbol: string
   provider: MarketProviderId
   market: AlpacaMarket
@@ -50,6 +51,7 @@ export interface MarketSubscriptionInfo {
 
 interface MarketSubscriptionRecord extends MarketSubscriptionInfo {
   streamKey: string
+  listingKey: string
   socketId: string
   socket: AuthenticatedSocket
   listingBase?: string
@@ -112,7 +114,7 @@ export class MarketStreamManager {
 
     return matches.map((record) => ({
       subscriptionId: record.subscriptionId,
-      listingId: record.listingId,
+      listing: record.listing,
       symbol: record.symbol,
       provider: record.provider,
       market: record.market,
@@ -132,9 +134,10 @@ export class MarketStreamManager {
     socket: AuthenticatedSocket,
     payload: MarketSubscribePayload
   ): Promise<MarketSubscriptionInfo> {
-    const listingId = payload.listingId
-    if (!listingId) {
-      throw new Error('listingId is required to subscribe to market data')
+    const listing = payload.listing
+    const listingKey = resolveListingKey(listing)
+    if (!listing || !listingKey) {
+      throw new Error('listing is required to subscribe to market data')
     }
 
     const channel = payload.channel ?? 'bars'
@@ -142,7 +145,7 @@ export class MarketStreamManager {
       throw new Error('Unsupported Alpaca channel')
     }
 
-    const context = await resolveListingContext(listingId)
+    const context = await resolveListingContext(listing)
     const market = resolveMarket(payload, context.assetClass)
 
     if (market === 'crypto' && !context.quote) {
@@ -184,9 +187,10 @@ export class MarketStreamManager {
     const record: MarketSubscriptionRecord = {
       subscriptionId,
       streamKey,
+      listingKey,
+      listing,
       socketId: socket.id,
       socket,
-      listingId,
       symbol,
       provider: 'alpaca',
       market,
@@ -203,7 +207,7 @@ export class MarketStreamManager {
       socketId: socket.id,
       userId: socket.userId,
       provider: 'alpaca',
-      listingId,
+      listing: listingKey,
       symbol,
       market,
       channel,
@@ -211,7 +215,7 @@ export class MarketStreamManager {
 
     return {
       subscriptionId,
-      listingId,
+      listing,
       symbol,
       provider: 'alpaca',
       market,
@@ -224,9 +228,10 @@ export class MarketStreamManager {
     socket: AuthenticatedSocket,
     payload: MarketSubscribePayload
   ): Promise<MarketSubscriptionInfo> {
-    const listingId = payload.listingId
-    if (!listingId) {
-      throw new Error('listingId is required to subscribe to market data')
+    const listing = payload.listing
+    const listingKey = resolveListingKey(listing)
+    if (!listing || !listingKey) {
+      throw new Error('listing is required to subscribe to market data')
     }
 
     const channel = payload.channel ?? 'bars'
@@ -234,7 +239,7 @@ export class MarketStreamManager {
       throw new Error('Finnhub streaming supports bars only')
     }
 
-    const context = await resolveListingContext(listingId)
+    const context = await resolveListingContext(listing)
     const market = resolveMarket(payload, context.assetClass)
 
     if (market === 'crypto' && !context.quote) {
@@ -262,9 +267,10 @@ export class MarketStreamManager {
     const record: MarketSubscriptionRecord = {
       subscriptionId,
       streamKey,
+      listingKey,
+      listing,
       socketId: socket.id,
       socket,
-      listingId,
       symbol,
       provider: 'finnhub',
       market,
@@ -281,7 +287,7 @@ export class MarketStreamManager {
       socketId: socket.id,
       userId: socket.userId,
       provider: 'finnhub',
-      listingId,
+      listing: listingKey,
       symbol,
       market,
       channel,
@@ -289,7 +295,7 @@ export class MarketStreamManager {
 
     return {
       subscriptionId,
-      listingId,
+      listing,
       symbol,
       provider: 'finnhub',
       market,
@@ -393,7 +399,7 @@ export class MarketStreamManager {
         market: record.market,
         channel: record.channel,
         subscriptionId: record.subscriptionId,
-        listingId: record.listingId,
+        listing: record.listing,
         listingBase: record.listingBase,
         listingQuote: record.listingQuote,
         primaryMicCode: record.primaryMicCode,
@@ -420,7 +426,7 @@ export class MarketStreamManager {
         market: record.market,
         channel: record.channel,
         subscriptionId: record.subscriptionId,
-        listingId: record.listingId,
+        listing: record.listing,
         listingBase: record.listingBase,
         listingQuote: record.listingQuote,
         primaryMicCode: record.primaryMicCode,
@@ -447,7 +453,7 @@ export class MarketStreamManager {
         market: record.market,
         channel: record.channel,
         subscriptionId: record.subscriptionId,
-        listingId: record.listingId,
+        listing: record.listing,
         listingBase: record.listingBase,
         listingQuote: record.listingQuote,
         primaryMicCode: record.primaryMicCode,
@@ -489,11 +495,12 @@ export class MarketStreamManager {
 
     const symbol = payload.symbol ? normalizeSymbol(payload.symbol) : undefined
     const provider = payload.provider ? resolveProviderId(payload.provider) : undefined
+    const listingKey = resolveListingKey(payload.listing ?? null)
 
     const matches: MarketSubscriptionRecord[] = []
     socketMap.forEach((record) => {
       if (provider && record.provider !== provider) return
-      if (payload.listingId && record.listingId !== payload.listingId) return
+      if (listingKey && record.listingKey !== listingKey) return
       if (symbol && record.symbol !== symbol) return
       matches.push(record)
     })
@@ -538,7 +545,7 @@ export class MarketStreamManager {
       socketId: record.socketId,
       userId: record.socket.userId,
       provider: record.provider,
-      listingId: record.listingId,
+      listing: record.listingKey,
       symbol: record.symbol,
       market: record.market,
     })

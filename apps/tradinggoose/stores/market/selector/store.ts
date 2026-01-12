@@ -1,42 +1,13 @@
 import { create } from 'zustand'
-import type { AssetClass } from '@/providers/market/types'
-
-export type ListingOption = {
-  id: string
-  base: string
-  quote?: string | null
-  name?: string | null
-  iconUrl?: string | null
-  assetClass?: string | null
-  primaryMicCode?: string | null
-  countryCode?: string | null
-  cityName?: string | null
-  timeZoneName?: string | null
-  equity_id?: string | null
-  base_id?: string | null
-  quote_id?: string | null
-  base_asset_class?: string | null
-  quote_asset_class?: string | null
-}
-
-export type CurrencyOption = {
-  id: string
-  code: string
-  name?: string | null
-  iconUrl?: string | null
-}
+import type { ListingIdentity, ListingOption } from '@/lib/market/listings'
 
 export interface MarketSelectorInstance {
   providerId?: string
-  assetClass?: AssetClass
-  currencyId?: string
-  currency?: CurrencyOption | null
-  micCode?: string
   query: string
   isLoading: boolean
   error?: string
   results: ListingOption[]
-  selectedListingId?: string
+  selectedListingValue?: ListingIdentity | null
   selectedListing?: ListingOption | null
 }
 
@@ -44,15 +15,11 @@ export const createEmptyMarketSelectorInstance = (
   overrides: Partial<MarketSelectorInstance> = {}
 ): MarketSelectorInstance => ({
   providerId: undefined,
-  assetClass: undefined,
-  currencyId: undefined,
-  currency: null,
-  micCode: undefined,
   query: '',
   isLoading: false,
   error: undefined,
   results: [],
-  selectedListingId: undefined,
+  selectedListingValue: null,
   selectedListing: null,
   ...overrides,
 })
@@ -105,7 +72,7 @@ export const useMarketSelectorStore = create<MarketSelectorStore>((set) => ({
         ...state.instances,
         [id]: {
           ...(state.instances[id] ?? createEmptyMarketSelectorInstance()),
-          selectedListingId: undefined,
+          selectedListingValue: null,
           selectedListing: null,
         },
       },

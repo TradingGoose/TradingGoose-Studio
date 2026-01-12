@@ -38,7 +38,6 @@ import { getProviderFromModel, supportsToolUsageControl } from '@/providers/ai/u
 import { useCustomTools } from '@/hooks/queries/custom-tools'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
-import { resolveListingId } from '@/lib/market/listings'
 import {
   formatParameterLabel,
   getToolParametersConfig,
@@ -1216,7 +1215,7 @@ export function ToolInput({
             isPreview={isPreview}
             previewValue={value}
             value={value}
-            onChange={(listing) => onChange(resolveListingId(listing) ?? '')}
+            onChange={(listing) => onChange(listing ?? null)}
             disabled={disabled}
             config={{
               id: uniqueSubBlockId,

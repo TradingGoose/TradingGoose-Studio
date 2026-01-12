@@ -105,17 +105,13 @@ function buildChartUrl(symbol: string, request: MarketSeriesRequest): string {
 export async function fetchYahooFinanceSeries(
   request: MarketSeriesRequest
 ): Promise<MarketSeries> {
-  if (!request.listingId) {
-    throw new Error('listingId is required')
-  }
-
-  const context = await resolveListingContext(request.listingId)
+  const context = await resolveListingContext(request.listing)
   const symbol = resolveProviderSymbol(YahooFinanceProviderConfig, context)
   const interval = resolveInterval(request)
   const url = buildChartUrl(symbol, request)
 
   logger.info('Fetching Yahoo Finance chart', {
-    listingId: request.listingId,
+    listing: context.listingKey,
     symbol,
     interval,
     start: request.start,
@@ -173,7 +169,7 @@ export async function fetchYahooFinanceSeries(
   const end = bars.length ? bars[bars.length - 1]?.timeStamp : toIsoString(request.end)
 
   return {
-    listingId: request.listingId,
+    listing: request.listing,
     listingBase: context.base,
     listingQuote: context.quote,
     primaryMicCode: context.micCode ?? context.primaryMicCode,

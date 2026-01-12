@@ -4,13 +4,17 @@ import {
   getMarketProviderParamCatalog,
   getMarketSeriesCapabilities,
 } from '@/providers/market/providers'
-import { resolveListingId, toListingValueObject, type ListingValue } from '@/lib/market/listings'
+import {
+  resolveListingKey,
+  toListingValueObject,
+  type ListingIdentity,
+} from '@/lib/market/listings'
 import type { MarketSeries, NormalizationMode } from '@/providers/market/types'
 import type { ToolConfig, ToolResponse } from '@/tools/types'
 
 export interface MarketSeriesParams {
   provider: string
-  listingId: ListingValue
+  listing: ListingIdentity
   interval?: string
   start: string | number
   end: string | number
@@ -26,7 +30,7 @@ const logger = createLogger('MarketSeriesTool')
 
 const RESERVED_PARAM_IDS = new Set([
   'provider',
-  'listingId',
+  'listing',
   'interval',
   'start',
   'end',
@@ -46,11 +50,11 @@ const buildToolParams = (): ToolConfig['params'] => {
       visibility: 'user-only',
       description: 'Market data provider id (e.g., alpaca, finnhub, yahoo-finance).',
     },
-    listingId: {
-      type: 'string',
+    listing: {
+      type: 'json',
       required: true,
       visibility: 'user-or-llm',
-      description: 'Canonical listing id from TradingGoose Market.',
+      description: 'Structured listing payload from TradingGoose Market.',
     },
   }
 
@@ -158,7 +162,11 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
     body: (params: MarketSeriesParams) => {
       const rawParams = params as Record<string, any>
       const providerParams = parseProviderParams(rawParams.providerParams)
-      const listingId = resolveListingId(params.listingId)
+      const listing = toListingValueObject(params.listing)
+
+      if (!listing) {
+        throw new Error('listing is required')
+      }
 
       providerParamIds.forEach((paramId) => {
         const entry = providerParamRegistry[paramId]
@@ -183,7 +191,7 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
         provider: params.provider,
         providerNamespace: 'market',
         kind: 'series',
-        listingId,
+        listing,
         interval,
         start: params.start,
         end: params.end,
@@ -217,7 +225,7 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
       if (!bars.length) {
         throw new Error('No data returned for the requested time range')
       }
-      const listing = toListingValueObject(params.listingId)
+      const listing = series.listing ?? toListingValueObject(params.listing)
       const seriesOutput = { ...series } as MarketSeries & { primaryMicCode?: string }
       if ('primaryMicCode' in seriesOutput) {
         delete seriesOutput.primaryMicCode
@@ -226,7 +234,7 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
     } catch (error: any) {
       logger.error('Error validating market series data', {
         provider: params.provider,
-        listingId: resolveListingId(params.listingId) ?? params.listingId,
+        listing: resolveListingKey(params.listing),
         error: error?.message || error,
       })
       return {

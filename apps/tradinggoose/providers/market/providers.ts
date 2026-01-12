@@ -18,6 +18,7 @@ import type {
   MarketSeries,
   NormalizationMode,
 } from '@/providers/market/types'
+import type { ListingIdentity } from '@/lib/market/listings'
 import { alphaVantageProviderConfig } from '@/providers/market/alpha-vantage/config'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
@@ -107,7 +108,7 @@ export type RuleScopeKey = 'listing' | 'mic' | 'currency' | 'assetClass' | 'coun
 
 export interface MarketSymbolRule {
   assetClass?: AssetClass
-  listingId?: string
+  listingKey?: string
   mic?: string
   country?: string
   city?: string
@@ -142,7 +143,8 @@ export interface MarketProvider {
 }
 
 export interface ListingContext {
-  listingId: string
+  listingKey: string
+  listing?: ListingIdentity | null
   base: string
   quote?: string
   assetClass?: AssetClass

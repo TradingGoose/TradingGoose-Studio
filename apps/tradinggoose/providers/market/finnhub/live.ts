@@ -80,15 +80,11 @@ function resolveTimeRange(request: MarketLiveRequest): { start: number; end: num
 export async function fetchFinnhubLiveSnapshot(
   request: MarketLiveRequest
 ): Promise<MarketLiveSnapshot> {
-  if (!request.listingId) {
-    throw new Error('listingId is required')
-  }
-
   const { start, end } = resolveTimeRange(request)
 
   const seriesRequest: MarketSeriesRequest = {
     kind: 'series',
-    listingId: request.listingId,
+    listing: request.listing,
     interval: request.interval,
     start,
     end,
@@ -96,7 +92,7 @@ export async function fetchFinnhubLiveSnapshot(
   }
 
   logger.info('Fetching Finnhub live snapshot', {
-    listingId: request.listingId,
+    listing: request.listing,
     interval: seriesRequest.interval,
     start,
     end,
@@ -110,7 +106,7 @@ export async function fetchFinnhubLiveSnapshot(
   }
 
   return {
-    listingId: request.listingId,
+    listing: request.listing,
     listingBase: series.listingBase,
     listingQuote: series.listingQuote,
     primaryMicCode: series.primaryMicCode,

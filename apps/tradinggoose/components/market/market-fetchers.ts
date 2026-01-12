@@ -1,21 +1,4 @@
-import type { CurrencyOption, ListingOption } from '@/stores/market/selector/store'
-
-export async function fetchCurrencies(
-  params: Record<string, string>,
-  signal?: AbortSignal
-): Promise<CurrencyOption[]> {
-  const query = new URLSearchParams(params)
-  const response = await fetch(`/api/market/search/currencies?${query.toString()}`, { signal })
-  if (!response.ok) {
-    const payload = await response.json().catch(() => null)
-    const message = payload?.error || `Request failed with ${response.status}`
-    throw new Error(message)
-  }
-  const payload = (await response.json()) as { data?: CurrencyOption[] | CurrencyOption | null }
-  if (!payload?.data) return []
-  if (Array.isArray(payload.data)) return payload.data
-  return [payload.data]
-}
+import type { ListingOption } from '@/lib/market/listings'
 
 export async function fetchListings(
   params: Record<string, string>,
@@ -63,11 +46,10 @@ export async function fetchEquity(
 
 function normalizeListingOption(option: ListingOption): ListingOption {
   const record = option as Record<string, unknown>
-  const listingId =
-    typeof record.listing_id === 'string' && record.listing_id.trim()
-      ? record.listing_id
-      : undefined
-  const equityId = option.equity_id ?? listingId ?? null
+  const hasPairIds = Boolean(option.base_id && option.quote_id)
+  const hasPairClasses = Boolean(option.base_asset_class && option.quote_asset_class)
+  const shouldUseEquity = !hasPairIds && !hasPairClasses
+  const equityId = option.equity_id ?? (shouldUseEquity ? option.id ?? null : null)
   const baseId = option.base_id ?? null
   const quoteId = option.quote_id ?? null
   const baseAssetClass = option.base_asset_class ?? null
