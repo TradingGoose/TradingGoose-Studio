@@ -4,12 +4,9 @@ import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getSession } from '@/lib/auth'
 import { encodeSSE, SSE_HEADERS } from '@/lib/utils'
-import { COPILOT_API_URL_DEFAULT } from '@/lib/copilot/agent/constants'
+import { proxyCopilotRequest } from '@/app/api/copilot/proxy'
 
 const logger = createLogger('WandCopilot')
-const COPILOT_API_URL = env.COPILOT_API_URL || COPILOT_API_URL_DEFAULT
-const COPILOT_API_KEY = env.COPILOT_API_KEY || env.INTERNAL_API_SECRET
-
 const WandRequestSchema = z.object({
   prompt: z.string().min(1, 'Prompt is required.'),
   systemPrompt: z.string().optional(),
@@ -75,13 +72,9 @@ export async function POST(req: NextRequest) {
 
   let copilotResponse: Response
   try {
-    copilotResponse = await fetch(`${COPILOT_API_URL}/api/chat-completion-streaming`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(COPILOT_API_KEY ? { 'x-api-key': COPILOT_API_KEY } : {}),
-      },
-      body: JSON.stringify(copilotPayload),
+    copilotResponse = await proxyCopilotRequest({
+      endpoint: '/api/chat-completion-streaming',
+      body: copilotPayload,
       signal: req.signal,
     })
   } catch (error) {

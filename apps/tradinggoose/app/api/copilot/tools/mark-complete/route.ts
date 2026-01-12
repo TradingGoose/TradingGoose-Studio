@@ -7,13 +7,11 @@ import {
   createRequestTracker,
   createUnauthorizedResponse,
 } from '@/lib/copilot/auth'
-import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
-import { COPILOT_API_URL_DEFAULT } from '@/lib/copilot/agent/constants'
+import { getCopilotApiUrl, proxyCopilotRequest } from '@/app/api/copilot/proxy'
 
 const logger = createLogger('CopilotMarkToolCompleteAPI')
 
-const COPILOT_API_URL = env.COPILOT_API_URL || COPILOT_API_URL_DEFAULT
 
 const MarkCompleteSchema = z.object({
   id: z.string(),
@@ -66,16 +64,12 @@ export async function POST(req: NextRequest) {
       hasMessage: parsed.message !== undefined,
       hasData: parsed.data !== undefined,
       messagePreview,
-      agentUrl: `${COPILOT_API_URL}/api/tools/mark-complete`,
+      agentUrl: getCopilotApiUrl('/api/tools/mark-complete'),
     })
 
-    const agentRes = await fetch(`${COPILOT_API_URL}/api/tools/mark-complete`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(env.COPILOT_API_KEY ? { 'x-api-key': env.COPILOT_API_KEY } : {}),
-      },
-      body: JSON.stringify(parsed),
+    const agentRes = await proxyCopilotRequest({
+      endpoint: '/api/tools/mark-complete',
+      body: parsed,
     })
 
     // Attempt to parse agent response JSON

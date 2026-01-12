@@ -11,7 +11,7 @@ import { isBillingEnabled } from '@/lib/environment'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { hasProcessedMessage, markMessageAsProcessed } from '@/lib/redis'
-import { COPILOT_API_URL_DEFAULT } from '@/lib/copilot/agent/constants'
+import { proxyCopilotRequest, getCopilotApiUrl } from '@/app/api/copilot/proxy'
 import { calculateCost } from '@/providers/ai/utils'
 import { checkInternalApiKey } from '@/lib/copilot/utils'
 
@@ -26,7 +26,6 @@ const MODEL_SYNONYMS: Record<string, string> = {
 
 const logger = createLogger('ContextUsageAPI')
 
-const COPILOT_API_URL = env.COPILOT_API_URL || COPILOT_API_URL_DEFAULT
 
 const ContextUsageRequestSchema = z.object({
   chatId: z.string(),
@@ -129,17 +128,13 @@ export async function POST(req: NextRequest) {
     }
 
     logger.info('[Context Usage API] Calling copilot', {
-      url: `${COPILOT_API_URL}/api/get-context-usage`,
+      url: getCopilotApiUrl('/api/get-context-usage'),
       payload: requestPayload,
     })
 
-    const simAgentResponse = await fetch(`${COPILOT_API_URL}/api/get-context-usage`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(env.COPILOT_API_KEY ? { 'x-api-key': env.COPILOT_API_KEY } : {}),
-      },
-      body: JSON.stringify(requestPayload),
+    const simAgentResponse = await proxyCopilotRequest({
+      endpoint: '/api/get-context-usage',
+      body: requestPayload,
     })
 
     logger.info('[Context Usage API] Copilot response', {

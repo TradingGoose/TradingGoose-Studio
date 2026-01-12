@@ -1,6 +1,6 @@
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
-import { COPILOT_API_URL_DEFAULT } from '@/lib/copilot/agent/constants'
+import { COPILOT_API_URL_DEFAULT, COPILOT_API_VERSION } from '@/lib/copilot/agent/constants'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('SimAgentClient')
@@ -61,7 +61,20 @@ class SimAgentClient {
       }
 
       if (body && (method === 'POST' || method === 'PUT')) {
-        fetchOptions.body = JSON.stringify(body)
+        let payload = body
+        if (
+          endpoint.startsWith('/api/') &&
+          typeof payload === 'object' &&
+          payload !== null &&
+          !Array.isArray(payload)
+        ) {
+          const version =
+            typeof payload.version === 'string' && payload.version.trim().length > 0
+              ? payload.version
+              : COPILOT_API_VERSION
+          payload = { ...payload, version }
+        }
+        fetchOptions.body = JSON.stringify(payload)
       }
 
       const response = await fetch(url, fetchOptions)

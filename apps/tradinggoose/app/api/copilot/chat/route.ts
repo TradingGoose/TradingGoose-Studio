@@ -15,14 +15,14 @@ import { getCopilotModel } from '@/lib/copilot/config'
 import type { CopilotProviderConfig } from '@/lib/copilot/types'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
-import { COPILOT_API_URL_DEFAULT, COPILOT_VERSION } from '@/lib/copilot/agent/constants'
+import { COPILOT_API_VERSION } from '@/lib/copilot/agent/constants'
+import { proxyCopilotRequest } from '@/app/api/copilot/proxy'
 import { generateChatTitle } from '@/lib/copilot/agent/utils'
 import { CopilotFiles } from '@/lib/uploads'
 import { createFileContent } from '@/lib/uploads/utils/file-utils'
 
 const logger = createLogger('CopilotChatAPI')
 
-const COPILOT_API_URL = env.COPILOT_API_URL || COPILOT_API_URL_DEFAULT
 
 const FileAttachmentSchema = z.object({
   id: z.string(),
@@ -315,7 +315,7 @@ export async function POST(req: NextRequest) {
       model: model,
       mode: mode,
       messageId: userMessageIdToUse,
-      version: COPILOT_VERSION,
+      version: COPILOT_API_VERSION,
       ...(providerConfig ? { provider: providerConfig } : {}),
       ...(effectiveConversationId ? { conversationId: effectiveConversationId } : {}),
       ...(typeof prefetch === 'boolean' ? { prefetch: prefetch } : {}),
@@ -335,13 +335,9 @@ export async function POST(req: NextRequest) {
       })
     } catch { }
 
-    const simAgentResponse = await fetch(`${COPILOT_API_URL}/api/chat-completion-streaming`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(env.COPILOT_API_KEY ? { 'x-api-key': env.COPILOT_API_KEY } : {}),
-      },
-      body: JSON.stringify(requestPayload),
+    const simAgentResponse = await proxyCopilotRequest({
+      endpoint: '/api/chat-completion-streaming',
+      body: requestPayload,
     })
 
     if (!simAgentResponse.ok) {
