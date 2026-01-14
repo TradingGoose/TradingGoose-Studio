@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { Body, Container, Head, Html, Link, Preview, Section, Text } from '@react-email/components'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { getBaseUrl } from '@/lib/urls/utils'
@@ -16,7 +17,7 @@ interface BatchInvitationEmailProps {
   organizationName: string
   organizationRole: 'admin' | 'member'
   workspaceInvitations: WorkspaceInvitation[]
-  acceptUrl: string
+  acceptUrl?: string
 }
 
 const getPermissionLabel = (permission: string) => {
@@ -52,6 +53,7 @@ export const BatchInvitationEmail = ({
 }: BatchInvitationEmailProps) => {
   const brand = getBrandConfig()
   const baseUrl = getBaseUrl()
+  const acceptHref = acceptUrl || `${baseUrl}/login`
   const hasWorkspaces = workspaceInvitations.length > 0
   const previewText = `Join ${organizationName} on ${brand.name}`
 
@@ -109,7 +111,7 @@ export const BatchInvitationEmail = ({
                 <tbody>
                   <tr>
                     <td align='center'>
-                      <Link href={acceptUrl} style={{ textDecoration: 'none' }}>
+                      <Link href={acceptHref} style={{ textDecoration: 'none' }}>
                         <Text style={{ ...baseStyles.button, display: 'inline-block', margin: '22px 0' }}>
                           Accept Invitation
                         </Text>

@@ -1,0 +1,948 @@
+{
+  "AMS": [
+    "XAMS",
+    "DAMS",
+    "TNLA",
+    "XAMC",
+    "XECO",
+    "XEUC",
+    "XEUE",
+    "XEUI"
+  ],
+  "AQS": [
+    "XAQS"
+  ],
+  "ASE": [
+    "XASE",
+    "AMXO",
+    "ARCD",
+    "ARCO",
+    "ARCX",
+    "CISD",
+    "NYSD",
+    "XCHI",
+    "XCIS"
+  ],
+  "ASX": [
+    "XASX",
+    "ASXB",
+    "ASXC",
+    "ASXP",
+    "ASXT",
+    "ASXV",
+    "NZFX",
+    "XSFE"
+  ],
+  "ATH": [
+    "XATH",
+    "ENAX",
+    "XADE",
+    "XIPO"
+  ],
+  "BER": [
+    "XBER",
+    "BERA",
+    "BERB",
+    "BERC",
+    "EQTA",
+    "EQTB",
+    "EQTC",
+    "EQTD",
+    "XEQT",
+    "ZOBX"
+  ],
+  "BRU": [
+    "XBRU",
+    "ALXB",
+    "DBRU",
+    "MLXB",
+    "TNLB",
+    "VPXB",
+    "XBRD"
+  ],
+  "BSE": [
+    "XBOM",
+    "BSME"
+  ],
+  "BTS": [
+    "BATS",
+    "BATO",
+    "BATY",
+    "BYXD",
+    "BZXD",
+    "C2OX",
+    "CBSX",
+    "EDDP",
+    "EDGA",
+    "EDGD",
+    "EDGO",
+    "EDGX",
+    "XCBD",
+    "XCBF"
+  ],
+  "BUD": [
+    "XBUD",
+    "BETA",
+    "XBND",
+    "XTND"
+  ],
+  "BUE": [
+    "XBUE",
+    "XMEV"
+  ],
+  "BVB": [
+    "XBSE",
+    "XBSD",
+    "XCAN",
+    "XMTI",
+    "XNRG",
+    "XRAS"
+  ],
+  "BVC": [
+    "XBOG"
+  ],
+  "CAI": [
+    "XCAI"
+  ],
+  "CBT": [
+    "XCBT",
+    "FCBT",
+    "XKBT"
+  ],
+  "CFE": [
+    "XCBF",
+    "BATO",
+    "BATS",
+    "BATY",
+    "BYXD",
+    "BZXD",
+    "C2OX",
+    "CBSX",
+    "EDDP",
+    "EDGA",
+    "EDGD",
+    "EDGO",
+    "EDGX",
+    "XCBD"
+  ],
+  "CME": [
+    "XCME",
+    "CBTS",
+    "CECS",
+    "CMES",
+    "FCME",
+    "NYMS",
+    "XIMM",
+    "XIOM"
+  ],
+  "CMX": [
+    "XCEC",
+    "XNYE",
+    "XNYL"
+  ],
+  "CNQ": [
+    "XCNQ",
+    "CSE2",
+    "PURE"
+  ],
+  "CPH": [
+    "XCSE",
+    "DCSE",
+    "DNDK",
+    "DSME",
+    "FNDK",
+    "MCSE",
+    "MNDK",
+    "PCSE"
+  ],
+  "CXA": [
+    "CXAC",
+    "CXAB",
+    "CXAE",
+    "CXAF",
+    "CXAI",
+    "CXAM",
+    "CXAN",
+    "CXAP",
+    "CXAR",
+    "CXAV",
+    "CXAW"
+  ],
+  "CXE": [
+    "CHIX",
+    "BATD",
+    "BATE",
+    "BATF",
+    "BATP",
+    "BOTC",
+    "CHID",
+    "CHIO",
+    "LISX",
+    "XWAP"
+  ],
+  "CXI": [
+    "XCBO",
+    "BATO",
+    "BATS",
+    "BATY",
+    "BYXD",
+    "BZXD",
+    "C2OX",
+    "CBSX",
+    "EDDP",
+    "EDGA",
+    "EDGD",
+    "EDGO",
+    "EDGX",
+    "XCBD",
+    "XCBF"
+  ],
+  "DFM": [
+    "XDFM"
+  ],
+  "DJI": [
+    "XNYS",
+    "AMXO",
+    "ARCD",
+    "ARCO",
+    "ARCX",
+    "CISD",
+    "NYSD",
+    "XASE",
+    "XCHI",
+    "XCIS"
+  ],
+  "DOH": [
+    "DSMD"
+  ],
+  "DUS": [
+    "XDUS",
+    "DUSA",
+    "DUSB",
+    "DUSC",
+    "DUSD",
+    "XQTX"
+  ],
+  "DXE": [
+    "CEUX",
+    "BEUP",
+    "CAPA",
+    "CEUD",
+    "CEUO",
+    "LISZ",
+    "VWAP"
+  ],
+  "EBS": [
+    "XSWX",
+    "XDLP",
+    "XQMH",
+    "XQOD",
+    "XSEB",
+    "XSWM"
+  ],
+  "ENX": [
+    "XPAR",
+    "ALXP",
+    "DPAR",
+    "MTCH",
+    "XAPA",
+    "XBLK",
+    "XETF",
+    "XMAT",
+    "XMLI",
+    "XMON",
+    "XPMC",
+    "XSPM"
+  ],
+  "FGI": [
+    "FSEF"
+  ],
+  "FKA": [
+    "XFKA"
+  ],
+  "FRA": [
+    "XFRA",
+    "FRAA",
+    "FRAB",
+    "FRAS",
+    "FRAU",
+    "FRAV",
+    "FRAW"
+  ],
+  "FSI": [
+    "FSEF"
+  ],
+  "GER": [
+    "XETR",
+    "XEMA",
+    "XEMB",
+    "XEMI",
+    "XETA",
+    "XETB",
+    "XETE",
+    "XETS",
+    "XETU",
+    "XETV",
+    "XETW",
+    "XETX"
+  ],
+  "HAM": [
+    "XHAM",
+    "HAMA",
+    "HAMB",
+    "HAMM",
+    "HAMN"
+  ],
+  "HAN": [
+    "XHAN",
+    "HANA",
+    "HANB",
+    "HANC",
+    "HAND",
+    "HANE"
+  ],
+  "HEL": [
+    "XHEL",
+    "DHEL",
+    "DNFI",
+    "FNFI",
+    "FSME",
+    "MHEL",
+    "MNFI",
+    "PEUR",
+    "PHEL"
+  ],
+  "HFE": [
+    "XHKF"
+  ],
+  "HKG": [
+    "XHKG",
+    "SHSC",
+    "SZSC",
+    "XGEM"
+  ],
+  "ICE": [
+    "XICE",
+    "DICE",
+    "DNIS",
+    "FNIS",
+    "MICE",
+    "MNIS"
+  ],
+  "IOB": [
+    "XLON",
+    "AIMX",
+    "XLOM",
+    "XPVT"
+  ],
+  "ISE": [
+    "XDUB",
+    "DDUB",
+    "EDBT",
+    "EDGL",
+    "XACD",
+    "XATL",
+    "XESM",
+    "XEYE",
+    "XMSM"
+  ],
+  "IST": [
+    "XEQY",
+    "XDSM",
+    "XFNO",
+    "XPMS"
+  ],
+  "JKT": [
+    "XIDX"
+  ],
+  "JNB": [
+    "XJSE",
+    "ALTX",
+    "JSEB",
+    "JSER",
+    "XBES",
+    "XSAF",
+    "XSFA",
+    "YLDX",
+    "ZFXM"
+  ],
+  "JPX": [
+    "XJPX",
+    "XOSE",
+    "XOSJ",
+    "XTAM",
+    "XTK1",
+    "XTK2",
+    "XTK3",
+    "XTKS",
+    "XTKT"
+  ],
+  "KLS": [
+    "XKLS",
+    "MESQ"
+  ],
+  "KOE": [
+    "XKOS",
+    "XKCM",
+    "XKEM",
+    "XKFE",
+    "XKON"
+  ],
+  "KSC": [
+    "XKRX",
+    "XKCM",
+    "XKEM",
+    "XKFE",
+    "XKON",
+    "XKOS"
+  ],
+  "KUW": [
+    "XKUW"
+  ],
+  "LIS": [
+    "XLIS",
+    "ALXL",
+    "DLIS",
+    "ENXL",
+    "MFOX",
+    "WQXL"
+  ],
+  "LIT": [
+    "XLIT",
+    "FNLT"
+  ],
+  "LSE": [
+    "XLON",
+    "AIMX",
+    "XLOM",
+    "XPVT"
+  ],
+  "MCE": [
+    "XMAD",
+    "BMCL",
+    "BMEA",
+    "DMAD",
+    "GROW",
+    "MABX",
+    "MARF",
+    "MERF",
+    "SBAR",
+    "SBIL",
+    "SCLE",
+    "SEND",
+    "XBAR",
+    "XBIL",
+    "XDRF",
+    "XLAT",
+    "XMFX",
+    "XMPW",
+    "XMRV",
+    "XVAL"
+  ],
+  "MEX": [
+    "XMEX"
+  ],
+  "MIL": [
+    "MTAA",
+    "ATFX",
+    "BGEM",
+    "DMIL",
+    "ETFP",
+    "ETLX",
+    "EXGM",
+    "MIVX",
+    "MOTX",
+    "MTAH",
+    "SEDX",
+    "XDMI",
+    "XMOT"
+  ],
+  "MUN": [
+    "XMUN",
+    "MUNA",
+    "MUNB",
+    "MUNC",
+    "MUND"
+  ],
+  "NAE": [
+    "XNAS",
+    "BOSD",
+    "MELO",
+    "NASD",
+    "PSXD",
+    "XBOS",
+    "XBRT",
+    "XBXO",
+    "XNCM",
+    "XNDQ",
+    "XNFI",
+    "XNGS",
+    "XNIM",
+    "XNMS",
+    "XPHL",
+    "XPHO",
+    "XPOR",
+    "XPSX"
+  ],
+  "NAS": [
+    "XNCM",
+    "BOSD",
+    "MELO",
+    "NASD",
+    "PSXD",
+    "XBOS",
+    "XBRT",
+    "XBXO",
+    "XNDQ",
+    "XNFI",
+    "XNGS",
+    "XNIM",
+    "XNMS",
+    "XPHL",
+    "XPHO",
+    "XPOR",
+    "XPSX"
+  ],
+  "NCM": [
+    "XNCM",
+    "BOSD",
+    "MELO",
+    "NASD",
+    "PSXD",
+    "XBOS",
+    "XBRT",
+    "XBXO",
+    "XNDQ",
+    "XNFI",
+    "XNGS",
+    "XNIM",
+    "XNMS",
+    "XPHL",
+    "XPHO",
+    "XPOR",
+    "XPSX"
+  ],
+  "NEO": [
+    "NEON",
+    "MATN",
+    "NEOC",
+    "NEOD"
+  ],
+  "NGM": [
+    "NSME",
+    "NMTF"
+  ],
+  "NIK": [
+    "XTKS",
+    "XOSE",
+    "XOSJ",
+    "XTAM",
+    "XTK1",
+    "XTK2",
+    "XTK3",
+    "XTKT"
+  ],
+  "NIM": [
+    "XNIM",
+    "BOSD",
+    "MELO",
+    "NASD",
+    "PSXD",
+    "XBOS",
+    "XBRT",
+    "XBXO",
+    "XNCM",
+    "XNDQ",
+    "XNFI",
+    "XNGS",
+    "XNMS",
+    "XPHL",
+    "XPHO",
+    "XPOR",
+    "XPSX"
+  ],
+  "NMS": [
+    "XNMS",
+    "BOSD",
+    "MELO",
+    "NASD",
+    "PSXD",
+    "XBOS",
+    "XBRT",
+    "XBXO",
+    "XNCM",
+    "XNDQ",
+    "XNFI",
+    "XNGS",
+    "XNIM",
+    "XPHL",
+    "XPHO",
+    "XPOR",
+    "XPSX"
+  ],
+  "NSE": [
+    "XNAM"
+  ],
+  "NSI": [
+    "XNSE",
+    "INSE"
+  ],
+  "NYB": [
+    "IFUS",
+    "IEPA",
+    "IFED",
+    "IMAG",
+    "IMBD",
+    "IMCG",
+    "IMCR",
+    "IMEN",
+    "IMFX",
+    "IMIR"
+  ],
+  "NYM": [
+    "XNYM",
+    "XCEC",
+    "XNYE",
+    "XNYL"
+  ],
+  "NYQ": [
+    "XNYS",
+    "AMXO",
+    "ARCD",
+    "ARCO",
+    "ARCX",
+    "CISD",
+    "NYSD",
+    "XASE",
+    "XCHI",
+    "XCIS"
+  ],
+  "NYS": [
+    "XNYS",
+    "AMXO",
+    "ARCD",
+    "ARCO",
+    "ARCX",
+    "CISD",
+    "NYSD",
+    "XASE",
+    "XCHI",
+    "XCIS"
+  ],
+  "NZE": [
+    "XNZE",
+    "NZXC",
+    "NZXD",
+    "NZXM"
+  ],
+  "OEM": [
+    "EXPM",
+    "CAVE",
+    "OTCB",
+    "OTCD",
+    "OTCM",
+    "OTCQ",
+    "PINI",
+    "PINL",
+    "PINX",
+    "PSGM"
+  ],
+  "OQB": [
+    "OTCB",
+    "CAVE",
+    "EXPM",
+    "OTCD",
+    "OTCQ",
+    "PINI",
+    "PINL",
+    "PINX",
+    "PSGM"
+  ],
+  "OQX": [
+    "OTCM",
+    "CAVE",
+    "EXPM",
+    "OTCB",
+    "OTCD",
+    "OTCQ",
+    "PINI",
+    "PINL",
+    "PINX",
+    "PSGM"
+  ],
+  "OSA": [
+    "XOSE",
+    "XOSJ",
+    "XTAM",
+    "XTK1",
+    "XTK2",
+    "XTK3",
+    "XTKS",
+    "XTKT"
+  ],
+  "OSL": [
+    "XOSL",
+    "DOSL",
+    "MERD",
+    "MERK",
+    "NIBR",
+    "XOAA",
+    "XOAD",
+    "XOAM",
+    "XOAS",
+    "XOBD",
+    "XOSA",
+    "XOSC",
+    "XOSD"
+  ],
+  "PAR": [
+    "XPAR",
+    "ALXP",
+    "DPAR",
+    "MTCH",
+    "XAPA",
+    "XBLK",
+    "XETF",
+    "XMAT",
+    "XMLI",
+    "XMON",
+    "XPMC",
+    "XSPM"
+  ],
+  "PCX": [
+    "ARCX",
+    "AMXO",
+    "ARCD",
+    "ARCO",
+    "CISD",
+    "NYSD",
+    "XASE",
+    "XCHI",
+    "XCIS"
+  ],
+  "PHS": [
+    "XPHS"
+  ],
+  "PNK": [
+    "OTCM",
+    "CAVE",
+    "EXPM",
+    "OTCB",
+    "OTCD",
+    "OTCQ",
+    "PINI",
+    "PINL",
+    "PINX",
+    "PSGM"
+  ],
+  "PRA": [
+    "XPRA",
+    "XPRM"
+  ],
+  "RIS": [
+    "XRIS",
+    "FNLV"
+  ],
+  "SAO": [
+    "BVMF",
+    "CETI"
+  ],
+  "SAP": [
+    "XSAP"
+  ],
+  "SAU": [
+    "XSAU"
+  ],
+  "SES": [
+    "XSES",
+    "XSBT",
+    "XSCA",
+    "XSCE",
+    "XSIM"
+  ],
+  "SET": [
+    "XBKK",
+    "XBKF",
+    "XMAI"
+  ],
+  "SGO": [
+    "XSGO"
+  ],
+  "SGX": [
+    "XSIM",
+    "XSBT",
+    "XSCA",
+    "XSCE"
+  ],
+  "SHH": [
+    "XSHG",
+    "XSSC"
+  ],
+  "SHZ": [
+    "XSHE",
+    "XSEC"
+  ],
+  "SNP": [
+    "XNYS",
+    "AMXO",
+    "ARCD",
+    "ARCO",
+    "ARCX",
+    "CISD",
+    "NYSD",
+    "XASE",
+    "XCHI",
+    "XCIS"
+  ],
+  "STO": [
+    "XSTO",
+    "CSTO",
+    "DKED",
+    "DKFI",
+    "DKOB",
+    "DKWB",
+    "DNSE",
+    "DOSE",
+    "DSTO",
+    "EBON",
+    "ESTO",
+    "EUOB",
+    "EUWB",
+    "FIED",
+    "FNSE",
+    "GBOB",
+    "GBWB",
+    "MNSE",
+    "MOSE",
+    "MSTO",
+    "NOED",
+    "NOFI",
+    "NOOB",
+    "NOWB",
+    "ONSE",
+    "PFSE",
+    "PSTO",
+    "SEED",
+    "SEOB",
+    "SEWB",
+    "SSME",
+    "USOB",
+    "USWB"
+  ],
+  "STU": [
+    "XSTU",
+    "EUWX",
+    "STUA",
+    "STUB",
+    "STUC",
+    "STUD",
+    "STUE",
+    "STUF",
+    "STUH",
+    "XCTS",
+    "XDEX",
+    "XSTF",
+    "XSTP"
+  ],
+  "TAI": [
+    "XTAI"
+  ],
+  "TAL": [
+    "XTAL",
+    "FNEE"
+  ],
+  "TLO": [
+    "ETLX",
+    "ATFX",
+    "BGEM",
+    "DMIL",
+    "ETFP",
+    "EXGM",
+    "MIVX",
+    "MOTX",
+    "MTAA",
+    "MTAH",
+    "SEDX",
+    "XDMI",
+    "XMOT"
+  ],
+  "TLV": [
+    "XTAE"
+  ],
+  "TOR": [
+    "XTSE",
+    "XDRK"
+  ],
+  "TSI": [
+    "XTSE",
+    "XDRK"
+  ],
+  "TWO": [
+    "ROCO"
+  ],
+  "VAN": [
+    "XTSX",
+    "VDRK",
+    "XTNX"
+  ],
+  "VIE": [
+    "WBAH",
+    "EXAA",
+    "WBDM",
+    "WBMA",
+    "XVIE"
+  ],
+  "VSE": [
+    "XSTC"
+  ],
+  "WCB": [
+    "CBSX",
+    "BATO",
+    "BATS",
+    "BATY",
+    "BYXD",
+    "BZXD",
+    "C2OX",
+    "EDDP",
+    "EDGA",
+    "EDGD",
+    "EDGO",
+    "EDGX",
+    "XCBD",
+    "XCBF"
+  ],
+  "WSE": [
+    "XWAR",
+    "BOSP",
+    "PLPD",
+    "PLPO",
+    "PLPS",
+    "RPWC",
+    "TBSA",
+    "TBSP",
+    "WBCL",
+    "WBON",
+    "WDER",
+    "WETP",
+    "WIND",
+    "WIPO",
+    "WMTF",
+    "XGLO",
+    "XNCO"
+  ],
+  "YHD": [
+    "XNYS",
+    "AMXO",
+    "ARCD",
+    "ARCO",
+    "ARCX",
+    "CISD",
+    "NYSD",
+    "XASE",
+    "XCHI",
+    "XCIS"
+  ],
+  "ZRH": [
+    "XVTX"
+  ]
+}

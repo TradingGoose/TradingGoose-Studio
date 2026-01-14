@@ -675,6 +675,9 @@ function resolveSubblockOptions(
   sb: any
 ): { id: string; label?: string; hasIcon?: boolean }[] | undefined {
   try {
+    // Skip async options
+    if (sb.fetchOptions) return undefined
+
     // Resolve options if it's a function
     const rawOptions = typeof sb.options === 'function' ? sb.options() : sb.options
     if (!Array.isArray(rawOptions)) return undefined

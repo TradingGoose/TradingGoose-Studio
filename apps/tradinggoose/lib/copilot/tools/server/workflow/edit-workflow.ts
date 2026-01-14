@@ -7,6 +7,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getBlockOutputs } from '@/lib/workflows/block-outputs'
 import { extractAndPersistCustomTools } from '@/lib/workflows/custom-tools-persistence'
 import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
+import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
 import { validateWorkflowState } from '@/lib/workflows/validation'
 import { getAllBlocks } from '@/blocks/registry'
 import { resolveOutputType } from '@/blocks/utils'
@@ -296,19 +297,70 @@ function addConnectionsAsEdges(
   blockId: string,
   connections: Record<string, any>
 ): void {
-  Object.entries(connections).forEach(([sourceHandle, targets]) => {
+  const logger = createLogger('EditWorkflowServerTool')
+  const normalizedConnections = normalizeConnections(connections)
+  const hasNode = (nodeId: string) =>
+    !!nodeId &&
+    typeof nodeId === 'string' &&
+    (modifiedState.blocks?.[nodeId] ||
+      modifiedState.loops?.[nodeId] ||
+      modifiedState.parallels?.[nodeId])
+
+  Object.entries(normalizedConnections).forEach(([sourceHandle, targets]) => {
     const targetArray = Array.isArray(targets) ? targets : [targets]
-    targetArray.forEach((targetId: string) => {
+    targetArray.forEach((target: any) => {
+      let targetId: string | undefined
+      let targetHandle = 'target'
+
+      if (typeof target === 'string') {
+        targetId = target
+      } else if (target && typeof target === 'object') {
+        if (typeof target.block === 'string') {
+          targetId = target.block
+        } else if (typeof target.blockId === 'string') {
+          targetId = target.blockId
+        } else if (typeof target.id === 'string') {
+          targetId = target.id
+        }
+        if (typeof target.handle === 'string' && target.handle.length > 0) {
+          targetHandle = target.handle
+        }
+      }
+
+      if (!targetId || !hasNode(targetId)) {
+        logger.debug('Skipping invalid connection target', {
+          blockId,
+          sourceHandle,
+          targetId,
+        })
+        return
+      }
+
       modifiedState.edges.push({
         id: crypto.randomUUID(),
         source: blockId,
         sourceHandle,
         target: targetId,
-        targetHandle: 'target',
+        targetHandle,
         type: 'default',
       })
     })
   })
+}
+
+function normalizeConnections(connections: Record<string, any>): Record<string, any> {
+  const normalized: Record<string, any> = {}
+  Object.entries(connections).forEach(([connectionType, targets]) => {
+    if (targets === null || targets === undefined) return
+
+    // Map semantic connection names to actual React Flow handle IDs
+    // 'success' in YAML/connections maps to 'source' handle in React Flow
+    const actualSourceHandle =
+      connectionType === 'success' ? 'source' : connectionType === 'error' ? 'error' : connectionType
+
+    normalized[actualSourceHandle] = targets
+  })
+  return normalized
 }
 
 /**
@@ -502,7 +554,11 @@ function applyOperationsToWorkflowState(
 
               // Add connections for child block
               if (childBlock.connections) {
-                addConnectionsAsEdges(modifiedState, childId, childBlock.connections)
+                addConnectionsAsEdges(
+                  modifiedState,
+                  childId,
+                  normalizeConnections(childBlock.connections)
+                )
               }
             })
 
@@ -528,46 +584,7 @@ function applyOperationsToWorkflowState(
               (edge: any) => edge.source !== block_id
             )
 
-            // Add new edges based on connections
-            Object.entries(params.connections).forEach(([connectionType, targets]) => {
-              if (targets === null) return
-
-              // Map semantic connection names to actual React Flow handle IDs
-              // 'success' in YAML/connections maps to 'source' handle in React Flow
-              const mapConnectionTypeToHandle = (type: string): string => {
-                if (type === 'success') return 'source'
-                if (type === 'error') return 'error'
-                // Conditions and other types pass through as-is
-                return type
-              }
-
-              const actualSourceHandle = mapConnectionTypeToHandle(connectionType)
-
-              const addEdge = (targetBlock: string, targetHandle?: string) => {
-                modifiedState.edges.push({
-                  id: crypto.randomUUID(),
-                  source: block_id,
-                  sourceHandle: actualSourceHandle,
-                  target: targetBlock,
-                  targetHandle: targetHandle || 'target',
-                  type: 'default',
-                })
-              }
-
-              if (typeof targets === 'string') {
-                addEdge(targets)
-              } else if (Array.isArray(targets)) {
-                targets.forEach((target: any) => {
-                  if (typeof target === 'string') {
-                    addEdge(target)
-                  } else if (target?.block) {
-                    addEdge(target.block, target.handle)
-                  }
-                })
-              } else if (typeof targets === 'object' && (targets as any)?.block) {
-                addEdge((targets as any).block, (targets as any).handle)
-              }
-            })
+            addConnectionsAsEdges(modifiedState, block_id, normalizeConnections(params.connections))
           }
 
           // Handle edge removal
@@ -622,14 +639,18 @@ function applyOperationsToWorkflowState(
               modifiedState.blocks[childId] = childBlockState
 
               if (childBlock.connections) {
-                addConnectionsAsEdges(modifiedState, childId, childBlock.connections)
+                addConnectionsAsEdges(
+                  modifiedState,
+                  childId,
+                  normalizeConnections(childBlock.connections)
+                )
               }
             })
           }
 
           // Add connections as edges
           if (params.connections) {
-            addConnectionsAsEdges(modifiedState, block_id, params.connections)
+            addConnectionsAsEdges(modifiedState, block_id, normalizeConnections(params.connections))
           }
         }
         break
@@ -722,7 +743,7 @@ function applyOperationsToWorkflowState(
           modifiedState.edges = modifiedState.edges.filter((edge: any) => edge.source !== block_id)
 
           // Add new connections
-          addConnectionsAsEdges(modifiedState, block_id, params.connections)
+          addConnectionsAsEdges(modifiedState, block_id, normalizeConnections(params.connections))
         }
         break
       }
@@ -765,6 +786,28 @@ function applyOperationsToWorkflowState(
   // Regenerate loops and parallels after modifications
   modifiedState.loops = generateLoopBlocks(modifiedState.blocks)
   modifiedState.parallels = generateParallelBlocks(modifiedState.blocks)
+
+  // Drop edges that reference missing nodes (prevents validation failures on stale edges)
+  try {
+    const validIds = new Set<string>([
+      ...Object.keys(modifiedState.blocks || {}),
+      ...Object.keys(modifiedState.loops || {}),
+      ...Object.keys(modifiedState.parallels || {}),
+    ])
+    const beforeCount = Array.isArray(modifiedState.edges) ? modifiedState.edges.length : 0
+    modifiedState.edges = (modifiedState.edges || []).filter((edge: any) => {
+      if (!edge || typeof edge !== 'object') return false
+      if (typeof edge.source !== 'string' || typeof edge.target !== 'string') return false
+      if (!validIds.has(edge.source) || !validIds.has(edge.target)) return false
+      return true
+    })
+    const afterCount = modifiedState.edges.length
+    if (afterCount !== beforeCount) {
+      logger.info('Removed invalid edges after applying operations', {
+        removed: beforeCount - afterCount,
+      })
+    }
+  } catch {}
 
   // Validate all blocks have types before returning
   const blocksWithoutType = Object.entries(modifiedState.blocks)
@@ -926,10 +969,24 @@ export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
       validationWarnings: validation.warnings.length,
     })
 
+    const finalWorkflowState = validation.sanitizedState || modifiedWorkflowState
+
+    let userWorkflow: string | undefined
+    try {
+      userWorkflow = JSON.stringify(sanitizeForCopilot(finalWorkflowState), null, 2)
+    } catch {
+      userWorkflow = undefined
+    }
+
     // Return the modified workflow state for the client to convert to YAML if needed
     return {
       success: true,
-      workflowState: validation.sanitizedState || modifiedWorkflowState,
+      workflowState: finalWorkflowState,
+      ...(userWorkflow ? { userWorkflow, yamlContent: userWorkflow } : {}),
+      data: {
+        blocksCount: Object.keys(finalWorkflowState.blocks || {}).length,
+        edgesCount: Array.isArray(finalWorkflowState.edges) ? finalWorkflowState.edges.length : 0,
+      },
     }
   },
 }

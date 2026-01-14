@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
-import { simAgentClient } from '@/lib/sim-agent/client'
+import { simAgentClient } from '@/lib/copilot/agent/client'
 import { generateRequestId } from '@/lib/utils'
 import { getAllBlocks } from '@/blocks/registry'
 import type { BlockConfig } from '@/blocks/types'
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Gather block registry and utilities for sim-agent
+    // Gather block registry and utilities for copilot
     const blocks = getAllBlocks()
     const blockRegistry = blocks.reduce(
       (acc, block) => {
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
       {} as Record<string, BlockConfig>
     )
 
-    // Call sim-agent directly
+    // Call copilot directly
     const result = await simAgentClient.makeRequest('/api/workflow/to-yaml', {
       body: {
         workflowState,

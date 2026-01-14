@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { Body, Container, Head, Html, Link, Preview, Section, Text } from '@react-email/components'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { createLogger } from '@/lib/logs/console/logger'

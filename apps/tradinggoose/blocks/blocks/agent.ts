@@ -12,7 +12,7 @@ import {
   MODELS_WITH_VERBOSITY,
   providers,
   supportsTemperature,
-} from '@/providers/utils'
+} from '@/providers/ai/utils'
 
 const getCurrentOllamaModels = () => {
   return useProvidersStore.getState().providers.ollama.models
@@ -22,6 +22,14 @@ import { useProvidersStore } from '@/stores/providers/store'
 import type { ToolResponse } from '@/tools/types'
 
 const logger = createLogger('AgentBlock')
+
+const getAvailableModels = () => {
+  const providersState = useProvidersStore.getState()
+  const baseModels = providersState.providers.base.models
+  const ollamaModels = providersState.providers.ollama.models
+  const openrouterModels = providersState.providers.openrouter.models
+  return Array.from(new Set([...baseModels, ...ollamaModels, ...openrouterModels]))
+}
 
 interface AgentResponse extends ToolResponse {
   output: {
@@ -161,12 +169,13 @@ Create a system prompt appropriately detailed for the request, using clear langu
       layout: 'half',
       placeholder: 'Type or select a model...',
       required: true,
+      value: () => {
+        const allModels = getAvailableModels()
+        if (allModels.includes('gpt-4o')) return 'gpt-4o'
+        return allModels[0]
+      },
       options: () => {
-        const providersState = useProvidersStore.getState()
-        const baseModels = providersState.providers.base.models
-        const ollamaModels = providersState.providers.ollama.models
-        const openrouterModels = providersState.providers.openrouter.models
-        const allModels = Array.from(new Set([...baseModels, ...ollamaModels, ...openrouterModels]))
+        const allModels = getAvailableModels()
 
         return allModels.map((model) => {
           const icon = getProviderIcon(model)

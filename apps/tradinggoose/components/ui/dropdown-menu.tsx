@@ -96,6 +96,8 @@ const DropdownMenuContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content> & {
     align?: AutoAlignValue
     side?: AutoSideValue
+    portalled?: boolean
+    portalContainer?: HTMLElement | null
   }
 >(
   (
@@ -106,6 +108,8 @@ const DropdownMenuContent = React.forwardRef<
       sticky = 'always',
       align = 'auto',
       side = 'auto',
+      portalled = true,
+      portalContainer,
       ...props
     },
     ref
@@ -116,23 +120,27 @@ const DropdownMenuContent = React.forwardRef<
     const contentAlign: AlignValue | undefined =
       resolvedAlign === 'center' ? undefined : resolvedAlign
 
-    return (
-      <DropdownMenuPrimitive.Portal>
-        <DropdownMenuPrimitive.Content
-          ref={ref}
-          sideOffset={sideOffset}
-          avoidCollisions={avoidCollisions}
-          sticky={sticky as any}
-          align={contentAlign}
-          side={resolvedSide}
-          className={cn(
-            'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md data-[state=closed]:animate-out data-[state=open]:animate-in',
-            className
-          )}
-          {...props}
-        />
-      </DropdownMenuPrimitive.Portal>
+    const content = (
+      <DropdownMenuPrimitive.Content
+        ref={ref}
+        sideOffset={sideOffset}
+        avoidCollisions={avoidCollisions}
+        sticky={sticky as any}
+        align={contentAlign}
+        side={resolvedSide}
+        className={cn(
+          'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md data-[state=closed]:animate-out data-[state=open]:animate-in',
+          className
+        )}
+        {...props}
+      />
     )
+
+    if (!portalled) {
+      return content
+    }
+
+    return <DropdownMenuPrimitive.Portal container={portalContainer}>{content}</DropdownMenuPrimitive.Portal>
   }
 )
 DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName
@@ -342,7 +350,7 @@ function assignRef<T>(ref: React.Ref<T> | undefined, value: T | null) {
   if (typeof ref === 'function') {
     ref(value)
   } else {
-    ;(ref as React.MutableRefObject<T | null>).current = value
+    ; (ref as React.MutableRefObject<T | null>).current = value
   }
 }
 

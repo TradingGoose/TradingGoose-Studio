@@ -90,8 +90,8 @@ interface UserInputProps {
   isAborting?: boolean
   placeholder?: string
   className?: string
-  mode?: 'ask' | 'agent'
-  onModeChange?: (mode: 'ask' | 'agent') => void
+  mode?: 'ask' | 'build'
+  onModeChange?: (mode: 'ask' | 'build') => void
   value?: string // Controlled value from outside
   onChange?: (value: string) => void // Callback when value changes
   panelWidth?: number // Panel width to adjust truncation
@@ -113,7 +113,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       isAborting = false,
       placeholder,
       className,
-      mode = 'agent',
+      mode = 'build',
       onModeChange,
       value: controlledValue,
       onChange: onControlledChange,
@@ -1721,8 +1721,8 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
 
     const handleModeToggle = () => {
       if (onModeChange) {
-        // Toggle between Ask and Agent
-        onModeChange(mode === 'ask' ? 'agent' : 'ask')
+        // Toggle between Ask and Build modes
+        onModeChange(mode === 'ask' ? 'build' : 'ask')
       }
     }
 
@@ -1737,7 +1737,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       if (mode === 'ask') {
         return 'Ask'
       }
-      return 'Agent'
+      return 'Build'
     }
 
     // Model selection state comes from global store; access via useCopilotStore
@@ -1783,7 +1783,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       // Haiku shows purple when selected, other zap models don't
       const colorClass =
         (isBrainModel || isBrainCircuitModel || isHaikuModel) && !agentPrefetch
-          ? 'text-[var(--primary-hover)]'
+          ? 'text-primary-hover'
           : 'text-muted-foreground'
 
       // Match the dropdown icon logic exactly
@@ -2075,22 +2075,24 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
           maxMenuHeight
         )
 
-        // Determine menu width based on submenu state
-        const menuWidth =
+        // Determine menu width based on submenu state (clamped to container width)
+        const preferredMenuWidth =
           openSubmenuFor === 'Blocks'
             ? 320
             : openSubmenuFor === 'Templates' || openSubmenuFor === 'Logs' || aggregatedActive
               ? 384
               : 224
+        const menuWidth = Math.min(preferredMenuWidth, rect.width)
 
-        // Calculate left position: use caret position but ensure menu doesn't go off-screen
+        // Calculate left position and clamp to the input container
         const idealLeft = rect.left + caretLeftOffset
-        const maxLeft = window.innerWidth - menuWidth - margin
-        const finalLeft = Math.min(idealLeft, maxLeft)
+        const minLeft = rect.left
+        const maxLeft = rect.right - menuWidth
+        const finalLeft = Math.min(Math.max(idealLeft, minLeft), maxLeft)
 
         setMentionPortalStyle({
           top: showBelow ? rect.bottom + 4 : rect.top - 4,
-          left: Math.max(rect.left, finalLeft), // Don't go past left edge of container
+          left: finalLeft,
           width: menuWidth,
           maxHeight: maxHeight,
           showBelow,
@@ -2134,7 +2136,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
           className={cn(
             'relative rounded-md border border-input bg-background p-2 shadow-xs transition-all duration-200 ',
             isDragging &&
-            'border-[var(--primary-hover)] bg-yellow-50/50 dark:border-[var(--primary-hover)] dark:bg-yellow-950/20'
+            'border-primary-hover bg-yellow-50/50 dark:border-primary-hover dark:bg-yellow-950/20'
           )}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
@@ -2219,7 +2221,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                 .map((ctx, idx) => (
                   <span
                     key={`selctx-${idx}-${ctx.label}`}
-                    className='inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--primary-hover)_14%,transparent)] px-1.5 py-0.5 text-[11px] text-foreground'
+                    className='inline-flex items-center gap-1 rounded-full bg-primary-hover/20 px-1.5 py-0.5 text-[11px] text-foreground'
                     title={ctx.label}
                   >
                     {ctx.kind === 'past_chat' ? (
@@ -2352,7 +2354,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                 >
                   <div
                     ref={mentionMenuRef}
-                    className='flex flex-col overflow-hidden rounded-sm border bg-background p-1 text-foreground shadow-md'
+                    className='flex flex-col overflow-hidden rounded-sm border bg-popover p-1 text-foreground shadow-md'
                     style={{
                       maxHeight: mentionPortalStyle.maxHeight,
                       height: '100%',
@@ -3227,7 +3229,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
 
           {/* Bottom Row: Mode Selector + Attach Button + Send Button */}
           <div className='flex items-center justify-between'>
-            {/* Left side: Mode Selector and Depth (if Agent) */}
+            {/* Left side: Mode Selector and Depth (if Build) */}
             <div className='flex items-center gap-1.5'>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -3277,17 +3279,17 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <DropdownMenuItem
-                            onSelect={() => onModeChange?.('agent')}
+                            onSelect={() => onModeChange?.('build')}
                             className={cn(
                               'flex items-center justify-between rounded-sm px-2 py-1.5 text-xs leading-4',
-                              mode === 'agent' && 'bg-muted/40'
+                              mode === 'build' && 'bg-muted/40'
                             )}
                           >
                             <span className='flex items-center gap-1.5'>
                               <Package className='h-3 w-3 text-muted-foreground' />
-                              Agent
+                              Build
                             </span>
-                            {mode === 'agent' && (
+                            {mode === 'build' && (
                               <Check className='h-3 w-3 text-muted-foreground' />
                             )}
                           </DropdownMenuItem>
@@ -3298,7 +3300,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                           align='center'
                           className='max-w-[220px] border bg-popover p-2 text-[11px] text-popover-foreground leading-snug shadow-md'
                         >
-                          Agent mode can build, edit, and interact with your workflows (Recommended)
+                          Build mode can build, edit, and interact with your workflows (Recommended)
                         </TooltipContent>
                       </Tooltip>
                     </div>
@@ -3334,7 +3336,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                         className={cn(
                           'flex h-6 items-center gap-1.5 rounded-sm border px-2 py-1 font-medium text-xs focus-visible:ring-0 focus-visible:ring-offset-0',
                           showPurple
-                            ? 'border-[var(--primary-hover)] text-[var(--primary-hover)] hover:bg-[color-mix(in_srgb,var(--primary-hover)_8%,transparent)] hover:text-[var(--primary-hover)]'
+                            ? 'border-primary-hover text-primary-hover hover:bg-primary-hover/10 hover:text-primary hover:border-primary'
                             : 'border-border text-foreground'
                         )}
                         title='Choose mode'
@@ -3350,7 +3352,6 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
-                      align='start'
                       side={isNearTop ? 'bottom' : 'top'}
                       className='max-h-[400px] p-0'
                     >

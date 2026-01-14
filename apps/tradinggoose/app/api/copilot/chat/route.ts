@@ -15,14 +15,13 @@ import { getCopilotModel } from '@/lib/copilot/config'
 import type { CopilotProviderConfig } from '@/lib/copilot/types'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
-import { COPILOT_API_URL_DEFAULT, COPILOT_VERSION } from '@/lib/sim-agent/constants'
-import { generateChatTitle } from '@/lib/sim-agent/utils'
+import { COPILOT_API_VERSION } from '@/lib/copilot/agent/constants'
+import { proxyCopilotRequest } from '@/app/api/copilot/proxy'
+import { requestCopilotTitle } from '@/lib/copilot/agent/utils'
 import { CopilotFiles } from '@/lib/uploads'
 import { createFileContent } from '@/lib/uploads/utils/file-utils'
 
 const logger = createLogger('CopilotChatAPI')
-
-const COPILOT_API_URL = env.COPILOT_API_URL || COPILOT_API_URL_DEFAULT
 
 const FileAttachmentSchema = z.object({
   id: z.string(),
@@ -53,7 +52,7 @@ const ChatMessageSchema = z.object({
     ])
     .optional()
     .default('claude-4.5-sonnet'),
-  mode: z.enum(['ask', 'agent']).optional().default('agent'),
+  mode: z.enum(['ask', 'build']).optional().default('build'),
   prefetch: z.boolean().optional(),
   createNewChat: z.boolean().optional().default(false),
   stream: z.boolean().optional().default(true),
@@ -315,7 +314,7 @@ export async function POST(req: NextRequest) {
       model: model,
       mode: mode,
       messageId: userMessageIdToUse,
-      version: COPILOT_VERSION,
+      version: COPILOT_API_VERSION,
       ...(providerConfig ? { provider: providerConfig } : {}),
       ...(effectiveConversationId ? { conversationId: effectiveConversationId } : {}),
       ...(typeof prefetch === 'boolean' ? { prefetch: prefetch } : {}),
@@ -335,13 +334,9 @@ export async function POST(req: NextRequest) {
       })
     } catch { }
 
-    const simAgentResponse = await fetch(`${COPILOT_API_URL}/api/chat-completion-streaming`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(env.COPILOT_API_KEY ? { 'x-api-key': env.COPILOT_API_KEY } : {}),
-      },
-      body: JSON.stringify(requestPayload),
+    const simAgentResponse = await proxyCopilotRequest({
+      endpoint: '/api/chat-completion-streaming',
+      body: requestPayload,
     })
 
     if (!simAgentResponse.ok) {
@@ -351,13 +346,13 @@ export async function POST(req: NextRequest) {
       }
 
       const errorText = await simAgentResponse.text().catch(() => '')
-      logger.error(`[${tracker.requestId}] Sim agent API error:`, {
+      logger.error(`[${tracker.requestId}] TradingGoose Copilot API error:`, {
         status: simAgentResponse.status,
         error: errorText,
       })
 
       return NextResponse.json(
-        { error: `Sim agent API error: ${simAgentResponse.statusText}` },
+        { error: `TradingGoose Copilot API error: ${simAgentResponse.statusText}` },
         { status: simAgentResponse.status }
       )
     }
@@ -394,6 +389,9 @@ export async function POST(req: NextRequest) {
           const completedToolExecutionIds = new Set<string>()
           let lastDoneResponseId: string | undefined
           let lastSafeDoneResponseId: string | undefined
+          const shouldGenerateTitle =
+            actualChatId && !currentChat?.title && conversationHistory.length === 0
+          let titleRequested = false
 
           // Send chatId as first event
           if (actualChatId) {
@@ -403,34 +401,6 @@ export async function POST(req: NextRequest) {
             })}\n\n`
             controller.enqueue(encoder.encode(chatIdEvent))
             logger.debug(`[${tracker.requestId}] Sent initial chatId event to client`)
-          }
-
-          // Start title generation in parallel if needed
-          if (actualChatId && !currentChat?.title && conversationHistory.length === 0) {
-            generateChatTitle(message)
-              .then(async (title) => {
-                if (title) {
-                  await db
-                    .update(copilotChats)
-                    .set({
-                      title,
-                      updatedAt: new Date(),
-                    })
-                    .where(eq(copilotChats.id, actualChatId!))
-
-                  const titleEvent = `data: ${JSON.stringify({
-                    type: 'title_updated',
-                    title: title,
-                  })}\n\n`
-                  controller.enqueue(encoder.encode(titleEvent))
-                  logger.info(`[${tracker.requestId}] Generated and saved title: ${title}`)
-                }
-              })
-              .catch((error) => {
-                logger.error(`[${tracker.requestId}] Title generation failed:`, error)
-              })
-          } else {
-            logger.debug(`[${tracker.requestId}] Skipping title generation`)
           }
 
           // Forward the sim agent stream and capture assistant response
@@ -519,6 +489,45 @@ export async function POST(req: NextRequest) {
                       case 'start':
                         if (event.data?.responseId) {
                           responseIdFromStart = event.data.responseId
+                        }
+                        if (
+                          shouldGenerateTitle &&
+                          !titleRequested &&
+                          typeof event.data?.conversationId === 'string' &&
+                          event.data.conversationId.length > 0
+                        ) {
+                          titleRequested = true
+                          requestCopilotTitle({
+                            message,
+                            workflowId,
+                            userId: authenticatedUserId,
+                            conversationId: event.data.conversationId,
+                            model,
+                            provider: providerConfig,
+                          })
+                            .then(async (title) => {
+                              if (title) {
+                                await db
+                                  .update(copilotChats)
+                                  .set({
+                                    title,
+                                    updatedAt: new Date(),
+                                  })
+                                  .where(eq(copilotChats.id, actualChatId!))
+
+                                const titleEvent = `data: ${JSON.stringify({
+                                  type: 'title_updated',
+                                  title: title,
+                                })}\n\n`
+                                controller.enqueue(encoder.encode(titleEvent))
+                                logger.info(
+                                  `[${tracker.requestId}] Generated and saved title: ${title}`
+                                )
+                              }
+                            })
+                            .catch((error) => {
+                              logger.error(`[${tracker.requestId}] Title generation failed:`, error)
+                            })
                         }
                         break
 
@@ -790,7 +799,14 @@ export async function POST(req: NextRequest) {
       // Start title generation in parallel if this is first message (non-streaming)
       if (actualChatId && !currentChat.title && conversationHistory.length === 0) {
         logger.info(`[${tracker.requestId}] Starting title generation for non-streaming response`)
-        generateChatTitle(message)
+        requestCopilotTitle({
+          message,
+          workflowId,
+          userId: authenticatedUserId,
+          conversationId: responseData.conversationId,
+          model,
+          provider: providerConfig,
+        })
           .then(async (title) => {
             if (title) {
               await db

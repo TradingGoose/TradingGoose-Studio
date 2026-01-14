@@ -7,7 +7,7 @@ import { estimateTokenCount } from '@/lib/tokenization/estimators'
 import { generateRequestId } from '@/lib/utils'
 import { getUserId } from '@/app/api/auth/oauth/utils'
 import { checkKnowledgeBaseAccess } from '@/app/api/knowledge/utils'
-import { calculateCost } from '@/providers/utils'
+import { calculateCost } from '@/providers/ai/utils'
 import {
   generateSearchEmbedding,
   getDocumentNamesByIds,

@@ -546,7 +546,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
                       <div className='flex h-full items-center justify-center p-4'>
                         <CopilotWelcome
                           onQuestionClick={handleSubmit}
-                          mode={mode === 'ask' ? 'ask' : 'agent'}
+                          mode={mode === 'ask' ? 'ask' : 'build'}
                         />
                       </div>
                     ) : (

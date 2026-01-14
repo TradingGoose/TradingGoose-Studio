@@ -301,7 +301,7 @@ export default function TermsOfService() {
             timely written notice of your decision to opt out to:{' '}
             <Link
               href='mailto:legal@sim.ai'
-              className='text-primary underline hover:text-[var(--primary-hover)]'
+              className='text-primary underline hover:text-primary-hover'
             >
               legal@sim.ai{' '}
             </Link>
@@ -351,7 +351,7 @@ export default function TermsOfService() {
             Our Copyright Agent can be reached at:{' '}
             <Link
               href='mailto:copyright@sim.ai'
-              className='text-primary underline hover:text-[var(--primary-hover)]'
+              className='text-primary underline hover:text-primary-hover'
             >
               copyright@sim.ai
             </Link>
@@ -364,7 +364,7 @@ export default function TermsOfService() {
             If you have any questions about these Terms, please contact us at:{' '}
             <Link
               href='mailto:legal@sim.ai'
-              className='text-primary underline hover:text-[var(--primary-hover)]'
+              className='text-primary underline hover:text-primary-hover'
             >
               legal@sim.ai
             </Link>

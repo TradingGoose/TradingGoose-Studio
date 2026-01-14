@@ -5,7 +5,12 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
-import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
+import {
+  ensureUniqueBlockIds,
+  loadWorkflowFromNormalizedTables,
+  saveWorkflowToNormalizedTables,
+} from '@/lib/workflows/db-helpers'
+import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('SocketDatabase')
 
@@ -26,6 +31,25 @@ const db = socketDb
 
 // Constants
 const DEFAULT_LOOP_ITERATIONS = 5
+
+const sanitizeNumberForDecimal = (value: unknown, fallback = '0'): string => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value.toString()
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (trimmed.length === 0) return fallback
+    const parsed = Number(trimmed)
+    if (Number.isFinite(parsed)) return trimmed
+  }
+  return fallback
+}
+
+const normalizeString = (value: unknown): string | null => {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
 
 /**
  * Shared function to handle auto-connect edge insertion
@@ -110,6 +134,182 @@ export async function updateSubflowNodeList(dbOrTx: any, workflowId: string, par
   }
 }
 
+// Workflow operations - handles complete state replacement
+async function handleWorkflowOperationTx(
+  tx: any,
+  workflowId: string,
+  operation: string,
+  payload: any
+) {
+  switch (operation) {
+    case 'replace-state': {
+      if (!payload.state) {
+        throw new Error('Missing state for replace-state operation')
+      }
+
+      const normalizedState = await ensureUniqueBlockIds(workflowId, payload.state)
+      if (normalizedState !== payload.state) {
+        payload.state = normalizedState
+        logger.warn(`Adjusted workflow state to avoid duplicate block ids for ${workflowId}`)
+      }
+
+      const { blocks, edges, loops, parallels } = normalizedState
+
+      logger.info(`Replacing workflow state for ${workflowId}`, {
+        blockCount: Object.keys(blocks || {}).length,
+        edgeCount: (edges || []).length,
+        loopCount: Object.keys(loops || {}).length,
+        parallelCount: Object.keys(parallels || {}).length,
+      })
+
+      // Delete all existing blocks (this will cascade delete edges via ON DELETE CASCADE)
+      await tx.delete(workflowBlocks).where(eq(workflowBlocks.workflowId, workflowId))
+
+      // Delete all existing subflows
+      await tx.delete(workflowSubflows).where(eq(workflowSubflows.workflowId, workflowId))
+
+      // Insert all blocks from the new state
+      const blockValues =
+        blocks && Object.keys(blocks).length > 0
+          ? Object.entries(blocks).reduce<Array<typeof workflowBlocks.$inferInsert>>(
+            (acc, [blockKey, block]: [string, any]) => {
+              if (!block || typeof block !== 'object') {
+                logger.warn(`Skipping invalid block when replacing workflow ${workflowId}`)
+                return acc
+              }
+
+              const normalizedKey = normalizeString(blockKey)
+              const normalizedId = normalizeString(block.id)
+              const blockId = normalizedKey ?? normalizedId
+              if (!blockId) {
+                logger.warn(`Skipping block without id when replacing workflow ${workflowId}`)
+                return acc
+              }
+
+              if (normalizedId && normalizedKey && normalizedId !== normalizedKey) {
+                logger.warn(
+                  `Block id mismatch detected for workflow ${workflowId}: key=${normalizedKey}, id=${normalizedId}. Using key.`
+                )
+              }
+
+              const blockType = normalizeString(block.type)
+              if (!blockType) {
+                logger.warn(`Skipping block ${blockId} without type when replacing workflow ${workflowId}`)
+                return acc
+              }
+
+              const blockName = normalizeString(block.name) ?? blockType
+
+              acc.push({
+                id: blockId,
+                workflowId,
+                type: blockType,
+                name: blockName,
+                positionX: sanitizeNumberForDecimal(block.position?.x),
+                positionY: sanitizeNumberForDecimal(block.position?.y),
+                data: block.data ?? {},
+                subBlocks: block.subBlocks ?? {},
+                outputs: block.outputs ?? {},
+                enabled: block.enabled ?? true,
+                horizontalHandles: block.horizontalHandles ?? true,
+                isWide: block.isWide ?? false,
+                advancedMode: block.advancedMode ?? false,
+                triggerMode: block.triggerMode ?? false,
+                height: sanitizeNumberForDecimal(block.height ?? 0),
+              })
+
+              return acc
+            },
+            []
+          )
+          : []
+
+      if (blockValues.length > 0) {
+        await tx.insert(workflowBlocks).values(blockValues)
+      }
+
+      const validBlockIds = new Set(blockValues.map((block) => block.id))
+
+      // Insert all edges from the new state
+      if (edges && edges.length > 0) {
+        const edgeValues = edges.reduce<Array<typeof workflowEdges.$inferInsert>>(
+          (acc, edge: any) => {
+            if (!edge || typeof edge !== 'object') {
+              logger.warn(`Skipping invalid edge when replacing workflow ${workflowId}`)
+              return acc
+            }
+
+            const edgeId = normalizeString(edge.id)
+            const sourceId = normalizeString(edge.source)
+            const targetId = normalizeString(edge.target)
+
+            if (!edgeId || !sourceId || !targetId) {
+              logger.warn(`Skipping edge with missing identifiers when replacing workflow ${workflowId}`)
+              return acc
+            }
+
+            if (!validBlockIds.has(sourceId) || !validBlockIds.has(targetId)) {
+              logger.warn(
+                `Skipping edge ${edgeId} referencing missing blocks (${sourceId} -> ${targetId}) for workflow ${workflowId}`
+              )
+              return acc
+            }
+
+            acc.push({
+              id: edgeId,
+              workflowId,
+              sourceBlockId: sourceId,
+              targetBlockId: targetId,
+              sourceHandle: normalizeString(edge.sourceHandle),
+              targetHandle: normalizeString(edge.targetHandle),
+            })
+
+            return acc
+          },
+          []
+        )
+
+        if (edgeValues.length > 0) {
+          await tx.insert(workflowEdges).values(edgeValues)
+        }
+      }
+
+      // Insert all loops from the new state
+      if (loops && Object.keys(loops).length > 0) {
+        const loopValues = Object.entries(loops).map(([id, loop]: [string, any]) => ({
+          id,
+          workflowId,
+          type: 'loop',
+          config: loop,
+        }))
+
+        await tx.insert(workflowSubflows).values(loopValues)
+      }
+
+      // Insert all parallels from the new state
+      if (parallels && Object.keys(parallels).length > 0) {
+        const parallelValues = Object.entries(parallels).map(
+          ([id, parallel]: [string, any]) => ({
+            id,
+            workflowId,
+            type: 'parallel',
+            config: parallel,
+          })
+        )
+
+        await tx.insert(workflowSubflows).values(parallelValues)
+      }
+
+      logger.info(`Successfully replaced workflow state for ${workflowId}`)
+      break
+    }
+
+    default:
+      logger.warn(`Unknown workflow operation: ${operation}`)
+      throw new Error(`Unsupported workflow operation: ${operation}`)
+  }
+}
+
 // Get workflow state
 export async function getWorkflowState(workflowId: string) {
   try {
@@ -124,30 +324,65 @@ export async function getWorkflowState(workflowId: string) {
     }
 
     // Load from normalized tables first (same logic as REST API)
-    const normalizedData = await loadWorkflowFromNormalizedTables(workflowId)
+    let normalizedData = await loadWorkflowFromNormalizedTables(workflowId)
+
+    const buildNormalizedState = (data: NonNullable<typeof normalizedData>) => ({
+      deploymentStatuses: {},
+      hasActiveWebhook: false,
+      blocks: data.blocks,
+      edges: data.edges,
+      loops: data.loops,
+      parallels: data.parallels,
+      lastSaved: Date.now(),
+      isDeployed: workflowData[0].isDeployed || false,
+      deployedAt: workflowData[0].deployedAt,
+    })
+
+    if (!normalizedData) {
+      const legacyStateRaw = workflowData[0]?.state
+      const legacyState =
+        legacyStateRaw && typeof legacyStateRaw === 'object'
+          ? (legacyStateRaw as WorkflowState)
+          : null
+
+      const legacyBlocksCount = legacyState?.blocks
+        ? Object.keys(legacyState.blocks).length
+        : 0
+
+      if (legacyState && legacyBlocksCount > 0) {
+        const seedState: WorkflowState = {
+          blocks: legacyState.blocks || {},
+          edges: legacyState.edges || [],
+          loops: legacyState.loops || {},
+          parallels: legacyState.parallels || {},
+          lastSaved: legacyState.lastSaved,
+          lastUpdate: legacyState.lastUpdate,
+          isDeployed: legacyState.isDeployed,
+          deployedAt: legacyState.deployedAt,
+          deploymentStatuses: legacyState.deploymentStatuses,
+          needsRedeployment: legacyState.needsRedeployment,
+          dragStartPosition: legacyState.dragStartPosition,
+        }
+
+        const saveResult = await saveWorkflowToNormalizedTables(workflowId, seedState)
+        if (saveResult.success) {
+          normalizedData = await loadWorkflowFromNormalizedTables(workflowId)
+        } else {
+          logger.warn(`Failed to seed normalized tables for workflow ${workflowId}`, {
+            error: saveResult.error,
+          })
+        }
+      }
+    }
 
     if (normalizedData) {
-      // Use normalized data as source of truth
-      const finalState = {
-        // Default values for expected properties
-        deploymentStatuses: {},
-        hasActiveWebhook: false,
-        // Data from normalized tables
-        blocks: normalizedData.blocks,
-        edges: normalizedData.edges,
-        loops: normalizedData.loops,
-        parallels: normalizedData.parallels,
-        lastSaved: Date.now(),
-        isDeployed: workflowData[0].isDeployed || false,
-        deployedAt: workflowData[0].deployedAt,
-      }
-
       return {
         ...workflowData[0],
-        state: finalState,
+        state: buildNormalizedState(normalizedData),
         lastModified: Date.now(),
       }
     }
+
     // Fallback to JSON blob
     return {
       ...workflowData[0],
@@ -196,6 +431,9 @@ export async function persistWorkflowOperation(workflowId: string, operation: an
         case 'variable':
           await handleVariableOperationTx(tx, workflowId, op, payload, userId)
           break
+        case 'workflow':
+          await handleWorkflowOperationTx(tx, workflowId, op, payload)
+          break
         default:
           throw new Error(`Unknown operation target: ${target}`)
       }
@@ -218,6 +456,15 @@ export async function persistWorkflowOperation(workflowId: string, operation: an
       `❌ Error persisting workflow operation (${operation.operation} on ${operation.target}) after ${duration}ms:`,
       error
     )
+    const cause = (error as any)?.cause
+    if (cause) {
+      logger.error('Underlying socket DB error:', {
+        message: cause?.message,
+        code: cause?.code,
+        detail: cause?.detail,
+        constraint: cause?.constraint,
+      })
+    }
     throw error
   }
 }

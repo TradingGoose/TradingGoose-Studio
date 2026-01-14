@@ -97,6 +97,14 @@ export const useSubBlockStore = create<SubBlockStore>()(
 
       // Note: Socket.IO handles real-time sync automatically
     },
+    setWorkflowValues: (workflowId: string, values: Record<string, Record<string, any>>) => {
+      set((state) => ({
+        workflowValues: {
+          ...state.workflowValues,
+          [workflowId]: values,
+        },
+      }))
+    },
 
     initializeFromWorkflow: (workflowId: string, blocks: Record<string, any>) => {
       // Initialize from blocks

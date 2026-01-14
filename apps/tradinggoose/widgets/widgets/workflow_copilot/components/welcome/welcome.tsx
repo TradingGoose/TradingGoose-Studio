@@ -4,7 +4,7 @@ import { Blocks, LibraryBig, Workflow } from 'lucide-react'
 
 interface CopilotWelcomeProps {
   onQuestionClick?: (question: string) => void
-  mode?: 'ask' | 'agent'
+  mode?: 'ask' | 'build'
 }
 
 export function CopilotWelcome({ onQuestionClick, mode = 'ask' }: CopilotWelcomeProps) {
@@ -18,41 +18,41 @@ export function CopilotWelcome({ onQuestionClick, mode = 'ask' }: CopilotWelcome
       : 'Build, edit, and optimize workflows'
 
   const capabilities =
-    mode === 'agent'
+    mode === 'build'
       ? [
-          {
-            title: 'Build & edit workflows',
-            question: 'Help me build a workflow',
-            Icon: Workflow,
-          },
-          {
-            title: 'Optimize workflows',
-            question: 'Help me optimize my workflow',
-            Icon: Blocks,
-          },
-          {
-            title: 'Debug workflows',
-            question: 'Help me debug my workflow',
-            Icon: LibraryBig,
-          },
-        ]
+        {
+          title: 'Build & edit workflows',
+          question: 'Help me build a workflow',
+          Icon: Workflow,
+        },
+        {
+          title: 'Optimize workflows',
+          question: 'Help me optimize my workflow',
+          Icon: Blocks,
+        },
+        {
+          title: 'Debug workflows',
+          question: 'Help me debug my workflow',
+          Icon: LibraryBig,
+        },
+      ]
       : [
-          {
-            title: 'Understand my workflow',
-            question: 'What does my workflow do?',
-            Icon: Workflow,
-          },
-          {
-            title: 'Discover tools',
-            question: 'What tools are available?',
-            Icon: Blocks,
-          },
-          {
-            title: 'Get started',
-            question: 'How do I create a workflow?',
-            Icon: LibraryBig,
-          },
-        ]
+        {
+          title: 'Understand my workflow',
+          question: 'What does my workflow do?',
+          Icon: Workflow,
+        },
+        {
+          title: 'Discover tools',
+          question: 'What tools are available?',
+          Icon: Blocks,
+        },
+        {
+          title: 'Get started',
+          question: 'How do I create a workflow?',
+          Icon: LibraryBig,
+        },
+      ]
 
   return (
     <div className='relative h-full w-full overflow-hidden px-4 pt-8 pb-6'>
@@ -72,7 +72,7 @@ export function CopilotWelcome({ onQuestionClick, mode = 'ask' }: CopilotWelcome
               className='w-full rounded-md border bg-background/60 p-3 text-left transition-colors hover:bg-card focus:outline-none focus:ring-2 focus:ring-[var(--primary-hover)]/30'
             >
               <div className='flex items-start gap-2'>
-                <div className='mt-0.5 flex h-6 w-6 items-center justify-center rounded bg-[color-mix(in_srgb,var(--primary-hover)_16%,transparent)] text-[var(--primary-hover)]'>
+                <div className='mt-0.5 flex h-6 w-6 items-center justify-center rounded bg-[color-mix(in_srgb,var(--primary-hover)_16%,transparent)] text-primary-hover'>
                   <Icon className='h-3.5 w-3.5' />
                 </div>
                 <div>

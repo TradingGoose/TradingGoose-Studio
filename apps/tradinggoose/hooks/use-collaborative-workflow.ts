@@ -388,6 +388,36 @@ export function useCollaborativeWorkflow() {
               variablesStore.duplicateVariable(payload.sourceVariableId, payload.id)
               break
           }
+        } else if (target === 'workflow') {
+          switch (operation) {
+            case 'replace-state':
+              if (payload.state) {
+                logger.info('Received workflow state replacement from remote user', {
+                  userId,
+                  blockCount: Object.keys(payload.state.blocks || {}).length,
+                  edgeCount: (payload.state.edges || []).length,
+                  isShowingDiff,
+                })
+
+                workflowStore.replaceWorkflowState(payload.state, { updateLastSaved: true })
+
+                const subBlockValues: Record<string, Record<string, any>> = {}
+                Object.entries(payload.state.blocks || {}).forEach(
+                  ([blockId, block]: [string, any]) => {
+                    subBlockValues[blockId] = {}
+                    Object.entries(block.subBlocks || {}).forEach(
+                      ([subBlockId, subBlock]: [string, any]) => {
+                        subBlockValues[blockId][subBlockId] = subBlock.value
+                      }
+                    )
+                  }
+                )
+                if (activeWorkflowId) {
+                  subBlockStore.setWorkflowValues(activeWorkflowId, subBlockValues)
+                }
+              }
+              break
+          }
         }
       } catch (error) {
         logger.error('Error applying remote operation:', error)
@@ -588,7 +618,11 @@ export function useCollaborativeWorkflow() {
     confirmOperation,
     failOperation,
     emitWorkflowOperation,
+    addToQueue,
     queue,
+    presenceUsers,
+    session?.user?.id,
+    isShowingDiff,
   ])
 
   const executeQueuedOperation = useCallback(
@@ -1044,30 +1078,32 @@ export function useCollaborativeWorkflow() {
         return
       }
 
-      if (!isInActiveRoom()) {
-        logger.debug('Skipping subblock update - not in active workflow', {
+      const inActiveRoom = isInActiveRoom()
+      if (!inActiveRoom) {
+        logger.debug('Skipping socket subblock update - not in active workflow', {
           currentWorkflowId,
           activeWorkflowId,
           blockId,
           subblockId,
         })
-        return
       }
 
-      // Generate operation ID for queue tracking
-      const operationId = crypto.randomUUID()
+      if (inActiveRoom) {
+        // Generate operation ID for queue tracking
+        const operationId = crypto.randomUUID()
 
-      // Add to queue for retry mechanism
-      addToQueue({
-        id: operationId,
-        operation: {
-          operation: 'subblock-update',
-          target: 'subblock',
-          payload: { blockId, subblockId, value },
-        },
-        workflowId: activeWorkflowId || '',
-        userId: session?.user?.id || 'unknown',
-      })
+        // Add to queue for retry mechanism
+        addToQueue({
+          id: operationId,
+          operation: {
+            operation: 'subblock-update',
+            target: 'subblock',
+            payload: { blockId, subblockId, value },
+          },
+          workflowId: activeWorkflowId || '',
+          userId: session?.user?.id || 'unknown',
+        })
+      }
 
       // Apply locally first (immediate UI feedback)
       subBlockStore.setValue(blockId, subblockId, value)
@@ -1111,6 +1147,8 @@ export function useCollaborativeWorkflow() {
       if (isApplyingRemoteChange.current) return
 
       if (!isInActiveRoom()) {
+        // Still apply locally so the UI updates outside of active rooms.
+        subBlockStore.setValue(blockId, subblockId, value)
         logger.debug('Skipping tag selection - not in active workflow', {
           currentWorkflowId,
           activeWorkflowId,

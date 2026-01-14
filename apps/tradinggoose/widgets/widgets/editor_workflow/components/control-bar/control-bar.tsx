@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   Bug,
-  ChevronLeft,
   Copy,
   Layers,
   Play,
@@ -12,7 +11,6 @@ import {
   StepForward,
   Store,
   Webhook,
-  WifiOff,
   X,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -60,15 +58,8 @@ let usageDataCache: {
 interface ControlBarProps {
   hasValidationErrors?: boolean
   className?: string
-  variant?: 'workspace' | 'widget'
+  variant?: 'widget'
 }
-
-type ControlBarVariant = 'workspace' | 'widget'
-
-const WORKSPACE_ICON_BUTTON_CLASS =
-  'h-12 w-12 rounded-md border bg-card text-card-foreground shadow-xs hover:bg-secondary'
-const WORKSPACE_ICON_BUTTON_DISABLED_CLASS =
-  'inline-flex h-12 w-12 cursor-not-allowed items-center justify-center rounded-md border bg-card text-card-foreground opacity-50 shadow-xs transition-colors'
 
 const WIDGET_ICON_BUTTON_CLASS = widgetHeaderIconButtonClassName()
 const WIDGET_ICON_BUTTON_DISABLED_CLASS = cn(
@@ -76,45 +67,24 @@ const WIDGET_ICON_BUTTON_DISABLED_CLASS = cn(
   'cursor-not-allowed opacity-60'
 )
 
-const WORKSPACE_PRIMARY_BUTTON_CLASS = cn(
-  'gap-2 font-medium',
-  'bg-primary hover:bg-primary-hover ',
-  'shadow-[0_0_0_0_var(--primary)] ',
-  'transition-all duration-200',
-  'text-black disabled:opacity-50 disabled:hover:bg-primary-hover disabled:hover:shadow-none',
-  'h-12 rounded-md px-4 py-2'
-)
 const WIDGET_PRIMARY_BUTTON_CLASS = cn(
   widgetHeaderIconButtonClassName(),
   'bg-primary hover:bg-primary-hover hover:text-black text-black '
 )
 
-const WORKSPACE_DANGER_BUTTON_CLASS = cn(
-  'gap-2 font-medium',
-  'bg-red-500 hover:bg-red-600',
-  'shadow-[0_0_0_0_#ef4444] hover:shadow-[0_0_0_4px_rgba(239,68,68,0.15)]',
-  'text-white transition-all duration-200',
-  'h-12 rounded-md px-4 py-2'
-)
 const WIDGET_DANGER_BUTTON_CLASS = cn(
   widgetHeaderIconButtonClassName(),
   'bg-red-500 text-white hover:bg-red-600'
 )
 
-const getIconButtonClass = (variant: ControlBarVariant, extra?: string) =>
-  cn(variant === 'widget' ? WIDGET_ICON_BUTTON_CLASS : WORKSPACE_ICON_BUTTON_CLASS, extra)
+const getIconButtonClass = (extra?: string) => cn(WIDGET_ICON_BUTTON_CLASS, extra)
 
-const getDisabledIconButtonClass = (variant: ControlBarVariant, extra?: string) =>
-  cn(
-    variant === 'widget' ? WIDGET_ICON_BUTTON_DISABLED_CLASS : WORKSPACE_ICON_BUTTON_DISABLED_CLASS,
-    extra
-  )
+const getDisabledIconButtonClass = (extra?: string) =>
+  cn(WIDGET_ICON_BUTTON_DISABLED_CLASS, extra)
 
-const getPrimaryButtonClass = (variant: ControlBarVariant, extra?: string) =>
-  cn(variant === 'widget' ? WIDGET_PRIMARY_BUTTON_CLASS : WORKSPACE_PRIMARY_BUTTON_CLASS, extra)
+const getPrimaryButtonClass = (extra?: string) => cn(WIDGET_PRIMARY_BUTTON_CLASS, extra)
 
-const getDangerButtonClass = (variant: ControlBarVariant, extra?: string) =>
-  cn(variant === 'widget' ? WIDGET_DANGER_BUTTON_CLASS : WORKSPACE_DANGER_BUTTON_CLASS, extra)
+const getDangerButtonClass = (extra?: string) => cn(WIDGET_DANGER_BUTTON_CLASS, extra)
 
 /**
  * Control bar for managing workflows - handles editing, deployment,
@@ -123,7 +93,7 @@ const getDangerButtonClass = (variant: ControlBarVariant, extra?: string) =>
 export function ControlBar({
   hasValidationErrors = false,
   className,
-  variant = 'workspace',
+  variant = 'widget',
 }: ControlBarProps) {
   const router = useRouter()
   const { data: session } = useSession()
@@ -151,11 +121,9 @@ export function ControlBar({
   // Local state
   const [mounted, setMounted] = useState(false)
   const [, forceUpdate] = useState({})
-  const [isExpanded, setIsExpanded] = useState(false)
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
   const [isWebhookSettingsOpen, setIsWebhookSettingsOpen] = useState(false)
   const [isAutoLayouting, setIsAutoLayouting] = useState(false)
-  const isWidgetVariant = variant === 'widget'
 
   // Deployed state management
   const [deployedState, setDeployedState] = useState<WorkflowState | null>(null)
@@ -455,7 +423,7 @@ export function ControlBar({
             size='icon'
             disabled={isDisabled}
             onClick={() => setIsWebhookSettingsOpen(true)}
-            className={getIconButtonClass(variant)}
+            className={getIconButtonClass()}
           >
             <Webhook className='h-5 w-5' />
             <span className='sr-only'>Webhook Settings</span>
@@ -483,14 +451,14 @@ export function ControlBar({
       <Tooltip>
         <TooltipTrigger asChild>
           {isDisabled ? (
-            <div className={getDisabledIconButtonClass(variant)}>
+            <div className={getDisabledIconButtonClass()}>
               <Copy className='h-4 w-4' />
             </div>
           ) : (
             <Button
               variant='outline'
               onClick={handleDuplicateWorkflow}
-              className={getIconButtonClass(variant)}
+              className={getIconButtonClass()}
             >
               <Copy className='h-5 w-5' />
               <span className='sr-only'>Duplicate Workflow</span>
@@ -553,7 +521,7 @@ export function ControlBar({
       <Tooltip>
         <TooltipTrigger asChild>
           {isDisabled ? (
-            <div className={getDisabledIconButtonClass(variant)}>
+            <div className={getDisabledIconButtonClass()}>
               {isAutoLayouting ? (
                 <RefreshCw className='h-4 w-4 animate-spin' />
               ) : (
@@ -564,7 +532,7 @@ export function ControlBar({
             <Button
               variant='outline'
               onClick={handleAutoLayoutClick}
-              className={getIconButtonClass(variant)}
+              className={getIconButtonClass()}
               disabled={isAutoLayouting}
             >
               {isAutoLayouting ? (
@@ -629,9 +597,8 @@ export function ControlBar({
     const isControlDisabled = pendingCount === 0
 
     const debugButtonClass = cn(
-      getIconButtonClass(variant, 'bg-primary  hover:bg-primary-hover'),
+      getIconButtonClass('bg-primary  hover:bg-primary-hover'),
       'font-semibold transition-all duration-200',
-      variant === 'workspace' && 'shadow-[0_0_0_0_var(--primary)] ',
       'disabled:opacity-50'
     )
 
@@ -707,14 +674,14 @@ export function ControlBar({
       <Tooltip>
         <TooltipTrigger asChild>
           {isDisabled ? (
-            <div className={getDisabledIconButtonClass(variant)}>
+            <div className={getDisabledIconButtonClass()}>
               <Store className='h-4 w-4' />
             </div>
           ) : (
             <Button
               variant='outline'
               onClick={() => setIsTemplateModalOpen(true)}
-              className={getIconButtonClass(variant)}
+              className={getIconButtonClass()}
             >
               <Store className='h-5 w-5' />
               <span className='sr-only'>Publish Template</span>
@@ -746,14 +713,14 @@ export function ControlBar({
       return isDebugging ? 'Stop debugging' : 'Start debugging'
     }
 
-    const buttonClass = cn(getIconButtonClass(variant), isDebugging && 'text-yellow-500')
+    const buttonClass = cn(getIconButtonClass(), isDebugging && 'text-yellow-500')
 
     return (
       <Tooltip>
         <TooltipTrigger asChild>
           {isDisabled ? (
             <div
-              className={cn(getDisabledIconButtonClass(variant), isDebugging && 'text-yellow-500')}
+              className={cn(getDisabledIconButtonClass(), isDebugging && 'text-yellow-500')}
             >
               <Bug className='h-4 w-4' />
             </div>
@@ -783,7 +750,7 @@ export function ControlBar({
       return (
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button className={getDangerButtonClass(variant)} onClick={handleCancelExecution}>
+            <Button className={getDangerButtonClass()} onClick={handleCancelExecution}>
               <X className={cn('h-3.5 w-3.5')} />
             </Button>
           </TooltipTrigger>
@@ -838,7 +805,7 @@ export function ControlBar({
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            className={getPrimaryButtonClass(variant)}
+            className={getPrimaryButtonClass()}
             onClick={handleRunClick}
             disabled={isButtonDisabled}
           >
@@ -852,73 +819,12 @@ export function ControlBar({
     )
   }
 
-  /**
-   * Render disconnection notice
-   */
-  const renderDisconnectionNotice = () => {
-    if (!userPermissions.isOfflineMode || isWidgetVariant) return null
-
-    const handleRefresh = () => {
-      window.location.reload()
-    }
-
-    return (
-      <div className='flex h-12 items-center gap-2 rounded-md border border-red-500 bg-red-500 px-3 text-white shadow-xs'>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <WifiOff className='h-[18px] w-[18px] cursor-help' />
-          </TooltipTrigger>
-          <TooltipContent className='mt-3'>Connection lost - refresh</TooltipContent>
-        </Tooltip>
-        <Button
-          variant='ghost'
-          size='sm'
-          onClick={handleRefresh}
-          className='h-8 px-2 text-red-500 hover:bg-red-50'
-        >
-          <RefreshCw className='h-3 w-3' />
-        </Button>
-      </div>
-    )
-  }
-
-  /**
-   * Render control bar toggle button
-   */
-  const renderToggleButton = () => {
-    if (isWidgetVariant) return null
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant='outline'
-            onClick={() => setIsExpanded(!isExpanded)}
-            className={getIconButtonClass(variant)}
-          >
-            <ChevronLeft
-              className={cn(
-                'h-5 w-5 transition-transform duration-200',
-                isExpanded && 'rotate-180'
-              )}
-            />
-            <span className='sr-only'>{isExpanded ? 'Collapse' : 'Expand'} Control Bar</span>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{isExpanded ? 'Collapse' : 'Expand'} Control Bar</TooltipContent>
-      </Tooltip>
-    )
-  }
-
-  const showOptionalControls = isWidgetVariant ? true : isExpanded
-  const defaultContainerClass = isWidgetVariant
-    ? 'inline-flex flex-nowrap items-center'
-    : 'fixed top-4 right-4 z-20'
+  const showOptionalControls = true
+  const defaultContainerClass = 'inline-flex flex-nowrap items-center'
   const containerClass = cn('flex items-center gap-1', className ?? defaultContainerClass)
 
   return (
     <div className={containerClass}>
-      {renderDisconnectionNotice()}
-      {renderToggleButton()}
       {showOptionalControls && renderWebhookButton()}
       {showOptionalControls && <ExportControls variant={variant} />}
       {showOptionalControls && renderAutoLayoutButton()}

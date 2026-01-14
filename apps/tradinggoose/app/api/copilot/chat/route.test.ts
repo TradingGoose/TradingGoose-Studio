@@ -91,7 +91,7 @@ describe('Copilot Chat API Route', () => {
       content: 'Generated Title',
     })
 
-    vi.doMock('@/providers', () => ({
+    vi.doMock('@/providers/ai', () => ({
       executeProviderRequest: mockExecuteProviderRequest,
     }))
 
@@ -105,7 +105,7 @@ describe('Copilot Chat API Route', () => {
     vi.doMock('@/lib/env', () => ({
       env: {
         COPILOT_API_URL: 'http://localhost:8000',
-        COPILOT_API_KEY: 'test-sim-agent-key',
+        COPILOT_API_KEY: 'test-copilot-key',
         BETTER_AUTH_URL: 'http://localhost:3000',
       },
     }))
@@ -211,7 +211,7 @@ describe('Copilot Chat API Route', () => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-api-key': 'test-sim-agent-key',
+            'x-api-key': 'test-copilot-key',
           },
           body: JSON.stringify({
             message: 'Hello',
@@ -220,7 +220,7 @@ describe('Copilot Chat API Route', () => {
             stream: true,
             streamToolCalls: true,
             model: 'claude-4.5-sonnet',
-            mode: 'agent',
+            mode: 'build',
             messageId: 'mock-uuid-1234-5678',
             version: '1.0.2',
             chatId: 'chat-123',
@@ -281,7 +281,7 @@ describe('Copilot Chat API Route', () => {
             stream: true,
             streamToolCalls: true,
             model: 'claude-4.5-sonnet',
-            mode: 'agent',
+            mode: 'build',
             messageId: 'mock-uuid-1234-5678',
             version: '1.0.2',
             chatId: 'chat-123',
@@ -332,7 +332,7 @@ describe('Copilot Chat API Route', () => {
             stream: true,
             streamToolCalls: true,
             model: 'claude-4.5-sonnet',
-            mode: 'agent',
+            mode: 'build',
             messageId: 'mock-uuid-1234-5678',
             version: '1.0.2',
             chatId: 'chat-123',
@@ -364,7 +364,7 @@ describe('Copilot Chat API Route', () => {
 
       expect(response.status).toBe(500)
       const responseData = await response.json()
-      expect(responseData.error).toContain('Sim agent API error')
+      expect(responseData.error).toContain('TradingGoose Copilot API error')
     })
 
     it('should handle database errors during chat creation', async () => {

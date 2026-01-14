@@ -607,7 +607,7 @@ export default function PrivacyPolicy() {
             exercise this right, contact us at{' '}
             <Link
               href='mailto:privacy@sim.ai'
-              className='text-primary underline hover:text-[var(--primary-hover)]'
+              className='text-primary underline hover:text-primary-hover'
             >
               privacy@sim.ai
             </Link>
@@ -696,7 +696,7 @@ export default function PrivacyPolicy() {
             inquiry, email us at{' '}
             <Link
               href='mailto:security@sim.ai'
-              className='text-primary underline hover:text-[var(--primary-hover)]'
+              className='text-primary underline hover:text-primary-hover'
             >
               security@sim.ai
             </Link>{' '}
@@ -718,7 +718,7 @@ export default function PrivacyPolicy() {
             To report any security flaws, send an email to{' '}
             <Link
               href='mailto:security@sim.ai'
-              className='text-primary underline hover:text-[var(--primary-hover)]'
+              className='text-primary underline hover:text-primary-hover'
             >
               security@sim.ai
             </Link>
@@ -763,7 +763,7 @@ export default function PrivacyPolicy() {
               Email:{' '}
               <Link
                 href='mailto:privacy@sim.ai'
-                className='text-primary underline hover:text-[var(--primary-hover)]'
+                className='text-primary underline hover:text-primary-hover'
               >
                 privacy@sim.ai
               </Link>

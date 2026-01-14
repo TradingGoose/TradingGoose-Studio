@@ -60,7 +60,7 @@ export async function applyAutoLayoutToWorkflow(
       edgeCount: edges.length,
     })
 
-    // Call the autolayout API route instead of sim-agent directly
+    // Call the autolayout API route instead of copilot directly
 
     // Merge with default options and ensure all required properties are present
     const layoutOptions = {
@@ -223,35 +223,35 @@ export async function applyAutoLayoutAndUpdateStore({
     const moves =
       undoUserId && resolvedWorkflowId
         ? Object.entries(result.layoutedBlocks || {}).reduce(
-            (acc, [id, block]) => {
-              const before = prevBlocks[id]?.position
-              if (
-                before &&
-                (Math.abs(before.x - block.position.x) > 0.01 ||
-                  Math.abs(before.y - block.position.y) > 0.01)
-              ) {
-                acc.push({
-                  blockId: id,
-                  before: {
-                    x: before.x,
-                    y: before.y,
-                    parentId: prevBlocks[id]?.data?.parentId,
-                  },
-                  after: {
-                    x: block.position.x,
-                    y: block.position.y,
-                    parentId: block.data?.parentId,
-                  },
-                })
-              }
-              return acc
-            },
-            [] as Array<{
-              blockId: string
-              before: { x: number; y: number; parentId?: string }
-              after: { x: number; y: number; parentId?: string }
-            }>
-          )
+          (acc, [id, block]) => {
+            const before = prevBlocks[id]?.position
+            if (
+              before &&
+              (Math.abs(before.x - block.position.x) > 0.01 ||
+                Math.abs(before.y - block.position.y) > 0.01)
+            ) {
+              acc.push({
+                blockId: id,
+                before: {
+                  x: before.x,
+                  y: before.y,
+                  parentId: prevBlocks[id]?.data?.parentId,
+                },
+                after: {
+                  x: block.position.x,
+                  y: block.position.y,
+                  parentId: block.data?.parentId,
+                },
+              })
+            }
+            return acc
+          },
+          [] as Array<{
+            blockId: string
+            before: { x: number; y: number; parentId?: string }
+            after: { x: number; y: number; parentId?: string }
+          }>
+        )
         : []
 
     if (moves.length > 0) {
@@ -323,31 +323,31 @@ export async function applyAutoLayoutAndUpdateStore({
       }
 
       // Save the updated workflow state to the database
-    const response = await fetch(`/api/workflows/${resolvedWorkflowId}/state`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(cleanedWorkflowState),
-    })
+      const response = await fetch(`/api/workflows/${resolvedWorkflowId}/state`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(cleanedWorkflowState),
+      })
 
-    if (!response.ok) {
-      let errorMessage = `HTTP ${response.status}: ${response.statusText}`
-      try {
-        const errorData = await response.json()
-        const details =
-          typeof errorData?.details === 'string'
-            ? errorData.details
-            : JSON.stringify(errorData?.details || errorData)
-        errorMessage = errorData?.error
-          ? `${errorData.error}${details ? ` - ${details}` : ''}`
-          : errorMessage
-      } catch (parseError) {
-        // Ignore JSON parse errors and fall back to generic message
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`
+        try {
+          const errorData = await response.json()
+          const details =
+            typeof errorData?.details === 'string'
+              ? errorData.details
+              : JSON.stringify(errorData?.details || errorData)
+          errorMessage = errorData?.error
+            ? `${errorData.error}${details ? ` - ${details}` : ''}`
+            : errorMessage
+        } catch (parseError) {
+          // Ignore JSON parse errors and fall back to generic message
+        }
+
+        throw new Error(errorMessage)
       }
-
-      throw new Error(errorMessage)
-    }
 
       logger.info('Auto layout successfully persisted to database', {
         workflowId: resolvedWorkflowId,

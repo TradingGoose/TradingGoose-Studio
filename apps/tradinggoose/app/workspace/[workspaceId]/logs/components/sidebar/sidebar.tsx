@@ -14,7 +14,7 @@ import LogMarkdownRenderer from '@/app/workspace/[workspaceId]/logs/components/s
 import { ToolCallsDisplay } from '@/app/workspace/[workspaceId]/logs/components/tool-calls/tool-calls-display'
 import { TraceSpans } from '@/app/workspace/[workspaceId]/logs/components/trace-spans/trace-spans'
 import { formatDate } from '@/app/workspace/[workspaceId]/logs/utils'
-import { formatCost } from '@/providers/utils'
+import { formatCost } from '@/providers/ai/utils'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 
 interface LogSidebarProps {

@@ -100,9 +100,9 @@ export function Variables({ workflowId: workflowIdProp, hideAddButtons = false }
       case 'boolean':
         return '0/1'
       case 'object':
-        return '{}'
+        return '{ }'
       case 'array':
-        return '[]'
+        return '[ ]'
       case 'string':
         return 'Abc'
       default:

@@ -445,7 +445,7 @@ IMPORTANT FORMATTING RULES:
               onClick={isPromptVisible ? hidePromptInline : showPromptInline}
               disabled={isAiLoading || isAiStreaming}
               aria-label='Generate code with AI'
-              className='h-8 w-8 rounded-full border border-transparent bg-muted/80 text-muted-foreground shadow-sm transition-all duration-200 hover:border-primary/20 hover:bg-card hover:text-foreground hover:shadow'
+              className='h-8 w-8 rounded-full border border-transparent bg-muted/80 text-muted-foreground shadow-sm transition-all duration-200 hover:bg-primary-hover/20 hover:text-foreground hover:shadow'
             >
               <Wand2 className='h-4 w-4' />
             </Button>

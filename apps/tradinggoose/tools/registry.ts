@@ -65,7 +65,7 @@ import {
   listMattersTool,
 } from '@/tools/google_vault'
 import { guardrailsValidateTool } from '@/tools/guardrails'
-import { historicalDataTool } from '@/tools/historical_data'
+import { historicalDataTool } from '@/tools/market_data'
 import { requestTool as httpRequest } from '@/tools/http'
 import { huggingfaceChatTool } from '@/tools/huggingface'
 import {

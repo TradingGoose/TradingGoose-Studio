@@ -11,8 +11,8 @@ import { isBillingEnabled } from '@/lib/environment'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { hasProcessedMessage, markMessageAsProcessed } from '@/lib/redis'
-import { COPILOT_API_URL_DEFAULT } from '@/lib/sim-agent/constants'
-import { calculateCost } from '@/providers/utils'
+import { proxyCopilotRequest, getCopilotApiUrl } from '@/app/api/copilot/proxy'
+import { calculateCost } from '@/providers/ai/utils'
 import { checkInternalApiKey } from '@/lib/copilot/utils'
 
 const MODEL_SYNONYMS: Record<string, string> = {
@@ -26,7 +26,6 @@ const MODEL_SYNONYMS: Record<string, string> = {
 
 const logger = createLogger('ContextUsageAPI')
 
-const COPILOT_API_URL = env.COPILOT_API_URL || COPILOT_API_URL_DEFAULT
 
 const ContextUsageRequestSchema = z.object({
   chatId: z.string(),
@@ -41,7 +40,7 @@ const ContextUsageRequestSchema = z.object({
 
 /**
  * POST /api/copilot/context-usage
- * Fetch context usage from sim-agent API
+ * Fetch context usage from copilot API
  */
 export async function POST(req: NextRequest) {
   try {
@@ -119,7 +118,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Call sim-agent API
+    // Call copilot API
     const requestPayload = {
       chatId,
       model,
@@ -128,21 +127,17 @@ export async function POST(req: NextRequest) {
       ...(providerConfig ? { provider: providerConfig } : {}),
     }
 
-    logger.info('[Context Usage API] Calling sim-agent', {
-      url: `${COPILOT_API_URL}/api/get-context-usage`,
+    logger.info('[Context Usage API] Calling copilot', {
+      url: getCopilotApiUrl('/api/get-context-usage'),
       payload: requestPayload,
     })
 
-    const simAgentResponse = await fetch(`${COPILOT_API_URL}/api/get-context-usage`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(env.COPILOT_API_KEY ? { 'x-api-key': env.COPILOT_API_KEY } : {}),
-      },
-      body: JSON.stringify(requestPayload),
+    const simAgentResponse = await proxyCopilotRequest({
+      endpoint: '/api/get-context-usage',
+      body: requestPayload,
     })
 
-    logger.info('[Context Usage API] Sim-agent response', {
+    logger.info('[Context Usage API] Copilot response', {
       status: simAgentResponse.status,
       ok: simAgentResponse.ok,
     })
@@ -154,23 +149,23 @@ export async function POST(req: NextRequest) {
         error: errorText,
       })
       return NextResponse.json(
-        { error: 'Failed to fetch context usage from sim-agent' },
+        { error: 'Failed to fetch context usage from copilot' },
         { status: simAgentResponse.status }
       )
     }
 
     const data = await simAgentResponse.json()
-    logger.info('[Context Usage API] Sim-agent data received', data)
+    logger.info('[Context Usage API] Copilot data received', data)
 
     if (bill && assistantMessageId && isBillingEnabled) {
       try {
-          await billCopilotUsage({
-            userId,
-            assistantMessageId,
-            usage: data,
-            billingModel: billingModel || model,
-            remoteModel: data?.model,
-          })
+        await billCopilotUsage({
+          userId,
+          assistantMessageId,
+          usage: data,
+          billingModel: billingModel || model,
+          remoteModel: data?.model,
+        })
       } catch (billingError) {
         logger.error('Failed to bill copilot usage from context usage API', {
           error: billingError,

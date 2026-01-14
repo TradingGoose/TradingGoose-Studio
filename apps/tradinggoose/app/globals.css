@@ -91,9 +91,8 @@
     --muted-foreground: 240 4.237% 46.275%;
 
     /* Accent Colors */
-    --accent: 240 4.762% 95.882%;
+    --accent: 240 4.762% 93.382%;
     --accent-foreground: 240 5.882% 10%;
-    --accent-hover: 240 4.762% 90.882%;
 
     /* Destructive Colors */
     --destructive: 357.143 100% 45.294%;
@@ -170,16 +169,15 @@
     --muted-foreground: 240 5.495% 64.314%;
 
     /* Accent Colors */
-    --accent: 240 3.704% 15.882%;
+    --accent: 240 3.704% 13.282%;
     --accent-foreground: 0 0% 98.039%;
-    --accent-hover: 240 3.704% 10.882%;
 
     /* Destructive Colors */
     --destructive: 358.839 100% 69.608%;
     --destructive-foreground: 0 0% 0%;
 
     /* Border & Input Colors */
-    --border: 0 0% 10%;
+    --border: 0 0% 15%;
     --input: 0 0% 25%;
     --ring: 48 100% 50%;
 
@@ -443,38 +441,6 @@ input[type="search"]::-ms-clear {
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-  }
-
-  /* Apply fixed default light theme values for auth components */
-  .auth-card {
-    background-color: rgba(255, 255, 255, 0.9) !important;
-    border-color: #e5e5e5 !important;
-  }
-
-  .auth-text-primary {
-    color: #1a1a1a !important;
-  }
-
-  .auth-text-secondary {
-    color: #4a4a4a !important;
-  }
-
-  .auth-text-muted {
-    color: #737373 !important;
-  }
-
-  .auth-divider {
-    border-color: #e5e5e5 !important;
-  }
-
-  .auth-card-shadow {
-    box-shadow:
-      0 10px 15px -3px rgba(0, 0, 0, 0.05),
-      0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
-  }
-
-  .auth-link {
-    color: #737373 !important;
   }
 
 

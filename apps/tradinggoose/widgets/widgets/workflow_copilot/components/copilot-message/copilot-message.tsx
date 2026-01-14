@@ -853,7 +853,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                         {visible.map((ctx: any, idx: number) => (
                           <span
                             key={`ctx-${idx}-${ctx?.label || ctx?.kind}`}
-                            className='inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--primary-hover)_14%,transparent)] px-1.5 py-0.5 text-[11px] text-foreground'
+                            className='inline-flex items-center gap-1 rounded-full bg-primary-hover/20 px-1.5 py-0.5 text-xs text-foreground'
                             title={ctx?.label || ctx?.kind}
                           >
                             {ctx?.kind === 'past_chat' ? (

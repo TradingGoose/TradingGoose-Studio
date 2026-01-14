@@ -17,7 +17,7 @@ import { SUBFLOW_TYPES } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('WorkflowDBHelpers')
 
-async function ensureUniqueBlockIds(
+export async function ensureUniqueBlockIds(
   workflowId: string,
   state: WorkflowState
 ): Promise<WorkflowState> {
@@ -145,6 +145,113 @@ export interface NormalizedWorkflowData {
   loops: Record<string, Loop>
   parallels: Record<string, Parallel>
   isFromNormalizedTables: boolean // Flag to indicate source (true = normalized tables, false = deployed state)
+}
+
+/**
+ * Regenerates all IDs in a workflow state to avoid conflicts when duplicating or using templates.
+ * Returns a new state with all IDs regenerated and references updated.
+ */
+export function regenerateWorkflowStateIds(state: WorkflowState): WorkflowState {
+  const blockIdMapping = new Map<string, string>()
+  const edgeIdMapping = new Map<string, string>()
+  const loopIdMapping = new Map<string, string>()
+  const parallelIdMapping = new Map<string, string>()
+
+  Object.keys(state.blocks || {}).forEach((oldId) => {
+    blockIdMapping.set(oldId, uuidv4())
+  })
+
+  ;(state.edges || []).forEach((edge) => {
+    edgeIdMapping.set(edge.id, uuidv4())
+  })
+
+  Object.keys(state.loops || {}).forEach((oldId) => {
+    loopIdMapping.set(oldId, uuidv4())
+  })
+
+  Object.keys(state.parallels || {}).forEach((oldId) => {
+    parallelIdMapping.set(oldId, uuidv4())
+  })
+
+  const newBlocks: Record<string, BlockState> = {}
+  const newEdges: Edge[] = []
+  const newLoops: Record<string, Loop> = {}
+  const newParallels: Record<string, Parallel> = {}
+
+  Object.entries(state.blocks || {}).forEach(([oldId, block]) => {
+    const newId = blockIdMapping.get(oldId) || uuidv4()
+    const nextBlock: BlockState = {
+      ...block,
+      id: newId,
+    }
+
+    if (nextBlock.data?.parentId) {
+      const newParentId = blockIdMapping.get(nextBlock.data.parentId)
+      if (newParentId) {
+        nextBlock.data = {
+          ...nextBlock.data,
+          parentId: newParentId,
+        }
+      }
+    }
+
+    if (nextBlock.subBlocks) {
+      const updatedSubBlocks: BlockState['subBlocks'] = {}
+      Object.entries(nextBlock.subBlocks).forEach(([subId, subBlock]) => {
+        if (!subBlock) return
+        const updatedSubBlock = { ...subBlock }
+        if (typeof updatedSubBlock.value === 'string' && blockIdMapping.has(updatedSubBlock.value)) {
+          updatedSubBlock.value = blockIdMapping.get(updatedSubBlock.value) as string
+        }
+        updatedSubBlocks[subId] = updatedSubBlock
+      })
+      nextBlock.subBlocks = updatedSubBlocks
+    }
+
+    newBlocks[newId] = nextBlock
+  })
+
+  ;(state.edges || []).forEach((edge) => {
+    const newId = edgeIdMapping.get(edge.id) || uuidv4()
+    const newSource = blockIdMapping.get(edge.source) || edge.source
+    const newTarget = blockIdMapping.get(edge.target) || edge.target
+
+    newEdges.push({
+      ...edge,
+      id: newId,
+      source: newSource,
+      target: newTarget,
+    })
+  })
+
+  Object.entries(state.loops || {}).forEach(([oldId, loop]) => {
+    const newId = loopIdMapping.get(oldId) || uuidv4()
+    const nextLoop: Loop = {
+      ...loop,
+      id: newId,
+      nodes: loop.nodes.map((nodeId) => blockIdMapping.get(nodeId) || nodeId),
+    }
+    newLoops[newId] = nextLoop
+  })
+
+  Object.entries(state.parallels || {}).forEach(([oldId, parallel]) => {
+    const newId = parallelIdMapping.get(oldId) || uuidv4()
+    const nextParallel: Parallel = {
+      ...parallel,
+      id: newId,
+      nodes: parallel.nodes.map((nodeId) => blockIdMapping.get(nodeId) || nodeId),
+    }
+    newParallels[newId] = nextParallel
+  })
+
+  return {
+    ...state,
+    blocks: newBlocks,
+    edges: newEdges,
+    loops: newLoops,
+    parallels: newParallels,
+    lastSaved: state.lastSaved ?? Date.now(),
+  }
 }
 
 export async function blockExistsInDeployment(

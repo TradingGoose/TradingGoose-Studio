@@ -1,3 +1,4 @@
+import * as React from 'react'
 import {
   Body,
   Column,
@@ -19,23 +20,24 @@ import { getBaseUrl } from '@/lib/urls/utils'
 
 interface FreeTierUpgradeEmailProps {
   userName?: string
-  percentUsed: number
-  currentUsage: number
-  limit: number
-  upgradeLink: string
+  percentUsed?: number
+  currentUsage?: number
+  limit?: number
+  upgradeLink?: string
   updatedDate?: Date
 }
 
 export function FreeTierUpgradeEmail({
   userName,
-  percentUsed,
-  currentUsage,
-  limit,
+  percentUsed = 0,
+  currentUsage = 0,
+  limit = 0,
   upgradeLink,
   updatedDate = new Date(),
 }: FreeTierUpgradeEmailProps) {
   const brand = getBrandConfig()
   const baseUrl = getBaseUrl()
+  const ctaLink = upgradeLink || `${baseUrl}/billing`
 
   const previewText = `${brand.name}: You've used ${percentUsed}% of your free credits`
 
@@ -83,14 +85,7 @@ export function FreeTierUpgradeEmail({
               Pro today.
             </Text>
 
-            <Section
-              style={{
-                backgroundColor: '#f8f9fa',
-                padding: '20px',
-                borderRadius: '5px',
-                margin: '20px 0',
-              }}
-            >
+            <Section style={baseStyles.codeContainer} >
               <Text
                 style={{
                   ...baseStyles.paragraph,
@@ -114,7 +109,7 @@ export function FreeTierUpgradeEmail({
 
             <Text style={baseStyles.paragraph}>Upgrade now to keep building without limits.</Text>
 
-            <Link href={upgradeLink} style={{ textDecoration: 'none' }}>
+            <Link href={ctaLink} style={{ textDecoration: 'none' }}>
               <Text style={baseStyles.button}>Upgrade to Pro</Text>
             </Link>
 

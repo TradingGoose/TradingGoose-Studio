@@ -50,10 +50,10 @@ export function useFolders(workspaceId?: string) {
   })
 
   useEffect(() => {
-    if (query.data) {
-      setFolders(query.data)
+    if (query.data && workspaceId) {
+      setFolders(workspaceId, query.data)
     }
-  }, [query.data, setFolders])
+  }, [query.data, setFolders, workspaceId])
 
   return query
 }

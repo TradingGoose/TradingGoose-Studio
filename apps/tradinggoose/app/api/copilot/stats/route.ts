@@ -7,10 +7,7 @@ import {
   createRequestTracker,
   createUnauthorizedResponse,
 } from '@/lib/copilot/auth'
-import { env } from '@/lib/env'
-import { COPILOT_API_URL_DEFAULT } from '@/lib/sim-agent/constants'
-
-const COPILOT_API_URL = env.COPILOT_API_URL || COPILOT_API_URL_DEFAULT
+import { proxyCopilotRequest } from '@/app/api/copilot/proxy'
 
 const BodySchema = z.object({
   messageId: z.string(),
@@ -41,13 +38,9 @@ export async function POST(req: NextRequest) {
       diffAccepted,
     }
 
-    const agentRes = await fetch(`${COPILOT_API_URL}/api/stats`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(env.COPILOT_API_KEY ? { 'x-api-key': env.COPILOT_API_KEY } : {}),
-      },
-      body: JSON.stringify(payload),
+    const agentRes = await proxyCopilotRequest({
+      endpoint: '/api/stats',
+      body: payload,
     })
 
     // Prefer not to block clients; still relay status

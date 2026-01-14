@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest'
 import { BlockType } from '@/executor/consts'
 import { EvaluatorBlockHandler } from '@/executor/handlers/evaluator/evaluator-handler'
 import type { ExecutionContext } from '@/executor/types'
-import { getProviderFromModel } from '@/providers/utils'
+import { getProviderFromModel } from '@/providers/ai/utils'
 import type { SerializedBlock } from '@/serializer/types'
 
 const mockGetProviderFromModel = getProviderFromModel as Mock

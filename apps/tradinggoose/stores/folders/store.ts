@@ -41,7 +41,7 @@ interface FolderState {
   loadedWorkspaces: Record<string, boolean>
 
   // Actions
-  setFolders: (folders: WorkflowFolder[]) => void
+  setFolders: (workspaceId: string, folders: WorkflowFolder[]) => void
   addFolder: (folder: WorkflowFolder) => void
   updateFolder: (id: string, updates: Partial<WorkflowFolder>) => void
   removeFolder: (id: string) => void
@@ -88,16 +88,19 @@ export const useFolderStore = create<FolderState>()(
       selectedWorkflows: new Set(),
       loadedWorkspaces: {},
 
-      setFolders: (folders) =>
-        set(() => ({
-          folders: folders.reduce(
-            (acc, folder) => {
-              acc[folder.id] = folder
-              return acc
-            },
-            {} as Record<string, WorkflowFolder>
-          ),
-        })),
+      setFolders: (workspaceId, folders) =>
+        set((state) => {
+          const nextFolders: Record<string, WorkflowFolder> = {}
+          Object.entries(state.folders).forEach(([id, folder]) => {
+            if (folder.workspaceId !== workspaceId) {
+              nextFolders[id] = folder
+            }
+          })
+          folders.forEach((folder) => {
+            nextFolders[folder.id] = folder
+          })
+          return { folders: nextFolders }
+        }),
 
       addFolder: (folder) =>
         set((state) => ({
@@ -220,6 +223,7 @@ export const useFolderStore = create<FolderState>()(
       },
 
       fetchFolders: async (workspaceId) => {
+        let didLoad = false
         set((state) => ({
           isLoading: true,
           loadedWorkspaces: { ...state.loadedWorkspaces, [workspaceId]: false },
@@ -245,7 +249,7 @@ export const useFolderStore = create<FolderState>()(
             updatedAt: new Date(folder.updatedAt),
           }))
 
-          get().setFolders(processedFolders)
+          get().setFolders(workspaceId, processedFolders)
 
           // Initialize expanded state from folder data
           const expandedSet = new Set<string>()
@@ -255,12 +259,13 @@ export const useFolderStore = create<FolderState>()(
             }
           })
           set({ expandedFolders: expandedSet })
+          didLoad = true
         } catch (error) {
           logger.error('Error fetching folders:', error)
         } finally {
           set((state) => ({
             isLoading: false,
-            loadedWorkspaces: { ...state.loadedWorkspaces, [workspaceId]: true },
+            loadedWorkspaces: { ...state.loadedWorkspaces, [workspaceId]: didLoad },
           }))
         }
       },

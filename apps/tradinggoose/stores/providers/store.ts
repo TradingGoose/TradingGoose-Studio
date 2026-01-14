@@ -1,22 +1,22 @@
 import { create } from 'zustand'
 import { createLogger } from '@/lib/logs/console/logger'
-import { updateOllamaProviderModels, updateOpenRouterProviderModels } from '@/providers/utils'
+import { updateOllamaProviderModels, updateOpenRouterProviderModels } from '@/providers/ai/utils'
 import type { ProviderConfig, ProviderName, ProvidersStore } from './types'
 
 const logger = createLogger('ProvidersStore')
 
 const PROVIDER_CONFIGS: Record<ProviderName, ProviderConfig> = {
   base: {
-    apiEndpoint: '/api/providers/base/models',
+    apiEndpoint: '/api/providers/ai/base/models',
     dedupeModels: true,
     updateFunction: () => {},
   },
   ollama: {
-    apiEndpoint: '/api/providers/ollama/models',
+    apiEndpoint: '/api/providers/ai/ollama/models',
     updateFunction: updateOllamaProviderModels,
   },
   openrouter: {
-    apiEndpoint: '/api/providers/openrouter/models',
+    apiEndpoint: '/api/providers/ai/openrouter/models',
     dedupeModels: true,
     updateFunction: updateOpenRouterProviderModels,
   },

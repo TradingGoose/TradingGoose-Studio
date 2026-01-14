@@ -3,77 +3,35 @@
     "target": "es2022",
     "module": "esnext",
     "moduleResolution": "bundler",
-    "lib": [
-      "es2022",
-      "dom",
-      "dom.iterable"
-    ],
+    "lib": ["es2022", "dom", "dom.iterable"],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./*"
-      ],
-      "@apps/tradinggoose/hooks/queries/*": [
-        "./hooks/queries/*"
-      ],
-      "@/components/*": [
-        "components/*"
-      ],
-      "@/lib/*": [
-        "./lib/*"
-      ],
-      "@/stores": [
-        "./stores"
-      ],
-      "@/stores/*": [
-        "./stores/*"
-      ],
-      "@/hooks/*": [
-        "./hooks/*"
-      ],
-      "@/blocks": [
-        "./blocks"
-      ],
-      "@/blocks/*": [
-        "./blocks/*"
-      ],
-      "@/providers/*": [
-        "./providers/*"
-      ],
-      "@/providers": [
-        "./providers"
-      ],
-      "@/tools": [
-        "./tools"
-      ],
-      "@/tools/*": [
-        "./tools/*"
-      ],
-      "@/serializer": [
-        "./serializer"
-      ],
-      "@/serializer/*": [
-        "./serializer/*"
-      ],
+      "@/*": ["./*"],
+      "@apps/tradinggoose/hooks/queries/*": ["./hooks/queries/*"],
+      "@/components/*": ["components/*"],
+      "@/lib/*": ["./lib/*"],
+      "@/stores": ["./stores"],
+      "@/stores/*": ["./stores/*"],
+      "@/hooks/*": ["./hooks/*"],
+      "@/blocks": ["./blocks"],
+      "@/blocks/*": ["./blocks/*"],
+      "@/providers/*": ["./providers/*"],
+      "@/providers": ["./providers"],
+      "@/tools": ["./tools"],
+      "@/tools/*": ["./tools/*"],
+      "@/serializer": ["./serializer"],
+      "@/serializer/*": ["./serializer/*"],
       "@/global-navbar/settings-modal/components/workspace/*": [
         "./global-navbar/settings-modal/components/*"
       ],
-      "@tradinggoose/db": [
-        "../../packages/db"
-      ],
-      "@tradinggoose/db/*": [
-        "../../packages/db/*"
-      ],
-      "@/executor": [
-        "./executor"
-      ],
-      "@/executor/*": [
-        "./executor/*"
-      ]
+      "@tradinggoose/db": ["../../packages/db"],
+      "@tradinggoose/db/*": ["../../packages/db/*"],
+      "@/executor": ["./executor"],
+      "@/executor/*": ["./executor/*"]
     },
     "allowJs": true,
     "noEmit": true,
@@ -96,7 +54,5 @@
     "telemetry.config.js",
     "trigger.config.ts"
   ],
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules"]
 }

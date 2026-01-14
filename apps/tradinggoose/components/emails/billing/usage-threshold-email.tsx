@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { Body, Container, Head, Hr, Html, Link, Preview, Section, Text } from '@react-email/components'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { getBaseUrl } from '@/lib/urls/utils'
@@ -11,17 +12,17 @@ interface UsageThresholdEmailProps {
   percentUsed: number
   currentUsage: number
   limit: number
-  ctaLink: string
+  ctaLink?: string
   updatedDate?: Date
 }
 
 export function UsageThresholdEmail({
   userName,
   planName,
-  percentUsed,
-  currentUsage,
-  limit,
-  ctaLink,
+  percentUsed = 0,
+  currentUsage = 0,
+  limit = 0,
+  ctaLink = '#',
   updatedDate = new Date(),
 }: UsageThresholdEmailProps) {
   const brand = getBrandConfig()

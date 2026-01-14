@@ -4,6 +4,8 @@ import { useMemo } from 'react'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
 
 /**
  * Centralized dependsOn gating for sub-block components.
@@ -13,22 +15,51 @@ import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 export function useDependsOnGate(
   blockId: string,
   subBlock: SubBlockConfig,
-  opts?: { disabled?: boolean; isPreview?: boolean }
+  opts?: { disabled?: boolean; isPreview?: boolean; previewContextValues?: Record<string, any> }
 ) {
   const disabledProp = opts?.disabled ?? false
   const isPreview = opts?.isPreview ?? false
+  const previewContextValues = opts?.previewContextValues
 
-  const activeWorkflowId = useWorkflowRegistry((s) => s.activeWorkflowId)
+  const routeContext = useOptionalWorkflowRoute()
+  const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
+  const activeWorkflowId = useWorkflowRegistry((state) =>
+    typeof state.getActiveWorkflowId === 'function'
+      ? state.getActiveWorkflowId(resolvedChannelId)
+      : state.activeWorkflowId
+  )
 
   // Use only explicit dependsOn from block config. No inference.
   const dependsOn: string[] = (subBlock.dependsOn as string[] | undefined) || []
 
+  const normalizeDependencyValue = (rawValue: unknown): unknown => {
+    if (rawValue === null || rawValue === undefined) return null
+
+    if (typeof rawValue === 'object') {
+      if (Array.isArray(rawValue)) {
+        return rawValue.length === 0 ? null : rawValue.map((item) => normalizeDependencyValue(item))
+      }
+
+      const record = rawValue as Record<string, any>
+      if ('value' in record) return normalizeDependencyValue(record.value)
+      if ('id' in record) return record.id
+      return record
+    }
+
+    return rawValue
+  }
+
   const dependencyValues = useSubBlockStore((state) => {
     if (dependsOn.length === 0) return [] as any[]
+
+    if (previewContextValues) {
+      return dependsOn.map((depKey) => normalizeDependencyValue(previewContextValues[depKey]) ?? null)
+    }
+
     if (!activeWorkflowId) return dependsOn.map(() => null)
     const workflowValues = state.workflowValues[activeWorkflowId] || {}
     const blockValues = (workflowValues as any)[blockId] || {}
-    return dependsOn.map((depKey) => (blockValues as any)[depKey] ?? null)
+    return dependsOn.map((depKey) => normalizeDependencyValue((blockValues as any)[depKey]) ?? null)
   }) as any[]
 
   const depsSatisfied = useMemo(() => {

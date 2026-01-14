@@ -1,10 +1,10 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BookOpen, Code, Info, RectangleHorizontal, RectangleVertical, Zap } from 'lucide-react'
-import { Handle, type NodeProps, Position, useUpdateNodeInternals } from 'reactflow'
+import { Handle, type NodeProps, Position, useStore, useUpdateNodeInternals } from 'reactflow'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipEnvironmentProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { parseCronToHumanReadable } from '@/lib/schedules/utils'
@@ -76,6 +76,28 @@ export const WorkflowBlock = memo(
     const contentRef = useRef<HTMLDivElement>(null)
     const nameInputRef = useRef<HTMLInputElement>(null)
     const updateNodeInternals = useUpdateNodeInternals()
+    const [tooltipContainer, setTooltipContainer] = useState<HTMLElement | null>(null)
+    const tooltipScale = useStore(
+      useCallback((state: any) => {
+        if (Array.isArray(state.transform)) {
+          return state.transform[2] ?? 1
+        }
+        if (state.viewport && typeof state.viewport.zoom === 'number') {
+          return state.viewport.zoom
+        }
+        return 1
+      }, []),
+      useCallback((a: number, b: number) => Math.abs(a - b) < 0.001, [])
+    )
+    const normalizedTooltipScale = Number.isFinite(tooltipScale) ? tooltipScale : 1
+
+    // Portal tooltips into the canvas viewport so they scale with React Flow zoom
+    useEffect(() => {
+      if (!blockRef.current) return
+      const viewport = blockRef.current.closest('.react-flow__viewport') as HTMLElement | null
+      const renderer = blockRef.current.closest('.react-flow__renderer') as HTMLElement | null
+      setTooltipContainer(viewport ?? renderer)
+    }, [])
 
     // Use the clean abstraction for current workflow state
     const currentWorkflow = useCurrentWorkflow()
@@ -168,6 +190,15 @@ export const WorkflowBlock = memo(
     const blockWidth = currentWorkflow.isDiffMode
       ? (currentWorkflow.blocks[id]?.layout?.measuredWidth ?? 0)
       : (storeBlockLayout?.measuredWidth ?? 0)
+
+    const tooltipPortalContainer = tooltipContainer ?? undefined
+    const tooltipEnvironmentValue = useMemo(
+      () => ({
+        container: tooltipPortalContainer,
+        scale: normalizedTooltipScale,
+      }),
+      [tooltipPortalContainer, normalizedTooltipScale]
+    )
 
     // Get per-block webhook status by checking if webhook is configured
     const activeWorkflowId = useWorkflowRegistry(resolveActiveWorkflowId)
@@ -533,20 +564,26 @@ export const WorkflowBlock = memo(
           typeof block.condition === 'function' ? block.condition() : block.condition
 
         // Get the values of the fields this block depends on from the appropriate state
-        const fieldValue = stateToUse[actualCondition.field]?.value
+        const normalizeValue = (value: any) =>
+          value && typeof value === 'object' && 'id' in value ? (value as any).id : value
+        const normalizedFieldValue = normalizeValue(stateToUse[actualCondition.field]?.value)
         const andFieldValue = actualCondition.and
-          ? stateToUse[actualCondition.and.field]?.value
+          ? normalizeValue(stateToUse[actualCondition.and.field]?.value)
           : undefined
 
         // Check if the condition value is an array
         const isValueMatch = Array.isArray(actualCondition.value)
-          ? fieldValue != null &&
+          ? normalizedFieldValue != null &&
           (actualCondition.not
-            ? !actualCondition.value.includes(fieldValue as string | number | boolean)
-            : actualCondition.value.includes(fieldValue as string | number | boolean))
+            ? !actualCondition.value.includes(
+              normalizedFieldValue as string | number | boolean
+            )
+            : actualCondition.value.includes(
+              normalizedFieldValue as string | number | boolean
+            ))
           : actualCondition.not
-            ? fieldValue !== actualCondition.value
-            : fieldValue === actualCondition.value
+            ? normalizedFieldValue !== actualCondition.value
+            : normalizedFieldValue === actualCondition.value
 
         // Check both conditions if 'and' is present
         const isAndValueMatch =
@@ -732,557 +769,559 @@ export const WorkflowBlock = memo(
     }, [childWorkflowId])
 
     return (
-      <div className='group relative'>
-        <Card
-          ref={blockRef}
-          className={cn(
-            'rounded-lg relative cursor-default select-none shadow-xs border border-border',
-            'transition-block-bg transition-ring',
-            displayIsWide ? 'w-[480px]' : 'w-[320px]',
-            !isEnabled && 'shadow-sm',
-            isActive && 'animate-pulse-ring ring-2 ring-blue-500',
-            isPending && 'ring-2 ring-yellow-500',
-            // Diff highlighting
-            diffStatus === 'new' && 'bg-green-50/50 ring-2 ring-green-500 dark:bg-green-900/10',
-            diffStatus === 'edited' &&
-            'bg-orange-50/50 ring-2 ring-orange-500 dark:bg-orange-900/10',
-            // Deleted block highlighting (in original workflow)
-            isDeletedBlock && 'bg-red-50/50 ring-2 ring-red-500 dark:bg-red-900/10',
-            'z-[20]'
-          )}
-        >
-          {/* Show debug indicator for pending blocks */}
-          {isPending && (
-            <div className='-top-6 -translate-x-1/2 absolute left-1/2 z-10 transform rounded-t-md bg-yellow-500 px-2 py-0.5 text-white text-xs'>
-              Next Step
-            </div>
-          )}
-
-          <ActionBar blockId={id} blockType={type} disabled={!userPermissions.canEdit} />
-          {/* Connection Blocks - Don't show for trigger blocks or blocks in trigger mode */}
-          {config.category !== 'triggers' && !displayTriggerMode && (
-            <ConnectionBlocks
-              blockId={id}
-              setIsConnecting={setIsConnecting}
-              isDisabled={!userPermissions.canEdit}
-              horizontalHandles={horizontalHandles}
-            />
-          )}
-
-          {/* Input Handle - Don't show for trigger blocks or blocks in trigger mode */}
-          {config.category !== 'triggers' && !displayTriggerMode && (
-            <Handle
-              type='target'
-              position={horizontalHandles ? Position.Left : Position.Top}
-              id='target'
-              className={cn(
-                horizontalHandles ? '!w-[7px] !h-5' : '!w-5 !h-[7px]',
-                '!bg-slate-300 dark:!bg-slate-500 !rounded-xs !border-none',
-                '!z-[30]',
-                'group-hover:!shadow-[0_0_0_3px_rgba(156,163,175,0.15)]',
-                horizontalHandles
-                  ? 'hover:!w-[10px] hover:!left-[-10px] hover:!rounded-l-full hover:!rounded-r-none'
-                  : 'hover:!h-[10px] hover:!top-[-10px] hover:!rounded-t-full hover:!rounded-b-none',
-                '!cursor-crosshair',
-                'transition-[colors] duration-150',
-                horizontalHandles ? '!left-[-7px]' : '!top-[-7px]'
-              )}
-              style={{
-                ...(horizontalHandles
-                  ? { top: '50%', transform: 'translateY(-50%)' }
-                  : { left: '50%', transform: 'translateX(-50%)' }),
-              }}
-              data-nodeid={id}
-              data-handleid='target'
-              isConnectableStart={false}
-              isConnectableEnd={true}
-              isValidConnection={(connection) => connection.source !== id}
-            />
-          )}
-
-          {/* Block Header */}
-          <div
+      <TooltipEnvironmentProvider value={tooltipEnvironmentValue}>
+        <div className='group relative'>
+          <Card
+            ref={blockRef}
             className={cn(
-              'workflow-drag-handle flex cursor-grab items-center justify-between p-3 [&:active]:cursor-grabbing',
-              subBlockRows.length > 0 && 'border-b'
+              'rounded-md relative cursor-default select-none shadow-xs border border-border',
+              'transition-block-bg transition-ring',
+              displayIsWide ? 'w-[480px]' : 'w-[320px]',
+              !isEnabled && 'shadow-sm',
+              isActive && 'animate-pulse-ring ring-2 ring-blue-500',
+              isPending && 'ring-2 ring-yellow-500',
+              // Diff highlighting
+              diffStatus === 'new' && 'bg-green-50/50 ring-2 ring-green-500 dark:bg-green-900/10',
+              diffStatus === 'edited' &&
+              'bg-orange-50/50 ring-2 ring-orange-500 dark:bg-orange-900/10',
+              // Deleted block highlighting (in original workflow)
+              isDeletedBlock && 'bg-red-50/50 ring-2 ring-red-500 dark:bg-red-900/10',
+              'z-[20]'
             )}
-            onMouseDown={(e) => {
-              e.stopPropagation()
-            }}
           >
-            <div className='flex min-w-0 flex-1 items-center gap-3'>
-              <div
-                className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-secondary/60 text-foreground'
-                style={{
-                  backgroundColor: isEnabled
-                    ? config.bgColor
-                      ? `${config.bgColor}30`
-                      : undefined
-                    : 'gray',
-                  color: isEnabled
-                    ? config.bgColor || undefined
-                    : 'black',
-                }}
-              >
-                <config.icon className={'h-5 w-5'} />
+            {/* Show debug indicator for pending blocks */}
+            {isPending && (
+              <div className='-top-6 -translate-x-1/2 absolute left-1/2 z-10 transform rounded-t-md bg-yellow-500 px-2 py-0.5 text-white text-xs'>
+                Next Step
               </div>
-              <div className='min-w-0'>
-                {isEditing ? (
-                  <input
-                    ref={nameInputRef}
-                    type='text'
-                    value={editedName}
-                    onChange={(e) => handleNodeNameChange(e.target.value)}
-                    onBlur={handleNameSubmit}
-                    onKeyDown={handleNameKeyDown}
-                    className='border-none bg-transparent p-0 font-medium text-md outline-none'
-                    maxLength={18}
-                  />
+            )}
+
+            <ActionBar blockId={id} blockType={type} disabled={!userPermissions.canEdit} />
+            {/* Connection Blocks - Don't show for trigger blocks or blocks in trigger mode */}
+            {config.category !== 'triggers' && !displayTriggerMode && (
+              <ConnectionBlocks
+                blockId={id}
+                setIsConnecting={setIsConnecting}
+                isDisabled={!userPermissions.canEdit}
+                horizontalHandles={horizontalHandles}
+              />
+            )}
+
+            {/* Input Handle - Don't show for trigger blocks or blocks in trigger mode */}
+            {config.category !== 'triggers' && !displayTriggerMode && (
+              <Handle
+                type='target'
+                position={horizontalHandles ? Position.Left : Position.Top}
+                id='target'
+                className={cn(
+                  horizontalHandles ? '!w-[7px] !h-5' : '!w-5 !h-[7px]',
+                  '!bg-slate-300 dark:!bg-slate-500 !rounded-xs !border-none',
+                  '!z-[30]',
+                  'group-hover:!shadow-[0_0_0_3px_rgba(156,163,175,0.15)]',
+                  horizontalHandles
+                    ? 'hover:!w-[10px] hover:!left-[-10px] hover:!rounded-l-full hover:!rounded-r-none'
+                    : 'hover:!h-[10px] hover:!top-[-10px] hover:!rounded-t-full hover:!rounded-b-none',
+                  '!cursor-crosshair',
+                  'transition-[colors] duration-150',
+                  horizontalHandles ? '!left-[-7px]' : '!top-[-7px]'
+                )}
+                style={{
+                  ...(horizontalHandles
+                    ? { top: '50%', transform: 'translateY(-50%)' }
+                    : { left: '50%', transform: 'translateX(-50%)' }),
+                }}
+                data-nodeid={id}
+                data-handleid='target'
+                isConnectableStart={false}
+                isConnectableEnd={true}
+                isValidConnection={(connection) => connection.source !== id}
+              />
+            )}
+
+            {/* Block Header */}
+            <div
+              className={cn(
+                'workflow-drag-handle flex cursor-grab items-center justify-between p-3 [&:active]:cursor-grabbing',
+                subBlockRows.length > 0 && 'border-b'
+              )}
+              onMouseDown={(e) => {
+                e.stopPropagation()
+              }}
+            >
+              <div className='flex min-w-0 flex-1 items-center gap-3'>
+                <div
+                  className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-secondary/60 text-foreground'
+                  style={{
+                    backgroundColor: isEnabled
+                      ? config.bgColor
+                        ? `${config.bgColor}30`
+                        : undefined
+                      : 'gray',
+                    color: isEnabled
+                      ? config.bgColor || undefined
+                      : 'white',
+                  }}
+                >
+                  <config.icon className={'h-5 w-5'} />
+                </div>
+                <div className='min-w-0'>
+                  {isEditing ? (
+                    <input
+                      ref={nameInputRef}
+                      type='text'
+                      value={editedName}
+                      onChange={(e) => handleNodeNameChange(e.target.value)}
+                      onBlur={handleNameSubmit}
+                      onKeyDown={handleNameKeyDown}
+                      className='border-none bg-transparent p-0 font-medium text-md outline-none'
+                      maxLength={18}
+                    />
+                  ) : (
+                    <span
+                      className={cn(
+                        'inline-block cursor-text font-medium text-md hover:text-muted-foreground',
+                        !isEnabled && 'text-muted-foreground'
+                      )}
+                      onClick={handleNameClick}
+                      title={name}
+                      style={{
+                        maxWidth: !isEnabled ? (displayIsWide ? '200px' : '140px') : '180px',
+                      }}
+                    >
+                      {name}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className='flex flex-shrink-0 items-center gap-2'>
+                {isWorkflowSelector && childWorkflowId && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className='relative mr-1 flex items-center justify-center'>
+                        <div
+                          className={cn(
+                            'h-2.5 w-2.5 rounded-full',
+                            childIsDeployed ? 'bg-green-500' : 'bg-red-500'
+                          )}
+                        />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side='top' className='px-3 py-2'>
+                      <span className='text-sm'>
+                        {childIsDeployed
+                          ? isLoadingChildVersion
+                            ? 'Deployed'
+                            : childActiveVersion != null
+                              ? `Deployed (v${childActiveVersion})`
+                              : 'Deployed'
+                          : 'Not Deployed'}
+                      </span>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {!isEnabled && (
+                  <Badge variant='secondary' className='bg-gray-100 text-gray-500 hover:bg-gray-100'>
+                    Disabled
+                  </Badge>
+                )}
+                {/* Schedule indicator badge - displayed for schedule trigger blocks with active schedules */}
+                {shouldShowScheduleBadge && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        variant='outline'
+                        className={cn(
+                          'flex cursor-pointer items-center gap-1 font-normal text-xs',
+                          scheduleInfo?.isDisabled
+                            ? 'border-yellow-200 bg-yellow-50 text-yellow-600 hover:bg-yellow-100 dark:bg-yellow-900/20 dark:text-yellow-400'
+                            : 'border-green-200 bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400'
+                        )}
+                        onClick={
+                          scheduleInfo?.id
+                            ? scheduleInfo.isDisabled
+                              ? () => reactivateSchedule(scheduleInfo.id!)
+                              : () => disableSchedule(scheduleInfo.id!)
+                            : undefined
+                        }
+                      >
+                        <div className='relative mr-0.5 flex items-center justify-center'>
+                          <div
+                            className={cn(
+                              'absolute h-3 w-3 rounded-full',
+                              scheduleInfo?.isDisabled ? 'bg-yellow-500/20' : 'bg-green-500/20'
+                            )}
+                          />
+                          <div
+                            className={cn(
+                              'relative h-2 w-2 rounded-full',
+                              scheduleInfo?.isDisabled ? 'bg-yellow-500' : 'bg-green-500'
+                            )}
+                          />
+                        </div>
+                        {scheduleInfo?.isDisabled ? 'Disabled' : 'Scheduled'}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side='top' className='max-w-[300px] p-4'>
+                      {scheduleInfo?.isDisabled ? (
+                        <p className='text-sm'>
+                          This schedule is currently disabled. Click the badge to reactivate it.
+                        </p>
+                      ) : (
+                        <p className='text-sm'>Click the badge to disable this schedule.</p>
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {/* Webhook indicator badge - displayed for webhook trigger blocks */}
+                {showWebhookIndicator && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        variant='outline'
+                        className='flex items-center gap-1 border-green-200 bg-green-50 font-normal text-green-600 text-xs hover:bg-green-50 dark:bg-green-900/20 dark:text-green-400'
+                      >
+                        <div className='relative mr-0.5 flex items-center justify-center'>
+                          <div className='absolute h-3 w-3 rounded-full bg-green-500/20' />
+                          <div className='relative h-2 w-2 rounded-full bg-green-500' />
+                        </div>
+                        Webhook
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side='top' className='max-w-[300px] p-4'>
+                      {webhookInfo ? (
+                        <>
+                          <p className='text-sm'>{getProviderName(webhookInfo.provider)} Webhook</p>
+                          <p className='mt-1 text-muted-foreground text-xs'>
+                            Path: {webhookInfo.webhookPath}
+                          </p>
+                        </>
+                      ) : (
+                        <p className='text-muted-foreground text-sm'>
+                          This workflow is triggered by a webhook.
+                        </p>
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {config.subBlocks.some((block) => block.mode) && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant='ghost'
+                        size='icon'
+                        onClick={() => {
+                          if (currentWorkflow.isDiffMode) {
+                            setDiffAdvancedMode((prev) => !prev)
+                          } else if (userPermissions.canEdit) {
+                            collaborativeToggleBlockAdvancedMode(id)
+                          }
+                        }}
+                        className={cn(
+                          'h-7 p-1 text-gray-500',
+                          displayAdvancedMode && 'text-primary',
+                          !userPermissions.canEdit &&
+                          !currentWorkflow.isDiffMode &&
+                          'cursor-not-allowed opacity-50'
+                        )}
+                        disabled={!userPermissions.canEdit && !currentWorkflow.isDiffMode}
+                      >
+                        <Code className='h-5 w-5' />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side='top'>
+                      {!userPermissions.canEdit && !currentWorkflow.isDiffMode
+                        ? userPermissions.isOfflineMode
+                          ? 'Connection lost - please refresh'
+                          : 'Read-only mode'
+                        : displayAdvancedMode
+                          ? 'Switch to Basic Mode'
+                          : 'Switch to Advanced Mode'}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {/* Trigger Mode Button - Show for hybrid blocks that support triggers (not pure trigger blocks) */}
+                {config.triggers?.enabled && config.category !== 'triggers' && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant='ghost'
+                        size='icon'
+                        onClick={() => {
+                          if (currentWorkflow.isDiffMode) {
+                            setDiffTriggerMode((prev) => !prev)
+                          } else if (userPermissions.canEdit) {
+                            // Toggle trigger mode using collaborative function
+                            collaborativeToggleBlockTriggerMode(id)
+                          }
+                        }}
+                        className={cn(
+                          'h-7 p-1 text-gray-500',
+                          displayTriggerMode && 'text-[#22C55E]',
+                          !userPermissions.canEdit &&
+                          !currentWorkflow.isDiffMode &&
+                          'cursor-not-allowed opacity-50'
+                        )}
+                        disabled={!userPermissions.canEdit && !currentWorkflow.isDiffMode}
+                      >
+                        <Zap className='h-5 w-5' />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side='top'>
+                      {!userPermissions.canEdit && !currentWorkflow.isDiffMode
+                        ? userPermissions.isOfflineMode
+                          ? 'Connection lost - please refresh'
+                          : 'Read-only mode'
+                        : displayTriggerMode
+                          ? 'Switch to Action Mode'
+                          : 'Switch to Trigger Mode'}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {config.docsLink ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant='ghost'
+                        size='icon'
+                        className='h-7 p-1 text-gray-500'
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          window.open(config.docsLink, '_target', 'noopener,noreferrer')
+                        }}
+                      >
+                        <BookOpen className='h-5 w-5' />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side='top'>See Docs</TooltipContent>
+                  </Tooltip>
                 ) : (
-                  <span
-                    className={cn(
-                      'inline-block cursor-text font-medium text-md hover:text-muted-foreground',
-                      !isEnabled && 'text-muted-foreground'
-                    )}
-                    onClick={handleNameClick}
-                    title={name}
-                    style={{
-                      maxWidth: !isEnabled ? (displayIsWide ? '200px' : '140px') : '180px',
-                    }}
-                  >
-                    {name}
-                  </span>
+                  config.longDescription && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant='ghost' size='icon' className='h-7 p-1 text-gray-500'>
+                          <Info className='h-5 w-5' />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side='top' className='max-w-[300px] p-4'>
+                        <div className='space-y-3'>
+                          <div>
+                            <p className='mb-1 font-medium text-sm'>Description</p>
+                            <p className='text-muted-foreground text-sm'>{config.longDescription}</p>
+                          </div>
+                          {config.outputs && Object.keys(config.outputs).length > 0 && (
+                            <div>
+                              <p className='mb-1 font-medium text-sm'>Output</p>
+                              <div className='text-sm'>
+                                {Object.entries(config.outputs).map(([key, value]) => (
+                                  <div key={key} className='mb-1'>
+                                    <span className='text-muted-foreground'>{key}</span>{' '}
+                                    {typeof value === 'object' &&
+                                      value !== null &&
+                                      'type' in value ? (
+                                      // New format: { type: 'string', description: '...' }
+                                      <span className='text-green-500'>{value.type}</span>
+                                    ) : typeof value === 'object' && value !== null ? (
+                                      // Legacy complex object format
+                                      <div className='mt-1 pl-3'>
+                                        {Object.entries(value).map(([typeKey, typeValue]) => (
+                                          <div key={typeKey} className='flex items-start'>
+                                            <span className='font-medium text-blue-500'>
+                                              {typeKey}:
+                                            </span>
+                                            <span className='ml-1 text-green-500'>
+                                              {typeValue as string}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      // Old format: just a string
+                                      <span className='text-green-500'>{value as string}</span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  )
+                )}
+                {subBlockRows.length > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant='ghost'
+                        size='icon'
+                        onClick={() => {
+                          if (currentWorkflow.isDiffMode) {
+                            setDiffIsWide((prev) => !prev)
+                          } else if (userPermissions.canEdit) {
+                            collaborativeToggleBlockWide(id)
+                          }
+                        }}
+                        className={cn(
+                          'h-7 p-1 text-gray-500',
+                          !userPermissions.canEdit &&
+                          !currentWorkflow.isDiffMode &&
+                          'cursor-not-allowed opacity-50'
+                        )}
+                        disabled={!userPermissions.canEdit && !currentWorkflow.isDiffMode}
+                      >
+                        {displayIsWide ? (
+                          <RectangleHorizontal className='h-5 w-5' />
+                        ) : (
+                          <RectangleVertical className='h-5 w-5' />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side='top'>
+                      {!userPermissions.canEdit && !currentWorkflow.isDiffMode
+                        ? userPermissions.isOfflineMode
+                          ? 'Connection lost - please refresh'
+                          : 'Read-only mode'
+                        : displayIsWide
+                          ? 'Narrow Block'
+                          : 'Expand Block'}
+                    </TooltipContent>
+                  </Tooltip>
                 )}
               </div>
             </div>
-            <div className='flex flex-shrink-0 items-center gap-2'>
-              {isWorkflowSelector && childWorkflowId && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className='relative mr-1 flex items-center justify-center'>
-                      <div
-                        className={cn(
-                          'h-2.5 w-2.5 rounded-full',
-                          childIsDeployed ? 'bg-green-500' : 'bg-red-500'
-                        )}
-                      />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side='top' className='px-3 py-2'>
-                    <span className='text-sm'>
-                      {childIsDeployed
-                        ? isLoadingChildVersion
-                          ? 'Deployed'
-                          : childActiveVersion != null
-                            ? `Deployed (v${childActiveVersion})`
-                            : 'Deployed'
-                        : 'Not Deployed'}
-                    </span>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-              {!isEnabled && (
-                <Badge variant='secondary' className='bg-gray-100 text-gray-500 hover:bg-gray-100'>
-                  Disabled
-                </Badge>
-              )}
-              {/* Schedule indicator badge - displayed for schedule trigger blocks with active schedules */}
-              {shouldShowScheduleBadge && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge
-                      variant='outline'
-                      className={cn(
-                        'flex cursor-pointer items-center gap-1 font-normal text-xs',
-                        scheduleInfo?.isDisabled
-                          ? 'border-yellow-200 bg-yellow-50 text-yellow-600 hover:bg-yellow-100 dark:bg-yellow-900/20 dark:text-yellow-400'
-                          : 'border-green-200 bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400'
-                      )}
-                      onClick={
-                        scheduleInfo?.id
-                          ? scheduleInfo.isDisabled
-                            ? () => reactivateSchedule(scheduleInfo.id!)
-                            : () => disableSchedule(scheduleInfo.id!)
-                          : undefined
-                      }
-                    >
-                      <div className='relative mr-0.5 flex items-center justify-center'>
-                        <div
-                          className={cn(
-                            'absolute h-3 w-3 rounded-full',
-                            scheduleInfo?.isDisabled ? 'bg-yellow-500/20' : 'bg-green-500/20'
-                          )}
-                        />
-                        <div
-                          className={cn(
-                            'relative h-2 w-2 rounded-full',
-                            scheduleInfo?.isDisabled ? 'bg-yellow-500' : 'bg-green-500'
-                          )}
-                        />
-                      </div>
-                      {scheduleInfo?.isDisabled ? 'Disabled' : 'Scheduled'}
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent side='top' className='max-w-[300px] p-4'>
-                    {scheduleInfo?.isDisabled ? (
-                      <p className='text-sm'>
-                        This schedule is currently disabled. Click the badge to reactivate it.
-                      </p>
-                    ) : (
-                      <p className='text-sm'>Click the badge to disable this schedule.</p>
-                    )}
-                  </TooltipContent>
-                </Tooltip>
-              )}
-              {/* Webhook indicator badge - displayed for webhook trigger blocks */}
-              {showWebhookIndicator && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge
-                      variant='outline'
-                      className='flex items-center gap-1 border-green-200 bg-green-50 font-normal text-green-600 text-xs hover:bg-green-50 dark:bg-green-900/20 dark:text-green-400'
-                    >
-                      <div className='relative mr-0.5 flex items-center justify-center'>
-                        <div className='absolute h-3 w-3 rounded-full bg-green-500/20' />
-                        <div className='relative h-2 w-2 rounded-full bg-green-500' />
-                      </div>
-                      Webhook
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent side='top' className='max-w-[300px] p-4'>
-                    {webhookInfo ? (
-                      <>
-                        <p className='text-sm'>{getProviderName(webhookInfo.provider)} Webhook</p>
-                        <p className='mt-1 text-muted-foreground text-xs'>
-                          Path: {webhookInfo.webhookPath}
-                        </p>
-                      </>
-                    ) : (
-                      <p className='text-muted-foreground text-sm'>
-                        This workflow is triggered by a webhook.
-                      </p>
-                    )}
-                  </TooltipContent>
-                </Tooltip>
-              )}
-              {config.subBlocks.some((block) => block.mode) && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant='ghost'
-                      size='icon'
-                      onClick={() => {
-                        if (currentWorkflow.isDiffMode) {
-                          setDiffAdvancedMode((prev) => !prev)
-                        } else if (userPermissions.canEdit) {
-                          collaborativeToggleBlockAdvancedMode(id)
-                        }
-                      }}
-                      className={cn(
-                        'h-7 p-1 text-gray-500',
-                        displayAdvancedMode && 'text-primary',
-                        !userPermissions.canEdit &&
-                        !currentWorkflow.isDiffMode &&
-                        'cursor-not-allowed opacity-50'
-                      )}
-                      disabled={!userPermissions.canEdit && !currentWorkflow.isDiffMode}
-                    >
-                      <Code className='h-5 w-5' />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side='top'>
-                    {!userPermissions.canEdit && !currentWorkflow.isDiffMode
-                      ? userPermissions.isOfflineMode
-                        ? 'Connection lost - please refresh'
-                        : 'Read-only mode'
-                      : displayAdvancedMode
-                        ? 'Switch to Basic Mode'
-                        : 'Switch to Advanced Mode'}
-                  </TooltipContent>
-                </Tooltip>
-              )}
-              {/* Trigger Mode Button - Show for hybrid blocks that support triggers (not pure trigger blocks) */}
-              {config.triggers?.enabled && config.category !== 'triggers' && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant='ghost'
-                      size='icon'
-                      onClick={() => {
-                        if (currentWorkflow.isDiffMode) {
-                          setDiffTriggerMode((prev) => !prev)
-                        } else if (userPermissions.canEdit) {
-                          // Toggle trigger mode using collaborative function
-                          collaborativeToggleBlockTriggerMode(id)
-                        }
-                      }}
-                      className={cn(
-                        'h-7 p-1 text-gray-500',
-                        displayTriggerMode && 'text-[#22C55E]',
-                        !userPermissions.canEdit &&
-                        !currentWorkflow.isDiffMode &&
-                        'cursor-not-allowed opacity-50'
-                      )}
-                      disabled={!userPermissions.canEdit && !currentWorkflow.isDiffMode}
-                    >
-                      <Zap className='h-5 w-5' />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side='top'>
-                    {!userPermissions.canEdit && !currentWorkflow.isDiffMode
-                      ? userPermissions.isOfflineMode
-                        ? 'Connection lost - please refresh'
-                        : 'Read-only mode'
-                      : displayTriggerMode
-                        ? 'Switch to Action Mode'
-                        : 'Switch to Trigger Mode'}
-                  </TooltipContent>
-                </Tooltip>
-              )}
-              {config.docsLink ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant='ghost'
-                      size='icon'
-                      className='h-7 p-1 text-gray-500'
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        window.open(config.docsLink, '_target', 'noopener,noreferrer')
-                      }}
-                    >
-                      <BookOpen className='h-5 w-5' />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side='top'>See Docs</TooltipContent>
-                </Tooltip>
-              ) : (
-                config.longDescription && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant='ghost' size='icon' className='h-7 p-1 text-gray-500'>
-                        <Info className='h-5 w-5' />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side='top' className='max-w-[300px] p-4'>
-                      <div className='space-y-3'>
-                        <div>
-                          <p className='mb-1 font-medium text-sm'>Description</p>
-                          <p className='text-muted-foreground text-sm'>{config.longDescription}</p>
-                        </div>
-                        {config.outputs && Object.keys(config.outputs).length > 0 && (
-                          <div>
-                            <p className='mb-1 font-medium text-sm'>Output</p>
-                            <div className='text-sm'>
-                              {Object.entries(config.outputs).map(([key, value]) => (
-                                <div key={key} className='mb-1'>
-                                  <span className='text-muted-foreground'>{key}</span>{' '}
-                                  {typeof value === 'object' &&
-                                    value !== null &&
-                                    'type' in value ? (
-                                    // New format: { type: 'string', description: '...' }
-                                    <span className='text-green-500'>{value.type}</span>
-                                  ) : typeof value === 'object' && value !== null ? (
-                                    // Legacy complex object format
-                                    <div className='mt-1 pl-3'>
-                                      {Object.entries(value).map(([typeKey, typeValue]) => (
-                                        <div key={typeKey} className='flex items-start'>
-                                          <span className='font-medium text-blue-500'>
-                                            {typeKey}:
-                                          </span>
-                                          <span className='ml-1 text-green-500'>
-                                            {typeValue as string}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    // Old format: just a string
-                                    <span className='text-green-500'>{value as string}</span>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                )
-              )}
-              {subBlockRows.length > 0 && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant='ghost'
-                      size='icon'
-                      onClick={() => {
-                        if (currentWorkflow.isDiffMode) {
-                          setDiffIsWide((prev) => !prev)
-                        } else if (userPermissions.canEdit) {
-                          collaborativeToggleBlockWide(id)
-                        }
-                      }}
-                      className={cn(
-                        'h-7 p-1 text-gray-500',
-                        !userPermissions.canEdit &&
-                        !currentWorkflow.isDiffMode &&
-                        'cursor-not-allowed opacity-50'
-                      )}
-                      disabled={!userPermissions.canEdit && !currentWorkflow.isDiffMode}
-                    >
-                      {displayIsWide ? (
-                        <RectangleHorizontal className='h-5 w-5' />
-                      ) : (
-                        <RectangleVertical className='h-5 w-5' />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side='top'>
-                    {!userPermissions.canEdit && !currentWorkflow.isDiffMode
-                      ? userPermissions.isOfflineMode
-                        ? 'Connection lost - please refresh'
-                        : 'Read-only mode'
-                      : displayIsWide
-                        ? 'Narrow Block'
-                        : 'Expand Block'}
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            </div>
-          </div>
 
-          {/* Block Content - Only render if there are subblocks */}
-          {
-            subBlockRows.length > 0 && (
-              <div
-                ref={contentRef}
-                className='cursor-pointer space-y-4 px-4 pt-3 pb-4'
-                onMouseDown={(e) => {
-                  e.stopPropagation()
-                }}
-              >
-                {subBlockRows.map((row, rowIndex) => (
-                  <div key={`row-${rowIndex}`} className='flex gap-4'>
-                    {row.map((subBlock) => {
-                      const stableKey = getSubBlockStableKey(subBlock, subBlockState)
-
-                      return (
-                        <div
-                          key={stableKey}
-                          className={cn(
-                            'space-y-1',
-                            subBlock.layout === 'half' ? 'flex-1' : 'w-full'
-                          )}
-                        >
-                          <SubBlock
-                            blockId={id}
-                            config={subBlock}
-                            isConnecting={isConnecting}
-                            isPreview={data.isPreview || currentWorkflow.isDiffMode}
-                            subBlockValues={
-                              data.subBlockValues ||
-                              (currentWorkflow.isDiffMode && currentBlock
-                                ? (currentBlock as any).subBlocks
-                                : undefined)
-                            }
-                            disabled={!userPermissions.canEdit}
-                            fieldDiffStatus={
-                              fieldDiff?.changed_fields?.includes(subBlock.id)
-                                ? 'changed'
-                                : fieldDiff?.unchanged_fields?.includes(subBlock.id)
-                                  ? 'unchanged'
-                                  : undefined
-                            }
-                            allowExpandInPreview={currentWorkflow.isDiffMode}
-                            isWide={displayIsWide}
-                          />
-                        </div>
-                      )
-                    })}
-                  </div>
-                ))}
-              </div>
-            )
-          }
-
-          {/* Output Handle */}
-          {
-            type !== 'condition' && type !== 'response' && (
-              <>
-                <Handle
-                  type='source'
-                  position={horizontalHandles ? Position.Right : Position.Bottom}
-                  id='source'
-                  className={cn(
-                    horizontalHandles ? '!w-[7px] !h-5' : '!w-5 !h-[7px]',
-                    '!bg-slate-300 dark:!bg-slate-500 !rounded-xs !border-none',
-                    '!z-[30]',
-                    'group-hover:!shadow-[0_0_0_3px_rgba(156,163,175,0.15)]',
-                    horizontalHandles
-                      ? 'hover:!w-[10px] hover:!right-[-10px] hover:!rounded-r-full hover:!rounded-l-none'
-                      : 'hover:!h-[10px] hover:!bottom-[-10px] hover:!rounded-b-full hover:!rounded-t-none',
-                    '!cursor-crosshair',
-                    'transition-[colors] duration-150',
-                    horizontalHandles ? '!right-[-7px]' : '!bottom-[-7px]'
-                  )}
-                  style={{
-                    ...(horizontalHandles
-                      ? { top: '50%', transform: 'translateY(-50%)' }
-                      : { left: '50%', transform: 'translateX(-50%)' }),
+            {/* Block Content - Only render if there are subblocks */}
+            {
+              subBlockRows.length > 0 && (
+                <div
+                  ref={contentRef}
+                  className='cursor-pointer space-y-4 px-4 pt-3 pb-4'
+                  onMouseDown={(e) => {
+                    e.stopPropagation()
                   }}
-                  data-nodeid={id}
-                  data-handleid='source'
-                  isConnectableStart={true}
-                  isConnectableEnd={false}
-                  isValidConnection={(connection) => connection.target !== id}
-                />
+                >
+                  {subBlockRows.map((row, rowIndex) => (
+                    <div key={`row-${rowIndex}`} className='flex gap-4'>
+                      {row.map((subBlock) => {
+                        const stableKey = getSubBlockStableKey(subBlock, subBlockState)
 
-                {/* Error Handle - Don't show for trigger blocks or blocks in trigger mode */}
-                {config.category !== 'triggers' && !displayTriggerMode && (
+                        return (
+                          <div
+                            key={stableKey}
+                            className={cn(
+                              'space-y-1',
+                              subBlock.layout === 'half' ? 'flex-1' : 'w-full'
+                            )}
+                          >
+                            <SubBlock
+                              blockId={id}
+                              config={subBlock}
+                              isConnecting={isConnecting}
+                              isPreview={data.isPreview || currentWorkflow.isDiffMode}
+                              subBlockValues={
+                                data.subBlockValues ||
+                                (currentWorkflow.isDiffMode && currentBlock
+                                  ? (currentBlock as any).subBlocks
+                                  : undefined)
+                              }
+                              disabled={!userPermissions.canEdit}
+                              fieldDiffStatus={
+                                fieldDiff?.changed_fields?.includes(subBlock.id)
+                                  ? 'changed'
+                                  : fieldDiff?.unchanged_fields?.includes(subBlock.id)
+                                    ? 'unchanged'
+                                    : undefined
+                              }
+                              allowExpandInPreview={currentWorkflow.isDiffMode}
+                              isWide={displayIsWide}
+                            />
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ))}
+                </div>
+              )
+            }
+
+            {/* Output Handle */}
+            {
+              type !== 'condition' && type !== 'response' && (
+                <>
                   <Handle
                     type='source'
                     position={horizontalHandles ? Position.Right : Position.Bottom}
-                    id='error'
+                    id='source'
                     className={cn(
                       horizontalHandles ? '!w-[7px] !h-5' : '!w-5 !h-[7px]',
-                      '!bg-red-400 dark:!bg-red-500 !rounded-xs !border-none',
+                      '!bg-slate-300 dark:!bg-slate-500 !rounded-xs !border-none',
                       '!z-[30]',
-                      'group-hover:!shadow-[0_0_0_3px_rgba(248,113,113,0.15)]',
+                      'group-hover:!shadow-[0_0_0_3px_rgba(156,163,175,0.15)]',
                       horizontalHandles
                         ? 'hover:!w-[10px] hover:!right-[-10px] hover:!rounded-r-full hover:!rounded-l-none'
                         : 'hover:!h-[10px] hover:!bottom-[-10px] hover:!rounded-b-full hover:!rounded-t-none',
                       '!cursor-crosshair',
-                      'transition-[colors] duration-150'
+                      'transition-[colors] duration-150',
+                      horizontalHandles ? '!right-[-7px]' : '!bottom-[-7px]'
                     )}
                     style={{
-                      position: 'absolute',
                       ...(horizontalHandles
-                        ? {
-                          right: '-8px',
-                          top: 'auto',
-                          bottom: '30px',
-                          transform: 'translateY(0)',
-                        }
-                        : {
-                          bottom: '-7px',
-                          left: 'auto',
-                          right: '30px',
-                          transform: 'translateX(0)',
-                        }),
+                        ? { top: '50%', transform: 'translateY(-50%)' }
+                        : { left: '50%', transform: 'translateX(-50%)' }),
                     }}
                     data-nodeid={id}
-                    data-handleid='error'
+                    data-handleid='source'
                     isConnectableStart={true}
                     isConnectableEnd={false}
                     isValidConnection={(connection) => connection.target !== id}
                   />
-                )}
-              </>
-            )
-          }
-        </Card >
-      </div >
+
+                  {/* Error Handle - Don't show for trigger blocks or blocks in trigger mode */}
+                  {config.category !== 'triggers' && !displayTriggerMode && (
+                    <Handle
+                      type='source'
+                      position={horizontalHandles ? Position.Right : Position.Bottom}
+                      id='error'
+                      className={cn(
+                        horizontalHandles ? '!w-[7px] !h-5' : '!w-5 !h-[7px]',
+                        '!bg-red-400 dark:!bg-red-500 !rounded-xs !border-none',
+                        '!z-[30]',
+                        'group-hover:!shadow-[0_0_0_3px_rgba(248,113,113,0.15)]',
+                        horizontalHandles
+                          ? 'hover:!w-[10px] hover:!right-[-10px] hover:!rounded-r-full hover:!rounded-l-none'
+                          : 'hover:!h-[10px] hover:!bottom-[-10px] hover:!rounded-b-full hover:!rounded-t-none',
+                        '!cursor-crosshair',
+                        'transition-[colors] duration-150'
+                      )}
+                      style={{
+                        position: 'absolute',
+                        ...(horizontalHandles
+                          ? {
+                            right: '-8px',
+                            top: 'auto',
+                            bottom: '30px',
+                            transform: 'translateY(0)',
+                          }
+                          : {
+                            bottom: '-7px',
+                            left: 'auto',
+                            right: '30px',
+                            transform: 'translateX(0)',
+                          }),
+                      }}
+                      data-nodeid={id}
+                      data-handleid='error'
+                      isConnectableStart={true}
+                      isConnectableEnd={false}
+                      isValidConnection={(connection) => connection.target !== id}
+                    />
+                  )}
+                </>
+              )
+            }
+          </Card>
+        </div>
+      </TooltipEnvironmentProvider>
     )
   },
   (prevProps, nextProps) => {

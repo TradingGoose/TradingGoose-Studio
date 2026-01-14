@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
-import { env } from '@/lib/env'
-import { COPILOT_API_URL_DEFAULT } from '@/lib/sim-agent/constants'
+import { proxyCopilotRequest } from '@/app/api/copilot/proxy'
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,18 +11,11 @@ export async function POST(req: NextRequest) {
 
     const userId = session.user.id
 
-    // Move environment variable access inside the function
-    const COPILOT_API_URL = env.COPILOT_API_URL || COPILOT_API_URL_DEFAULT
-
     await req.json().catch(() => ({}))
 
-    const res = await fetch(`${COPILOT_API_URL}/api/validate-key/generate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(env.COPILOT_API_KEY ? { 'x-api-key': env.COPILOT_API_KEY } : {}),
-      },
-      body: JSON.stringify({ userId }),
+    const res = await proxyCopilotRequest({
+      endpoint: '/api/validate-key/generate',
+      body: { userId },
     })
 
     if (!res.ok) {
