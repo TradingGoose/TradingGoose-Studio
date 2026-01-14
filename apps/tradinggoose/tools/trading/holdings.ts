@@ -1,5 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { getTradingProvider } from '@/providers/trading'
+import { executeTradingProviderRequest, getTradingProvider } from '@/providers/trading'
 import type { ToolConfig } from '@/tools/types'
 import type { TradingHoldingsParams, TradingHoldingsResponse } from '@/tools/trading/types'
 
@@ -7,7 +7,8 @@ const logger = createLogger('TradingHoldingsTool')
 
 const buildHoldingsRequest = (params: TradingHoldingsParams) => {
   const provider = getTradingProvider(params.provider)
-  const request = provider.buildHoldingsRequest(params)
+  const { provider: providerId, ...rest } = params
+  const request = executeTradingProviderRequest(providerId, { kind: 'holdings', ...rest })
   logger.info(`Building holdings request for ${provider.id}`)
   return request
 }

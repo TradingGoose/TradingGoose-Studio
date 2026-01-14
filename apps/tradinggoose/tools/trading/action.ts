@@ -1,5 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { getTradingProvider } from '@/providers/trading'
+import { executeTradingProviderRequest, getTradingProvider } from '@/providers/trading'
 import type { ToolConfig } from '@/tools/types'
 import type { TradingActionParams, TradingActionResponse } from '@/tools/trading/types'
 
@@ -7,7 +7,8 @@ const logger = createLogger('TradingActionTool')
 
 const buildOrderRequest = (params: TradingActionParams) => {
   const provider = getTradingProvider(params.provider)
-  const request = provider.buildOrderRequest(params)
+  const { provider: providerId, ...rest } = params
+  const request = executeTradingProviderRequest(providerId, { kind: 'order', ...rest })
   logger.info(`Building order request for ${provider.id}`, {
     orderType: params.orderType || provider.defaults?.orderType || 'market',
     timeInForce: params.timeInForce || provider.defaults?.timeInForce,
