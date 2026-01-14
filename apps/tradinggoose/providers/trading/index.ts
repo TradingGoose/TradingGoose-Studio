@@ -1,12 +1,12 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { alpacaProvider } from '@/trading_providers/alpaca'
-import { robinhoodProvider } from '@/trading_providers/robinhood'
-import { tradierProvider } from '@/trading_providers/tradier'
+import { alpacaProvider } from '@/providers/trading/alpaca'
+import { robinhoodProvider } from '@/providers/trading/robinhood'
+import { tradierProvider } from '@/providers/trading/tradier'
 import type {
   TradingFieldDefinition,
   TradingProviderDefinition,
   TradingProviderId,
-} from '@/trading_providers/types'
+} from '@/providers/trading/types'
 
 const logger = createLogger('TradingProviders')
 

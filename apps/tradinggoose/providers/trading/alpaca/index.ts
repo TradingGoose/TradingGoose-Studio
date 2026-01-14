@@ -1,4 +1,4 @@
-import type { TradingProviderDefinition } from '@/trading_providers/types'
+import type { TradingProviderDefinition } from '@/providers/trading/types'
 
 const buildAuthHeaders = (params: Record<string, any>): Record<string, string> => {
   if (!!params.accessToken) {

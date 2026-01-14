@@ -2,7 +2,7 @@ import type {
   TradingActionResponse,
   TradingHoldingsResponse,
   TradingProviderId,
-} from '@/trading_providers/types'
+} from '@/providers/trading/types'
 
 export interface TradingActionParams {
   provider: TradingProviderId

@@ -1,5 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { getTradingProvider } from '@/trading_providers'
+import { getTradingProvider } from '@/providers/trading'
 import type { ToolConfig } from '@/tools/types'
 import type { TradingActionParams, TradingActionResponse } from '@/tools/trading/types'
 

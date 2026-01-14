@@ -1,4 +1,4 @@
-import type { TradingProviderDefinition } from '@/trading_providers/types'
+import type { TradingProviderDefinition } from '@/providers/trading/types'
 
 export const tradierProvider: TradingProviderDefinition = {
   id: 'tradier',

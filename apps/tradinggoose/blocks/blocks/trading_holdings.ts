@@ -2,7 +2,7 @@ import { DollarIcon } from '@/components/icons'
 import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import { buildInputsFromToolParams } from '@/blocks/utils'
-import { getProviderFields, getTradingProviders } from '@/trading_providers'
+import { getProviderFields, getTradingProviders } from '@/providers/trading'
 import { tradingHoldingsTool } from '@/tools/trading'
 import type { TradingHoldingsResponse } from '@/tools/trading/types'
 
