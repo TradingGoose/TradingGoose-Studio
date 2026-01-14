@@ -364,7 +364,7 @@ describe('Copilot Chat API Route', () => {
 
       expect(response.status).toBe(500)
       const responseData = await response.json()
-      expect(responseData.error).toContain('Sim agent API error')
+      expect(responseData.error).toContain('TradingGoose Copilot API error')
     })
 
     it('should handle database errors during chat creation', async () => {
