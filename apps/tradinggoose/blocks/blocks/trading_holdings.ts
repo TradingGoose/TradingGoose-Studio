@@ -56,10 +56,10 @@ const providerCredentialBlocks = (): SubBlockConfig[] => {
 export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
   type: 'trading_holdings',
   name: 'Trading Holdings',
-  description: 'Fetch account holdings/positions from supported brokers.',
+  description: 'Fetch a unified account snapshot from supported brokers.',
   authMode: AuthMode.OAuth,
   longDescription:
-    'Unified holdings block that returns the current positions for Alpaca, Tradier, or Robinhood.',
+    'Unified holdings block that returns an account snapshot for Alpaca, Tradier, or Robinhood.',
   category: 'tools',
   bgColor: '#115e59',
   icon: DollarIcon,
@@ -128,6 +128,6 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
   outputs: {
     summary: { type: 'string', description: 'Status of holdings retrieval' },
     provider: { type: 'string', description: 'Provider used' },
-    holdings: { type: 'json', description: 'Holdings payload and raw response' },
+    holdings: { type: 'json', description: 'Unified account snapshot payload' },
   },
 }

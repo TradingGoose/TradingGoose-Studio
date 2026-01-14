@@ -1,8 +1,47 @@
 import type {
   TradingHoldingsInput,
-  TradingOpenPosition,
   TradingRequestConfig,
+  TradingHoldingsNormalizationContext,
+  UnifiedTradingAccountSnapshot,
+  UnifiedTradingPosition,
+  UnifiedTradingSymbol,
 } from '@/providers/trading/types'
+
+const DEFAULT_BASE_CURRENCY = 'USD'
+
+const toNumber = (value: unknown): number | undefined => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+const sumNumbers = (values: Array<number | undefined>): number =>
+  values.reduce((total, value) => (typeof value === 'number' ? total + value : total), 0)
+
+const getCurrencySymbol = (currency?: string) => {
+  switch (currency) {
+    case 'USD':
+      return '$'
+    case 'EUR':
+      return 'EUR'
+    case 'GBP':
+      return 'GBP'
+    case 'JPY':
+      return 'JPY'
+    default:
+      return undefined
+  }
+}
+
+const buildSymbol = (symbol?: string): UnifiedTradingSymbol => ({
+  base: symbol || 'UNKNOWN',
+  quote: DEFAULT_BASE_CURRENCY,
+  name: null,
+  primaryMicId: null,
+  secondaryMicIds: [],
+  assetClass: 'stock',
+  active: true,
+  rank: 0,
+})
 
 export const buildRobinhoodHoldingsRequest = (
   params: TradingHoldingsInput
@@ -26,15 +65,60 @@ export const buildRobinhoodHoldingsRequest = (
   }
 }
 
-export const normalizeRobinhoodHoldings = (data: any): TradingOpenPosition[] => {
+export const normalizeRobinhoodHoldings = (
+  data: any,
+  context?: TradingHoldingsNormalizationContext
+): UnifiedTradingAccountSnapshot => {
   const positions = data?.results || []
-  return positions.map((position: any) => ({
-    symbol: position?.symbol,
-    quantity: position?.quantity ? Number(position.quantity) : 0,
-    avgPrice: position?.average_buy_price
-      ? Number(position.average_buy_price)
-      : undefined,
-    marketValue: position?.market_value ? Number(position.market_value) : undefined,
-    raw: position,
-  }))
+  const normalizedPositions: UnifiedTradingPosition[] = positions.map((position: any) => {
+    const quantity = toNumber(position?.quantity) ?? 0
+    const marketValue = toNumber(position?.market_value)
+    const side = quantity === 0 ? 'flat' : quantity < 0 ? 'short' : 'long'
+
+    return {
+      symbol: buildSymbol(position?.symbol),
+      quantity,
+      side,
+      averagePrice: toNumber(position?.average_buy_price),
+      marketValue,
+      currencySymbol: getCurrencySymbol(DEFAULT_BASE_CURRENCY),
+      conversionRate: 1,
+    }
+  })
+
+  const totalHoldingsValue = sumNumbers(
+    normalizedPositions.map((position) => position.marketValue)
+  )
+  const totalUnrealizedPnl = sumNumbers(
+    normalizedPositions.map((position) => position.unrealizedPnl)
+  )
+  const totalCashValue = 0
+  const totalPortfolioValue = totalHoldingsValue + totalCashValue
+
+  return {
+    asOf: new Date().toISOString(),
+    provider: {
+      name: context?.providerName ?? 'Robinhood',
+      environment: context?.environment ?? 'unknown',
+    },
+    account: {
+      id: context?.accountUrl || 'unknown',
+      type: 'unknown',
+      baseCurrency: DEFAULT_BASE_CURRENCY,
+      status: 'unknown',
+    },
+    cashBalances: [],
+    positions: normalizedPositions,
+    orders: [],
+    accountSummary: {
+      totalPortfolioValue,
+      totalCashValue,
+      totalHoldingsValue,
+      totalUnrealizedPnl,
+      equity: totalPortfolioValue,
+    },
+    extra: {
+      rawPositions: positions,
+    },
+  }
 }

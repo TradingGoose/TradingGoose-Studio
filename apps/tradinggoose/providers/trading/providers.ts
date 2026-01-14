@@ -7,16 +7,17 @@ import type {
   TradingOperationKind,
   TradingOrder,
   TradingOrderInput,
-  TradingOpenPosition,
   TradingProviderId,
   TradingProviderOAuthConfig,
   TradingRequestConfig,
+  TradingHoldingsNormalizationContext,
+  UnifiedTradingAccountSnapshot,
 } from '@/providers/trading/types'
 import { alpacaTradingProviderConfig } from '@/providers/trading/alpaca/config'
 import { robinhoodTradingProviderConfig } from '@/providers/trading/robinhood/config'
 import { tradierTradingProviderConfig } from '@/providers/trading/tradier/config'
 
-export type TradingProviderResponse = TradingOrder | TradingOpenPosition[]
+export type TradingProviderResponse = TradingOrder | UnifiedTradingAccountSnapshot
 
 export interface TradingProviderAvailability {
   assetClass: AssetClass[]
@@ -143,7 +144,10 @@ export interface TradingProvider {
   buildOrderRequest?: (params: TradingOrderInput) => TradingRequestConfig
   buildHoldingsRequest?: (params: TradingHoldingsInput) => TradingRequestConfig
   normalizeOrder?: (data: any) => TradingOrder
-  normalizeHoldings?: (data: any) => TradingOpenPosition[]
+  normalizeHoldings?: (
+    data: any,
+    context?: TradingHoldingsNormalizationContext
+  ) => UnifiedTradingAccountSnapshot
 }
 
 export interface TradingProviderDefinition {
