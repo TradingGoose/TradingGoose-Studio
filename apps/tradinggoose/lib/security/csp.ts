@@ -1,4 +1,5 @@
 import { env, getEnv } from '../env'
+import { MARKET_API_URL_DEFAULT } from '../market/client/constants'
 
 /**
  * Content Security Policy (CSP) configuration builder
@@ -76,6 +77,7 @@ export const buildTimeCSPDirectives: CSPDirectives = {
     'https://*.amazonaws.com',
     'https://*.blob.core.windows.net',
     'https://github.com/*',
+    ...getOriginFromUrl(MARKET_API_URL_DEFAULT),
     ...getOriginFromUrl(env.MARKET_API_URL),
     ...(env.NODE_ENV === 'development' ? ['http://localhost:3001'] : []),
     ...getHostnameFromUrl(env.NEXT_PUBLIC_BRAND_LOGO_URL),
@@ -104,6 +106,7 @@ export const buildTimeCSPDirectives: CSPDirectives = {
     'https://*.supabase.co',
     'https://api.github.com',
     'https://github.com/*',
+    ...getOriginFromUrl(MARKET_API_URL_DEFAULT),
     ...getOriginFromUrl(env.MARKET_API_URL),
     ...(env.NODE_ENV === 'development' ? ['http://localhost:3001'] : []),
     ...getHostnameFromUrl(env.NEXT_PUBLIC_BRAND_LOGO_URL),
@@ -144,7 +147,7 @@ export function generateRuntimeCSP(): string {
     socketUrl.replace('http://', 'ws://').replace('https://', 'wss://') || 'ws://localhost:3002'
   const appUrl = getEnv('NEXT_PUBLIC_APP_URL') || ''
   const ollamaUrl = getEnv('OLLAMA_URL') || 'http://localhost:11434'
-  const marketUrl = getEnv('MARKET_API_URL') || 'market.tradinggoose.ai'
+  const marketUrl = getEnv('MARKET_API_URL') || MARKET_API_URL_DEFAULT
   const devMarketUrl = getEnv('NODE_ENV') === 'development' ? 'http://localhost:3001' : ''
 
   const brandLogoDomains = getHostnameFromUrl(getEnv('NEXT_PUBLIC_BRAND_LOGO_URL'))

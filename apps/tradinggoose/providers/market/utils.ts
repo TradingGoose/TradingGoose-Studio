@@ -1,20 +1,19 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { marketClient } from '@/lib/market/client'
 import { resolveListingKey, toListingValueObject, type ListingIdentity } from '@/lib/market/listings'
 import type { AssetClass } from '@/providers/market/types'
 import type { ListingContext, MarketProviderConfig, MarketSymbolRule, RuleScopeKey } from './providers'
 
 const logger = createLogger('MarketProviderUtils')
 
-type ListingResponse = {
-  data?: any
-  error?: string
-}
-
-type MicSearchRow = {
-  id: string
-  mic: string
-  name: string | null
+const readListingField = (record: Record<string, unknown>, key: string): string | undefined => {
+  const value = record[key]
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim()
+  }
+  if (typeof value === 'number' && !Number.isNaN(value)) {
+    return String(value)
+  }
+  return undefined
 }
 
 export async function resolveListingContext(listing: ListingIdentity): Promise<ListingContext> {
@@ -23,50 +22,30 @@ export async function resolveListingContext(listing: ListingIdentity): Promise<L
     throw new Error('listing is required')
   }
 
-  const listingRes = await marketClient.makeRequest<ListingResponse>(
-    `/api/v1/search/equity?equity_id=${encodeURIComponent(listingKey)}`
-  )
-
-  if (!listingRes.success) {
-    throw new Error(listingRes.error || 'Failed to resolve listing')
+  const record = listing as Record<string, unknown>
+  const base = readListingField(record, 'base')
+  if (!base) {
+    throw new Error('listing base is required')
   }
-
-  const listingPayload = listingRes.data as ListingResponse | null
-  const listingRecord = Array.isArray(listingPayload?.data)
-    ? listingPayload?.data[0]
-    : listingPayload?.data
-
-  if (!listingRecord) {
-    throw new Error('Listing not found')
-  }
-
-  const primaryMicCode = listingRecord.primaryMicCode as string | undefined
-  const primaryMicName = listingRecord.primaryMicName as string | undefined
-  let micCode: string | undefined = primaryMicCode
-
-  if (!micCode && primaryMicName) {
-    const micRes = await marketClient.makeRequest<ListingResponse>(
-      `/api/v1/search/mics?mic_name=${encodeURIComponent(primaryMicName)}`
-    )
-
-    if (micRes.success) {
-      const micPayload = micRes.data as ListingResponse | null
-      const micRows = (micPayload?.data as MicSearchRow[]) || []
-      micCode = micRows[0]?.mic
-    }
-  }
+  const quote = readListingField(record, 'quote')
+  const assetClass = readListingField(record, 'assetClass') as AssetClass | undefined
+  const primaryMicCode = readListingField(record, 'primaryMicCode')
+  const micCode = readListingField(record, 'micCode') ?? primaryMicCode
+  const countryCode = readListingField(record, 'countryCode')
+  const cityName = readListingField(record, 'cityName')
+  const timeZoneName = readListingField(record, 'timeZoneName')
 
   return {
     listingKey,
-    listing: toListingValueObject(listingRecord),
-    base: listingRecord.base as string,
-    quote: listingRecord.quote as string | undefined,
-    assetClass: listingRecord.assetClass as AssetClass | undefined,
-    primaryMicCode: micCode ?? primaryMicCode,
+    listing: toListingValueObject(listing),
+    base,
+    quote: quote ?? undefined,
+    assetClass,
+    primaryMicCode: primaryMicCode ?? micCode ?? undefined,
     micCode,
-    countryCode: listingRecord.countryCode as string | undefined,
-    cityName: listingRecord.cityName as string | undefined,
-    timeZoneName: listingRecord.timeZoneName as string | undefined,
+    countryCode: countryCode ?? undefined,
+    cityName: cityName ?? undefined,
+    timeZoneName: timeZoneName ?? undefined,
   }
 }
 

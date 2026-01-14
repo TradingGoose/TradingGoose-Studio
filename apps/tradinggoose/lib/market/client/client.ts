@@ -22,13 +22,14 @@ class MarketClient {
   async makeRequest<T = any>(
     endpoint: string,
     options: {
-      method?: 'GET'
+      method?: 'GET' | 'POST'
       headers?: Record<string, string>
       apiKey?: string
+      body?: unknown
     } = {}
   ): Promise<MarketClientResponse<T>> {
     const requestId = generateRequestId()
-    const { method = 'GET', headers = {}, apiKey } = options
+    const { method = 'GET', headers = {}, apiKey, body } = options
 
     try {
       const url = `${this.baseUrl}${endpoint}`
@@ -54,6 +55,9 @@ class MarketClient {
       const fetchOptions: RequestInit = {
         method,
         headers: requestHeaders,
+      }
+      if (body !== undefined) {
+        fetchOptions.body = JSON.stringify(body)
       }
 
       const response = await fetch(url, fetchOptions)

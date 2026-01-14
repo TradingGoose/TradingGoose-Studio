@@ -6,8 +6,6 @@ import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('MarketProxyAPI')
 const MARKET_API_URL = env.MARKET_API_URL || MARKET_API_URL_DEFAULT
-const VERSION_HEADER = 'x-api-version'
-const VERSION_QUERY_KEYS = ['version', 'v'] as const
 
 const hopByHopHeaders = new Set([
   'connection',
@@ -22,15 +20,6 @@ const hopByHopHeaders = new Set([
   'content-length',
 ])
 
-const getQueryVersion = (params?: URLSearchParams | null) => {
-  if (!params) return null
-  for (const key of VERSION_QUERY_KEYS) {
-    const value = params.get(key)
-    if (value?.trim()) return value.trim()
-  }
-  return null
-}
-
 const normalizeVersion = (raw: string | null) => {
   if (!raw) return null
   const trimmed = raw.trim()
@@ -38,16 +27,17 @@ const normalizeVersion = (raw: string | null) => {
   const match = trimmed.match(/^v?(\d+)(?:\.(\d+))?$/i)
   if (!match) return null
   const major = match[1]
-  const minor = match[2] ?? '0'
-  return `${major}.${minor}`
+  return `v${major}`
 }
 
-const resolveVersion = (request: NextRequest, overrideSearchParams?: URLSearchParams) => {
-  const overrideVersion = getQueryVersion(overrideSearchParams)
-  const queryVersion = getQueryVersion(request.nextUrl.searchParams)
-  const headerVersion = request.headers.get(VERSION_HEADER)
-  const raw = overrideVersion ?? headerVersion ?? queryVersion ?? MARKET_API_VERSION
-  return normalizeVersion(raw)
+const resolveVersion = (body: unknown, params?: URLSearchParams | null) => {
+  const queryVersion = params?.get('version') ?? null
+  const raw =
+    queryVersion ??
+    (typeof body === 'object' && body !== null && 'version' in body
+      ? String((body as { version?: unknown }).version ?? '')
+      : '')
+  return normalizeVersion(raw || MARKET_API_VERSION)
 }
 
 const buildTargetUrl = (
@@ -66,7 +56,7 @@ const buildTargetUrl = (
   return target.toString()
 }
 
-const buildForwardHeaders = (request: NextRequest, version: string) => {
+const buildForwardHeaders = (request: NextRequest) => {
   const headers = new Headers()
   request.headers.forEach((value, key) => {
     if (!hopByHopHeaders.has(key.toLowerCase())) {
@@ -77,7 +67,9 @@ const buildForwardHeaders = (request: NextRequest, version: string) => {
   if (apiKey) {
     headers.set('x-api-key', apiKey)
   }
-  headers.set(VERSION_HEADER, version)
+  if (!headers.get('content-type')) {
+    headers.set('content-type', 'application/json')
+  }
   return headers
 }
 
@@ -87,7 +79,16 @@ export const proxyMarketRequest = async (
   overrideSearchParams?: URLSearchParams
 ) => {
   const requestId = generateRequestId()
-  const version = resolveVersion(request, overrideSearchParams)
+  let bodyPayload: Record<string, unknown> = {}
+  try {
+    const parsed = await request.clone().json()
+    if (parsed && typeof parsed === 'object') {
+      bodyPayload = parsed as Record<string, unknown>
+    }
+  } catch {
+    bodyPayload = {}
+  }
+  const version = resolveVersion(bodyPayload, overrideSearchParams ?? request.nextUrl.searchParams)
   if (!version) {
     return NextResponse.json({ error: 'Invalid API version' }, { status: 400 })
   }
@@ -107,17 +108,44 @@ export const proxyMarketRequest = async (
         { status: 405, headers: { Allow: scope === 'search' ? 'GET' : 'POST' } }
       )
     }
-    const headers = buildForwardHeaders(request, version)
+    const headers = buildForwardHeaders(request)
+    const forwardBody = JSON.stringify({ ...bodyPayload, version })
 
     logger.info(`[${requestId}] Proxying market request`, {
       method,
       targetUrl,
     })
 
+    if (scope === 'search') {
+      const target = new URL(targetUrl)
+      if (!target.searchParams.get('version')) {
+        target.searchParams.set('version', version)
+      }
+      const response = await fetch(target.toString(), {
+        method,
+        headers,
+      })
+
+      const responseHeaders = new Headers()
+      response.headers.forEach((value, key) => {
+        if (!hopByHopHeaders.has(key.toLowerCase())) {
+          responseHeaders.set(key, value)
+        }
+      })
+
+      responseHeaders.delete('content-encoding')
+      responseHeaders.delete('content-length')
+
+      return new NextResponse(response.body, {
+        status: response.status,
+        headers: responseHeaders,
+      })
+    }
+
     const response = await fetch(targetUrl, {
       method,
       headers,
-      body: method === 'GET' || method === 'POST' ? undefined : request.body,
+      body: forwardBody,
     })
 
     const responseHeaders = new Headers()

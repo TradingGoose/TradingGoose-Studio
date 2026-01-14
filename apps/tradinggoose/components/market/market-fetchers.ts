@@ -1,3 +1,4 @@
+import { MARKET_API_VERSION } from '@/lib/market/client/constants'
 import type { ListingOption } from '@/lib/market/listings'
 
 export async function fetchListings(
@@ -5,6 +6,7 @@ export async function fetchListings(
   signal?: AbortSignal
 ): Promise<ListingOption[]> {
   const query = new URLSearchParams(params)
+  query.set('version', MARKET_API_VERSION)
   const response = await fetch(`/api/market/search/listings?${query.toString()}`, { signal })
   if (!response.ok) {
     const payload = await response.json().catch(() => null)
@@ -27,6 +29,7 @@ export async function fetchEquity(
   signal?: AbortSignal
 ): Promise<ListingOption[]> {
   const query = new URLSearchParams(params)
+  query.set('version', MARKET_API_VERSION)
   const response = await fetch(`/api/market/search/equity?${query.toString()}`, { signal })
   if (!response.ok) {
     const payload = await response.json().catch(() => null)

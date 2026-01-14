@@ -17,51 +17,11 @@ import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { COPILOT_API_VERSION } from '@/lib/copilot/agent/constants'
 import { proxyCopilotRequest } from '@/app/api/copilot/proxy'
+import { requestCopilotTitle } from '@/lib/copilot/agent/utils'
 import { CopilotFiles } from '@/lib/uploads'
 import { createFileContent } from '@/lib/uploads/utils/file-utils'
 
 const logger = createLogger('CopilotChatAPI')
-
-async function requestCopilotTitle(params: {
-  message: string
-  workflowId: string
-  userId: string
-  conversationId?: string
-  model?: string
-  provider?: CopilotProviderConfig
-}) {
-  const { message, workflowId, userId, conversationId, model, provider } = params
-  try {
-    const response = await proxyCopilotRequest({
-      endpoint: '/api/chat-completion-streaming',
-      body: {
-        message,
-        workflowId,
-        userId,
-        stream: false,
-        mode: 'title',
-        ...(conversationId ? { conversationId } : {}),
-        ...(model ? { model } : {}),
-        ...(provider ? { provider } : {}),
-      },
-    })
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => '')
-      logger.warn('Copilot title request failed', {
-        status: response.status,
-        error: errorText,
-      })
-      return null
-    }
-    const data = await response.json().catch(() => null)
-    const title = typeof data?.content === 'string' ? data.content.trim() : ''
-    return title.length > 0 ? title : null
-  } catch (error) {
-    logger.warn('Copilot title request errored', { error })
-    return null
-  }
-}
-
 
 const FileAttachmentSchema = z.object({
   id: z.string(),
