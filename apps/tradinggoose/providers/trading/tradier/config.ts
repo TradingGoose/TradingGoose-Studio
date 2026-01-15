@@ -29,6 +29,19 @@ const params: TradingProviderConfig['params'] = {
       required: true,
       visibility: 'user-or-llm',
     },
+    {
+      id: 'environment',
+      type: 'string',
+      title: 'Environment',
+      description: 'Trading environment (paper or live).',
+      required: false,
+      visibility: 'user-only',
+      inputType: 'dropdown',
+      options: [
+        { id: 'paper', label: 'Paper (Sandbox)' },
+        { id: 'live', label: 'Live' },
+      ],
+    },
   ],
 }
 
@@ -48,7 +61,7 @@ export const tradierTradingProviderConfig: TradingProviderConfig = {
   capabilities: {
     order: {
       orderTypes: ['market', 'limit', 'stop', 'stop_limit'],
-      timeInForce: ['day', 'gtc', 'ioc', 'fok'],
+      timeInForce: ['day', 'gtc', 'pre', 'post'],
       supportsLimit: true,
       supportsStop: true,
     },

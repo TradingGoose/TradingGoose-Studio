@@ -449,6 +449,14 @@ export function getTradingProviderParamRegistry(
   return getTradingProviderParamCatalog(kind).registry
 }
 
+export function getTradingProviderIdsForParam(
+  kind: TradingOperationKind,
+  paramId: string
+): TradingProviderId[] {
+  const registry = getTradingProviderParamRegistry(kind)
+  return (registry[paramId]?.providers ?? []) as TradingProviderId[]
+}
+
 export function coerceTradingProviderParamValue(
   definition: TradingProviderParamDefinition,
   value: unknown

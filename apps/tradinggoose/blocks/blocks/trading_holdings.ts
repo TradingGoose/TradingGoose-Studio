@@ -2,7 +2,11 @@ import { DollarIcon } from '@/components/icons'
 import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import { buildInputsFromToolParams } from '@/blocks/utils'
-import { getProviderFields, getTradingProviders } from '@/providers/trading'
+import {
+  getProviderFields,
+  getTradingProviderIdsForParam,
+  getTradingProviders,
+} from '@/providers/trading'
 import { tradingHoldingsTool } from '@/tools/trading'
 import type { TradingHoldingsResponse } from '@/tools/trading/types'
 
@@ -10,6 +14,8 @@ const providerOptions = getTradingProviders().map((provider) => ({
   label: provider.name,
   id: provider.id,
 }))
+
+const providersWithEnvironment = getTradingProviderIdsForParam('holdings', 'environment')
 
 const providerFieldBlocks = (): SubBlockConfig[] => {
   const providers = getTradingProviders()
@@ -81,7 +87,10 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
         { label: 'Paper (Sandbox)', id: 'paper' },
         { label: 'Live Trading', id: 'live' },
       ],
-      condition: { field: 'provider', value: 'alpaca' },
+      condition: providersWithEnvironment.length
+        ? { field: 'provider', value: providersWithEnvironment }
+        : undefined,
+      hidden: providersWithEnvironment.length === 0,
       placeholder: 'Select environment',
       required: false,
     },

@@ -5,16 +5,36 @@ import type {
 } from '@/providers/trading/types'
 import { resolveTradingSymbol } from '@/providers/trading/utils'
 import { tradierTradingProviderConfig } from '@/providers/trading/tradier/config'
+import { buildTradierAuthHeaders, resolveTradierBaseUrl } from '@/providers/trading/tradier/client'
+
+const normalizeTradierOrderType = (value?: string) => {
+  if (typeof value !== 'string' || !value.trim()) return 'market'
+  const normalized = value.trim().toLowerCase()
+  if (normalized === 'stoplimit' || normalized === 'stop_limit' || normalized === 'stop-limit') {
+    return 'stop_limit'
+  }
+  return normalized.replace(/[\s-]+/g, '_')
+}
+
+const normalizeTradierDuration = (value?: string) => {
+  if (typeof value !== 'string' || !value.trim()) return 'day'
+  return value.trim().toLowerCase()
+}
+
+const appendParamIfDefined = (params: URLSearchParams, key: string, value?: unknown) => {
+  if (value === undefined || value === null || value === '') return
+  params.append(key, String(value))
+}
 
 export const buildTradierOrderRequest = (
   params: TradingOrderInput
 ): TradingRequestConfig => {
-  if (!params.accessToken) {
-    throw new Error('Tradier access token is required')
-  }
   if (!params.accountId) {
     throw new Error('Tradier account ID is required')
   }
+
+  const authHeaders = buildTradierAuthHeaders(params)
+  const baseUrl = resolveTradierBaseUrl(params.environment)
 
   const symbol = resolveTradingSymbol(tradierTradingProviderConfig, {
     symbol: params.symbol,
@@ -28,27 +48,46 @@ export const buildTradierOrderRequest = (
     timeZoneName: params.timeZoneName,
   })
 
+  const providerParams = params.providerParams ?? {}
+  const orderClass = String(providerParams.orderClass || providerParams.class || 'equity')
+  const duration = normalizeTradierDuration(providerParams.duration || params.timeInForce)
+  const orderType = normalizeTradierOrderType(params.orderType)
+
   const bodyParams = new URLSearchParams({
-    class: 'equity',
+    class: orderClass,
     symbol,
-    side: params.side,
+    side: params.side.toLowerCase(),
     quantity: String(params.quantity),
-    type: params.orderType || 'market',
-    duration: params.timeInForce || 'day',
+    type: orderType,
+    duration,
   })
 
-  if (params.limitPrice) {
-    bodyParams.append('price', String(params.limitPrice))
-  }
-  if (params.stopPrice) {
-    bodyParams.append('stop', String(params.stopPrice))
-  }
+  appendParamIfDefined(bodyParams, 'price', params.limitPrice)
+  appendParamIfDefined(bodyParams, 'stop', params.stopPrice)
+  appendParamIfDefined(bodyParams, 'tag', providerParams.tag)
+  appendParamIfDefined(bodyParams, 'preview', providerParams.preview)
+  appendParamIfDefined(
+    bodyParams,
+    'option_symbol',
+    providerParams.optionSymbol || providerParams.option_symbol
+  )
+
+  const legs = Array.isArray(providerParams.legs) ? providerParams.legs : []
+  legs.forEach((leg: any, index: number) => {
+    appendParamIfDefined(bodyParams, `side[${index}]`, leg?.side)
+    appendParamIfDefined(bodyParams, `quantity[${index}]`, leg?.quantity)
+    appendParamIfDefined(
+      bodyParams,
+      `option_symbol[${index}]`,
+      leg?.optionSymbol || leg?.option_symbol
+    )
+  })
 
   return {
-    url: `https://api.tradier.com/v1/accounts/${params.accountId}/orders`,
+    url: `${baseUrl}/accounts/${params.accountId}/orders`,
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${params.accessToken}`,
+      ...authHeaders,
       Accept: 'application/json',
       'Content-Type': 'application/x-www-form-urlencoded',
     },
@@ -61,8 +100,9 @@ export const normalizeTradierOrder = (data: any): TradingOrder => {
   return {
     id: order?.id || order?.order?.id,
     status: order?.status,
-    submittedAt: order?.date || order?.created_at,
-    filledQty: order?.quantity ? Number(order.quantity) : undefined,
+    submittedAt:
+      order?.create_date || order?.transaction_date || order?.date || order?.created_at,
+    filledQty: order?.exec_quantity ? Number(order.exec_quantity) : undefined,
     symbol: order?.symbol,
     side: order?.side,
     raw: order || data,
