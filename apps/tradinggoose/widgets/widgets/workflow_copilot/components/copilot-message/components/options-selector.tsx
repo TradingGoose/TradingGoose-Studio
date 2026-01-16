@@ -249,7 +249,7 @@ export function OptionsSelector({
               if (!isLocked && !streaming) setHoveredIndex(index)
             }}
             className={cn(
-              'group flex cursor-pointer items-start gap-2 rounded-md p-1 transition-colors',
+              'group flex cursor-pointer items-start gap-2 rounded-md p-1 transition-colors items-center',
               'hover:bg-muted/60',
               disabled && !isChosen && 'cursor-not-allowed opacity-50',
               streaming && 'pointer-events-none',

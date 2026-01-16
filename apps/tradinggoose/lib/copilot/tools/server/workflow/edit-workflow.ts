@@ -533,6 +533,11 @@ function applyOperationsToWorkflowState(
             block.advancedMode = params.advancedMode
           }
 
+          // Handle enabled toggle
+          if (typeof params?.enabled === 'boolean') {
+            block.enabled = params.enabled
+          }
+
           // Handle nested nodes update (for loops/parallels)
           if (params?.nestedNodes) {
             // Remove all existing child blocks
