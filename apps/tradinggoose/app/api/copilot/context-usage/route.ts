@@ -28,7 +28,7 @@ const logger = createLogger('ContextUsageAPI')
 
 
 const ContextUsageRequestSchema = z.object({
-  chatId: z.string(),
+  conversationId: z.string(),
   model: z.string(),
   workflowId: z.string(),
   provider: z.any().optional(),
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { chatId, model, workflowId, provider, bill, assistantMessageId, billingModel } =
+    const { conversationId, model, workflowId, provider, bill, assistantMessageId, billingModel } =
       parsed.data
     const internalAuth = checkInternalApiKey(req)
     const session = !internalAuth.success ? await getSession() : null
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
     }
 
     logger.info('[Context Usage API] Request validated', {
-      chatId,
+      conversationId,
       model,
       userId,
       workflowId,
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
 
     // Call copilot API
     const requestPayload = {
-      chatId,
+      conversationId,
       model,
       userId,
       workflowId,
@@ -169,7 +169,7 @@ export async function POST(req: NextRequest) {
       } catch (billingError) {
         logger.error('Failed to bill copilot usage from context usage API', {
           error: billingError,
-          chatId,
+          conversationId,
           assistantMessageId,
         })
       }

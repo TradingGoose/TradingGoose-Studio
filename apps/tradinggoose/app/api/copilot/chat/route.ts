@@ -381,14 +381,7 @@ export async function POST(req: NextRequest) {
           const toolCalls: any[] = []
           let buffer = ''
           const isFirstDone = true
-          let responseIdFromStart: string | undefined
-          let responseIdFromDone: string | undefined
-          // Track tool call progress to identify a safe done event
-          const announcedToolCallIds = new Set<string>()
-          const startedToolExecutionIds = new Set<string>()
-          const completedToolExecutionIds = new Set<string>()
-          let lastDoneResponseId: string | undefined
-          let lastSafeDoneResponseId: string | undefined
+          let conversationIdFromStart: string | undefined
           const shouldGenerateTitle =
             actualChatId && !currentChat?.title && conversationHistory.length === 0
           let titleRequested = false
@@ -456,22 +449,13 @@ export async function POST(req: NextRequest) {
                       case 'tool_call':
                         if (!event.data?.partial) {
                           toolCalls.push(event.data)
-                          if (event.data?.id) {
-                            announcedToolCallIds.add(event.data.id)
-                          }
                         }
                         break
 
                       case 'tool_generating':
-                        if (event.toolCallId) {
-                          startedToolExecutionIds.add(event.toolCallId)
-                        }
                         break
 
                       case 'tool_result':
-                        if (event.toolCallId) {
-                          completedToolExecutionIds.add(event.toolCallId)
-                        }
                         break
 
                       case 'tool_error':
@@ -481,14 +465,14 @@ export async function POST(req: NextRequest) {
                           error: event.error,
                           success: event.success,
                         })
-                        if (event.toolCallId) {
-                          completedToolExecutionIds.add(event.toolCallId)
-                        }
                         break
 
                       case 'start':
-                        if (event.data?.responseId) {
-                          responseIdFromStart = event.data.responseId
+                        if (
+                          typeof event.data?.conversationId === 'string' &&
+                          event.data.conversationId.length > 0
+                        ) {
+                          conversationIdFromStart = event.data.conversationId
                         }
                         if (
                           shouldGenerateTitle &&
@@ -532,19 +516,6 @@ export async function POST(req: NextRequest) {
                         break
 
                       case 'done':
-                        if (event.data?.responseId) {
-                          responseIdFromDone = event.data.responseId
-                          lastDoneResponseId = responseIdFromDone
-
-                          // Mark this done as safe only if no tool call is currently in progress or pending
-                          const announced = announcedToolCallIds.size
-                          const completed = completedToolExecutionIds.size
-                          const started = startedToolExecutionIds.size
-                          const hasToolInProgress = announced > completed || started > completed
-                          if (!hasToolInProgress) {
-                            lastSafeDoneResponseId = responseIdFromDone
-                          }
-                        }
                         break
 
                       case 'error':
@@ -697,9 +668,10 @@ export async function POST(req: NextRequest) {
                 )
               }
 
-              // Persist only a safe conversationId to avoid continuing from a state that expects tool outputs
+              // Persist the conversationId from the start event (do not overwrite with responseId)
               const previousConversationId = currentChat?.conversationId as string | undefined
-              const responseId = lastSafeDoneResponseId || previousConversationId || undefined
+              const conversationIdToPersist =
+                conversationIdFromStart || previousConversationId || undefined
 
               // Update chat in database immediately (without title)
               await db
@@ -707,7 +679,9 @@ export async function POST(req: NextRequest) {
                 .set({
                   messages: updatedMessages,
                   updatedAt: new Date(),
-                  ...(responseId ? { conversationId: responseId } : {}),
+                  ...(conversationIdToPersist
+                    ? { conversationId: conversationIdToPersist }
+                    : {}),
                 })
                 .where(eq(copilotChats.id, actualChatId!))
 
@@ -715,7 +689,7 @@ export async function POST(req: NextRequest) {
                 messageCount: updatedMessages.length,
                 savedUserMessage: true,
                 savedAssistantMessage: assistantContent.trim().length > 0,
-                updatedConversationId: responseId || null,
+                updatedConversationId: conversationIdToPersist || null,
               })
             }
           } catch (error) {
@@ -900,6 +874,7 @@ export async function GET(req: NextRequest) {
         title: copilotChats.title,
         model: copilotChats.model,
         messages: copilotChats.messages,
+        conversationId: copilotChats.conversationId,
         createdAt: copilotChats.createdAt,
         updatedAt: copilotChats.updatedAt,
       })
@@ -917,6 +892,7 @@ export async function GET(req: NextRequest) {
       messages: Array.isArray(chat.messages) ? chat.messages : [],
       messageCount: Array.isArray(chat.messages) ? chat.messages.length : 0,
       previewYaml: null, // Not needed for chat list
+      conversationId: chat.conversationId,
       createdAt: chat.createdAt,
       updatedAt: chat.updatedAt,
     }))
