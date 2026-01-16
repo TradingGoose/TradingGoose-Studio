@@ -2,6 +2,15 @@ import type { MarketSymbolRule } from '@/providers/market/providers'
 
 export const yfinanceSymbolRules: MarketSymbolRule[] = [
   {
+    city: 'SHANGHAI',
+    template: '{base}.ss',
+    active: true,
+  }, {
+    city: 'SHENZHEN',
+    template: '{base}.sz',
+    active: true,
+  },
+  {
     assetClass: 'stock',
     mic: 'XHKG',
     template: '{base}.HK',

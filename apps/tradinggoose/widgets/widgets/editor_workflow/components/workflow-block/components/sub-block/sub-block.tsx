@@ -23,7 +23,7 @@ import {
   InputMapping,
   KnowledgeBaseSelector,
   LongInput,
-  MarketSelectorInput,
+  ListingSelectorInput,
   McpDynamicArgs,
   McpServerSelector,
   McpToolSelector,
@@ -248,7 +248,7 @@ export const SubBlock = memo(
           )
         case 'market-selector':
           return (
-            <MarketSelectorInput
+            <ListingSelectorInput
               blockId={blockId}
               subBlockId={config.id}
               isPreview={isPreview}

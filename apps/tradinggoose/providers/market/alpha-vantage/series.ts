@@ -318,7 +318,7 @@ export async function fetchAlphaVantageSeries(
   }
 
   logger.info('Fetching Alpha Vantage series', {
-    listing: context.listingKey,
+    listing: context.listing,
     functionName,
     interval: intervalParam ?? interval,
   })
@@ -356,7 +356,7 @@ export async function fetchAlphaVantageSeries(
   const timezone = extractTimezone(meta) || context.timeZoneName
 
   return {
-    listing: request.listing,
+    listing: context.listing,
     listingBase: context.base,
     listingQuote: context.quote,
     primaryMicCode: context.micCode ?? context.primaryMicCode,

@@ -1,44 +1,26 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { formatDisplayText } from '@/components/ui/formatted-text'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
-import { useDebounce } from '@/hooks/use-debounce'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { cn } from '@/lib/utils'
-import { getMarketProviderConfig } from '@/providers/market/providers'
-import { MarketListingRow, getListingPrimary } from '@/components/market/market-listing-row'
-import { fetchEquity, fetchListings } from '@/components/market/market-fetchers'
-import {
-  parseCategorizedSearchQuery,
-  serializeArrayParam,
-  type ParsedMarketQuery,
-  uniqueStrings,
-} from '@/components/market/market-search-utils'
+import { MarketListingRow, getListingPrimary } from '@/components/listing-selector/listing/row'
+import { ListingSelectorDropdown } from '@/components/listing-selector/selector/dropdown'
 import {
   triggerCryptoRankUpdate,
   triggerCurrencyRankUpdate,
   triggerEquityRankUpdate,
-} from '@/components/market/market-rank-updates'
-import { resolveListingKey, toListingValue, type ListingOption } from '@/lib/market/listings'
+} from '@/components/listing-selector/listing/rank-updates'
+import { toListingValue, type ListingOption } from '@/lib/listing/identity'
 import {
-  createEmptyMarketSelectorInstance,
-  useMarketSelectorStore,
+  createEmptyListingSelectorInstance,
+  useListingSelectorStore,
 } from '@/stores/market/selector/store'
-
-export interface MarketSelectorComboProps {
-  instanceId: string
-  blockId?: string
-  className?: string
-  disabled?: boolean
-  onListingChange?: (listing: ListingOption | null) => void
-  onListingValueChange?: (value: string | null) => void
-  onListingTagSelect?: (value: string) => void
-  listingRequired?: boolean
-}
+import { useMarketListingSearch } from '@/components/listing-selector/selector/use-listing-search'
 
 export interface StockSelectorProps {
   instanceId: string
@@ -59,69 +41,37 @@ export function StockSelector({
   onListingValueChange,
   onListingTagSelect,
 }: StockSelectorProps) {
-  const ensureInstance = useMarketSelectorStore((state) => state.ensureInstance)
-  const updateInstance = useMarketSelectorStore((state) => state.updateInstance)
-  const instance = useMarketSelectorStore((state) => state.instances[instanceId])
+  const ensureInstance = useListingSelectorStore((state) => state.ensureInstance)
+  const updateInstance = useListingSelectorStore((state) => state.updateInstance)
+  const instance = useListingSelectorStore((state) => state.instances[instanceId])
 
   useEffect(() => {
     ensureInstance(instanceId)
   }, [ensureInstance, instanceId])
 
-  const safeInstance = instance ?? createEmptyMarketSelectorInstance()
+  const safeInstance = instance ?? createEmptyListingSelectorInstance()
   const {
     query,
     results,
     isLoading,
     error,
-    selectedListingValue,
     selectedListing,
     providerId,
   } = safeInstance
 
-  const debouncedQuery = useDebounce(query, 400)
-  const requestKeyRef = useRef<string>('')
-  const abortRef = useRef<AbortController | null>(null)
   const [open, setOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const dropdownRef = useRef<HTMLDivElement>(null)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const [showTags, setShowTags] = useState(false)
   const [cursorPosition, setCursorPosition] = useState(0)
-  const [activeSourceBlockId, setActiveSourceBlockId] = useState<string | null>(null)
   const [variableCommitted, setVariableCommitted] = useState(false)
-  const effectiveQuery = open && !query.trim() ? query : debouncedQuery
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
-  const providerConfig = useMemo(
-    () => (providerId ? getMarketProviderConfig(providerId) : null),
-    [providerId]
-  )
-  const providerEquityQuoteCodes = useMemo(() => {
-    const availability = providerConfig?.availability
-    return uniqueStrings(availability?.availableEquityQuote ?? [])
-  }, [providerConfig])
-  const providerCurrencyQuoteCodes = useMemo(() => {
-    const availability = providerConfig?.availability
-    return uniqueStrings(availability?.availableCurrencyQuote ?? [])
-  }, [providerConfig])
-  const providerCryptoQuoteCodes = useMemo(() => {
-    const availability = providerConfig?.availability
-    return uniqueStrings(availability?.availableCryptoQuote ?? [])
-  }, [providerConfig])
-  const providerAssetClasses = useMemo(() => {
-    const assetClasses = providerConfig?.availability.assetClass ?? []
-    return uniqueStrings(assetClasses)
-  }, [providerConfig])
-  const providerMicCodes = useMemo(() => {
-    const map = providerConfig?.exchangeCodeToMic ?? {}
-    const codes = Object.values(map).flat()
-    return uniqueStrings(codes)
-  }, [providerConfig])
 
-  const isVariableListingInput = (value: string) => {
+  const isVariableListingInput = useCallback((value: string) => {
     const trimmed = value.trim()
     if (!trimmed) return false
     return trimmed.startsWith('<')
-  }
+  }, [])
 
   const commitVariableValue = (value: string, source: 'input' | 'tag' = 'input') => {
     updateInstance(instanceId, {
@@ -154,151 +104,14 @@ export function StockSelector({
     onListingValueChange?.(null)
   }
 
-  useEffect(() => {
-    const rawQuery = effectiveQuery
-    const trimmed = rawQuery.trim()
-    if (!open) {
-      if (!trimmed) {
-        updateInstance(instanceId, { results: [], isLoading: false, error: undefined })
-      }
-      return
-    }
-
-    if (isVariableListingInput(trimmed)) {
-      updateInstance(instanceId, { results: [], isLoading: false, error: undefined })
-      return
-    }
-
-    const queryParams: Record<string, string> = {}
-    const filtersPayload: Record<string, unknown> = {
-      limit: 50,
-    }
-    const parsedQuery: ParsedMarketQuery = trimmed ? parseCategorizedSearchQuery(trimmed) : {}
-    const resolvedAssetClasses = parsedQuery.assetClass
-      ? [parsedQuery.assetClass]
-      : providerAssetClasses.length
-        ? providerAssetClasses
-        : []
-    if (resolvedAssetClasses.length) {
-      filtersPayload.asset_class = resolvedAssetClasses
-    }
-    const normalizedAssetClasses = resolvedAssetClasses.map((value) => value.toLowerCase())
-    const includeCrypto =
-      normalizedAssetClasses.length === 0 || normalizedAssetClasses.includes('crypto')
-    const includeCurrency =
-      normalizedAssetClasses.length === 0 || normalizedAssetClasses.includes('currency')
-    const includeEquity =
-      normalizedAssetClasses.length === 0 ||
-      normalizedAssetClasses.some((value) => value !== 'crypto' && value !== 'currency')
-
-    const resolvedMicCodes = providerMicCodes.length
-      ? providerMicCodes
-      : []
-    if (resolvedMicCodes.length && includeEquity) {
-      filtersPayload.mic = resolvedMicCodes
-    }
-
-    if (includeEquity && providerEquityQuoteCodes.length) {
-      queryParams.equity_quote_code = serializeArrayParam(providerEquityQuoteCodes)
-    }
-    if (includeCrypto && providerCryptoQuoteCodes.length) {
-      queryParams.crypto_quote_code = serializeArrayParam(providerCryptoQuoteCodes)
-    }
-    if (includeCurrency && providerCurrencyQuoteCodes.length) {
-      queryParams.currency_quote_code = serializeArrayParam(providerCurrencyQuoteCodes)
-    }
-
-    if (trimmed) {
-      queryParams.search_query = rawQuery
-    }
-    if (parsedQuery.region) {
-      filtersPayload.region = [parsedQuery.region]
-    }
-    if (Object.keys(filtersPayload).length > 0) {
-      queryParams.filters = JSON.stringify(filtersPayload)
-    }
-
-    const requestKey = JSON.stringify({
-      trimmed,
-      rawQuery,
-      providerId,
-      assetClasses: resolvedAssetClasses,
-      micCodes: resolvedMicCodes,
-      equityQuoteCodes: providerEquityQuoteCodes,
-      cryptoQuoteCodes: providerCryptoQuoteCodes,
-      currencyQuoteCodes: providerCurrencyQuoteCodes,
-      parsedQuery,
-      filters: filtersPayload,
-    })
-    requestKeyRef.current = requestKey
-
-    if (abortRef.current) {
-      abortRef.current.abort()
-    }
-    const controller = new AbortController()
-    abortRef.current = controller
-
-    updateInstance(instanceId, { isLoading: true, error: undefined })
-
-    const requestPromise = fetchListings(queryParams, controller.signal)
-
-    requestPromise
-      .then((rows) => {
-        if (requestKeyRef.current !== requestKey || controller.signal.aborted) return
-        updateInstance(instanceId, {
-          results: rows,
-          isLoading: false,
-          error: undefined,
-        })
-      })
-      .catch((err) => {
-        if (controller.signal.aborted) return
-        updateInstance(instanceId, {
-          isLoading: false,
-          error: err instanceof Error ? err.message : 'Search failed',
-        })
-      })
-  }, [
+  useMarketListingSearch({
     open,
-    effectiveQuery,
+    query,
     providerId,
-    providerAssetClasses,
-    providerMicCodes,
-    providerEquityQuoteCodes,
-    providerCurrencyQuoteCodes,
-    providerCryptoQuoteCodes,
     instanceId,
     updateInstance,
-  ])
-
-  useEffect(() => {
-    const listingKey = resolveListingKey(selectedListingValue)
-    if (!listingKey) return
-
-    const selectedKey = selectedListing ? resolveListingKey(selectedListing) : undefined
-    if (selectedKey && selectedKey === listingKey) return
-
-    let cancelled = false
-    const isEquityId = /^TG_LSTG_/i.test(listingKey)
-    if (isEquityId) {
-      fetchEquity({ equity_id: listingKey })
-        .then((rows) => {
-          if (cancelled) return
-          const listing = rows[0]
-          if (listing) {
-            updateInstance(instanceId, { selectedListing: listing })
-            onListingChange?.(listing)
-          }
-        })
-        .catch(() => {
-          // Ignore listing detail failures.
-        })
-    }
-
-    return () => {
-      cancelled = true
-    }
-  }, [selectedListingValue, selectedListing, instanceId, updateInstance, onListingChange])
+    isVariableInput: isVariableListingInput,
+  })
 
   const selectedLabel = useMemo(() => {
     if (!selectedListing) return ''
@@ -329,10 +142,11 @@ export function StockSelector({
     setShowTags(false)
     setVariableCommitted(false)
     triggerEquityRankUpdate(listing)
-    if (listing.base_asset_class === 'crypto' && listing.base_id) {
+    const listingType = listing.listing_type
+    if (listingType === 'crypto' && listing.base_id) {
       triggerCryptoRankUpdate(listing.base_id)
     }
-    if (listing.base_asset_class === 'currency' && listing.base_id) {
+    if (listingType === 'currency' && listing.base_id) {
       triggerCurrencyRankUpdate(listing.base_id)
     }
     onListingChange?.(listing)
@@ -377,16 +191,6 @@ export function StockSelector({
       return -1
     })
   }, [results])
-
-  useEffect(() => {
-    if (highlightedIndex < 0 || !dropdownRef.current) return
-    const target = dropdownRef.current.querySelector(
-      `[data-option-index="${highlightedIndex}"]`
-    )
-    if (target && target instanceof HTMLElement) {
-      target.scrollIntoView({ block: 'nearest' })
-    }
-  }, [highlightedIndex])
 
   return (
     <div
@@ -552,55 +356,21 @@ export function StockSelector({
         </Button>
       </div>
 
-      {showListingDropdown && (
-        <div className='absolute left-0 top-full z-[100] mt-1 w-full'>
-          <div className='allow-scroll fade-in-0 zoom-in-95 animate-in rounded-md border bg-popover text-popover-foreground shadow-lg'>
-            <div
-              ref={dropdownRef}
-              className='allow-scroll max-h-64 overflow-y-auto p-1'
-              style={{ scrollbarWidth: 'thin' }}
-              onMouseLeave={() => setHighlightedIndex(-1)}
-            >
-              {isLoading ? (
-                <div className='py-6 text-center text-sm text-muted-foreground'>
-                  Searching...
-                </div>
-              ) : results.length === 0 ? (
-                <div className='py-6 text-center text-sm text-muted-foreground'>
-                  {error || 'No listings found.'}
-                </div>
-              ) : (
-                results.map((listing, index) => {
-                  const isHighlighted = index === highlightedIndex
-                  return (
-                    <div
-                      key={listing.id}
-                      data-option-index={index}
-                      onMouseEnter={() => setHighlightedIndex(index)}
-                      onMouseDown={(event) => {
-                        event.preventDefault()
-                        handleSelect(listing)
-                      }}
-                      className={cn(
-                        'flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground',
-                        isHighlighted && 'bg-accent text-accent-foreground'
-                      )}
-                    >
-                      <MarketListingRow listing={listing} showAssetClass className='w-full' />
-                    </div>
-                  )
-                })
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <ListingSelectorDropdown
+        visible={showListingDropdown}
+        results={results}
+        isLoading={isLoading}
+        error={error}
+        highlightedIndex={highlightedIndex}
+        onHighlightChange={setHighlightedIndex}
+        onSelect={handleSelect}
+      />
       {blockId ? (
         <TagDropdown
           visible={showTags}
           onSelect={handleTagSelect}
           blockId={blockId}
-          activeSourceBlockId={activeSourceBlockId}
+          activeSourceBlockId={blockId}
           inputValue={query}
           cursorPosition={cursorPosition}
           allowVariables={false}
@@ -608,46 +378,9 @@ export function StockSelector({
           allowedOutputTypes={['json', 'object']}
           onClose={() => {
             setShowTags(false)
-            setActiveSourceBlockId(null)
           }}
         />
       ) : null}
-    </div>
-  )
-}
-
-export function MarketSelectorCombo({
-  instanceId,
-  blockId,
-  className,
-  disabled,
-  onListingChange,
-  onListingValueChange,
-  onListingTagSelect,
-  listingRequired,
-}: MarketSelectorComboProps) {
-  const ensureInstance = useMarketSelectorStore((state) => state.ensureInstance)
-
-  useEffect(() => {
-    ensureInstance(instanceId)
-  }, [ensureInstance, instanceId])
-
-  return (
-    <div className={cn('flex w-full flex-col gap-2', className)}>
-      <div className='space-y-1.5'>
-        <div className='flex items-center font-medium text-muted-foreground text-xs'>
-          Listing
-          {listingRequired ? <span className='ml-1 text-red-500'>*</span> : null}
-        </div>
-        <StockSelector
-          instanceId={instanceId}
-          blockId={blockId}
-          disabled={disabled}
-          onListingChange={onListingChange}
-          onListingValueChange={onListingValueChange}
-          onListingTagSelect={onListingTagSelect}
-        />
-      </div>
     </div>
   )
 }

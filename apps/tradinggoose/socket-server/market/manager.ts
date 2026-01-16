@@ -1,6 +1,6 @@
 import { createHash } from 'crypto'
 import { createLogger } from '@/lib/logs/console/logger'
-import { resolveListingKey, type ListingIdentity } from '@/lib/market/listings'
+import { resolveListingKey, type ListingIdentity } from '@/lib/listing/identity'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'

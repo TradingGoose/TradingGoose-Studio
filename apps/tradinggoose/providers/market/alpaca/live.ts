@@ -107,7 +107,7 @@ export async function fetchAlpacaLiveSnapshot(
   }
 
   return {
-    listing: request.listing,
+    listing: series.listing,
     listingBase: series.listingBase,
     listingQuote: series.listingQuote,
     primaryMicCode: series.primaryMicCode,

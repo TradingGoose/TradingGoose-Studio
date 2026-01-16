@@ -144,7 +144,7 @@ export async function fetchFinnhubSeries(
   url.searchParams.set('to', String(to))
 
   logger.info('Fetching Finnhub candles', {
-    listing: context.listingKey,
+    listing: context.listing,
     symbol,
     endpoint,
     resolution,
@@ -200,7 +200,7 @@ export async function fetchFinnhubSeries(
   const end = bars.length ? bars[bars.length - 1]?.timeStamp : toIsoString(request.end)
 
   return {
-    listing: request.listing,
+    listing: context.listing,
     listingBase: context.base,
     listingQuote: context.quote,
     primaryMicCode: context.micCode ?? context.primaryMicCode,

@@ -1,4 +1,4 @@
-import { resolveListingKey, toListingValueObject, type ListingIdentity } from '@/lib/market/listings'
+import { resolveListingKey, toListingValueObject, type ListingIdentity } from '@/lib/listing/identity'
 import type { PairColor } from '@/widgets/pair-colors'
 import { isPairColor } from '@/widgets/pair-colors'
 

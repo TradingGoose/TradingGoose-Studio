@@ -17,7 +17,7 @@ import {
   FileSelectorInput,
   FileUpload,
   LongInput,
-  MarketSelectorInput,
+  ListingSelectorInput,
   ProjectSelectorInput,
   ShortInput,
   SliderInput,
@@ -1209,7 +1209,7 @@ export function ToolInput({
 
       case 'market-selector':
         return (
-          <MarketSelectorInput
+          <ListingSelectorInput
             blockId={blockId}
             subBlockId={uniqueSubBlockId}
             isPreview={isPreview}

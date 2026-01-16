@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createLogger } from '@/lib/logs/console/logger'
-import { resolveListingKey, type ListingIdentity } from '@/lib/market/listings'
+import { resolveListingKey, type ListingIdentity } from '@/lib/listing/identity'
 import { executeProviderRequest } from '@/providers/market'
 import type { MarketProviderRequest } from '@/providers/market/providers'
 import type { MarketDataType, NormalizationMode } from '@/providers/market/types'
@@ -39,14 +39,27 @@ export async function handleMarketProviderRequest({
   try {
     const ListingSchema = z
       .object({
-        equity_id: z.string().min(1).optional().nullable(),
-        base_id: z.string().min(1).optional().nullable(),
-        quote_id: z.string().min(1).optional().nullable(),
-        base_asset_class: z.string().min(1).optional().nullable(),
-        quote_asset_class: z.string().min(1).optional().nullable(),
+        equity_id: z.string(),
+        base_id: z.string(),
+        quote_id: z.string(),
+        listing_type: z.enum(['equity', 'crypto', 'currency']),
       })
-      .refine((value) => Boolean(value.equity_id || (value.base_id && value.quote_id)), {
-        message: 'listing requires equity_id or base_id + quote_id',
+      .passthrough()
+      .superRefine((value, ctx) => {
+        if (value.listing_type === 'equity' && !value.equity_id?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'equity listing requires equity_id',
+          })
+        }
+        if (value.listing_type !== 'equity') {
+          if (!value.base_id?.trim() || !value.quote_id?.trim()) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: 'listing requires base_id and quote_id',
+            })
+          }
+        }
       })
 
     const MarketProviderRequestSchema = z.object({

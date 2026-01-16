@@ -2,7 +2,7 @@
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
-import type { ListingOption } from '@/lib/market/listings'
+import type { ListingOption } from '@/lib/listing/identity'
 
 export function getListingPrimary(listing: ListingOption): string {
   return listing.base?.trim() || listing.name?.trim() || listing.id

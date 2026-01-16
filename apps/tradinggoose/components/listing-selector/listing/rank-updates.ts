@@ -1,7 +1,10 @@
-import type { ListingIdentity } from '@/lib/market/listings'
+import type { ListingInputValue } from '@/lib/listing/identity'
 
-export function triggerEquityRankUpdate(listing: ListingIdentity | null | undefined) {
-  const equityId = listing?.equity_id ?? null
+export function triggerEquityRankUpdate(listing: ListingInputValue) {
+  const equityId =
+    listing && typeof listing === 'object' && 'equity_id' in listing
+      ? (listing as { equity_id?: string | null }).equity_id ?? null
+      : null
   if (!equityId) return
   const query = new URLSearchParams({ equity_id: equityId })
   void fetch(`/api/market/update/equity-rank?${query.toString()}`, {

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
-import type { ListingIdentity, ListingOption } from '@/lib/market/listings'
+import type { ListingIdentity, ListingOption } from '@/lib/listing/identity'
 
-export interface MarketSelectorInstance {
+export interface ListingSelectorInstance {
   providerId?: string
   query: string
   isLoading: boolean
@@ -11,9 +11,9 @@ export interface MarketSelectorInstance {
   selectedListing?: ListingOption | null
 }
 
-export const createEmptyMarketSelectorInstance = (
-  overrides: Partial<MarketSelectorInstance> = {}
-): MarketSelectorInstance => ({
+export const createEmptyListingSelectorInstance = (
+  overrides: Partial<ListingSelectorInstance> = {}
+): ListingSelectorInstance => ({
   providerId: undefined,
   query: '',
   isLoading: false,
@@ -24,15 +24,15 @@ export const createEmptyMarketSelectorInstance = (
   ...overrides,
 })
 
-interface MarketSelectorStore {
-  instances: Record<string, MarketSelectorInstance>
-  ensureInstance: (id: string, initial?: Partial<MarketSelectorInstance>) => void
-  updateInstance: (id: string, patch: Partial<MarketSelectorInstance>) => void
+interface ListingSelectorStore {
+  instances: Record<string, ListingSelectorInstance>
+  ensureInstance: (id: string, initial?: Partial<ListingSelectorInstance>) => void
+  updateInstance: (id: string, patch: Partial<ListingSelectorInstance>) => void
   clearSelection: (id: string) => void
   resetInstance: (id: string) => void
 }
 
-export const useMarketSelectorStore = create<MarketSelectorStore>((set) => ({
+export const useListingSelectorStore = create<ListingSelectorStore>((set) => ({
   instances: {},
   ensureInstance: (id, initial) =>
     set((state) => {
@@ -52,7 +52,7 @@ export const useMarketSelectorStore = create<MarketSelectorStore>((set) => ({
       return {
         instances: {
           ...state.instances,
-          [id]: createEmptyMarketSelectorInstance(initial),
+          [id]: createEmptyListingSelectorInstance(initial),
         },
       }
     }),
@@ -61,7 +61,7 @@ export const useMarketSelectorStore = create<MarketSelectorStore>((set) => ({
       instances: {
         ...state.instances,
         [id]: {
-          ...(state.instances[id] ?? createEmptyMarketSelectorInstance()),
+          ...(state.instances[id] ?? createEmptyListingSelectorInstance()),
           ...patch,
         },
       },
@@ -71,7 +71,7 @@ export const useMarketSelectorStore = create<MarketSelectorStore>((set) => ({
       instances: {
         ...state.instances,
         [id]: {
-          ...(state.instances[id] ?? createEmptyMarketSelectorInstance()),
+          ...(state.instances[id] ?? createEmptyListingSelectorInstance()),
           selectedListingValue: null,
           selectedListing: null,
         },
@@ -81,7 +81,7 @@ export const useMarketSelectorStore = create<MarketSelectorStore>((set) => ({
     set((state) => ({
       instances: {
         ...state.instances,
-        [id]: createEmptyMarketSelectorInstance(),
+        [id]: createEmptyListingSelectorInstance(),
       },
     })),
 }))

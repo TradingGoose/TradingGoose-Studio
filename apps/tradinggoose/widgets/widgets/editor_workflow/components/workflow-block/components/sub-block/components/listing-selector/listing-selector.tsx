@@ -1,21 +1,21 @@
 import { useEffect, useMemo, useRef } from 'react'
 import type { SubBlockConfig } from '@/blocks/types'
-import { MarketSelectorCombo } from '@/components/market/market-selector-combo'
+import { ListingSelector } from '@/components/listing-selector/selector/combo'
 import {
   resolveListingKey,
   type ListingOption,
   toListingValue,
   toListingValueObject,
   type ListingInputValue,
-} from '@/lib/market/listings'
+} from '@/lib/listing/identity'
 import {
-  createEmptyMarketSelectorInstance,
-  useMarketSelectorStore,
+  createEmptyListingSelectorInstance,
+  useListingSelectorStore,
 } from '@/stores/market/selector/store'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useTagSelection } from '@/hooks/use-tag-selection'
 
-interface MarketSelectorInputProps {
+interface ListingSelectorInputProps {
   blockId: string
   subBlockId: string
   isPreview?: boolean
@@ -26,24 +26,13 @@ interface MarketSelectorInputProps {
   config?: SubBlockConfig
 }
 
-function readListingStringField(record: Record<string, unknown>, key: string): string | null {
-  const value = record[key]
-  if (typeof value === 'string' && value.trim()) {
-    return value
-  }
-  if (typeof value === 'number' && !Number.isNaN(value)) {
-    return String(value)
-  }
-  return null
-}
-
 function isVariableListingInput(value: string): boolean {
   const trimmed = value.trim()
   if (!trimmed) return false
   return trimmed.startsWith('<')
 }
 
-export function MarketSelectorInput({
+export function ListingSelectorInput({
   blockId,
   subBlockId,
   isPreview = false,
@@ -52,12 +41,12 @@ export function MarketSelectorInput({
   onChange,
   disabled = false,
   config,
-}: MarketSelectorInputProps) {
+}: ListingSelectorInputProps) {
   const [storeValue, setStoreValue] = useSubBlockValue<ListingInputValue>(blockId, subBlockId)
   const [providerValue] = useSubBlockValue<string | null>(blockId, 'provider')
-  const ensureInstance = useMarketSelectorStore((state) => state.ensureInstance)
-  const updateInstance = useMarketSelectorStore((state) => state.updateInstance)
-  const instance = useMarketSelectorStore((state) => state.instances[`${blockId}-${subBlockId}`])
+  const ensureInstance = useListingSelectorStore((state) => state.ensureInstance)
+  const updateInstance = useListingSelectorStore((state) => state.updateInstance)
+  const instance = useListingSelectorStore((state) => state.instances[`${blockId}-${subBlockId}`])
   const emitTagSelection = useTagSelection(blockId, subBlockId)
 
   const instanceId = useMemo(() => `${blockId}-${subBlockId}`, [blockId, subBlockId])
@@ -67,7 +56,7 @@ export function MarketSelectorInput({
     ensureInstance(instanceId)
   }, [ensureInstance, instanceId])
 
-  const safeInstance = instance ?? createEmptyMarketSelectorInstance()
+  const safeInstance = instance ?? createEmptyListingSelectorInstance()
   const normalizedPreviewValue = previewValue === '' ? null : previewValue
   const normalizedValue = value === '' ? null : value
   const hasPropValue = value !== undefined
@@ -108,54 +97,10 @@ export function MarketSelectorInput({
     if (
       !onChange &&
       typeof currentValue === 'string' &&
-      currentListingKey &&
-      !currentListing &&
-      !safeInstance.selectedListing
+      !isVariableListingInput(currentValue)
     ) {
-      if (currentListingKey.includes(':')) {
-        const [baseId, quoteId] = currentListingKey.split(':')
-        setStoreValue({
-          equity_id: null,
-          base_id: baseId,
-          quote_id: quoteId,
-          base_asset_class: null,
-          quote_asset_class: null,
-        })
-      } else {
-        setStoreValue({
-          equity_id: currentListingKey,
-          base_id: null,
-          quote_id: null,
-          base_asset_class: null,
-          quote_asset_class: null,
-        })
-      }
+      setStoreValue(null)
       return
-    }
-
-    if (
-      currentValue &&
-      typeof currentValue === 'object' &&
-      !currentListing &&
-      !safeInstance.selectedListing
-    ) {
-      const record = currentValue as Record<string, unknown>
-      const baseId = readListingStringField(record, 'base_id')
-      const quoteId = readListingStringField(record, 'quote_id')
-      if (baseId && quoteId && currentListingKey) {
-        updateInstance(instanceId, {
-          selectedListing: {
-            id: currentListingKey,
-            base: baseId,
-            quote: quoteId,
-            equity_id: null,
-            base_id: baseId,
-            quote_id: quoteId,
-            base_asset_class: readListingStringField(record, 'base_asset_class'),
-            quote_asset_class: readListingStringField(record, 'quote_asset_class'),
-          },
-        })
-      }
     }
 
     const selectedListingKey = resolveListingKey(safeInstance.selectedListingValue)
@@ -241,7 +186,7 @@ export function MarketSelectorInput({
   ])
 
   return (
-    <MarketSelectorCombo
+    <ListingSelector
       instanceId={instanceId}
       blockId={blockId}
       disabled={disabled || isPreview}

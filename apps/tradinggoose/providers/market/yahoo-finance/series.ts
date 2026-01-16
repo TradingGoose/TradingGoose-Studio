@@ -111,7 +111,7 @@ export async function fetchYahooFinanceSeries(
   const url = buildChartUrl(symbol, request)
 
   logger.info('Fetching Yahoo Finance chart', {
-    listing: context.listingKey,
+    listing: context.listing,
     symbol,
     interval,
     start: request.start,
@@ -169,7 +169,7 @@ export async function fetchYahooFinanceSeries(
   const end = bars.length ? bars[bars.length - 1]?.timeStamp : toIsoString(request.end)
 
   return {
-    listing: request.listing,
+    listing: context.listing,
     listingBase: context.base,
     listingQuote: context.quote,
     primaryMicCode: context.micCode ?? context.primaryMicCode,
