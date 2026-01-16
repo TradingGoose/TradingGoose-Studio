@@ -169,7 +169,7 @@ export function WorkspaceSwitcher({
                                     <Pencil className='h-3.5 w-3.5' />
                                   </Button>
                                 ) : null}
-                                {workspace.permissions === 'admin' ? (
+                                {workspace.permissions === 'admin' && workspaces.length > 1 ? (
                                   <Button
                                     variant='ghost'
                                     size='icon'

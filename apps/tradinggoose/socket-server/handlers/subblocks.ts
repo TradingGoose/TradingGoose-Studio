@@ -2,6 +2,7 @@ import { db } from '@tradinggoose/db'
 import { workflow, workflowBlocks } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getBlock } from '@/blocks'
 import type { HandlerDependencies } from '@/socket-server/handlers/workflow'
 import type { AuthenticatedSocket } from '@/socket-server/middleware/auth'
 import type { RoomManager } from '@/socket-server/rooms/manager'
@@ -139,7 +140,7 @@ async function flushSubblockUpdate(
     let updateSuccessful = false
     await db.transaction(async (tx) => {
       const [block] = await tx
-        .select({ subBlocks: workflowBlocks.subBlocks })
+        .select({ subBlocks: workflowBlocks.subBlocks, type: workflowBlocks.type })
         .from(workflowBlocks)
         .where(and(eq(workflowBlocks.id, blockId), eq(workflowBlocks.workflowId, workflowId)))
         .limit(1)
@@ -150,7 +151,14 @@ async function flushSubblockUpdate(
 
       const subBlocks = (block.subBlocks as any) || {}
       if (!subBlocks[subblockId]) {
-        subBlocks[subblockId] = { id: subblockId, type: 'unknown', value }
+        const config = block.type ? getBlock(block.type) : null
+        const resolvedType =
+          config?.subBlocks?.find((subBlock) => subBlock.id === subblockId)?.type
+        subBlocks[subblockId] = {
+          id: subblockId,
+          type: resolvedType ?? 'unkown',
+          value,
+        }
       } else {
         subBlocks[subblockId] = { ...subBlocks[subblockId], value }
       }

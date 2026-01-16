@@ -333,7 +333,7 @@ export function StockSelector({
         <Button
           variant='ghost'
           size='sm'
-          className='absolute right-1 top-1/2 z-10 h-6 w-6 -translate-y-1/2 p-0 hover:bg-transparent'
+          className='absolute right-1 top-1/2 z-10 h-6 w-6 -translate-y-1/2 p-0 bg-transparent'
           disabled={disabled}
           onMouseDown={(event) => {
             event.preventDefault()

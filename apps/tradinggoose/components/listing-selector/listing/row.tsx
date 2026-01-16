@@ -95,11 +95,11 @@ export function MarketListingRow({
             ) : null}
           </span>
         ) : (
-          <span className='max-w-[20ch] truncate text-sm font-semibold text-muted-foreground'>
+          <span className='max-w-full truncate text-sm font-semibold text-muted-foreground'>
             {placeholderTitle}
           </span>
         )}
-        <span className='max-w-[26ch] truncate text-xs text-muted-foreground'>
+        <span className='max-w-full truncate text-xs text-muted-foreground'>
           {listing ? secondary ?? '—' : placeholderSubtitle}
         </span>
       </div>
