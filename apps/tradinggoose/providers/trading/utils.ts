@@ -1,5 +1,5 @@
-import { resolveListingKey, toListingValueObject } from '@/lib/market/listings'
-import type { ListingInputValue, ListingIdentity } from '@/lib/market/listings'
+import { resolveListingKey, toListingValueObject } from '@/lib/listing/identity'
+import type { ListingInputValue, ListingIdentity } from '@/lib/listing/identity'
 import type { AssetClass } from '@/providers/market/types'
 import type {
   TradingProviderConfig,
