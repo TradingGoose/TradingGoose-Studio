@@ -2134,7 +2134,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       <div ref={containerRef} className={cn('relative flex-none', className)}>
         <div
           className={cn(
-            'relative rounded-md border border-input bg-background p-2 shadow-xs transition-all duration-200 ',
+            'relative rounded-md border border-input bg-muted/40 p-2 shadow-xs transition-all duration-200 ',
             isDragging &&
             'border-primary-hover bg-yellow-50/50 dark:border-primary-hover dark:bg-yellow-950/20'
           )}

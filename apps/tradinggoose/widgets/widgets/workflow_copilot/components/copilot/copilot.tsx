@@ -63,6 +63,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
   const [revertingMessageId, setRevertingMessageId] = useState<string | null>(null)
   const pendingChatIdRef = useRef<string | null>(initialChatId ?? null)
   const lastNotifiedChatIdRef = useRef<string | null>(initialChatId ?? null)
+  const hasLoadedAutoAllowedRef = useRef(false)
 
   // Scroll state
   const [isNearBottom, setIsNearBottom] = useState(true)
@@ -103,6 +104,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
     messageCheckpoints,
     currentChat,
     fetchContextUsage,
+    loadAutoAllowedTools,
   } = useCopilotStore()
   const copilotStoreApi = useCopilotStoreApi()
 
@@ -150,6 +152,21 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
 
     loadEnabledModels()
   }, [setEnabledModels])
+
+  // Load auto-allowed integration tools on mount
+  useEffect(() => {
+    const loadAutoAllowed = async () => {
+      if (hasLoadedAutoAllowedRef.current) return
+      hasLoadedAutoAllowedRef.current = true
+      try {
+        await loadAutoAllowedTools()
+      } catch (error) {
+        logger.warn('Failed to load auto-allowed tools', { error })
+      }
+    }
+
+    loadAutoAllowed()
+  }, [loadAutoAllowedTools])
 
   // Ensure selected model is in the enabled models list
   useEffect(() => {

@@ -60,6 +60,7 @@ export interface CopilotChat {
   messages: CopilotMessage[]
   messageCount: number
   previewYaml: string | null
+  conversationId?: string | null
   createdAt: Date
   updatedAt: Date
 }
@@ -135,6 +136,9 @@ export interface CopilotState {
     when: 'start' | 'end'
     estimatedTokens?: number
   } | null
+
+  // Auto-allowed integration tools (tools that can run without confirmation)
+  autoAllowedTools: string[]
 }
 
 export interface CopilotActions {
@@ -208,6 +212,13 @@ export interface CopilotActions {
   handleNewChatCreation: (newChatId: string) => Promise<void>
   updateDiffStore: (yamlContent: string, toolName?: string) => Promise<void>
   updateDiffStoreWithWorkflowState: (workflowState: any, toolName?: string) => Promise<void>
+
+  executeIntegrationTool: (toolCallId: string) => Promise<void>
+  skipIntegrationTool: (toolCallId: string) => void
+  loadAutoAllowedTools: () => Promise<void>
+  addAutoAllowedTool: (toolId: string) => Promise<void>
+  removeAutoAllowedTool: (toolId: string) => Promise<void>
+  isToolAutoAllowed: (toolId: string) => boolean
 }
 
 export type CopilotStore = CopilotState & CopilotActions

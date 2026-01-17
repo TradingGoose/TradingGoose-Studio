@@ -1220,10 +1220,13 @@ export function useCollaborativeWorkflow() {
         if (mergedSubBlocks[subblockId]) {
           mergedSubBlocks[subblockId].value = value
         } else {
+          const config = getBlock(sourceBlock.type)
+          const resolvedType =
+            config?.subBlocks?.find((subBlock) => subBlock.id === subblockId)?.type
           // Create subblock if it doesn't exist in structure
           mergedSubBlocks[subblockId] = {
             id: subblockId,
-            type: 'unknown',
+            type: resolvedType ?? 'unkown',
             value: value,
           }
         }
@@ -1507,7 +1510,7 @@ export function useCollaborativeWorkflow() {
           name: processedVariable.name,
         }
 
-        executeQueuedOperation('add', 'variable', payloadWithProcessedName, () => {})
+        executeQueuedOperation('add', 'variable', payloadWithProcessedName, () => { })
       }
 
       return id

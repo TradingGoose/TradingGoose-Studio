@@ -7,14 +7,14 @@ import {
 import {
   resolveListingKey,
   toListingValueObject,
-  type ListingIdentity,
-} from '@/lib/market/listings'
+  type ListingInputValue,
+} from '@/lib/listing/identity'
 import type { MarketSeries, NormalizationMode } from '@/providers/market/types'
 import type { ToolConfig, ToolResponse } from '@/tools/types'
 
 export interface MarketSeriesParams {
   provider: string
-  listing: ListingIdentity
+  listing: ListingInputValue
   interval?: string
   start: string | number
   end: string | number
@@ -225,7 +225,10 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
       if (!bars.length) {
         throw new Error('No data returned for the requested time range')
       }
-      const listing = series.listing ?? toListingValueObject(params.listing)
+      const listing = toListingValueObject(params.listing)
+      if (!listing) {
+        throw new Error('listing is required')
+      }
       const seriesOutput = { ...series } as MarketSeries & { primaryMicCode?: string }
       if ('primaryMicCode' in seriesOutput) {
         delete seriesOutput.primaryMicCode
@@ -254,8 +257,11 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
         equity_id: { type: 'string', description: 'Equity listing id', optional: true },
         base_id: { type: 'string', description: 'Base asset id', optional: true },
         quote_id: { type: 'string', description: 'Quote asset id', optional: true },
-        base_asset_class: { type: 'string', description: 'Base asset class', optional: true },
-        quote_asset_class: { type: 'string', description: 'Quote asset class', optional: true },
+        listing_type: {
+          type: 'string',
+          description: 'Listing type (equity, crypto, or currency)',
+          optional: true,
+        },
       },
     },
     bars: {

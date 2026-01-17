@@ -30,7 +30,7 @@ import {
   xIcon,
   AlpacaIcon,
 } from '@/components/icons'
-import { env } from '@/lib/env'
+import { env, getEnv } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('OAuth')
@@ -712,6 +712,8 @@ export interface ProviderConfig {
   featureType: string
 }
 
+export type OAuthProviderAvailability = Record<string, boolean>
+
 /**
  * Parse a provider string into its base provider and feature type
  * This is a server-safe utility that can be used in both client and server code
@@ -752,6 +754,41 @@ export function parseProvider(provider: OAuthProvider): ProviderConfig {
     baseProvider: provider,
     featureType: 'default',
   }
+}
+
+const toEnvKey = (providerId: string) =>
+  providerId.replace(/[^a-zA-Z0-9]+/g, '_').toUpperCase()
+
+export const getOAuthProviderAvailability = (
+  providers: string[] = []
+): OAuthProviderAvailability => {
+  const availability: OAuthProviderAvailability = {}
+  const uniqueProviders = providers.filter((provider) => provider.trim().length > 0)
+
+  const checkProvider = (providerId: string) => {
+    const directPrefix = toEnvKey(providerId)
+    const direct =
+      Boolean(getEnv(`${directPrefix}_CLIENT_ID`)) &&
+      Boolean(getEnv(`${directPrefix}_CLIENT_SECRET`))
+    if (direct) return true
+
+    const { baseProvider } = parseProvider(providerId)
+    const basePrefix = toEnvKey(baseProvider)
+    return (
+      Boolean(getEnv(`${basePrefix}_CLIENT_ID`)) &&
+      Boolean(getEnv(`${basePrefix}_CLIENT_SECRET`))
+    )
+  }
+
+  if (uniqueProviders.length === 0) {
+    return availability
+  }
+
+  for (const providerId of uniqueProviders) {
+    availability[providerId] = checkProvider(providerId)
+  }
+
+  return availability
 }
 
 interface ProviderAuthConfig {

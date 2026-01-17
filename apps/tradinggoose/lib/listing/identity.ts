@@ -1,0 +1,115 @@
+export type ListingType = 'equity' | 'crypto' | 'currency'
+
+export type ListingIdentity = {
+  equity_id: string
+  base_id: string
+  quote_id: string
+  listing_type: ListingType
+}
+
+export type ListingResolved = ListingIdentity & {
+  id: string
+  base: string
+  quote?: string | null
+  name?: string | null
+  iconUrl?: string | null
+  assetClass?: string | null
+  primaryMicCode?: string | null
+  countryCode?: string | null
+  cityName?: string | null
+  timeZoneName?: string | null
+  base_asset_class?: string | null
+  quote_asset_class?: string | null
+}
+
+export type ListingOption = ListingResolved
+
+export type ListingValue = ListingIdentity | null | undefined
+export type ListingInputValue = ListingIdentity | ListingResolved | string | null | undefined
+
+const readListingField = (record: Record<string, unknown>, key: string): string | undefined => {
+  const value = record[key]
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed ? trimmed : undefined
+  }
+  if (typeof value === 'number' && !Number.isNaN(value)) {
+    return String(value)
+  }
+  return undefined
+}
+
+const isListingType = (value?: string | null): value is ListingType =>
+  value === 'equity' || value === 'crypto' || value === 'currency'
+
+const readListingType = (record: Record<string, unknown>): ListingType | undefined => {
+  const raw = readListingField(record, 'listing_type')
+  return isListingType(raw) ? raw : undefined
+}
+
+export const resolveListingKey = (value: ListingInputValue): string | undefined => {
+  if (!value) return undefined
+  if (typeof value === 'string') return value
+
+  const record = value as Record<string, unknown>
+  const listingType = readListingType(record)
+  if (!listingType) return undefined
+  const equityId = readListingField(record, 'equity_id')
+  const baseId = readListingField(record, 'base_id')
+  const quoteId = readListingField(record, 'quote_id')
+
+  if (listingType === 'equity') {
+    return equityId
+  }
+
+  if (baseId && quoteId) {
+    return `${baseId}:${quoteId}`
+  }
+
+  return undefined
+}
+
+export const toListingValue = (
+  listing: ListingOption | null | undefined
+): ListingIdentity | null => {
+  if (!listing) return null
+
+  return normalizeListingIdentity(listing as Record<string, unknown>)
+}
+
+export const toListingValueObject = (value: ListingInputValue): ListingIdentity | null => {
+  if (!value) return null
+  if (typeof value === 'string') return null
+
+  return normalizeListingIdentity(value as Record<string, unknown>)
+}
+
+const normalizeListingIdentity = (
+  record: Record<string, unknown>
+): ListingIdentity | null => {
+  const listingType = readListingType(record)
+  if (!listingType) return null
+
+  const equityId = readListingField(record, 'equity_id') ?? ''
+  const baseId = readListingField(record, 'base_id') ?? ''
+  const quoteId = readListingField(record, 'quote_id') ?? ''
+
+  if (listingType === 'equity') {
+    if (!equityId) return null
+    return {
+      equity_id: equityId,
+      base_id: '',
+      quote_id: '',
+      listing_type: listingType,
+    }
+  }
+
+  if (!baseId || !quoteId) return null
+
+  return {
+    equity_id: '',
+    base_id: baseId,
+    quote_id: quoteId,
+    listing_type: listingType,
+  }
+}

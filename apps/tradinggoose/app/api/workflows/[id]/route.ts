@@ -9,6 +9,7 @@ import { verifyInternalToken } from '@/lib/auth/internal'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
+import { hydrateListingUI } from '@/lib/listing/hydrate-ui'
 import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
 import { getWorkflowAccessContext, getWorkflowById } from '@/lib/workflows/utils'
 
@@ -139,13 +140,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       parallels: {},
     }
 
+    let resolvedBlocks = normalizedState.blocks
+    if (!isInternalCall && normalizedState.blocks) {
+      try {
+        resolvedBlocks = await hydrateListingUI(normalizedState.blocks)
+      } catch (error) {
+        logger.warn(`[${requestId}] Failed to resolve listing values for workflow ${workflowId}`, {
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
+
     const finalWorkflowData = {
       ...workflowData,
       state: {
         // Default values for expected properties
         deploymentStatuses: {},
         // Data from normalized tables (or empty fallback for brand new workflows)
-        blocks: normalizedState.blocks,
+        blocks: resolvedBlocks,
         edges: normalizedState.edges,
         loops: normalizedState.loops,
         parallels: normalizedState.parallels,

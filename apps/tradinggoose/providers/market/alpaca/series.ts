@@ -198,7 +198,7 @@ export async function fetchAlpacaSeries(
   }
 
   logger.info('Fetching Alpaca bars', {
-    listing: context.listingKey,
+    listing: context.listing,
     symbol,
     market,
     timeframe,
@@ -258,7 +258,7 @@ export async function fetchAlpacaSeries(
   const endTime = bars.length ? bars[bars.length - 1]?.timeStamp : end
 
   return {
-    listing: request.listing,
+    listing: context.listing,
     listingBase: context.base,
     listingQuote: context.quote,
     primaryMicCode: context.micCode ?? context.primaryMicCode,

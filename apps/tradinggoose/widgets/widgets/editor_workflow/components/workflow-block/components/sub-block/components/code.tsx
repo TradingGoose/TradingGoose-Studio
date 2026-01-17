@@ -445,7 +445,7 @@ IMPORTANT FORMATTING RULES:
               onClick={isPromptVisible ? hidePromptInline : showPromptInline}
               disabled={isAiLoading || isAiStreaming}
               aria-label='Generate code with AI'
-              className='h-8 w-8 rounded-full border border-transparent bg-muted/80 text-muted-foreground shadow-sm transition-all duration-200 hover:bg-primary-hover/20 hover:text-foreground hover:shadow'
+              className='h-8 w-8 rounded-full text-muted-foreground hover:text-foreground'
             >
               <Wand2 className='h-4 w-4' />
             </Button>
@@ -582,36 +582,37 @@ IMPORTANT FORMATTING RULES:
             )}
           />
 
-          {showEnvVars && !isCollapsed && !isAiStreaming && (
-            <EnvVarDropdown
-              visible={showEnvVars}
-              onSelect={handleEnvVarSelect}
-              searchTerm={searchTerm}
-              inputValue={code}
-              cursorPosition={cursorPosition}
-              workspaceId={workspaceId}
-              onClose={() => {
-                setShowEnvVars(false)
-                setSearchTerm('')
-              }}
-            />
-          )}
-
-          {showTags && !isCollapsed && !isAiStreaming && (
-            <TagDropdown
-              visible={showTags}
-              onSelect={handleTagSelect}
-              blockId={blockId}
-              activeSourceBlockId={activeSourceBlockId}
-              inputValue={code}
-              cursorPosition={cursorPosition}
-              onClose={() => {
-                setShowTags(false)
-                setActiveSourceBlockId(null)
-              }}
-            />
-          )}
         </div>
+
+        {showEnvVars && !isCollapsed && !isAiStreaming && (
+          <EnvVarDropdown
+            visible={showEnvVars}
+            onSelect={handleEnvVarSelect}
+            searchTerm={searchTerm}
+            inputValue={code}
+            cursorPosition={cursorPosition}
+            workspaceId={workspaceId}
+            onClose={() => {
+              setShowEnvVars(false)
+              setSearchTerm('')
+            }}
+          />
+        )}
+
+        {showTags && !isCollapsed && !isAiStreaming && (
+          <TagDropdown
+            visible={showTags}
+            onSelect={handleTagSelect}
+            blockId={blockId}
+            activeSourceBlockId={activeSourceBlockId}
+            inputValue={code}
+            cursorPosition={cursorPosition}
+            onClose={() => {
+              setShowTags(false)
+              setActiveSourceBlockId(null)
+            }}
+          />
+        )}
       </div>
     </>
   )

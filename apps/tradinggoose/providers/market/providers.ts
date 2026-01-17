@@ -18,7 +18,7 @@ import type {
   MarketSeries,
   NormalizationMode,
 } from '@/providers/market/types'
-import type { ListingIdentity } from '@/lib/market/listings'
+import type { ListingIdentity } from '@/lib/listing/identity'
 import { alphaVantageProviderConfig } from '@/providers/market/alpha-vantage/config'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'

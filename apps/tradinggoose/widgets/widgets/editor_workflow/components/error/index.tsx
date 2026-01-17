@@ -4,8 +4,6 @@ import { Component, type ReactNode, useEffect } from 'react'
 import { BotIcon } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { createLogger } from '@/lib/logs/console/logger'
-import { ControlBar } from '@/widgets/widgets/editor_workflow/components/control-bar/control-bar'
-import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('ErrorBoundary')
 
@@ -23,18 +21,12 @@ export function ErrorUI({
   onReset,
   fullScreen = false,
 }: ErrorUIProps) {
-  const workflowRoute = useOptionalWorkflowRoute()
-  const hasWorkflowContext = Boolean(workflowRoute)
-
   const containerClass = fullScreen
     ? 'flex flex-col w-full h-screen bg-muted/40'
     : 'flex flex-col w-full h-full bg-muted/40'
 
   return (
     <div className={containerClass}>
-      {/* Control bar */}
-      {hasWorkflowContext && <ControlBar hasValidationErrors={false} />}
-
       {/* Main content area */}
       <div className='relative flex flex-1'>
         {/* Error message */}

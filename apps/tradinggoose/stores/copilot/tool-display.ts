@@ -13,10 +13,23 @@ export function resolveToolDisplay(
   try {
     if (!toolName) return undefined
     const def = getTool(toolName) as any
-    const meta = def?.metadata?.displayNames || CLASS_TOOL_METADATA[toolName]?.displayNames || {}
+    const toolMetadata = def?.metadata || CLASS_TOOL_METADATA[toolName]
+    const meta = toolMetadata?.displayNames || {}
     // Exact state first
     const ds = meta?.[state]
-    if (ds?.text || ds?.icon) return { text: ds.text, icon: ds.icon }
+    if (ds?.text || ds?.icon) {
+      // Check if tool has a dynamic text formatter
+      const getDynamicText = toolMetadata?.getDynamicText
+      if (getDynamicText && params) {
+        try {
+          const dynamicText = getDynamicText(params, state)
+          if (dynamicText) {
+            return { text: dynamicText, icon: ds.icon }
+          }
+        } catch {}
+      }
+      return { text: ds.text, icon: ds.icon }
+    }
     // Fallback order (prefer pre-execution states for unknown states like pending)
     const fallbackOrder: ClientToolCallState[] = [
       (ClientToolCallState as any).generating,

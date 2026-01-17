@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { ListingIdentity } from '@/lib/market/listings'
+import type { ListingIdentity } from '@/lib/listing/identity'
 import type { PairColor } from '@/widgets/pair-colors'
 import { PAIR_COLORS } from '@/widgets/pair-colors'
 

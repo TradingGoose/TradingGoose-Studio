@@ -1,6 +1,6 @@
 'use client'
 
-import { type FC, memo, useEffect, useMemo, useRef, useState } from 'react'
+import { type FC, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Blocks,
   BookOpen,
@@ -23,6 +23,8 @@ import { InlineToolCall } from '@/lib/copilot/inline-tool-call'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   FileAttachmentDisplay,
+  OptionsSelector,
+  parseSpecialTags,
   SmoothStreamingText,
   StreamingIndicator,
   ThinkingBlock,
@@ -111,9 +113,15 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       return userMessages.length > 0 && userMessages[userMessages.length - 1]?.id === message.id
     }, [isUser, messages, message.id])
 
+    const isLastMessage = useMemo(() => {
+      if (messages.length === 0) return false
+      return messages[messages.length - 1]?.id === message.id
+    }, [messages, message.id])
+
     const handleCopyContent = () => {
       // Copy clean text content
-      navigator.clipboard.writeText(message.content)
+      const textToCopy = cleanTextContent || message.content || ''
+      navigator.clipboard.writeText(textToCopy)
       setShowCopySuccess(true)
     }
 
@@ -638,13 +646,49 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       }
     }, [message.content, isUser])
 
+    // Parse special tags from message content (options, plan)
+    // Parse during streaming to show options as they stream in
+    const parsedTags = useMemo(() => {
+      if (isUser) return null
+
+      if (message.content) {
+        const parsed = parseSpecialTags(message.content)
+        if (parsed.options || parsed.plan) return parsed
+      }
+
+      if (isStreaming && message.contentBlocks && message.contentBlocks.length > 0) {
+        for (const block of message.contentBlocks) {
+          if (block.type === 'text' && block.content) {
+            const parsed = parseSpecialTags(block.content)
+            if (parsed.options || parsed.plan) return parsed
+          }
+        }
+      }
+
+      return message.content ? parseSpecialTags(message.content) : null
+    }, [message.content, message.contentBlocks, isUser, isStreaming])
+
+    const handleOptionSelect = useCallback(
+      (_optionKey: string, optionText: string) => {
+        sendMessage(optionText)
+      },
+      [sendMessage]
+    )
+
     // Get clean text content with double newline parsing
     const cleanTextContent = useMemo(() => {
       if (!message.content) return ''
 
       // Parse out excessive newlines (more than 2 consecutive newlines)
-      return message.content.replace(/\n{3,}/g, '\n\n')
-    }, [message.content])
+      const normalized = message.content.replace(/\n{3,}/g, '\n\n')
+      if (!isAssistant) return normalized
+
+      if (parsedTags) {
+        return parsedTags.cleanContent.replace(/\n{3,}/g, '\n\n')
+      }
+
+      return normalized
+    }, [message.content, isAssistant, parsedTags])
 
     // Memoize content blocks to avoid re-rendering unchanged blocks
     const memoizedContentBlocks = useMemo(() => {
@@ -656,8 +700,11 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
         if (block.type === 'text') {
           const isLastTextBlock =
             index === message.contentBlocks!.length - 1 && block.type === 'text'
-          // Clean content for this text block
-          const cleanBlockContent = block.content.replace(/\n{3,}/g, '\n\n')
+          // Clean content for this text block and strip special tags
+          const parsed = parseSpecialTags(block.content)
+          const cleanBlockContent = parsed.cleanContent.replace(/\n{3,}/g, '\n\n')
+
+          if (!cleanBlockContent.trim()) return null
 
           // Use smooth streaming for the last text block if we're streaming
           const shouldUseSmoothing = isStreaming && isLastTextBlock
@@ -909,7 +956,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 onClick={handleMessageClick}
                 onMouseEnter={() => setIsHoveringMessage(true)}
                 onMouseLeave={() => setIsHoveringMessage(false)}
-                className='group relative cursor-text rounded-md border border-input bg-background px-3 py-1.5 shadow-xs transition-all duration-200 '
+                className='group relative cursor-text rounded-md border border-input bg-muted/40 px-3 py-1.5 shadow-xs transition-all duration-200 '
               >
                 <div
                   ref={messageContentRef}
@@ -1108,6 +1155,19 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                   ))}
                 </div>
               </div>
+            )}
+
+            {/* Options selector when agent presents choices - streams in but disabled until complete */}
+            {parsedTags?.options && Object.keys(parsedTags.options).length > 0 && (
+              <OptionsSelector
+                options={parsedTags.options}
+                onSelect={handleOptionSelect}
+                disabled={!isLastMessage || isSendingMessage || isStreaming}
+                enableKeyboardNav={
+                  isLastMessage && !isStreaming && parsedTags.optionsComplete === true
+                }
+                streaming={isStreaming || parsedTags.optionsComplete === false}
+              />
             )}
           </div>
         </div>

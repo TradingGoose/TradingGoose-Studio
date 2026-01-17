@@ -1,7 +1,7 @@
 // Minimal OHLCV schema aligned with Lean TradeBar and OpenBB Historical models.
 // Keep it small; adapters can add provider-specific metadata separately.
 
-import type { ListingIdentity } from '@/lib/market/listings'
+import type { ListingIdentity } from '@/lib/listing/identity'
 
 export const MARKET_DATA_TYPES = ['series', 'live'] as const
 export type MarketDataType = (typeof MARKET_DATA_TYPES)[number]

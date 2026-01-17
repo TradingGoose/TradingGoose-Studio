@@ -1,11 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import useDrivePicker from 'react-google-drive-picker'
 import { GoogleDriveIcon } from '@/components/icons'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { getClientTool } from '@/lib/copilot/tools/client/manager'
 import { getRegisteredTools } from '@/lib/copilot/tools/client/registry'
@@ -20,7 +19,157 @@ interface InlineToolCallProps {
   context?: Record<string, any>
 }
 
-function shouldShowRunSkipButtons(toolCall: CopilotToolCall): boolean {
+const ACTION_VERBS = [
+  'Analyzing',
+  'Analyzed',
+  'Exploring',
+  'Explored',
+  'Fetching',
+  'Fetched',
+  'Retrieved',
+  'Retrieving',
+  'Reading',
+  'Read',
+  'Listing',
+  'Listed',
+  'Editing',
+  'Edited',
+  'Running',
+  'Ran',
+  'Designing',
+  'Designed',
+  'Searching',
+  'Searched',
+  'Debugging',
+  'Debugged',
+  'Validating',
+  'Validated',
+  'Adjusting',
+  'Adjusted',
+  'Summarizing',
+  'Summarized',
+  'Marking',
+  'Marked',
+  'Planning',
+  'Planned',
+  'Preparing',
+  'Failed',
+  'Aborted',
+  'Skipped',
+  'Review',
+  'Finding',
+  'Found',
+  'Evaluating',
+  'Evaluated',
+  'Finished',
+  'Setting',
+  'Set',
+  'Applied',
+  'Applying',
+  'Rejected',
+  'Deploy',
+  'Deploying',
+  'Deployed',
+  'Redeploying',
+  'Redeployed',
+  'Redeploy',
+  'Undeploy',
+  'Undeploying',
+  'Undeployed',
+  'Checking',
+  'Checked',
+  'Opening',
+  'Opened',
+  'Create',
+  'Creating',
+  'Created',
+  'Generating',
+  'Generated',
+  'Rendering',
+  'Rendered',
+  'Sleeping',
+  'Slept',
+  'Resumed',
+] as const
+
+function splitActionVerb(text: string): [string | null, string] {
+  for (const verb of ACTION_VERBS) {
+    if (text.startsWith(`${verb} `)) {
+      return [verb, text.slice(verb.length)]
+    }
+    if (text === verb || text.startsWith(verb)) {
+      const afterVerb = text.slice(verb.length)
+      if (afterVerb === '' || afterVerb.startsWith(' ')) {
+        return [verb, afterVerb]
+      }
+    }
+  }
+  return [null, text]
+}
+
+function ShimmerOverlayText({
+  text,
+  active = false,
+  className,
+}: {
+  text: string
+  active?: boolean
+  className?: string
+}) {
+  const [actionVerb, remainder] = splitActionVerb(text)
+
+  return (
+    <span className={`relative inline-block ${className || ''}`}>
+      {actionVerb ? (
+        <>
+          <span className='text-foreground'>{actionVerb}</span>
+          <span className='text-muted-foreground'>{remainder}</span>
+        </>
+      ) : (
+        <span>{text}</span>
+      )}
+      {active ? (
+        <span
+          aria-hidden='true'
+          className='pointer-events-none absolute inset-0 select-none overflow-hidden'
+        >
+          <span
+            className='block text-transparent'
+            style={{
+              backgroundImage:
+                'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.75) 50%, rgba(255,255,255,0) 100%)',
+              backgroundSize: '200% 100%',
+              backgroundRepeat: 'no-repeat',
+              WebkitBackgroundClip: 'text',
+              backgroundClip: 'text',
+              animation: 'toolcall-shimmer 1.4s ease-in-out infinite',
+              mixBlendMode: 'screen',
+            }}
+          >
+            {text}
+          </span>
+        </span>
+      ) : null}
+      <style>{`
+        @keyframes toolcall-shimmer {
+          0% { background-position: 150% 0; }
+          50% { background-position: 0% 0; }
+          100% { background-position: -150% 0; }
+        }
+      `}</style>
+    </span>
+  )
+}
+
+function isIntegrationTool(toolName: string): boolean {
+  const isClientTool = !!CLASS_TOOL_METADATA[toolName] || !!getRegisteredTools()[toolName]
+  return !isClientTool
+}
+
+function shouldShowRunSkipButtons(
+  toolCall: CopilotToolCall,
+  options: { mode: 'ask' | 'build'; isAutoAllowed: boolean }
+): boolean {
   const instance = getClientTool(toolCall.id)
   let hasInterrupt = !!instance?.getInterruptDisplays?.()
   if (!hasInterrupt) {
@@ -34,7 +183,20 @@ function shouldShowRunSkipButtons(toolCall: CopilotToolCall): boolean {
       }
     } catch { }
   }
-  return hasInterrupt && toolCall.state === 'pending'
+  if (hasInterrupt && toolCall.state === 'pending') {
+    return true
+  }
+
+  if (
+    options.mode === 'build' &&
+    isIntegrationTool(toolCall.name) &&
+    toolCall.state === 'pending' &&
+    !options.isAutoAllowed
+  ) {
+    return true
+  }
+
+  return false
 }
 
 async function handleRun(toolCall: CopilotToolCall, setToolCallState: any, onStateChange?: any) {
@@ -61,86 +223,107 @@ async function handleSkip(toolCall: CopilotToolCall, setToolCallState: any, onSt
   onStateChange?.('rejected')
 }
 
-function getDisplayName(toolCall: CopilotToolCall): string {
-  // Prefer display resolved in the copilot store (SSOT)
+function getStateVerb(state: string): string {
+  switch (state) {
+    case 'pending':
+    case 'executing':
+      return 'Running'
+    case 'success':
+      return 'Ran'
+    case 'error':
+      return 'Failed'
+    case 'rejected':
+    case 'aborted':
+      return 'Skipped'
+    default:
+      return 'Running'
+  }
+}
+
+function formatToolName(name: string): string {
+  return name
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
+function getDisplayName(toolCall: CopilotToolCall, options?: { isIntegration?: boolean }): string {
+  const isIntegration = options?.isIntegration
+
+  // Prefer display resolved in the copilot store (SSOT) for client tools
   const fromStore = (toolCall as any).display?.text
-  if (fromStore) return fromStore
+  if (fromStore && !isIntegration) return fromStore
+
   try {
     const def = getRegisteredTools()[toolCall.name] as any
     const byState = def?.metadata?.displayNames?.[toolCall.state]
     if (byState?.text) return byState.text
   } catch { }
+
+  if (isIntegration) {
+    return `${getStateVerb(String(toolCall.state))} ${formatToolName(toolCall.name)}`.trim()
+  }
+
   return toolCall.name
 }
 
 function RunSkipButtons({
   toolCall,
   onStateChange,
+  isIntegration,
 }: {
   toolCall: CopilotToolCall
   onStateChange?: (state: any) => void
+  isIntegration?: boolean
 }) {
   const [isProcessing, setIsProcessing] = useState(false)
   const [buttonsHidden, setButtonsHidden] = useState(false)
-  const { setToolCallState } = useCopilotStore()
+  const actionInProgressRef = useRef(false)
+  const {
+    setToolCallState,
+    executeIntegrationTool,
+    skipIntegrationTool,
+    addAutoAllowedTool,
+  } = useCopilotStore()
   const [openPicker] = useDrivePicker()
 
   const instance = getClientTool(toolCall.id)
-  const interruptDisplays = instance?.getInterruptDisplays?.()
-  const acceptLabel = interruptDisplays?.accept?.text || 'Run'
-  const rejectLabel = interruptDisplays?.reject?.text || 'Skip'
 
   const onRun = async () => {
+    if (actionInProgressRef.current) return
+    actionInProgressRef.current = true
     setIsProcessing(true)
     setButtonsHidden(true)
     try {
-      await handleRun(toolCall, setToolCallState, onStateChange)
+      if (isIntegration) {
+        onStateChange?.('executing')
+        await executeIntegrationTool(toolCall.id)
+      } else {
+        await handleRun(toolCall, setToolCallState, onStateChange)
+      }
     } finally {
       setIsProcessing(false)
+      actionInProgressRef.current = false
     }
   }
 
-  const handleOpenDriveAccess = async () => {
+  const onAlwaysAllow = async () => {
+    if (actionInProgressRef.current) return
+    actionInProgressRef.current = true
+    setIsProcessing(true)
+    setButtonsHidden(true)
     try {
-      const providerId = 'google-drive'
-      const credsRes = await fetch(`/api/auth/oauth/credentials?provider=${providerId}`)
-      if (!credsRes.ok) return
-      const credsData = await credsRes.json()
-      const creds = Array.isArray(credsData.credentials) ? credsData.credentials : []
-      if (creds.length === 0) return
-      const defaultCred = creds.find((c: any) => c.isDefault) || creds[0]
-
-      const tokenRes = await fetch('/api/auth/oauth/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credentialId: defaultCred.id }),
-      })
-      if (!tokenRes.ok) return
-      const { accessToken } = await tokenRes.json()
-      if (!accessToken) return
-
-      const clientId = getEnv('NEXT_PUBLIC_GOOGLE_CLIENT_ID') || ''
-      const apiKey = getEnv('NEXT_PUBLIC_GOOGLE_API_KEY') || ''
-      const projectNumber = getEnv('NEXT_PUBLIC_GOOGLE_PROJECT_NUMBER') || ''
-
-      openPicker({
-        clientId,
-        developerKey: apiKey,
-        viewId: 'DOCS',
-        token: accessToken,
-        showUploadView: true,
-        showUploadFolders: true,
-        supportDrives: true,
-        multiselect: false,
-        appId: projectNumber,
-        setSelectFolderEnabled: false,
-        callbackFunction: async (data) => {
-          if (data.action === 'picked') {
-            await onRun()
-          }
-        },
-      })
-    } catch { }
+      await addAutoAllowedTool(toolCall.name)
+      if (isIntegration) {
+        onStateChange?.('executing')
+        await executeIntegrationTool(toolCall.id)
+      } else {
+        await handleRun(toolCall, setToolCallState, onStateChange)
+      }
+    } finally {
+      setIsProcessing(false)
+      actionInProgressRef.current = false
+    }
   }
 
   if (buttonsHidden) return null
@@ -183,7 +366,6 @@ function RunSkipButtons({
             })
           }}
           size='sm'
-          className='h-6 bg-gray-900 px-2 font-medium text-white text-xs hover:bg-gray-800 disabled:opacity-50 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-200'
           title='Grant Google Drive access'
         >
           <GoogleDriveIcon className='mr-0.5 h-4 w-4' />
@@ -195,7 +377,7 @@ function RunSkipButtons({
             await handleSkip(toolCall, setToolCallState, onStateChange)
           }}
           size='sm'
-          className='h-6 bg-gray-200 px-2 font-medium text-gray-700 text-xs hover:bg-gray-300 disabled:opacity-50 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+          variant='outline'
         >
           Skip
         </Button>
@@ -209,21 +391,33 @@ function RunSkipButtons({
         onClick={onRun}
         disabled={isProcessing}
         size='sm'
-        className='h-6 bg-gray-900 px-2 font-medium text-white text-xs hover:bg-gray-800 disabled:opacity-50 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-200'
       >
         {isProcessing ? <Loader2 className='mr-1 h-3 w-3 animate-spin' /> : null}
-        {acceptLabel}
+        Allow
+      </Button>
+      <Button
+        onClick={onAlwaysAllow}
+        disabled={isProcessing}
+        size='sm'
+        variant='secondary'
+      >
+        Always Allow
       </Button>
       <Button
         onClick={async () => {
           setButtonsHidden(true)
-          await handleSkip(toolCall, setToolCallState, onStateChange)
+          if (isIntegration) {
+            onStateChange?.('rejected')
+            skipIntegrationTool(toolCall.id)
+          } else {
+            await handleSkip(toolCall, setToolCallState, onStateChange)
+          }
         }}
         disabled={isProcessing}
         size='sm'
-        className='h-6 bg-gray-200 px-2 font-medium text-gray-700 text-xs hover:bg-gray-300 disabled:opacity-50 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+        variant='outline'
       >
-        {rejectLabel}
+        Skip
       </Button>
     </div>
   )
@@ -240,32 +434,44 @@ export function InlineToolCall({
     toolCallId ? s.toolCallsById[toolCallId] : undefined
   )
   const toolCall = liveToolCall || toolCallProp
+  const toolName = toolCall?.name || ''
+  const toolState = toolCall?.state || (ClientToolCallState.pending as any)
+
+  const isExpandablePending =
+    toolState === 'pending' &&
+    (toolName === 'make_api_request' ||
+      toolName === 'set_environment_variables' ||
+      toolName === 'set_global_workflow_variables')
+
+  const [expanded, setExpanded] = useState(isExpandablePending)
+  const isExpandableTool =
+    toolName === 'make_api_request' ||
+    toolName === 'set_environment_variables' ||
+    toolName === 'set_global_workflow_variables'
+
+  const mode = useCopilotStore((s) => s.mode)
+  const autoAllowedTools = useCopilotStore((s) => s.autoAllowedTools)
+  const removeAutoAllowedTool = useCopilotStore((s) => s.removeAutoAllowedTool)
+
+  const isClientTool =
+    !!CLASS_TOOL_METADATA[toolName] || !!getRegisteredTools()[toolName]
+  const isIntegration = !isClientTool
+  const isIntegrationInBuildMode = mode === 'build' && isIntegration
+  const [showRemoveAutoAllow, setShowRemoveAutoAllow] = useState(false)
 
   // Guard: nothing to render without a toolCall
   if (!toolCall) return null
 
-  // Skip rendering tools that are not in the registry or are explicitly omitted
-  try {
-    if (toolCall.name === 'checkoff_todo' || toolCall.name === 'mark_todo_in_progress') return null
-    // Allow if tool id exists in CLASS_TOOL_METADATA (client tools)
-    if (!CLASS_TOOL_METADATA[toolCall.name]) return null
-  } catch {
+  // Skip rendering some internal tools
+  if (toolCall.name === 'checkoff_todo' || toolCall.name === 'mark_todo_in_progress') return null
+
+  if (!isClientTool && !isIntegrationInBuildMode) {
     return null
   }
 
-  const isExpandablePending =
-    toolCall.state === 'pending' &&
-    (toolCall.name === 'make_api_request' ||
-      toolCall.name === 'set_environment_variables' ||
-      toolCall.name === 'set_global_workflow_variables')
+  const isAutoAllowed = isIntegration && autoAllowedTools.includes(toolCall.name)
 
-  const [expanded, setExpanded] = useState(isExpandablePending)
-  const isExpandableTool =
-    toolCall.name === 'make_api_request' ||
-    toolCall.name === 'set_environment_variables' ||
-    toolCall.name === 'set_global_workflow_variables'
-
-  const showButtons = shouldShowRunSkipButtons(toolCall)
+  const showButtons = shouldShowRunSkipButtons(toolCall, { mode, isAutoAllowed })
   const showMoveToBackground =
     toolCall.name === 'run_workflow' &&
     (toolCall.state === (ClientToolCallState.executing as any) ||
@@ -276,19 +482,8 @@ export function InlineToolCall({
     onStateChange?.(state)
   }
 
-  const displayName = getDisplayName(toolCall)
+  const displayName = getDisplayName(toolCall, { isIntegration })
   const params = (toolCall as any).parameters || (toolCall as any).input || toolCall.params || {}
-
-  const Section = ({ title, children }: { title: string; children: any }) => (
-    <Card className='mt-1.5'>
-      <CardContent className='p-3'>
-        <div className='mb-1 font-medium text-[11px] text-muted-foreground uppercase tracking-wide'>
-          {title}
-        </div>
-        {children}
-      </CardContent>
-    </Card>
-  )
 
   const renderPendingDetails = () => {
     if (toolCall.name === 'make_api_request') {
@@ -451,8 +646,12 @@ export function InlineToolCall({
         colorClass = isBuildOrEdit ? 'text-primary-hover' : 'text-green-600'
       }
 
-      // Only Loader2 should spin
-      const spinClass = IconComp === Loader2 ? 'animate-spin' : ''
+      const isLoadingState =
+        toolCall.state === ClientToolCallState.pending ||
+        toolCall.state === ClientToolCallState.executing
+
+      // Only Loader2 should spin (while loading)
+      const spinClass = IconComp === Loader2 && isLoadingState ? 'animate-spin' : ''
 
       return <IconComp className={`h-3 w-3 ${spinClass} ${colorClass}`} />
     } catch {
@@ -460,20 +659,38 @@ export function InlineToolCall({
     }
   }
 
+  const isLoadingState =
+    toolCall.state === ClientToolCallState.pending ||
+    toolCall.state === ClientToolCallState.executing
+
+  const isToolNameClickable = isExpandableTool || isAutoAllowed
+
   return (
     <div className='flex w-full flex-col gap-1 py-1'>
       <div
-        className={`flex items-center justify-between gap-2 ${isExpandableTool ? 'cursor-pointer' : ''}`}
+        className={`flex items-center justify-between gap-2 ${isToolNameClickable ? 'cursor-pointer' : ''}`}
         onClick={() => {
-          if (isExpandableTool) setExpanded((e) => !e)
+          if (isExpandableTool) {
+            setExpanded((e) => !e)
+          } else if (isAutoAllowed) {
+            setShowRemoveAutoAllow((prev) => !prev)
+          }
         }}
       >
         <div className='flex items-center gap-2 text-muted-foreground'>
           <div className='flex-shrink-0'>{renderDisplayIcon()}</div>
-          <span className='text-sm'>{displayName}</span>
+          <ShimmerOverlayText
+            text={displayName}
+            active={isLoadingState}
+            className='text-sm'
+          />
         </div>
         {showButtons ? (
-          <RunSkipButtons toolCall={toolCall} onStateChange={handleStateChange} />
+          <RunSkipButtons
+            toolCall={toolCall}
+            onStateChange={handleStateChange}
+            isIntegration={isIntegration}
+          />
         ) : showMoveToBackground ? (
           <Button
             // Intentionally minimal wiring per requirements
@@ -492,7 +709,7 @@ export function InlineToolCall({
               } catch { }
             }}
             size='sm'
-            className='h-6 bg-blue-600 px-2 font-medium text-white text-xs hover:bg-blue-500 disabled:opacity-50 dark:bg-blue-400 dark:text-gray-900 dark:hover:bg-blue-300'
+            variant='secondary'
             title='Move to Background'
           >
             Move to Background
@@ -500,6 +717,22 @@ export function InlineToolCall({
         ) : null}
       </div>
       {isExpandableTool && expanded && <div className='pr-1 pl-5'>{renderPendingDetails()}</div>}
+      {showRemoveAutoAllow && isAutoAllowed ? (
+        <div className='pl-5'>
+          <Button
+            onClick={async (event) => {
+              event.stopPropagation()
+              await removeAutoAllowedTool(toolCall.name)
+              setShowRemoveAutoAllow(false)
+              forceUpdate({})
+            }}
+            size='sm'
+            variant='outline'
+          >
+            Remove from Always Allowed
+          </Button>
+        </div>
+      ) : null}
     </div>
   )
 }

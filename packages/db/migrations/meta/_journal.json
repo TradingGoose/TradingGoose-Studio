@@ -22,6 +22,13 @@
       "when": 1765160193258,
       "tag": "0002_tan_dormammu",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1768528173305,
+      "tag": "0003_copilot_auto_allowed_tools",
+      "breakpoints": true
     }
   ]
 }

@@ -88,6 +88,65 @@ import { WorkflowInputBlock } from '@/blocks/blocks/workflow_input'
 import { XBlock } from '@/blocks/blocks/x'
 import { YouTubeBlock } from '@/blocks/blocks/youtube'
 import { ZepBlock } from '@/blocks/blocks/zep'
+import { AhrefsBlock } from '@/blocks/blocks/ahrefs'
+import { ApifyBlock } from '@/blocks/blocks/apify'
+import { ApolloBlock } from '@/blocks/blocks/apollo'
+import { AsanaBlock } from '@/blocks/blocks/asana'
+import { CalendlyBlock } from '@/blocks/blocks/calendly'
+import { CirclebackBlock } from '@/blocks/blocks/circleback'
+import { CursorBlock } from '@/blocks/blocks/cursor'
+import { DatadogBlock } from '@/blocks/blocks/datadog'
+import { DropboxBlock } from '@/blocks/blocks/dropbox'
+import { DuckDuckGoBlock } from '@/blocks/blocks/duckduckgo'
+import { DynamoDBBlock } from '@/blocks/blocks/dynamodb'
+import { ElasticsearchBlock } from '@/blocks/blocks/elasticsearch'
+import { FirefliesBlock } from '@/blocks/blocks/fireflies'
+import { GitLabBlock } from '@/blocks/blocks/gitlab'
+import { GoogleGroupsBlock } from '@/blocks/blocks/google_groups'
+import { GoogleSlidesBlock } from '@/blocks/blocks/google_slides'
+import { GrafanaBlock } from '@/blocks/blocks/grafana'
+import { GrainBlock } from '@/blocks/blocks/grain'
+import { GreptileBlock } from '@/blocks/blocks/greptile'
+import { HubSpotBlock } from '@/blocks/blocks/hubspot'
+import { HumanInTheLoopBlock } from '@/blocks/blocks/human_in_the_loop'
+import { ImapBlock } from '@/blocks/blocks/imap'
+import { IncidentioBlock } from '@/blocks/blocks/incidentio'
+import { IntercomBlock } from '@/blocks/blocks/intercom'
+import { JiraServiceManagementBlock } from '@/blocks/blocks/jira_service_management'
+import { KalshiBlock } from '@/blocks/blocks/kalshi'
+import { LinkedInBlock } from '@/blocks/blocks/linkedin'
+import { MailchimpBlock } from '@/blocks/blocks/mailchimp'
+import { MailgunBlock } from '@/blocks/blocks/mailgun'
+import { Neo4jBlock } from '@/blocks/blocks/neo4j'
+import { NoteBlock } from '@/blocks/blocks/note'
+import { PipedriveBlock } from '@/blocks/blocks/pipedrive'
+import { PolymarketBlock } from '@/blocks/blocks/polymarket'
+import { PostHogBlock } from '@/blocks/blocks/posthog'
+import { RDSBlock } from '@/blocks/blocks/rds'
+import { RssBlock } from '@/blocks/blocks/rss'
+import { SalesforceBlock } from '@/blocks/blocks/salesforce'
+import { SearchBlock } from '@/blocks/blocks/search'
+import { SendGridBlock } from '@/blocks/blocks/sendgrid'
+import { SentryBlock } from '@/blocks/blocks/sentry'
+import { ServiceNowBlock } from '@/blocks/blocks/servicenow'
+import { ShopifyBlock } from '@/blocks/blocks/shopify'
+import { SftpBlock } from '@/blocks/blocks/sftp'
+import { SmtpBlock } from '@/blocks/blocks/smtp'
+import { SpotifyBlock } from '@/blocks/blocks/spotify'
+import { SQSBlock } from '@/blocks/blocks/sqs'
+import { SSHBlock } from '@/blocks/blocks/ssh'
+import { StarterBlock } from '@/blocks/blocks/starter'
+import { StartTriggerBlock } from '@/blocks/blocks/start_trigger'
+import { StripeBlock } from '@/blocks/blocks/stripe'
+import { SttBlock } from '@/blocks/blocks/stt'
+import { TrelloBlock } from '@/blocks/blocks/trello'
+import { TtsBlock } from '@/blocks/blocks/tts'
+import { TwilioVoiceBlock } from '@/blocks/blocks/twilio_voice'
+import { VideoGeneratorBlock } from '@/blocks/blocks/video_generator'
+import { WebhookRequestBlock } from '@/blocks/blocks/webhook_request'
+import { WordPressBlock } from '@/blocks/blocks/wordpress'
+import { ZendeskBlock } from '@/blocks/blocks/zendesk'
+import { ZoomBlock } from '@/blocks/blocks/zoom'
 import type { BlockConfig } from '@/blocks/types'
 
 // Registry of all available blocks, alphabetically sorted
@@ -183,6 +242,66 @@ export const registry: Record<string, BlockConfig> = {
   workflow_input: WorkflowInputBlock,
   x: XBlock,
   youtube: YouTubeBlock,
+
+  ahrefs: AhrefsBlock,
+  apify: ApifyBlock,
+  apollo: ApolloBlock,
+  asana: AsanaBlock,
+  calendly: CalendlyBlock,
+  circleback: CirclebackBlock,
+  cursor: CursorBlock,
+  datadog: DatadogBlock,
+  dropbox: DropboxBlock,
+  duckduckgo: DuckDuckGoBlock,
+  dynamodb: DynamoDBBlock,
+  elasticsearch: ElasticsearchBlock,
+  fireflies: FirefliesBlock,
+  gitlab: GitLabBlock,
+  google_groups: GoogleGroupsBlock,
+  google_slides: GoogleSlidesBlock,
+  grafana: GrafanaBlock,
+  grain: GrainBlock,
+  greptile: GreptileBlock,
+  hubspot: HubSpotBlock,
+  human_in_the_loop: HumanInTheLoopBlock,
+  imap: ImapBlock,
+  incidentio: IncidentioBlock,
+  intercom: IntercomBlock,
+  jira_service_management: JiraServiceManagementBlock,
+  kalshi: KalshiBlock,
+  linkedin: LinkedInBlock,
+  mailchimp: MailchimpBlock,
+  mailgun: MailgunBlock,
+  neo4j: Neo4jBlock,
+  note: NoteBlock,
+  pipedrive: PipedriveBlock,
+  polymarket: PolymarketBlock,
+  posthog: PostHogBlock,
+  rds: RDSBlock,
+  rss: RssBlock,
+  salesforce: SalesforceBlock,
+  search: SearchBlock,
+  sendgrid: SendGridBlock,
+  sentry: SentryBlock,
+  servicenow: ServiceNowBlock,
+  shopify: ShopifyBlock,
+  smtp: SmtpBlock,
+  spotify: SpotifyBlock,
+  sftp: SftpBlock,
+  sqs: SQSBlock,
+  ssh: SSHBlock,
+  starter: StarterBlock,
+  start_trigger: StartTriggerBlock,
+  stripe: StripeBlock,
+  stt: SttBlock,
+  trello: TrelloBlock,
+  tts: TtsBlock,
+  twilio_voice: TwilioVoiceBlock,
+  video_generator: VideoGeneratorBlock,
+  webhook_request: WebhookRequestBlock,
+  wordpress: WordPressBlock,
+  zendesk: ZendeskBlock,
+  zoom: ZoomBlock,
 }
 
 export const getBlock = (type: string): BlockConfig | undefined => registry[type]

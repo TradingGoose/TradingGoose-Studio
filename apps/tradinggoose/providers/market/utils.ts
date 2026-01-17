@@ -1,51 +1,48 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { resolveListingKey, toListingValueObject, type ListingIdentity } from '@/lib/market/listings'
+import { resolveListingIdentity } from '@/lib/listing/resolve'
+import {
+  resolveListingKey,
+  toListingValueObject,
+  type ListingInputValue,
+} from '@/lib/listing/identity'
 import type { AssetClass } from '@/providers/market/types'
 import type { ListingContext, MarketProviderConfig, MarketSymbolRule, RuleScopeKey } from './providers'
 
 const logger = createLogger('MarketProviderUtils')
 
-const readListingField = (record: Record<string, unknown>, key: string): string | undefined => {
-  const value = record[key]
-  if (typeof value === 'string' && value.trim()) {
-    return value.trim()
+export async function resolveListingContext(listing: ListingInputValue): Promise<ListingContext> {
+  const normalizedListing = toListingValueObject(listing)
+  if (!normalizedListing) {
+    throw new Error('listing is required')
   }
-  if (typeof value === 'number' && !Number.isNaN(value)) {
-    return String(value)
-  }
-  return undefined
-}
 
-export async function resolveListingContext(listing: ListingIdentity): Promise<ListingContext> {
-  const listingKey = resolveListingKey(listing)
+  const listingKey = resolveListingKey(normalizedListing)
   if (!listingKey) {
     throw new Error('listing is required')
   }
 
-  const record = listing as Record<string, unknown>
-  const base = readListingField(record, 'base')
-  if (!base) {
+  const resolved = await resolveListingIdentity(normalizedListing)
+  if (!resolved?.base) {
     throw new Error('listing base is required')
   }
-  const quote = readListingField(record, 'quote')
-  const assetClass = readListingField(record, 'assetClass') as AssetClass | undefined
-  const primaryMicCode = readListingField(record, 'primaryMicCode')
-  const micCode = readListingField(record, 'micCode') ?? primaryMicCode
-  const countryCode = readListingField(record, 'countryCode')
-  const cityName = readListingField(record, 'cityName')
-  const timeZoneName = readListingField(record, 'timeZoneName')
+
+  const assetClass =
+    (resolved.assetClass ??
+      (normalizedListing.listing_type === 'equity'
+        ? undefined
+        : normalizedListing.listing_type)) as AssetClass | undefined
 
   return {
     listingKey,
-    listing: toListingValueObject(listing),
-    base,
-    quote: quote ?? undefined,
+    listing: normalizedListing,
+    base: resolved.base,
+    quote: resolved.quote ?? undefined,
     assetClass,
-    primaryMicCode: primaryMicCode ?? micCode ?? undefined,
-    micCode,
-    countryCode: countryCode ?? undefined,
-    cityName: cityName ?? undefined,
-    timeZoneName: timeZoneName ?? undefined,
+    primaryMicCode: resolved.primaryMicCode ?? undefined,
+    micCode: resolved.primaryMicCode ?? undefined,
+    countryCode: resolved.countryCode ?? undefined,
+    cityName: resolved.cityName ?? undefined,
+    timeZoneName: resolved.timeZoneName ?? undefined,
   }
 }
 

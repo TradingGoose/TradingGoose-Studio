@@ -5,6 +5,7 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import { hydrateListingUI } from '@/lib/listing/hydrate-ui'
 import {
   ensureUniqueBlockIds,
   loadWorkflowFromNormalizedTables,
@@ -376,9 +377,18 @@ export async function getWorkflowState(workflowId: string) {
     }
 
     if (normalizedData) {
+      let resolvedBlocks = normalizedData.blocks
+      try {
+        resolvedBlocks = await hydrateListingUI(normalizedData.blocks)
+      } catch (error) {
+        logger.warn(`Failed to resolve listing values for workflow ${workflowId}`, {
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+
       return {
         ...workflowData[0],
-        state: buildNormalizedState(normalizedData),
+        state: buildNormalizedState({ ...normalizedData, blocks: resolvedBlocks }),
         lastModified: Date.now(),
       }
     }
