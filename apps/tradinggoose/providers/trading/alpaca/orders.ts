@@ -18,7 +18,6 @@ export const buildAlpacaOrderRequest = (
       : 'https://api.alpaca.markets'
 
   const symbol = resolveTradingSymbol(alpacaTradingProviderConfig, {
-    symbol: params.symbol,
     listing: params.listing,
     base: params.base,
     quote: params.quote,

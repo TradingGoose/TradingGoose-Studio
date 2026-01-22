@@ -17,7 +17,6 @@ export const buildRobinhoodOrderRequest = (
   }
 
   const symbol = resolveTradingSymbol(robinhoodTradingProviderConfig, {
-    symbol: params.symbol,
     listing: params.listing,
     base: params.base,
     quote: params.quote,

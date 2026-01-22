@@ -5,6 +5,7 @@
 /apps/**/node_modules
 /packages/**/node_modules
 /scripts/node_modules
+/design_files
 
 # bun specific
 bun-debug.log*

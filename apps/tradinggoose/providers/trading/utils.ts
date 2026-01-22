@@ -19,25 +19,6 @@ const readListingField = (record: Record<string, unknown>, key: string): string 
   return undefined
 }
 
-const splitSymbol = (
-  symbol?: string
-): { base?: string; quote?: string } => {
-  if (!symbol) return {}
-  const normalized = symbol.trim()
-  if (!normalized) return {}
-
-  const separators = ['/', '-', ':']
-  for (const separator of separators) {
-    if (!normalized.includes(separator)) continue
-    const [base, quote] = normalized.split(separator)
-    if (base && quote) {
-      return { base: base.trim(), quote: quote.trim() }
-    }
-  }
-
-  return { base: normalized }
-}
-
 export interface TradingListingContext {
   listingKey: string
   listing?: ListingIdentity | null
@@ -60,12 +41,10 @@ export function resolveTradingListingContext(
   const record = (listingValue || {}) as Record<string, unknown>
 
   const listingKeyFromListing = resolveListingKey(listingValue)
-  const symbolParts = splitSymbol(input.symbol)
 
   const base =
     input.base ||
     readListingField(record, 'base') ||
-    symbolParts.base ||
     (listingKeyFromListing?.includes(':')
       ? listingKeyFromListing.split(':')[0]
       : listingKeyFromListing)
@@ -77,7 +56,6 @@ export function resolveTradingListingContext(
   const quote =
     input.quote ||
     readListingField(record, 'quote') ||
-    symbolParts.quote ||
     (listingKeyFromListing?.includes(':')
       ? listingKeyFromListing.split(':')[1]
       : undefined)

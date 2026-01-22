@@ -37,7 +37,6 @@ export const buildTradierOrderRequest = (
   const baseUrl = resolveTradierBaseUrl(params.environment)
 
   const symbol = resolveTradingSymbol(tradierTradingProviderConfig, {
-    symbol: params.symbol,
     listing: params.listing,
     base: params.base,
     quote: params.quote,

@@ -104,7 +104,12 @@ export function ListingSelectorInput({
     }
 
     const selectedListingKey = resolveListingKey(safeInstance.selectedListingValue)
-    const currentListingValue = currentValue ? toListingValueObject(currentValue) : null
+    const currentListingValue =
+      currentValue && typeof currentValue === 'object'
+        ? currentValue
+        : currentValue
+          ? toListingValueObject(currentValue)
+          : null
 
     if (currentListingKey && selectedListingKey !== currentListingKey) {
       updateInstance(instanceId, {

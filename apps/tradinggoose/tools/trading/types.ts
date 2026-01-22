@@ -3,10 +3,11 @@ import type {
   TradingHoldingsResponse,
   TradingProviderId,
 } from '@/providers/trading/types'
+import type { ListingInputValue } from '@/lib/listing/identity'
 
 export interface TradingActionParams {
   provider: TradingProviderId
-  symbol: string
+  listing: ListingInputValue
   side: 'buy' | 'sell'
   quantity: number
   orderType?: string

@@ -73,8 +73,32 @@ export const toListingValue = (
   listing: ListingOption | null | undefined
 ): ListingIdentity | null => {
   if (!listing) return null
+  const identity = normalizeListingIdentity(listing as Record<string, unknown>)
+  if (!identity) return null
 
-  return normalizeListingIdentity(listing as Record<string, unknown>)
+  const record = listing as Record<string, unknown>
+  const enriched: Record<string, unknown> = { ...identity }
+  const copyField = (key: string) => {
+    const value = readListingField(record, key)
+    if (value !== undefined) {
+      enriched[key] = value
+    }
+  }
+
+  copyField('id')
+  copyField('base')
+  copyField('quote')
+  copyField('name')
+  copyField('iconUrl')
+  copyField('assetClass')
+  copyField('base_asset_class')
+  copyField('quote_asset_class')
+  copyField('primaryMicCode')
+  copyField('countryCode')
+  copyField('cityName')
+  copyField('timeZoneName')
+
+  return enriched as ListingIdentity
 }
 
 export const toListingValueObject = (value: ListingInputValue): ListingIdentity | null => {

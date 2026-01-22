@@ -1,4 +1,4 @@
-import type { ListingInputValue } from '@/lib/market/listings'
+import type { ListingInputValue } from '@/lib/listing/identity'
 import type { OAuthService } from '@/lib/oauth/oauth'
 import type { AssetClass } from '@/providers/market/types'
 import type { HttpMethod } from '@/tools/types'
@@ -29,7 +29,6 @@ export const TRADING_OPERATION_KINDS = ['order', 'holdings'] as const
 export type TradingOperationKind = (typeof TRADING_OPERATION_KINDS)[number]
 
 export interface TradingSymbolInput {
-  symbol?: string
   listing?: ListingInputValue
   base?: string
   quote?: string
@@ -41,7 +40,7 @@ export interface TradingSymbolInput {
 }
 
 export interface TradingOrderInput extends TradingSymbolInput {
-  symbol: string
+  symbol?: string
   side: 'buy' | 'sell'
   quantity: number
   orderType?: string

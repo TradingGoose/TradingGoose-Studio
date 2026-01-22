@@ -38,11 +38,11 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       visibility: 'user-only',
       description: 'Trading provider id (alpaca, tradier, or robinhood).',
     },
-    symbol: {
-      type: 'string',
+    listing: {
+      type: 'json',
       required: true,
       visibility: 'user-or-llm',
-      description: 'Ticker symbol to trade (e.g., AAPL).',
+      description: 'Structured listing payload for the asset to trade.',
     },
     side: {
       type: 'string',
