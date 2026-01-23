@@ -72,3 +72,4 @@ start-collector.sh
 helm/sim/test
 i18n.cache
 *.react-email
+AGENTS.md
