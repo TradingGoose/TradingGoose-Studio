@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { copilotChats } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
@@ -22,8 +22,15 @@ export async function DELETE(request: NextRequest) {
     const body = await request.json()
     const parsed = DeleteChatSchema.parse(body)
 
-    // Delete the chat
-    await db.delete(copilotChats).where(eq(copilotChats.id, parsed.chatId))
+    // Delete the chat only if it belongs to the current user
+    const deleted = await db
+      .delete(copilotChats)
+      .where(and(eq(copilotChats.id, parsed.chatId), eq(copilotChats.userId, session.user.id)))
+      .returning({ id: copilotChats.id })
+
+    if (deleted.length === 0) {
+      return NextResponse.json({ success: false, error: 'Chat not found' }, { status: 404 })
+    }
 
     logger.info('Chat deleted', { chatId: parsed.chatId })
 
