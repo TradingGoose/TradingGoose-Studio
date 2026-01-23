@@ -391,14 +391,18 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
         const layout = editor.getLayoutInfo()
         const measuredWidth =
           entries?.[0]?.contentRect?.width ?? containerRef.current?.clientWidth
+        const measuredHeight =
+          entries?.[0]?.contentRect?.height ?? containerRef.current?.clientHeight
         const nextWidth =
           Number.isFinite(measuredWidth) && (measuredWidth as number) > 0
             ? (measuredWidth as number)
             : layout.width
-        const heightValue = autoHeight
+        const nextHeight = autoHeight
           ? autoHeightPx ?? editor.getContentHeight()
-          : layout.height
-        editor.layout({ width: nextWidth, height: heightValue })
+          : Number.isFinite(measuredHeight) && (measuredHeight as number) > 0
+            ? (measuredHeight as number)
+            : layout.height
+        editor.layout({ width: nextWidth, height: nextHeight })
       })
       resizeObserver.observe(containerRef.current)
       return () => resizeObserver.disconnect()

@@ -13,6 +13,7 @@ interface CodeEditorProps {
   placeholder?: string
   className?: string
   minHeight?: string
+  height?: string | number
   highlightVariables?: boolean
   onKeyDown?: (e: KeyboardEvent) => void
   onKeyUp?: (e: KeyboardEvent) => void
@@ -47,6 +48,7 @@ export function CodeEditor({
   placeholder = '',
   className = '',
   minHeight = '360px',
+  height,
   highlightVariables = true,
   onKeyDown,
   onKeyUp,
@@ -73,6 +75,7 @@ export function CodeEditor({
   }, [value])
 
   const resolvedAutoHeight = autoHeight ?? false
+  const resolvedHeight = resolvedAutoHeight ? undefined : height ?? '100%'
 
   const { decorations, atomicTokenRanges } = useMemo(() => {
     if (
@@ -306,7 +309,7 @@ export function CodeEditor({
         </button>
       )}
 
-      <div className={cn('relative mt-0 pt-0', isCollapsed && 'max-h-[126px] overflow-hidden')}>
+      <div className={cn('relative mt-0 pt-0 h-full min-h-0', isCollapsed && 'overflow-hidden')}>
         <MonacoEditor
           ref={(instance) => {
             editorRef.current = instance
@@ -326,7 +329,7 @@ export function CodeEditor({
           decorations={decorations}
           autoHeight={resolvedAutoHeight}
           minHeight={minHeight}
-          height={resolvedAutoHeight ? undefined : minHeight}
+          height={resolvedHeight}
           className={cn('h-full focus:outline-none', isCollapsed && 'pointer-events-none select-none')}
           readOnly={disabled || isCollapsed}
           extraLibs={extraLibs}
