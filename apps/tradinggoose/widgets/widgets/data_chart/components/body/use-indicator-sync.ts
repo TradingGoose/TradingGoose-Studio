@@ -7,7 +7,7 @@ import {
   type IndicatorSignal,
   isIndicatorDraft,
 } from '@/lib/indicators/custom/compile'
-import { type AnyIndicatorTemplate, DEFAULT_INDICATOR_MAP } from '@/lib/indicators/default'
+import { DEFAULT_INDICATOR_MAP } from '@/lib/indicators/default'
 import type { CustomIndicatorDefinition } from '@/stores/custom-indicators/types'
 import { areStringArraysEqual } from '@/widgets/widgets/data_chart/utils'
 import type { DataChartIndicatorRef } from '@/widgets/widgets/data_chart/types'
@@ -347,7 +347,7 @@ export const useIndicatorSync = ({
       if (!compiledIndicatorIds.has(id)) return
       const paneTarget = paneTargets.get(id)
       const instanceId = chart.createIndicator(
-        { name: template.name, id },
+        template.name,
         paneTarget?.isStack ?? false,
         paneTarget?.paneOptions
       )
