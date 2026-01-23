@@ -25,7 +25,7 @@ export const wealthboxWriteTaskTool: ToolConfig<WealthboxWriteParams, WealthboxW
       type: 'string',
       required: true,
       description:
-        'The due date and time of the task (format: "YYYY-MM-DD HH:MM AM/PM -HHMM", e.g., "2015-05-24 11:00 AM -0400")',
+        'The due date and time of the task (format: "YYYY-MM-DDTHH:mm:ssZ", e.g., "2015-05-24T11:00:00Z")',
       visibility: 'user-or-llm',
     },
     contactId: {

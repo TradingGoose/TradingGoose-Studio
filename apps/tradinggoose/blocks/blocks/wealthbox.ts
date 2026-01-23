@@ -1,4 +1,4 @@
-import { WealthboxIcon } from '@/components/icons'
+import { WealthboxIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { WealthboxResponse } from '@/tools/wealthbox/types'
@@ -104,9 +104,9 @@ export const WealthboxBlock: BlockConfig<WealthboxResponse> = {
     {
       id: 'dueDate',
       title: 'Due Date',
-      type: 'short-input',
+      type: 'datetime-input',
       layout: 'full',
-      placeholder: 'Enter due date (e.g., 2015-05-24 11:00 AM -0400)',
+      placeholder: 'YYYY-MM-DDTHH:mm:ssZ (e.g., 2015-05-24T11:00:00Z)',
       condition: { field: 'operation', value: ['write_task'] },
       required: true,
     },
