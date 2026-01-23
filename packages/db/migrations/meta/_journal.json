@@ -27,7 +27,21 @@
       "idx": 3,
       "version": "7",
       "when": 1768528173305,
-      "tag": "0003_copilot_auto_allowed_tools",
+      "tag": "0003_slim_nebula",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1769045082261,
+      "tag": "0004_worried_sauron",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1769101222043,
+      "tag": "0005_perpetual_leech",
       "breakpoints": true
     }
   ]
