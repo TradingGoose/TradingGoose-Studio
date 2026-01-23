@@ -31,6 +31,7 @@ export interface CSPDirectives {
   'media-src'?: string[]
   'font-src'?: string[]
   'connect-src'?: string[]
+  'worker-src'?: string[]
   'frame-src'?: string[]
   'frame-ancestors'?: string[]
   'form-action'?: string[]
@@ -114,6 +115,8 @@ export const buildTimeCSPDirectives: CSPDirectives = {
     ...getHostnameFromUrl(env.NEXT_PUBLIC_TERMS_URL),
   ],
 
+  'worker-src': ["'self'", 'blob:'],
+
   'frame-src': ['https://drive.google.com', 'https://docs.google.com', 'https://*.google.com'],
 
   'frame-ancestors': ["'self'"],
@@ -174,6 +177,7 @@ export function generateRuntimeCSP(): string {
     media-src 'self' blob:;
     font-src 'self' https://fonts.gstatic.com;
     connect-src 'self' ${appUrl} ${ollamaUrl} ${socketUrl} ${socketWsUrl} ${marketUrl} ${devMarketUrl} https://api.browser-use.com https://api.exa.ai https://api.firecrawl.dev https://*.googleapis.com https://*.amazonaws.com https://*.s3.amazonaws.com https://*.blob.core.windows.net https://api.github.com https://github.com/* https://*.atlassian.com https://*.supabase.co ${dynamicDomainsStr};
+    worker-src 'self' blob:;
     frame-src https://drive.google.com https://docs.google.com https://*.google.com;
     frame-ancestors 'self';
     form-action 'self';

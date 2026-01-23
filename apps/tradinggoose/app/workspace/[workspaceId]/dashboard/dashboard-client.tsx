@@ -10,12 +10,17 @@ import {
   useRef,
   useState,
 } from 'react'
-import { BookOpen, Building2, Frame, LibraryBig, ScrollText, Search, Shapes } from 'lucide-react'
+import { BookOpen, Building2, LayoutDashboard, LibraryBig, ScrollText, Search, Shapes } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { useBrandConfig } from '@/lib/branding/branding'
-import { resolveListingKey, type ListingIdentity } from '@/lib/listing/identity'
+import {
+  resolveListingKey,
+  toListingValueObject,
+  type ListingIdentity,
+  type ListingInputValue,
+} from '@/lib/listing/identity'
 import { type LayoutTab, LayoutTabs } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
 import { GlobalNavbarHeader } from '@/global-navbar'
 import { useKnowledgeBasesList } from '@/hooks/use-knowledge'
@@ -675,7 +680,7 @@ export function DashboardClient({
   const headerLeftContent = (
     <div className='flex w-full flex-1 items-center gap-3'>
       <div className='hidden items-center gap-2 sm:flex'>
-        <Frame className='h-[18px] w-[18px] text-muted-foreground' />
+        <LayoutDashboard className='h-[18px] w-[18px] text-muted-foreground' />
         <span className='font-medium text-sm'>Dashboard</span>
       </div>
       <div ref={searchContainerRef} className='relative flex flex-1'>
@@ -1056,6 +1061,7 @@ function hydratePairStoreFromColorPairs(colorPairs: PersistedColorPairsState) {
       workflowId: pair.workflowId ?? undefined,
       listing: pair.listing ?? undefined,
       copilotChatId: pair.copilotChatId ?? undefined,
+      indicatorId: pair.indicatorId ?? undefined,
     })
   }
 
@@ -1079,10 +1085,14 @@ function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState 
       typeof context?.workflowId === 'string' && context.workflowId.trim().length > 0
         ? context.workflowId
         : null
-    const listing = hasListingIdentity(context?.listing) ? context?.listing ?? null : null
+    const listing = getListingIdentity(context?.listing)
     const copilotChatId =
       typeof context?.copilotChatId === 'string' && context.copilotChatId.trim().length > 0
         ? context.copilotChatId
+        : null
+    const indicatorId =
+      typeof context?.indicatorId === 'string' && context.indicatorId.trim().length > 0
+        ? context.indicatorId
         : null
 
     pairs.push({
@@ -1090,6 +1100,7 @@ function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState 
       workflowId,
       listing,
       copilotChatId,
+      indicatorId,
     })
   })
 
@@ -1102,12 +1113,18 @@ function hasLinkedColorPairs(colorPairs?: PersistedColorPairsState): boolean {
     (pair) =>
       pair?.color &&
       pair.color !== 'gray' &&
-      (pair.workflowId || pair.copilotChatId || hasListingIdentity(pair.listing))
+      (pair.workflowId ||
+        pair.copilotChatId ||
+        Boolean(getListingIdentity(pair.listing)) ||
+        pair.indicatorId)
   )
 }
 
-function hasListingIdentity(listing?: ListingIdentity | null): boolean {
-  return Boolean(listing && resolveListingKey(listing))
+function getListingIdentity(listing?: ListingInputValue | null): ListingIdentity | null {
+  if (!listing) return null
+  const identity = toListingValueObject(listing)
+  if (!identity) return null
+  return resolveListingKey(identity) ? identity : null
 }
 
 function collectPairColors(node: LayoutNode, set: Set<PairColor> = new Set()): Set<PairColor> {

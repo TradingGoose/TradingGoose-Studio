@@ -1,0 +1,66 @@
+/**
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+
+ * http://www.apache.org/licenses/LICENSE-2.0
+
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import type { IndicatorTemplate } from 'klinecharts'
+
+interface Emv {
+  emv?: number
+  maEmv?: number
+  [key: string]: number | undefined
+}
+
+/**
+ *
+ *
+ */
+const easeOfMovementValue: IndicatorTemplate<Emv, number> = {
+  name: 'Ease of Movement Value',
+  shortName: 'EMV',
+  calcParams: [14, 9],
+  figures: [
+    { key: 'emv', title: 'EMV: ', type: 'line' },
+    { key: 'maEmv', title: 'MAEMV: ', type: 'line' }
+  ],
+  calc: (dataList, indicator) => {
+    const params = indicator.calcParams
+    let emvValueSum = 0
+    const emvValueList: number[] = []
+    return dataList.map((kLineData, i) => {
+      const emv: Emv = {}
+      if (i > 0) {
+        const prevKLineData = dataList[i - 1]
+        const high = kLineData.high
+        const low = kLineData.low
+        const volume = kLineData.volume ?? 0
+        const distanceMoved = (high + low) / 2 - (prevKLineData.high + prevKLineData.low) / 2
+
+        if (volume === 0 || high - low === 0) {
+          emv.emv = 0
+        } else {
+          const ratio = volume / 100000000 / (high - low)
+          emv.emv = distanceMoved / ratio
+        }
+        emvValueSum += emv.emv
+        emvValueList.push(emv.emv)
+        if (i >= params[0]) {
+          emv.maEmv = emvValueSum / params[0]
+          emvValueSum -= emvValueList[i - params[0]]
+        }
+      }
+      return emv
+    })
+  }
+}
+
+export default easeOfMovementValue

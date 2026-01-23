@@ -3,14 +3,193 @@ import { db } from '@tradinggoose/db'
 import { layoutMap } from '@tradinggoose/db/schema'
 import { and, asc, eq } from 'drizzle-orm'
 import { getSession } from '@/lib/auth'
+import { resolveListingIdentity } from '@/lib/listing/resolve'
+import {
+  resolveListingKey,
+  toListingValueObject,
+  type ListingIdentity,
+  type ListingInputValue,
+  type ListingResolved,
+} from '@/lib/listing/identity'
 import { DashboardClient } from '@/app/workspace/[workspaceId]/dashboard/dashboard-client'
 import {
   createDefaultColorPairsState,
   createDefaultLayoutState,
+  type LayoutNode,
   normalizeColorPairsState,
   normalizeDashboardLayout,
+  type PersistedColorPairsState,
   serializeLayout,
 } from '@/widgets/layout'
+
+type ListingRecord = Record<string, unknown>
+type ListingCache = Map<string, ListingResolved | null>
+
+const readText = (value: unknown): string | null => {
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed ? trimmed : null
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value)
+  }
+  return null
+}
+
+const hasResolvedFields = (
+  record: ListingRecord,
+  listingType: 'equity' | 'crypto' | 'currency'
+): boolean => {
+  const base = readText(record.base)
+  if (!base) return false
+  if (listingType !== 'equity') {
+    const quote = readText(record.quote)
+    if (!quote) return false
+  }
+  return true
+}
+
+const mergeResolvedListing = (
+  current: ListingRecord,
+  resolved: ListingResolved
+): ListingRecord => {
+  const next: ListingRecord = { ...current }
+  let changed = false
+
+  const applyIfMissing = (key: string, value: unknown) => {
+    if (value === undefined || value === null || value === '') return
+    const existing = current[key]
+    if (existing === undefined || existing === null || existing === '') {
+      next[key] = value
+      changed = true
+    }
+  }
+
+  applyIfMissing('id', resolved.id)
+  applyIfMissing('equity_id', resolved.equity_id)
+  applyIfMissing('base_id', resolved.base_id)
+  applyIfMissing('quote_id', resolved.quote_id)
+  applyIfMissing('listing_type', resolved.listing_type)
+  applyIfMissing('base', resolved.base)
+  applyIfMissing('quote', resolved.quote)
+  applyIfMissing('name', resolved.name)
+  applyIfMissing('iconUrl', resolved.iconUrl)
+  applyIfMissing('assetClass', resolved.assetClass)
+  applyIfMissing('base_asset_class', resolved.base_asset_class)
+  applyIfMissing('quote_asset_class', resolved.quote_asset_class)
+  applyIfMissing('primaryMicCode', resolved.primaryMicCode)
+  applyIfMissing('countryCode', resolved.countryCode)
+  applyIfMissing('cityName', resolved.cityName)
+  applyIfMissing('timeZoneName', resolved.timeZoneName)
+
+  return changed ? next : current
+}
+
+const resolveListingValue = async (
+  value: unknown,
+  cache: ListingCache
+): Promise<unknown> => {
+  if (!value) return value
+  if (typeof value === 'string') return null
+  if (typeof value !== 'object') return value
+
+  const record = value as ListingRecord
+  const listingIdentity = toListingValueObject(record as ListingInputValue)
+  if (!listingIdentity) return value
+  if (hasResolvedFields(record, listingIdentity.listing_type)) return value
+
+  const key = resolveListingKey(listingIdentity)
+  if (!key) return value
+
+  const cached = cache.get(key)
+  if (cached !== undefined) {
+    return cached ? mergeResolvedListing(record, cached) : value
+  }
+
+  const resolved = await resolveListingIdentity(listingIdentity).catch(() => null)
+  cache.set(key, resolved ?? null)
+  if (!resolved) return value
+  return mergeResolvedListing(record, resolved)
+}
+
+const hydrateWidgetParams = async (
+  params: Record<string, unknown> | null | undefined,
+  cache: ListingCache
+) => {
+  if (!params || typeof params !== 'object') return params
+  if (!('listing' in params)) return params
+
+  const listingValue = (params as { listing?: unknown }).listing
+  const resolved = await resolveListingValue(listingValue, cache)
+  if (resolved === listingValue) return params
+
+  return {
+    ...params,
+    listing: resolved ?? null,
+  }
+}
+
+const hydrateLayoutListings = async (
+  layout: LayoutNode,
+  cache: ListingCache
+): Promise<LayoutNode> => {
+  if (layout.type === 'panel') {
+    const widget = layout.widget
+    if (!widget || !widget.params || typeof widget.params !== 'object') {
+      return layout
+    }
+
+    const hydratedParams = await hydrateWidgetParams(
+      widget.params as Record<string, unknown>,
+      cache
+    )
+    if (hydratedParams === widget.params) {
+      return layout
+    }
+
+    return {
+      ...layout,
+      widget: {
+        ...widget,
+        params: hydratedParams ?? null,
+      },
+    }
+  }
+
+  const children = await Promise.all(
+    layout.children.map((child) => hydrateLayoutListings(child, cache))
+  )
+  const changed = children.some((child, index) => child !== layout.children[index])
+  if (!changed) return layout
+  return {
+    ...layout,
+    children,
+  }
+}
+
+const hydrateColorPairsListings = async (
+  state: PersistedColorPairsState,
+  cache: ListingCache
+): Promise<PersistedColorPairsState> => {
+  if (!state || !Array.isArray(state.pairs)) return state
+  let mutated = false
+
+  const nextPairs = await Promise.all(
+    state.pairs.map(async (pair) => {
+      const listingValue = pair?.listing
+      if (!listingValue) return pair
+      const resolved = await resolveListingValue(listingValue, cache)
+      if (resolved === listingValue) return pair
+      mutated = true
+      return {
+        ...pair,
+        listing: (resolved ?? null) as ListingIdentity | null,
+      }
+    })
+  )
+
+  return mutated ? { pairs: nextPairs } : state
+}
 
 export default async function WorkspaceDashboardPage({
   params,
@@ -97,16 +276,19 @@ export default async function WorkspaceDashboardPage({
 
   const layoutState = normalizeDashboardLayout(activeLayout?.layout)
   const colorPairsState = normalizeColorPairsState(activeLayout?.color_pair)
+  const listingCache = new Map()
+  const hydratedLayout = await hydrateLayoutListings(layoutState, listingCache)
+  const hydratedColorPairs = await hydrateColorPairsListings(colorPairsState, listingCache)
 
   return (
     <div className='flex h-full w-full flex-col overflow-hidden bg-background'>
       <div className='flex min-h-0 min-w-0 flex-1 overflow-hidden'>
         <DashboardClient
-          initialState={layoutState}
+          initialState={hydratedLayout}
           workspaceId={workspaceId}
           layoutId={activeLayout.id}
           initialLayouts={layoutTabs}
-          initialColorPairs={colorPairsState}
+          initialColorPairs={hydratedColorPairs}
         />
       </div>
     </div>

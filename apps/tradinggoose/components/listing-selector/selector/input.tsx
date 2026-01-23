@@ -15,7 +15,13 @@ import {
   triggerCurrencyRankUpdate,
   triggerEquityRankUpdate,
 } from '@/components/listing-selector/listing/rank-updates'
-import { toListingValue, type ListingOption } from '@/lib/listing/identity'
+import {
+  resolveListingKey,
+  toListingValue,
+  toListingValueObject,
+  type ListingOption,
+} from '@/lib/listing/identity'
+import { resolveListingIdentity } from '@/lib/listing/resolve'
 import {
   createEmptyListingSelectorInstance,
   useListingSelectorStore,
@@ -30,6 +36,15 @@ export interface StockSelectorProps {
   onListingChange?: (listing: ListingOption | null) => void
   onListingValueChange?: (value: string | null) => void
   onListingTagSelect?: (value: string) => void
+}
+
+const hasListingDetails = (listing?: ListingOption | null): boolean => {
+  if (!listing) return false
+  const base = listing.base?.trim()
+  if (!base) return false
+  if (listing.listing_type === 'equity') return true
+  const quote = listing.quote?.trim()
+  return Boolean(quote)
 }
 
 export function StockSelector({
@@ -65,6 +80,8 @@ export function StockSelector({
   const [showTags, setShowTags] = useState(false)
   const [cursorPosition, setCursorPosition] = useState(0)
   const [variableCommitted, setVariableCommitted] = useState(false)
+  const hydratedKeyRef = useRef<string | null>(null)
+  const hydrateRequestRef = useRef(0)
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
   const isVariableListingInput = useCallback((value: string) => {
@@ -177,6 +194,48 @@ export function StockSelector({
   }, [open])
 
   useEffect(() => {
+    const selectedValue =
+      safeInstance.selectedListingValue ?? safeInstance.selectedListing ?? null
+    if (!selectedValue) {
+      hydratedKeyRef.current = null
+      return
+    }
+
+    const identity = toListingValueObject(selectedValue)
+    if (!identity) return
+    const listingKey = resolveListingKey(identity)
+    if (!listingKey) return
+
+    if (safeInstance.selectedListing && hasListingDetails(safeInstance.selectedListing)) {
+      hydratedKeyRef.current = listingKey
+      return
+    }
+
+    if (hydratedKeyRef.current === listingKey) {
+      return
+    }
+
+    hydratedKeyRef.current = listingKey
+    const requestId = ++hydrateRequestRef.current
+    let cancelled = false
+
+    resolveListingIdentity(identity)
+      .then((resolved) => {
+        if (cancelled || hydrateRequestRef.current !== requestId) return
+        if (!resolved) return
+        updateInstance(instanceId, {
+          selectedListing: resolved,
+          selectedListingValue: identity,
+        })
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+    }
+  }, [safeInstance.selectedListing, safeInstance.selectedListingValue, instanceId, updateInstance])
+
+  useEffect(() => {
     if (open) return
     if (!selectedLabel) return
     if (query === selectedLabel) return
@@ -205,6 +264,7 @@ export function StockSelector({
             hideInputText && 'text-transparent caret-transparent placeholder:text-transparent'
           )}
           placeholder='Search listings...'
+          autoComplete='new-password'
           value={displayValue}
           onChange={(event) => {
             if (disabled) return

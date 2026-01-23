@@ -1,0 +1,60 @@
+/**
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+
+ * http://www.apache.org/licenses/LICENSE-2.0
+
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import type { IndicatorTemplate } from 'klinecharts'
+
+interface Cci {
+  cci?: number
+  [key: string]: number | undefined
+}
+
+/**
+ * CCI
+ *
+ */
+const commodityChannelIndex: IndicatorTemplate<Cci, number> = {
+  name: 'Commodity Channel Index',
+  shortName: 'CCI',
+  calcParams: [20],
+  figures: [
+    { key: 'cci', title: 'CCI: ', type: 'line' }
+  ],
+  calc: (dataList, indicator) => {
+    const params = indicator.calcParams
+    const p = params[0] - 1
+    let tpSum = 0
+    const tpList: number[] = []
+    return dataList.map((kLineData, i) => {
+      const cci: Cci = {}
+      const tp = (kLineData.high + kLineData.low + kLineData.close) / 3
+      tpSum += tp
+      tpList.push(tp)
+      if (i >= p) {
+        const maTp = tpSum / params[0]
+        const sliceTpList = tpList.slice(i - p, i + 1)
+        let sum = 0
+        sliceTpList.forEach(tp => {
+          sum += Math.abs(tp - maTp)
+        })
+        const md = sum / params[0]
+        cci.cci = md !== 0 ? (tp - maTp) / md / 0.015 : 0
+        const agoTp = (dataList[i - p].high + dataList[i - p].low + dataList[i - p].close) / 3
+        tpSum -= agoTp
+      }
+      return cci
+    })
+  }
+}
+
+export default commodityChannelIndex

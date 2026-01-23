@@ -9,6 +9,7 @@ export type PairColorContext = {
   updatedAt?: number
   channelId?: string
   copilotChatId?: string | null
+  indicatorId?: string | null
 }
 
 interface PairStoreState {

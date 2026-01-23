@@ -2,9 +2,9 @@
 
 import { Fragment, memo, type ReactNode, useCallback, useRef } from 'react'
 import { Card } from '@/components/ui/card'
-import { PairColorDropdown } from '@/widgets/widgets/shared/components/pair-color-dropdown'
-import { WidgetActionMenu } from '@/widgets/widgets/shared/components/widget-action-menu'
-import { WidgetSelector } from '@/widgets/widgets/shared/components/widget-selector'
+import { PairColorDropdown } from '@/widgets/widgets/components/pair-color-dropdown'
+import { WidgetActionMenu } from '@/widgets/widgets/components/widget-action-menu'
+import { WidgetSelector } from '@/widgets/widgets/components/widget-selector'
 import type { WidgetInstance } from '@/widgets/layout'
 import { isPairColor, type PairColor } from '@/widgets/pair-colors'
 import { getWidgetDefinition } from '@/widgets/registry'

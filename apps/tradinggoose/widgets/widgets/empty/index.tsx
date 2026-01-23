@@ -9,7 +9,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty'
-import { WidgetSelector } from '@/widgets/widgets/shared/components/widget-selector'
+import { WidgetSelector } from '@/widgets/widgets/components/widget-selector'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 
 type EmptyWidgetProps = WidgetComponentProps & {
