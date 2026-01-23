@@ -11,34 +11,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import type { IndicatorTemplate } from 'klinecharts'
-
-interface Bbi {
-  bbi?: number
-  [key: string]: number | undefined
-}
+import { createDefaultIndicator } from './create-default-indicator'
 
 /**
  *
  */
-const bullAndBearIndex: IndicatorTemplate<Bbi, number> = {
+const bullAndBearIndex = createDefaultIndicator({
+  id: 'BBI',
   name: 'Bull and Bear Index',
-  shortName: 'BBI',
   series: 'price',
   precision: 2,
-  calcParams: [3, 6, 12, 24],
   shouldOhlc: true,
-  figures: [
-    { key: 'bbi', title: 'BBI: ', type: 'line' }
+  plots: [
+    { key: 'bbi', name: 'BBI', type: 'line', overlay: true },
   ],
-  calc: (dataList, indicator) => {
-    const params = indicator.calcParams
+  calc: (dataList) => {
+    const params = [3, 6, 12, 24]
+    const len = dataList.length
+    const bbiData = Array<number | null>(len).fill(null)
+
     const maxPeriod = Math.max(...params)
     const closeSums: number[] = []
     const mas: number[] = []
-    return dataList.map((kLineData, i) => {
-      const bbi: Bbi = {}
-      const close = kLineData.close
+
+    for (let i = 0; i < len; i += 1) {
+      const close = dataList[i].close
       params.forEach((p, index) => {
         closeSums[index] = (closeSums[index] ?? 0) + close
         if (i >= p - 1) {
@@ -48,14 +45,19 @@ const bullAndBearIndex: IndicatorTemplate<Bbi, number> = {
       })
       if (i >= maxPeriod - 1) {
         let maSum = 0
-        mas.forEach(ma => {
+        mas.forEach((ma) => {
           maSum += ma
         })
-        bbi.bbi = maSum / 4
+        bbiData[i] = maSum / 4
       }
-      return bbi
-    })
-  }
-}
+    }
+
+    return {
+      plots: [
+        { key: 'bbi', name: 'BBI', data: bbiData, type: 'line', overlay: true },
+      ],
+    }
+  },
+})
 
 export default bullAndBearIndex

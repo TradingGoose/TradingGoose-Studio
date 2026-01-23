@@ -12,49 +12,52 @@
  * limitations under the License.
  */
 
-import type { IndicatorTemplate } from 'klinecharts'
-
-interface Cci {
-  cci?: number
-  [key: string]: number | undefined
-}
+import { createDefaultIndicator } from './create-default-indicator'
 
 /**
  * CCI
  *
  */
-const commodityChannelIndex: IndicatorTemplate<Cci, number> = {
+const commodityChannelIndex = createDefaultIndicator({
+  id: 'CCI',
   name: 'Commodity Channel Index',
-  shortName: 'CCI',
-  calcParams: [20],
-  figures: [
-    { key: 'cci', title: 'CCI: ', type: 'line' }
+  plots: [
+    { key: 'cci', name: 'CCI', type: 'line', overlay: false },
   ],
-  calc: (dataList, indicator) => {
-    const params = indicator.calcParams
-    const p = params[0] - 1
+  calc: (dataList) => {
+    const period = 20
+    const len = dataList.length
+    const cciData = Array<number | null>(len).fill(null)
+
+    const p = period - 1
     let tpSum = 0
     const tpList: number[] = []
-    return dataList.map((kLineData, i) => {
-      const cci: Cci = {}
+
+    for (let i = 0; i < len; i += 1) {
+      const kLineData = dataList[i]
       const tp = (kLineData.high + kLineData.low + kLineData.close) / 3
       tpSum += tp
       tpList.push(tp)
       if (i >= p) {
-        const maTp = tpSum / params[0]
+        const maTp = tpSum / period
         const sliceTpList = tpList.slice(i - p, i + 1)
         let sum = 0
-        sliceTpList.forEach(tp => {
-          sum += Math.abs(tp - maTp)
+        sliceTpList.forEach((value) => {
+          sum += Math.abs(value - maTp)
         })
-        const md = sum / params[0]
-        cci.cci = md !== 0 ? (tp - maTp) / md / 0.015 : 0
+        const md = sum / period
+        cciData[i] = md !== 0 ? (tp - maTp) / md / 0.015 : 0
         const agoTp = (dataList[i - p].high + dataList[i - p].low + dataList[i - p].close) / 3
         tpSum -= agoTp
       }
-      return cci
-    })
-  }
-}
+    }
+
+    return {
+      plots: [
+        { key: 'cci', name: 'CCI', data: cciData, type: 'line', overlay: false },
+      ],
+    }
+  },
+})
 
 export default commodityChannelIndex

@@ -12,46 +12,46 @@
  * limitations under the License.
  */
 
-import type { IndicatorTemplate } from 'klinecharts'
-
-interface Bias {
-  bias1?: number
-  bias2?: number
-  bias3?: number
-  [key: string]: number | undefined
-}
+import { createDefaultIndicator } from './create-default-indicator'
 
 /**
  * BIAS
  */
-const bias: IndicatorTemplate<Bias, number> = {
+const bias = createDefaultIndicator({
+  id: 'BIAS',
   name: 'Bias',
-  shortName: 'BIAS',
-  calcParams: [6, 12, 24],
-  figures: [
-    { key: 'bias1', title: 'BIAS6: ', type: 'line' },
-    { key: 'bias2', title: 'BIAS12: ', type: 'line' },
-    { key: 'bias3', title: 'BIAS24: ', type: 'line' }
+  plots: [
+    { key: 'bias1', name: 'BIAS6', type: 'line', overlay: false },
+    { key: 'bias2', name: 'BIAS12', type: 'line', overlay: false },
+    { key: 'bias3', name: 'BIAS24', type: 'line', overlay: false },
   ],
-  regenerateFigures: (params) => params.map((p, i) => ({ key: `bias${i + 1}`, title: `BIAS${p}: `, type: 'line' })),
-  calc: (dataList, indicator) => {
-    const { calcParams: params, figures } = indicator
+  calc: (dataList) => {
+    const params = [6, 12, 24]
+    const len = dataList.length
+    const biasData = params.map(() => Array<number | null>(len).fill(null))
     const closeSums: number[] = []
-    return dataList.map((kLineData, i) => {
-      const bias: Bias = {}
-      const close = kLineData.close
-      params.forEach((p, index) => {
+
+    for (let i = 0; i < len; i += 1) {
+      const close = dataList[i].close
+      for (let index = 0; index < params.length; index += 1) {
+        const p = params[index]
         closeSums[index] = (closeSums[index] ?? 0) + close
         if (i >= p - 1) {
-          const mean = closeSums[index] / params[index]
-          bias[figures[index].key] = (close - mean) / mean * 100
-
+          const mean = closeSums[index] / p
+          biasData[index][i] = (close - mean) / mean * 100
           closeSums[index] -= dataList[i - (p - 1)].close
         }
-      })
-      return bias
-    })
-  }
-}
+      }
+    }
+
+    return {
+      plots: [
+        { key: 'bias1', name: 'BIAS6', data: biasData[0], type: 'line', overlay: false },
+        { key: 'bias2', name: 'BIAS12', data: biasData[1], type: 'line', overlay: false },
+        { key: 'bias3', name: 'BIAS24', data: biasData[2], type: 'line', overlay: false },
+      ],
+    }
+  },
+})
 
 export default bias

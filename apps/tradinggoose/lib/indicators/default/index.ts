@@ -73,7 +73,7 @@ export const DEFAULT_INDICATOR_MAP = new Map<string, AnyIndicatorTemplate>(
 export const DEFAULT_INDICATORS: DefaultIndicatorMeta[] = DEFAULT_INDICATOR_TEMPLATES.map(
   (template) => ({
     id: template.name,
-    name: template.name,
+    name: template.shortName ?? template.name,
     series: (template.series ?? 'normal') as IndicatorSeries,
   })
 )

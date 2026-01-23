@@ -12,28 +12,27 @@
  * limitations under the License.
  */
 
-import type { IndicatorTemplate } from 'klinecharts'
-
-interface Pvt {
-  pvt?: number
-  [key: string]: number | undefined
-}
+import { createDefaultIndicator } from './create-default-indicator'
 
 /**
  * X = (CLOSE - REF(CLOSE, 1)) / REF(CLOSE, 1) * VOLUME
  * PVT = SUM(X)
  *
  */
-const priceAndVolumeTrend: IndicatorTemplate<Pvt> = {
+const priceAndVolumeTrend = createDefaultIndicator({
+  id: 'PVT',
   name: 'Price and Volume Trend',
-  shortName: 'PVT',
-  figures: [
-    { key: 'pvt', title: 'PVT: ', type: 'line' }
+  plots: [
+    { key: 'pvt', name: 'PVT', type: 'line', overlay: false },
   ],
   calc: (dataList) => {
+    const len = dataList.length
+    const pvtData = Array<number | null>(len).fill(null)
+
     let sum = 0
-    return dataList.map((kLineData, i) => {
-      const pvt: Pvt = {}
+
+    for (let i = 0; i < len; i += 1) {
+      const kLineData = dataList[i]
       const close = kLineData.close
       const volume = kLineData.volume ?? 1
       const prevClose = (dataList[i - 1] ?? kLineData).close
@@ -43,10 +42,15 @@ const priceAndVolumeTrend: IndicatorTemplate<Pvt> = {
         x = (close - prevClose) / total
       }
       sum += x
-      pvt.pvt = sum
-      return pvt
-    })
-  }
-}
+      pvtData[i] = sum
+    }
+
+    return {
+      plots: [
+        { key: 'pvt', name: 'PVT', data: pvtData, type: 'line', overlay: false },
+      ],
+    }
+  },
+})
 
 export default priceAndVolumeTrend

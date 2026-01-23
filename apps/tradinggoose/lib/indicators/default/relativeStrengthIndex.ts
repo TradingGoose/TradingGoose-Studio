@@ -12,40 +12,32 @@
  * limitations under the License.
  */
 
-import type { IndicatorTemplate } from 'klinecharts'
-
-interface Rsi {
-  rsi1?: number
-  rsi2?: number
-  rsi3?: number
-  [key: string]: number | undefined
-}
+import { createDefaultIndicator } from './create-default-indicator'
 
 /**
  * RSI
  */
-const relativeStrengthIndex: IndicatorTemplate<Rsi, number> = {
+const relativeStrengthIndex = createDefaultIndicator({
+  id: 'RSI',
   name: 'Relative Strength Index',
-  shortName: 'RSI',
-  calcParams: [6, 12, 24],
-  figures: [
-    { key: 'rsi1', title: 'RSI1: ', type: 'line' },
-    { key: 'rsi2', title: 'RSI2: ', type: 'line' },
-    { key: 'rsi3', title: 'RSI3: ', type: 'line' }
+  plots: [
+    { key: 'rsi1', name: 'RSI1', type: 'line', overlay: false },
+    { key: 'rsi2', name: 'RSI2', type: 'line', overlay: false },
+    { key: 'rsi3', name: 'RSI3', type: 'line', overlay: false },
   ],
-  regenerateFigures: (params) => params.map((_, index) => {
-    const num = index + 1
-    return { key: `rsi${num}`, title: `RSI${num}: `, type: 'line' }
-  }),
-  calc: (dataList, indicator) => {
-    const { calcParams: params, figures } = indicator
+  calc: (dataList) => {
+    const params = [6, 12, 24]
+    const len = dataList.length
+    const rsiData = params.map(() => Array<number | null>(len).fill(null))
     const sumCloseAs: number[] = []
     const sumCloseBs: number[] = []
-    return dataList.map((kLineData, i) => {
-      const rsi: Rsi = {}
+
+    for (let i = 0; i < len; i += 1) {
+      const kLineData = dataList[i]
       const prevClose = (dataList[i - 1] ?? kLineData).close
       const tmp = kLineData.close - prevClose
-      params.forEach((p, index) => {
+      for (let index = 0; index < params.length; index += 1) {
+        const p = params[index]
         if (tmp > 0) {
           sumCloseAs[index] = (sumCloseAs[index] ?? 0) + tmp
         } else {
@@ -53,9 +45,9 @@ const relativeStrengthIndex: IndicatorTemplate<Rsi, number> = {
         }
         if (i >= p - 1) {
           if (sumCloseBs[index] !== 0) {
-            rsi[figures[index].key] = 100 - (100.0 / (1 + sumCloseAs[index] / sumCloseBs[index]))
+            rsiData[index][i] = 100 - (100.0 / (1 + sumCloseAs[index] / sumCloseBs[index]))
           } else {
-            rsi[figures[index].key] = 0
+            rsiData[index][i] = 0
           }
           const agoData = dataList[i - (p - 1)]
           const agoPreData = dataList[i - p] ?? agoData
@@ -66,10 +58,17 @@ const relativeStrengthIndex: IndicatorTemplate<Rsi, number> = {
             sumCloseBs[index] -= Math.abs(agoTmp)
           }
         }
-      })
-      return rsi
-    })
-  }
-}
+      }
+    }
+
+    return {
+      plots: [
+        { key: 'rsi1', name: 'RSI1', data: rsiData[0], type: 'line', overlay: false },
+        { key: 'rsi2', name: 'RSI2', data: rsiData[1], type: 'line', overlay: false },
+        { key: 'rsi3', name: 'RSI3', data: rsiData[2], type: 'line', overlay: false },
+      ],
+    }
+  },
+})
 
 export default relativeStrengthIndex

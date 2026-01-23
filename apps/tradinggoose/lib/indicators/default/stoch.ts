@@ -12,51 +12,67 @@
  * limitations under the License.
  */
 
-import type { KLineData } from 'klinecharts'
-import type { IndicatorTemplate } from 'klinecharts'
-
-import { getMaxMin } from './utils/number'
-
-interface Kdj {
-  k?: number
-  d?: number
-  j?: number
-  [key: string]: number | undefined
-}
+import { createDefaultIndicator } from './create-default-indicator'
 
 /**
  * KDJ
  *
  */
-const stoch: IndicatorTemplate<Kdj, number> = {
+const stoch = createDefaultIndicator({
+  id: 'STOCH',
   name: 'Stochastic',
-  shortName: 'STOCH',
-  calcParams: [9, 3, 3],
-  figures: [
-    { key: 'k', title: 'K: ', type: 'line' },
-    { key: 'd', title: 'D: ', type: 'line' },
-    { key: 'j', title: 'J: ', type: 'line' }
+  plots: [
+    { key: 'k', name: 'K', type: 'line', overlay: false },
+    { key: 'd', name: 'D', type: 'line', overlay: false },
+    { key: 'j', name: 'J', type: 'line', overlay: false },
   ],
-  calc: (dataList, indicator) => {
-    const params = indicator.calcParams
-    const result: Kdj[] = []
-    dataList.forEach((kLineData, i) => {
-      const kdj: Kdj = {}
+  calc: (dataList) => {
+    const period = 9
+    const kPeriod = 3
+    const dPeriod = 3
+    const len = dataList.length
+    const kData = Array<number | null>(len).fill(null)
+    const dData = Array<number | null>(len).fill(null)
+    const jData = Array<number | null>(len).fill(null)
+
+    const getMaxMin = (list: typeof dataList) => {
+      let max = Number.NEGATIVE_INFINITY
+      let min = Number.POSITIVE_INFINITY
+      list.forEach((item) => {
+        if (item.high > max) max = item.high
+        if (item.low < min) min = item.low
+      })
+      return [max, min]
+    }
+
+    for (let i = 0; i < len; i += 1) {
+      const kLineData = dataList[i]
       const close = kLineData.close
-      if (i >= params[0] - 1) {
-        const lhn = getMaxMin<KLineData>(dataList.slice(i - (params[0] - 1), i + 1), 'high', 'low')
+      if (i >= period - 1) {
+        const lhn = getMaxMin(dataList.slice(i - (period - 1), i + 1))
         const hn = lhn[0]
         const ln = lhn[1]
         const hnSubLn = hn - ln
         const rsv = (close - ln) / (hnSubLn === 0 ? 1 : hnSubLn) * 100
-        kdj.k = ((params[1] - 1) * (result[i - 1]?.k ?? 50) + rsv) / params[1]
-        kdj.d = ((params[2] - 1) * (result[i - 1]?.d ?? 50) + kdj.k) / params[2]
-        kdj.j = 3.0 * kdj.k - 2.0 * kdj.d
+        const prevK = kData[i - 1] ?? 50
+        const kValue = ((kPeriod - 1) * prevK + rsv) / kPeriod
+        const prevD = dData[i - 1] ?? 50
+        const dValue = ((dPeriod - 1) * prevD + kValue) / dPeriod
+        const jValue = 3.0 * kValue - 2.0 * dValue
+        kData[i] = kValue
+        dData[i] = dValue
+        jData[i] = jValue
       }
-      result.push(kdj)
-    })
-    return result
-  }
-}
+    }
+
+    return {
+      plots: [
+        { key: 'k', name: 'K', data: kData, type: 'line', overlay: false },
+        { key: 'd', name: 'D', data: dData, type: 'line', overlay: false },
+        { key: 'j', name: 'J', data: jData, type: 'line', overlay: false },
+      ],
+    }
+  },
+})
 
 export default stoch

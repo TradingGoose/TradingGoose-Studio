@@ -12,13 +12,7 @@
  * limitations under the License.
  */
 
-import type { IndicatorTemplate } from 'klinecharts'
-
-interface Trix {
-  trix?: number
-  maTrix?: number
-  [key: string]: number | undefined
-}
+import { createDefaultIndicator } from './create-default-indicator'
 
 /**
  * trix
@@ -27,16 +21,20 @@ interface Trix {
  * TRMA:MA(TRIX,M)
  *
  */
-const tripleExponentiallySmoothedAverage: IndicatorTemplate<Trix, number> = {
+const tripleExponentiallySmoothedAverage = createDefaultIndicator({
+  id: 'TRIX',
   name: 'Triple Exponentially Smoothed Average',
-  shortName: 'TRIX',
-  calcParams: [12, 9],
-  figures: [
-    { key: 'trix', title: 'TRIX: ', type: 'line' },
-    { key: 'maTrix', title: 'MATRIX: ', type: 'line' }
+  plots: [
+    { key: 'trix', name: 'TRIX', type: 'line', overlay: false },
+    { key: 'maTrix', name: 'MATRIX', type: 'line', overlay: false },
   ],
-  calc: (dataList, indicator) => {
-    const params = indicator.calcParams
+  calc: (dataList) => {
+    const period = 12
+    const maPeriod = 9
+    const len = dataList.length
+    const trixData = Array<number | null>(len).fill(null)
+    const maTrixData = Array<number | null>(len).fill(null)
+
     let closeSum = 0
     let ema1 = 0
     let ema2 = 0
@@ -44,48 +42,55 @@ const tripleExponentiallySmoothedAverage: IndicatorTemplate<Trix, number> = {
     let ema1Sum = 0
     let ema2Sum = 0
     let trixSum = 0
-    const result: Trix[] = []
-    dataList.forEach((kLineData, i) => {
-      const trix: Trix = {}
-      const close = kLineData.close
+
+    for (let i = 0; i < len; i += 1) {
+      const close = dataList[i].close
       closeSum += close
-      if (i >= params[0] - 1) {
-        if (i > params[0] - 1) {
-          ema1 = (2 * close + (params[0] - 1) * ema1) / (params[0] + 1)
+      if (i >= period - 1) {
+        if (i > period - 1) {
+          ema1 = (2 * close + (period - 1) * ema1) / (period + 1)
         } else {
-          ema1 = closeSum / params[0]
+          ema1 = closeSum / period
         }
         ema1Sum += ema1
-        if (i >= params[0] * 2 - 2) {
-          if (i > params[0] * 2 - 2) {
-            ema2 = (2 * ema1 + (params[0] - 1) * ema2) / (params[0] + 1)
+        if (i >= period * 2 - 2) {
+          if (i > period * 2 - 2) {
+            ema2 = (2 * ema1 + (period - 1) * ema2) / (period + 1)
           } else {
-            ema2 = ema1Sum / params[0]
+            ema2 = ema1Sum / period
           }
           ema2Sum += ema2
-          if (i >= params[0] * 3 - 3) {
+          if (i >= period * 3 - 3) {
             let tr = 0
             let trixValue = 0
-            if (i > params[0] * 3 - 3) {
-              tr = (2 * ema2 + (params[0] - 1) * oldTr) / (params[0] + 1)
+            if (i > period * 3 - 3) {
+              tr = (2 * ema2 + (period - 1) * oldTr) / (period + 1)
               trixValue = (tr - oldTr) / oldTr * 100
             } else {
-              tr = ema2Sum / params[0]
+              tr = ema2Sum / period
             }
             oldTr = tr
-            trix.trix = trixValue
+            trixData[i] = trixValue
             trixSum += trixValue
-            if (i >= params[0] * 3 + params[1] - 4) {
-              trix.maTrix = trixSum / params[1]
-              trixSum -= (result[i - (params[1] - 1)].trix ?? 0)
+            if (i >= period * 3 + maPeriod - 4) {
+              maTrixData[i] = trixSum / maPeriod
+              const removeValue = trixData[i - (maPeriod - 1)]
+              if (typeof removeValue === 'number') {
+                trixSum -= removeValue
+              }
             }
           }
         }
       }
-      result.push(trix)
-    })
-    return result
-  }
-}
+    }
+
+    return {
+      plots: [
+        { key: 'trix', name: 'TRIX', data: trixData, type: 'line', overlay: false },
+        { key: 'maTrix', name: 'MATRIX', data: maTrixData, type: 'line', overlay: false },
+      ],
+    }
+  },
+})
 
 export default tripleExponentiallySmoothedAverage

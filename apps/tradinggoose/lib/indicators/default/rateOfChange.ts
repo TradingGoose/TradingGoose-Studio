@@ -12,48 +12,50 @@
  * limitations under the License.
  */
 
-import type { IndicatorTemplate } from 'klinecharts'
-
-interface Roc {
-  roc?: number
-  maRoc?: number
-  [key: string]: number | undefined
-}
+import { createDefaultIndicator } from './create-default-indicator'
 
 /**
  */
-const rateOfChange: IndicatorTemplate<Roc, number> = {
+const rateOfChange = createDefaultIndicator({
+  id: 'ROC',
   name: 'Rate of Change',
-  shortName: 'ROC',
-  calcParams: [12, 6],
-  figures: [
-    { key: 'roc', title: 'ROC: ', type: 'line' },
-    { key: 'maRoc', title: 'MAROC: ', type: 'line' }
+  plots: [
+    { key: 'roc', name: 'ROC', type: 'line', overlay: false },
+    { key: 'maRoc', name: 'MAROC', type: 'line', overlay: false },
   ],
-  calc: (dataList, indicator) => {
-    const params = indicator.calcParams
-    const result: Roc[] = []
+  calc: (dataList) => {
+    const period = 12
+    const maPeriod = 6
+    const len = dataList.length
+    const rocData = Array<number | null>(len).fill(null)
+    const maRocData = Array<number | null>(len).fill(null)
+
     let rocSum = 0
-    dataList.forEach((kLineData, i) => {
-      const roc: Roc = {}
-      if (i >= params[0] - 1) {
-        const close = kLineData.close
-        const agoClose = (dataList[i - params[0]] ?? dataList[i - (params[0] - 1)]).close
-        if (agoClose !== 0) {
-          roc.roc = (close - agoClose) / agoClose * 100
-        } else {
-          roc.roc = 0
-        }
-        rocSum += roc.roc
-        if (i >= params[0] - 1 + params[1] - 1) {
-          roc.maRoc = rocSum / params[1]
-          rocSum -= (result[i - (params[1] - 1)].roc ?? 0)
+
+    for (let i = 0; i < len; i += 1) {
+      if (i >= period - 1) {
+        const close = dataList[i].close
+        const agoClose = (dataList[i - period] ?? dataList[i - (period - 1)]).close
+        const rocValue = agoClose !== 0 ? (close - agoClose) / agoClose * 100 : 0
+        rocData[i] = rocValue
+        rocSum += rocValue
+        if (i >= period - 1 + maPeriod - 1) {
+          maRocData[i] = rocSum / maPeriod
+          const removeValue = rocData[i - (maPeriod - 1)]
+          if (typeof removeValue === 'number') {
+            rocSum -= removeValue
+          }
         }
       }
-      result.push(roc)
-    })
-    return result
-  }
-}
+    }
+
+    return {
+      plots: [
+        { key: 'roc', name: 'ROC', data: rocData, type: 'line', overlay: false },
+        { key: 'maRoc', name: 'MAROC', data: maRocData, type: 'line', overlay: false },
+      ],
+    }
+  },
+})
 
 export default rateOfChange

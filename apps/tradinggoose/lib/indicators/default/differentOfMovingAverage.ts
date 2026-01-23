@@ -12,61 +12,67 @@
  * limitations under the License.
  */
 
-import type { IndicatorTemplate } from 'klinecharts'
-
-interface Dma {
-  dma?: number
-  ama?: number
-  [key: string]: number | undefined
-}
+import { createDefaultIndicator } from './create-default-indicator'
 
 /**
  * DMA
  */
-const differentOfMovingAverage: IndicatorTemplate<Dma, number> = {
+const differentOfMovingAverage = createDefaultIndicator({
+  id: 'DMA',
   name: 'Different of Moving Average',
-  shortName: 'DMA',
-  calcParams: [10, 50, 10],
-  figures: [
-    { key: 'dma', title: 'DMA: ', type: 'line' },
-    { key: 'ama', title: 'AMA: ', type: 'line' }
+  plots: [
+    { key: 'dma', name: 'DMA', type: 'line', overlay: false },
+    { key: 'ama', name: 'AMA', type: 'line', overlay: false },
   ],
-  calc: (dataList, indicator) => {
-    const params = indicator.calcParams
-    const maxPeriod = Math.max(params[0], params[1])
+  calc: (dataList) => {
+    const shortPeriod = 10
+    const longPeriod = 50
+    const amaPeriod = 10
+    const len = dataList.length
+    const dmaData = Array<number | null>(len).fill(null)
+    const amaData = Array<number | null>(len).fill(null)
+
+    const maxPeriod = Math.max(shortPeriod, longPeriod)
     let closeSum1 = 0
     let closeSum2 = 0
     let dmaSum = 0
-    const result: Dma[] = []
-    dataList.forEach((kLineData, i) => {
-      const dma: Dma = {}
-      const close = kLineData.close
+
+    for (let i = 0; i < len; i += 1) {
+      const close = dataList[i].close
       closeSum1 += close
       closeSum2 += close
       let ma1 = 0
       let ma2 = 0
-      if (i >= params[0] - 1) {
-        ma1 = closeSum1 / params[0]
-        closeSum1 -= dataList[i - (params[0] - 1)].close
+      if (i >= shortPeriod - 1) {
+        ma1 = closeSum1 / shortPeriod
+        closeSum1 -= dataList[i - (shortPeriod - 1)].close
       }
-      if (i >= params[1] - 1) {
-        ma2 = closeSum2 / params[1]
-        closeSum2 -= dataList[i - (params[1] - 1)].close
+      if (i >= longPeriod - 1) {
+        ma2 = closeSum2 / longPeriod
+        closeSum2 -= dataList[i - (longPeriod - 1)].close
       }
 
       if (i >= maxPeriod - 1) {
         const dif = ma1 - ma2
-        dma.dma = dif
+        dmaData[i] = dif
         dmaSum += dif
-        if (i >= maxPeriod + params[2] - 2) {
-          dma.ama = dmaSum / params[2]
-          dmaSum -= (result[i - (params[2] - 1)].dma ?? 0)
+        if (i >= maxPeriod + amaPeriod - 2) {
+          amaData[i] = dmaSum / amaPeriod
+          const removeValue = dmaData[i - (amaPeriod - 1)]
+          if (typeof removeValue === 'number') {
+            dmaSum -= removeValue
+          }
         }
       }
-      result.push(dma)
-    })
-    return result
-  }
-}
+    }
+
+    return {
+      plots: [
+        { key: 'dma', name: 'DMA', data: dmaData, type: 'line', overlay: false },
+        { key: 'ama', name: 'AMA', data: amaData, type: 'line', overlay: false },
+      ],
+    }
+  },
+})
 
 export default differentOfMovingAverage

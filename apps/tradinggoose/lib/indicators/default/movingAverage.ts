@@ -12,48 +12,49 @@
  * limitations under the License.
  */
 
-import type { IndicatorTemplate } from 'klinecharts'
-
-interface Ma {
-  ma1?: number
-  ma2?: number
-  ma3?: number
-  ma4?: number
-  [key: string]: number | undefined
-}
+import { createDefaultIndicator } from './create-default-indicator'
 
 /**
  */
-const movingAverage: IndicatorTemplate<Ma, number> = {
+const movingAverage = createDefaultIndicator({
+  id: 'MA',
   name: 'Moving Average',
-  shortName: 'MA',
   series: 'price',
-  calcParams: [5, 10, 30, 60],
   precision: 2,
   shouldOhlc: true,
-  figures: [
-    { key: 'ma1', title: 'MA5: ', type: 'line' },
-    { key: 'ma2', title: 'MA10: ', type: 'line' },
-    { key: 'ma3', title: 'MA30: ', type: 'line' },
-    { key: 'ma4', title: 'MA60: ', type: 'line' }
+  plots: [
+    { key: 'ma1', name: 'MA5', type: 'line', overlay: true },
+    { key: 'ma2', name: 'MA10', type: 'line', overlay: true },
+    { key: 'ma3', name: 'MA30', type: 'line', overlay: true },
+    { key: 'ma4', name: 'MA60', type: 'line', overlay: true },
   ],
-  regenerateFigures: (params) => params.map((p, i) => ({ key: `ma${i + 1}`, title: `MA${p}: `, type: 'line' })),
-  calc: (dataList, indicator) => {
-    const { calcParams, figures } = indicator
+  calc: (dataList) => {
+    const params = [5, 10, 30, 60]
+    const len = dataList.length
+    const maData = params.map(() => Array<number | null>(len).fill(null))
     const closeSums: number[] = []
-    return dataList.map((kLineData, i) => {
-      const ma: Ma = {}
-      const close = kLineData.close
-      calcParams.forEach((p, index) => {
+
+    for (let i = 0; i < len; i += 1) {
+      const close = dataList[i].close
+      for (let index = 0; index < params.length; index += 1) {
+        const p = params[index]
         closeSums[index] = (closeSums[index] ?? 0) + close
         if (i >= p - 1) {
-          ma[figures[index].key] = closeSums[index] / p
+          maData[index][i] = closeSums[index] / p
           closeSums[index] -= dataList[i - (p - 1)].close
         }
-      })
-      return ma
-    })
-  }
-}
+      }
+    }
+
+    return {
+      plots: [
+        { key: 'ma1', name: 'MA5', data: maData[0], type: 'line', overlay: true },
+        { key: 'ma2', name: 'MA10', data: maData[1], type: 'line', overlay: true },
+        { key: 'ma3', name: 'MA30', data: maData[2], type: 'line', overlay: true },
+        { key: 'ma4', name: 'MA60', data: maData[3], type: 'line', overlay: true },
+      ],
+    }
+  },
+})
 
 export default movingAverage

@@ -13,53 +13,58 @@
  */
 
 import { formatValue } from './utils/format'
+import { createDefaultIndicator } from './create-default-indicator'
 
-import type { IndicatorTemplate } from 'klinecharts'
-
-interface Sar {
-  sar?: number
-  high: number
-  low: number
-  [key: string]: number | undefined
-}
-
-const stopAndReverse: IndicatorTemplate<Sar, number> = {
+const stopAndReverse = createDefaultIndicator({
+  id: 'SAR',
   name: 'Stop and Reverse',
-  shortName: 'SAR',
   series: 'price',
-  calcParams: [2, 2, 20],
   precision: 2,
   shouldOhlc: true,
-  figures: [
+  plots: [
     {
       key: 'sar',
-      title: 'SAR: ',
+      name: 'SAR',
       type: 'circle',
-      styles: ({ data, indicator, defaultStyles }) => {
-        const { current } = data
-        const sar = current?.sar ?? Number.MIN_SAFE_INTEGER
-        const halfHL = ((current?.high ?? 0) + (current?.low ?? 0)) / 2
-        const color = sar < halfHL
-          ? formatValue(indicator.styles, 'circles[0].upColor', (defaultStyles!.circles)[0].upColor) as string
-          : formatValue(indicator.styles, 'circles[0].downColor', (defaultStyles!.circles)[0].downColor) as string
-        return { color }
-      }
-    }
+      overlay: true,
+      figure: {
+        styles: ({ data, indicator, defaultStyles }) => {
+          const { current } = data
+          const sar = current?.sar ?? Number.MIN_SAFE_INTEGER
+          const halfHL = ((current?.high ?? 0) + (current?.low ?? 0)) / 2
+          const color = sar < halfHL
+            ? formatValue(indicator.styles, 'circles[0].upColor', (defaultStyles!.circles)[0].upColor) as string
+            : formatValue(indicator.styles, 'circles[0].downColor', (defaultStyles!.circles)[0].downColor) as string
+          return { color }
+        },
+      },
+    },
   ],
-  calc: (dataList, indicator) => {
-    const params = indicator.calcParams
-    const startAf = params[0] / 100
-    const step = params[1] / 100
-    const maxAf = params[2] / 100
+  calc: (dataList) => {
+    const startAfParam = 2
+    const stepParam = 2
+    const maxAfParam = 20
+    const len = dataList.length
+    const sarData = Array<number | null>(len).fill(null)
+    const highData = Array<number | null>(len).fill(null)
+    const lowData = Array<number | null>(len).fill(null)
+
+    const startAf = startAfParam / 100
+    const step = stepParam / 100
+    const maxAf = maxAfParam / 100
 
     let af = startAf
     let ep = -100
     let isIncreasing = false
     let sar = 0
-    return dataList.map((kLineData, i) => {
+
+    for (let i = 0; i < len; i += 1) {
+      const kLineData = dataList[i]
       const preSar = sar
       const high = kLineData.high
       const low = kLineData.low
+      highData[i] = high
+      lowData[i] = low
       if (isIncreasing) {
         if (ep === -100 || ep < high) {
           ep = high
@@ -91,9 +96,17 @@ const stopAndReverse: IndicatorTemplate<Sar, number> = {
           sar = highMax
         }
       }
-      return { high, low, sar }
-    })
-  }
-}
+      sarData[i] = sar
+    }
+
+    return {
+      plots: [
+        { key: 'sar', name: 'SAR', data: sarData, type: 'circle', overlay: true },
+        { key: 'high', data: highData },
+        { key: 'low', data: lowData },
+      ],
+    }
+  },
+})
 
 export default stopAndReverse

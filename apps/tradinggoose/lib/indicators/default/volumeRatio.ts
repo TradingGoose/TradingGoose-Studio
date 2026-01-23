@@ -12,35 +12,33 @@
  * limitations under the License.
  */
 
-import type { IndicatorTemplate } from 'klinecharts'
-
-interface Vr {
-  vr?: number
-  maVr?: number
-  [key: string]: number | undefined
-}
+import { createDefaultIndicator } from './create-default-indicator'
 
 /**
  * VR
  *
  */
-const volumeRatio: IndicatorTemplate<Vr, number> = {
+const volumeRatio = createDefaultIndicator({
+  id: 'VR',
   name: 'Volume Ratio',
-  shortName: 'VR',
-  calcParams: [26, 6],
-  figures: [
-    { key: 'vr', title: 'VR: ', type: 'line' },
-    { key: 'maVr', title: 'MAVR: ', type: 'line' }
+  plots: [
+    { key: 'vr', name: 'VR', type: 'line', overlay: false },
+    { key: 'maVr', name: 'MAVR', type: 'line', overlay: false },
   ],
-  calc: (dataList, indicator) => {
-    const params = indicator.calcParams
+  calc: (dataList) => {
+    const period = 26
+    const maPeriod = 6
+    const len = dataList.length
+    const vrData = Array<number | null>(len).fill(null)
+    const maVrData = Array<number | null>(len).fill(null)
+
     let uvs = 0
     let dvs = 0
     let pvs = 0
     let vrSum = 0
-    const result: Vr[] = []
-    dataList.forEach((kLineData, i) => {
-      const vr: Vr = {}
+
+    for (let i = 0; i < len; i += 1) {
+      const kLineData = dataList[i]
       const close = kLineData.close
       const preClose = (dataList[i - 1] ?? kLineData).close
       const volume = kLineData.volume ?? 0
@@ -51,21 +49,23 @@ const volumeRatio: IndicatorTemplate<Vr, number> = {
       } else {
         pvs += volume
       }
-      if (i >= params[0] - 1) {
+      if (i >= period - 1) {
         const halfPvs = pvs / 2
-        if (dvs + halfPvs === 0) {
-          vr.vr = 0
-        } else {
-          vr.vr = (uvs + halfPvs) / (dvs + halfPvs) * 100
-        }
-        vrSum += vr.vr
-        if (i >= params[0] + params[1] - 2) {
-          vr.maVr = vrSum / params[1]
-          vrSum -= (result[i - (params[1] - 1)].vr ?? 0)
+        const vrValue = (dvs + halfPvs === 0)
+          ? 0
+          : (uvs + halfPvs) / (dvs + halfPvs) * 100
+        vrData[i] = vrValue
+        vrSum += vrValue
+        if (i >= period + maPeriod - 2) {
+          maVrData[i] = vrSum / maPeriod
+          const removeValue = vrData[i - (maPeriod - 1)]
+          if (typeof removeValue === 'number') {
+            vrSum -= removeValue
+          }
         }
 
-        const agoData = dataList[i - (params[0] - 1)]
-        const agoPreData = dataList[i - params[0]] ?? agoData
+        const agoData = dataList[i - (period - 1)]
+        const agoPreData = dataList[i - period] ?? agoData
         const agoClose = agoData.close
         const agoVolume = agoData.volume ?? 0
         if (agoClose > agoPreData.close) {
@@ -76,10 +76,15 @@ const volumeRatio: IndicatorTemplate<Vr, number> = {
           pvs -= agoVolume
         }
       }
-      result.push(vr)
-    })
-    return result
-  }
-}
+    }
+
+    return {
+      plots: [
+        { key: 'vr', name: 'VR', data: vrData, type: 'line', overlay: false },
+        { key: 'maVr', name: 'MAVR', data: maVrData, type: 'line', overlay: false },
+      ],
+    }
+  },
+})
 
 export default volumeRatio

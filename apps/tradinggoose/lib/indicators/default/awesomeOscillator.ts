@@ -13,65 +13,74 @@
  */
 
 import { formatValue } from './utils/format'
+import { createDefaultIndicator } from './create-default-indicator'
 
-import type { IndicatorTemplate } from 'klinecharts'
-
-interface Ao {
-  ao?: number
-  [key: string]: number | undefined
-}
-
-const awesomeOscillator: IndicatorTemplate<Ao, number> = {
+const awesomeOscillator = createDefaultIndicator({
+  id: 'AO',
   name: 'Awesome Oscillator',
-  shortName: 'AO',
-  calcParams: [5, 34],
-  figures: [{
-    key: 'ao',
-    title: 'AO: ',
-    type: 'bar',
-    baseValue: 0,
-    styles: ({ data, indicator, defaultStyles }) => {
-      const { prev, current } = data
-      const prevAo = prev?.ao ?? Number.MIN_SAFE_INTEGER
-      const currentAo = current?.ao ?? Number.MIN_SAFE_INTEGER
-      let color = ''
-      if (currentAo > prevAo) {
-        color = formatValue(indicator.styles, 'bars[0].upColor', (defaultStyles!.bars)[0].upColor) as string
-      } else {
-        color = formatValue(indicator.styles, 'bars[0].downColor', (defaultStyles!.bars)[0].downColor) as string
-      }
-      const style = currentAo > prevAo ? 'stroke' : 'fill'
-      return { color, style, borderColor: color }
-    }
-  }],
-  calc: (dataList, indicator) => {
-    const params = indicator.calcParams
-    const maxPeriod = Math.max(params[0], params[1])
+  plots: [
+    {
+      key: 'ao',
+      name: 'AO',
+      type: 'bar',
+      overlay: false,
+      figure: {
+        baseValue: 0,
+        styles: ({ data, indicator, defaultStyles }) => {
+          const { prev, current } = data
+          const prevAo = prev?.ao ?? Number.MIN_SAFE_INTEGER
+          const currentAo = current?.ao ?? Number.MIN_SAFE_INTEGER
+          let color = ''
+          if (currentAo > prevAo) {
+            color = formatValue(indicator.styles, 'bars[0].upColor', (defaultStyles!.bars)[0].upColor) as string
+          } else {
+            color = formatValue(indicator.styles, 'bars[0].downColor', (defaultStyles!.bars)[0].downColor) as string
+          }
+          const style = currentAo > prevAo ? 'stroke' : 'fill'
+          return { color, style, borderColor: color }
+        },
+      },
+    },
+  ],
+  calc: (dataList) => {
+    const shortPeriod = 5
+    const longPeriod = 34
+
+    const len = dataList.length
+    const aoData = Array<number | null>(len).fill(null)
+
+    const maxPeriod = Math.max(shortPeriod, longPeriod)
     let shortSum = 0
     let longSum = 0
     let short = 0
     let long = 0
-    return dataList.map((kLineData, i) => {
-      const ao: Ao = {}
+
+    for (let i = 0; i < len; i += 1) {
+      const kLineData = dataList[i]
       const middle = (kLineData.low + kLineData.high) / 2
       shortSum += middle
       longSum += middle
-      if (i >= params[0] - 1) {
-        short = shortSum / params[0]
-        const agoKLineData = dataList[i - (params[0] - 1)]
+      if (i >= shortPeriod - 1) {
+        short = shortSum / shortPeriod
+        const agoKLineData = dataList[i - (shortPeriod - 1)]
         shortSum -= ((agoKLineData.low + agoKLineData.high) / 2)
       }
-      if (i >= params[1] - 1) {
-        long = longSum / params[1]
-        const agoKLineData = dataList[i - (params[1] - 1)]
+      if (i >= longPeriod - 1) {
+        long = longSum / longPeriod
+        const agoKLineData = dataList[i - (longPeriod - 1)]
         longSum -= ((agoKLineData.low + agoKLineData.high) / 2)
       }
       if (i >= maxPeriod - 1) {
-        ao.ao = short - long
+        aoData[i] = short - long
       }
-      return ao
-    })
-  }
-}
+    }
+
+    return {
+      plots: [
+        { key: 'ao', name: 'AO', data: aoData, type: 'bar', overlay: false },
+      ],
+    }
+  },
+})
 
 export default awesomeOscillator

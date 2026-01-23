@@ -12,55 +12,59 @@
  * limitations under the License.
  */
 
-import type { IndicatorTemplate } from 'klinecharts'
-
-interface Emv {
-  emv?: number
-  maEmv?: number
-  [key: string]: number | undefined
-}
+import { createDefaultIndicator } from './create-default-indicator'
 
 /**
  *
  *
  */
-const easeOfMovementValue: IndicatorTemplate<Emv, number> = {
+const easeOfMovementValue = createDefaultIndicator({
+  id: 'EMV',
   name: 'Ease of Movement Value',
-  shortName: 'EMV',
-  calcParams: [14, 9],
-  figures: [
-    { key: 'emv', title: 'EMV: ', type: 'line' },
-    { key: 'maEmv', title: 'MAEMV: ', type: 'line' }
+  plots: [
+    { key: 'emv', name: 'EMV', type: 'line', overlay: false },
+    { key: 'maEmv', name: 'MAEMV', type: 'line', overlay: false },
   ],
-  calc: (dataList, indicator) => {
-    const params = indicator.calcParams
+  calc: (dataList) => {
+    const period = 14
+    const len = dataList.length
+    const emvData = Array<number | null>(len).fill(null)
+    const maEmvData = Array<number | null>(len).fill(null)
+
     let emvValueSum = 0
     const emvValueList: number[] = []
-    return dataList.map((kLineData, i) => {
-      const emv: Emv = {}
+
+    for (let i = 0; i < len; i += 1) {
       if (i > 0) {
+        const kLineData = dataList[i]
         const prevKLineData = dataList[i - 1]
         const high = kLineData.high
         const low = kLineData.low
         const volume = kLineData.volume ?? 0
         const distanceMoved = (high + low) / 2 - (prevKLineData.high + prevKLineData.low) / 2
 
-        if (volume === 0 || high - low === 0) {
-          emv.emv = 0
-        } else {
+        let emvValue = 0
+        if (volume !== 0 && high - low !== 0) {
           const ratio = volume / 100000000 / (high - low)
-          emv.emv = distanceMoved / ratio
+          emvValue = distanceMoved / ratio
         }
-        emvValueSum += emv.emv
-        emvValueList.push(emv.emv)
-        if (i >= params[0]) {
-          emv.maEmv = emvValueSum / params[0]
-          emvValueSum -= emvValueList[i - params[0]]
+        emvData[i] = emvValue
+        emvValueSum += emvValue
+        emvValueList.push(emvValue)
+        if (i >= period) {
+          maEmvData[i] = emvValueSum / period
+          emvValueSum -= emvValueList[i - period]
         }
       }
-      return emv
-    })
-  }
-}
+    }
+
+    return {
+      plots: [
+        { key: 'emv', name: 'EMV', data: emvData, type: 'line', overlay: false },
+        { key: 'maEmv', name: 'MAEMV', data: maEmvData, type: 'line', overlay: false },
+      ],
+    }
+  },
+})
 
 export default easeOfMovementValue

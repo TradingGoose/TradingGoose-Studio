@@ -12,48 +12,54 @@
  * limitations under the License.
  */
 
-import type { IndicatorTemplate } from 'klinecharts'
-
-interface Obv {
-  obv?: number
-  maObv?: number
-  [key: string]: number | undefined
-}
+import { createDefaultIndicator } from './create-default-indicator'
 
 /**
  * OBV
  * OBV = REF(OBV) + sign * V
  */
-const onBalanceVolume: IndicatorTemplate<Obv, number> = {
+const onBalanceVolume = createDefaultIndicator({
+  id: 'OBV',
   name: 'On Balance Volume',
-  shortName: 'OBV',
-  calcParams: [30],
-  figures: [
-    { key: 'obv', title: 'OBV: ', type: 'line' },
-    { key: 'maObv', title: 'MAOBV: ', type: 'line' }
+  plots: [
+    { key: 'obv', name: 'OBV', type: 'line', overlay: false },
+    { key: 'maObv', name: 'MAOBV', type: 'line', overlay: false },
   ],
-  calc: (dataList, indicator) => {
-    const params = indicator.calcParams
+  calc: (dataList) => {
+    const period = 30
+    const len = dataList.length
+    const obvData = Array<number | null>(len).fill(null)
+    const maObvData = Array<number | null>(len).fill(null)
+
     let obvSum = 0
     let oldObv = 0
-    const result: Obv[] = []
-    dataList.forEach((kLineData, i) => {
+
+    for (let i = 0; i < len; i += 1) {
+      const kLineData = dataList[i]
       const prevKLineData = dataList[i - 1] ?? kLineData
       if (kLineData.close < prevKLineData.close) {
         oldObv -= (kLineData.volume ?? 0)
       } else if (kLineData.close > prevKLineData.close) {
         oldObv += (kLineData.volume ?? 0)
       }
-      const obv: Obv = { obv: oldObv }
+      obvData[i] = oldObv
       obvSum += oldObv
-      if (i >= params[0] - 1) {
-        obv.maObv = obvSum / params[0]
-        obvSum -= (result[i - (params[0] - 1)].obv ?? 0)
+      if (i >= period - 1) {
+        maObvData[i] = obvSum / period
+        const removeValue = obvData[i - (period - 1)]
+        if (typeof removeValue === 'number') {
+          obvSum -= removeValue
+        }
       }
-      result.push(obv)
-    })
-    return result
-  }
-}
+    }
+
+    return {
+      plots: [
+        { key: 'obv', name: 'OBV', data: obvData, type: 'line', overlay: false },
+        { key: 'maObv', name: 'MAOBV', data: maObvData, type: 'line', overlay: false },
+      ],
+    }
+  },
+})
 
 export default onBalanceVolume

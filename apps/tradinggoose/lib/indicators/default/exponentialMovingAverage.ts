@@ -12,51 +12,52 @@
  * limitations under the License.
  */
 
-import type { IndicatorTemplate } from 'klinecharts'
-
-interface Ema {
-  ema1?: number
-  ema2?: number
-  ema3?: number
-  [key: string]: number | undefined
-}
+import { createDefaultIndicator } from './create-default-indicator'
 
 /**
  */
-const exponentialMovingAverage: IndicatorTemplate<Ema, number> = {
+const exponentialMovingAverage = createDefaultIndicator({
+  id: 'EMA',
   name: 'Exponential Moving Average',
-  shortName: 'EMA',
   series: 'price',
-  calcParams: [6, 12, 20],
   precision: 2,
   shouldOhlc: true,
-  figures: [
-    { key: 'ema1', title: 'EMA6: ', type: 'line' },
-    { key: 'ema2', title: 'EMA12: ', type: 'line' },
-    { key: 'ema3', title: 'EMA20: ', type: 'line' }
+  plots: [
+    { key: 'ema1', name: 'EMA6', type: 'line', overlay: true },
+    { key: 'ema2', name: 'EMA12', type: 'line', overlay: true },
+    { key: 'ema3', name: 'EMA20', type: 'line', overlay: true },
   ],
-  regenerateFigures: (params) => params.map((p, i) => ({ key: `ema${i + 1}`, title: `EMA${p}: `, type: 'line' })),
-  calc: (dataList, indicator) => {
-    const { calcParams: params, figures } = indicator
-    let closeSum = 0
+  calc: (dataList) => {
+    const params = [6, 12, 20]
+    const len = dataList.length
+    const emaData = params.map(() => Array<number | null>(len).fill(null))
     const emaValues: number[] = []
-    return dataList.map((kLineData, i) => {
-      const ema: Ema = {}
-      const close = kLineData.close
+    let closeSum = 0
+
+    for (let i = 0; i < len; i += 1) {
+      const close = dataList[i].close
       closeSum += close
-      params.forEach((p, index) => {
+      for (let index = 0; index < params.length; index += 1) {
+        const p = params[index]
         if (i >= p - 1) {
           if (i > p - 1) {
             emaValues[index] = (2 * close + (p - 1) * emaValues[index]) / (p + 1)
           } else {
             emaValues[index] = closeSum / p
           }
-          ema[figures[index].key] = emaValues[index]
+          emaData[index][i] = emaValues[index]
         }
-      })
-      return ema
-    })
-  }
-}
+      }
+    }
+
+    return {
+      plots: [
+        { key: 'ema1', name: 'EMA6', data: emaData[0], type: 'line', overlay: true },
+        { key: 'ema2', name: 'EMA12', data: emaData[1], type: 'line', overlay: true },
+        { key: 'ema3', name: 'EMA20', data: emaData[2], type: 'line', overlay: true },
+      ],
+    }
+  },
+})
 
 export default exponentialMovingAverage

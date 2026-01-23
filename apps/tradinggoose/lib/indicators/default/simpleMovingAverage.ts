@@ -12,45 +12,48 @@
  * limitations under the License.
  */
 
-import type { IndicatorTemplate } from 'klinecharts'
-
-interface Sma {
-  sma?: number
-  [key: string]: number | undefined
-}
+import { createDefaultIndicator } from './create-default-indicator'
 
 /**
  * sma
  */
-const simpleMovingAverage: IndicatorTemplate<Sma, number> = {
+const simpleMovingAverage = createDefaultIndicator({
+  id: 'SMA',
   name: 'Simple Moving Average',
-  shortName: 'SMA',
   series: 'price',
-  calcParams: [12, 2],
   precision: 2,
-  figures: [
-    { key: 'sma', title: 'SMA: ', type: 'line' }
+  plots: [
+    { key: 'sma', name: 'SMA', type: 'line', overlay: true },
   ],
   shouldOhlc: true,
-  calc: (dataList, indicator) => {
-    const params = indicator.calcParams
+  calc: (dataList) => {
+    const period = 12
+    const factor = 2
+    const len = dataList.length
+    const smaData = Array<number | null>(len).fill(null)
+
     let closeSum = 0
     let smaValue = 0
-    return dataList.map((kLineData, i) => {
-      const sma: Sma = {}
-      const close = kLineData.close
+
+    for (let i = 0; i < len; i += 1) {
+      const close = dataList[i].close
       closeSum += close
-      if (i >= params[0] - 1) {
-        if (i > params[0] - 1) {
-          smaValue = (close * params[1] + smaValue * (params[0] - params[1] + 1)) / (params[0] + 1)
+      if (i >= period - 1) {
+        if (i > period - 1) {
+          smaValue = (close * factor + smaValue * (period - factor + 1)) / (period + 1)
         } else {
-          smaValue = closeSum / params[0]
+          smaValue = closeSum / period
         }
-        sma.sma = smaValue
+        smaData[i] = smaValue
       }
-      return sma
-    })
-  }
-}
+    }
+
+    return {
+      plots: [
+        { key: 'sma', name: 'SMA', data: smaData, type: 'line', overlay: true },
+      ],
+    }
+  },
+})
 
 export default simpleMovingAverage

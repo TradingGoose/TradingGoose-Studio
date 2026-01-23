@@ -12,65 +12,65 @@
  * limitations under the License.
  */
 
-import type { KLineData } from 'klinecharts'
-import type { IndicatorTemplate } from 'klinecharts'
-
-interface Boll {
-  up?: number
-  mid?: number
-  dn?: number
-  [key: string]: number | undefined
-}
-
-/**
- * @param dataList
- * @param ma
- * @return {number}
- */
-function getBollMd(dataList: KLineData[], ma: number): number {
-  const dataSize = dataList.length
-  let sum = 0
-  dataList.forEach(data => {
-    const closeMa = data.close - ma
-    sum += closeMa * closeMa
-  })
-  sum = Math.abs(sum)
-  return Math.sqrt(sum / dataSize)
-}
+import { createDefaultIndicator } from './create-default-indicator'
 
 /**
  * BOLL
  */
-const bollingerBands: IndicatorTemplate<Boll, number> = {
+const bollingerBands = createDefaultIndicator({
+  id: 'BOLL',
   name: 'Bollinger Bands',
-  shortName: 'BOLL',
   series: 'price',
-  calcParams: [20, 2],
   precision: 2,
   shouldOhlc: true,
-  figures: [
-    { key: 'up', title: 'UP: ', type: 'line' },
-    { key: 'mid', title: 'MID: ', type: 'line' },
-    { key: 'dn', title: 'DN: ', type: 'line' }
+  plots: [
+    { key: 'up', name: 'UP', type: 'line', overlay: true },
+    { key: 'mid', name: 'MID', type: 'line', overlay: true },
+    { key: 'dn', name: 'DN', type: 'line', overlay: true },
   ],
-  calc: (dataList, indicator) => {
-    const params = indicator.calcParams
-    const p = params[0] - 1
+  calc: (dataList) => {
+    const period = 20
+    const multiplier = 2
+    const len = dataList.length
+    const upData = Array<number | null>(len).fill(null)
+    const midData = Array<number | null>(len).fill(null)
+    const dnData = Array<number | null>(len).fill(null)
+
+    const getBollMd = (list: typeof dataList, ma: number) => {
+      const dataSize = list.length
+      let sum = 0
+      list.forEach((data) => {
+        const closeMa = data.close - ma
+        sum += closeMa * closeMa
+      })
+      sum = Math.abs(sum)
+      return Math.sqrt(sum / dataSize)
+    }
+
+    const p = period - 1
     let closeSum = 0
-    return dataList.map((kLineData, i) => {
-      const close = kLineData.close
-      const boll: Boll = {}
+
+    for (let i = 0; i < len; i += 1) {
+      const close = dataList[i].close
       closeSum += close
       if (i >= p) {
-        boll.mid = closeSum / params[0]
-        const md = getBollMd(dataList.slice(i - p, i + 1), boll.mid)
-        boll.up = boll.mid + params[1] * md
-        boll.dn = boll.mid - params[1] * md
+        const mid = closeSum / period
+        const md = getBollMd(dataList.slice(i - p, i + 1), mid)
+        midData[i] = mid
+        upData[i] = mid + multiplier * md
+        dnData[i] = mid - multiplier * md
         closeSum -= dataList[i - p].close
       }
-      return boll
-    })
-  }
-}
+    }
+
+    return {
+      plots: [
+        { key: 'up', name: 'UP', data: upData, type: 'line', overlay: true },
+        { key: 'mid', name: 'MID', data: midData, type: 'line', overlay: true },
+        { key: 'dn', name: 'DN', data: dnData, type: 'line', overlay: true },
+      ],
+    }
+  },
+})
 
 export default bollingerBands

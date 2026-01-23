@@ -12,15 +12,7 @@
  * limitations under the License.
  */
 
-import type { IndicatorTemplate } from 'klinecharts'
-
-interface Dmi {
-  pdi?: number
-  mdi?: number
-  adx?: number
-  adxr?: number
-  [key: string]: number | undefined
-}
+import { createDefaultIndicator } from './create-default-indicator'
 
 /**
  * DMI
@@ -37,18 +29,24 @@ interface Dmi {
  * ADXR:EXPMEMA(ADX,MM);
  *
  */
-const directionalMovementIndex: IndicatorTemplate<Dmi, number> = {
+const directionalMovementIndex = createDefaultIndicator({
+  id: 'DMI',
   name: 'Directional Movement Index',
-  shortName: 'DMI',
-  calcParams: [14, 6],
-  figures: [
-    { key: 'pdi', title: 'PDI: ', type: 'line' },
-    { key: 'mdi', title: 'MDI: ', type: 'line' },
-    { key: 'adx', title: 'ADX: ', type: 'line' },
-    { key: 'adxr', title: 'ADXR: ', type: 'line' }
+  plots: [
+    { key: 'pdi', name: 'PDI', type: 'line', overlay: false },
+    { key: 'mdi', name: 'MDI', type: 'line', overlay: false },
+    { key: 'adx', name: 'ADX', type: 'line', overlay: false },
+    { key: 'adxr', name: 'ADXR', type: 'line', overlay: false },
   ],
-  calc: (dataList, indicator) => {
-    const params = indicator.calcParams
+  calc: (dataList) => {
+    const period = 14
+    const adxPeriod = 6
+    const len = dataList.length
+    const pdiData = Array<number | null>(len).fill(null)
+    const mdiData = Array<number | null>(len).fill(null)
+    const adxData = Array<number | null>(len).fill(null)
+    const adxrData = Array<number | null>(len).fill(null)
+
     let trSum = 0
     let hSum = 0
     let lSum = 0
@@ -57,9 +55,9 @@ const directionalMovementIndex: IndicatorTemplate<Dmi, number> = {
     let dmm = 0
     let dxSum = 0
     let adx = 0
-    const result: Dmi[] = []
-    dataList.forEach((kLineData, i) => {
-      const dmi: Dmi = {}
+
+    for (let i = 0; i < len; i += 1) {
+      const kLineData = dataList[i]
       const prevKLineData = dataList[i - 1] ?? kLineData
       const preClose = prevKLineData.close
       const high = kLineData.high
@@ -75,11 +73,11 @@ const directionalMovementIndex: IndicatorTemplate<Dmi, number> = {
       trSum += tr
       hSum += h
       lSum += l
-      if (i >= params[0] - 1) {
-        if (i > params[0] - 1) {
-          mtr = mtr - mtr / params[0] + tr
-          dmp = dmp - dmp / params[0] + h
-          dmm = dmm - dmm / params[0] + l
+      if (i >= period - 1) {
+        if (i > period - 1) {
+          mtr = mtr - mtr / period + tr
+          dmp = dmp - dmp / period + h
+          dmm = dmm - dmm / period + l
         } else {
           mtr = trSum
           dmp = hSum
@@ -91,29 +89,37 @@ const directionalMovementIndex: IndicatorTemplate<Dmi, number> = {
           pdi = dmp * 100 / mtr
           mdi = dmm * 100 / mtr
         }
-        dmi.pdi = pdi
-        dmi.mdi = mdi
+        pdiData[i] = pdi
+        mdiData[i] = mdi
         let dx = 0
         if (mdi + pdi !== 0) {
           dx = Math.abs((mdi - pdi)) / (mdi + pdi) * 100
         }
         dxSum += dx
-        if (i >= params[0] * 2 - 2) {
-          if (i > params[0] * 2 - 2) {
-            adx = (adx * (params[0] - 1) + dx) / params[0]
+        if (i >= period * 2 - 2) {
+          if (i > period * 2 - 2) {
+            adx = (adx * (period - 1) + dx) / period
           } else {
-            adx = dxSum / params[0]
+            adx = dxSum / period
           }
-          dmi.adx = adx
-          if (i >= params[0] * 2 + params[1] - 3) {
-            dmi.adxr = ((result[i - (params[1] - 1)].adx ?? 0) + adx) / 2
+          adxData[i] = adx
+          if (i >= period * 2 + adxPeriod - 3) {
+            const prevAdx = adxData[i - (adxPeriod - 1)] ?? 0
+            adxrData[i] = (prevAdx + adx) / 2
           }
         }
       }
-      result.push(dmi)
-    })
-    return result
-  }
-}
+    }
+
+    return {
+      plots: [
+        { key: 'pdi', name: 'PDI', data: pdiData, type: 'line', overlay: false },
+        { key: 'mdi', name: 'MDI', data: mdiData, type: 'line', overlay: false },
+        { key: 'adx', name: 'ADX', data: adxData, type: 'line', overlay: false },
+        { key: 'adxr', name: 'ADXR', data: adxrData, type: 'line', overlay: false },
+      ],
+    }
+  },
+})
 
 export default directionalMovementIndex

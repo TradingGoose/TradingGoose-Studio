@@ -12,34 +12,32 @@
  * limitations under the License.
  */
 
-import type { IndicatorTemplate } from 'klinecharts'
-
-interface Brar {
-  br?: number
-  ar?: number
-  [key: string]: number | undefined
-}
+import { createDefaultIndicator } from './create-default-indicator'
 
 /**
  * BRAR
  *
  */
-const brar: IndicatorTemplate<Brar, number> = {
+const brar = createDefaultIndicator({
+  id: 'BRAR',
   name: 'Brar',
-  shortName: 'BRAR',
-  calcParams: [26],
-  figures: [
-    { key: 'br', title: 'BR: ', type: 'line' },
-    { key: 'ar', title: 'AR: ', type: 'line' }
+  plots: [
+    { key: 'br', name: 'BR', type: 'line', overlay: false },
+    { key: 'ar', name: 'AR', type: 'line', overlay: false },
   ],
-  calc: (dataList, indicator) => {
-    const params = indicator.calcParams
+  calc: (dataList) => {
+    const period = 26
+    const len = dataList.length
+    const brData = Array<number | null>(len).fill(null)
+    const arData = Array<number | null>(len).fill(null)
+
     let hcy = 0
     let cyl = 0
     let ho = 0
     let ol = 0
-    return dataList.map((kLineData, i) => {
-      const brar: Brar = {}
+
+    for (let i = 0; i < len; i += 1) {
+      const kLineData = dataList[i]
       const high = kLineData.high
       const low = kLineData.low
       const open = kLineData.open
@@ -48,30 +46,28 @@ const brar: IndicatorTemplate<Brar, number> = {
       ol += (open - low)
       hcy += (high - prevClose)
       cyl += (prevClose - low)
-      if (i >= params[0] - 1) {
-        if (ol !== 0) {
-          brar.ar = ho / ol * 100
-        } else {
-          brar.ar = 0
-        }
-        if (cyl !== 0) {
-          brar.br = hcy / cyl * 100
-        } else {
-          brar.br = 0
-        }
-        const agoKLineData = dataList[i - (params[0] - 1)]
+      if (i >= period - 1) {
+        arData[i] = ol !== 0 ? ho / ol * 100 : 0
+        brData[i] = cyl !== 0 ? hcy / cyl * 100 : 0
+        const agoKLineData = dataList[i - (period - 1)]
         const agoHigh = agoKLineData.high
         const agoLow = agoKLineData.low
         const agoOpen = agoKLineData.open
-        const agoPreClose = (dataList[i - params[0]] ?? dataList[i - (params[0] - 1)]).close
+        const agoPreClose = (dataList[i - period] ?? dataList[i - (period - 1)]).close
         hcy -= (agoHigh - agoPreClose)
         cyl -= (agoPreClose - agoLow)
         ho -= (agoHigh - agoOpen)
         ol -= (agoOpen - agoLow)
       }
-      return brar
-    })
-  }
-}
+    }
+
+    return {
+      plots: [
+        { key: 'br', name: 'BR', data: brData, type: 'line', overlay: false },
+        { key: 'ar', name: 'AR', data: arData, type: 'line', overlay: false },
+      ],
+    }
+  },
+})
 
 export default brar

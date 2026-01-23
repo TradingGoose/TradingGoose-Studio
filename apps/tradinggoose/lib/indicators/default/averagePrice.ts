@@ -12,39 +12,43 @@
  * limitations under the License.
  */
 
-import type { IndicatorTemplate } from 'klinecharts'
-
-interface Avp {
-  avp?: number
-  [key: string]: number | undefined
-}
+import { createDefaultIndicator } from './create-default-indicator'
 
 /**
  * average price
  */
-const averagePrice: IndicatorTemplate<Avp> = {
+const averagePrice = createDefaultIndicator({
+  id: 'AVP',
   name: 'Average Price',
-  shortName: 'AVP',
   series: 'price',
   precision: 2,
-  figures: [
-    { key: 'avp', title: 'AVP: ', type: 'line' }
+  plots: [
+    { key: 'avp', name: 'AVP', type: 'line', overlay: true },
   ],
   calc: (dataList) => {
+    const len = dataList.length
+    const avpData = Array<number | null>(len).fill(null)
+
     let totalTurnover = 0
     let totalVolume = 0
-    return dataList.map((kLineData) => {
-      const avp: Avp = {}
-      const turnover = kLineData.turnover ?? 0
-      const volume = kLineData.volume ?? 0
+
+    for (let i = 0; i < len; i += 1) {
+      const kLineData = dataList[i]
+      const turnover = kLineData?.turnover ?? 0
+      const volume = kLineData?.volume ?? 0
       totalTurnover += turnover
       totalVolume += volume
       if (totalVolume !== 0) {
-        avp.avp = totalTurnover / totalVolume
+        avpData[i] = totalTurnover / totalVolume
       }
-      return avp
-    })
-  }
-}
+    }
+
+    return {
+      plots: [
+        { key: 'avp', name: 'AVP', data: avpData, type: 'line', overlay: true },
+      ],
+    }
+  },
+})
 
 export default averagePrice

@@ -12,50 +12,62 @@
  * limitations under the License.
  */
 
-import type { IndicatorTemplate } from 'klinecharts'
-
-interface Psy {
-  psy: number
-  maPsy: number
-  [key: string]: number | undefined
-}
+import { createDefaultIndicator } from './create-default-indicator'
 
 /**
  * PSY
  */
-const psychologicalLine: IndicatorTemplate<Psy, number> = {
+const psychologicalLine = createDefaultIndicator({
+  id: 'PSY',
   name: 'Psychological Line',
-  shortName: 'PSY',
-  calcParams: [12, 6],
-  figures: [
-    { key: 'psy', title: 'PSY: ', type: 'line' },
-    { key: 'maPsy', title: 'MAPSY: ', type: 'line' }
+  plots: [
+    { key: 'psy', name: 'PSY', type: 'line', overlay: false },
+    { key: 'ma_psy', name: 'MAPSY', type: 'line', overlay: false },
   ],
-  calc: (dataList, indicator) => {
-    const params = indicator.calcParams
+  calc: (dataList) => {
+    const period = 12
+    const maPeriod = 6
+    const len = dataList.length
+    const psyData = Array<number | null>(len).fill(null)
+    const maData = Array<number | null>(len).fill(null)
+
     let upCount = 0
     let psySum = 0
-    const upList: number[] = []
-    const result: Psy[] = []
-    dataList.forEach((kLineData, i) => {
-      const psy: Psy = { psy: 0, maPsy: 0 }
-      const prevClose = (dataList[i - 1] ?? kLineData).close
-      const upFlag = kLineData.close - prevClose > 0 ? 1 : 0
-      upList.push(upFlag)
+    const upFlags: number[] = []
+
+    for (let i = 0; i < len; i += 1) {
+      const close = dataList[i]?.close
+      const prevClose = i > 0 ? dataList[i - 1].close : close
+      const upFlag = close > prevClose ? 1 : 0
+
+      upFlags.push(upFlag)
       upCount += upFlag
-      if (i >= params[0] - 1) {
-        psy.psy = upCount / params[0] * 100
-        psySum += psy.psy
-        if (i >= params[0] + params[1] - 2) {
-          psy.maPsy = psySum / params[1]
-          psySum -= (result[i - (params[1] - 1)].psy ?? 0)
+
+      if (i >= period - 1) {
+        const psy = (upCount / period) * 100
+        psyData[i] = psy
+        psySum += psy
+
+        if (i >= period + maPeriod - 2) {
+          maData[i] = psySum / maPeriod
+          const removeIndex = i - (maPeriod - 1)
+          const removeValue = psyData[removeIndex]
+          if (typeof removeValue === 'number') {
+            psySum -= removeValue
+          }
         }
-        upCount -= upList[i - (params[0] - 1)]
+
+        upCount -= upFlags[i - (period - 1)]
       }
-      result.push(psy)
-    })
-    return result
-  }
-}
+    }
+
+    return {
+      plots: [
+        { key: 'psy', name: 'PSY', data: psyData, type: 'line', overlay: false },
+        { key: 'ma_psy', name: 'MAPSY', data: maData, type: 'line', overlay: false },
+      ],
+    }
+  },
+})
 
 export default psychologicalLine

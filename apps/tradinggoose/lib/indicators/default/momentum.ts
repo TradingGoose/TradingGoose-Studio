@@ -12,45 +12,51 @@
  * limitations under the License.
  */
 
-import type { IndicatorTemplate } from 'klinecharts'
-
-interface Mtm {
-  mtm?: number
-  maMtm?: number
-  [key: string]: number | undefined
-}
+import { createDefaultIndicator } from './create-default-indicator'
 
 /**
  * mtm
  */
-const momentum: IndicatorTemplate<Mtm, number> = {
+const momentum = createDefaultIndicator({
+  id: 'MTM',
   name: 'Momentum',
-  shortName: 'MTM',
-  calcParams: [12, 6],
-  figures: [
-    { key: 'mtm', title: 'MTM: ', type: 'line' },
-    { key: 'maMtm', title: 'MAMTM: ', type: 'line' }
+  plots: [
+    { key: 'mtm', name: 'MTM', type: 'line', overlay: false },
+    { key: 'maMtm', name: 'MAMTM', type: 'line', overlay: false },
   ],
-  calc: (dataList, indicator) => {
-    const params = indicator.calcParams
+  calc: (dataList) => {
+    const period = 12
+    const maPeriod = 6
+    const len = dataList.length
+    const mtmData = Array<number | null>(len).fill(null)
+    const maMtmData = Array<number | null>(len).fill(null)
+
     let mtmSum = 0
-    const result: Mtm[] = []
-    dataList.forEach((kLineData, i) => {
-      const mtm: Mtm = {}
-      if (i >= params[0]) {
-        const close = kLineData.close
-        const agoClose = dataList[i - params[0]].close
-        mtm.mtm = close - agoClose
-        mtmSum += mtm.mtm
-        if (i >= params[0] + params[1] - 1) {
-          mtm.maMtm = mtmSum / params[1]
-          mtmSum -= (result[i - (params[1] - 1)].mtm ?? 0)
+
+    for (let i = 0; i < len; i += 1) {
+      if (i >= period) {
+        const close = dataList[i].close
+        const agoClose = dataList[i - period].close
+        const mtmValue = close - agoClose
+        mtmData[i] = mtmValue
+        mtmSum += mtmValue
+        if (i >= period + maPeriod - 1) {
+          maMtmData[i] = mtmSum / maPeriod
+          const removeValue = mtmData[i - (maPeriod - 1)]
+          if (typeof removeValue === 'number') {
+            mtmSum -= removeValue
+          }
         }
       }
-      result.push(mtm)
-    })
-    return result
-  }
-}
+    }
+
+    return {
+      plots: [
+        { key: 'mtm', name: 'MTM', data: mtmData, type: 'line', overlay: false },
+        { key: 'maMtm', name: 'MAMTM', data: maMtmData, type: 'line', overlay: false },
+      ],
+    }
+  },
+})
 
 export default momentum
