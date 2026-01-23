@@ -29,6 +29,14 @@ export const MARKET_INTERVALS = [
 ] as const
 export type MarketInterval = (typeof MARKET_INTERVALS)[number]
 
+export type MarketRangeUnit = 'day' | 'week' | 'month' | 'year'
+
+export interface MarketSeriesWindow {
+  mode: 'bars' | 'range'
+  barCount?: number
+  range?: { value: number; unit: MarketRangeUnit }
+}
+
 export type MarketDataAvailability = {
   assetClass: AssetClass[]
   availableEquityQuote?: string[]
@@ -54,6 +62,7 @@ export interface MarketBar {
   low?: number
   close: number
   volume?: number
+  turnover?: number
 }
 
 export const NORMALIZATION_MODES = [
@@ -92,6 +101,7 @@ export interface MarketSeriesRequest extends MarketRequestBase {
   kind: 'series'
   interval?: string
   normalizationMode?: NormalizationMode
+  window?: MarketSeriesWindow
 }
 
 export interface MarketLiveRequest extends MarketRequestBase {

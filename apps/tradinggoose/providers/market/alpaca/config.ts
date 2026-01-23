@@ -194,7 +194,6 @@ export const alpacaProviderConfig: MarketProviderConfig = {
         '1h',
         '2h',
         '3h',
-        '4h',
         '1d',
         '1w',
         '1mo',
@@ -204,6 +203,9 @@ export const alpacaProviderConfig: MarketProviderConfig = {
       ],
       supportsStartEnd: true,
       normalizationModes: ['raw', 'adjusted', 'split_adjusted'],
+      retention: {
+        default: { maxBars: 10000 },
+      },
     },
     live: {
       supportsStreaming: true,

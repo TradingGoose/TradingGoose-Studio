@@ -97,15 +97,24 @@ export const proxyMarketRequest = async (
   try {
     const method = request.method.toUpperCase()
     const scope = pathSegments?.[0]
-    if (!pathSegments || (scope !== 'search' && scope !== 'update')) {
+    const isSearch = scope === 'search'
+    const isUpdate = scope === 'update'
+    const isGet = scope === 'get'
+    const isValidate = scope === 'validate-key'
+
+    if (!pathSegments || (!isSearch && !isUpdate && !isGet && !isValidate)) {
       return NextResponse.json({ error: 'Not Found' }, { status: 404 })
     }
     const allowMethod =
-      (scope === 'search' && method === 'GET') || (scope === 'update' && method === 'POST')
+      (isSearch && method === 'GET') ||
+      (isGet && method === 'GET') ||
+      (isUpdate && method === 'POST') ||
+      (isValidate && (method === 'GET' || method === 'POST'))
     if (!allowMethod) {
+      const allowHeader = isValidate ? 'GET, POST' : isUpdate ? 'POST' : 'GET'
       return NextResponse.json(
         { error: 'Method Not Allowed' },
-        { status: 405, headers: { Allow: scope === 'search' ? 'GET' : 'POST' } }
+        { status: 405, headers: { Allow: allowHeader } }
       )
     }
     const headers = buildForwardHeaders(request)
@@ -116,7 +125,7 @@ export const proxyMarketRequest = async (
       targetUrl,
     })
 
-    if (scope === 'search') {
+    if (method === 'GET') {
       const target = new URL(targetUrl)
       if (!target.searchParams.get('version')) {
         target.searchParams.set('version', version)

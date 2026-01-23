@@ -203,11 +203,23 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
   transformResponse: async (response: Response) => {
     const data = await response.json().catch(() => ({}))
 
+    const resolveErrorMessage = (payload: any, fallback: string) => {
+      const raw = payload?.error
+      if (!raw) return fallback
+      if (typeof raw === 'string') return raw
+      if (typeof raw === 'object') {
+        const message = typeof raw.message === 'string' ? raw.message : fallback
+        const code = typeof raw.code === 'string' ? raw.code : ''
+        return code ? `${code}: ${message}` : message
+      }
+      return fallback
+    }
+
     if (!response.ok) {
       return {
         success: false,
         output: data || {},
-        error: (data as any)?.error || response.statusText,
+        error: resolveErrorMessage(data, response.statusText),
       }
     }
 

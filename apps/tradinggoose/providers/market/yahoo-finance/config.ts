@@ -362,6 +362,17 @@ export const YahooFinanceProviderConfig: MarketProviderConfig = {
       ],
       supportsStartEnd: true,
       normalizationModes: ['raw', 'adjusted'],
+      retention: {
+        default: { maxRangeDays: 60 },
+        byInterval: {
+          '1m': { maxRangeDays: 7 },
+          '2m': { maxRangeDays: 60 },
+          '5m': { maxRangeDays: 60 },
+          '15m': { maxRangeDays: 60 },
+          '30m': { maxRangeDays: 60 },
+          '1h': { maxRangeDays: 60 },
+        },
+      },
     },
   },
   rulePrecedence: {

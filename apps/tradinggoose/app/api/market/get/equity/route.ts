@@ -5,14 +5,14 @@ import { buildQueryParams, optionalString } from '@/app/api/market/search/valida
 
 export const dynamic = 'force-dynamic'
 
-const EquityRankSchema = z.object({
+const GetEquitySchema = z.object({
   equity_id: optionalString,
   equityId: optionalString,
 })
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   const params = buildQueryParams(request, ['equity_id', 'equityId'])
-  const parsed = EquityRankSchema.safeParse(params)
+  const parsed = GetEquitySchema.safeParse(params)
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -26,7 +26,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'equity_id is required.' }, { status: 400 })
   }
 
-  // Market API still expects equity_id for equities.
-  const searchParams = new URLSearchParams({ equity_id: equityId })
-  return proxyMarketRequest(request, ['update', 'equity-rank'], searchParams)
+  const searchParams = new URLSearchParams(request.nextUrl.searchParams)
+  searchParams.set('equity_id', equityId)
+  searchParams.delete('equityId')
+
+  return proxyMarketRequest(request, ['get', 'equity'], searchParams)
 }

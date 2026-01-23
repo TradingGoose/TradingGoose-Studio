@@ -70,6 +70,15 @@ export const finnhubProviderConfig: MarketProviderConfig = {
       intervals: ['1m', '5m', '15m', '30m', '1h', '1d', '1w', '1mo'],
       supportsStartEnd: true,
       normalizationModes: [],
+      retention: {
+        byInterval: {
+          '1m': { maxRangeDays: 365 },
+          '5m': { maxRangeDays: 365 },
+          '15m': { maxRangeDays: 365 },
+          '30m': { maxRangeDays: 365 },
+          '1h': { maxRangeDays: 365 },
+        },
+      },
     },
     live: {
       supportsStreaming: true,

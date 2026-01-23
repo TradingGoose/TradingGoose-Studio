@@ -1,4 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import type { TimeFormat } from '@/lib/time-format'
 import type { ParameterVisibility, ToolConfig } from '@/tools/types'
 import { getTool } from '@/tools/utils'
 
@@ -18,7 +19,9 @@ export interface UIComponentConfig {
   type: string
   options?: Option[]
   placeholder?: string
+  format?: TimeFormat
   password?: boolean
+  inputType?: 'text' | 'number'
   condition?: ComponentCondition
   title?: string
   layout?: string
@@ -63,7 +66,9 @@ export interface SubBlockConfig {
   title?: string
   options?: Option[]
   placeholder?: string
+  format?: TimeFormat
   password?: boolean
+  inputType?: 'text' | 'number'
   condition?: ComponentCondition
   layout?: string
   value?: unknown

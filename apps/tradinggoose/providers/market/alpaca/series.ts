@@ -34,6 +34,8 @@ const ALPACA_INTERVAL_MAP: Partial<Record<MarketInterval, string>> = {
 const ALPACA_TIMEFRAMES = new Set(Object.values(ALPACA_INTERVAL_MAP))
 const DEFAULT_TIMEFRAME = ALPACA_INTERVAL_MAP['1d'] ?? '1Day'
 
+const DAY_MS = 24 * 60 * 60 * 1000
+
 function toIsoString(value?: string | number): string | undefined {
   if (value === undefined || value === null) return undefined
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -47,17 +49,44 @@ function toIsoString(value?: string | number): string | undefined {
   return undefined
 }
 
+function parseRangeMs(range?: string): number | null {
+  if (!range) return null
+  const match = String(range).trim().toLowerCase().match(/^(\d+)(d|w|mo|y)$/)
+  if (!match) return null
+  const value = Number(match[1])
+  if (!Number.isFinite(value) || value <= 0) return null
+  const unit = match[2]
+  if (unit === 'd') return value * DAY_MS
+  if (unit === 'w') return value * 7 * DAY_MS
+  if (unit === 'mo') return value * 30 * DAY_MS
+  if (unit === 'y') return value * 365 * DAY_MS
+  return null
+}
+
+function intervalToMs(interval?: string): number | null {
+  if (!interval) return null
+  const match = String(interval).trim().toLowerCase().match(/^(\d+)(mo|m|h|d|w)$/)
+  if (!match) return null
+  const value = Number(match[1])
+  if (!Number.isFinite(value) || value <= 0) return null
+  const unit = match[2]
+  if (unit === 'm') return value * 60 * 1000
+  if (unit === 'h') return value * 60 * 60 * 1000
+  if (unit === 'd') return value * DAY_MS
+  if (unit === 'w') return value * 7 * DAY_MS
+  if (unit === 'mo') return value * 30 * DAY_MS
+  return null
+}
+
 function resolveTimeRange(request: MarketSeriesRequest): { start?: string; end?: string } {
-  const now = Date.now()
-  const end = toIsoString(request.end ?? now) ?? new Date(now).toISOString()
-  const startFallback = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString()
-  const start = toIsoString(request.start) ?? startFallback
+  const start = toIsoString(request.start)
+  const end = toIsoString(request.end)
 
   if (start && end) {
     const startMs = Date.parse(start)
     const endMs = Date.parse(end)
     if (Number.isFinite(startMs) && Number.isFinite(endMs) && startMs >= endMs) {
-      return { start: startFallback, end: new Date(now).toISOString() }
+      return { start, end: undefined }
     }
   }
 
@@ -118,6 +147,36 @@ function resolveCredentials(params?: Record<string, any>): {
   return { keyId, secretKey }
 }
 
+async function fetchLatestBarTimestamp(
+  symbol: string,
+  feed: string | undefined,
+  headers: Record<string, string>
+): Promise<string | undefined> {
+  const url = new URL('https://data.alpaca.markets/v2/stocks/bars/latest')
+  url.searchParams.set('symbols', symbol)
+  if (feed) url.searchParams.set('feed', feed)
+
+  const response = await fetch(url.toString(), { headers })
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '')
+    throw new Error(
+      errorText || `Alpaca latest bar request failed with status ${response.status}`
+    )
+  }
+
+  const payload = (await response.json()) as {
+    bars?: Record<string, any>
+    bar?: any
+  }
+
+  const bars = payload?.bars
+  const bar =
+    (bars && (bars[symbol] || bars[symbol.toUpperCase()] || bars[symbol.toLowerCase()])) ||
+    payload?.bar
+  const timeValue = bar?.t ?? bar?.timestamp ?? bar?.time
+  return toIsoString(timeValue)
+}
+
 function resolveBars(payload: any, symbol: string): any[] {
   const bars = payload?.bars
   if (Array.isArray(bars)) return bars
@@ -148,7 +207,6 @@ export async function fetchAlpacaSeries(
     request.interval || (request.providerParams?.interval as string | undefined)
   )
 
-  const { start, end } = resolveTimeRange(request)
   const { keyId, secretKey } = resolveCredentials(request.providerParams)
 
   if (market === 'stocks' && (!keyId || !secretKey)) {
@@ -158,6 +216,49 @@ export async function fetchAlpacaSeries(
   const cryptoRegion = String(
     request.providerParams?.region ?? request.providerParams?.cryptoRegion ?? 'us'
   ).toLowerCase()
+
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  }
+
+  if (keyId && secretKey) {
+    headers['APCA-API-KEY-ID'] = keyId
+    headers['APCA-API-SECRET-KEY'] = secretKey
+  }
+
+  const limit = request.providerParams?.limit as string | number | undefined
+  const sort = request.providerParams?.sort as string | undefined
+  const feed =
+    market === 'stocks'
+      ? (request.providerParams?.feed as string | undefined) ||
+        (request.providerParams?.dataFeed as string | undefined) ||
+        'iex'
+      : undefined
+
+  const { start: explicitStart, end: explicitEnd } = resolveTimeRange(request)
+  let start = explicitStart
+  let end = explicitEnd
+
+  if (!start && !end && limit && market === 'stocks') {
+    const latestEnd = await fetchLatestBarTimestamp(symbol, feed, headers)
+    const rangeParam = request.providerParams?.range as string | undefined
+    const intervalMs = intervalToMs(
+      request.interval || (request.providerParams?.interval as string | undefined)
+    )
+    const rangeMs =
+      parseRangeMs(rangeParam) ||
+      (intervalMs && Number.isFinite(Number(limit))
+        ? Number(limit) * intervalMs
+        : null)
+
+    if (latestEnd && rangeMs && Number.isFinite(rangeMs)) {
+      const endMs = Date.parse(latestEnd)
+      if (Number.isFinite(endMs)) {
+        end = new Date(endMs).toISOString()
+        start = new Date(endMs - rangeMs).toISOString()
+      }
+    }
+  }
 
   const url =
     market === 'crypto'
@@ -169,11 +270,12 @@ export async function fetchAlpacaSeries(
   if (start) url.searchParams.set('start', start)
   if (end) url.searchParams.set('end', end)
 
-  const limit = request.providerParams?.limit as string | number | undefined
   if (limit) url.searchParams.set('limit', String(limit))
 
-  const sort = request.providerParams?.sort as string | undefined
-  if (sort) url.searchParams.set('sort', sort)
+  const shouldDefaultSort = !sort && limit && !start && !end
+  if (sort || shouldDefaultSort) {
+    url.searchParams.set('sort', sort ?? 'desc')
+  }
 
   const asof = toIsoString(request.providerParams?.asof as string | number | undefined)
   if (asof) url.searchParams.set('asof', asof)
@@ -182,7 +284,6 @@ export async function fetchAlpacaSeries(
   if (currency) url.searchParams.set('currency', currency)
 
   if (market === 'stocks') {
-    const feed = request.providerParams?.feed as string | undefined
     if (feed) url.searchParams.set('feed', feed)
 
     const adjustment = resolveAdjustment(
@@ -204,16 +305,10 @@ export async function fetchAlpacaSeries(
     timeframe,
     start,
     end,
+    limit,
+    sort: sort ?? (limit && !start && !end ? 'desc' : undefined),
+    feed: market === 'stocks' ? url.searchParams.get('feed') : undefined,
   })
-
-  const headers: Record<string, string> = {
-    Accept: 'application/json',
-  }
-
-  if (keyId && secretKey) {
-    headers['APCA-API-KEY-ID'] = keyId
-    headers['APCA-API-SECRET-KEY'] = secretKey
-  }
 
   const response = await fetch(url.toString(), { headers })
 
