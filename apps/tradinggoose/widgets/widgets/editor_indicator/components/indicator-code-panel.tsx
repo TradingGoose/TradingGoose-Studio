@@ -9,6 +9,7 @@ import {
   type MutableRefObject,
 } from 'react'
 import { EnvVarDropdown, checkEnvVarTrigger } from '@/components/ui/env-var-dropdown'
+import { Notice } from '@/components/ui/notice'
 import type { MonacoEditorHandle } from '@/components/monaco-editor'
 import { useWand } from '@/hooks/workflow/use-wand'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
@@ -29,19 +30,47 @@ const INDICATOR_WAND_PROMPTS: Record<
   { prompt: string; placeholder: string }
 > = {
   calc: {
-    prompt: `You are an expert JavaScript developer building KLineCharts custom indicators.
-Generate ONLY the raw JavaScript code for the indicator script.
-The script is executed as: calc(dataList, indicator).
-Return an object shaped like:
-{ plots: [{ name?: string, key?: string, data: (number|null)[], color?: string, type?: string, overlay?: boolean }], signals: [{ type: "buy"|"sell", data: (number|null)[], text?: string, color?: string }] }
-Use plots to render multiple outputs; overlay=true draws on the main chart.
+    prompt: `# Role
+You are an expert TypeScript developer building KLineCharts custom indicators.
+
+# Runtime
+- The script is executed as the body of: calc(dataList, indicator).
+- Output raw TypeScript/JavaScript only. No markdown, no explanations.
+- Do NOT include import/export, require, or a function wrapper/signature.
+- Network access is unavailable; use standard JS only (Math, Date, etc).
+- Do not read future bars; signals are assumed confirmed on bar close.
+
+# Inputs
+- dataList: Array of KLineData with fields: timestamp, open, high, low, close, volume (volume optional).
+- indicator: { id?: string, name?: string, color?: string }.
+
+# Output (strict)
+Return a single object with this shape:
+{
+  name?: string,
+  plots: [{ name?: string, key?: string, data: (number|null)[], color?: string, type?: string, overlay?: boolean, style?: string }],
+  signals?: [{ type: "buy"|"sell", data: (number|null)[], text?: string, color?: string, textData?: (string|null)[] }]
+}
+- Every data array must match dataList.length; use null for "no value".
+- overlay=true draws on the main chart; set overlay=false (at least one plot) for its own pane.
+- The final statement MUST be: return { ... } (do not start with a bare object literal).
+- If signals are included, signal data values should be price levels (close/low/high) so markers render on the chart.
+
+# Scoping
+- If plots and signals share calculations, compute them once in the outer scope (e.g., const smaValues = ...).
+- Do NOT reference variables defined inside plots/signals IIFEs from other sections.
+
+# Robustness (important)
+- Guard against NaN/Infinity and divide-by-zero; coerce invalid numbers to null.
+- Avoid overly strict logic that yields zero buy or zero sell signals unless explicitly requested.
+- Prefer edge-triggered signals to avoid repeated consecutive markers (e.g., buy = rawBuy && !prevRawBuy).
 
 Current script code: {context}
 
 Rules:
-1. Output raw JavaScript only (no markdown, no explanations).
-2. Do NOT include a function wrapper or signature.
-3. Use return to output the result.`,
+1) Output raw TypeScript/JavaScript only.
+2) Do NOT include a function wrapper or signature.
+3) Use return to output the result.`,
     placeholder: 'Describe the indicator logic to generate...',
   },
 }
@@ -51,6 +80,7 @@ type IndicatorCodePanelProps = {
   indicatorId: string
   workspaceId: string
   saveRef: MutableRefObject<() => void>
+  verifyRef: MutableRefObject<() => void>
 }
 
 export function IndicatorCodePanel({
@@ -58,10 +88,18 @@ export function IndicatorCodePanel({
   indicatorId,
   workspaceId,
   saveRef,
+  verifyRef,
 }: IndicatorCodePanelProps) {
   const updateMutation = useUpdateCustomIndicator()
 
   const [calcCode, setCalcCode] = useState('')
+  const [verifyStatus, setVerifyStatus] = useState<
+    | { state: 'idle' }
+    | { state: 'running' }
+    | { state: 'success'; message: string; warnings: string[] }
+    | { state: 'warning'; message: string; warnings: string[] }
+    | { state: 'error'; message: string }
+  >({ state: 'idle' })
 
   const [showEnvVars, setShowEnvVars] = useState(false)
   const [envVarSearchTerm, setEnvVarSearchTerm] = useState('')
@@ -123,9 +161,64 @@ export function IndicatorCodePanel({
     }
   }, [workspaceId, indicatorId, updateMutation, calcCode])
 
+  const handleVerify = useCallback(async () => {
+    if (!workspaceId) return
+    if (verifyStatus.state === 'running') return
+
+    setVerifyStatus({ state: 'running' })
+
+    try {
+      const response = await fetch('/api/indicators/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspaceId, code: calcCode }),
+      })
+
+      const payload = await response.json().catch(() => ({}))
+
+      if (!response.ok || !payload?.success) {
+        const message =
+          payload?.error || `Verification failed (${response.status} ${response.statusText})`
+        setVerifyStatus({ state: 'error', message })
+        return
+      }
+
+      const warnings = Array.isArray(payload?.data?.warnings)
+        ? payload.data.warnings
+          .map((warning: { message?: string }) => warning?.message)
+          .filter((warning): warning is string => Boolean(warning))
+        : []
+      const plotsCount = payload?.data?.plotsCount ?? 0
+      const signalsCount = payload?.data?.signalsCount ?? 0
+      const baseMessage = `Verification passed (${plotsCount} plot${plotsCount === 1 ? '' : 's'}, ${signalsCount} signal${signalsCount === 1 ? '' : 's'}).`
+
+      if (warnings.length > 0) {
+        setVerifyStatus({
+          state: 'warning',
+          message: baseMessage,
+          warnings,
+        })
+        return
+      }
+
+      setVerifyStatus({
+        state: 'success',
+        message: baseMessage,
+        warnings: [],
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Verification failed.'
+      setVerifyStatus({ state: 'error', message })
+    }
+  }, [workspaceId, calcCode, verifyStatus.state])
+
   useEffect(() => {
     saveRef.current = handleSave
   }, [handleSave, saveRef])
+
+  useEffect(() => {
+    verifyRef.current = handleVerify
+  }, [handleVerify, verifyRef])
 
   const updateCursorState = (
     value: string,
@@ -222,9 +315,9 @@ type IndicatorOutput = {
   const activeWandPlaceholder = INDICATOR_WAND_PROMPTS.calc.placeholder
 
   return (
-    <div className='flex h-full w-full flex-col overflow-hidden p-3'>
+    <div className='flex h-full w-full flex-col overflow-hidden p-2'>
 
-      <div className='space-y-3'>
+      <div className='space-y-2'>
         <div className='rounded-md bg-muted/50 p-2 text-xs text-muted-foreground'>
           <div className='flex flex-wrap items-center gap-1'>
             <span className='font-medium'>Globals:</span>
@@ -233,9 +326,46 @@ type IndicatorOutput = {
             Return <code className='rounded bg-background px-1 py-0.5 text-foreground'>{`{ plots, signals }`}</code>.
           </div>
         </div>
+        {verifyStatus.state !== 'idle' && (
+          <Notice
+            variant={
+              verifyStatus.state === 'error'
+                ? 'error'
+                : verifyStatus.state === 'warning'
+                  ? 'warning'
+                  : verifyStatus.state === 'success'
+                    ? 'success'
+                    : 'info'
+            }
+            title={
+              verifyStatus.state === 'running'
+                ? 'Verifying indicator...'
+                : verifyStatus.state === 'error'
+                  ? 'Verification failed'
+                  : verifyStatus.state === 'warning'
+                    ? 'Verification warnings'
+                    : 'Verification passed'
+            }
+          >
+            {verifyStatus.state === 'running' && 'Running server-side verification with mock data.'}
+            {verifyStatus.state === 'error' && verifyStatus.message}
+            {(verifyStatus.state === 'success' || verifyStatus.state === 'warning') && (
+              <div className='space-y-1'>
+                <div>{verifyStatus.message}</div>
+                {verifyStatus.warnings.length > 0 && (
+                  <ul className='list-disc space-y-1 pl-4'>
+                    {verifyStatus.warnings.map((warning) => (
+                      <li key={warning}>{warning}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </Notice>
+        )}
       </div>
 
-      <div ref={codeEditorRef} className='relative mt-3 flex-1 rounded-md'>
+      <div ref={codeEditorRef} className='relative mt-3 flex min-h-0 flex-1 flex-col rounded-md'>
         <WandPromptBar
           isVisible={activeWand.isPromptVisible}
           isLoading={activeWand.isLoading}
@@ -255,6 +385,7 @@ type IndicatorOutput = {
           language='typescript'
           placeholder='// Write indicator code here. Return { plots, signals }. Use {{ENV_VAR}} for environment variables.'
           minHeight='360px'
+          className='flex-1 min-h-0'
           highlightVariables={true}
           editorHandleRef={codeEditorHandleRef}
           onCursorChange={handleCursorChange}

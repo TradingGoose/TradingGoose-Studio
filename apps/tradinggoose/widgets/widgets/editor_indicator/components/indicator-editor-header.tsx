@@ -1,7 +1,7 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import { Save } from 'lucide-react'
+import { Check, Save } from 'lucide-react'
 import { usePairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import { IndicatorDropdown } from '@/widgets/widgets/components/indicator-dropdown'
@@ -99,6 +99,53 @@ export function IndicatorEditorSaveButton({
       disabled={saveDisabled}
     >
       <Save />
+    </Button>
+  )
+}
+
+interface IndicatorEditorVerifyButtonProps {
+  workspaceId?: string
+  indicatorId?: string | null
+  panelId?: string
+  widgetKey?: string
+  pairColor?: PairColor
+}
+
+export function IndicatorEditorVerifyButton({
+  workspaceId,
+  indicatorId,
+  panelId,
+  widgetKey,
+  pairColor = 'gray',
+}: IndicatorEditorVerifyButtonProps) {
+  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
+  const isLinkedToColorPair = resolvedPairColor !== 'gray'
+  const pairContext = usePairColorContext(resolvedPairColor)
+
+  const handleVerify = () => {
+    emitIndicatorEditorAction({
+      action: 'verify',
+      panelId,
+      widgetKey,
+    })
+  }
+
+  const resolvedIndicatorId = isLinkedToColorPair
+    ? pairContext?.indicatorId ?? null
+    : indicatorId ?? null
+  const verifyDisabled = !workspaceId || !resolvedIndicatorId
+
+  return (
+    <Button
+      type='button'
+      variant='secondary'
+      size='sm'
+      className='h-7 w-7 text-xs'
+      onClick={handleVerify}
+      disabled={verifyDisabled}
+      title='Verify indicator'
+    >
+      <Check />
     </Button>
   )
 }

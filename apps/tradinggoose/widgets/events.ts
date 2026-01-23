@@ -24,8 +24,7 @@ export type IndicatorWidgetSelectEventDetail = {
 }
 
 export type IndicatorEditorActionEventDetail = {
-  action: 'save' | 'set-tab'
-  tab?: 'info' | 'code'
+  action: 'save' | 'verify'
   panelId?: string
   widgetKey?: string
 }

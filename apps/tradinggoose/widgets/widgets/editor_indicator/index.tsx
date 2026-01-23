@@ -6,6 +6,7 @@ import { EditorIndicatorWidgetBody } from '@/widgets/widgets/editor_indicator/ed
 import {
   IndicatorEditorSaveButton,
   IndicatorEditorSelector,
+  IndicatorEditorVerifyButton,
 } from '@/widgets/widgets/editor_indicator/components/indicator-editor-header'
 import { getIndicatorIdFromParams } from '@/widgets/widgets/editor_indicator/utils'
 
@@ -34,13 +35,22 @@ export const editorIndicatorWidget: DashboardWidgetDefinition = {
         />
       ),
       right: (
-        <IndicatorEditorSaveButton
-          workspaceId={context?.workspaceId}
-          indicatorId={indicatorId}
-          panelId={panelId}
-          widgetKey={widget?.key}
-          pairColor={widget?.pairColor}
-        />
+        <div className='flex items-center gap-2'>
+          <IndicatorEditorVerifyButton
+            workspaceId={context?.workspaceId}
+            indicatorId={indicatorId}
+            panelId={panelId}
+            widgetKey={widget?.key}
+            pairColor={widget?.pairColor}
+          />
+          <IndicatorEditorSaveButton
+            workspaceId={context?.workspaceId}
+            indicatorId={indicatorId}
+            panelId={panelId}
+            widgetKey={widget?.key}
+            pairColor={widget?.pairColor}
+          />
+        </div>
       ),
     }
   },

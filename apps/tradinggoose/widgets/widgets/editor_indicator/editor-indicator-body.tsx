@@ -50,15 +50,21 @@ export function EditorIndicatorWidgetBody({
     },
   })
   const codeSaveRef = useRef<() => void>(() => {})
+  const codeVerifyRef = useRef<() => void>(() => {})
 
   const handleSave = useCallback(() => {
     codeSaveRef.current()
+  }, [])
+
+  const handleVerify = useCallback(() => {
+    codeVerifyRef.current()
   }, [])
 
   useIndicatorEditorActions({
     panelId,
     widget,
     onSave: handleSave,
+    onVerify: handleVerify,
   })
 
   if (!workspaceId) {
@@ -96,6 +102,7 @@ export function EditorIndicatorWidgetBody({
         indicatorId={indicatorId}
         workspaceId={workspaceId}
         saveRef={codeSaveRef}
+        verifyRef={codeVerifyRef}
       />
     </div>
   )

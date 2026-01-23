@@ -10,6 +10,7 @@ interface UseIndicatorEditorActionsOptions {
   widget?: WidgetInstance | null
   onTabChange?: (tab: 'info' | 'code') => void
   onSave?: () => void
+  onVerify?: () => void
 }
 
 export function useIndicatorEditorActions({
@@ -17,12 +18,15 @@ export function useIndicatorEditorActions({
   widget,
   onTabChange,
   onSave,
+  onVerify,
 }: UseIndicatorEditorActionsOptions) {
   const saveRef = useRef(onSave)
   saveRef.current = onSave
+  const verifyRef = useRef(onVerify)
+  verifyRef.current = onVerify
 
   useEffect(() => {
-    if (!onTabChange && !saveRef.current) return
+    if (!onTabChange && !saveRef.current && !verifyRef.current) return
 
     const handleAction = (event: Event) => {
       const detail = (event as CustomEvent<IndicatorEditorActionEventDetail>).detail
@@ -30,13 +34,13 @@ export function useIndicatorEditorActions({
       if (panelId && detail.panelId && detail.panelId !== panelId) return
       if (widget?.key && detail.widgetKey && detail.widgetKey !== widget.key) return
 
-      if (detail.action === 'set-tab' && detail.tab) {
-        onTabChange?.(detail.tab)
+      if (detail.action === 'save') {
+        saveRef.current?.()
         return
       }
 
-      if (detail.action === 'save') {
-        saveRef.current?.()
+      if (detail.action === 'verify') {
+        verifyRef.current?.()
       }
     }
 
@@ -49,15 +53,13 @@ export function useIndicatorEditorActions({
 }
 
 interface EmitIndicatorEditorActionOptions {
-  action: 'save' | 'set-tab'
-  tab?: 'info' | 'code'
+  action: 'save' | 'verify'
   panelId?: string
   widgetKey?: string
 }
 
 export function emitIndicatorEditorAction({
   action,
-  tab,
   panelId,
   widgetKey,
 }: EmitIndicatorEditorActionOptions) {
@@ -65,7 +67,6 @@ export function emitIndicatorEditorAction({
     new CustomEvent<IndicatorEditorActionEventDetail>(INDICATOR_EDITOR_ACTION_EVENT, {
       detail: {
         action,
-        tab,
         panelId,
         widgetKey,
       },
