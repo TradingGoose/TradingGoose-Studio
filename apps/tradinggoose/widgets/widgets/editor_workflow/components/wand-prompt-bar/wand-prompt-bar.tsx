@@ -160,7 +160,7 @@ export function WandPromptBar({
         }
 
         .status-indicator.streaming {
-          background-color: transparent;
+          background-color: var(--primary);
         }
 
         .status-indicator.streaming::before {
@@ -170,7 +170,7 @@ export function WandPromptBar({
           border-radius: 50%;
           background: radial-gradient(
             circle,
-            var(--primary) 0%,
+            var(--primary) 10%,
             var(--primary-hover) 60%,
             transparent 80%
           );

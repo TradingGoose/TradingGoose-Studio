@@ -698,7 +698,7 @@ export function DashboardClient({
               setIsSearchOpen(false)
             }
           }}
-          className='h-9 w-full rounded-md border bg-background pr-3 pl-10 text-sm'
+          className='h-full w-full rounded-md border bg-background pr-3 pl-10 text-sm'
         />
         {showDropdown && (
           <div className='absolute top-full left-0 z-50 mt-2 w-full min-w-[220px] rounded-md border border-border bg-background shadow-lg'>

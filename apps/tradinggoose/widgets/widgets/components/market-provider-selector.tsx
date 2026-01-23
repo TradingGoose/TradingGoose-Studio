@@ -30,7 +30,6 @@ interface MarketProviderSelectorProps {
   onChange?: (providerId: string) => void
   disabled?: boolean
   placeholder?: string
-  align?: 'start' | 'end'
   triggerClassName?: string
   menuClassName?: string
 }
@@ -43,7 +42,6 @@ export function MarketProviderSelector({
   onChange,
   disabled = false,
   placeholder = DEFAULT_PLACEHOLDER,
-  align = 'start',
   triggerClassName,
   menuClassName,
 }: MarketProviderSelectorProps) {
@@ -93,7 +91,6 @@ export function MarketProviderSelector({
         <TooltipContent side='top'>{tooltipText}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent
-        align={align}
         sideOffset={6}
         className={cn(widgetHeaderMenuContentClassName, 'w-[220px]', menuClassName)}
       >
