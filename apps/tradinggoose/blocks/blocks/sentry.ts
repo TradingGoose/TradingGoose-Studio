@@ -1,4 +1,4 @@
-import { SentryIcon } from '@/components/icons'
+import { SentryIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { SentryResponse } from '@/tools/sentry/types'
@@ -438,13 +438,13 @@ Return ONLY the search query.`,
     {
       id: 'dateReleased',
       title: 'Release Date',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: 'ISO 8601 timestamp (defaults to now)',
       condition: { field: 'operation', value: 'sentry_releases_create' },
       wandConfig: {
         enabled: true,
         prompt: `Generate an ISO 8601 timestamp based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "yesterday" -> Calculate yesterday's date at 00:00:00Z
 - "last week" -> Calculate 7 days ago at 00:00:00Z
@@ -526,13 +526,13 @@ Return ONLY the JSON array.`,
     {
       id: 'dateStarted',
       title: 'Start Time',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: 'ISO 8601 timestamp (defaults to now)',
       condition: { field: 'operation', value: 'sentry_releases_deploy' },
       wandConfig: {
         enabled: true,
         prompt: `Generate an ISO 8601 timestamp based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "now" -> Current date and time in UTC
 - "5 minutes ago" -> Calculate 5 minutes before current time
@@ -547,13 +547,13 @@ Return ONLY the timestamp string - no explanations, no quotes, no extra text.`,
     {
       id: 'dateFinished',
       title: 'Finish Time',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: 'ISO 8601 timestamp',
       condition: { field: 'operation', value: 'sentry_releases_deploy' },
       wandConfig: {
         enabled: true,
         prompt: `Generate an ISO 8601 timestamp based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "now" -> Current date and time in UTC
 - "in 10 minutes" -> Calculate 10 minutes after current time

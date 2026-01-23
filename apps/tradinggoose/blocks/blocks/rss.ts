@@ -1,4 +1,4 @@
-import { RssIcon } from '@/components/icons'
+import { RssIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { getTrigger } from '@/triggers'
 

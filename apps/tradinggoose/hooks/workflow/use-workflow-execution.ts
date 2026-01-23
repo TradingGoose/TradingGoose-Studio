@@ -100,9 +100,7 @@ export function useWorkflowExecution() {
   const { workflowId: routeWorkflowId, channelId } = useWorkflowRoute()
   const workflows = useWorkflowRegistry((state) => state.workflows)
   const registryWorkflowId = useWorkflowRegistry((state) =>
-    typeof state.getActiveWorkflowId === 'function'
-      ? state.getActiveWorkflowId(channelId)
-      : state.activeWorkflowId
+    state.getActiveWorkflowId(channelId)
   )
   const activeWorkflowId = routeWorkflowId ?? registryWorkflowId
   const { toggleConsole } = useConsoleStore()
@@ -739,7 +737,9 @@ export function useWorkflowExecution() {
     })
 
     // Merge subblock states from the appropriate store (scoped to active workflow)
-    const mergedStates = mergeSubblockState(validBlocks, activeWorkflowId ?? undefined)
+    const mergedStates = activeWorkflowId
+      ? mergeSubblockState(validBlocks, activeWorkflowId)
+      : validBlocks
 
     // Debug: Check for blocks with undefined types after merging
     Object.entries(mergedStates).forEach(([blockId, block]) => {

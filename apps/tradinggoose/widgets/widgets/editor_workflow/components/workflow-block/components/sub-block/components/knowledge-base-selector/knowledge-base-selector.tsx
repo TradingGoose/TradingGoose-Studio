@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, RefreshCw, X } from 'lucide-react'
-import { PackageSearchIcon } from '@/components/icons'
+import { PackageSearchIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -60,9 +60,9 @@ export function KnowledgeBaseSelector({
         typeof value === 'string'
           ? value.includes(',')
             ? value
-                .split(',')
-                .map((id) => id.trim())
-                .filter((id) => id.length > 0)
+              .split(',')
+              .map((id) => id.trim())
+              .filter((id) => id.length > 0)
             : [value]
           : []
 

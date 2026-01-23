@@ -10,14 +10,14 @@ export function syncThemeToNextThemes(theme: 'system' | 'light' | 'dark') {
   if (typeof window === 'undefined') return
 
   // Update localStorage
-  localStorage.setItem('sim-theme', theme)
+  localStorage.setItem('system-theme', theme)
 
   // Dispatch storage event to notify next-themes
   window.dispatchEvent(
     new StorageEvent('storage', {
-      key: 'sim-theme',
+      key: 'system-theme',
       newValue: theme,
-      oldValue: localStorage.getItem('sim-theme'),
+      oldValue: localStorage.getItem('system-theme'),
       storageArea: localStorage,
       url: window.location.href,
     })
@@ -39,5 +39,5 @@ export function syncThemeToNextThemes(theme: 'system' | 'light' | 'dark') {
  */
 export function getThemeFromNextThemes(): 'system' | 'light' | 'dark' {
   if (typeof window === 'undefined') return 'system'
-  return (localStorage.getItem('sim-theme') as 'system' | 'light' | 'dark') || 'system'
+  return (localStorage.getItem('system-theme') as 'system' | 'light' | 'dark') || 'system'
 }

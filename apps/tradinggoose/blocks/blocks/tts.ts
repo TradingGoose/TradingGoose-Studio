@@ -1,4 +1,4 @@
-import { TTSIcon } from '@/components/icons'
+import { TTSIcon } from '@/components/icons/icons'
 import { AuthMode, type BlockConfig } from '@/blocks/types'
 import type { TtsBlockResponse } from '@/tools/tts/types'
 

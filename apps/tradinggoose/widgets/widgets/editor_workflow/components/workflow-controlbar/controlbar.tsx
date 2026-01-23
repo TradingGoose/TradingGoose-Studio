@@ -7,7 +7,7 @@ import { ControlBar } from '@/widgets/widgets/editor_workflow/components/control
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { WorkflowStoreProvider } from '@/stores/workflows/workflow/store-client'
-import { widgetHeaderControlClassName } from '@/widgets/widgets/shared/components/widget-header-control'
+import { widgetHeaderControlClassName } from '@/widgets/widgets/components/widget-header-control'
 import type { WidgetInstance } from '@/widgets/layout'
 import { isPairColor, type PairColor } from '@/widgets/pair-colors'
 
@@ -46,11 +46,7 @@ export function WorkflowWidgetControlBar({
     [resolvedPairColor, widgetKey, panelId]
   )
 
-  const activeWorkflowId = useWorkflowRegistry((state) =>
-    typeof state.getActiveWorkflowId === 'function'
-      ? state.getActiveWorkflowId(channelId)
-      : state.activeWorkflowId
-  )
+  const activeWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId(channelId))
 
   if (!activeWorkflowId) {
     return <span className={FALLBACK_TEXT_CLASS}>Controls unavailable</span>

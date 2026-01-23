@@ -1,4 +1,4 @@
-import { AsanaIcon } from '@/components/icons'
+import { AsanaIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { AsanaResponse } from '@/tools/asana/types'
@@ -140,7 +140,8 @@ export const AsanaBlock: BlockConfig<AsanaResponse> = {
     {
       id: 'due_on',
       title: 'Due Date',
-      type: 'short-input',
+      type: 'datetime-input',
+      hideTime: true,
 
       placeholder: 'YYYY-MM-DD',
       condition: {
@@ -219,9 +220,9 @@ Return ONLY the date string in YYYY-MM-DD format - no explanations, no quotes, n
 
         const projectsArray = params.projects
           ? params.projects
-              .split(',')
-              .map((p: string) => p.trim())
-              .filter((p: string) => p.length > 0)
+            .split(',')
+            .map((p: string) => p.trim())
+            .filter((p: string) => p.length > 0)
           : undefined
 
         const baseParams = {

@@ -1,4 +1,4 @@
-import { DynamoDBIcon } from '@/components/icons'
+import { DynamoDBIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import type { DynamoDBResponse } from '@/tools/dynamodb/types'
 

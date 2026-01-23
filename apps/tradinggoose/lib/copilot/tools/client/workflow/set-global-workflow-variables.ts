@@ -61,7 +61,7 @@ export class SetGlobalWorkflowVariablesClientTool extends BaseClientTool {
       this.setState(ClientToolCallState.executing)
       const payload: SetGlobalVarsArgs = { ...(args || { operations: [] }) }
       if (!payload.workflowId) {
-        const { activeWorkflowId } = useWorkflowRegistry.getState()
+        const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
         if (activeWorkflowId) payload.workflowId = activeWorkflowId
       }
       if (!payload.workflowId) {
@@ -168,7 +168,7 @@ export class SetGlobalWorkflowVariablesClientTool extends BaseClientTool {
       }
 
       try {
-        const { activeWorkflowId } = useWorkflowRegistry.getState()
+        const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
         if (activeWorkflowId) {
           // Fetch the updated variables from the API
           const refreshRes = await fetch(`/api/workflows/${activeWorkflowId}/variables`, {

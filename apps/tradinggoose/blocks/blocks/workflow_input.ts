@@ -1,11 +1,12 @@
-import { WorkflowIcon } from '@/components/icons'
+import { WorkflowIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 // Helper: list workflows excluding self
 const getAvailableWorkflows = (): Array<{ label: string; id: string }> => {
   try {
-    const { workflows, activeWorkflowId } = useWorkflowRegistry.getState()
+    const { workflows } = useWorkflowRegistry.getState()
+    const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
     return Object.entries(workflows)
       .filter(([id]) => id !== activeWorkflowId)
       .map(([id, w]) => ({ label: w.name || `Workflow ${id.slice(0, 8)}`, id }))

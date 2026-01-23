@@ -32,9 +32,10 @@ export function getAllTriggerBlocks(): TriggerInfo[] {
         icon: block.icon,
         color: block.bgColor,
         category: 'core',
+        enableTriggerMode: hasTriggerCapability(block),
       })
     }
-    // Check if it's a tool with trigger capability (has trigger-config subblock)
+    // Check if it's a tool with trigger capability
     else if (hasTriggerCapability(block)) {
       triggers.push({
         id: block.type,
@@ -58,10 +59,19 @@ export function getAllTriggerBlocks(): TriggerInfo[] {
 }
 
 /**
- * Check if a block has trigger capability (contains a trigger-config subblock)
+ * Check if a block has trigger capability (contains trigger-mode subblocks)
  */
 export function hasTriggerCapability(block: BlockConfig): boolean {
-  return block.subBlocks.some((subBlock) => subBlock.type === 'trigger-config')
+  const hasTriggerModeSubBlocks = block.subBlocks.some((subBlock) => subBlock.mode === 'trigger')
+
+  if (block.category === 'triggers') {
+    return hasTriggerModeSubBlocks
+  }
+
+  return (
+    (block.triggers?.enabled === true && block.triggers.available.length > 0) ||
+    hasTriggerModeSubBlocks
+  )
 }
 
 /**
@@ -72,7 +82,7 @@ export function getTriggersForSidebar(): BlockConfig[] {
   const allBlocks = getAllBlocks()
   return allBlocks.filter((block) => {
     if (block.hideFromToolbar) return false
-    // Include blocks with triggers category or trigger-config subblock
+    // Include blocks with triggers category or trigger capability
     return block.category === 'triggers' || hasTriggerCapability(block)
   })
 }

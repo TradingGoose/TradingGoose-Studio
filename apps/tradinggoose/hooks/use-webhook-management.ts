@@ -1,0 +1,439 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { createLogger } from '@/lib/logs/console/logger'
+import { getBaseUrl } from '@/lib/urls/utils'
+import { getBlock } from '@/blocks'
+import { populateTriggerFieldsFromConfig } from '@/hooks/use-trigger-config-aggregation'
+import { useSubBlockStore } from '@/stores/workflows/subblock/store'
+import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
+import { getTrigger, isTriggerValid } from '@/triggers'
+import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+
+const logger = createLogger('useWebhookManagement')
+
+const CREDENTIAL_SET_PREFIX = 'credentialSet:'
+
+interface UseWebhookManagementProps {
+  blockId: string
+  triggerId?: string
+  isPreview?: boolean
+  useWebhookUrl?: boolean
+}
+
+interface WebhookManagementState {
+  webhookUrl: string
+  webhookPath: string
+  webhookId: string | null
+  isLoading: boolean
+  isSaving: boolean
+  saveConfig: () => Promise<boolean>
+  deleteConfig: () => Promise<boolean>
+}
+
+function resolveEffectiveTriggerId(
+  blockId: string,
+  triggerId: string | undefined,
+  webhook?: { providerConfig?: { triggerId?: string } },
+  workflowId?: string
+): string | undefined {
+  if (triggerId && isTriggerValid(triggerId)) {
+    return triggerId
+  }
+
+  const selectedTriggerId = useSubBlockStore
+    .getState()
+    .getValue(blockId, 'selectedTriggerId', workflowId)
+  if (typeof selectedTriggerId === 'string' && isTriggerValid(selectedTriggerId)) {
+    return selectedTriggerId
+  }
+
+  const storedTriggerId = useSubBlockStore.getState().getValue(blockId, 'triggerId', workflowId)
+  if (typeof storedTriggerId === 'string' && isTriggerValid(storedTriggerId)) {
+    return storedTriggerId
+  }
+
+  if (webhook?.providerConfig?.triggerId && typeof webhook.providerConfig.triggerId === 'string') {
+    return webhook.providerConfig.triggerId
+  }
+
+  const workflowState = useWorkflowStore.getState()
+  const block = workflowState.blocks?.[blockId]
+  if (block) {
+    const blockConfig = getBlock(block.type)
+    if (blockConfig) {
+      if (blockConfig.category === 'triggers') {
+        return block.type
+      }
+      if (block.triggerMode && blockConfig.triggers?.enabled) {
+        const selectedTriggerIdValue = block.subBlocks?.selectedTriggerId?.value
+        const triggerIdValue = block.subBlocks?.triggerId?.value
+        return (
+          (typeof selectedTriggerIdValue === 'string' && isTriggerValid(selectedTriggerIdValue)
+            ? selectedTriggerIdValue
+            : undefined) ||
+          (typeof triggerIdValue === 'string' && isTriggerValid(triggerIdValue)
+            ? triggerIdValue
+            : undefined) ||
+          blockConfig.triggers?.available?.[0]
+        )
+      }
+    }
+  }
+
+  return undefined
+}
+
+export function useWebhookManagement({
+  blockId,
+  triggerId,
+  isPreview = false,
+  useWebhookUrl = false,
+}: UseWebhookManagementProps): WebhookManagementState {
+  const workflowId = useWorkflowId()
+
+  const triggerDef = triggerId && isTriggerValid(triggerId) ? getTrigger(triggerId) : null
+
+  const webhookId = useSubBlockStore(
+    useCallback(
+      (state) => state.getValue(blockId, 'webhookId', workflowId) as string | null,
+      [blockId, workflowId]
+    )
+  )
+  const webhookPath = useSubBlockStore(
+    useCallback(
+      (state) => state.getValue(blockId, 'triggerPath', workflowId) as string | null,
+      [blockId, workflowId]
+    )
+  )
+  const isLoading = useSubBlockStore((state) => state.loadingWebhooks.has(blockId))
+  const isChecked = useSubBlockStore((state) => state.checkedWebhooks.has(blockId))
+
+  const webhookUrl = useMemo(() => {
+    const baseUrl = getBaseUrl()
+    if (!webhookPath) {
+      return `${baseUrl}/api/webhooks/trigger/${blockId}`
+    }
+    return `${baseUrl}/api/webhooks/trigger/${webhookPath}`
+  }, [webhookPath, blockId])
+
+  const [isSaving, setIsSaving] = useState(false)
+
+  useEffect(() => {
+    if (triggerId && !isPreview) {
+      const storedTriggerId = useSubBlockStore.getState().getValue(blockId, 'triggerId', workflowId)
+      if (storedTriggerId !== triggerId) {
+        useSubBlockStore.getState().setValue(blockId, 'triggerId', triggerId, workflowId)
+      }
+    }
+  }, [triggerId, blockId, isPreview, workflowId])
+
+  useEffect(() => {
+    if (isPreview || !workflowId) {
+      return
+    }
+
+    const store = useSubBlockStore.getState()
+    const currentlyLoading = store.loadingWebhooks.has(blockId)
+    const alreadyChecked = store.checkedWebhooks.has(blockId)
+    const currentWebhookId = store.getValue(blockId, 'webhookId', workflowId)
+
+    if (currentlyLoading || (alreadyChecked && currentWebhookId)) {
+      return
+    }
+
+    const loadWebhookOrGenerateUrl = async () => {
+      useSubBlockStore.setState((state) => ({
+        loadingWebhooks: new Set([...state.loadingWebhooks, blockId]),
+      }))
+
+      try {
+        const response = await fetch(`/api/webhooks?workflowId=${workflowId}&blockId=${blockId}`)
+
+        if (response.ok) {
+          const data = await response.json()
+
+          if (data.webhooks && data.webhooks.length > 0) {
+            const webhook = data.webhooks[0].webhook
+
+            useSubBlockStore.getState().setValue(blockId, 'webhookId', webhook.id, workflowId)
+            logger.info('Webhook loaded from API', {
+              blockId,
+              webhookId: webhook.id,
+              hasProviderConfig: !!webhook.providerConfig,
+            })
+
+            if (webhook.path) {
+              useSubBlockStore.getState().setValue(blockId, 'triggerPath', webhook.path, workflowId)
+            }
+
+            if (webhook.providerConfig) {
+              const effectiveTriggerId = resolveEffectiveTriggerId(
+                blockId,
+                triggerId,
+                webhook,
+                workflowId
+              )
+
+              const {
+                credentialId: _credId,
+                credentialSetId: _credSetId,
+                userId: _userId,
+                historyId: _historyId,
+                lastCheckedTimestamp: _lastChecked,
+                setupCompleted: _setupCompleted,
+                externalId: _externalId,
+                triggerId: _triggerId,
+                blockId: _blockId,
+                ...userConfigurableFields
+              } = webhook.providerConfig as Record<string, unknown>
+
+              useSubBlockStore
+                .getState()
+                .setValue(blockId, 'triggerConfig', userConfigurableFields, workflowId)
+
+              if (effectiveTriggerId) {
+                populateTriggerFieldsFromConfig(
+                  blockId,
+                  webhook.providerConfig,
+                  effectiveTriggerId,
+                  workflowId
+                )
+              } else {
+                logger.warn('Cannot migrate - triggerId not available', {
+                  blockId,
+                  propTriggerId: triggerId,
+                  providerConfigTriggerId: webhook.providerConfig.triggerId,
+                })
+              }
+            }
+          } else {
+            useSubBlockStore.getState().setValue(blockId, 'webhookId', null, workflowId)
+          }
+
+          useSubBlockStore.setState((state) => ({
+            checkedWebhooks: new Set([...state.checkedWebhooks, blockId]),
+          }))
+        } else {
+          logger.warn('API response not OK', {
+            blockId,
+            workflowId,
+            status: response.status,
+            statusText: response.statusText,
+          })
+        }
+      } catch (error) {
+        logger.error('Error loading webhook:', { error, blockId, workflowId })
+      } finally {
+        useSubBlockStore.setState((state) => {
+          const newSet = new Set(state.loadingWebhooks)
+          newSet.delete(blockId)
+          return { loadingWebhooks: newSet }
+        })
+      }
+    }
+
+    if (useWebhookUrl) {
+      loadWebhookOrGenerateUrl()
+    }
+  }, [isPreview, triggerId, workflowId, blockId, useWebhookUrl])
+
+  const createWebhook = async (
+    effectiveTriggerId: string | undefined,
+    selectedCredentialId: string | null
+  ): Promise<boolean> => {
+    if (!triggerDef || !effectiveTriggerId) {
+      return false
+    }
+
+    const triggerConfig = useSubBlockStore
+      .getState()
+      .getValue(blockId, 'triggerConfig', workflowId)
+
+    const isCredentialSet = selectedCredentialId?.startsWith(CREDENTIAL_SET_PREFIX)
+    const credentialSetId = isCredentialSet
+      ? selectedCredentialId!.slice(CREDENTIAL_SET_PREFIX.length)
+      : undefined
+    const credentialId = isCredentialSet ? undefined : selectedCredentialId
+
+    const webhookConfig = {
+      ...(triggerConfig || {}),
+      ...(credentialId ? { credentialId } : {}),
+      ...(credentialSetId ? { credentialSetId } : {}),
+      triggerId: effectiveTriggerId,
+    }
+
+    const path = blockId
+
+    const response = await fetch('/api/webhooks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        workflowId,
+        blockId,
+        path,
+        provider: triggerDef.provider,
+        providerConfig: webhookConfig,
+      }),
+    })
+
+    if (!response.ok) {
+      let errorMessage = 'Failed to create webhook'
+      try {
+        const errorData = await response.json()
+        errorMessage = errorData.details || errorData.error || errorMessage
+      } catch {
+        // ignore
+      }
+      logger.error('Failed to create webhook', { errorMessage })
+      throw new Error(errorMessage)
+    }
+
+    const data = await response.json()
+    const savedWebhookId = data.webhook.id
+
+    useSubBlockStore.getState().setValue(blockId, 'triggerPath', path, workflowId)
+    useSubBlockStore.getState().setValue(blockId, 'triggerId', effectiveTriggerId, workflowId)
+    useSubBlockStore.getState().setValue(blockId, 'webhookId', savedWebhookId, workflowId)
+    useSubBlockStore.setState((state) => ({
+      checkedWebhooks: new Set([...state.checkedWebhooks, blockId]),
+    }))
+
+    logger.info('Trigger webhook created successfully', {
+      webhookId: savedWebhookId,
+      triggerId: effectiveTriggerId,
+      provider: triggerDef.provider,
+      blockId,
+    })
+
+    return true
+  }
+
+  const updateWebhook = async (
+    webhookIdToUpdate: string,
+    effectiveTriggerId: string | undefined,
+    selectedCredentialId: string | null
+  ): Promise<boolean> => {
+    const triggerConfigRaw = useSubBlockStore
+      .getState()
+      .getValue(blockId, 'triggerConfig', workflowId)
+    const triggerConfig =
+      typeof triggerConfigRaw === 'object' && triggerConfigRaw !== null
+        ? (triggerConfigRaw as Record<string, unknown>)
+        : {}
+
+    const isCredentialSet = selectedCredentialId?.startsWith(CREDENTIAL_SET_PREFIX)
+    const credentialSetId = isCredentialSet
+      ? selectedCredentialId!.slice(CREDENTIAL_SET_PREFIX.length)
+      : undefined
+    const credentialId = isCredentialSet ? undefined : selectedCredentialId
+
+    const response = await fetch(`/api/webhooks/${webhookIdToUpdate}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        providerConfig: {
+          ...triggerConfig,
+          ...(credentialId ? { credentialId } : {}),
+          ...(credentialSetId ? { credentialSetId } : {}),
+          triggerId: effectiveTriggerId,
+        },
+      }),
+    })
+
+    if (response.status === 404) {
+      logger.warn('Webhook not found while updating, recreating', {
+        blockId,
+        lostWebhookId: webhookIdToUpdate,
+      })
+      useSubBlockStore.getState().setValue(blockId, 'webhookId', null, workflowId)
+      return createWebhook(effectiveTriggerId, selectedCredentialId)
+    }
+
+    if (!response.ok) {
+      let errorMessage = 'Failed to save trigger configuration'
+      try {
+        const errorData = await response.json()
+        errorMessage = errorData.details || errorData.error || errorMessage
+      } catch {
+        // ignore
+      }
+      logger.error('Failed to save trigger config', { errorMessage })
+      throw new Error(errorMessage)
+    }
+
+    logger.info('Trigger config saved successfully', { blockId, webhookId: webhookIdToUpdate })
+    return true
+  }
+
+  const saveConfig = async (): Promise<boolean> => {
+    if (isPreview || !triggerDef || !workflowId) {
+      return false
+    }
+
+    const effectiveTriggerId = resolveEffectiveTriggerId(blockId, triggerId, undefined, workflowId)
+
+    try {
+      setIsSaving(true)
+
+      const triggerCredentials = useSubBlockStore
+        .getState()
+        .getValue(blockId, 'triggerCredentials', workflowId)
+      const selectedCredentialId = (triggerCredentials as string | null) || null
+
+      if (!webhookId) {
+        return createWebhook(effectiveTriggerId, selectedCredentialId)
+      }
+
+      return updateWebhook(webhookId, effectiveTriggerId, selectedCredentialId)
+    } catch (error) {
+      logger.error('Error saving trigger config:', { error })
+      throw error
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const deleteConfig = async (): Promise<boolean> => {
+    if (isPreview || !webhookId) {
+      return false
+    }
+
+    try {
+      setIsSaving(true)
+
+      const response = await fetch(`/api/webhooks/${webhookId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        logger.error('Failed to delete webhook')
+        return false
+      }
+
+      useSubBlockStore.getState().setValue(blockId, 'triggerPath', '', workflowId)
+      useSubBlockStore.getState().setValue(blockId, 'webhookId', null, workflowId)
+      useSubBlockStore.setState((state) => {
+        const newSet = new Set(state.checkedWebhooks)
+        newSet.delete(blockId)
+        return { checkedWebhooks: newSet }
+      })
+
+      logger.info('Webhook deleted successfully')
+      return true
+    } catch (error) {
+      logger.error('Error deleting webhook:', { error })
+      return false
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return {
+    webhookUrl,
+    webhookPath: webhookPath || blockId,
+    webhookId,
+    isLoading,
+    isSaving,
+    saveConfig,
+    deleteConfig,
+  }
+}

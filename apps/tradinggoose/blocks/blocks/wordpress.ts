@@ -1,4 +1,4 @@
-import { WordpressIcon } from '@/components/icons'
+import { WordpressIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { WordPressResponse } from '@/tools/wordpress/types'

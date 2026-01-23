@@ -1,4 +1,4 @@
-import { RDSIcon } from '@/components/icons'
+import { RDSIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import type { RdsResponse } from '@/tools/rds/types'
 

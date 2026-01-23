@@ -23,6 +23,7 @@ import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-drop
 import { Label } from '@/components/ui/label'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import type { MonacoEditorHandle } from '@/components/monaco-editor'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
@@ -253,6 +254,7 @@ try {
   const [searchTerm, setSearchTerm] = useState('')
   const [cursorPosition, setCursorPosition] = useState(0)
   const codeEditorRef = useRef<HTMLDivElement>(null)
+  const codeEditorHandleRef = useRef<MonacoEditorHandle | null>(null)
   const schemaParamsDropdownRef = useRef<HTMLDivElement>(null)
   const [activeSourceBlockId, setActiveSourceBlockId] = useState<string | null>(null)
   // Add state for dropdown positioning
@@ -599,56 +601,49 @@ try {
     if (codeError) {
       setCodeError(null)
     }
+  }
 
-    // Check for environment variables and tags
-    const textarea = codeEditorRef.current?.querySelector('textarea')
-    if (textarea) {
-      const pos = textarea.selectionStart
-      setCursorPosition(pos)
+  const handleCursorChange = (
+    offset: number,
+    coords: { top: number; left: number; height: number } | null
+  ) => {
+    const currentValue =
+      codeEditorHandleRef.current?.getEditor()?.getValue() ?? functionCode
 
-      // Calculate cursor position for dropdowns
-      const textBeforeCursor = value.substring(0, pos)
-      const lines = textBeforeCursor.split('\n')
-      const currentLine = lines.length
-      const currentCol = lines[lines.length - 1].length
+    setCursorPosition(offset)
 
-      // Find position of cursor in the editor
-      try {
-        if (codeEditorRef.current) {
-          const editorRect = codeEditorRef.current.getBoundingClientRect()
-          const lineHeight = 21 // Same as in CodeEditor
+    if (coords && codeEditorRef.current) {
+      const editorRect = codeEditorRef.current.getBoundingClientRect()
+      const left = Math.min(coords.left, editorRect.width - 260)
+      const top = coords.top + coords.height + 4
+      setDropdownPosition({ top, left })
+    }
 
-          // Calculate approximate position
-          const top = currentLine * lineHeight + 5
-          const left = Math.min(currentCol * 8, editorRect.width - 260) // Prevent dropdown from going off-screen
+    if (codeGeneration.isStreaming) {
+      setShowEnvVars(false)
+      setShowTags(false)
+      setShowSchemaParams(false)
+      setSearchTerm('')
+      return
+    }
 
-          setDropdownPosition({ top, left })
-        }
-      } catch (error) {
-        logger.error('Error calculating cursor position:', { error })
-      }
+    const envVarTrigger = checkEnvVarTrigger(currentValue, offset)
+    setShowEnvVars(envVarTrigger.show)
+    setSearchTerm(envVarTrigger.show ? envVarTrigger.searchTerm : '')
 
-      // Check if we should show the environment variables dropdown
-      const envVarTrigger = checkEnvVarTrigger(value, pos)
-      setShowEnvVars(envVarTrigger.show && !codeGeneration.isStreaming) // Hide dropdown during streaming
-      setSearchTerm(envVarTrigger.show ? envVarTrigger.searchTerm : '')
+    const tagTrigger = checkTagTrigger(currentValue, offset)
+    setShowTags(tagTrigger.show)
+    if (!tagTrigger.show) {
+      setActiveSourceBlockId(null)
+    }
 
-      // Check if we should show the tags dropdown
-      const tagTrigger = checkTagTrigger(value, pos)
-      setShowTags(tagTrigger.show && !codeGeneration.isStreaming) // Hide dropdown during streaming
-      if (!tagTrigger.show) {
-        setActiveSourceBlockId(null)
-      }
-
-      // Show/hide schema parameters dropdown based on typing context
-      if (!codeGeneration.isStreaming && schemaParameters.length > 0) {
-        const schemaParamTrigger = checkSchemaParamTrigger(value, pos, schemaParameters)
-        if (schemaParamTrigger.show && !showSchemaParams) {
-          setShowSchemaParams(true)
-          setSchemaParamSelectedIndex(0)
-        } else if (!schemaParamTrigger.show && showSchemaParams) {
-          setShowSchemaParams(false)
-        }
+    if (schemaParameters.length > 0) {
+      const schemaParamTrigger = checkSchemaParamTrigger(currentValue, offset, schemaParameters)
+      if (schemaParamTrigger.show && !showSchemaParams) {
+        setShowSchemaParams(true)
+        setSchemaParamSelectedIndex(0)
+      } else if (!schemaParamTrigger.show && showSchemaParams) {
+        setShowSchemaParams(false)
       }
     }
   }
@@ -688,32 +683,32 @@ try {
 
   // Handle schema parameter selection
   const handleSchemaParamSelect = (paramName: string) => {
-    const textarea = codeEditorRef.current?.querySelector('textarea')
-    if (textarea) {
-      const pos = textarea.selectionStart
-      const beforeCursor = functionCode.substring(0, pos)
-      const afterCursor = functionCode.substring(pos)
+    const editorHandle = codeEditorHandleRef.current
+    const currentValue = editorHandle?.getEditor()?.getValue() ?? functionCode
+    const pos = cursorPosition
+    const beforeCursor = currentValue.substring(0, pos)
+    const afterCursor = currentValue.substring(pos)
 
-      // Find the start of the current word
-      const words = beforeCursor.split(/[\s=();,{}[\]]+/)
-      const currentWord = words[words.length - 1] || ''
-      const wordStart = beforeCursor.lastIndexOf(currentWord)
+    // Find the start of the current word
+    const words = beforeCursor.split(/[\s=();,{}[\]]+/)
+    const currentWord = words[words.length - 1] || ''
+    const wordStart = beforeCursor.lastIndexOf(currentWord)
 
-      // Replace the current partial word with the selected parameter
-      const newValue = beforeCursor.substring(0, wordStart) + paramName + afterCursor
-      setFunctionCode(newValue)
-      setShowSchemaParams(false)
+    // Replace the current partial word with the selected parameter
+    const newValue = beforeCursor.substring(0, wordStart) + paramName + afterCursor
+    setFunctionCode(newValue)
+    setShowSchemaParams(false)
+    setCursorPosition(wordStart + paramName.length)
 
-      // Set cursor position after the inserted parameter
-      setTimeout(() => {
-        textarea.focus()
-        textarea.setSelectionRange(wordStart + paramName.length, wordStart + paramName.length)
-      }, 0)
-    }
+    // Set cursor position after the inserted parameter
+    setTimeout(() => {
+      editorHandle?.focus()
+      editorHandle?.setCursorOffset(wordStart + paramName.length)
+    }, 0)
   }
 
   // Handle key press events
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: KeyboardEvent) => {
     // Allow AI prompt interaction (e.g., Escape to close prompt bar)
     // Check if AI prompt is visible for the current section
     const isSchemaPromptVisible = activeSection === 'schema' && schemaGeneration.isPromptVisible
@@ -1110,6 +1105,8 @@ try {
                 value={functionCode}
                 onChange={handleFunctionCodeChange}
                 language='javascript'
+                editorHandleRef={codeEditorHandleRef}
+                onCursorChange={handleCursorChange}
                 showWandButton={true}
                 onWandClick={() => {
                   logger.debug('Code AI button clicked')

@@ -1,4 +1,4 @@
-import { Neo4jIcon } from '@/components/icons'
+import { Neo4jIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import type { Neo4jResponse } from '@/tools/neo4j/types'
 

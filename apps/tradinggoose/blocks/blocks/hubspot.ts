@@ -1,4 +1,4 @@
-import { HubspotIcon } from '@/components/icons'
+import { HubspotIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { HubSpotResponse } from '@/tools/hubspot/types'

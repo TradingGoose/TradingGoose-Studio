@@ -1,4 +1,4 @@
-import { CirclebackIcon } from '@/components/icons'
+import { CirclebackIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { getTrigger } from '@/triggers'
 

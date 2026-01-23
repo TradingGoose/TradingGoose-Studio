@@ -18,8 +18,8 @@ const logger = createLogger('ComboBox')
 
 interface ComboBoxProps {
   options:
-    | Array<string | { label: string; id: string }>
-    | (() => Array<string | { label: string; id: string }>)
+  | Array<string | { label: string; id: string }>
+  | (() => Array<string | { label: string; id: string }>)
   defaultValue?: string
   blockId: string
   subBlockId: string
@@ -426,8 +426,8 @@ export function ComboBox({
           className={cn(
             'allow-scroll w-full overflow-auto pr-10 text-transparent caret-foreground placeholder:text-muted-foreground/50',
             isConnecting &&
-              config?.connectionDroppable !== false &&
-              'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500',
+            config?.connectionDroppable !== false &&
+            'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500',
             SelectedIcon ? 'pl-8' : ''
           )}
           placeholder={placeholder}

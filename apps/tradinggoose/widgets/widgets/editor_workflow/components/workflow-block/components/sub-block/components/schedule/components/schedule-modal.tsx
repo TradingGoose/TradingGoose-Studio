@@ -255,7 +255,7 @@ export function ScheduleModal({
       // 2. Also directly set the value in the subblock store for immediate effect
       // This provides a more reliable way to ensure the value is set
       logger.debug('Setting startWorkflow to schedule directly in store')
-      useSubBlockStore.getState().setValue(blockId, 'startWorkflow', 'schedule')
+      useSubBlockStore.getState().setValue(blockId, 'startWorkflow', 'schedule', workflowId)
 
       // Give time for the state updates to propagate
       await new Promise((resolve) => setTimeout(resolve, 150))

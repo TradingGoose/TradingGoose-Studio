@@ -10,7 +10,7 @@ import {
   StripeIcon,
   TelegramIcon,
   WhatsAppIcon,
-} from '@/components/icons'
+} from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import { createLogger } from '@/lib/logs/console/logger'
 import { WebhookModal } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/webhook/components'
@@ -485,13 +485,13 @@ export function WebhookConfig({
       // Update previous provider to the new provider
       setPreviousProvider(webhookProvider)
 
-      // Delete existing webhook AFTER clearing the path to prevent race condition
-      // The webhook check useEffect won't restore the path if we clear it first
-      // Execute deletion asynchronously but don't block the UI
+        // Delete existing webhook AFTER clearing the path to prevent race condition
+        // The webhook check useEffect won't restore the path if we clear it first
+        // Execute deletion asynchronously but don't block the UI
 
-      ;(async () => {
-        await deleteExistingWebhook()
-      })()
+        ; (async () => {
+          await deleteExistingWebhook()
+        })()
     }
   }, [webhookProvider, previousProvider, blockId, webhookId, isPreview])
 
@@ -676,7 +676,7 @@ export function WebhookConfig({
       }
 
       // Reset the startWorkflow field to manual
-      useSubBlockStore.getState().setValue(blockId, 'startWorkflow', 'manual')
+      useSubBlockStore.getState().setValue(blockId, 'startWorkflow', 'manual', workflowId)
 
       // Remove webhook-specific fields from the block state
       const store = useSubBlockStore.getState()
@@ -689,7 +689,7 @@ export function WebhookConfig({
       blockValues.webhookPath = undefined
 
       // Update the store with the cleaned block values
-      store.setValue(blockId, 'startWorkflow', 'manual')
+      store.setValue(blockId, 'startWorkflow', 'manual', workflowId)
       useSubBlockStore.setState({
         workflowValues: {
           ...workflowValues,

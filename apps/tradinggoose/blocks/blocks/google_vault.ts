@@ -1,4 +1,4 @@
-import { GoogleVaultIcon } from '@/components/icons'
+import { GoogleVaultIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 

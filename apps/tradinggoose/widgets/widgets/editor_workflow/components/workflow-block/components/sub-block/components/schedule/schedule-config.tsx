@@ -1,11 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Calendar, ExternalLink } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Dialog } from '@/components/ui/dialog'
 import { createLogger } from '@/lib/logs/console/logger'
 import { parseCronToHumanReadable } from '@/lib/schedules/utils'
 import { formatDateTime } from '@/lib/utils'
-import { ScheduleModal } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/schedule/components/schedule-modal'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowChannelId, useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { getBlockWithValues, getWorkflowWithValues } from '@/stores/workflows'
@@ -49,15 +46,22 @@ export function ScheduleConfig({
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [isModalOpen, setIsModalOpen] = useState(false)
 
   const workflowId = useWorkflowId()
   const channelId = useWorkflowChannelId()
 
   // Get workflow state from store
 
-  // Get the schedule type from the block state
+  // Get schedule fields from the block state
   const [scheduleType] = useSubBlockValue(blockId, 'scheduleType')
+  const [minutesInterval] = useSubBlockValue(blockId, 'minutesInterval')
+  const [hourlyMinute] = useSubBlockValue(blockId, 'hourlyMinute')
+  const [dailyTime] = useSubBlockValue(blockId, 'dailyTime')
+  const [weeklyDay] = useSubBlockValue(blockId, 'weeklyDay')
+  const [weeklyDayTime] = useSubBlockValue(blockId, 'weeklyDayTime')
+  const [monthlyDay] = useSubBlockValue(blockId, 'monthlyDay')
+  const [monthlyTime] = useSubBlockValue(blockId, 'monthlyTime')
+  const [cronExpression] = useSubBlockValue(blockId, 'cronExpression')
 
   // Get the startWorkflow value to determine if scheduling is enabled
   // and expose the setter so we can update it
@@ -134,13 +138,6 @@ export function ScheduleConfig({
     }
   }, [workflowId, blockId, fetchSchedule])
 
-  // Refetch when modal opens to get latest data
-  useEffect(() => {
-    if (isModalOpen) {
-      fetchSchedule()
-    }
-  }, [isModalOpen, fetchSchedule])
-
   // Format the schedule information for display
   const getScheduleInfo = () => {
     if (!scheduleData.id || !scheduleData.nextRunAt) return null
@@ -170,14 +167,49 @@ export function ScheduleConfig({
     )
   }
 
-  const handleOpenModal = () => {
-    if (isPreview || disabled) return
-    setIsModalOpen(true)
-  }
+  const scheduleValues = useMemo(
+    () => ({
+      scheduleType: (scheduleType as string | null) || 'daily',
+      minutesInterval,
+      hourlyMinute,
+      dailyTime,
+      weeklyDay,
+      weeklyDayTime,
+      monthlyDay,
+      monthlyTime,
+      cronExpression,
+    }),
+    [
+      scheduleType,
+      minutesInterval,
+      hourlyMinute,
+      dailyTime,
+      weeklyDay,
+      weeklyDayTime,
+      monthlyDay,
+      monthlyTime,
+      cronExpression,
+    ]
+  )
 
-  const handleCloseModal = useCallback(() => {
-    setIsModalOpen(false)
-  }, [])
+  const validateScheduleValues = () => {
+    switch (scheduleValues.scheduleType) {
+      case 'minutes':
+        return !!scheduleValues.minutesInterval
+      case 'hourly':
+        return scheduleValues.hourlyMinute !== null && scheduleValues.hourlyMinute !== undefined
+      case 'daily':
+        return !!scheduleValues.dailyTime
+      case 'weekly':
+        return !!scheduleValues.weeklyDay && !!scheduleValues.weeklyDayTime
+      case 'monthly':
+        return !!scheduleValues.monthlyDay && !!scheduleValues.monthlyTime
+      case 'custom':
+        return !!scheduleValues.cronExpression
+      default:
+        return false
+    }
+  }
 
   const handleSaveSchedule = useCallback(async (): Promise<boolean> => {
     if (isPreview || disabled) return false
@@ -186,11 +218,13 @@ export function ScheduleConfig({
     setError(null)
 
     try {
+      if (!validateScheduleValues()) {
+        setError('Please complete the required schedule fields before saving.')
+        return false
+      }
+
       const registryState = useWorkflowRegistry.getState()
-      const activeWorkflowId =
-        typeof registryState.getActiveWorkflowId === 'function'
-          ? registryState.getActiveWorkflowId(channelId)
-          : registryState.activeWorkflowId
+      const activeWorkflowId = registryState.getActiveWorkflowId(channelId)
 
       if (!activeWorkflowId) {
         setError('No active workflow found')
@@ -205,7 +239,7 @@ export function ScheduleConfig({
 
         // Update the SubBlock store directly to ensure the value is set correctly
         const subBlockStore = useSubBlockStore.getState()
-        subBlockStore.setValue(blockId, 'startWorkflow', 'schedule')
+        subBlockStore.setValue(blockId, 'startWorkflow', 'schedule', activeWorkflowId)
 
         // Give React time to process the state update
         await new Promise((resolve) => setTimeout(resolve, 200))
@@ -305,6 +339,7 @@ export function ScheduleConfig({
     setStartWorkflow,
     fetchSchedule,
     channelId,
+    validateScheduleValues,
   ])
 
   const handleDeleteSchedule = useCallback(async (): Promise<boolean> => {
@@ -320,10 +355,7 @@ export function ScheduleConfig({
 
         // 2. Directly update the SubBlock store to ensure the value is set
         const registryState = useWorkflowRegistry.getState()
-        const activeWorkflowId =
-          typeof registryState.getActiveWorkflowId === 'function'
-            ? registryState.getActiveWorkflowId(channelId)
-            : registryState.activeWorkflowId
+        const activeWorkflowId = registryState.getActiveWorkflowId(channelId)
         if (!activeWorkflowId) {
           setError('No active workflow found')
           return false
@@ -331,7 +363,7 @@ export function ScheduleConfig({
 
         // Update the store directly
         const subBlockStore = useSubBlockStore.getState()
-        subBlockStore.setValue(blockId, 'startWorkflow', 'manual')
+        subBlockStore.setValue(blockId, 'startWorkflow', 'manual', activeWorkflowId)
 
         // 3. Update the workflow store
         const workflowStore = useWorkflowStore.getState(channelId)
@@ -395,56 +427,34 @@ export function ScheduleConfig({
     <div className='w-full' onClick={(e) => e.stopPropagation()}>
       {error && <div className='mb-2 text-red-500 text-sm dark:text-red-400'>{error}</div>}
 
-      {isScheduleActive ? (
-        <div className='flex flex-col space-y-2'>
-          <div className='flex items-center justify-between rounded border border-border bg-background px-3 py-2'>
-            <div className='flex flex-1 items-center gap-2'>
-              <div className='flex-1 truncate'>{getScheduleInfo()}</div>
-            </div>
-            <Button
-              type='button'
-              variant='ghost'
-              size='icon'
-              className='h-8 w-8 shrink-0'
-              onClick={handleOpenModal}
-              disabled={isPreview || isDeleting || isConnecting || disabled}
-            >
-              {isDeleting ? (
-                <div className='h-4 w-4 animate-spin rounded-full border-[1.5px] border-current border-t-transparent' />
-              ) : (
-                <ExternalLink className='h-4 w-4' />
-              )}
-            </Button>
-          </div>
+      {isScheduleActive && (
+        <div className='rounded border border-border bg-background px-3 py-2'>
+          {getScheduleInfo()}
         </div>
-      ) : (
-        <Button
-          variant='outline'
-          size='sm'
-          className='flex h-10 w-full items-center bg-background font-normal text-sm'
-          onClick={handleOpenModal}
-          disabled={isPreview || isConnecting || isSaving || isDeleting || disabled}
-        >
-          {isLoading ? (
-            <div className='mr-2 h-4 w-4 animate-spin rounded-full border-[1.5px] border-current border-t-transparent' />
-          ) : (
-            <Calendar className='mr-2 h-4 w-4' />
-          )}
-          Configure Schedule
-        </Button>
       )}
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <ScheduleModal
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-          workflowId={workflowId}
-          blockId={blockId}
-          onSave={handleSaveSchedule}
-          onDelete={handleDeleteSchedule}
-          scheduleId={scheduleData.id}
-        />
-      </Dialog>
+      <div className='mt-2 flex flex-wrap gap-2'>
+        <Button
+          type='button'
+          variant='default'
+          className='flex-1'
+          onClick={handleSaveSchedule}
+          disabled={isPreview || isConnecting || isSaving || isDeleting || disabled || isLoading}
+        >
+          {isSaving ? 'Saving...' : isScheduleActive ? 'Update Schedule' : 'Save Schedule'}
+        </Button>
+
+        {scheduleData.id && (
+          <Button
+            type='button'
+            variant='outline'
+            onClick={handleDeleteSchedule}
+            disabled={isPreview || isConnecting || isSaving || isDeleting || disabled}
+          >
+            {isDeleting ? 'Deleting...' : 'Delete'}
+          </Button>
+        )}
+      </div>
     </div>
   )
 }

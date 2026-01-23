@@ -33,7 +33,7 @@ export function useWorkflowDiff(): UseWorkflowDiffReturn {
   const diffEngineRef = useRef<WorkflowDiffEngine>(new WorkflowDiffEngine())
   const lastBackupRef = useRef<WorkflowBackup | null>(null)
 
-  const { activeWorkflowId } = useWorkflowRegistry()
+  const activeWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId())
   const workflowStore = useWorkflowStore()
   const { isDiffReady, diffWorkflow, diffMetadata } = useWorkflowDiffStore()
 

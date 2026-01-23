@@ -33,10 +33,6 @@ export const getTriggerBlocksServerTool: BaseServerTool<
       else if ('triggerAllowed' in blockConfig && blockConfig.triggerAllowed === true) {
         triggerBlockIds.push(blockType)
       }
-      // Check if it has a trigger-config subblock
-      else if (blockConfig.subBlocks?.some((subBlock) => subBlock.type === 'trigger-config')) {
-        triggerBlockIds.push(blockType)
-      }
     })
 
     // Sort alphabetically for consistency

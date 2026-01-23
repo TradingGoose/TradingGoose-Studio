@@ -37,7 +37,7 @@ export function DeployedWorkflowCard({
       : view === 'active'
         ? activeDeployedWorkflowState
         : selectedDeployedWorkflowState
-  const activeWorkflowId = useWorkflowRegistry((state) => state.activeWorkflowId)
+  const activeWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId())
 
   const previewKey = useMemo(() => {
     return `${view}-preview-${activeWorkflowId}`

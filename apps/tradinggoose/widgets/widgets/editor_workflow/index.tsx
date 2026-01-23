@@ -17,7 +17,7 @@ import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-stat
 import { isPairColor } from '@/widgets/pair-colors'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
-import { WorkflowDropdown } from '@/widgets/widgets/shared/components/workflow-dropdown'
+import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
 import {
   emitWorkflowSelectionChange,
   useWorkflowSelectionPersistence,

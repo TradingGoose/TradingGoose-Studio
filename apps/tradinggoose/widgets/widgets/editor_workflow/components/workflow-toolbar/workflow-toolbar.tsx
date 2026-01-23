@@ -34,7 +34,7 @@ import {
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuTextClassName,
-} from '@/widgets/widgets/shared/components/widget-header-control'
+} from '@/widgets/widgets/components/widget-header-control'
 
 interface WorkflowToolbarProps {
   workspaceId?: string
@@ -185,20 +185,20 @@ function useToolbarList(
 
     const regularBlocks = isBlocksMode
       ? filtered
-          .filter((block) => block.category === 'blocks')
-          .sort((a, b) => a.name.localeCompare(b.name))
+        .filter((block) => block.category === 'blocks')
+        .sort((a, b) => a.name.localeCompare(b.name))
       : []
 
     const toolBlocks = isToolsMode
       ? filtered
-          .filter((block) => block.category === 'tools')
-          .sort((a, b) => a.name.localeCompare(b.name))
+        .filter((block) => block.category === 'tools')
+        .sort((a, b) => a.name.localeCompare(b.name))
       : []
 
     const triggerBlocks = isTriggerMode
       ? filtered
-          .filter((block) => block.category === 'triggers' || hasTriggerCapability(block))
-          .sort((a, b) => a.name.localeCompare(b.name))
+        .filter((block) => block.category === 'triggers' || hasTriggerCapability(block))
+        .sort((a, b) => a.name.localeCompare(b.name))
       : []
 
     return {

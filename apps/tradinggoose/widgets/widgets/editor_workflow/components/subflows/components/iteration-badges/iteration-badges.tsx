@@ -1,16 +1,14 @@
 import { useCallback, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { highlight, languages } from 'prismjs'
-import Editor from 'react-simple-code-editor'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { MonacoEditor } from '@/components/monaco-editor'
+import type { MonacoEditorHandle } from '@/components/monaco-editor'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { cn } from '@/lib/utils'
 import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
-import 'prismjs/components/prism-javascript'
-import 'prismjs/themes/prism.css'
 
 type IterationType = 'loop' | 'parallel'
 type LoopType = 'for' | 'forEach' | 'while' | 'doWhile'
@@ -112,8 +110,7 @@ export function IterationBadges({ nodeId, data, iterationType }: IterationBadges
   const [configPopoverOpen, setConfigPopoverOpen] = useState(false)
   const [showTagDropdown, setShowTagDropdown] = useState(false)
   const [cursorPosition, setCursorPosition] = useState(0)
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
-  const editorContainerRef = useRef<HTMLDivElement>(null)
+  const editorRef = useRef<MonacoEditorHandle | null>(null)
 
   // Get collaborative functions
   const {
@@ -178,16 +175,11 @@ export function IterationBadges({ nodeId, data, iterationType }: IterationBadges
     (value: string) => {
       if (isPreview) return
       collaborativeUpdateIterationCollection(nodeId, iterationType, value)
+      const cursorPos = editorRef.current?.getCursorOffset() ?? 0
+      setCursorPosition(cursorPos)
 
-      const textarea = editorContainerRef.current?.querySelector('textarea')
-      if (textarea) {
-        textareaRef.current = textarea
-        const cursorPos = textarea.selectionStart || 0
-        setCursorPosition(cursorPos)
-
-        const triggerCheck = checkTagTrigger(value, cursorPos)
-        setShowTagDropdown(triggerCheck.show)
-      }
+      const triggerCheck = checkTagTrigger(value, cursorPos)
+      setShowTagDropdown(triggerCheck.show)
     },
     [nodeId, iterationType, collaborativeUpdateIterationCollection, isPreview]
   )
@@ -200,10 +192,7 @@ export function IterationBadges({ nodeId, data, iterationType }: IterationBadges
       setShowTagDropdown(false)
 
       setTimeout(() => {
-        const textarea = textareaRef.current
-        if (textarea) {
-          textarea.focus()
-        }
+        editorRef.current?.focus()
       }, 0)
     },
     [nodeId, iterationType, collaborativeUpdateIterationCollection, isPreview]
@@ -307,24 +296,33 @@ export function IterationBadges({ nodeId, data, iterationType }: IterationBadges
                 </div>
               ) : isConditionMode ? (
                 // Code editor for while condition
-                <div ref={editorContainerRef} className='relative'>
+                <div className='relative'>
                   <div className='relative min-h-[80px] rounded-md border border-input bg-background px-3 pt-2 pb-3 font-mono text-sm'>
                     {conditionString === '' && (
                       <div className='pointer-events-none absolute top-[8.5px] left-3 select-none text-muted-foreground/50'>
                         {'<counter.value> < 10'}
                       </div>
                     )}
-                    <Editor
+                    <MonacoEditor
+                      ref={editorRef}
                       value={conditionString}
-                      onValueChange={handleEditorChange}
-                      highlight={(code) => highlight(code, languages.javascript, 'javascript')}
-                      padding={0}
-                      style={{
-                        fontFamily: 'monospace',
-                        lineHeight: '21px',
+                      onChange={handleEditorChange}
+                      onCursorChange={(offset) => {
+                        setCursorPosition(offset)
+                        const currentValue =
+                          editorRef.current?.getEditor()?.getValue() ?? editorValue
+                        const triggerCheck = checkTagTrigger(currentValue, offset)
+                        setShowTagDropdown(triggerCheck.show)
                       }}
-                      className='w-full focus:outline-none'
-                      textareaClassName='focus:outline-none focus:ring-0 bg-transparent resize-none w-full overflow-hidden whitespace-pre-wrap'
+                      language='javascript'
+                      autoHeight
+                      minHeight={80}
+                      className='w-full'
+                      options={{
+                        lineNumbers: 'off',
+                        scrollbar: { vertical: 'hidden', horizontal: 'hidden' },
+                        padding: { top: 4, bottom: 4 },
+                      }}
                     />
                   </div>
                   <div className='mt-2 text-[10px] text-muted-foreground'>
@@ -345,24 +343,33 @@ export function IterationBadges({ nodeId, data, iterationType }: IterationBadges
                 </div>
               ) : (
                 // Code editor for collection-based mode
-                <div ref={editorContainerRef} className='relative'>
+                <div className='relative'>
                   <div className='relative min-h-[80px] rounded-md border border-input bg-background px-3 pt-2 pb-3 font-mono text-sm'>
                     {editorValue === '' && (
                       <div className='pointer-events-none absolute top-[8.5px] left-3 select-none text-muted-foreground/50'>
                         ['item1', 'item2', 'item3']
                       </div>
                     )}
-                    <Editor
+                    <MonacoEditor
+                      ref={editorRef}
                       value={editorValue}
-                      onValueChange={handleEditorChange}
-                      highlight={(code) => highlight(code, languages.javascript, 'javascript')}
-                      padding={0}
-                      style={{
-                        fontFamily: 'monospace',
-                        lineHeight: '21px',
+                      onChange={handleEditorChange}
+                      onCursorChange={(offset) => {
+                        setCursorPosition(offset)
+                        const currentValue =
+                          editorRef.current?.getEditor()?.getValue() ?? editorValue
+                        const triggerCheck = checkTagTrigger(currentValue, offset)
+                        setShowTagDropdown(triggerCheck.show)
                       }}
-                      className='w-full focus:outline-none'
-                      textareaClassName='focus:outline-none focus:ring-0 bg-transparent resize-none w-full overflow-hidden whitespace-pre-wrap'
+                      language='javascript'
+                      autoHeight
+                      minHeight={80}
+                      className='w-full'
+                      options={{
+                        lineNumbers: 'off',
+                        scrollbar: { vertical: 'hidden', horizontal: 'hidden' },
+                        padding: { top: 4, bottom: 4 },
+                      }}
                     />
                   </div>
                   <div className='mt-2 text-[10px] text-muted-foreground'>

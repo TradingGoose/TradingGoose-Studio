@@ -7,7 +7,7 @@ import {
   CodeIcon,
   ConditionalIcon,
   ConnectIcon,
-} from '@/components/icons'
+} from '@/components/icons/icons'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import {

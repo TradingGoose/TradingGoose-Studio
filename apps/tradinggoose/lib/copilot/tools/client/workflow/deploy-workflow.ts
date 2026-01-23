@@ -35,7 +35,7 @@ export class DeployWorkflowClientTool extends BaseClientTool {
     const deployType = params?.deployType || 'api'
 
     // Check if workflow is already deployed
-    const workflowId = params?.workflowId || useWorkflowRegistry.getState().activeWorkflowId
+    const workflowId = params?.workflowId || useWorkflowRegistry.getState().getActiveWorkflowId()
     const isAlreadyDeployed = workflowId
       ? useWorkflowRegistry.getState().getWorkflowDeploymentStatus(workflowId)?.isDeployed
       : false
@@ -83,7 +83,7 @@ export class DeployWorkflowClientTool extends BaseClientTool {
       const deployType = params?.deployType || 'api'
 
       // Check if workflow is already deployed
-      const workflowId = params?.workflowId || useWorkflowRegistry.getState().activeWorkflowId
+      const workflowId = params?.workflowId || useWorkflowRegistry.getState().getActiveWorkflowId()
       const isAlreadyDeployed = workflowId
         ? useWorkflowRegistry.getState().getWorkflowDeploymentStatus(workflowId)?.isDeployed
         : false
@@ -187,8 +187,9 @@ export class DeployWorkflowClientTool extends BaseClientTool {
     try {
       const action = args?.action || 'deploy'
       const deployType = args?.deployType || 'api'
-      const { activeWorkflowId, workflows } = useWorkflowRegistry.getState()
-      const workflowId = args?.workflowId || activeWorkflowId
+      const registryState = useWorkflowRegistry.getState()
+      const workflowId = args?.workflowId || registryState.getActiveWorkflowId()
+      const { workflows } = registryState
 
       if (!workflowId) {
         throw new Error('No workflow ID provided')

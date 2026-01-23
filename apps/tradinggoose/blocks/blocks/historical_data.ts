@@ -1,4 +1,4 @@
-import { ChartBarIcon } from '@/components/icons'
+import { ChartBarIcon } from '@/components/icons/icons'
 import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { MarketSeriesOutput } from '@/tools/market_data'

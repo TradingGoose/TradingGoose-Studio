@@ -51,7 +51,7 @@ export class GetEnvironmentVariablesClientTool extends BaseClientTool {
       this.setState(ClientToolCallState.executing)
       const payload: GetEnvArgs = { ...(args || {}) }
       if (!payload.workflowId) {
-        const { activeWorkflowId } = useWorkflowRegistry.getState()
+        const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
         if (activeWorkflowId) payload.workflowId = activeWorkflowId
       }
       const res = await fetch('/api/copilot/execute-copilot-server-tool', {

@@ -171,6 +171,6 @@ function formatDateWithMilliseconds(date: Date): string {
   // Get milliseconds and format to 3 digits
   const milliseconds = date.getMilliseconds().toString().padStart(3, '0')
 
-  // Format as HH:MM:SS.mmm
+  // Format as HH:mm:ss.SSS
   return `${hours}:${minutes}:${seconds}.${milliseconds}`
 }

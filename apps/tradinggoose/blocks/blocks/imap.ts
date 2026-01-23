@@ -1,4 +1,4 @@
-import { MailServerIcon } from '@/components/icons'
+import { MailServerIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { getTrigger } from '@/triggers'
 

@@ -9,7 +9,7 @@ import { DeployModal } from '@/widgets/widgets/editor_workflow/components/contro
 import type { WorkspaceUserPermissions } from '@/hooks/use-user-permissions'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
-import { widgetHeaderIconButtonClassName } from '@/widgets/widgets/shared/components/widget-header-control'
+import { widgetHeaderIconButtonClassName } from '@/widgets/widgets/components/widget-header-control'
 
 type ControlVariant = 'workspace' | 'widget'
 

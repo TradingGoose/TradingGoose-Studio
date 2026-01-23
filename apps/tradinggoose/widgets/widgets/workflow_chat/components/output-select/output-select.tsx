@@ -1,8 +1,16 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, ChevronDown } from 'lucide-react'
+import {
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import { Check, ChevronDown, Search } from 'lucide-react'
 import { createPortal } from 'react-dom'
+import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { getBlock } from '@/blocks'
 import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
@@ -35,6 +43,7 @@ export function OutputSelect({
   triggerClassName,
 }: OutputSelectProps) {
   const [isOutputDropdownOpen, setIsOutputDropdownOpen] = useState(false)
+  const [outputSearch, setOutputSearch] = useState('')
   const dropdownRef = useRef<HTMLDivElement>(null)
   const portalRef = useRef<HTMLDivElement>(null)
   const [portalStyle, setPortalStyle] = useState<{
@@ -188,9 +197,9 @@ export function OutputSelect({
     selectedOutputs.includes(o.id) || selectedOutputs.includes(o.label)
 
   // Get selected outputs display text
-  const selectedOutputsDisplayText = useMemo(() => {
+  const { selectedOutputsDisplayText, hasSelectedOutputs } = useMemo(() => {
     if (!selectedOutputs || selectedOutputs.length === 0) {
-      return placeholder
+      return { selectedOutputsDisplayText: placeholder, hasSelectedOutputs: false }
     }
 
     // Ensure all selected outputs exist in the workflowOutputs array by id or label
@@ -199,7 +208,7 @@ export function OutputSelect({
     )
 
     if (validOutputs.length === 0) {
-      return placeholder
+      return { selectedOutputsDisplayText: placeholder, hasSelectedOutputs: false }
     }
 
     if (validOutputs.length === 1) {
@@ -207,12 +216,12 @@ export function OutputSelect({
         (o) => o.id === validOutputs[0] || o.label === validOutputs[0]
       )
       if (output) {
-        return output.label
+        return { selectedOutputsDisplayText: output.label, hasSelectedOutputs: true }
       }
-      return placeholder
+      return { selectedOutputsDisplayText: placeholder, hasSelectedOutputs: false }
     }
 
-    return `${validOutputs.length} outputs selected`
+    return { selectedOutputsDisplayText: `${validOutputs.length} selected`, hasSelectedOutputs: true }
   }, [selectedOutputs, workflowOutputs, placeholder])
 
   // Get first selected output info for display icon
@@ -239,6 +248,17 @@ export function OutputSelect({
 
   // Group output options by block
   const groupedOutputs = useMemo(() => {
+    const normalizedQuery = outputSearch.trim().toLowerCase()
+    const filteredOutputs = !normalizedQuery
+      ? workflowOutputs
+      : workflowOutputs.filter((output) => {
+          return (
+            output.label.toLowerCase().includes(normalizedQuery) ||
+            output.blockName.toLowerCase().includes(normalizedQuery) ||
+            output.path.toLowerCase().includes(normalizedQuery)
+          )
+        })
+
     const groups: Record<string, typeof workflowOutputs> = {}
     const blockDistances: Record<string, number> = {}
     const edges = useWorkflowStore.getState().edges
@@ -275,7 +295,7 @@ export function OutputSelect({
     }
 
     // Group by block name
-    workflowOutputs.forEach((output) => {
+    filteredOutputs.forEach((output) => {
       if (!groups[output.blockName]) {
         groups[output.blockName] = []
       }
@@ -302,7 +322,11 @@ export function OutputSelect({
       },
       {} as Record<string, typeof workflowOutputs>
     )
-  }, [workflowOutputs, blocks])
+  }, [workflowOutputs, blocks, outputSearch])
+
+  const hasFilteredOutputs = useMemo(() => {
+    return Object.values(groupedOutputs).some((outputs) => outputs.length > 0)
+  }, [groupedOutputs])
 
   // Get block color for an output
   const getOutputColor = (blockType: string) => {
@@ -311,12 +335,17 @@ export function OutputSelect({
     return sanitizeHexColor(blockConfig?.bgColor)
   }
 
-  const renderBlockIcon = (blockType: string, blockName: string, color?: string) => {
+  const renderBlockIcon = (
+    blockType: string,
+    blockName: string,
+    color?: string,
+    className = '!h-3.5 !w-3.5'
+  ) => {
     const blockConfig = getBlock(blockType)
     const Icon = blockConfig?.icon
 
     if (Icon) {
-      return <Icon className='!h-3.5 !w-3.5' style={{ color: color ?? '#FFFFFF' }} />
+      return <Icon className={className} style={{ color: color ?? '#FFFFFF' }} />
     }
 
     const fallback = blockName?.charAt(0)?.toUpperCase() ?? '?'
@@ -330,6 +359,61 @@ export function OutputSelect({
   const selectedOutputColor = selectedOutputInfo
     ? getOutputColor(selectedOutputInfo.blockType)
     : undefined
+
+  const chevronClassName = cn(
+    'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+    isOutputDropdownOpen && 'rotate-180'
+  )
+
+  const triggerButtonClassName = triggerClassName
+    ? cn(triggerClassName, 'justify-between')
+    : cn(
+        'flex h-9 w-full items-center justify-between rounded-sm px-3 py-1.5 font-normal text-sm shadow-xs transition-colors',
+        isOutputDropdownOpen
+          ? 'bg-background text-muted-foreground'
+          : 'bg-background text-muted-foreground hover:text-muted-foreground'
+      )
+
+  const colorBadge = selectedOutputInfo ? (
+    <div
+      className='h-5 w-5 p-0.5 rounded-xs'
+      style={{
+        backgroundColor: selectedOutputColor ? `${selectedOutputColor}50` : undefined,
+      }}
+      aria-hidden='true'
+    >
+      {renderBlockIcon(
+        selectedOutputInfo.blockType,
+        selectedOutputInfo.blockName,
+        selectedOutputColor,
+        'h-4 w-4'
+      )}
+    </div>
+  ) : (
+    <div className='h-5 w-5 rounded-xs bg-muted p-0.5' aria-hidden='true'>
+      <div className='flex h-full w-full items-center justify-center font-bold text-[10px] text-foreground'>
+        ?
+      </div>
+    </div>
+  )
+
+  const labelContent = hasSelectedOutputs ? (
+    <span className='min-w-0 flex-1 truncate text-left text-sm font-medium text-foreground'>
+      {selectedOutputsDisplayText}
+    </span>
+  ) : (
+    <span className='min-w-0 flex-1 truncate text-left text-sm font-medium text-muted-foreground'>
+      {selectedOutputsDisplayText}
+    </span>
+  )
+
+  const handleSearchInputKeyDown = useCallback((event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') return
+
+    if (event.nativeEvent.isComposing || event.key.length === 1) {
+      event.stopPropagation()
+    }
+  }, [])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -404,47 +488,16 @@ export function OutputSelect({
       <button
         type='button'
         onClick={() => setIsOutputDropdownOpen(!isOutputDropdownOpen)}
-        className={
-          triggerClassName ||
-          cn(
-            'flex h-9 w-full items-center justify-between rounded-sm px-3 py-1.5 font-normal text-sm shadow-xs transition-colors',
-            isOutputDropdownOpen
-              ? 'bg-background text-muted-foreground'
-              : 'bg-background text-muted-foreground hover:text-muted-foreground'
-          )
-        }
+        className={triggerButtonClassName}
         disabled={workflowOutputs.length === 0 || disabled}
+        aria-haspopup='listbox'
+        aria-expanded={isOutputDropdownOpen}
+        data-state={isOutputDropdownOpen ? 'open' : 'closed'}
       >
-        {selectedOutputInfo ? (
-          <div className='flex w-[calc(100%-24px)] items-center gap-2 overflow-hidden text-left'>
-            <div
-              className={'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-xs bg-secondary text-' + selectedOutputColor ? selectedOutputColor : 'foreground'}
-              style={{
-                backgroundColor: selectedOutputColor ? `${selectedOutputColor}30` : undefined,
-              }}
-            >
-              {renderBlockIcon(
-                selectedOutputInfo.blockType,
-                selectedOutputInfo.blockName,
-                selectedOutputColor
-              )}
-            </div>
-            <span className='truncate text-left'>{selectedOutputsDisplayText}</span>
-          </div>
-        ) : (
-          <div className='flex w-[calc(100%-24px)] items-center gap-2 overflow-hidden text-left'>
-            <div className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-xs bg-muted'>
-              <div className='font-bold text-foreground text-xs leading-none'>?</div>
-            </div>
-            <span className='w-[calc(100%-24px)] truncate text-left'>
-              {selectedOutputsDisplayText}
-            </span>
-          </div>
-        )}
-        <ChevronDown
-          className={`ml-1 h-4 w-4 flex-shrink-0 transition-transform ${isOutputDropdownOpen ? 'rotate-180' : ''}`}
-        />
-      </button >
+        {colorBadge}
+        {labelContent}
+        <ChevronDown className={chevronClassName} aria-hidden='true' />
+      </button>
 
       {isOutputDropdownOpen &&
         workflowOutputs.length > 0 &&
@@ -463,55 +516,80 @@ export function OutputSelect({
             className='mt-0'
             data-rs-scroll-lock-ignore
           >
-            <div className='overflow-hidden rounded-sm bg-background pt-1 shadow-xs border border-border'>
-              <div
-                className='overflow-y-auto overscroll-contain'
-                style={{ maxHeight: portalStyle.height }}
-                onWheel={(e) => {
-                  // Keep wheel scroll inside the dropdown and avoid dialog/body scroll locks
-                  e.stopPropagation()
-                }}
-              >
-                {Object.entries(groupedOutputs).map(([blockName, outputs]) => {
-                  return (
-                    <div key={blockName}>
-                      <div className='border-t px-3 pt-1.5 pb-0.5 font-normal text-muted-foreground text-xs first:border-t-0 border-transparent'>
-                        {blockName}
-                      </div>
-                      <div>
-                        {outputs.map((output) => {
-                          const outputColor = getOutputColor(output.blockType)
-                          return (
-                            <button
-                              type='button'
-                              key={output.id}
-                              onClick={() => handleOutputSelection(output.label)}
-                              className={cn(
-                                'flex w-full items-center gap-2 px-3 py-1.5 text-left font-normal text-sm',
-                                'hover:bg-card hover:text-accent-foreground',
-                                'focus:bg-accent focus:text-accent-foreground focus:outline-none'
-                              )}
-                            >
-                              <div
-                                className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-xs'
-                                style={{
-                                  backgroundColor: outputColor ? `${outputColor}30` : undefined,
-                                  color: outputColor || undefined,
-                                }}
-                              >
-                                {renderBlockIcon(output.blockType, blockName, outputColor)}
-                              </div>
-                              <span className='flex-1 truncate'>{output.path}</span>
-                              {isSelectedValue(output) && (
-                                <Check className='h-4 w-4 flex-shrink-0 text-muted-foreground' />
-                              )}
-                            </button>
-                          )
-                        })}
-                      </div>
+            <div
+              className='overflow-hidden rounded-sm bg-background shadow-xs border border-border'
+              style={{ maxHeight: portalStyle.height }}
+            >
+              <div className='flex max-h-[inherit] flex-col'>
+                <div className='border-border/70 border-b p-2'>
+                  <div className='flex items-center gap-2 rounded-md border bg-background px-2 py-1.5 text-muted-foreground text-sm'>
+                    <Search className='h-3.5 w-3.5 shrink-0' />
+                    <Input
+                      value={outputSearch}
+                      onChange={(event) => setOutputSearch(event.target.value)}
+                      placeholder='Search outputs...'
+                      className='h-6 border-0 bg-transparent px-0 text-foreground text-xs placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
+                      onKeyDown={handleSearchInputKeyDown}
+                      autoComplete='off'
+                      autoCorrect='off'
+                      spellCheck='false'
+                    />
+                  </div>
+                </div>
+                <div
+                  className='min-h-0 flex-1 overflow-y-auto overscroll-contain'
+                  onWheel={(e) => {
+                    // Keep wheel scroll inside the dropdown and avoid dialog/body scroll locks
+                    e.stopPropagation()
+                  }}
+                >
+                  {!hasFilteredOutputs ? (
+                    <div className='px-3 py-6 text-center text-muted-foreground text-xs'>
+                      {outputSearch.trim() ? 'No matching outputs.' : 'No outputs available.'}
                     </div>
-                  )
-                })}
+                  ) : (
+                    Object.entries(groupedOutputs).map(([blockName, outputs]) => {
+                      return (
+                        <div key={blockName}>
+                          <div className='border-t px-3 pt-1.5 pb-0.5 font-normal text-muted-foreground text-xs first:border-t-0 border-transparent'>
+                            {blockName}
+                          </div>
+                          <div>
+                            {outputs.map((output) => {
+                              const outputColor = getOutputColor(output.blockType)
+                              return (
+                                <button
+                                  type='button'
+                                  key={output.id}
+                                  onClick={() => handleOutputSelection(output.label)}
+                                  className={cn(
+                                    'flex w-full items-center gap-2 px-3 py-1.5 text-left font-normal text-sm',
+                                    'hover:bg-card hover:text-accent-foreground',
+                                    'focus:bg-accent focus:text-accent-foreground focus:outline-none'
+                                  )}
+                                >
+                                  <div
+                                    className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-xs'
+                                    style={{
+                                      backgroundColor: outputColor ? `${outputColor}30` : undefined,
+                                      color: outputColor || undefined,
+                                    }}
+                                  >
+                                    {renderBlockIcon(output.blockType, blockName, outputColor)}
+                                  </div>
+                                  <span className='flex-1 truncate'>{output.path}</span>
+                                  {isSelectedValue(output) && (
+                                    <Check className='h-4 w-4 flex-shrink-0 text-muted-foreground' />
+                                  )}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
               </div>
             </div>
           </div>,

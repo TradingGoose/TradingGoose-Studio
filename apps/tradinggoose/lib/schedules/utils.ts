@@ -80,7 +80,7 @@ export function getSubBlockValue(block: BlockState, id: string): string {
 
 /**
  * Parse and extract hours and minutes from a time string
- * @param timeString - Time string in format "HH:MM"
+ * @param timeString - Time string in format "HH:mm" or "HH:mm:ss"
  * @returns Array with [hours, minutes] as numbers, or [9, 0] as default
  */
 export function parseTimeString(timeString: string | undefined | null): [number, number] {
@@ -171,7 +171,7 @@ export function getScheduleTimeValues(scheduleBlock: BlockState): {
  * local time, and IANA timezone name, correctly handling DST.
  *
  * @param dateInput Date string or Date object representing the local date.
- * @param timeStr Time string in format "HH:MM" representing the local time.
+ * @param timeStr Time string in format "HH:mm" or "HH:mm:ss" representing the local time.
  * @param timezone IANA timezone string (e.g., 'America/Los_Angeles', 'Europe/Paris'). Defaults to 'UTC'.
  * @returns Date object representing the absolute point in time (UTC).
  */

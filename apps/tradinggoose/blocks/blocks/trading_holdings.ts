@@ -1,4 +1,4 @@
-import { DollarIcon } from '@/components/icons'
+import { DollarIcon } from '@/components/icons/icons'
 import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import { getProviderFields, getTradingProviders } from '@/trading_providers'

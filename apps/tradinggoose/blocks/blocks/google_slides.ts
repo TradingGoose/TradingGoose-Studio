@@ -1,4 +1,4 @@
-import { GoogleSlidesIcon } from '@/components/icons'
+import { GoogleSlidesIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { GoogleSlidesResponse } from '@/tools/google_slides/types'

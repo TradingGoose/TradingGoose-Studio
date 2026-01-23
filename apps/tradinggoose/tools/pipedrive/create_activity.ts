@@ -45,13 +45,13 @@ export const pipedriveCreateActivityTool: ToolConfig<
       type: 'string',
       required: false,
       visibility: 'user-only',
-      description: 'Due time in HH:MM format',
+      description: 'Due time in HH:mm:ss format',
     },
     duration: {
       type: 'string',
       required: false,
       visibility: 'user-only',
-      description: 'Duration in HH:MM format',
+      description: 'Duration in HH:mm:ss format',
     },
     deal_id: {
       type: 'string',

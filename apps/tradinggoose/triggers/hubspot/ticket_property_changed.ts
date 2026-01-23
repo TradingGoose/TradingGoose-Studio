@@ -1,4 +1,4 @@
-import { HubspotIcon } from '@/components/icons'
+import { HubspotIcon } from '@/components/icons/icons'
 import {
   buildTicketPropertyChangedOutputs,
   hubspotSetupInstructions,

@@ -1,4 +1,4 @@
-import { SlackIcon } from '@/components/icons'
+import { SlackIcon } from '@/components/icons/icons'
 import { Notice } from '@/components/ui'
 import { JSONView } from '@/widgets/widgets/workflow_console/components'
 import {

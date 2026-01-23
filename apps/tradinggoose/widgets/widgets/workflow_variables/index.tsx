@@ -8,8 +8,8 @@ import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
-import { widgetHeaderIconButtonClassName } from '@/widgets/widgets/shared/components/widget-header-control'
-import { WorkflowDropdown } from '@/widgets/widgets/shared/components/workflow-dropdown'
+import { widgetHeaderIconButtonClassName } from '@/widgets/widgets/components/widget-header-control'
+import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
 import {
   emitWorkflowSelectionChange,
   useWorkflowSelectionPersistence,
@@ -123,9 +123,7 @@ const WorkflowVariablesHeaderActions = ({
   }, [widget?.params])
 
   const activeWorkflowId = useWorkflowRegistry((state) =>
-    typeof state.getActiveWorkflowId === 'function'
-      ? state.getActiveWorkflowId(channelId)
-      : state.activeWorkflowId
+    state.getActiveWorkflowId(channelId)
   )
 
   const resolvedWorkflowId =

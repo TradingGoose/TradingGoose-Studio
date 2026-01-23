@@ -76,7 +76,8 @@ export class GetWorkflowDataClientTool extends BaseClientTool {
         return
       }
 
-      const { activeWorkflowId, hydration } = useWorkflowRegistry.getState()
+      const { hydration } = useWorkflowRegistry.getState()
+      const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
       const activeWorkspaceId = hydration.workspaceId
 
       switch (dataType) {

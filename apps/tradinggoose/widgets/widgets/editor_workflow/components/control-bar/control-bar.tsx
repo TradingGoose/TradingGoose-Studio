@@ -39,7 +39,7 @@ import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
-import { widgetHeaderIconButtonClassName } from '@/widgets/widgets/shared/components/widget-header-control'
+import { widgetHeaderIconButtonClassName } from '@/widgets/widgets/components/widget-header-control'
 
 const logger = createLogger('ControlBar')
 
@@ -103,11 +103,11 @@ export function ControlBar({
   const {
     workflows,
     updateWorkflow,
-    activeWorkflowId,
     duplicateWorkflow,
     setDeploymentStatus,
     isLoading: isRegistryLoading,
   } = useWorkflowRegistry()
+  const activeWorkflowId = workflowId
   const { isExecuting, handleRunWorkflow, handleCancelExecution } = useWorkflowExecution()
   const { setActiveTab, togglePanel, isOpen } = usePanelStore()
 
@@ -198,7 +198,8 @@ export function ControlBar({
     const requestWorkflowId = activeWorkflowId
 
     // Helper to get current active workflow ID for race condition checks
-    const getCurrentActiveWorkflowId = () => useWorkflowRegistry.getState().activeWorkflowId
+    const getCurrentActiveWorkflowId = () =>
+      useWorkflowRegistry.getState().getActiveWorkflowId(channelId)
 
     try {
       setIsLoadingDeployedState(true)

@@ -1,4 +1,4 @@
-import { StripeIcon } from '@/components/icons'
+import { StripeIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { StripeResponse } from '@/tools/stripe/types'
@@ -290,6 +290,7 @@ export const StripeBlock: BlockConfig<StripeResponse> = {
       id: 'trial_period_days',
       title: 'Trial Period (days)',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'e.g., 14',
       condition: {
         field: 'operation',

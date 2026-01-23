@@ -219,7 +219,7 @@ export const useVariablesStore = create<VariablesStore>()(
           if (uniqueName !== oldVariableName) {
             // Update references in subblock store
             const subBlockStore = useSubBlockStore.getState()
-            const activeWorkflowId = useWorkflowRegistry.getState().activeWorkflowId
+            const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
 
             if (activeWorkflowId) {
               // Get the workflow values for the active workflow

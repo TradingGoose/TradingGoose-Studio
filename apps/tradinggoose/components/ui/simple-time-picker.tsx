@@ -354,7 +354,7 @@ const TimeItem = ({
     return (
         <Button
             variant="ghost"
-            className={cn('flex justify-center px-1 pe-2 ps-1', className)}
+            className={cn('flex justify-center px-1 pe-2 ps-1 bg-transparent', className)}
             onClick={() => onSelect(option)}
             disabled={disabled}
         >

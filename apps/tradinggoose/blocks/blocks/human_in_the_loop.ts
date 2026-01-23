@@ -1,4 +1,4 @@
-import { HumanInTheLoopIcon } from '@/components/icons'
+import { HumanInTheLoopIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import type { ResponseBlockOutput } from '@/tools/response/types'
 

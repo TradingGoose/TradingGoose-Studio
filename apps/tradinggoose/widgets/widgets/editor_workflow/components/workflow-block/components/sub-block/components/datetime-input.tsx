@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { DateTimePicker } from '@/components/ui/datetime-picker'
+import { formatUtcDate, formatUtcDateTime } from '@/lib/time-format'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import type { SubBlockConfig } from '@/blocks/types'
 
@@ -62,7 +63,7 @@ export function DateTimeInputField({
           setStoreValue('')
           return
         }
-        setStoreValue(nextDate.toISOString())
+        setStoreValue(config?.hideTime ? formatUtcDate(nextDate) : formatUtcDateTime(nextDate))
       }}
       min={resolveDate(config?.minDate)}
       max={resolveDate(config?.maxDate)}

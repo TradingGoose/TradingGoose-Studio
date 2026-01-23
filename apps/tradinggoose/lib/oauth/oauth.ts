@@ -28,8 +28,8 @@ import {
   WealthboxIcon,
   WebflowIcon,
   xIcon,
-  AlpacaIcon,
-} from '@/components/icons'
+} from '@/components/icons/icons'
+import { AlpacaIcon } from '@/components/icons/provider-icons'
 import { env, getEnv } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 

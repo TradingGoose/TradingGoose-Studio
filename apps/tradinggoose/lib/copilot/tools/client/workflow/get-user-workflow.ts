@@ -45,7 +45,7 @@ export class GetUserWorkflowClientTool extends BaseClientTool {
       const registryState = useWorkflowRegistry.getState() as any
       let workflowId = args?.workflowId
       if (!workflowId) {
-        const { activeWorkflowId } = registryState
+        const activeWorkflowId = registryState.getActiveWorkflowId?.()
         if (!activeWorkflowId) {
           await this.markToolComplete(400, 'No active workflow found')
           this.setState(ClientToolCallState.error)

@@ -1,11 +1,7 @@
-import type { ReactElement } from 'react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronDown, ChevronUp, Plus, Trash } from 'lucide-react'
-import { highlight, languages } from 'prismjs'
-import 'prismjs/components/prism-javascript'
-import 'prismjs/themes/prism.css'
-
-import Editor from 'react-simple-code-editor'
+import { MonacoEditor } from '@/components/monaco-editor'
+import type { MonacoDecoration, MonacoEditorHandle } from '@/components/monaco-editor'
 import { Handle, Position, useUpdateNodeInternals } from 'reactflow'
 import { Button } from '@/components/ui/button'
 import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
@@ -62,9 +58,9 @@ export function ConditionInput({
   const emitTagSelection = useTagSelection(blockId, subBlockId)
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
-  const containerRef = useRef<HTMLDivElement>(null)
+  const editorRefs = useRef<Record<string, MonacoEditorHandle | null>>({})
 
-  const shouldHighlightReference = (part: string): boolean => {
+  const shouldHighlightReference = useCallback((part: string): boolean => {
     if (!part.startsWith('<') || !part.endsWith('>')) {
       return false
     }
@@ -86,10 +82,39 @@ export function ConditionInput({
     }
 
     return accessiblePrefixes.has(normalizedPrefix)
-  }
-  const [visualLineHeights, setVisualLineHeights] = useState<{
-    [key: string]: number[]
-  }>({})
+  }, [accessiblePrefixes])
+
+  const getDecorations = useCallback(
+    (value: string): MonacoDecoration[] => {
+      if (!value) return []
+
+      const ranges: MonacoDecoration[] = []
+      const envVarRegex = /\\{\\{[^}]+\\}\\}/g
+      const tagRegex = /<[^>]+>/g
+      let match: RegExpExecArray | null
+
+      while ((match = envVarRegex.exec(value)) !== null) {
+        ranges.push({
+          startOffset: match.index,
+          endOffset: match.index + match[0].length,
+          className: 'monaco-decoration-env',
+        })
+      }
+
+      while ((match = tagRegex.exec(value)) !== null) {
+        if (shouldHighlightReference(match[0])) {
+          ranges.push({
+            startOffset: match.index,
+            endOffset: match.index + match[0].length,
+            className: 'monaco-decoration-reference',
+          })
+        }
+      }
+
+      return ranges
+    },
+    [shouldHighlightReference]
+  )
   const updateNodeInternals = useUpdateNodeInternals()
   const removeEdge = useWorkflowStore((state) => state.removeEdge)
   const edges = useWorkflowStore((state) => state.edges)
@@ -264,99 +289,6 @@ export function ConditionInput({
     }
   }, [])
 
-  // Update the line counting logic to be block-specific
-  useEffect(() => {
-    if (!containerRef.current || conditionalBlocks.length === 0) return
-
-    const calculateVisualLines = () => {
-      const preElement = containerRef.current?.querySelector('pre')
-      if (!preElement) return
-
-      const newVisualLineHeights: { [key: string]: number[] } = {}
-
-      conditionalBlocks.forEach((block) => {
-        const lines = block.value.split('\n')
-        const blockVisualHeights: number[] = []
-
-        // Create a hidden container with the same width as the editor
-        const container = document.createElement('div')
-        container.style.cssText = `
-          position: absolute;
-          visibility: hidden;
-          width: ${preElement.clientWidth}px;
-          font-family: ${window.getComputedStyle(preElement).fontFamily};
-          font-size: ${window.getComputedStyle(preElement).fontSize};
-          padding: 12px;
-          white-space: pre-wrap;
-          word-break: break-word;
-        `
-        document.body.appendChild(container)
-
-        // Process each line
-        lines.forEach((line) => {
-          const lineDiv = document.createElement('div')
-
-          if (line.includes('<') && line.includes('>')) {
-            const parts = line.split(/(<[^>]+>)/g)
-            parts.forEach((part) => {
-              const span = document.createElement('span')
-              span.textContent = part
-              if (part.startsWith('<') && part.endsWith('>')) {
-                span.style.color = 'rgb(153, 0, 85)'
-              }
-              lineDiv.appendChild(span)
-            })
-          } else {
-            lineDiv.textContent = line || ' '
-          }
-
-          container.appendChild(lineDiv)
-
-          const actualHeight = lineDiv.getBoundingClientRect().height
-          const lineUnits = Math.ceil(actualHeight / 21)
-          blockVisualHeights.push(lineUnits)
-
-          container.removeChild(lineDiv)
-        })
-
-        document.body.removeChild(container)
-        newVisualLineHeights[block.id] = blockVisualHeights
-      })
-
-      setVisualLineHeights(newVisualLineHeights)
-    }
-
-    calculateVisualLines()
-
-    const resizeObserver = new ResizeObserver(calculateVisualLines)
-    resizeObserver.observe(containerRef.current)
-
-    return () => resizeObserver.disconnect()
-  }, [conditionalBlocks])
-
-  // Modify the line numbers rendering to be block-specific
-  const renderLineNumbers = (blockId: string) => {
-    const numbers: ReactElement[] = []
-    let lineNumber = 1
-    const blockHeights = visualLineHeights[blockId] || []
-
-    blockHeights.forEach((height) => {
-      for (let i = 0; i < height; i++) {
-        numbers.push(
-          <div
-            key={`${blockId}-${lineNumber}-${i}`}
-            className={cn('text-muted-foreground text-xs leading-[21px]', i > 0 && 'invisible')}
-          >
-            {lineNumber}
-          </div>
-        )
-      }
-      lineNumber++
-    })
-
-    return numbers
-  }
-
   // Handle drops from connection blocks - updated for individual blocks
   const handleDrop = (blockId: string, e: React.DragEvent) => {
     if (isPreview || disabled) return
@@ -365,16 +297,15 @@ export function ConditionInput({
       const data = JSON.parse(e.dataTransfer.getData('application/json'))
       if (data.type !== 'connectionBlock') return
 
-      const textarea: any = containerRef.current?.querySelector(
-        `[data-block-id="${blockId}"] textarea`
-      )
-      const dropPosition = textarea?.selectionStart ?? 0
+      const editorHandle = editorRefs.current[blockId]
+      const currentValue = editorHandle?.getEditor()?.getValue() ?? ''
+      const dropPosition = editorHandle?.getCursorOffset() ?? currentValue.length
 
       shouldPersistRef.current = true
       setConditionalBlocks((blocks) =>
         blocks.map((block) => {
           if (block.id === blockId) {
-            const newValue = `${block.value.slice(0, dropPosition)}<${block.value.slice(dropPosition)}`
+            const newValue = `${currentValue.slice(0, dropPosition)}<${currentValue.slice(dropPosition)}`
             return {
               ...block,
               value: newValue,
@@ -389,11 +320,8 @@ export function ConditionInput({
 
       // Set cursor position after state updates
       setTimeout(() => {
-        if (textarea) {
-          textarea.selectionStart = dropPosition + 1
-          textarea.selectionEnd = dropPosition + 1
-          textarea.focus()
-        }
+        editorHandle?.focus()
+        editorHandle?.setCursorOffset(dropPosition + 1)
       }, 0)
     } catch (error) {
       logger.error('Failed to parse drop data:', { error })
@@ -408,14 +336,18 @@ export function ConditionInput({
       blocks.map((block) =>
         block.id === blockId
           ? {
-              ...block,
-              value: newValue,
-              showTags: false,
-              activeSourceBlockId: null,
-            }
+            ...block,
+            value: newValue,
+            showTags: false,
+            activeSourceBlockId: null,
+          }
           : block
       )
     )
+
+    setTimeout(() => {
+      editorRefs.current[blockId]?.focus()
+    }, 0)
   }
 
   // Handle environment variable selection - updated for individual blocks
@@ -426,14 +358,18 @@ export function ConditionInput({
       blocks.map((block) =>
         block.id === blockId
           ? {
-              ...block,
-              value: newValue,
-              showEnvVars: false,
-              searchTerm: '',
-            }
+            ...block,
+            value: newValue,
+            showEnvVars: false,
+            searchTerm: '',
+          }
           : block
       )
     )
+
+    setTimeout(() => {
+      editorRefs.current[blockId]?.focus()
+    }, 0)
   }
 
   const handleTagSelectImmediate = (blockId: string, newValue: string) => {
@@ -444,11 +380,11 @@ export function ConditionInput({
       blocks.map((block) =>
         block.id === blockId
           ? {
-              ...block,
-              value: newValue,
-              showTags: false,
-              activeSourceBlockId: null,
-            }
+            ...block,
+            value: newValue,
+            showTags: false,
+            activeSourceBlockId: null,
+          }
           : block
       )
     )
@@ -456,14 +392,18 @@ export function ConditionInput({
     const updatedBlocks = conditionalBlocks.map((block) =>
       block.id === blockId
         ? {
-            ...block,
-            value: newValue,
-            showTags: false,
-            activeSourceBlockId: null,
-          }
+          ...block,
+          value: newValue,
+          showTags: false,
+          activeSourceBlockId: null,
+        }
         : block
     )
     emitTagSelection(JSON.stringify(updatedBlocks))
+
+    setTimeout(() => {
+      editorRefs.current[blockId]?.focus()
+    }, 0)
   }
 
   const handleEnvVarSelectImmediate = (blockId: string, newValue: string) => {
@@ -474,11 +414,11 @@ export function ConditionInput({
       blocks.map((block) =>
         block.id === blockId
           ? {
-              ...block,
-              value: newValue,
-              showEnvVars: false,
-              searchTerm: '',
-            }
+            ...block,
+            value: newValue,
+            showEnvVars: false,
+            searchTerm: '',
+          }
           : block
       )
     )
@@ -486,14 +426,18 @@ export function ConditionInput({
     const updatedBlocks = conditionalBlocks.map((block) =>
       block.id === blockId
         ? {
-            ...block,
-            value: newValue,
-            showEnvVars: false,
-            searchTerm: '',
-          }
+          ...block,
+          value: newValue,
+          showEnvVars: false,
+          searchTerm: '',
+        }
         : block
     )
     emitTagSelection(JSON.stringify(updatedBlocks))
+
+    setTimeout(() => {
+      editorRefs.current[blockId]?.focus()
+    }, 0)
   }
 
   // Update block titles based on position
@@ -530,12 +474,7 @@ export function ConditionInput({
     setConditionalBlocks(updateBlockTitles(newBlocks))
 
     setTimeout(() => {
-      const textarea: any = containerRef.current?.querySelector(
-        `[data-block-id="${newBlock.id}"] textarea`
-      )
-      if (textarea) {
-        textarea.focus()
-      }
+      editorRefs.current[newBlock.id]?.focus()
     }, 0)
   }
 
@@ -575,40 +514,15 @@ export function ConditionInput({
 
     if (direction === 'down' && newBlocks[targetIndex]?.title === 'else') return
 
-    ;[newBlocks[blockIndex], newBlocks[targetIndex]] = [
-      newBlocks[targetIndex],
-      newBlocks[blockIndex],
-    ]
+      ;[newBlocks[blockIndex], newBlocks[targetIndex]] = [
+        newBlocks[targetIndex],
+        newBlocks[blockIndex],
+      ]
     shouldPersistRef.current = true
     setConditionalBlocks(updateBlockTitles(newBlocks))
 
     setTimeout(() => updateNodeInternals(blockId), 0)
   }
-
-  // Add useEffect to handle keyboard events for both dropdowns
-  useEffect(() => {
-    conditionalBlocks.forEach((block) => {
-      const textarea = containerRef.current?.querySelector(`[data-block-id="${block.id}"] textarea`)
-      if (textarea) {
-        textarea.addEventListener('keydown', (e: Event) => {
-          if ((e as KeyboardEvent).key === 'Escape') {
-            setConditionalBlocks((blocks) =>
-              blocks.map((b) =>
-                b.id === block.id
-                  ? {
-                      ...b,
-                      showTags: false,
-                      showEnvVars: false,
-                      searchTerm: '',
-                    }
-                  : b
-              )
-            )
-          }
-        })
-      }
-    })
-  }, [conditionalBlocks.length])
 
   // Show loading or empty state if not ready or no blocks
   if (!isReady || conditionalBlocks.length === 0) {
@@ -620,7 +534,7 @@ export function ConditionInput({
   }
 
   return (
-    <div className='space-y-4' ref={containerRef}>
+    <div className='space-y-4'>
       {conditionalBlocks.map((block, index) => (
         <div
           key={block.id}
@@ -749,52 +663,60 @@ export function ConditionInput({
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => handleDrop(block.id, e)}
             >
-              {/* Line numbers */}
-              <div
-                className='absolute top-0 bottom-0 left-0 flex w-[30px] select-none flex-col items-end bg-muted/30 pt-3 pr-3'
-                aria-hidden='true'
-              >
-                {renderLineNumbers(block.id)}
-              </div>
-
-              <div className='relative mt-0 pt-0 pl-[30px]' data-block-id={block.id}>
-                {block.value.length === 0 && (
-                  <div className='pointer-events-none absolute top-[12px] left-[42px] select-none text-muted-foreground/50'>
-                    {'<response> === true'}
-                  </div>
-                )}
-                <Editor
+              <div className='relative mt-0 pt-0'>
+                <MonacoEditor
+                  ref={(instance) => {
+                    editorRefs.current[block.id] = instance
+                  }}
                   value={block.value}
-                  onValueChange={(newCode) => {
+                  onChange={(newCode) => {
                     if (!isPreview && !disabled) {
-                      const textarea = containerRef.current?.querySelector(
-                        `[data-block-id="${block.id}"] textarea`
-                      ) as HTMLTextAreaElement | null
-                      if (textarea) {
-                        const pos = textarea.selectionStart ?? 0
+                      const editorHandle = editorRefs.current[block.id]
+                      const pos = editorHandle?.getCursorOffset() ?? newCode.length
 
-                        const tagTrigger = checkTagTrigger(newCode, pos)
-                        const envVarTrigger = checkEnvVarTrigger(newCode, pos)
+                      const tagTrigger = checkTagTrigger(newCode, pos)
+                      const envVarTrigger = checkEnvVarTrigger(newCode, pos)
 
-                        shouldPersistRef.current = true
-                        setConditionalBlocks((blocks) =>
-                          blocks.map((b) => {
-                            if (b.id === block.id) {
-                              return {
-                                ...b,
-                                value: newCode,
-                                showTags: tagTrigger.show,
-                                showEnvVars: envVarTrigger.show,
-                                searchTerm: envVarTrigger.show ? envVarTrigger.searchTerm : '',
-                                cursorPosition: pos,
-                                activeSourceBlockId: tagTrigger.show ? b.activeSourceBlockId : null,
-                              }
+                      shouldPersistRef.current = true
+                      setConditionalBlocks((blocks) =>
+                        blocks.map((b) => {
+                          if (b.id === block.id) {
+                            return {
+                              ...b,
+                              value: newCode,
+                              showTags: tagTrigger.show,
+                              showEnvVars: envVarTrigger.show,
+                              searchTerm: envVarTrigger.show ? envVarTrigger.searchTerm : '',
+                              cursorPosition: pos,
+                              activeSourceBlockId: tagTrigger.show ? b.activeSourceBlockId : null,
                             }
-                            return b
-                          })
-                        )
-                      }
+                          }
+                          return b
+                        })
+                      )
                     }
+                  }}
+                  onCursorChange={(offset) => {
+                    if (isPreview || disabled) return
+                    const currentValue =
+                      editorRefs.current[block.id]?.getEditor()?.getValue() ?? block.value
+                    const tagTrigger = checkTagTrigger(currentValue, offset)
+                    const envVarTrigger = checkEnvVarTrigger(currentValue, offset)
+
+                    setConditionalBlocks((blocks) =>
+                      blocks.map((b) =>
+                        b.id === block.id
+                          ? {
+                              ...b,
+                              cursorPosition: offset,
+                              showTags: tagTrigger.show,
+                              showEnvVars: envVarTrigger.show,
+                              searchTerm: envVarTrigger.show ? envVarTrigger.searchTerm : '',
+                              activeSourceBlockId: tagTrigger.show ? b.activeSourceBlockId : null,
+                            }
+                          : b
+                      )
+                    )
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Escape') {
@@ -805,68 +727,17 @@ export function ConditionInput({
                       )
                     }
                   }}
-                  highlight={(codeToHighlight) => {
-                    const placeholders: {
-                      placeholder: string
-                      original: string
-                      type: 'var' | 'env'
-                    }[] = []
-                    let processedCode = codeToHighlight
-
-                    // Replace environment variables with placeholders
-                    processedCode = processedCode.replace(/\{\{([^}]+)\}\}/g, (match) => {
-                      const placeholder = `__ENV_VAR_${placeholders.length}__`
-                      placeholders.push({ placeholder, original: match, type: 'env' })
-                      return placeholder
-                    })
-
-                    // Replace variable references with placeholders
-                    processedCode = processedCode.replace(/<([^>]+)>/g, (match) => {
-                      if (shouldHighlightReference(match)) {
-                        const placeholder = `__VAR_REF_${placeholders.length}__`
-                        placeholders.push({ placeholder, original: match, type: 'var' })
-                        return placeholder
-                      }
-                      return match
-                    })
-
-                    // Apply Prism syntax highlighting
-                    let highlightedCode = highlight(
-                      processedCode,
-                      languages.javascript,
-                      'javascript'
-                    )
-
-                    // Restore and highlight the placeholders
-                    placeholders.forEach(({ placeholder, original, type }) => {
-                      if (type === 'env') {
-                        highlightedCode = highlightedCode.replace(
-                          placeholder,
-                          `<span class="text-blue-500">${original}</span>`
-                        )
-                      } else if (type === 'var') {
-                        // Escape the < and > for display
-                        const escaped = original.replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                        highlightedCode = highlightedCode.replace(
-                          placeholder,
-                          `<span class="text-blue-500">${escaped}</span>`
-                        )
-                      }
-                    })
-
-                    return highlightedCode
-                  }}
-                  padding={12}
-                  style={{
-                    fontFamily: 'inherit',
-                    minHeight: '46px',
-                    lineHeight: '21px',
-                  }}
+                  language='javascript'
+                  placeholder={block.value.length === 0 ? '<response> === true' : ''}
+                  decorations={getDecorations(block.value)}
+                  autoHeight
+                  minHeight={46}
                   className={cn('focus:outline-none', isPreview && 'cursor-not-allowed opacity-50')}
-                  textareaClassName={cn(
-                    'focus:outline-none focus:ring-0 bg-transparent',
-                    isPreview && 'pointer-events-none'
-                  )}
+                  readOnly={isPreview || disabled}
+                  options={{
+                    lineNumbers: 'on',
+                    padding: { top: 8, bottom: 8 },
+                  }}
                 />
 
                 {block.showEnvVars && (
@@ -900,10 +771,10 @@ export function ConditionInput({
                         blocks.map((b) =>
                           b.id === block.id
                             ? {
-                                ...b,
-                                showTags: false,
-                                activeSourceBlockId: null,
-                              }
+                              ...b,
+                              showTags: false,
+                              activeSourceBlockId: null,
+                            }
                             : b
                         )
                       )

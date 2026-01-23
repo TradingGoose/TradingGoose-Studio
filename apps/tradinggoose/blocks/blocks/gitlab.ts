@@ -1,4 +1,4 @@
-import { GitLabIcon } from '@/components/icons'
+import { GitLabIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { GitLabResponse } from '@/tools/gitlab/types'

@@ -1,4 +1,4 @@
-import { MicrosoftPlannerIcon } from '@/components/icons'
+import { MicrosoftPlannerIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { MicrosoftPlannerResponse } from '@/tools/microsoft_planner/types'
@@ -109,7 +109,7 @@ export const MicrosoftPlannerBlock: BlockConfig<MicrosoftPlannerResponse> = {
     {
       id: 'dueDateTime',
       title: 'Due Date',
-      type: 'short-input',
+      type: 'datetime-input',
       layout: 'full',
       placeholder: 'Enter due date in ISO 8601 format (e.g., 2024-12-31T23:59:59Z)',
       condition: { field: 'operation', value: ['create_task'] },

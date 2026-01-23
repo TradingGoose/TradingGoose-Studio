@@ -23,9 +23,9 @@ import {
 } from '@/lib/oauth'
 import { OAuthRequiredModal } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/credential-selector/components/oauth-required-modal'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
+import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('CredentialSelector')
 
@@ -50,7 +50,7 @@ export function CredentialSelector({
   const [showOAuthModal, setShowOAuthModal] = useState(false)
   const [selectedId, setSelectedId] = useState('')
   const [hasForeignMeta, setHasForeignMeta] = useState(false)
-  const { activeWorkflowId } = useWorkflowRegistry()
+  const activeWorkflowId = useWorkflowId()
   const { collaborativeSetSubblockValue } = useCollaborativeWorkflow()
 
   // Use collaborative state management via useSubBlockValue hook

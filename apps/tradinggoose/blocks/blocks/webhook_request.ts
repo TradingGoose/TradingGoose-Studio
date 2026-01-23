@@ -1,4 +1,4 @@
-import { WebhookIcon } from '@/components/icons'
+import { WebhookIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import type { RequestResponse } from '@/tools/http/types'
 

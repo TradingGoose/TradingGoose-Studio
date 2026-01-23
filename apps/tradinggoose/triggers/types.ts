@@ -35,17 +35,20 @@ export interface TriggerConfig {
   // Optional icon component for UI display
   icon?: React.ComponentType<{ className?: string }>
 
+  // Subblocks define the UI and configuration (same as blocks)
+  subBlocks: import('@/blocks/types').SubBlockConfig[]
+
   // Configuration fields that users need to fill
-  configFields: Record<string, TriggerConfigField>
+  configFields?: Record<string, TriggerConfigField>
 
   // Define the structure of data this trigger outputs to workflows
   outputs: Record<string, TriggerOutput>
 
   // Setup instructions for users
-  instructions: string[]
+  instructions?: string[]
 
   // Example payload for documentation
-  samplePayload: any
+  samplePayload?: any
 
   // Webhook configuration (for most triggers)
   webhook?: {

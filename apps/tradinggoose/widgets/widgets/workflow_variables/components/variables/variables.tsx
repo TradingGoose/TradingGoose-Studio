@@ -11,11 +11,6 @@ import {
   Plus,
   Trash,
 } from 'lucide-react'
-import { highlight, languages } from 'prismjs'
-import 'prismjs/components/prism-javascript'
-import 'prismjs/themes/prism.css'
-
-import Editor from 'react-simple-code-editor'
 import {
   Button,
   DropdownMenu,
@@ -28,6 +23,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui'
+import { MonacoEditor } from '@/components/monaco-editor'
 import { createLogger } from '@/lib/logs/console/logger'
 import { validateName } from '@/lib/utils'
 import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
@@ -43,7 +39,7 @@ type VariablesProps = {
 }
 
 export function Variables({ workflowId: workflowIdProp, hideAddButtons = false }: VariablesProps = {}) {
-  const { activeWorkflowId } = useWorkflowRegistry()
+  const activeWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId())
   const workflowId = workflowIdProp ?? activeWorkflowId
   const { getVariablesByWorkflowId } = useVariablesStore()
   const {
@@ -131,14 +127,16 @@ export function Variables({ workflowId: workflowIdProp, hideAddButtons = false }
 
   const getEditorLanguage = (type: VariableType) => {
     switch (type) {
+      case 'plain':
+      case 'string':
+        return 'plaintext'
       case 'object':
       case 'array':
       case 'boolean':
       case 'number':
-      case 'plain':
         return 'javascript'
       default:
-        return 'javascript'
+        return 'plaintext'
     }
   }
 
@@ -388,36 +386,21 @@ export function Variables({ workflowId: workflowIdProp, hideAddButtons = false }
                             </div>
                           </div>
                         )}
-                        <Editor
+                        <MonacoEditor
                           key={`editor-${variable.id}-${variable.type}`}
                           value={formatValue(variable)}
-                          onValueChange={handleEditorChange.bind(null, variable)}
+                          onChange={(nextValue) => handleEditorChange(variable, nextValue)}
                           onBlur={() => handleEditorBlur(variable.id)}
                           onFocus={() => handleEditorFocus(variable.id)}
-                          highlight={(code) =>
-                            // Only apply syntax highlighting for non-basic text types
-                            variable.type === 'plain' || variable.type === 'string'
-                              ? code
-                              : highlight(
-                                code,
-                                languages[getEditorLanguage(variable.type)],
-                                getEditorLanguage(variable.type)
-                              )
-                          }
-                          padding={0}
-                          style={{
-                            fontFamily: 'inherit',
-                            lineHeight: '20px',
-                            width: '100%',
-                            maxWidth: '100%',
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-all',
-                            overflowWrap: 'break-word',
-                            minHeight: '20px',
-                            overflow: 'hidden',
+                          language={getEditorLanguage(variable.type)}
+                          autoHeight
+                          minHeight={20}
+                          className='w-full font-[380] text-foreground text-sm leading-normal'
+                          options={{
+                            lineNumbers: 'off',
+                            scrollbar: { vertical: 'hidden', horizontal: 'hidden' },
+                            padding: { top: 0, bottom: 0 },
                           }}
-                          className='[&>pre]:!max-w-full [&>pre]:!overflow-hidden [&>pre]:!whitespace-pre-wrap [&>pre]:!break-all [&>pre]:!overflow-wrap-break-word [&>textarea]:!max-w-full [&>textarea]:!overflow-hidden [&>textarea]:!whitespace-pre-wrap [&>textarea]:!break-all [&>textarea]:!overflow-wrap-break-word font-[380] text-foreground text-sm leading-normal focus:outline-none'
-                          textareaClassName='focus:outline-none focus:ring-0 bg-transparent resize-none w-full max-w-full whitespace-pre-wrap break-all overflow-wrap-break-word overflow-hidden font-[380] text-foreground'
                         />
                       </div>
                     </div>

@@ -1,4 +1,4 @@
-import { SpotifyIcon } from '@/components/icons'
+import { SpotifyIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { ToolResponse } from '@/tools/types'
@@ -587,6 +587,7 @@ export const SpotifyBlock: BlockConfig<ToolResponse> = {
       id: 'position_ms',
       title: 'Position (ms)',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'Position in milliseconds',
       required: true,
       condition: { field: 'operation', value: 'spotify_seek' },

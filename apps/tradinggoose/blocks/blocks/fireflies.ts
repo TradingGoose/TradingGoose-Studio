@@ -1,4 +1,4 @@
-import { FirefliesIcon } from '@/components/icons'
+import { FirefliesIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { FirefliesResponse } from '@/tools/fireflies/types'
@@ -90,7 +90,7 @@ export const FirefliesBlock: BlockConfig<FirefliesResponse> = {
     {
       id: 'fromDate',
       title: 'From Date',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: 'e.g., 2024-01-01T00:00:00Z',
       required: false,
       condition: {
@@ -100,7 +100,7 @@ export const FirefliesBlock: BlockConfig<FirefliesResponse> = {
       wandConfig: {
         enabled: true,
         prompt: `Generate an ISO 8601 timestamp based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "yesterday" -> Calculate yesterday's date at 00:00:00Z
 - "last week" -> Calculate 7 days ago at 00:00:00Z
@@ -115,7 +115,7 @@ Return ONLY the timestamp string - no explanations, no quotes, no extra text.`,
     {
       id: 'toDate',
       title: 'To Date',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: 'e.g., 2024-12-31T23:59:59Z',
       required: false,
       condition: {
@@ -125,7 +125,7 @@ Return ONLY the timestamp string - no explanations, no quotes, no extra text.`,
       wandConfig: {
         enabled: true,
         prompt: `Generate an ISO 8601 timestamp based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "today" -> Calculate today's date at 23:59:59Z
 - "end of this week" -> Calculate end of week at 23:59:59Z
@@ -336,6 +336,7 @@ Return ONLY the valid JSON array - no explanations, no markdown code blocks.`,
       id: 'duration',
       title: 'Duration (minutes)',
       type: 'short-input',
+      inputType: 'number',
       placeholder: '60 (15-120 minutes)',
       required: false,
       condition: {
@@ -348,6 +349,7 @@ Return ONLY the valid JSON array - no explanations, no markdown code blocks.`,
       id: 'startTime',
       title: 'Start Time (seconds)',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'e.g., 30',
       required: true,
       condition: {
@@ -359,6 +361,7 @@ Return ONLY the valid JSON array - no explanations, no markdown code blocks.`,
       id: 'endTime',
       title: 'End Time (seconds)',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'e.g., 90',
       required: true,
       condition: {

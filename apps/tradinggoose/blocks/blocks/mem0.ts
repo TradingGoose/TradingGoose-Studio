@@ -1,4 +1,4 @@
-import { Mem0Icon } from '@/components/icons'
+import { Mem0Icon } from '@/components/icons/icons'
 import { AuthMode, type BlockConfig } from '@/blocks/types'
 import type { Mem0Response } from '@/tools/mem0/types'
 
@@ -74,7 +74,8 @@ export const Mem0Block: BlockConfig<Mem0Response> = {
     {
       id: 'startDate',
       title: 'Start Date',
-      type: 'short-input',
+      type: 'datetime-input',
+      hideTime: true,
       layout: 'half',
       placeholder: 'YYYY-MM-DD',
       condition: {
@@ -85,7 +86,8 @@ export const Mem0Block: BlockConfig<Mem0Response> = {
     {
       id: 'endDate',
       title: 'End Date',
-      type: 'short-input',
+      type: 'datetime-input',
+      hideTime: true,
       layout: 'half',
       placeholder: 'YYYY-MM-DD',
       condition: {

@@ -42,7 +42,7 @@ export class ListGDriveFilesClientTool extends BaseClientTool {
       // Ensure server can resolve userId via workflowId if userId not provided
       const payload: ListGDriveFilesArgs = { ...(args || {}) }
       if (!payload.userId && !payload.workflowId) {
-        const { activeWorkflowId } = useWorkflowRegistry.getState()
+        const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
         if (activeWorkflowId) payload.workflowId = activeWorkflowId
       }
 

@@ -1,4 +1,4 @@
-import { MailgunIcon } from '@/components/icons'
+import { MailgunIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import type { SendMessageResult } from '@/tools/mailgun/types'
 

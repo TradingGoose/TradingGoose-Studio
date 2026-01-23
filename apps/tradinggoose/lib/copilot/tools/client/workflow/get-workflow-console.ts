@@ -47,7 +47,7 @@ export class GetWorkflowConsoleClientTool extends BaseClientTool {
       const params = args || {}
       let workflowId = params.workflowId
       if (!workflowId) {
-        const { activeWorkflowId } = useWorkflowRegistry.getState()
+        const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
         workflowId = activeWorkflowId || undefined
       }
       if (!workflowId) {

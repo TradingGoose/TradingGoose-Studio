@@ -1331,23 +1331,10 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       if (atIndex === -1) return null
       // Ensure '@' starts a token (start or whitespace before)
       if (atIndex > 0 && !/\s/.test(before.charAt(atIndex - 1))) return null
-      // If this '@' falls anywhere inside an existing mention token, ignore.
-      // This also covers labels that themselves contain '@' characters.
-      if (selectedContexts.length > 0) {
-        const labels = selectedContexts.map((c) => c.label).filter(Boolean) as string[]
-        for (const label of labels) {
-          const token = `@${label}`
-          let fromIndex = 0
-          while (fromIndex <= text.length) {
-            const idx = text.indexOf(token, fromIndex)
-            if (idx === -1) break
-            const end = idx + token.length
-            if (atIndex >= idx && atIndex < end) {
-              return null
-            }
-            fromIndex = end
-          }
-        }
+      // If this '@' falls inside an existing mention token, ignore it.
+      const ranges = computeMentionRanges(text)
+      if (ranges.some((r) => atIndex > r.start && atIndex < r.end)) {
+        return null
       }
       const segment = before.slice(atIndex + 1)
       // Close the popup if user types space immediately after @ (just "@ " with nothing between)
@@ -1611,20 +1598,29 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     }
 
     // Mention token utilities
-    const computeMentionRanges = () => {
+    const computeMentionRanges = (text: string = message) => {
       const ranges: Array<{ start: number; end: number; label: string }> = []
-      if (!message || selectedContexts.length === 0) return ranges
+      if (!text || selectedContexts.length === 0) return ranges
       // Build labels map for quick search
-      const labels = selectedContexts.map((c) => c.label).filter(Boolean)
+      const labels = Array.from(
+        new Set(selectedContexts.map((c) => c.label).filter(Boolean) as string[])
+      )
       if (labels.length === 0) return ranges
-      // For each label, find all occurrences of @label (case-sensitive)
+      // For each label, find all occurrences of @label with whitespace boundaries
       for (const label of labels) {
         const token = `@${label}`
         let fromIndex = 0
-        while (fromIndex <= message.length) {
-          const idx = message.indexOf(token, fromIndex)
+        while (fromIndex <= text.length) {
+          const idx = text.indexOf(token, fromIndex)
           if (idx === -1) break
-          ranges.push({ start: idx, end: idx + token.length, label })
+          const beforeChar = idx === 0 ? ' ' : text[idx - 1]
+          const afterChar = text[idx + token.length] ?? ''
+          const hasLeadingBoundary = idx === 0 || /\s/.test(beforeChar)
+          const hasTrailingBoundary =
+            idx + token.length >= text.length || /\s/.test(afterChar)
+          if (hasLeadingBoundary && hasTrailingBoundary) {
+            ranges.push({ start: idx, end: idx + token.length, label })
+          }
           fromIndex = idx + token.length
         }
       }
@@ -2271,26 +2267,28 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
             >
               <pre className='m-0 whitespace-pre-wrap break-words font-sans text-foreground text-sm leading-[1.25rem]'>
                 {(() => {
+                  if (!message) {
+                    return <span>{'\u00A0'}</span>
+                  }
+                  const ranges = computeMentionRanges()
+                  if (ranges.length === 0) {
+                    const displayText = message.endsWith('\n') ? `${message}\u200B` : message
+                    return <span>{displayText}</span>
+                  }
                   const elements: React.ReactNode[] = []
-                  const remaining = message
-                  const contexts = selectedContexts
-                  if (contexts.length === 0 || !remaining) return remaining
-                  // Build regex for all labels
-                  const labels = contexts.map((c) => c.label).filter(Boolean)
-                  const pattern = new RegExp(
-                    `@(${labels.map((l) => l.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')).join('|')})`,
-                    'g'
-                  )
                   let lastIndex = 0
-                  let match: RegExpExecArray | null
-                  while ((match = pattern.exec(remaining)) !== null) {
-                    const i = match.index
-                    const before = remaining.slice(lastIndex, i)
-                    if (before) elements.push(before)
-                    const mentionText = match[0]
+                  for (let i = 0; i < ranges.length; i++) {
+                    const range = ranges[i]
+                    if (range.start > lastIndex) {
+                      const before = message.slice(lastIndex, range.start)
+                      elements.push(
+                        <span key={`text-${i}-${lastIndex}-${range.start}`}>{before}</span>
+                      )
+                    }
+                    const mentionText = message.slice(range.start, range.end)
                     elements.push(
                       <span
-                        key={`${mentionText}-${i}-${lastIndex}`}
+                        key={`mention-${i}-${range.start}-${range.end}`}
                         style={{
                           backgroundColor:
                             'color-mix(in srgb, var(--primary-hover) 14%, transparent)',
@@ -2300,11 +2298,14 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                         {mentionText}
                       </span>
                     )
-                    lastIndex = i + mentionText.length
+                    lastIndex = range.end
                   }
-                  const tail = remaining.slice(lastIndex)
-                  if (tail) elements.push(tail)
-                  return elements
+                  const tail = message.slice(lastIndex)
+                  if (tail) {
+                    const displayTail = tail.endsWith('\n') ? `${tail}\u200B` : tail
+                    elements.push(<span key={`tail-${lastIndex}`}>{displayTail}</span>)
+                  }
+                  return elements.length > 0 ? elements : <span>{'\u00A0'}</span>
                 })()}
               </pre>
             </div>

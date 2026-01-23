@@ -4,7 +4,11 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getBlockOutputs } from '@/lib/workflows/block-outputs'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
+import {
+  DEFAULT_WORKFLOW_CHANNEL_ID,
+  useWorkflowStore,
+} from '@/stores/workflows/workflow/store-client'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('useBlockConnections')
 
@@ -94,7 +98,11 @@ export function useBlockConnections(blockId: string) {
     shallow
   )
 
-  const workflowId = useWorkflowRegistry((state) => state.activeWorkflowId)
+  const routeContext = useOptionalWorkflowRoute()
+  const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
+  const workflowId = useWorkflowRegistry((state) =>
+    state.getActiveWorkflowId(resolvedChannelId)
+  )
   const workflowSubBlockValues = useSubBlockStore((state) =>
     workflowId ? (state.workflowValues[workflowId] ?? {}) : {}
   )
@@ -123,7 +131,9 @@ export function useBlockConnections(blockId: string) {
       const mergedSubBlocks = getMergedSubBlocks(sourceId)
 
       // Get the response format from the subblock store
-      const responseFormatValue = useSubBlockStore.getState().getValue(sourceId, 'responseFormat')
+      const responseFormatValue = useSubBlockStore
+        .getState()
+        .getValue(sourceId, 'responseFormat', workflowId ?? undefined)
 
       // Safely parse response format with proper error handling
       const responseFormat = parseResponseFormatSafely(responseFormatValue, sourceId)
@@ -174,7 +184,7 @@ export function useBlockConnections(blockId: string) {
       // Get the response format from the subblock store instead
       const responseFormatValue = useSubBlockStore
         .getState()
-        .getValue(edge.source, 'responseFormat')
+        .getValue(edge.source, 'responseFormat', workflowId ?? undefined)
 
       // Safely parse response format with proper error handling
       const responseFormat = parseResponseFormatSafely(responseFormatValue, edge.source)

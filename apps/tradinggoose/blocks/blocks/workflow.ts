@@ -1,4 +1,4 @@
-import { WorkflowIcon } from '@/components/icons'
+import { WorkflowIcon } from '@/components/icons/icons'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { BlockConfig } from '@/blocks/types'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
@@ -8,7 +8,8 @@ const logger = createLogger('WorkflowBlock')
 // Helper function to get available workflows for the dropdown
 const getAvailableWorkflows = (): Array<{ label: string; id: string }> => {
   try {
-    const { workflows, activeWorkflowId } = useWorkflowRegistry.getState()
+    const { workflows } = useWorkflowRegistry.getState()
+    const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
 
     // Filter out the current workflow to prevent recursion
     const availableWorkflows = Object.entries(workflows)

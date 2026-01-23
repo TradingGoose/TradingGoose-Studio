@@ -1,4 +1,4 @@
-import { IntercomIcon } from '@/components/icons'
+import { IntercomIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 
@@ -125,6 +125,7 @@ export const IntercomBlock: BlockConfig = {
       id: 'signed_up_at',
       title: 'Signed Up At',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'Unix timestamp',
       condition: {
         field: 'operation',
@@ -148,6 +149,7 @@ Return ONLY the numeric timestamp - no explanations, no quotes, no extra text.`,
       id: 'last_seen_at',
       title: 'Last Seen At',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'Unix timestamp',
       condition: {
         field: 'operation',
@@ -353,6 +355,7 @@ Return ONLY the query - no explanations.`,
       id: 'remote_created_at',
       title: 'Remote Created At',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'Unix timestamp when company was created',
       condition: {
         field: 'operation',
@@ -496,6 +499,7 @@ Return ONLY the message text - no explanations.`,
       id: 'reply_created_at',
       title: 'Created At',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'Unix timestamp for reply creation time',
       condition: {
         field: 'operation',
@@ -594,6 +598,7 @@ Return ONLY the JSON object - no explanations or markdown formatting.`,
       id: 'ticket_created_at',
       title: 'Created At',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'Unix timestamp for ticket creation time',
       condition: {
         field: 'operation',
@@ -735,6 +740,7 @@ Return ONLY the subject line - no explanations.`,
       id: 'message_created_at',
       title: 'Created At',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'Unix timestamp for message creation time',
       condition: {
         field: 'operation',

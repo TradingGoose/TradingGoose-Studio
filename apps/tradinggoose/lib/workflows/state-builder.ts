@@ -7,7 +7,7 @@ import { useWorkflowStore } from '@/stores/workflows/workflow/store'
  */
 export function buildWorkflowStateForTemplate(workflowId: string) {
   const workflowStore = useWorkflowStore.getState()
-  const { activeWorkflowId } = useWorkflowRegistry.getState()
+  const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
 
   // Get current workflow state
   const { blocks, edges } = workflowStore

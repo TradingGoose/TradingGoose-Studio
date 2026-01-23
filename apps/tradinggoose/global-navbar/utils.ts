@@ -1,4 +1,4 @@
-import { Braces, Files, Frame, KeyRound, LibraryBig, Map as MapIcon, Server, Waypoints, Wrench } from 'lucide-react'
+import { Braces, Files, LayoutDashboard, KeyRound, LibraryBig, Map as MapIcon, Server, Waypoints, Wrench } from 'lucide-react'
 import type { NavItemLink, NavSection } from './types'
 
 export function getWorkspaceIdFromPath(path: string) {
@@ -24,7 +24,7 @@ export function getWorkspaceSwitchPath(path: string, targetWorkspaceId: string, 
 export function createWorkspaceNav(workspaceId?: string): NavItemLink[] {
   if (!workspaceId) {
     return [
-      { title: 'Dashboard', url: '/dashboard', icon: Frame, section: 'workspace' },
+      { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard, section: 'workspace' },
       { title: 'Knowledge', url: '/knowledge', icon: LibraryBig, section: 'workspace' },
       { title: 'Files', url: '/files', icon: Files, section: 'workspace' },
       { title: 'Logs', url: '/logs', icon: MapIcon, section: 'workspace' },
@@ -33,7 +33,7 @@ export function createWorkspaceNav(workspaceId?: string): NavItemLink[] {
 
   const base = `/workspace/${workspaceId}`
   return [
-    { title: 'Dashboard', url: `${base}/dashboard`, icon: Frame, section: 'workspace' },
+    { title: 'Dashboard', url: `${base}/dashboard`, icon: LayoutDashboard, section: 'workspace' },
     { title: 'Knowledge', url: `${base}/knowledge`, icon: LibraryBig, section: 'workspace' },
     { title: 'Custom Tools', url: `${base}/custom-tools`, icon: Wrench, section: 'workspace' },
     { title: 'MCP Servers', url: `${base}/mcp`, icon: Server, section: 'workspace' },

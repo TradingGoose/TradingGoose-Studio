@@ -1,4 +1,4 @@
-import { ShopifyIcon } from '@/components/icons'
+import { ShopifyIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 

@@ -24,7 +24,6 @@ export interface WorkflowMetadata {
 
 export interface WorkflowRegistryState {
   workflows: Record<string, WorkflowMetadata>
-  activeWorkflowId: string | null
   activeWorkflowIds: Record<string, string>
   loadedWorkflowIds: Record<string, boolean>
   isLoading: boolean

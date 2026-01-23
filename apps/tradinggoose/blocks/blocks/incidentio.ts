@@ -1,4 +1,4 @@
-import { IncidentioIcon } from '@/components/icons'
+import { IncidentioIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { IncidentioResponse } from '@/tools/incidentio/types'
@@ -591,13 +591,13 @@ Return ONLY the instructions text - no explanations.`,
     {
       id: 'entry_window_start',
       title: 'Entry Window Start (Date/Time)',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: 'ISO 8601 format (e.g., 2024-01-01T00:00:00Z)...',
       condition: { field: 'operation', value: 'incidentio_schedule_entries_list' },
       wandConfig: {
         enabled: true,
         prompt: `Generate an ISO 8601 timestamp based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "beginning of this week" -> Monday of current week at 00:00:00Z
 - "last month" -> First day of previous month at 00:00:00Z
@@ -611,13 +611,13 @@ Return ONLY the timestamp string - no explanations, no quotes, no extra text.`,
     {
       id: 'entry_window_end',
       title: 'Entry Window End (Date/Time)',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: 'ISO 8601 format (e.g., 2024-12-31T23:59:59Z)...',
       condition: { field: 'operation', value: 'incidentio_schedule_entries_list' },
       wandConfig: {
         enabled: true,
         prompt: `Generate an ISO 8601 timestamp based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "end of this week" -> Sunday of current week at 23:59:59Z
 - "end of next month" -> Last day of next month at 23:59:59Z
@@ -664,14 +664,14 @@ Return ONLY the timestamp string - no explanations, no quotes, no extra text.`,
     {
       id: 'start_at',
       title: 'Start At',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: 'ISO 8601 format (e.g., 2024-01-01T00:00:00Z)...',
       condition: { field: 'operation', value: 'incidentio_schedule_overrides_create' },
       required: true,
       wandConfig: {
         enabled: true,
         prompt: `Generate an ISO 8601 timestamp based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "now" -> Current date and time in UTC
 - "tomorrow at 9am" -> Tomorrow at 09:00:00Z
@@ -685,14 +685,14 @@ Return ONLY the timestamp string - no explanations, no quotes, no extra text.`,
     {
       id: 'end_at',
       title: 'End At',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: 'ISO 8601 format (e.g., 2024-12-31T23:59:59Z)...',
       condition: { field: 'operation', value: 'incidentio_schedule_overrides_create' },
       required: true,
       wandConfig: {
         enabled: true,
         prompt: `Generate an ISO 8601 timestamp based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "in 4 hours" -> Current time plus 4 hours
 - "tomorrow at 5pm" -> Tomorrow at 17:00:00Z
@@ -751,7 +751,7 @@ Return ONLY the JSON array - no explanations or markdown formatting.`,
       title: 'Working Hours',
       type: 'long-input',
       placeholder:
-        'Optional JSON array: [{"weekday": "monday", "start_time": "09:00", "end_time": "17:00"}]',
+        'Optional JSON array: [{"weekday": "monday", "start_time": "09:00:00", "end_time": "17:00:00"}]',
       condition: {
         field: 'operation',
         value: ['incidentio_escalation_paths_create', 'incidentio_escalation_paths_update'],
@@ -761,7 +761,7 @@ Return ONLY the JSON array - no explanations or markdown formatting.`,
         prompt: `Generate a JSON array for working hours configuration based on the user's description.
 The array must follow this structure:
 [
-  {"weekday": "monday|tuesday|wednesday|thursday|friday|saturday|sunday", "start_time": "HH:MM", "end_time": "HH:MM"}
+  {"weekday": "monday|tuesday|wednesday|thursday|friday|saturday|sunday", "start_time": "HH:mm:ss", "end_time": "HH:mm:ss"}
 ]
 
 Return ONLY the JSON array - no explanations or markdown formatting.`,

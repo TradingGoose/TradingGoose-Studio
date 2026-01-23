@@ -5,7 +5,7 @@ import WorkflowConsoleApp from './components/workflow-console-app'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
-import { WorkflowDropdown } from '@/widgets/widgets/shared/components/workflow-dropdown'
+import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
 import {
   emitWorkflowSelectionChange,
   useWorkflowSelectionPersistence,
@@ -164,7 +164,6 @@ export const workflowConsoleWidget: DashboardWidgetDefinition = {
   component: (props) => <WorkflowConsoleWidgetBody {...props} />,
   renderHeader: ({ widget, context, panelId }) => {
     return {
-      left: <span className='font-medium text-accent-foreground text-xs'>Console</span>,
       center: (
         <WorkflowConsoleHeaderSelector
           workspaceId={context?.workspaceId}

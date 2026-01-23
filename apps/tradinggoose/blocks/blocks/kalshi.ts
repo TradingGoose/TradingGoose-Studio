@@ -1,4 +1,4 @@
-import { KalshiIcon } from '@/components/icons'
+import { KalshiIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 
@@ -174,6 +174,7 @@ export const KalshiBlock: BlockConfig = {
       id: 'minTs',
       title: 'Min Timestamp',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'Minimum timestamp (Unix milliseconds)',
       condition: { field: 'operation', value: ['get_fills'] },
       wandConfig: {
@@ -194,6 +195,7 @@ Return ONLY the numeric timestamp (milliseconds since Unix epoch) - no explanati
       id: 'maxTs',
       title: 'Max Timestamp',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'Maximum timestamp (Unix milliseconds)',
       condition: { field: 'operation', value: ['get_fills'] },
       wandConfig: {
@@ -231,6 +233,7 @@ Return ONLY the numeric timestamp (milliseconds since Unix epoch) - no explanati
       id: 'startTs',
       title: 'Start Timestamp',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'Start timestamp (Unix seconds)',
       required: true,
       condition: { field: 'operation', value: ['get_candlesticks'] },
@@ -252,6 +255,7 @@ Return ONLY the numeric timestamp (seconds since Unix epoch) - no explanations, 
       id: 'endTs',
       title: 'End Timestamp',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'End timestamp (Unix seconds)',
       required: true,
       condition: { field: 'operation', value: ['get_candlesticks'] },
@@ -422,6 +426,7 @@ Return ONLY the numeric timestamp (seconds since Unix epoch) - no explanations, 
       id: 'expirationTs',
       title: 'Expiration',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'Unix timestamp for order expiration',
       condition: { field: 'operation', value: ['create_order'] },
       wandConfig: {

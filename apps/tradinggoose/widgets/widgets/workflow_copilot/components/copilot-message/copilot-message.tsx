@@ -1004,12 +1004,12 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                     return nodes
                   })()}
 
-                  {/* Gradient fade when truncated */}
-                  {!isExpanded && needsExpansion && (
-                    <div className='absolute right-0 bottom-0 left-0 h-8 bg-gradient-to-t from-[#FFFFFF] to-transparent dark:from-[var(--surface-elevated)]' />
-                  )}
-                </div>
 
+                </div>
+                {/* Gradient fade when truncated */}
+                {!isExpanded && needsExpansion && (
+                  <div className='absolute rounded-b-lg right-0 bottom-0 left-0 h-full bg-gradient-to-t to-transparent from-background/60' />
+                )}
                 {/* Abort button when hovering and response is generating (only on last user message) */}
                 {isSendingMessage && isHoveringMessage && isLastUserMessage && (
                   <div className='absolute right-2 bottom-2'>

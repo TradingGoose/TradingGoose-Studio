@@ -1,18 +1,18 @@
-import * as Icons from '@/components/icons'
+import * as Icons from '@/components/icons/icons'
 import { inter } from '@/app/fonts/inter'
-
+import * as ProviderIcons from '@/components/icons/provider-icons'
 // AI models and providers
 const modelProviderIcons = [
-  { icon: Icons.OpenAIIcon, label: 'OpenAI' },
-  { icon: Icons.AnthropicIcon, label: 'Anthropic' },
-  { icon: Icons.GeminiIcon, label: 'Gemini' },
-  { icon: Icons.MistralIcon, label: 'Mistral' },
+  { icon: ProviderIcons.OpenAIIcon, label: 'OpenAI' },
+  { icon: ProviderIcons.AnthropicIcon, label: 'Anthropic' },
+  { icon: ProviderIcons.GeminiIcon, label: 'Gemini' },
+  { icon: ProviderIcons.MistralIcon, label: 'Mistral' },
   { icon: Icons.PerplexityIcon, label: 'Perplexity' },
-  { icon: Icons.xAIIcon, label: 'xAI' },
-  { icon: Icons.GroqIcon, label: 'Groq' },
+  { icon: ProviderIcons.xAIIcon, label: 'xAI' },
+  { icon: ProviderIcons.GroqIcon, label: 'Groq' },
   { icon: Icons.HuggingFaceIcon, label: 'HuggingFace' },
-  { icon: Icons.OllamaIcon, label: 'Ollama' },
-  { icon: Icons.DeepseekIcon, label: 'Deepseek' },
+  { icon: ProviderIcons.OllamaIcon, label: 'Ollama' },
+  { icon: ProviderIcons.DeepseekIcon, label: 'Deepseek' },
   { icon: Icons.ElevenLabsIcon, label: 'ElevenLabs' },
 ]
 
@@ -96,9 +96,8 @@ function TickerRow({ direction, offset, showOdd, icons }: TickerRowProps) {
   return (
     <div className='relative h-[88px] w-full overflow-hidden'>
       <div
-        className={`absolute flex items-center gap-[16px] ${
-          direction === 'left' ? 'animate-slide-left' : 'animate-slide-right'
-        }`}
+        className={`absolute flex items-center gap-[16px] ${direction === 'left' ? 'animate-slide-left' : 'animate-slide-right'
+          }`}
         style={{
           animationDelay: `${offset}s`,
         }}

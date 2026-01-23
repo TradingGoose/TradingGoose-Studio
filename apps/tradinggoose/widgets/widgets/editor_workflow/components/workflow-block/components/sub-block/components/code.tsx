@@ -1,13 +1,9 @@
-import type { ReactElement } from 'react'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Wand2 } from 'lucide-react'
-import { highlight, languages } from 'prismjs'
-import 'prismjs/components/prism-javascript'
-import 'prismjs/themes/prism.css'
-import 'prismjs/components/prism-python'
-import Editor from 'react-simple-code-editor'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Check, Copy, Wand2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
+import { MonacoEditor } from '@/components/monaco-editor'
+import type { MonacoDecoration, MonacoEditorHandle } from '@/components/monaco-editor'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { CodeLanguage } from '@/lib/execution/languages'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -15,7 +11,7 @@ import { cn } from '@/lib/utils'
 import { isLikelyReferenceSegment, SYSTEM_REFERENCE_PREFIXES } from '@/lib/workflows/references'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowId, useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { useWand } from '@/hooks/workflow/use-wand'
 import type { GenerationType } from '@/blocks/types'
@@ -37,6 +33,11 @@ interface CodeProps {
   isPreview?: boolean
   previewValue?: string | null
   disabled?: boolean
+  readOnly?: boolean
+  collapsible?: boolean
+  defaultCollapsed?: boolean
+  defaultValue?: string | number | boolean | Record<string, unknown> | Array<unknown>
+  showCopyButton?: boolean
   onValidationChange?: (isValid: boolean) => void
   wandConfig: {
     enabled: boolean
@@ -47,23 +48,7 @@ interface CodeProps {
   }
 }
 
-if (typeof document !== 'undefined') {
-  const styleId = 'code-dark-mode-fix'
-  if (!document.getElementById(styleId)) {
-    const style = document.createElement('style')
-    style.id = styleId
-    style.textContent = `
-      .dark .token.operator {
-        color: #9cdcfe !important;
-        background: transparent !important;
-      }
-      .dark .token.punctuation {
-        color: #d4d4d4 !important;
-      }
-    `
-    document.head.appendChild(style)
-  }
-}
+ 
 
 export function Code({
   blockId,
@@ -76,10 +61,16 @@ export function Code({
   isPreview = false,
   previewValue,
   disabled = false,
+  readOnly = false,
+  collapsible,
+  defaultCollapsed = false,
+  defaultValue,
+  showCopyButton = false,
   onValidationChange,
   wandConfig,
 }: CodeProps) {
   const workspaceId = useWorkspaceId()
+  const workflowId = useWorkflowId()
 
   const aiPromptPlaceholder = useMemo(() => {
     switch (generationType) {
@@ -93,27 +84,37 @@ export function Code({
   }, [generationType])
 
   const [code, setCode] = useState<string>('')
-  const [_lineCount, setLineCount] = useState(1)
   const [showTags, setShowTags] = useState(false)
   const [showEnvVars, setShowEnvVars] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [cursorPosition, setCursorPosition] = useState(0)
   const [activeSourceBlockId, setActiveSourceBlockId] = useState<string | null>(null)
-  const [visualLineHeights, setVisualLineHeights] = useState<number[]>([])
+  const [copied, setCopied] = useState(false)
 
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
   const collapsedStateKey = `${subBlockId}_collapsed`
-  const isCollapsed =
-    (useSubBlockStore((state) => state.getValue(blockId, collapsedStateKey)) as boolean) ?? false
+  const collapsedStoreValue = useSubBlockStore((state) =>
+    state.getValue(blockId, collapsedStateKey, workflowId)
+  ) as boolean | null
+  const isCollapsed = collapsedStoreValue ?? defaultCollapsed ?? false
 
   const { collaborativeSetSubblockValue } = useCollaborativeWorkflow()
   const setCollapsedValue = (blockId: string, subblockId: string, value: any) => {
     collaborativeSetSubblockValue(blockId, subblockId, value)
   }
 
-  const showCollapseButton =
-    (subBlockId === 'responseFormat' || subBlockId === 'code') && code.split('\n').length > 5
+  useEffect(() => {
+    if (defaultCollapsed && (collapsedStoreValue === null || collapsedStoreValue === undefined)) {
+      setCollapsedValue(blockId, collapsedStateKey, true)
+    }
+  }, [blockId, collapsedStateKey, collapsedStoreValue, defaultCollapsed])
+
+  const allowCollapse =
+    typeof collapsible === 'boolean'
+      ? collapsible
+      : subBlockId === 'responseFormat' || subBlockId === 'code'
+  const showCollapseButton = allowCollapse && code.split('\n').length > 5
 
   const isValidJson = useMemo(() => {
     if (subBlockId !== 'responseFormat' || !code.trim()) {
@@ -136,7 +137,7 @@ export function Code({
     }
   }, [isValidJson, onValidationChange, subBlockId])
 
-  const editorRef = useRef<HTMLDivElement>(null)
+  const editorRef = useRef<MonacoEditorHandle | null>(null)
 
   const toggleCollapsed = () => {
     setCollapsedValue(blockId, collapsedStateKey, !isCollapsed)
@@ -183,8 +184,21 @@ IMPORTANT FORMATTING RULES:
     return wandConfig
   }, [wandConfig, remoteExecution, languageValue])
 
+  const handleCopy = async () => {
+    if (!code) return
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch (error) {
+      logger.error('Failed to copy code', { error })
+    }
+  }
+
   const wandHook = useWand({
-    wandConfig: wandConfig || { enabled: false, prompt: '' },
+    wandConfig: readOnly
+      ? { ...(wandConfig || { enabled: false, prompt: '' }), enabled: false }
+      : wandConfig || { enabled: false, prompt: '' },
     currentValue: code,
     onStreamStart: () => handleStreamStartRef.current?.(),
     onStreamChunk: (chunk: string) => handleStreamChunkRef.current?.(chunk),
@@ -209,8 +223,25 @@ IMPORTANT FORMATTING RULES:
   })
 
   const emitTagSelection = useTagSelection(blockId, subBlockId)
+  const persistValue = useCallback(
+    (nextValue: string, emitTag = false) => {
+      setStoreValue(nextValue)
+      if (emitTag) {
+        emitTagSelection(nextValue)
+      }
+    },
+    [emitTagSelection, setStoreValue]
+  )
 
-  const value = isPreview ? previewValue : propValue !== undefined ? propValue : storeValue
+  const shouldUseStoreValue = propValue === undefined
+  const rawValue = isPreview
+    ? previewValue
+    : shouldUseStoreValue
+      ? storeValue
+      : propValue ?? code
+  const value = rawValue ?? defaultValue ?? ''
+
+  const isReadOnly = readOnly || disabled || isPreview
 
   useEffect(() => {
     handleStreamStartRef.current = () => {
@@ -219,11 +250,11 @@ IMPORTANT FORMATTING RULES:
 
     handleGeneratedContentRef.current = (generatedCode: string) => {
       setCode(generatedCode)
-      if (!isPreview && !disabled) {
-        setStoreValue(generatedCode)
+      if (!isPreview && !disabled && !readOnly) {
+        persistValue(generatedCode)
       }
     }
-  }, [isPreview, disabled, setStoreValue])
+  }, [isPreview, disabled, readOnly, persistValue])
 
   useEffect(() => {
     if (isAiStreaming) return
@@ -233,72 +264,47 @@ IMPORTANT FORMATTING RULES:
     }
   }, [value, code, isAiStreaming])
 
-  useEffect(() => {
-    if (!editorRef.current) return
+  const handleEditorChange = useCallback(
+    (newCode: string) => {
+      if (isCollapsed || isAiStreaming || isReadOnly) return
+      setCode(newCode)
+      persistValue(newCode)
 
-    const calculateVisualLines = () => {
-      const preElement = editorRef.current?.querySelector('pre')
-      if (!preElement) return
+      const cursorPos = editorRef.current?.getCursorOffset() ?? 0
+      setCursorPosition(cursorPos)
 
-      const lines = code.split('\n')
-      const newVisualLineHeights: number[] = []
+      const tagTrigger = checkTagTrigger(newCode, cursorPos)
+      setShowTags(tagTrigger.show)
+      if (!tagTrigger.show) {
+        setActiveSourceBlockId(null)
+      }
 
-      const tempContainer = document.createElement('div')
-      tempContainer.style.cssText = `
-        position: absolute;
-        visibility: hidden;
-        height: auto;
-        width: ${preElement.clientWidth}px;
-        font-family: ${window.getComputedStyle(preElement).fontFamily};
-        font-size: ${window.getComputedStyle(preElement).fontSize};
-        line-height: 21px;
-        padding: 12px;
-        white-space: pre-wrap;
-        word-break: break-word;
-        box-sizing: border-box;
-      `
-      document.body.appendChild(tempContainer)
+      const envVarTrigger = checkEnvVarTrigger(newCode, cursorPos)
+      setShowEnvVars(envVarTrigger.show)
+      setSearchTerm(envVarTrigger.show ? envVarTrigger.searchTerm : '')
+    },
+    [isCollapsed, isAiStreaming, isReadOnly, persistValue]
+  )
 
-      lines.forEach((line) => {
-        const lineDiv = document.createElement('div')
+  const handleCursorChange = useCallback(
+    (offset: number) => {
+      if (isCollapsed || isAiStreaming || isReadOnly) return
+      setCursorPosition(offset)
+      const currentValue = editorRef.current?.getEditor()?.getValue() ?? code
 
-        if (line.includes('<') && line.includes('>')) {
-          const parts = line.split(/(<[^>]+>)/g)
-          parts.forEach((part) => {
-            const span = document.createElement('span')
-            span.textContent = part
-            if (part.startsWith('<') && part.endsWith('>')) {
-            }
-            lineDiv.appendChild(span)
-          })
-        } else {
-          lineDiv.textContent = line || ' '
-        }
+      const tagTrigger = checkTagTrigger(currentValue, offset)
+      setShowTags(tagTrigger.show)
+      if (!tagTrigger.show) {
+        setActiveSourceBlockId(null)
+      }
 
-        tempContainer.appendChild(lineDiv)
-        const actualHeight = lineDiv.getBoundingClientRect().height
-        const lineUnits = Math.max(1, Math.ceil(actualHeight / 21))
-        newVisualLineHeights.push(lineUnits)
-        tempContainer.removeChild(lineDiv)
-      })
+      const envVarTrigger = checkEnvVarTrigger(currentValue, offset)
+      setShowEnvVars(envVarTrigger.show)
+      setSearchTerm(envVarTrigger.show ? envVarTrigger.searchTerm : '')
+    },
+    [code, isCollapsed, isAiStreaming, isReadOnly]
+  )
 
-      document.body.removeChild(tempContainer)
-      setVisualLineHeights(newVisualLineHeights)
-      setLineCount(newVisualLineHeights.reduce((sum, height) => sum + height, 0))
-    }
-
-    const timeoutId = setTimeout(calculateVisualLines, 50)
-
-    const resizeObserver = new ResizeObserver(calculateVisualLines)
-    if (editorRef.current) {
-      resizeObserver.observe(editorRef.current)
-    }
-
-    return () => {
-      clearTimeout(timeoutId)
-      resizeObserver.disconnect()
-    }
-  }, [code])
 
   const handleDrop = (e: React.DragEvent) => {
     if (isPreview) return
@@ -306,27 +312,20 @@ IMPORTANT FORMATTING RULES:
     try {
       const data = JSON.parse(e.dataTransfer.getData('application/json'))
       if (data.type !== 'connectionBlock') return
+      const editorHandle = editorRef.current
+      const dropPosition = editorHandle?.getCursorOffset() ?? code.length
+      editorHandle?.insertTextAtCursor('<')
 
-      const textarea = editorRef.current?.querySelector('textarea')
-      const dropPosition = textarea?.selectionStart ?? code.length
-      const newValue = `${code.slice(0, dropPosition)}<${code.slice(dropPosition)}`
-
-      setCode(newValue)
-      setStoreValue(newValue)
       const newCursorPosition = dropPosition + 1
       setCursorPosition(newCursorPosition)
-
       setShowTags(true)
       if (data.connectionData?.sourceBlockId) {
         setActiveSourceBlockId(data.connectionData.sourceBlockId)
       }
 
       setTimeout(() => {
-        if (textarea) {
-          textarea.focus()
-          textarea.selectionStart = newCursorPosition
-          textarea.selectionEnd = newCursorPosition
-        }
+        editorHandle?.focus()
+        editorHandle?.setCursorOffset(newCursorPosition)
       }, 0)
     } catch (error) {
       logger.error('Failed to parse drop data:', { error })
@@ -336,29 +335,29 @@ IMPORTANT FORMATTING RULES:
   const handleTagSelect = (newValue: string) => {
     if (!isPreview) {
       setCode(newValue)
-      emitTagSelection(newValue)
+      persistValue(newValue, true)
     }
     setShowTags(false)
     setActiveSourceBlockId(null)
 
     setTimeout(() => {
-      editorRef.current?.querySelector('textarea')?.focus()
+      editorRef.current?.focus()
     }, 0)
   }
 
   const handleEnvVarSelect = (newValue: string) => {
     if (!isPreview) {
       setCode(newValue)
-      emitTagSelection(newValue)
+      persistValue(newValue, true)
     }
     setShowEnvVars(false)
 
     setTimeout(() => {
-      editorRef.current?.querySelector('textarea')?.focus()
+      editorRef.current?.focus()
     }, 0)
   }
 
-  const shouldHighlightReference = (part: string): boolean => {
+  const shouldHighlightReference = useCallback((part: string): boolean => {
     if (!part.startsWith('<') || !part.endsWith('>')) {
       return false
     }
@@ -380,41 +379,37 @@ IMPORTANT FORMATTING RULES:
     }
 
     return accessiblePrefixes.has(normalizedPrefix)
-  }
+  }, [accessiblePrefixes])
 
-  const renderLineNumbers = (): ReactElement[] => {
-    const numbers: ReactElement[] = []
-    let lineNumber = 1
+  const decorations = useMemo<MonacoDecoration[]>(() => {
+    if (!code) return []
 
-    visualLineHeights.forEach((height) => {
-      numbers.push(
-        <div key={`${lineNumber}-0`} className={cn('text-muted-foreground text-xs leading-[21px]')}>
-          {lineNumber}
-        </div>
-      )
-      for (let i = 1; i < height; i++) {
-        numbers.push(
-          <div
-            key={`${lineNumber}-${i}`}
-            className={cn('invisible text-muted-foreground text-xs leading-[21px]')}
-          >
-            {lineNumber}
-          </div>
-        )
-      }
-      lineNumber++
-    })
+    const ranges: MonacoDecoration[] = []
+    const envVarRegex = /\{\{[^}]+\}\}/g
+    const tagRegex = /<[^>]+>/g
 
-    if (numbers.length === 0) {
-      numbers.push(
-        <div key={'1-0'} className={cn('text-muted-foreground text-xs leading-[21px]')}>
-          1
-        </div>
-      )
+    let match: RegExpExecArray | null
+    while ((match = envVarRegex.exec(code)) !== null) {
+      ranges.push({
+        startOffset: match.index,
+        endOffset: match.index + match[0].length,
+        className: 'monaco-decoration-env',
+      })
     }
 
-    return numbers
-  }
+    while ((match = tagRegex.exec(code)) !== null) {
+      if (shouldHighlightReference(match[0])) {
+        ranges.push({
+          startOffset: match.index,
+          endOffset: match.index + match[0].length,
+          className: 'monaco-decoration-reference',
+        })
+      }
+    }
+
+    return ranges
+  }, [code, shouldHighlightReference])
+
 
   return (
     <>
@@ -438,14 +433,26 @@ IMPORTANT FORMATTING RULES:
         onDrop={handleDrop}
       >
         <div className='absolute top-2 right-3 z-10 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100'>
-          {wandConfig?.enabled && !isCollapsed && !isAiStreaming && !isPreview && (
+          {showCopyButton && code && (
+            <Button
+              variant='ghost'
+              size='icon'
+              onClick={handleCopy}
+              disabled={disabled}
+              aria-label='Copy code'
+              className='h-8 w-8 rounded-sm text-muted-foreground hover:text-foreground'
+            >
+              {copied ? <Check className='h-4 w-4' /> : <Copy className='h-4 w-4' />}
+            </Button>
+          )}
+          {wandConfig?.enabled && !isCollapsed && !isAiStreaming && !isPreview && !readOnly && (
             <Button
               variant='ghost'
               size='icon'
               onClick={isPromptVisible ? hidePromptInline : showPromptInline}
               disabled={isAiLoading || isAiStreaming}
               aria-label='Generate code with AI'
-              className='h-8 w-8 rounded-full text-muted-foreground hover:text-foreground'
+              className='h-8 w-8 rounded-sm text-muted-foreground hover:text-foreground'
             >
               <Wand2 className='h-4 w-4' />
             </Button>
@@ -465,50 +472,17 @@ IMPORTANT FORMATTING RULES:
         </div>
 
         <div
-          className='absolute top-0 bottom-0 left-0 flex w-[30px] select-none flex-col items-end overflow-hidden bg-muted/30 pt-3 pr-3'
-          aria-hidden='true'
-        >
-          {renderLineNumbers()}
-        </div>
-
-        <div
           className={cn(
-            'relative mt-0 pt-0 pl-[30px]',
+            'relative mt-0 pt-0',
             isCollapsed && 'max-h-[126px] overflow-hidden',
             isAiStreaming && 'streaming-effect'
           )}
-          ref={editorRef}
         >
-          {code.length === 0 && !isCollapsed && (
-            <div className='pointer-events-none absolute top-[12px] left-[42px] select-none text-muted-foreground/50'>
-              {dynamicPlaceholder}
-            </div>
-          )}
-
-          <Editor
+          <MonacoEditor
+            ref={editorRef}
             value={code}
-            onValueChange={(newCode) => {
-              if (!isCollapsed && !isAiStreaming && !isPreview && !disabled) {
-                setCode(newCode)
-                setStoreValue(newCode)
-
-                const textarea = editorRef.current?.querySelector('textarea')
-                if (textarea) {
-                  const pos = textarea.selectionStart
-                  setCursorPosition(pos)
-
-                  const tagTrigger = checkTagTrigger(newCode, pos)
-                  setShowTags(tagTrigger.show)
-                  if (!tagTrigger.show) {
-                    setActiveSourceBlockId(null)
-                  }
-
-                  const envVarTrigger = checkEnvVarTrigger(newCode, pos)
-                  setShowEnvVars(envVarTrigger.show)
-                  setSearchTerm(envVarTrigger.show ? envVarTrigger.searchTerm : '')
-                }
-              }
-            }}
+            onChange={handleEditorChange}
+            onCursorChange={handleCursorChange}
             onKeyDown={(e) => {
               if (e.key === 'Escape') {
                 setShowTags(false)
@@ -518,68 +492,21 @@ IMPORTANT FORMATTING RULES:
                 e.preventDefault()
               }
             }}
-            highlight={(codeToHighlight) => {
-              const placeholders: { placeholder: string; original: string; type: 'var' | 'env' }[] =
-                []
-              let processedCode = codeToHighlight
-
-              // Replace environment variables with placeholders
-              processedCode = processedCode.replace(/\{\{([^}]+)\}\}/g, (match) => {
-                const placeholder = `__ENV_VAR_${placeholders.length}__`
-                placeholders.push({ placeholder, original: match, type: 'env' })
-                return placeholder
-              })
-
-              // Replace variable references with placeholders
-              processedCode = processedCode.replace(/<([^>]+)>/g, (match) => {
-                if (shouldHighlightReference(match)) {
-                  const placeholder = `__VAR_REF_${placeholders.length}__`
-                  placeholders.push({ placeholder, original: match, type: 'var' })
-                  return placeholder
-                }
-                return match
-              })
-
-              // Apply Prism syntax highlighting
-              const lang = effectiveLanguage === 'python' ? 'python' : 'javascript'
-              let highlightedCode = highlight(processedCode, languages[lang], lang)
-
-              // Restore and highlight the placeholders
-              placeholders.forEach(({ placeholder, original, type }) => {
-                if (type === 'env') {
-                  highlightedCode = highlightedCode.replace(
-                    placeholder,
-                    `<span class="text-blue-500">${original}</span>`
-                  )
-                } else if (type === 'var') {
-                  // Escape the < and > for display
-                  const escaped = original.replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                  highlightedCode = highlightedCode.replace(
-                    placeholder,
-                    `<span class="text-blue-500">${escaped}</span>`
-                  )
-                }
-              })
-
-              return highlightedCode
-            }}
-            padding={12}
-            style={{
-              fontFamily: 'inherit',
-              fontSize: 'inherit',
-              minHeight: isCollapsed ? '0px' : '106px',
-              lineHeight: '21px',
-              outline: 'none',
-            }}
+            language={effectiveLanguage === 'python' ? 'python' : 'javascript'}
+            placeholder={isCollapsed ? '' : dynamicPlaceholder}
+            decorations={decorations}
+            autoHeight
+            minHeight={106}
             className={cn(
-              'code-editor-area caret-primary dark:caret-white',
+              'code-editor-area',
               'bg-transparent focus:outline-none',
               (isCollapsed || isAiStreaming) && 'cursor-not-allowed opacity-50'
             )}
-            textareaClassName={cn(
-              'focus:outline-none focus:ring-0 border-none bg-transparent resize-none',
-              (isCollapsed || isAiStreaming) && 'pointer-events-none'
-            )}
+            readOnly={isReadOnly || isAiStreaming || isCollapsed}
+            options={{
+              lineNumbers: 'on',
+              padding: { top: 8, bottom: 8 },
+            }}
           />
 
         </div>

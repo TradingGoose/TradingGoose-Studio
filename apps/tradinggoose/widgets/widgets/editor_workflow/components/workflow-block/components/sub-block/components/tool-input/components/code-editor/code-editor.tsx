@@ -1,28 +1,43 @@
-import type { ReactElement } from 'react'
-import { useEffect, useRef, useState } from 'react'
-import { highlight, languages } from 'prismjs'
-import 'prismjs/components/prism-javascript'
-import 'prismjs/components/prism-json'
-import 'prismjs/themes/prism.css'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { MutableRefObject } from 'react'
 import { Wand2 } from 'lucide-react'
-import Editor from 'react-simple-code-editor'
+import { MonacoEditor } from '@/components/monaco-editor'
+import type { MonacoDecoration, MonacoEditorHandle } from '@/components/monaco-editor'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 interface CodeEditorProps {
   value: string
   onChange: (value: string) => void
-  language: 'javascript' | 'json'
+  language: 'javascript' | 'json' | 'typescript'
   placeholder?: string
   className?: string
   minHeight?: string
   highlightVariables?: boolean
-  onKeyDown?: (e: React.KeyboardEvent) => void
+  onKeyDown?: (e: KeyboardEvent) => void
+  onKeyUp?: (e: KeyboardEvent) => void
+  onClick?: (e: MouseEvent) => void
+  onBlur?: () => void
+  onCursorChange?: (
+    offset: number,
+    coords: { top: number; left: number; height: number } | null
+  ) => void
+  editorHandleRef?: MutableRefObject<MonacoEditorHandle | null>
   disabled?: boolean
-  schemaParameters?: Array<{ name: string; type: string; description: string; required: boolean }>
+  schemaParameters?: Array<{
+    name: string
+    type: string
+    description: string
+    required: boolean
+    label?: string
+    atomic?: boolean
+  }>
+  atomicSchemaParams?: boolean
   showWandButton?: boolean
   onWandClick?: () => void
   wandButtonDisabled?: boolean
+  autoHeight?: boolean
+  extraLibs?: Array<{ content: string; filePath?: string }>
 }
 
 export function CodeEditor({
@@ -34,182 +49,233 @@ export function CodeEditor({
   minHeight = '360px',
   highlightVariables = true,
   onKeyDown,
+  onKeyUp,
+  onClick,
+  onBlur,
+  onCursorChange,
+  editorHandleRef,
   disabled = false,
   schemaParameters = [],
+  atomicSchemaParams = false,
   showWandButton = false,
   onWandClick,
   wandButtonDisabled = false,
+  autoHeight,
+  extraLibs,
 }: CodeEditorProps) {
   const [code, setCode] = useState(value)
-  const [visualLineHeights, setVisualLineHeights] = useState<number[]>([])
   const [isCollapsed, setIsCollapsed] = useState(false)
 
-  const editorRef = useRef<HTMLDivElement>(null)
+  const editorRef = useRef<MonacoEditorHandle | null>(null)
 
   useEffect(() => {
     setCode(value)
   }, [value])
 
-  useEffect(() => {
-    if (!editorRef.current) return
+  const resolvedAutoHeight = autoHeight ?? false
 
-    const calculateVisualLines = () => {
-      const preElement = editorRef.current?.querySelector('pre')
-      if (!preElement) return
-
-      const lines = code.split('\n')
-      const newVisualLineHeights: number[] = []
-
-      const container = document.createElement('div')
-      container.style.cssText = `
-        position: absolute;
-        visibility: hidden;
-        width: ${preElement.clientWidth}px;
-        font-family: ${window.getComputedStyle(preElement).fontFamily};
-        font-size: ${window.getComputedStyle(preElement).fontSize};
-        padding: 12px;
-        white-space: pre-wrap;
-        word-break: break-word;
-      `
-      document.body.appendChild(container)
-
-      lines.forEach((line) => {
-        const lineDiv = document.createElement('div')
-        lineDiv.textContent = line || ' '
-        container.appendChild(lineDiv)
-        const actualHeight = lineDiv.getBoundingClientRect().height
-        const lineUnits = Math.ceil(actualHeight / 21)
-        newVisualLineHeights.push(lineUnits)
-        container.removeChild(lineDiv)
-      })
-
-      document.body.removeChild(container)
-      setVisualLineHeights(newVisualLineHeights)
+  const { decorations, atomicTokenRanges } = useMemo(() => {
+    if (
+      !code ||
+      !highlightVariables ||
+      (language !== 'javascript' && language !== 'typescript')
+    ) {
+      return {
+        decorations: [] as MonacoDecoration[],
+        atomicTokenRanges: [] as Array<{ start: number; end: number }>,
+      }
     }
 
-    const resizeObserver = new ResizeObserver(calculateVisualLines)
-    resizeObserver.observe(editorRef.current)
+    const ranges: MonacoDecoration[] = []
+    const atomicRanges: Array<{ start: number; end: number }> = []
+    const envVarRegex = /\{\{[^}]+\}\}/g
+    const tagRegex = /<([^>\s/]+)>/g
+    let match: RegExpExecArray | null
 
-    return () => resizeObserver.disconnect()
-  }, [code])
+    while ((match = envVarRegex.exec(code)) !== null) {
+      ranges.push({
+        startOffset: match.index,
+        endOffset: match.index + match[0].length,
+        className: 'monaco-decoration-env',
+      })
+    }
 
-  // Calculate the number of lines to determine gutter width
-  const lineCount = code.split('\n').length
-  const gutterWidth = lineCount >= 100 ? '40px' : lineCount >= 10 ? '35px' : '30px'
+    while ((match = tagRegex.exec(code)) !== null) {
+      ranges.push({
+        startOffset: match.index,
+        endOffset: match.index + match[0].length,
+        className: 'monaco-decoration-reference',
+      })
+    }
 
-  // Render helpers
-  const renderLineNumbers = () => {
-    const numbers: ReactElement[] = []
-    let lineNumber = 1
-
-    visualLineHeights.forEach((height) => {
-      for (let i = 0; i < height; i++) {
-        numbers.push(
-          <div
-            key={`${lineNumber}-${i}`}
-            className={cn('text-muted-foreground text-xs leading-[21px]', i > 0 && 'invisible')}
-          >
-            {lineNumber}
-          </div>
-        )
+    if (schemaParameters.length > 0) {
+      type SchemaRange = {
+        start: number
+        end: number
+        name: string
+        label?: string
+        kind?: 'figure'
+        atomic?: boolean
       }
-      lineNumber++
-    })
+      const rangesForSchema: SchemaRange[] = []
+      const isBoundary = (char?: string) => !char || !/[A-Za-z0-9_$]/.test(char)
+      const sortedParams = [...schemaParameters]
+        .filter((param) => param.name)
+        .sort((a, b) => b.name.length - a.name.length)
 
-    return numbers
+      const hasOverlap = (start: number, end: number) =>
+        rangesForSchema.some((range) => start < range.end && end > range.start)
+
+      const isFigureParamName = (name: string) =>
+        name.startsWith('figures.') || name.startsWith('figures[')
+
+      sortedParams.forEach((param) => {
+        const name = param.name
+        if (!name) return
+        let index = code.indexOf(name)
+        while (index !== -1) {
+          const before = index > 0 ? code[index - 1] : undefined
+          const after = code[index + name.length]
+          if (isBoundary(before) && isBoundary(after)) {
+            const start = index
+            const end = index + name.length
+            if (!hasOverlap(start, end)) {
+              const label = param.label && param.label !== name ? param.label : undefined
+              const kind = isFigureParamName(name) ? 'figure' : undefined
+              const atomic = atomicSchemaParams || param.atomic || kind === 'figure'
+              rangesForSchema.push({ start, end, name, label, kind, atomic })
+            }
+          }
+          index = code.indexOf(name, index + name.length)
+        }
+      })
+
+      rangesForSchema.forEach((range) => {
+        if (range.atomic) {
+          atomicRanges.push({ start: range.start, end: range.end })
+        }
+        const label = range.label
+        if (label && label !== range.name) {
+          ranges.push({
+            startOffset: range.start,
+            endOffset: range.end,
+            className: 'schema-param-hidden',
+            inlineClassNameAffectsLetterSpacing: true,
+            before: {
+              content: label,
+              className: 'schema-param-alias',
+              cursorStops: 'both',
+            },
+          })
+          return
+        }
+        ranges.push({
+          startOffset: range.start,
+          endOffset: range.end,
+          className: 'schema-param-highlight',
+        })
+      })
+    }
+
+    return { decorations: ranges, atomicTokenRanges: atomicRanges }
+  }, [code, highlightVariables, language, schemaParameters, atomicSchemaParams])
+
+  const emitCursorChange = (offset: number) => {
+    onCursorChange?.(offset, editorRef.current?.getCursorCoords() ?? null)
   }
 
-  // Custom highlighter that highlights environment variables and tags
-  const customHighlight = (code: string) => {
-    if (!highlightVariables || language !== 'javascript') {
-      // Use default Prism highlighting for non-JS or when variable highlighting is off
-      return highlight(code, languages[language], language)
-    }
+  const handleChange = (newCode: string) => {
+    if (isCollapsed || disabled) return
+    setCode(newCode)
+    onChange(newCode)
+    emitCursorChange(editorRef.current?.getCursorOffset() ?? newCode.length)
+  }
 
-    // First, get the default Prism highlighting
-    let highlighted = highlight(code, languages[language], language)
+  const showCollapseToggle = !showWandButton && code.split('\n').length > 5
 
-    // Collect all syntax highlights to apply in a single pass
-    type SyntaxHighlight = {
-      start: number
-      end: number
-      replacement: string
-    }
-    const highlights: SyntaxHighlight[] = []
+  const handleEditorKeyDown = (event: KeyboardEvent) => {
+    if (
+      !disabled &&
+      !isCollapsed &&
+      (event.key === 'Backspace' || event.key === 'Delete') &&
+      atomicTokenRanges.length > 0
+    ) {
+      const editor = editorRef.current?.getEditor()
+      const model = editor?.getModel()
+      const selection = editor?.getSelection()
 
-    // Find environment variables with {{var_name}} syntax
-    let match
-    const envVarRegex = /\{\{([^}]+)\}\}/g
-    while ((match = envVarRegex.exec(highlighted)) !== null) {
-      highlights.push({
-        start: match.index,
-        end: match.index + match[0].length,
-        replacement: `<span class="text-blue-500">${match[0]}</span>`,
-      })
-    }
+      if (editor && model && selection) {
+        const startPos = selection.getStartPosition()
+        const endPos = selection.getEndPosition()
+        const selectionStart = model.getOffsetAt(startPos)
+        const selectionEnd = model.getOffsetAt(endPos)
 
-    // Find tags with <tag_name> syntax (not in HTML context)
-    if (!language.includes('html')) {
-      const tagRegex = /<([^>\s/]+)>/g
-      while ((match = tagRegex.exec(highlighted)) !== null) {
-        // Skip HTML comments and closing tags
-        if (!match[0].startsWith('<!--') && !match[0].includes('</')) {
-          const escaped = `&lt;${match[1]}&gt;`
-          highlights.push({
-            start: match.index,
-            end: match.index + match[0].length,
-            replacement: `<span class="text-blue-500">${escaped}</span>`,
+        const deleteRange = (start: number, end: number) => {
+          const rangeStart = model.getPositionAt(start)
+          const rangeEnd = model.getPositionAt(end)
+          editor.pushUndoStop()
+          editor.executeEdits('remove-figure-token', [
+            {
+              range: {
+                startLineNumber: rangeStart.lineNumber,
+                startColumn: rangeStart.column,
+                endLineNumber: rangeEnd.lineNumber,
+                endColumn: rangeEnd.column,
+              },
+              text: '',
+              forceMoveMarkers: true,
+            },
+          ])
+          editor.pushUndoStop()
+          editor.setPosition(rangeStart)
+          editor.setSelection({
+            startLineNumber: rangeStart.lineNumber,
+            startColumn: rangeStart.column,
+            endLineNumber: rangeStart.lineNumber,
+            endColumn: rangeStart.column,
           })
+        }
+
+        if (selectionStart !== selectionEnd) {
+          let rangeStart = selectionStart
+          let rangeEnd = selectionEnd
+          let intersects = false
+          atomicTokenRanges.forEach((token) => {
+            if (token.start < rangeEnd && token.end > rangeStart) {
+              intersects = true
+              rangeStart = Math.min(rangeStart, token.start)
+              rangeEnd = Math.max(rangeEnd, token.end)
+            }
+          })
+          if (intersects) {
+            event.preventDefault()
+            event.stopPropagation()
+            deleteRange(rangeStart, rangeEnd)
+            return
+          }
+        } else {
+          const offset = selectionStart
+          const target =
+            event.key === 'Backspace'
+              ? atomicTokenRanges.find((token) => offset > token.start && offset <= token.end)
+              : atomicTokenRanges.find((token) => offset >= token.start && offset < token.end)
+          if (target) {
+            event.preventDefault()
+            event.stopPropagation()
+            deleteRange(target.start, target.end)
+            return
+          }
         }
       }
     }
 
-    // Find schema parameters as whole words
-    if (schemaParameters.length > 0) {
-      schemaParameters.forEach((param) => {
-        // Escape special regex characters in parameter name
-        const escapedName = param.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        const paramRegex = new RegExp(`\\b(${escapedName})\\b`, 'g')
-        while ((match = paramRegex.exec(highlighted)) !== null) {
-          // Check if this position is already inside an HTML tag
-          // by looking for unclosed < before this position
-          let insideTag = false
-          let pos = match.index - 1
-          while (pos >= 0) {
-            if (highlighted[pos] === '>') break
-            if (highlighted[pos] === '<') {
-              insideTag = true
-              break
-            }
-            pos--
-          }
-
-          if (!insideTag) {
-            highlights.push({
-              start: match.index,
-              end: match.index + match[0].length,
-              replacement: `<span class="text-green-600 font-medium">${match[0]}</span>`,
-            })
-          }
-        }
-      })
-    }
-
-    // Sort highlights by start position (reverse order to maintain positions)
-    highlights.sort((a, b) => b.start - a.start)
-
-    // Apply all highlights
-    highlights.forEach(({ start, end, replacement }) => {
-      highlighted = highlighted.slice(0, start) + replacement + highlighted.slice(end)
-    })
-
-    return highlighted
+    onKeyDown?.(event)
   }
 
   return (
     <div
       className={cn(
-        'group relative min-h-100 rounded-md border bg-background font-mono text-sm',
+        'group relative min-h-0 h-full rounded-md border bg-background font-mono text-sm',
         className
       )}
     >
@@ -220,13 +286,13 @@ export function CodeEditor({
           onClick={onWandClick}
           disabled={wandButtonDisabled}
           aria-label='Generate with AI'
-          className='absolute top-2 right-3 z-10 h-8 w-8 rounded-full border border-transparent bg-muted/80 text-muted-foreground opacity-0 shadow-sm transition-all duration-200 hover:bg-muted hover:text-foreground hover:shadow group-hover:opacity-100'
+          className='absolute top-2 right-3 z-10 h-8 w-8 rounded-sm border border-transparent bg-muted/80 text-muted-foreground opacity-0 shadow-sm transition-all duration-200 hover:bg-muted hover:text-foreground hover:shadow group-hover:opacity-100'
         >
           <Wand2 className='h-4 w-4' />
         </Button>
       )}
 
-      {!showWandButton && code.split('\n').length > 5 && (
+      {showCollapseToggle && (
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
           className={cn(
@@ -240,60 +306,34 @@ export function CodeEditor({
         </button>
       )}
 
-      <div
-        className='absolute top-0 bottom-0 left-0 flex select-none flex-col items-end overflow-hidden bg-muted/30 pt-3 pr-3'
-        aria-hidden='true'
-        style={{
-          width: gutterWidth,
-        }}
-      >
-        {renderLineNumbers()}
-      </div>
-
-      <div
-        className={cn('relative mt-0 pt-0', isCollapsed && 'max-h-[126px] overflow-hidden')}
-        ref={editorRef}
-        style={{
-          minHeight,
-          paddingLeft: gutterWidth,
-        }}
-      >
-        {code.length === 0 && placeholder && (
-          <pre
-            className='pointer-events-none absolute top-[12px] select-none overflow-visible whitespace-pre-wrap text-muted-foreground/50'
-            style={{ left: `calc(${gutterWidth} + 12px)`, fontFamily: 'inherit', margin: 0 }}
-          >
-            {placeholder}
-          </pre>
-        )}
-
-        <Editor
-          value={code}
-          onValueChange={(newCode) => {
-            if (!isCollapsed) {
-              setCode(newCode)
-              onChange(newCode)
+      <div className={cn('relative mt-0 pt-0', isCollapsed && 'max-h-[126px] overflow-hidden')}>
+        <MonacoEditor
+          ref={(instance) => {
+            editorRef.current = instance
+            if (editorHandleRef) {
+              editorHandleRef.current = instance
             }
           }}
-          onKeyDown={onKeyDown}
-          highlight={(code) => customHighlight(code)}
-          padding={12}
-          disabled={disabled}
-          style={{
-            fontFamily: 'inherit',
-            minHeight: minHeight,
-            lineHeight: '21px',
-            height: '100%',
+          value={code}
+          onChange={handleChange}
+          onCursorChange={emitCursorChange}
+          onKeyDown={handleEditorKeyDown}
+          onKeyUp={onKeyUp}
+          onClick={onClick}
+          onBlur={onBlur}
+          language={language}
+          placeholder={isCollapsed ? '' : placeholder}
+          decorations={decorations}
+          autoHeight={resolvedAutoHeight}
+          minHeight={minHeight}
+          height={resolvedAutoHeight ? undefined : minHeight}
+          className={cn('h-full focus:outline-none', isCollapsed && 'pointer-events-none select-none')}
+          readOnly={disabled || isCollapsed}
+          extraLibs={extraLibs}
+          options={{
+            lineNumbers: 'on',
+            padding: { top: 8, bottom: 8 },
           }}
-          className={cn(
-            'h-full focus:outline-none',
-            isCollapsed && 'pointer-events-none select-none'
-          )}
-          textareaClassName={cn(
-            'focus:outline-none focus:ring-0 bg-transparent',
-            '!min-h-full !h-full resize-none !block',
-            (isCollapsed || disabled) && 'pointer-events-none'
-          )}
         />
       </div>
     </div>

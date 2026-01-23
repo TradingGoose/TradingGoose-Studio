@@ -1,4 +1,4 @@
-import { GoogleGroupsIcon } from '@/components/icons'
+import { GoogleGroupsIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 

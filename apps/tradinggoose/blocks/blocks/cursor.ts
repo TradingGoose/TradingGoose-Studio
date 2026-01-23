@@ -1,4 +1,4 @@
-import { CursorIcon } from '@/components/icons'
+import { CursorIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { CursorResponse } from '@/tools/cursor/types'

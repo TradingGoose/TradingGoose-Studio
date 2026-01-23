@@ -136,12 +136,12 @@ export function convertScheduleOptionsToCron(
       return `${options.hourlyMinute || '00'} * * * *`
     }
     case 'daily': {
-      // Expected dailyTime in HH:MM
+      // Expected dailyTime in HH:mm or HH:mm:ss
       const [minute, hour] = (options.dailyTime || '00:09').split(':')
       return `${minute || '00'} ${hour || '09'} * * *`
     }
     case 'weekly': {
-      // Expected weeklyDay as MON, TUE, etc. and weeklyDayTime in HH:MM
+      // Expected weeklyDay as MON, TUE, etc. and weeklyDayTime in HH:mm or HH:mm:ss
       const dayMap: Record<string, number> = {
         MON: 1,
         TUE: 2,
@@ -156,7 +156,7 @@ export function convertScheduleOptionsToCron(
       return `${minute || '00'} ${hour || '09'} * * ${day}`
     }
     case 'monthly': {
-      // Expected monthlyDay and monthlyTime in HH:MM
+      // Expected monthlyDay and monthlyTime in HH:mm or HH:mm:ss
       const day = options.monthlyDay || '1'
       const [minute, hour] = (options.monthlyTime || '00:09').split(':')
       return `${minute || '00'} ${hour || '09'} ${day} * *`

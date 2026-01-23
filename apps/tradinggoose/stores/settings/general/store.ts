@@ -239,7 +239,7 @@ export const useGeneralStore = create<GeneralStore>()(
 
               // Sync theme to next-themes if it's different
               if (data.theme && typeof window !== 'undefined') {
-                const currentTheme = localStorage.getItem('sim-theme')
+                const currentTheme = localStorage.getItem('system-theme')
                 if (currentTheme !== data.theme) {
                   syncThemeToNextThemes(data.theme)
                 }

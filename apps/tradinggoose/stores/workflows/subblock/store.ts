@@ -1,8 +1,11 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import type { SubBlockConfig } from '@/blocks/types'
+import { getBlock } from '@/blocks'
+import { populateTriggerFieldsFromConfig } from '@/hooks/use-trigger-config-aggregation'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { SubBlockStore } from '@/stores/workflows/subblock/types'
+import { isTriggerValid } from '@/triggers'
 
 /**
  * SubBlockState stores values for all subblocks in workflows
@@ -19,10 +22,13 @@ import type { SubBlockStore } from '@/stores/workflows/subblock/types'
 export const useSubBlockStore = create<SubBlockStore>()(
   devtools((set, get) => ({
     workflowValues: {},
+    loadingWebhooks: new Set<string>(),
+    checkedWebhooks: new Set<string>(),
 
-    setValue: (blockId: string, subBlockId: string, value: any) => {
-      const activeWorkflowId = useWorkflowRegistry.getState().activeWorkflowId
-      if (!activeWorkflowId) return
+    setValue: (blockId: string, subBlockId: string, value: any, workflowId?: string) => {
+      const resolvedWorkflowId =
+        workflowId ?? useWorkflowRegistry.getState().getActiveWorkflowId()
+      if (!resolvedWorkflowId) return
 
       // Validate and fix table data if needed
       let validatedValue = value
@@ -63,10 +69,10 @@ export const useSubBlockStore = create<SubBlockStore>()(
       set((state) => ({
         workflowValues: {
           ...state.workflowValues,
-          [activeWorkflowId]: {
-            ...state.workflowValues[activeWorkflowId],
+          [resolvedWorkflowId]: {
+            ...state.workflowValues[resolvedWorkflowId],
             [blockId]: {
-              ...state.workflowValues[activeWorkflowId]?.[blockId],
+              ...state.workflowValues[resolvedWorkflowId]?.[blockId],
               [subBlockId]: validatedValue,
             },
           },
@@ -77,15 +83,16 @@ export const useSubBlockStore = create<SubBlockStore>()(
       get().syncWithDB()
     },
 
-    getValue: (blockId: string, subBlockId: string) => {
-      const activeWorkflowId = useWorkflowRegistry.getState().activeWorkflowId
-      if (!activeWorkflowId) return null
+    getValue: (blockId: string, subBlockId: string, workflowId?: string) => {
+      const resolvedWorkflowId =
+        workflowId ?? useWorkflowRegistry.getState().getActiveWorkflowId()
+      if (!resolvedWorkflowId) return null
 
-      return get().workflowValues[activeWorkflowId]?.[blockId]?.[subBlockId] ?? null
+      return get().workflowValues[resolvedWorkflowId]?.[blockId]?.[subBlockId] ?? null
     },
 
     clear: () => {
-      const activeWorkflowId = useWorkflowRegistry.getState().activeWorkflowId
+      const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
       if (!activeWorkflowId) return
 
       set((state) => ({
@@ -122,6 +129,53 @@ export const useSubBlockStore = create<SubBlockStore>()(
           [workflowId]: values,
         },
       }))
+
+      Object.entries(blocks).forEach(([blockId, block]) => {
+        const blockConfig = getBlock(block.type)
+        if (!blockConfig) return
+
+        const isTriggerBlock = blockConfig.category === 'triggers' || block.triggerMode === true
+        if (!isTriggerBlock) return
+
+        let triggerId: string | undefined
+        if (blockConfig.category === 'triggers') {
+          triggerId = block.type
+        } else if (block.triggerMode === true && blockConfig.triggers?.enabled) {
+          const selectedTriggerIdValue = block.subBlocks?.selectedTriggerId?.value
+          const triggerIdValue = block.subBlocks?.triggerId?.value
+          triggerId =
+            (typeof selectedTriggerIdValue === 'string' && isTriggerValid(selectedTriggerIdValue)
+              ? selectedTriggerIdValue
+              : undefined) ||
+            (typeof triggerIdValue === 'string' && isTriggerValid(triggerIdValue)
+              ? triggerIdValue
+              : undefined) ||
+            blockConfig.triggers?.available?.[0]
+        }
+
+        if (!triggerId || !isTriggerValid(triggerId)) {
+          return
+        }
+
+        const triggerConfigSubBlock = block.subBlocks?.triggerConfig
+        if (triggerConfigSubBlock?.value && typeof triggerConfigSubBlock.value === 'object') {
+          populateTriggerFieldsFromConfig(
+            blockId,
+            triggerConfigSubBlock.value,
+            triggerId,
+            workflowId
+          )
+
+          const currentChecked = get().checkedWebhooks
+          if (currentChecked.has(blockId)) {
+            set((state) => {
+              const newSet = new Set(state.checkedWebhooks)
+              newSet.delete(blockId)
+              return { checkedWebhooks: newSet }
+            })
+          }
+        }
+      })
     },
 
     // Removed syncWithDB - Socket.IO handles real-time sync automatically

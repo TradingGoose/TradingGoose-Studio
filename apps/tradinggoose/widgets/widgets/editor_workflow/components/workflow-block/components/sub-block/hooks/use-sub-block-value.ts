@@ -45,9 +45,7 @@ export function useSubBlockValue<T = any>(
   // Subscribe to active workflow id to avoid races where the workflow id is set after mount.
   // This ensures our selector recomputes when the active workflow changes.
   const activeWorkflowId = useWorkflowRegistry((state) =>
-    typeof state.getActiveWorkflowId === 'function'
-      ? state.getActiveWorkflowId(resolvedChannelId)
-      : state.activeWorkflowId
+    state.getActiveWorkflowId(resolvedChannelId)
   )
 
   const blockType = useWorkflowStore(
@@ -142,10 +140,7 @@ export function useSubBlockValue<T = any>(
       }
 
       const registryState = useWorkflowRegistry.getState()
-      const currentActiveWorkflowId =
-        typeof registryState.getActiveWorkflowId === 'function'
-          ? registryState.getActiveWorkflowId(resolvedChannelId)
-          : registryState.activeWorkflowId
+      const currentActiveWorkflowId = registryState.getActiveWorkflowId(resolvedChannelId)
       if (!currentActiveWorkflowId) {
         logger.warn('No active workflow ID when setting value', { blockId, subBlockId })
         return

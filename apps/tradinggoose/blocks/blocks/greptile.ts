@@ -1,4 +1,4 @@
-import { GreptileIcon } from '@/components/icons'
+import { GreptileIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { GreptileResponse } from '@/tools/greptile/types'
