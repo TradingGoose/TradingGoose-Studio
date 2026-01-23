@@ -15,6 +15,9 @@ export const buildRobinhoodOrderRequest = (
   if (!params.instrumentUrl) {
     throw new Error('Instrument URL is required for Robinhood orders')
   }
+  if (params.quantity === undefined || params.quantity === null) {
+    throw new Error('Quantity is required for Robinhood orders')
+  }
 
   const symbol = resolveTradingSymbol(robinhoodTradingProviderConfig, {
     listing: params.listing,

@@ -9,7 +9,8 @@ export interface TradingActionParams {
   provider: TradingProviderId
   listing: ListingInputValue
   side: 'buy' | 'sell'
-  quantity: number
+  quantity?: number
+  notional?: number
   orderType?: string
   timeInForce?: string
   limitPrice?: number

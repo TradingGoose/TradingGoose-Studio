@@ -5,13 +5,53 @@ import type { TradingActionParams, TradingActionResponse } from '@/tools/trading
 
 const logger = createLogger('TradingActionTool')
 
+const normalizeSizingValue = (value: unknown): number | undefined => {
+  if (value === null || value === undefined) return undefined
+  if (typeof value === 'string' && value.trim() === '') return undefined
+  const parsed = typeof value === 'string' ? Number(value) : value
+  return typeof parsed === 'number' && Number.isFinite(parsed) ? parsed : undefined
+}
+
+const normalizeOrderSizing = (params: TradingActionParams): TradingActionParams => {
+  const quantity = normalizeSizingValue(params.quantity)
+  const notional = normalizeSizingValue(params.notional)
+
+  return {
+    ...params,
+    quantity,
+    notional: quantity !== undefined ? undefined : notional,
+  }
+}
+
+const validateOrderSizing = (params: TradingActionParams) => {
+  const hasQuantity = params.quantity !== undefined && params.quantity !== null
+  const hasNotional = params.notional !== undefined && params.notional !== null
+
+  if (params.provider === 'alpaca') {
+    if (!hasQuantity && !hasNotional) {
+      throw new Error('Quantity or notional is required for Alpaca orders.')
+    }
+    return
+  }
+
+  if (hasNotional) {
+    throw new Error('Notional orders are only supported for Alpaca.')
+  }
+  if (!hasQuantity) {
+    throw new Error('Quantity is required for this provider.')
+  }
+}
+
 const buildOrderRequest = (params: TradingActionParams) => {
-  const provider = getTradingProvider(params.provider)
-  const { provider: providerId, ...rest } = params
+  const normalized = normalizeOrderSizing(params)
+  validateOrderSizing(normalized)
+  const provider = getTradingProvider(normalized.provider)
+  const { provider: providerId, ...rest } = normalized
   const request = executeTradingProviderRequest(providerId, { kind: 'order', ...rest })
   logger.info(`Building order request for ${provider.id}`, {
-    orderType: params.orderType || provider.defaults?.orderType || 'market',
-    timeInForce: params.timeInForce || provider.defaults?.timeInForce,
+    orderType: normalized.orderType || provider.defaults?.orderType || 'market',
+    timeInForce: normalized.timeInForce || provider.defaults?.timeInForce,
+    sizing: normalized.notional !== undefined ? 'notional' : 'quantity',
   })
   return request
 }
@@ -52,9 +92,15 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
     },
     quantity: {
       type: 'number',
-      required: true,
+      required: false,
       visibility: 'user-or-llm',
-      description: 'Quantity of shares to trade.',
+      description: 'Quantity of shares to trade. Required unless Alpaca notional is provided.',
+    },
+    notional: {
+      type: 'number',
+      required: false,
+      visibility: 'user-or-llm',
+      description: 'Dollar amount to trade (Alpaca only).',
     },
     orderType: {
       type: 'string',

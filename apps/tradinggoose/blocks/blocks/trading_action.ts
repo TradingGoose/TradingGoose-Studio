@@ -17,6 +17,13 @@ const providerOptions = getTradingProviders().map((provider) => ({
 
 const providersWithEnvironment = getTradingProviderIdsForParam('order', 'environment')
 
+const toOptionalNumber = (value: unknown): number | undefined => {
+  if (value === null || value === undefined) return undefined
+  if (typeof value === 'string' && value.trim() === '') return undefined
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
 const providerFieldBlocks = (): SubBlockConfig[] => {
   const providers = getTradingProviders()
   return providers.flatMap((provider) =>
@@ -116,11 +123,22 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
     },
     {
       id: 'quantity',
-      title: 'Quantity',
+      title: 'Quantity (Shares)',
       type: 'short-input',
       layout: 'half',
       placeholder: 'Number of shares',
-      required: true,
+      required: false,
+      description: 'Required for non-Alpaca orders or when dollar amount is not provided.',
+    },
+    {
+      id: 'notional',
+      title: 'Dollar Amount (USD)',
+      type: 'short-input',
+      layout: 'half',
+      placeholder: 'e.g. 500.00',
+      required: false,
+      description: 'Alpaca only. Provide either quantity or dollar amount, not both.',
+      condition: { field: 'provider', value: 'alpaca' },
     },
     {
       id: 'orderType',
@@ -199,10 +217,11 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
           environment: params.environment,
           side: params.side,
           listing: params.listing,
-          quantity: params.quantity !== undefined ? Number(params.quantity) : params.quantity,
+          quantity: toOptionalNumber(params.quantity),
+          notional: toOptionalNumber(params.notional),
           orderType: params.orderType,
-          limitPrice: params.limitPrice !== undefined ? Number(params.limitPrice) : undefined,
-          stopPrice: params.stopPrice !== undefined ? Number(params.stopPrice) : undefined,
+          limitPrice: toOptionalNumber(params.limitPrice),
+          stopPrice: toOptionalNumber(params.stopPrice),
           timeInForce: params.timeInForce,
           ...extraFields,
         }

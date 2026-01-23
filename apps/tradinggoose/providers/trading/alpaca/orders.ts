@@ -28,15 +28,47 @@ export const buildAlpacaOrderRequest = (
     timeZoneName: params.timeZoneName,
   })
 
-  const body: Record<string, any> = {
-    symbol,
-    qty: String(params.quantity),
-    side: params.side,
-    type: (params.orderType || 'market').toLowerCase(),
-    time_in_force: params.timeInForce || 'day',
+  const quantity =
+    typeof params.quantity === 'number' && Number.isFinite(params.quantity)
+      ? params.quantity
+      : undefined
+  const notional =
+    typeof params.notional === 'number' && Number.isFinite(params.notional)
+      ? params.notional
+      : undefined
+  const useQuantity = quantity !== undefined
+  const useNotional = !useQuantity && notional !== undefined
+
+  if (!useNotional && !useQuantity) {
+    throw new Error('Alpaca orders require qty or notional.')
   }
 
-  const orderType = body.type
+  const orderType = (params.orderType || 'market').toLowerCase()
+  const timeInForce = params.timeInForce || 'day'
+
+  if (useNotional) {
+    const supportedTypes = new Set(['market', 'limit', 'stop', 'stop_limit'])
+    if (!supportedTypes.has(orderType)) {
+      throw new Error('Alpaca notional orders support market, limit, stop, or stop_limit types.')
+    }
+    if (timeInForce !== 'day') {
+      throw new Error('Alpaca notional orders require time_in_force=day.')
+    }
+  }
+
+  const body: Record<string, any> = {
+    symbol,
+    side: params.side,
+    type: orderType,
+    time_in_force: timeInForce,
+  }
+
+  if (useNotional) {
+    body.notional = notional
+  } else {
+    body.qty = String(quantity)
+  }
+
   const hasLimitComponent = orderType === 'limit' || orderType === 'stop_limit'
   const hasStopComponent = orderType === 'stop' || orderType === 'stop_limit'
 

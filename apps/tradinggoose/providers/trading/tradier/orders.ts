@@ -32,6 +32,9 @@ export const buildTradierOrderRequest = (
   if (!params.accountId) {
     throw new Error('Tradier account ID is required')
   }
+  if (params.quantity === undefined || params.quantity === null) {
+    throw new Error('Quantity is required for Tradier orders')
+  }
 
   const authHeaders = buildTradierAuthHeaders(params)
   const baseUrl = resolveTradierBaseUrl(params.environment)

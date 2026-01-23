@@ -42,7 +42,8 @@ export interface TradingSymbolInput {
 export interface TradingOrderInput extends TradingSymbolInput {
   symbol?: string
   side: 'buy' | 'sell'
-  quantity: number
+  quantity?: number
+  notional?: number
   orderType?: string
   timeInForce?: string
   limitPrice?: number
