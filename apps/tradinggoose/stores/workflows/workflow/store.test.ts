@@ -281,7 +281,10 @@ describe('workflow store', () => {
       const { addBlock, toggleBlockAdvancedMode } = useWorkflowStore.getState()
       const { setState: setSubBlockState } = useSubBlockStore
       // Set up a mock active workflow
-      useWorkflowRegistry.setState({ activeWorkflowId: 'test-workflow' })
+      useWorkflowRegistry.setState({
+        activeWorkflowIds: { default: 'test-workflow' },
+        loadedWorkflowIds: { default: true },
+      })
       // Add an agent block
       addBlock('agent1', 'agent', 'Test Agent', { x: 0, y: 0 })
       // Set initial values in basic mode
@@ -322,7 +325,10 @@ describe('workflow store', () => {
       const { setState: setSubBlockState } = useSubBlockStore
 
       // Set up a mock active workflow
-      useWorkflowRegistry.setState({ activeWorkflowId: 'test-workflow' })
+      useWorkflowRegistry.setState({
+        activeWorkflowIds: { default: 'test-workflow' },
+        loadedWorkflowIds: { default: true },
+      })
 
       // Add an agent block in advanced mode
       addBlock('agent1', 'agent', 'Test Agent', { x: 0, y: 0 })
@@ -367,7 +373,10 @@ describe('workflow store', () => {
       const { addBlock, toggleBlockAdvancedMode } = useWorkflowStore.getState()
 
       // Set up a mock active workflow
-      useWorkflowRegistry.setState({ activeWorkflowId: 'test-workflow' })
+      useWorkflowRegistry.setState({
+        activeWorkflowIds: { default: 'test-workflow' },
+        loadedWorkflowIds: { default: true },
+      })
 
       // Add an agent block
       addBlock('agent1', 'agent', 'Test Agent', { x: 0, y: 0 })

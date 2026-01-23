@@ -44,9 +44,14 @@ vi.mock('@/components/ui/tag-dropdown', () => ({
   TagDropdown: ({ children }: any) => <div data-testid='tag-dropdown'>{children}</div>,
 }))
 
-vi.mock('react-simple-code-editor', () => ({
-  default: (props: any) => <textarea data-testid='code-editor' {...props} />,
-}))
+vi.mock('@/components/monaco-editor', async () => {
+  const React = await import('react')
+  return {
+    MonacoEditor: React.forwardRef((props: any, ref) => (
+      <textarea data-testid='code-editor' ref={ref} {...props} />
+    )),
+  }
+})
 
 describe('IterationBadges', () => {
   const defaultProps = {

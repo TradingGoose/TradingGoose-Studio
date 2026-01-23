@@ -53,7 +53,7 @@ vi.mock('@/components/ui/card', () => ({
   Card: ({ children, ...props }: any) => ({ children, ...props }),
 }))
 
-vi.mock('@/components/icons', async (importOriginal) => {
+vi.mock('@/components/icons/icons', async (importOriginal) => {
   const actual = (await importOriginal()) as any
   return {
     ...actual,
