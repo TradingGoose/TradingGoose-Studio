@@ -3,41 +3,46 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { KeyRound, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import type { SubBlockConfig } from '@/blocks/types'
 import { getMarketProviderParamDefinitions } from '@/providers/market/providers'
-import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import type { PairColor } from '@/widgets/pair-colors'
 import { MarketProviderSelector } from '@/widgets/widgets/components/market-provider-selector'
 import { widgetHeaderIconButtonClassName } from '@/widgets/widgets/components/widget-header-control'
 import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
+import { ShortInput } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/short-input'
 import { providerOptions } from '@/widgets/widgets/data_chart/constants'
-import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
+import type { DataChartAuthParams, DataChartDataParams, DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
 import { coerceProviderParams } from '@/widgets/widgets/data_chart/utils'
 
 type DataChartProviderControlsProps = {
   widgetKey?: string
   panelId?: string
+  workspaceId?: string
   params: DataChartWidgetParams
-  pairColor: PairColor
 }
 
 type ProviderSettingsButtonProps = {
   providerId?: string
   providerParams?: Record<string, unknown>
+  authParams?: DataChartAuthParams
+  dataParams?: DataChartDataParams
   panelId?: string
   widgetKey?: string
+  workspaceId?: string
 }
 
 export const DataChartProviderSettingsButton = ({
   providerId,
   providerParams,
+  authParams,
+  dataParams,
   panelId,
   widgetKey,
+  workspaceId,
 }: ProviderSettingsButtonProps) => {
   const paramDefinitions = useMemo(() => {
     if (!providerId) return []
@@ -51,21 +56,39 @@ export const DataChartProviderSettingsButton = ({
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const paramValuesRef = useRef<Record<string, unknown>>({})
+  const [inputValues, setInputValues] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (!settingsOpen) return
     paramValuesRef.current = {}
+    setInputValues({})
   }, [settingsOpen])
 
   const handleSaveProviderParams = () => {
     if (!providerId) return
-    const sanitized = coerceProviderParams(providerId, {
+    const nextProviderParamsInput = {
       ...(providerParams ?? {}),
       ...paramValuesRef.current,
-    })
+    } as Record<string, unknown>
+    delete nextProviderParamsInput.apiKey
+    delete nextProviderParamsInput.apiSecret
+    const sanitized = coerceProviderParams(providerId, nextProviderParamsInput)
+    const nextProviderParams =
+      sanitized && Object.keys(sanitized).length > 0 ? sanitized : undefined
+    const nextAuth: DataChartAuthParams | undefined = (() => {
+      const apiKey =
+        (paramValuesRef.current.apiKey as string | undefined) ?? authParams?.apiKey
+      const apiSecret =
+        (paramValuesRef.current.apiSecret as string | undefined) ?? authParams?.apiSecret
+      return apiKey || apiSecret ? { apiKey, apiSecret } : undefined
+    })()
     emitDataChartParamsChange({
       params: {
-        providerParams: sanitized ?? {},
+        data: {
+          ...(dataParams ?? {}),
+          providerParams: nextProviderParams,
+          auth: nextAuth,
+        },
       },
       panelId,
       widgetKey,
@@ -110,8 +133,10 @@ export const DataChartProviderSettingsButton = ({
           {paramDefinitions.map((definition) => {
             const inputId = `provider-param-${providerId ?? 'unknown'}-${definition.id}`
             const isPassword = definition.password || definition.id.toLowerCase().includes('secret')
-            const savedValue =
-              definition.id in (providerParams ?? {}) ? providerParams?.[definition.id] : undefined
+            const isAuthField = definition.id === 'apiKey' || definition.id === 'apiSecret'
+            const savedValue = isAuthField
+              ? authParams?.[definition.id]
+              : providerParams?.[definition.id]
             const resolvedValue = savedValue ?? definition.defaultValue
             const selectValue =
               typeof resolvedValue === 'string' || typeof resolvedValue === 'number'
@@ -129,6 +154,19 @@ export const DataChartProviderSettingsButton = ({
                 : typeof resolvedValue === 'string'
                   ? resolvedValue.toLowerCase() === 'true'
                   : false
+            const controlledValue = inputValues[definition.id] ?? (inputValue ?? '')
+            const shortInputConfig: SubBlockConfig = {
+              id: definition.id,
+              title: definition.title ?? definition.id,
+              type: 'short-input',
+              inputType: definition.type === 'number' ? 'number' : 'text',
+              placeholder: definition.placeholder,
+              min: definition.min,
+              max: definition.max,
+              step: definition.step,
+              integer: definition.integer,
+              connectionDroppable: false,
+            }
 
             if (definition.inputType === 'switch' || definition.type === 'boolean') {
               return (
@@ -178,13 +216,21 @@ export const DataChartProviderSettingsButton = ({
                 <Label htmlFor={inputId} className='text-xs'>
                   {definition.title ?? definition.id}
                 </Label>
-                <Input
-                  id={inputId}
-                  type={isPassword ? 'password' : 'text'}
-                  autoComplete={isPassword ? 'new-password' : 'off'}
-                  onChange={(event) => handleParamChange(definition.id, event.target.value)}
+                <ShortInput
+                  blockId={`provider-${providerId ?? 'unknown'}`}
+                  subBlockId={definition.id}
+                  inputId={inputId}
+                  isConnecting={false}
+                  config={shortInputConfig}
+                  value={controlledValue}
+                  onChange={(value) => {
+                    setInputValues((current) => ({ ...current, [definition.id]: value }))
+                    handleParamChange(definition.id, value)
+                  }}
                   placeholder={definition.placeholder}
-                  defaultValue={inputValue}
+                  password={isPassword}
+                  workspaceId={workspaceId}
+                  enableTags={false}
                 />
               </div>
             )
@@ -205,33 +251,29 @@ export const DataChartProviderSettingsButton = ({
 
 type ProviderSelectorProps = {
   providerId?: string
+  dataParams?: DataChartDataParams
   panelId?: string
   widgetKey?: string
-  pairColor: PairColor
 }
 
 export const DataChartProviderSelector = ({
   providerId,
+  dataParams,
   panelId,
   widgetKey,
-  pairColor,
 }: ProviderSelectorProps) => {
-  const setPairContext = useSetPairColorContext()
-
   const handleProviderChange = (nextProvider: string) => {
     if (!nextProvider || nextProvider === providerId) return
 
-    if (pairColor !== 'gray') {
-      setPairContext(pairColor, { listing: null })
-    }
-
     emitDataChartParamsChange({
       params: {
-        provider: nextProvider,
-        listing: pairColor === 'gray' ? null : undefined,
-        interval: undefined,
-        start: undefined,
-        end: undefined,
+        data: {
+          ...(dataParams ?? {}),
+          provider: nextProvider,
+          interval: undefined,
+          window: undefined,
+          fallbackWindow: undefined,
+        },
       },
       panelId,
       widgetKey,
@@ -264,7 +306,7 @@ export const DataChartRefreshButton = ({ providerId, panelId, widgetKey }: Refre
           className={widgetHeaderIconButtonClassName()}
           onClick={() =>
             emitDataChartParamsChange({
-              params: { refreshAt: Date.now() },
+              params: { runtime: { refreshAt: Date.now() } },
               panelId,
               widgetKey,
             })
@@ -282,25 +324,29 @@ export const DataChartRefreshButton = ({ providerId, panelId, widgetKey }: Refre
 export const DataChartProviderControls = ({
   widgetKey,
   panelId,
+  workspaceId,
   params,
-  pairColor,
 }: DataChartProviderControlsProps) => {
-  const providerId = params.provider
-  const providerParams = params.providerParams ?? {}
+  const providerId = params.data?.provider
+  const providerParams = params.data?.providerParams ?? {}
+  const authParams = params.data?.auth
 
   return (
     <div className='flex items-center gap-2'>
       <DataChartProviderSettingsButton
         providerId={providerId}
         providerParams={providerParams}
+        authParams={authParams}
+        dataParams={params.data}
         panelId={panelId}
         widgetKey={widgetKey}
+        workspaceId={workspaceId}
       />
       <DataChartProviderSelector
         providerId={providerId}
+        dataParams={params.data}
         panelId={panelId}
         widgetKey={widgetKey}
-        pairColor={pairColor}
       />
       <DataChartRefreshButton providerId={providerId} panelId={panelId} widgetKey={widgetKey} />
     </div>

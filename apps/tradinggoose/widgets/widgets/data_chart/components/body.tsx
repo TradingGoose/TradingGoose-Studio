@@ -23,7 +23,7 @@ import { useChartStyles } from '@/widgets/widgets/data_chart/components/body/use
 import { useChartSymbol } from '@/widgets/widgets/data_chart/components/body/use-chart-symbol'
 import { useIndicatorSync } from '@/widgets/widgets/data_chart/components/body/use-indicator-sync'
 import { useThemeVersion } from '@/widgets/widgets/data_chart/components/body/use-theme-version'
-import { DataChartRangeStrip } from '@/widgets/widgets/data_chart/components/range-strip'
+import { DataChartFooter } from '@/widgets/widgets/data_chart/components/footer'
 import { EMPTY_INDICATORS } from '@/widgets/widgets/data_chart/constants'
 import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
 import { resolveSeriesWindow } from '@/widgets/widgets/data_chart/utils'
@@ -52,7 +52,7 @@ export const DataChartWidgetBody = ({
     return params as DataChartWidgetParams
   }, [params])
 
-  const providerId = dataParams.provider
+  const providerId = dataParams.data?.provider
   const listingValue =
     resolvedPairColor !== 'gray' ? (pairContext.listing ?? null) : (dataParams.listing ?? null)
   const seriesWindow = useMemo(
@@ -65,8 +65,8 @@ export const DataChartWidgetBody = ({
     const list = state.getAllIndicators(workspaceId ?? undefined)
     return list.length ? list : EMPTY_INDICATORS
   })
-  const indicatorRefs = Array.isArray(dataParams.chart?.indicators)
-    ? dataParams.chart?.indicators
+  const indicatorRefs = Array.isArray(dataParams.view?.indicators)
+    ? dataParams.view?.indicators
     : []
 
   const intervalLabel = seriesWindow.interval ?? ''
@@ -76,14 +76,14 @@ export const DataChartWidgetBody = ({
   })
   const hasCustomTooltipTitleOverride = useMemo(() => {
     const title = (
-      dataParams.chart?.stylesOverride as {
+      dataParams.view?.stylesOverride as {
         candle?: { tooltip?: { title?: { template?: unknown; show?: unknown } } }
       }
     )?.candle?.tooltip?.title
     if (!title) return false
     const template = title.template
     return typeof template === 'string' || typeof title.show === 'boolean'
-  }, [dataParams.chart?.stylesOverride])
+  }, [dataParams.view?.stylesOverride])
 
   useChartDefaults({
     dataParams,
@@ -128,7 +128,7 @@ export const DataChartWidgetBody = ({
   useChartStyles({
     chartRef,
     chartContainerRef,
-    chartSettings: dataParams.chart,
+    chartSettings: dataParams.view,
     seriesTimezone,
     themeVersion,
     hasCustomTooltipTitleOverride,
@@ -137,7 +137,8 @@ export const DataChartWidgetBody = ({
   useChartSymbol({
     chartRef,
     listingKey,
-    chartSettings: dataParams.chart,
+    pricePrecision: dataParams.view?.pricePrecision,
+    volumePrecision: dataParams.view?.volumePrecision,
     interval: seriesWindow.interval,
     tooltipTitle,
   })
@@ -163,7 +164,6 @@ export const DataChartWidgetBody = ({
         <div ref={chartContainerRef} className='relative z-0 h-full w-full' />
         <ListingOverlay
           listing={resolvedListing}
-          listingKey={listingKey}
           intervalLabel={intervalLabel}
           isResolving={isResolving}
         />
@@ -173,11 +173,12 @@ export const DataChartWidgetBody = ({
           chartWarnings={chartWarnings}
         />
       </div>
-      <DataChartRangeStrip
+      <DataChartFooter
         params={dataParams}
         widgetKey={widget?.key}
         panelId={panelId}
         allowedIntervals={seriesWindow.allowedIntervals}
+        exchangeTimezone={seriesTimezone}
       />
     </div>
   )

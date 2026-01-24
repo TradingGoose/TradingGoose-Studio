@@ -6,30 +6,22 @@ import {
 import {
   MARKET_INTERVALS,
   type MarketInterval,
+  type MarketSeriesRange,
+  type MarketSeriesWindow,
+  type MarketSeriesWindowMode,
   type NormalizationMode,
 } from '@/providers/market/types'
+import {
+  areSeriesWindowsEqual,
+  normalizeSeriesWindow,
+  seriesWindowKey,
+  rangeToMs as resolveRangeMs,
+} from '@/providers/market/series-window'
 import { DEFAULT_INDICATOR_MAP } from '@/lib/indicators/default'
 import { DEFAULT_BAR_COUNT, DEFAULT_RANGE_PRESETS, intervalToMs } from './remapping'
-import type { DataChartIndicatorRef, DataChartWidgetParams, DataChartWindow } from './types'
+import type { DataChartIndicatorRef, DataChartWidgetParams } from './types'
 
-export const parseDateInput = (value?: string | number | null) => {
-  if (value === undefined || value === null) return null
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-  return date
-}
-
-const rangeToMs = (range?: { value: number; unit: 'day' | 'week' | 'month' | 'year' }) => {
-  if (!range) return null
-  const value = Number(range.value)
-  if (!Number.isFinite(value) || value <= 0) return null
-  const dayMs = 24 * 60 * 60 * 1000
-  if (range.unit === 'day') return value * dayMs
-  if (range.unit === 'week') return value * 7 * dayMs
-  if (range.unit === 'month') return value * 30 * dayMs
-  if (range.unit === 'year') return value * 365 * dayMs
-  return null
-}
+export const rangeToMs = (range?: MarketSeriesRange) => resolveRangeMs(range)
 
 export const chooseIntervalForRange = (
   rangeMs: number,
@@ -114,113 +106,113 @@ export const coerceProviderParams = (
   return Object.keys(nextParams).length ? nextParams : undefined
 }
 
+const normalizeInterval = (
+  interval: MarketInterval | string | undefined,
+  allowedIntervals: MarketInterval[]
+) => {
+  if (!interval) return undefined
+  if (!allowedIntervals.length) return interval
+  return allowedIntervals.includes(interval as MarketInterval)
+    ? interval
+    : undefined
+}
+
+const resolveDefaultInterval = (allowedIntervals: MarketInterval[]) => {
+  if (!allowedIntervals.length) return undefined
+  return allowedIntervals.includes('1d' as MarketInterval) ? '1d' : allowedIntervals[0]
+}
+
+const resolveDefaultWindow = (
+  allowedModes: MarketSeriesWindowMode[],
+  fallbackRange?: MarketSeriesRange
+): MarketSeriesWindow | null => {
+  if (allowedModes.includes('range') && fallbackRange) {
+    return { mode: 'range', range: fallbackRange }
+  }
+  if (allowedModes.includes('bars')) {
+    return { mode: 'bars', barCount: DEFAULT_BAR_COUNT }
+  }
+  if (allowedModes.includes('absolute') && fallbackRange) {
+    const spanMs = rangeToMs(fallbackRange)
+    if (!spanMs || spanMs <= 0) return null
+    const endDate = new Date()
+    const startDate = new Date(endDate.getTime() - spanMs)
+    return {
+      mode: 'absolute',
+      start: startDate.toISOString(),
+      end: endDate.toISOString(),
+    }
+  }
+  return null
+}
+
 export const resolveSeriesWindow = (params: DataChartWidgetParams, providerId?: string | null) => {
   const capabilities = providerId ? getMarketSeriesCapabilities(providerId) : null
   const supportsInterval = capabilities?.supportsInterval !== false
   const allowedIntervals = capabilities?.intervals?.length
     ? capabilities.intervals
     : [...MARKET_INTERVALS]
+  const allowedWindowModes =
+    capabilities?.windowModes && capabilities.windowModes.length > 0
+      ? capabilities.windowModes
+      : (['range'] as MarketSeriesWindowMode[])
 
+  const dataParams = params.data ?? {}
   const fallbackRange = DEFAULT_RANGE_PRESETS[0]?.range
-  const hasExplicitRange = Boolean(params.dataWindow?.range)
-  const hasExplicitBarCount =
-    typeof params.dataWindow?.barCount === 'number' && Number.isFinite(params.dataWindow.barCount)
-  const shouldFallbackRange = !hasExplicitRange && !hasExplicitBarCount
-  const dataWindow: DataChartWindow = {
-    mode: 'range',
-    barCount: hasExplicitBarCount
-      ? params.dataWindow?.barCount
-      : !hasExplicitRange
-        ? DEFAULT_BAR_COUNT
-        : undefined,
-    range: params.dataWindow?.range ?? (shouldFallbackRange ? fallbackRange : undefined),
-    rangeInterval: params.dataWindow?.rangeInterval,
+  const normalizedWindow = normalizeSeriesWindow(dataParams.window, allowedWindowModes)
+  const normalizedFallback = normalizeSeriesWindow(dataParams.fallbackWindow, allowedWindowModes)
+
+  let window = normalizedWindow ?? resolveDefaultWindow(allowedWindowModes, fallbackRange)
+  let fallbackWindow = normalizedFallback
+
+  if (!window && fallbackWindow) {
+    window = fallbackWindow
+    fallbackWindow = null
   }
 
-  if (dataWindow.range) {
-    dataWindow.barCount = undefined
+  let interval = normalizeInterval(dataParams.interval, allowedIntervals)
+  if (!interval && window && window.mode === 'range') {
+    const rangeMs = rangeToMs(window.range)
+    interval = rangeMs ? chooseIntervalForRange(rangeMs, allowedIntervals) : undefined
+  }
+  if (!interval) {
+    interval = resolveDefaultInterval(allowedIntervals)
   }
 
-  let interval: MarketInterval | string | undefined = params.interval
-  if (
-    interval &&
-    allowedIntervals.length > 0 &&
-    !allowedIntervals.includes(interval as MarketInterval)
-  ) {
-    interval = undefined
-  }
-  if (
-    dataWindow.rangeInterval &&
-    allowedIntervals.length > 0 &&
-    !allowedIntervals.includes(dataWindow.rangeInterval as MarketInterval)
-  ) {
-    dataWindow.rangeInterval = undefined
-  }
-
-  if (!interval && allowedIntervals.length > 0) {
-    interval = allowedIntervals.includes('1d' as MarketInterval) ? '1d' : allowedIntervals[0]
-  }
-
-  const explicitStart = parseDateInput(params.start)
-  const explicitEnd = parseDateInput(params.end)
-  let endDate: Date | undefined = explicitEnd ?? undefined
-  let startDate: Date | undefined = explicitStart ?? undefined
-
-  const intervalMs = intervalToMs(interval as MarketInterval)
-  if (dataWindow.range) {
-    const rangeMs = rangeToMs(dataWindow.range)
-    if (!dataWindow.rangeInterval && rangeMs) {
-      dataWindow.rangeInterval =
-        chooseIntervalForRange(rangeMs, allowedIntervals) ?? dataWindow.rangeInterval
-    }
-    if (!interval && dataWindow.rangeInterval) {
-      interval = dataWindow.rangeInterval
-    }
-  } else if (dataWindow.barCount && intervalMs) {
-    const rangeMs = intervalMs * dataWindow.barCount
-    dataWindow.range = { value: rangeMs / (24 * 60 * 60 * 1000), unit: 'day' }
-    dataWindow.rangeInterval = interval
-  } else if (shouldFallbackRange && fallbackRange) {
-    dataWindow.range = fallbackRange
-    const rangeMs = rangeToMs(fallbackRange)
-    if (!dataWindow.rangeInterval && rangeMs) {
-      dataWindow.rangeInterval =
-        chooseIntervalForRange(rangeMs, allowedIntervals) ?? dataWindow.rangeInterval
-    }
-    if (!interval && dataWindow.rangeInterval) {
-      interval = dataWindow.rangeInterval
-    }
+  if (fallbackWindow && areSeriesWindowsEqual(window, fallbackWindow)) {
+    fallbackWindow = null
   }
 
   const requestInterval = supportsInterval ? interval : undefined
-  const resolvedIntervalMs = intervalToMs(interval as MarketInterval)
-  const rangeMs = dataWindow.range ? rangeToMs(dataWindow.range) : null
-  const barCountMs =
-    resolvedIntervalMs && dataWindow.barCount ? resolvedIntervalMs * dataWindow.barCount : null
-  const spanMs = rangeMs ?? barCountMs
-
-  if (!startDate && !endDate) {
-    endDate = new Date()
-    if (spanMs) {
-      startDate = new Date(endDate.getTime() - spanMs)
-    }
-  } else if (endDate && !startDate) {
-    if (spanMs) {
-      startDate = new Date(endDate.getTime() - spanMs)
-    }
-  } else if (startDate && !endDate) {
-    if (spanMs) {
-      endDate = new Date(startDate.getTime() + spanMs)
+  const windows: MarketSeriesWindow[] = []
+  if (window) {
+    if (window.mode === 'absolute') {
+      windows.push({ mode: 'absolute', start: window.start, end: window.end })
+    } else if (window.mode === 'range') {
+      windows.push({ mode: 'range', range: window.range })
     } else {
-      endDate = new Date()
+      windows.push({ mode: 'bars', barCount: window.barCount })
     }
   }
+  if (fallbackWindow) {
+    if (fallbackWindow.mode === 'absolute') {
+      windows.push({ mode: 'absolute', start: fallbackWindow.start, end: fallbackWindow.end })
+    } else if (fallbackWindow.mode === 'range') {
+      windows.push({ mode: 'range', range: fallbackWindow.range })
+    } else {
+      windows.push({ mode: 'bars', barCount: fallbackWindow.barCount })
+    }
+  }
+
+  const windowKey = seriesWindowKey(windows)
+
   return {
     interval,
     requestInterval,
-    startDate,
-    endDate,
-    dataWindow,
+    window,
+    fallbackWindow,
+    windows,
+    windowKey,
     supportsInterval,
     allowedIntervals,
   }

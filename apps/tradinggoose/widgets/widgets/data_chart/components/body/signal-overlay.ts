@@ -13,7 +13,6 @@ export const ensureSignalOverlayRegistered = () => {
     needDefaultPointFigure: false,
     needDefaultXAxisFigure: false,
     needDefaultYAxisFigure: false,
-    checkEventOn: () => false,
     createPointFigures: ({ coordinates, overlay }) => {
       if (!coordinates[0]) return []
 

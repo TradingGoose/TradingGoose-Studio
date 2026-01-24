@@ -11,7 +11,7 @@ import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
 type UseChartStylesArgs = {
   chartRef: MutableRefObject<Chart | null>
   chartContainerRef: MutableRefObject<HTMLDivElement | null>
-  chartSettings?: DataChartWidgetParams['chart']
+  chartSettings?: DataChartWidgetParams['view']
   seriesTimezone: string | null
   themeVersion: number
   hasCustomTooltipTitleOverride: boolean

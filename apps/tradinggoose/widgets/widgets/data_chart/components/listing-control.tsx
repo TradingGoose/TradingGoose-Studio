@@ -14,19 +14,9 @@ import {
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import { ListingSelector } from '@/widgets/widgets/components/listing-selector'
+import { hasListingDetails } from '@/widgets/widgets/data_chart/components/listing-utils'
 import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
 import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
-
-const hasListingDetails = (listing?: ListingOption | null): boolean => {
-  if (!listing) return false
-  const base = listing.base?.trim()
-  const name = listing.name?.trim()
-  if (listing.listing_type === 'equity') {
-    return Boolean(base || name)
-  }
-  const quote = listing.quote?.trim()
-  return Boolean((base && quote) || name)
-}
 
 type DataChartListingControlProps = {
   widgetKey?: string
@@ -61,7 +51,7 @@ export const DataChartListingControl = ({
   params,
   pairColor,
 }: DataChartListingControlProps) => {
-  const providerId = params.provider
+  const providerId = params.data?.provider
   const pairContext = usePairColorContext(pairColor)
   const rawListing = pairColor !== 'gray' ? pairContext.listing ?? null : params.listing ?? null
   const listingIdentity = useMemo(() => {
@@ -75,7 +65,6 @@ export const DataChartListingControl = ({
   }, [rawListing])
   const ensureInstance = useListingSelectorStore((state) => state.ensureInstance)
   const updateInstance = useListingSelectorStore((state) => state.updateInstance)
-  const clearSelection = useListingSelectorStore((state) => state.clearSelection)
   const instanceId = useMemo(
     () => (panelId ? `chart-${panelId}` : `chart-${widgetKey ?? 'widget'}`),
     [panelId, widgetKey]
@@ -122,19 +111,8 @@ export const DataChartListingControl = ({
         query: '',
         results: [],
         error: undefined,
-        selectedListingValue: null,
-        selectedListing: null,
+        isLoading: false,
       })
-      clearSelection(instanceId)
-      if (pairColor === 'gray') {
-        emitDataChartParamsChange({
-          params: { listing: null },
-          panelId,
-          widgetKey,
-        })
-      } else {
-        setPairContext(pairColor, { listing: null })
-      }
     } else if (safeInstance.providerId !== normalizedProvider) {
       updateInstance(instanceId, { providerId: normalizedProvider })
     }
@@ -145,11 +123,6 @@ export const DataChartListingControl = ({
     safeInstance.providerId,
     instanceId,
     updateInstance,
-    clearSelection,
-    pairColor,
-    panelId,
-    widgetKey,
-    setPairContext,
   ])
 
   useEffect(() => {

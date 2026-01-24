@@ -21,7 +21,7 @@ import { useCustomIndicatorsStore } from '@/stores/custom-indicators/store'
 import { buildIndicatorRefs } from '@/widgets/widgets/data_chart/utils'
 import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
 import { CANDLE_TYPE_OPTIONS } from '@/widgets/widgets/data_chart/types'
-import { DEFAULT_BAR_COUNT, formatIntervalLabel } from '@/widgets/widgets/data_chart/remapping'
+import { DEFAULT_RANGE_PRESETS, formatIntervalLabel } from '@/widgets/widgets/data_chart/remapping'
 import type { MarketInterval } from '@/providers/market/types'
 
 type DataChartChartControlsProps = {
@@ -52,17 +52,14 @@ export const DataChartIntervalDropdown = ({
   widgetKey,
 }: DataChartIntervalDropdownProps) => {
   const handleIntervalSelect = (nextInterval: string) => {
+    const fallbackRange = DEFAULT_RANGE_PRESETS[0]?.range
     emitDataChartParamsChange({
       params: {
-        interval: nextInterval,
-        start: undefined,
-        end: undefined,
-        dataWindow: {
-          ...(params.dataWindow ?? {}),
-          mode: 'range',
-          barCount: DEFAULT_BAR_COUNT,
-          range: undefined,
-          rangeInterval: undefined,
+        data: {
+          ...(params.data ?? {}),
+          interval: nextInterval,
+          window: fallbackRange ? { mode: 'range', range: fallbackRange } : undefined,
+          fallbackWindow: undefined,
         },
       },
       panelId,
@@ -132,8 +129,8 @@ export const DataChartCandleTypeDropdown = ({
   const handleCandleType = (nextType: string) => {
     emitDataChartParamsChange({
       params: {
-        chart: {
-          ...(params.chart ?? {}),
+        view: {
+          ...(params.view ?? {}),
           candleType: nextType,
         },
       },
@@ -204,11 +201,11 @@ export const DataChartIndicatorsDropdown = ({
   )
 
   const handleIndicatorChange = (nextIds: string[]) => {
-    const restChart = { ...(params.chart ?? {}) } as Record<string, unknown>
+    const restView = { ...(params.view ?? {}) } as Record<string, unknown>
     emitDataChartParamsChange({
       params: {
-        chart: {
-          ...restChart,
+        view: {
+          ...restView,
           indicators: buildIndicatorRefs(nextIds, customIndicatorIdSet),
         },
       },
@@ -217,7 +214,7 @@ export const DataChartIndicatorsDropdown = ({
     })
   }
 
-  const selectedIndicatorIds = (params.chart?.indicators ?? []).map((indicator) => indicator.id)
+  const selectedIndicatorIds = (params.view?.indicators ?? []).map((indicator) => indicator.id)
 
   return (
     <IndicatorDropdown
@@ -239,7 +236,7 @@ export const DataChartChartControls = ({
   allowedIntervals,
   supportsInterval,
 }: DataChartChartControlsProps) => {
-  const candleType = params.chart?.candleType
+  const candleType = params.view?.candleType
 
   return (
     <div className='flex items-center gap-2'>

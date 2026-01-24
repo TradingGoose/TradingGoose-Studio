@@ -2,7 +2,7 @@ import type { Chart } from 'klinecharts'
 import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
 import { resolveAxisName } from '@/widgets/widgets/data_chart/utils'
 
-type ChartSettings = DataChartWidgetParams['chart']
+type ChartSettings = DataChartWidgetParams['view']
 
 type ApplyChartStylesOptions = {
   chart: Chart
@@ -24,10 +24,19 @@ export const applyChartStyles = ({
   if (settings.locale) {
     chart.setLocale(settings.locale)
   }
-  if (settings.timezone) {
-    chart.setTimezone(settings.timezone)
-  } else if (seriesTimezone) {
-    chart.setTimezone(seriesTimezone)
+  const explicitTimezone =
+    typeof settings.timezone === 'string' ? settings.timezone.trim() : ''
+  const exchangeTimezone =
+    typeof seriesTimezone === 'string' ? seriesTimezone.trim() : ''
+  if (explicitTimezone) {
+    chart.setTimezone(explicitTimezone)
+  } else if (exchangeTimezone) {
+    chart.setTimezone(exchangeTimezone)
+  } else {
+    const localTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    if (localTimezone) {
+      chart.setTimezone(localTimezone)
+    }
   }
 
   const computedStyles = chartContainer ? window.getComputedStyle(chartContainer) : null

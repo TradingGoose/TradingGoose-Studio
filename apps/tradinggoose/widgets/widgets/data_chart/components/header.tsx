@@ -18,15 +18,15 @@ export const renderDataChartHeader: DashboardWidgetDefinition['renderHeader'] = 
       ? (widget.params as DataChartWidgetParams)
       : {}
   const resolvedPairColor = (widget?.pairColor ?? 'gray') as PairColor
-  const seriesWindow = resolveSeriesWindow(dataParams, dataParams.provider)
+  const seriesWindow = resolveSeriesWindow(dataParams, dataParams.data?.provider)
 
   return {
     left: (
       <DataChartProviderControls
         widgetKey={widget?.key}
         panelId={panelId}
+        workspaceId={context?.workspaceId}
         params={dataParams}
-        pairColor={resolvedPairColor}
       />
     ),
     center: (

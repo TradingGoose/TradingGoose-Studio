@@ -64,8 +64,8 @@ const splitListingSymbol = (symbol: string): ListingSymbolParts => {
   return { base: symbol, quote: '' }
 }
 
-const buildListingDisplay = (listing: ListingOption | null, listingKey: string | null) => {
-  const listingSymbol = listing ? getListingSymbol(listing) : listingKey ?? 'Symbol'
+const buildListingDisplay = (listing: ListingOption | null) => {
+  const listingSymbol = listing ? getListingSymbol(listing) : 'Symbol'
   const base = listing?.base?.trim() ?? ''
   const quote = listing?.quote?.trim() ?? ''
   const listingSymbolParts = base ? { base, quote } : splitListingSymbol(listingSymbol)
@@ -164,8 +164,8 @@ export const useListingState = ({
 
   const listingType = displayListing?.listing_type ?? listingIdentity?.listing_type
   const { listingSymbolText, listingName } = useMemo(
-    () => buildListingDisplay(displayListing, listingKey),
-    [displayListing, listingKey]
+    () => buildListingDisplay(displayListing),
+    [displayListing]
   )
   const flagData = useMemo(
     () => (listingType === 'equity' ? getFlagData(displayListing?.countryCode) : null),
@@ -202,19 +202,16 @@ export const useListingState = ({
 
 export const ListingOverlay = ({
   listing,
-  listingKey,
   intervalLabel,
   isResolving = false,
 }: {
   listing: ListingOption | null
-  listingKey: string | null
   intervalLabel?: string | null
   isResolving?: boolean
 }) => {
-  const showListingOverlay = Boolean(listingKey)
   const { listingSymbol, listingSymbolParts, listingSymbolText, listingName } = useMemo(
-    () => buildListingDisplay(listing, listingKey),
-    [listing, listingKey]
+    () => buildListingDisplay(listing),
+    [listing]
   )
   const listingType = listing?.listing_type
   const listingIconUrl = listing?.iconUrl ?? null
@@ -229,8 +226,6 @@ export const ListingOverlay = ({
     : null
   const intervalText = intervalLabel ?? ''
 
-  if (!showListingOverlay) return null
-
   if (isResolving) {
     return (
       <div className='pointer-events-none absolute top-2 left-1 z-10 flex max-w-[calc(100%-1.5rem)] items-center gap-2 bg-background/60 px-2 py-1 font-semibold text-foreground text-lg'>
@@ -242,6 +237,8 @@ export const ListingOverlay = ({
       </div>
     )
   }
+
+  if (!listing) return null
 
   return (
     <div className='pointer-events-none absolute top-2 left-1 z-10 flex max-w-[calc(100%-1.5rem)] items-center gap-2 bg-background/60 px-2 py-1 font-semibold text-foreground text-lg'>

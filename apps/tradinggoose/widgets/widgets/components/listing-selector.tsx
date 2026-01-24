@@ -41,13 +41,12 @@ const getListingSymbol = (listing: ListingOption): string => {
   }
   const name = listing.name?.trim()
   if (name) return name
-  const equityId = (listing as { equity_id?: string }).equity_id?.trim()
-  if (equityId) return equityId
-  return listing.id
+  return 'Listing'
 }
 
 const getListingFallback = (listing: ListingOption): string => {
-  const symbol = getListingSymbol(listing)
+  const symbol = getListingSymbol(listing).trim()
+  if (!symbol) return '??'
   return symbol.slice(0, 2).toUpperCase()
 }
 
@@ -217,11 +216,19 @@ export function ListingSelector({
     return getListingSymbol(selectedListing)
   }, [selectedListing])
 
-  const displayValue = open ? query : selectedLabel || query
+  const selectedListingKey = useMemo(() => {
+    return resolveListingKey(safeInstance.selectedListingValue ?? selectedListing ?? null) ?? null
+  }, [safeInstance.selectedListingValue, selectedListing])
+  const hasUnresolvedSelection = Boolean(selectedListingKey) && !selectedListing
+  const fallbackLabel = ''
+  const sanitizedQuery =
+    selectedListingKey && query.trim() === selectedListingKey ? '' : query
+  const displayValue = open ? sanitizedQuery : selectedLabel || fallbackLabel || sanitizedQuery
   const showRichOverlay = !open && !!selectedListing
   const showTagOverlay = !open && !selectedListing && Boolean(query?.trim().includes('<'))
   const showListingDropdown = open && !showTags
-  const showPlaceholderOverlay = !open && !selectedListing && !query?.trim()
+  const showPlaceholderOverlay =
+    !open && !selectedListing && !query?.trim() && !hasUnresolvedSelection
   const hideInputText = showRichOverlay || showTagOverlay || showPlaceholderOverlay
 
   const handleSelect = (listing: ListingOption) => {
@@ -347,10 +354,11 @@ export function ListingSelector({
 
   useEffect(() => {
     if (open) return
-    if (!selectedLabel) return
-    if (query === selectedLabel) return
-    updateInstance(instanceId, { query: selectedLabel })
-  }, [open, query, selectedLabel, instanceId, updateInstance])
+    const nextLabel = selectedLabel || fallbackLabel
+    if (!nextLabel) return
+    if (query === nextLabel) return
+    updateInstance(instanceId, { query: nextLabel })
+  }, [open, query, selectedLabel, fallbackLabel, instanceId, updateInstance])
 
   useEffect(() => {
     setHighlightedIndex((prev) => {

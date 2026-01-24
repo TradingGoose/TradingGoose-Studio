@@ -35,6 +35,7 @@ export const useIndicatorSync = ({
   const indicatorVersionRef = useRef<Record<string, string>>({})
   const signalOverlayIdsRef = useRef<Record<string, string[]>>({})
   const registeredDefaultNamesRef = useRef<Set<string>>(new Set())
+  const indicatorKeysRef = useRef<string[]>([])
   const pendingSignalsRef = useRef<
     Record<string, { signals: IndicatorSignal[]; dataList: KLineData[] }>
   >({})
@@ -62,6 +63,19 @@ export const useIndicatorSync = ({
     if (!chart) return
     if (!workspaceId) return
 
+    const normalizedRefs = Array.isArray(indicatorRefs) ? indicatorRefs : []
+    const nextIndicatorKeys = normalizedRefs
+      .filter((ref) => ref && typeof ref.id === 'string')
+      .map((ref) => `${ref.id}:${ref.isCustom ? 'custom' : 'default'}`)
+    const shouldPreserveBarSpace = !areStringArraysEqual(
+      indicatorKeysRef.current,
+      nextIndicatorKeys
+    )
+    const currentBarSpace =
+      shouldPreserveBarSpace && typeof chart.getBarSpace === 'function'
+        ? chart.getBarSpace().bar
+        : null
+
     const warnings: string[] = []
     const compiledIndicatorIds = new Set<string>()
     const paneTargets = new Map<
@@ -69,7 +83,6 @@ export const useIndicatorSync = ({
       { isStack: boolean; paneOptions?: { id: string } }
     >()
     const indicatorMap = new Map(indicators.map((indicator) => [indicator.id, indicator]))
-    const normalizedRefs = Array.isArray(indicatorRefs) ? indicatorRefs : []
     const customIds = normalizedRefs
       .filter((ref) => ref?.isCustom === true && typeof ref.id === 'string')
       .map((ref) => ref.id)
@@ -167,7 +180,9 @@ export const useIndicatorSync = ({
               })
 
               if (Array.isArray(overlayId)) {
-                overlayIds.push(...overlayId)
+                overlayIds.push(
+                  ...overlayId.filter((id): id is string => typeof id === 'string')
+                )
               } else if (typeof overlayId === 'string') {
                 overlayIds.push(overlayId)
               }
@@ -268,9 +283,11 @@ export const useIndicatorSync = ({
 
     selectedDefaultIndicators.forEach(({ id, template }) => {
       if (!template) return
-      if (!registeredDefaultNamesRef.current.has(template.name)) {
+      const templateName =
+        typeof template.name === 'string' && template.name.trim() ? template.name : id
+      if (!registeredDefaultNamesRef.current.has(templateName)) {
         registerIndicator(template)
-        registeredDefaultNamesRef.current.add(template.name)
+        registeredDefaultNamesRef.current.add(templateName)
       }
       const figures = Array.isArray(template.figures) ? template.figures : []
       const plotSignature = figures
@@ -279,7 +296,7 @@ export const useIndicatorSync = ({
       const fingerprint = [
         'default',
         id,
-        template.name ?? '',
+        templateName,
         template.series ?? '',
         plotSignature,
       ].join('|')
@@ -354,7 +371,7 @@ export const useIndicatorSync = ({
       if (instanceId) {
         currentMap[id] = instanceId
         if (!indicatorVersionRef.current[id]) {
-          indicatorVersionRef.current[id] = `default:${template.name}`
+          indicatorVersionRef.current[id] = `default:${template.id}`
         }
       } else {
         warnings.push(`${id} failed to create.`)
@@ -362,6 +379,17 @@ export const useIndicatorSync = ({
     })
 
     setChartWarnings((prev) => (areStringArraysEqual(prev, warnings) ? prev : warnings))
+
+    if (
+      shouldPreserveBarSpace &&
+      typeof currentBarSpace === 'number' &&
+      Number.isFinite(currentBarSpace) &&
+      typeof chart.setBarSpace === 'function'
+    ) {
+      chart.setBarSpace(currentBarSpace)
+    }
+
+    indicatorKeysRef.current = nextIndicatorKeys
   }, [chartRef, dataVersion, indicatorInstanceMapRef, indicatorRefs, indicators, workspaceId])
 
   return chartWarnings

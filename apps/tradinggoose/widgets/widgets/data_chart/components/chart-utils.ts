@@ -1,4 +1,5 @@
 import type { Chart, KLineData } from 'klinecharts'
+import type { MarketBar, MarketSeries } from '@/providers/market/types'
 
 export const resolveProviderErrorMessage = (payload: any, fallback: string) => {
   const raw = payload?.error
@@ -13,22 +14,30 @@ export const resolveProviderErrorMessage = (payload: any, fallback: string) => {
 }
 
 export const clearChartData = (chart: Chart) => {
-  const instance = chart as unknown as {
-    clearData?: () => void
-    applyNewData?: (data: KLineData[]) => void
-    setData?: (data: KLineData[]) => void
-  }
-  if (typeof instance.clearData === 'function') {
-    instance.clearData()
-    return
-  }
-  if (typeof instance.applyNewData === 'function') {
-    instance.applyNewData([])
-    return
-  }
-  if (typeof instance.setData === 'function') {
-    instance.setData([])
-  }
+  chart.resetData()
+}
+
+export const mapMarketBarToData = (bar?: MarketBar | null): KLineData | null => {
+  if (!bar) return null
+  const timestamp = new Date(bar.timeStamp).getTime()
+  if (!Number.isFinite(timestamp)) return null
+  return {
+    timestamp,
+    open: bar.open ?? bar.close ?? 0,
+    high: bar.high ?? bar.close ?? 0,
+    low: bar.low ?? bar.close ?? 0,
+    close: bar.close ?? bar.open ?? 0,
+    volume: bar.volume ?? undefined,
+    turnover: bar.turnover ?? undefined,
+  } as KLineData
+}
+
+export const mapMarketSeriesToData = (series: MarketSeries): KLineData[] => {
+  const mapped = series.bars
+    .map((bar) => mapMarketBarToData(bar))
+    .filter((entry): entry is KLineData => Boolean(entry))
+
+  return mapped.sort((a, b) => a.timestamp - b.timestamp)
 }
 
 const resolveChartWidth = (chart: Chart, container: HTMLDivElement | null) => {
@@ -43,16 +52,22 @@ const resolveChartWidth = (chart: Chart, container: HTMLDivElement | null) => {
 export const fitChartToData = (
   chart: Chart,
   data: KLineData[],
-  container: HTMLDivElement | null
+  container: HTMLDivElement | null,
+  targetBars?: number | null
 ) => {
-  if (!data.length) return
+  if (!data.length) return false
   const width = resolveChartWidth(chart, container)
-  if (!width) return
+  if (!width) return false
   const offsetRight =
     typeof chart.getOffsetRightDistance === 'function' ? chart.getOffsetRightDistance() : 0
   const usableWidth = Math.max(0, width - offsetRight)
-  const targetBarSpace = Math.ceil(usableWidth / data.length)
+  const barCount =
+    typeof targetBars === 'number' && Number.isFinite(targetBars) && targetBars > 0
+      ? Math.max(data.length, Math.floor(targetBars))
+      : data.length
+  const targetBarSpace = Math.ceil(usableWidth / barCount)
   const barSpace = Math.max(1, Math.min(50, targetBarSpace))
   chart.setBarSpace(barSpace)
   chart.scrollToRealTime()
+  return true
 }

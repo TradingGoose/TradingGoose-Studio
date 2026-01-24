@@ -3,7 +3,7 @@
 import { useEffect, useMemo } from 'react'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
-import { parseDateInput, type resolveSeriesWindow } from '@/widgets/widgets/data_chart/utils'
+import { type resolveSeriesWindow } from '@/widgets/widgets/data_chart/utils'
 
 type SeriesWindow = ReturnType<typeof resolveSeriesWindow>
 
@@ -25,34 +25,25 @@ export const useChartDefaults = ({
   const shouldPersistDefaults = useMemo(() => {
     if (!onWidgetParamsChange) return false
     if (!providerId) return false
-    if (!seriesWindow.startDate || !seriesWindow.endDate) return false
-    const currentStart = parseDateInput(dataParams.start)
-    const currentEnd = parseDateInput(dataParams.end)
-    const nextStart = seriesWindow.startDate.toISOString()
-    const nextEnd = seriesWindow.endDate.toISOString()
-
+    const currentData = dataParams.data ?? {}
     const windowChanged =
-      JSON.stringify(dataParams.dataWindow ?? {}) !== JSON.stringify(seriesWindow.dataWindow ?? {})
+      JSON.stringify(currentData.window ?? {}) !== JSON.stringify(seriesWindow.window ?? {})
+    const fallbackChanged =
+      JSON.stringify(currentData.fallbackWindow ?? {}) !==
+      JSON.stringify(seriesWindow.fallbackWindow ?? {})
 
     return (
       windowChanged ||
-      !currentStart ||
-      currentStart.toISOString() !== nextStart ||
-      !currentEnd ||
-      currentEnd.toISOString() !== nextEnd ||
-      (seriesWindow.interval && seriesWindow.interval !== dataParams.interval)
+      fallbackChanged ||
+      (seriesWindow.interval && seriesWindow.interval !== currentData.interval)
     )
   }, [
-    dataParams.dataWindow,
-    dataParams.end,
-    dataParams.interval,
-    dataParams.start,
+    dataParams.data,
     onWidgetParamsChange,
     providerId,
-    seriesWindow.dataWindow,
-    seriesWindow.endDate,
+    seriesWindow.fallbackWindow,
     seriesWindow.interval,
-    seriesWindow.startDate,
+    seriesWindow.window,
   ])
 
   useEffect(() => {
@@ -60,10 +51,12 @@ export const useChartDefaults = ({
 
     const nextParams: DataChartWidgetParams = {
       ...(dataParams ?? {}),
-      interval: seriesWindow.interval,
-      start: seriesWindow.startDate?.toISOString(),
-      end: seriesWindow.endDate?.toISOString(),
-      dataWindow: seriesWindow.dataWindow,
+      data: {
+        ...(dataParams.data ?? {}),
+        interval: seriesWindow.interval,
+        window: seriesWindow.window ?? undefined,
+        fallbackWindow: seriesWindow.fallbackWindow ?? undefined,
+      },
     }
 
     const nextPayload =
@@ -76,10 +69,9 @@ export const useChartDefaults = ({
     dataParams,
     onWidgetParamsChange,
     resolvedPairColor,
-    seriesWindow.dataWindow,
-    seriesWindow.endDate,
+    seriesWindow.fallbackWindow,
     seriesWindow.interval,
-    seriesWindow.startDate,
+    seriesWindow.window,
     shouldPersistDefaults,
   ])
 }

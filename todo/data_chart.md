@@ -4,7 +4,7 @@
 - New widget key: `data_chart`
 - Purpose: render OHLCV series using KLineCharts with data from `@/providers/market/*`.
 - Listing selection happens in the widget header via `@/components/listing-selector`.
-- Widget params must persist provider selection, listing identity, and series request details (start/end/interval/etc).
+- Widget params must persist provider selection, listing identity, and series request details (window/interval/etc).
 - UI composition: reuse existing system UI components for settings/provider/listing controls; the main widget body is the KLineCharts canvas (no custom chart UI beyond KLineCharts).
 - Target chart engine: KLineCharts v10 (confirm style/axis API compatibility).
 
@@ -47,22 +47,14 @@ type DataChartWidgetParams = {
 
   // Series request detail
   interval?: MarketInterval | string
-  start?: string | number
-  end?: string | number
   normalizationMode?: NormalizationMode | string
-  // Data windowing
-  dataWindow?: {
-    mode: 'bars' | 'range'
-    barCount?: number // default 500
-    range?: { value: number; unit: 'day' | 'week' | 'month' | 'year' }
-    // Optional interval override for range mode (otherwise computed)
-    rangeInterval?: MarketInterval | string
-  }
+  // Window selection (primary + fallback)
+  window?: { mode: 'range'; range: { value: number; unit: 'day' | 'week' | 'month' | 'year' } }
+  fallbackWindow?: { mode: 'absolute'; start: string; end?: string }
   // Live mode preference (if provider supports it)
   live?: {
     enabled?: boolean
     interval?: MarketInterval | string
-    stream?: string
   }
 
   // Chart presentation (optional, klinecharts-specific)
@@ -87,12 +79,11 @@ type DataChartWidgetParams = {
 ### Required fields to fetch data
 - `provider`
 - `listing`
-- `start`
-- `end`
+- `window`
 - `interval` when the provider supports/needs intervals (see `getMarketSeriesCapabilities`).
 
 ### Why this structure
-- Aligns with `tools/market_data/series.ts` and `blocks/blocks/historical_data.ts` parameter names.
+- Aligns with `tools/market_data/series.ts` window-based parameter names.
 - Keeps provider-specific params isolated in `providerParams` to avoid collisions with reserved keys.
 - Listing identity is consistent with `PairColorContext.listing` and layout persistence.
 
@@ -137,7 +128,7 @@ type DataChartWidgetParams = {
 2. Listing selector updates its provider context to filter search.
 3. User selects listing (header selector).
 4. Widget builds a `MarketSeriesRequest` from params and calls `/api/providers` with:
-   - `provider`, `kind: 'series'`, `listing`, `interval`, `start`, `end`, `normalizationMode`, `providerParams`.
+   - `provider`, `kind: 'series'`, `listing`, `interval`, `windows`, `normalizationMode`, `providerParams`.
 5. Transform `MarketSeries` bars into KLineCharts data:
    - `timeStamp` (ISO) -> `timestamp` (ms number)
    - map `open/high/low/close/volume`, optional `turnover` if present
@@ -211,10 +202,10 @@ Rationale:
 - Provider errors: show inline error and keep existing chart data if available.
 
 ## Default range & interval rules
-- Default to `dataWindow.mode = 'bars'` with `barCount = 500`.
-- If user selects an interval only: compute `start/end` to fetch the last `barCount` bars.
+- Default to `window.mode = 'range'` using the first preset.
+- If user selects an interval only: keep the default range window and derive an absolute fallback window from its span.
 - If user selects a range preset: compute interval pairing (TradingView-style) or derive an interval that returns ~`barCount` bars for the chosen range.
-- Persist computed `dataWindow` + `interval` in widget params so layout reload restores the same view.
+- Persist computed `window` + `fallbackWindow` + `interval` so layout reload restores the same view.
 
 ## Indicators (built-in + custom)
 ### Custom indicator format (KLineCharts)

@@ -1,14 +1,12 @@
-import type { MarketInterval } from '@/providers/market/types'
+import type { MarketInterval, MarketRangeUnit } from '@/providers/market/types'
 import type { Period } from 'klinecharts'
 
 export const DEFAULT_BAR_COUNT = 500
 
-export type RangeUnit = 'day' | 'week' | 'month' | 'year'
-
 export type RangePreset = {
   id: string
   label: string
-  range: { value: number; unit: RangeUnit }
+  range: { value: number; unit: MarketRangeUnit }
   interval?: MarketInterval
 }
 
