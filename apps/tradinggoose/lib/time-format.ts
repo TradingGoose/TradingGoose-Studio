@@ -1,5 +1,7 @@
 export type TimeFormat = 'date' | 'time' | 'datetime' | 'seconds' | 'family'
 
+const OFFSET_RE = /^[+-]\d{2}:\d{2}$/
+
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const TIME_RE = /^\d{2}:\d{2}(:\d{2})?$/
 const DATETIME_RE =
@@ -17,6 +19,34 @@ const TIME_RELATED_HINT_RE = /date|time|timestamp|datetime|timezone|cron|interva
 const EXCLUDE_HINT_RE = /time\s*in\s*force|time[_-]?range|time\s*range/i
 
 const pad2 = (value: number) => value.toString().padStart(2, '0')
+
+export const isUtcOffset = (value: string) => value === 'UTC' || OFFSET_RE.test(value)
+
+export const normalizeUtcOffset = (value: string) => (value === 'UTC' ? '+00:00' : value)
+
+export const formatTimezoneLabel = (value?: string | null) => {
+  if (!value) return ''
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  if (isUtcOffset(trimmed)) {
+    const normalized = normalizeUtcOffset(trimmed)
+    return normalized === '+00:00' ? 'UTC' : `UTC${normalized}`
+  }
+  return trimmed
+}
+
+export const parseUtcOffsetMinutes = (value: string) => {
+  const normalized = normalizeUtcOffset(value)
+  if (!OFFSET_RE.test(normalized)) {
+    throw new Error(`Invalid UTC offset: ${value}`)
+  }
+  const sign = normalized.startsWith('-') ? -1 : 1
+  const [hours, minutes] = normalized.slice(1).split(':').map(Number)
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+    throw new Error(`Invalid UTC offset: ${value}`)
+  }
+  return sign * (hours * 60 + minutes)
+}
 
 const isValidDate = (year: number, month: number, day: number) => {
   if (month < 1 || month > 12) return false

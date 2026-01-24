@@ -2,6 +2,7 @@ import type { SVGProps } from 'react'
 import { createElement } from 'react'
 import { Clock } from 'lucide-react'
 import type { BlockConfig } from '@/blocks/types'
+import { fetchTimeZoneOptions } from '@/components/timezone-selector/fetchers'
 
 const ScheduleIcon = (props: SVGProps<SVGSVGElement>) => createElement(Clock, props)
 
@@ -123,18 +124,7 @@ export const ScheduleBlock: BlockConfig = {
       type: 'dropdown',
       title: 'Timezone',
       enableSearch: true,
-      options: [
-        { label: 'UTC', id: 'UTC' },
-        { label: 'US Eastern (UTC-4)', id: 'America/New_York' },
-        { label: 'US Central (UTC-5)', id: 'America/Chicago' },
-        { label: 'US Mountain (UTC-6)', id: 'America/Denver' },
-        { label: 'US Pacific (UTC-7)', id: 'America/Los_Angeles' },
-        { label: 'London (UTC+1)', id: 'Europe/London' },
-        { label: 'Paris (UTC+2)', id: 'Europe/Paris' },
-        { label: 'Singapore (UTC+8)', id: 'Asia/Singapore' },
-        { label: 'Tokyo (UTC+9)', id: 'Asia/Tokyo' },
-        { label: 'Sydney (UTC+10)', id: 'Australia/Sydney' },
-      ],
+      fetchOptions: fetchTimeZoneOptions,
       value: () => 'UTC',
       required: false,
       mode: 'trigger',

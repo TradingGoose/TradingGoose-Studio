@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { createLogger } from '@/lib/logs/console/logger'
+import { resolveTimezoneOffset } from '@/components/timezone-selector/fetchers'
 import { parseCronToHumanReadable } from '@/lib/schedules/utils'
 import { formatDateTime } from '@/lib/utils'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowChannelId, useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { getBlockWithValues, getWorkflowWithValues } from '@/stores/workflows'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
+import { getWorkflowWithValues } from '@/stores/workflows'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 
 const logger = createLogger('ScheduleConfig')
@@ -46,6 +45,7 @@ export function ScheduleConfig({
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [resolvedUtcOffset, setResolvedUtcOffset] = useState<string | null>(null)
 
   const workflowId = useWorkflowId()
   const channelId = useWorkflowChannelId()
@@ -63,14 +63,6 @@ export function ScheduleConfig({
   const [monthlyTime] = useSubBlockValue(blockId, 'monthlyTime')
   const [cronExpression] = useSubBlockValue(blockId, 'cronExpression')
 
-  // Get the startWorkflow value to determine if scheduling is enabled
-  // and expose the setter so we can update it
-  const [_startWorkflow, setStartWorkflow] = useSubBlockValue(blockId, 'startWorkflow')
-
-  // Determine if this block natively represents a schedule trigger
-  const blockWithValues = getBlockWithValues(blockId, channelId)
-  const isScheduleTriggerBlock = blockWithValues?.type === 'schedule'
-
   // Fetch schedule data from API
   const fetchSchedule = useCallback(async () => {
     if (!workflowId) return
@@ -81,9 +73,7 @@ export function ScheduleConfig({
         workflowId,
         mode: 'schedule',
       })
-      if (isScheduleTriggerBlock) {
-        params.set('blockId', blockId)
-      }
+      params.set('blockId', blockId)
 
       const response = await fetch(`/api/schedules?${params}`, {
         cache: 'no-store',
@@ -115,12 +105,32 @@ export function ScheduleConfig({
     } finally {
       setIsLoading(false)
     }
-  }, [workflowId, blockId, isScheduleTriggerBlock])
+  }, [workflowId, blockId])
 
   // Fetch schedule data on mount and when dependencies change
   useEffect(() => {
     fetchSchedule()
   }, [fetchSchedule])
+
+  useEffect(() => {
+    const timezoneValue = scheduleData.timezone || 'UTC'
+    let active = true
+
+    resolveTimezoneOffset(timezoneValue)
+      .then((offset) => {
+        if (!active) return
+        setResolvedUtcOffset(offset)
+      })
+      .catch((error) => {
+        logger.error('Failed to resolve timezone offset', error)
+        if (!active) return
+        setResolvedUtcOffset(null)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [scheduleData.timezone])
 
   // Separate effect for event listener to avoid removing/re-adding on every dependency change
   useEffect(() => {
@@ -155,11 +165,13 @@ export function ScheduleConfig({
         <div className='truncate font-normal text-sm'>{scheduleTiming}</div>
         <div className='text-muted-foreground text-xs'>
           <div>
-            Next run: {formatDateTime(new Date(scheduleData.nextRunAt), scheduleData.timezone)}
+            Next run:{' '}
+            {formatDateTime(new Date(scheduleData.nextRunAt), resolvedUtcOffset ?? undefined)}
           </div>
           {scheduleData.lastRanAt && (
             <div>
-              Last run: {formatDateTime(new Date(scheduleData.lastRanAt), scheduleData.timezone)}
+              Last run:{' '}
+              {formatDateTime(new Date(scheduleData.lastRanAt), resolvedUtcOffset ?? undefined)}
             </div>
           )}
         </div>
@@ -223,31 +235,9 @@ export function ScheduleConfig({
         return false
       }
 
-      const registryState = useWorkflowRegistry.getState()
-      const activeWorkflowId = registryState.getActiveWorkflowId(channelId)
-
-      if (!activeWorkflowId) {
-        setError('No active workflow found')
-        return false
-      }
-
-      // For legacy blocks, update the startWorkflow value to 'schedule'
-      // Schedule trigger blocks don't require this flag
-      if (!isScheduleTriggerBlock) {
-        // 1. First, update the startWorkflow value in SubBlock store to 'schedule'
-        setStartWorkflow('schedule')
-
-        // Update the SubBlock store directly to ensure the value is set correctly
-        const subBlockStore = useSubBlockStore.getState()
-        subBlockStore.setValue(blockId, 'startWorkflow', 'schedule', activeWorkflowId)
-
-        // Give React time to process the state update
-        await new Promise((resolve) => setTimeout(resolve, 200))
-      }
-
-      // 3. Get the fully merged current state with updated values
+      // Get the fully merged current state with updated values
       // This ensures we send the complete, correct workflow state to the backend
-      const currentWorkflowWithValues = getWorkflowWithValues(activeWorkflowId, channelId)
+      const currentWorkflowWithValues = getWorkflowWithValues(workflowId, channelId)
       if (!currentWorkflowWithValues) {
         setError('Failed to get current workflow state')
         return false
@@ -263,10 +253,7 @@ export function ScheduleConfig({
         state: currentWorkflowWithValues.state,
       }
 
-      // For schedule trigger blocks, include the blockId
-      if (isScheduleTriggerBlock) {
-        requestBody.blockId = blockId
-      }
+      requestBody.blockId = blockId
 
       const response = await fetch('/api/schedules', {
         method: 'POST',
@@ -335,8 +322,6 @@ export function ScheduleConfig({
   }, [
     workflowId,
     blockId,
-    isScheduleTriggerBlock,
-    setStartWorkflow,
     fetchSchedule,
     channelId,
     validateScheduleValues,
@@ -347,31 +332,7 @@ export function ScheduleConfig({
 
     setIsDeleting(true)
     try {
-      // For legacy blocks, update the startWorkflow value to 'manual'
-      // Schedule trigger blocks don't require this flag
-      if (!isScheduleTriggerBlock) {
-        // 1. First update the workflow state to disable scheduling
-        setStartWorkflow('manual')
-
-        // 2. Directly update the SubBlock store to ensure the value is set
-        const registryState = useWorkflowRegistry.getState()
-        const activeWorkflowId = registryState.getActiveWorkflowId(channelId)
-        if (!activeWorkflowId) {
-          setError('No active workflow found')
-          return false
-        }
-
-        // Update the store directly
-        const subBlockStore = useSubBlockStore.getState()
-        subBlockStore.setValue(blockId, 'startWorkflow', 'manual', activeWorkflowId)
-
-        // 3. Update the workflow store
-        const workflowStore = useWorkflowStore.getState(channelId)
-        workflowStore.triggerUpdate()
-        workflowStore.updateLastSaved()
-      }
-
-      // 4. Make the DELETE API call to remove the schedule
+      // Make the DELETE API call to remove the schedule
       const response = await fetch(`/api/schedules/${scheduleData.id}`, {
         method: 'DELETE',
       })
@@ -382,7 +343,7 @@ export function ScheduleConfig({
         return false
       }
 
-      // 5. Clear schedule state
+      // Clear schedule state
       setScheduleData({
         id: null,
         nextRunAt: null,
@@ -391,10 +352,7 @@ export function ScheduleConfig({
         timezone: 'UTC',
       })
 
-      // 6. Update schedule status and refresh UI
-      // Note: Global schedule status is managed at a higher level
-
-      // 7. Dispatch custom event to notify parent workflow-block component
+      // Dispatch custom event to notify parent workflow-block component
       const event = new CustomEvent('schedule-updated', {
         detail: { workflowId, blockId },
       })
@@ -413,11 +371,8 @@ export function ScheduleConfig({
     scheduleData.id,
     isPreview,
     disabled,
-    isScheduleTriggerBlock,
-    setStartWorkflow,
     workflowId,
     blockId,
-    channelId,
   ])
 
   // Check if the schedule is active

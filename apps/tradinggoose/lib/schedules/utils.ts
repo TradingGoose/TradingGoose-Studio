@@ -1,6 +1,7 @@
 import { Cron } from 'croner'
 import cronstrue from 'cronstrue'
 import { createLogger } from '@/lib/logs/console/logger'
+import { formatTimezoneLabel } from '@/lib/time-format'
 import { formatDateTime } from '@/lib/utils'
 
 const logger = createLogger('ScheduleUtils')
@@ -8,12 +9,12 @@ const logger = createLogger('ScheduleUtils')
 /**
  * Validates a cron expression and returns validation results
  * @param cronExpression - The cron expression to validate
- * @param timezone - Optional IANA timezone string (e.g., 'America/Los_Angeles'). Defaults to 'UTC'
+ * @param utcOffsetMinutes - Optional UTC offset in minutes (e.g., -420). Defaults to 0
  * @returns Validation result with isValid flag, error message, and next run date
  */
 export function validateCronExpression(
   cronExpression: string,
-  timezone?: string
+  utcOffsetMinutes = 0
 ): {
   isValid: boolean
   error?: string
@@ -27,8 +28,8 @@ export function validateCronExpression(
   }
 
   try {
-    // Validate with timezone if provided for accurate next run calculation
-    const cron = new Cron(cronExpression, timezone ? { timezone } : undefined)
+    // Validate using explicit UTC offset for deterministic scheduling
+    const cron = new Cron(cronExpression, { utcOffset: utcOffsetMinutes })
     const nextRun = cron.nextRun()
 
     if (!nextRun) {
@@ -98,8 +99,6 @@ export function parseTimeString(timeString: string | undefined | null): [number,
  * @returns Object with parsed time values
  */
 export function getScheduleTimeValues(scheduleBlock: BlockState): {
-  scheduleTime: string
-  scheduleStartAt?: string
   minutesInterval: number
   hourlyMinute: number
   dailyTime: [number, number]
@@ -110,12 +109,6 @@ export function getScheduleTimeValues(scheduleBlock: BlockState): {
   cronExpression: string | null
   timezone: string
 } {
-  // Extract schedule time (common field that can override others)
-  const scheduleTime = getSubBlockValue(scheduleBlock, 'scheduleTime')
-
-  // Extract schedule start date
-  const scheduleStartAt = getSubBlockValue(scheduleBlock, 'scheduleStartAt')
-
   // Extract timezone (default to UTC)
   const timezone = getSubBlockValue(scheduleBlock, 'timezone') || 'UTC'
 
@@ -142,17 +135,7 @@ export function getScheduleTimeValues(scheduleBlock: BlockState): {
 
   const cronExpression = getSubBlockValue(scheduleBlock, 'cronExpression') || null
 
-  // Validate cron expression if provided
-  if (cronExpression) {
-    const validation = validateCronExpression(cronExpression)
-    if (!validation.isValid) {
-      throw new Error(`Invalid cron expression: ${validation.error}`)
-    }
-  }
-
   return {
-    scheduleTime,
-    scheduleStartAt,
     timezone,
     minutesInterval,
     hourlyMinute,
@@ -166,124 +149,15 @@ export function getScheduleTimeValues(scheduleBlock: BlockState): {
 }
 
 /**
- * Helper function to create a date with the specified time in the correct timezone.
- * This function calculates the corresponding UTC time for a given local date,
- * local time, and IANA timezone name, correctly handling DST.
- *
- * @param dateInput Date string or Date object representing the local date.
- * @param timeStr Time string in format "HH:mm" or "HH:mm:ss" representing the local time.
- * @param timezone IANA timezone string (e.g., 'America/Los_Angeles', 'Europe/Paris'). Defaults to 'UTC'.
- * @returns Date object representing the absolute point in time (UTC).
- */
-export function createDateWithTimezone(
-  dateInput: string | Date,
-  timeStr: string,
-  timezone = 'UTC'
-): Date {
-  try {
-    // 1. Parse the base date and target time
-    const baseDate = typeof dateInput === 'string' ? new Date(dateInput) : new Date(dateInput)
-    const [targetHours, targetMinutes] = parseTimeString(timeStr)
-
-    // Ensure baseDate reflects the date part only, setting time to 00:00:00 in UTC
-    // This prevents potential issues if dateInput string includes time/timezone info.
-    const year = baseDate.getUTCFullYear()
-    const monthIndex = baseDate.getUTCMonth() // 0-based
-    const day = baseDate.getUTCDate()
-
-    // 2. Create a tentative UTC Date object using the target date and time components
-    // This assumes, for a moment, that the target H:M were meant for UTC.
-    const tentativeUTCDate = new Date(
-      Date.UTC(year, monthIndex, day, targetHours, targetMinutes, 0)
-    )
-
-    // 3. If the target timezone is UTC, we're done.
-    if (timezone === 'UTC') {
-      return tentativeUTCDate
-    }
-
-    // 4. Format the tentative UTC date into the target timezone's local time components.
-    // Use 'en-CA' locale for unambiguous YYYY-MM-DD and 24-hour format.
-    const formatter = new Intl.DateTimeFormat('en-CA', {
-      timeZone: timezone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit', // Use 2-digit for consistency
-      minute: '2-digit',
-      second: '2-digit',
-      hourCycle: 'h23', // Use 24-hour format (00-23)
-    })
-
-    const parts = formatter.formatToParts(tentativeUTCDate)
-    const getPart = (type: Intl.DateTimeFormatPartTypes) =>
-      parts.find((p) => p.type === type)?.value
-
-    const formattedYear = Number.parseInt(getPart('year') || '0', 10)
-    const formattedMonth = Number.parseInt(getPart('month') || '0', 10) // 1-based
-    const formattedDay = Number.parseInt(getPart('day') || '0', 10)
-    const formattedHour = Number.parseInt(getPart('hour') || '0', 10)
-    const formattedMinute = Number.parseInt(getPart('minute') || '0', 10)
-
-    // Create a Date object representing the local time *in the target timezone*
-    // when the tentative UTC date occurs.
-    // Note: month needs to be adjusted back to 0-based for Date.UTC()
-    const actualLocalTimeInTargetZone = Date.UTC(
-      formattedYear,
-      formattedMonth - 1,
-      formattedDay,
-      formattedHour,
-      formattedMinute,
-      0 // seconds
-    )
-
-    // 5. Calculate the difference between the intended local time and the actual local time
-    // that resulted from the tentative UTC date. This difference represents the offset
-    // needed to adjust the UTC time.
-    // Create the intended local time as a UTC timestamp for comparison purposes.
-    const intendedLocalTimeAsUTC = Date.UTC(year, monthIndex, day, targetHours, targetMinutes, 0)
-
-    // The offset needed for UTC time is the difference between the intended local time
-    // and the actual local time (when both are represented as UTC timestamps).
-    const offsetMilliseconds = intendedLocalTimeAsUTC - actualLocalTimeInTargetZone
-
-    // 6. Adjust the tentative UTC date by the calculated offset.
-    const finalUTCTimeMilliseconds = tentativeUTCDate.getTime() + offsetMilliseconds
-    const finalDate = new Date(finalUTCTimeMilliseconds)
-
-    return finalDate
-  } catch (e) {
-    logger.error('Error creating date with timezone:', e, { dateInput, timeStr, timezone })
-    // Fallback to a simple UTC interpretation on error
-    try {
-      const baseDate = typeof dateInput === 'string' ? new Date(dateInput) : new Date(dateInput)
-      const [hours, minutes] = parseTimeString(timeStr)
-      const year = baseDate.getUTCFullYear()
-      const monthIndex = baseDate.getUTCMonth()
-      const day = baseDate.getUTCDate()
-      return new Date(Date.UTC(year, monthIndex, day, hours, minutes, 0))
-    } catch (fallbackError) {
-      logger.error('Error during fallback date creation:', fallbackError)
-      throw new Error(
-        `Failed to create date with timezone (${timezone}): ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`
-      )
-    }
-  }
-}
-
-/**
  * Generate cron expression based on schedule type and values
  *
  * IMPORTANT: The generated cron expressions use local time values (hours/minutes)
- * from the user's configured timezone. When used with Croner, pass the timezone
- * option to ensure proper scheduling:
+ * from the user's configured schedule. When used with Croner, pass a UTC offset
+ * (minutes) so the server interprets the cron in the intended local time.
  *
  * Example:
- *   const cronExpr = generateCronExpression('daily', { dailyTime: [14, 30], timezone: 'America/Los_Angeles' })
- *   const cron = new Cron(cronExpr, { timezone: 'America/Los_Angeles' })
- *
- * This will schedule the job at 2:30 PM Pacific Time, which Croner will correctly
- * convert to the appropriate UTC time, handling DST transitions automatically.
+ *   const cronExpr = generateCronExpression('daily', { dailyTime: [14, 30], timezone: 'UTC' })
+ *   const cron = new Cron(cronExpr, { utcOffset: -420 })
  *
  * @param scheduleType - Type of schedule (minutes, hourly, daily, weekly, monthly, custom)
  * @param scheduleValues - Object containing schedule configuration including timezone
@@ -329,7 +203,7 @@ export function generateCronExpression(
 
 /**
  * Calculate the next run time based on schedule configuration
- * Uses Croner library with timezone support for accurate scheduling across timezones and DST transitions
+ * Uses Croner library with an explicit UTC offset for deterministic scheduling
  * @param scheduleType - Type of schedule (minutes, hourly, daily, etc)
  * @param scheduleValues - Object with schedule configuration values
  * @param lastRanAt - Optional last execution time
@@ -338,103 +212,25 @@ export function generateCronExpression(
 export function calculateNextRunTime(
   scheduleType: string,
   scheduleValues: ReturnType<typeof getScheduleTimeValues>,
-  lastRanAt?: Date | null
+  lastRanAt?: Date | null,
+  utcOffsetMinutes = 0
 ): Date {
-  // Get timezone (default to UTC)
-  const timezone = scheduleValues.timezone || 'UTC'
-
-  // Get the current time
-  const baseDate = new Date()
-
-  // If we have both a start date and time, use them together with timezone awareness
-  if (scheduleValues.scheduleStartAt && scheduleValues.scheduleTime) {
-    try {
-      logger.info(
-        `Creating date with: startAt=${scheduleValues.scheduleStartAt}, time=${scheduleValues.scheduleTime}, timezone=${timezone}`
-      )
-
-      const combinedDate = createDateWithTimezone(
-        scheduleValues.scheduleStartAt,
-        scheduleValues.scheduleTime,
-        timezone
-      )
-
-      logger.info(`Combined date result: ${combinedDate.toISOString()}`)
-
-      // If the combined date is in the future, use it as our next run time
-      if (combinedDate > baseDate) {
-        return combinedDate
-      }
-    } catch (e) {
-      logger.error('Error combining scheduled date and time:', e)
-    }
-  }
-  // If only scheduleStartAt is set (without scheduleTime), parse it directly
-  else if (scheduleValues.scheduleStartAt) {
-    try {
-      // Check if the date string already includes time information
-      const startAtStr = scheduleValues.scheduleStartAt
-      const hasTimeComponent =
-        startAtStr.includes('T') && (startAtStr.includes(':') || startAtStr.includes('.'))
-
-      if (hasTimeComponent) {
-        // If the string already has time info, parse it directly but with timezone awareness
-        const startDate = new Date(startAtStr)
-
-        // If it's a UTC ISO string (ends with Z), use it directly
-        if (startAtStr.endsWith('Z') && timezone === 'UTC') {
-          if (startDate > baseDate) {
-            return startDate
-          }
-        } else {
-          // For non-UTC dates or when timezone isn't UTC, we need to interpret it in the specified timezone
-          // Extract time from the date string (crude but effective for ISO format)
-          const timeMatch = startAtStr.match(/T(\d{2}:\d{2})/)
-          const timeStr = timeMatch ? timeMatch[1] : '00:00'
-
-          // Use our timezone-aware function with the extracted time
-          const tzAwareDate = createDateWithTimezone(
-            startAtStr.split('T')[0], // Just the date part
-            timeStr, // Time extracted from string
-            timezone
-          )
-
-          if (tzAwareDate > baseDate) {
-            return tzAwareDate
-          }
-        }
-      } else {
-        // If no time component in the string, use midnight in the specified timezone
-        const startDate = createDateWithTimezone(
-          scheduleValues.scheduleStartAt,
-          '00:00', // Use midnight in the specified timezone
-          timezone
-        )
-
-        if (startDate > baseDate) {
-          return startDate
-        }
-      }
-    } catch (e) {
-      logger.error('Error parsing scheduleStartAt:', e)
-    }
-  }
-
-  // For recurring schedules, use Croner with timezone support
-  // This ensures proper timezone handling and DST transitions
   try {
     const cronExpression = generateCronExpression(scheduleType, scheduleValues)
-    logger.debug(`Using cron expression: ${cronExpression} with timezone: ${timezone}`)
+    logger.debug(`Using cron expression: ${cronExpression} with utcOffset: ${utcOffsetMinutes}`)
 
-    // Create Croner instance with timezone support
     const cron = new Cron(cronExpression, {
-      timezone,
+      utcOffset: utcOffsetMinutes,
     })
 
     const nextDate = cron.nextRun()
 
     if (!nextDate) {
       throw new Error(`No next run date calculated for cron: ${cronExpression}`)
+    }
+
+    if (lastRanAt && nextDate <= lastRanAt) {
+      throw new Error('Next run date is not after last run')
     }
 
     logger.debug(`Next run calculated: ${nextDate.toISOString()}`)
@@ -445,26 +241,6 @@ export function calculateNextRunTime(
       `Failed to calculate next run time for schedule type ${scheduleType}: ${error instanceof Error ? error.message : String(error)}`
     )
   }
-}
-
-/**
- * Helper function to get a friendly timezone abbreviation
- */
-function getTimezoneAbbreviation(timezone: string): string {
-  const timezoneMap: Record<string, string> = {
-    'America/Los_Angeles': 'PT',
-    'America/Denver': 'MT',
-    'America/Chicago': 'CT',
-    'America/New_York': 'ET',
-    'Europe/London': 'GMT/BST',
-    'Europe/Paris': 'CET/CEST',
-    'Asia/Tokyo': 'JST',
-    'Asia/Singapore': 'SGT',
-    'Australia/Sydney': 'AEDT/AEST',
-    UTC: 'UTC',
-  }
-
-  return timezoneMap[timezone] || timezone
 }
 
 /**
@@ -483,20 +259,15 @@ export const parseCronToHumanReadable = (cronExpression: string, timezone?: stri
       verbose: false, // Keep it concise
     })
 
-    // Add timezone information if provided and not UTC
-    if (timezone && timezone !== 'UTC') {
-      const tzAbbr = getTimezoneAbbreviation(timezone)
-      return `${baseDescription} (${tzAbbr})`
-    }
-
-    return baseDescription
+    const tzLabel = formatTimezoneLabel(timezone)
+    return tzLabel && tzLabel !== 'UTC' ? `${baseDescription} (${tzLabel})` : baseDescription
   } catch (error) {
     logger.warn('Failed to parse cron expression with cronstrue:', {
       cronExpression,
       error: error instanceof Error ? error.message : String(error),
     })
-    // Fallback to displaying the raw cron expression
-    return `Schedule: ${cronExpression}${timezone && timezone !== 'UTC' ? ` (${getTimezoneAbbreviation(timezone)})` : ''}`
+    const tzLabel = formatTimezoneLabel(timezone)
+    return `Schedule: ${cronExpression}${tzLabel && tzLabel !== 'UTC' ? ` (${tzLabel})` : ''}`
   }
 }
 
@@ -508,7 +279,7 @@ export const getScheduleInfo = (
   nextRunAt: string | null,
   lastRanAt: string | null,
   scheduleType?: string | null,
-  timezone?: string | null
+  utcOffset?: string | null
 ): {
   scheduleTiming: string
   nextRunFormatted: string | null
@@ -525,15 +296,14 @@ export const getScheduleInfo = (
   let scheduleTiming = 'Unknown schedule'
 
   if (cronExpression) {
-    // Pass timezone to parseCronToHumanReadable for accurate display
-    scheduleTiming = parseCronToHumanReadable(cronExpression, timezone || undefined)
+    scheduleTiming = parseCronToHumanReadable(cronExpression, utcOffset || undefined)
   } else if (scheduleType) {
     scheduleTiming = `${scheduleType.charAt(0).toUpperCase() + scheduleType.slice(1)}`
   }
 
   return {
     scheduleTiming,
-    nextRunFormatted: formatDateTime(new Date(nextRunAt)),
-    lastRunFormatted: lastRanAt ? formatDateTime(new Date(lastRanAt)) : null,
+    nextRunFormatted: formatDateTime(new Date(nextRunAt), utcOffset || undefined),
+    lastRunFormatted: lastRanAt ? formatDateTime(new Date(lastRanAt), utcOffset || undefined) : null,
   }
 }

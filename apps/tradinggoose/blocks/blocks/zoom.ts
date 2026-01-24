@@ -1,5 +1,6 @@
 import { ZoomIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
+import { fetchTimeZoneOptions } from '@/components/timezone-selector/fetchers'
 import { AuthMode } from '@/blocks/types'
 import type { ZoomResponse } from '@/tools/zoom/types'
 
@@ -168,7 +169,10 @@ Return ONLY the timestamp string - no explanations, no quotes, no extra text.`,
     {
       id: 'timezone',
       title: 'Timezone',
-      type: 'short-input',
+      type: 'dropdown',
+      enableSearch: true,
+      fetchOptions: fetchTimeZoneOptions,
+      value: () => '',
       placeholder: 'America/Los_Angeles',
       condition: {
         field: 'operation',

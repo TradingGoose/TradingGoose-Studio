@@ -7,7 +7,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createMockRequest,
   mockExecutionDependencies,
-  sampleWorkflowState,
 } from '@/app/api/__test-utils__/utils'
 
 describe('Schedule Configuration API Route', () => {
@@ -31,24 +30,6 @@ describe('Schedule Configuration API Route', () => {
     vi.doMock('@/lib/permissions/utils', () => ({
       getUserEntityPermissions: vi.fn().mockResolvedValue('admin'), // User has admin permissions
     }))
-
-    // Extend sampleWorkflowState for scheduling
-    const _workflowStateWithSchedule = {
-      ...sampleWorkflowState,
-      blocks: {
-        ...sampleWorkflowState.blocks,
-        'trigger-id': {
-          ...sampleWorkflowState.blocks['trigger-id'],
-          subBlocks: {
-            ...sampleWorkflowState.blocks['trigger-id'].subBlocks,
-            startWorkflow: { id: 'startWorkflow', type: 'dropdown', value: 'schedule' },
-            scheduleType: { id: 'scheduleType', type: 'dropdown', value: 'daily' },
-            scheduleTime: { id: 'scheduleTime', type: 'time-input', value: '09:30' },
-            dailyTime: { id: 'dailyTime', type: 'time-input', value: '09:30' },
-          },
-        },
-      },
-    }
 
     // Create mock database with test schedules
     // Mock the database to return workflow data for authorization check
@@ -114,7 +95,6 @@ describe('Schedule Configuration API Route', () => {
     // Mock the schedule utils
     vi.doMock('@/lib/schedules/utils', () => ({
       getScheduleTimeValues: vi.fn().mockReturnValue({
-        scheduleTime: '09:30',
         minutesInterval: 15,
         hourlyMinute: 0,
         dailyTime: [9, 30],
@@ -122,19 +102,32 @@ describe('Schedule Configuration API Route', () => {
         weeklyTime: [9, 30],
         monthlyDay: 1,
         monthlyTime: [9, 30],
+        timezone: 'UTC',
+        cronExpression: null,
       }),
       getSubBlockValue: vi.fn().mockImplementation((block: any, id: string) => {
         const subBlocks = {
-          startWorkflow: 'schedule',
           scheduleType: 'daily',
-          scheduleTime: '09:30',
           dailyTime: '09:30',
+          timezone: 'UTC',
         }
         return subBlocks[id as keyof typeof subBlocks] || ''
       }),
       generateCronExpression: vi.fn().mockReturnValue('0 9 * * *'),
       calculateNextRunTime: vi.fn().mockReturnValue(new Date()),
       BlockState: {},
+      validateCronExpression: vi.fn().mockReturnValue({ isValid: true, nextRun: new Date() }),
+    }))
+
+    vi.doMock('@/lib/timezone/timezone-resolver', () => ({
+      resolveTimezoneState: vi.fn().mockResolvedValue({
+        name: 'UTC',
+        utcOffset: '+00:00',
+        dstOn: false,
+        observesDst: false,
+        storageValue: 'UTC',
+        utcOffsetMinutes: 0,
+      }),
     }))
   })
 
@@ -149,15 +142,15 @@ describe('Schedule Configuration API Route', () => {
     // Create a mock request with schedule data
     const req = createMockRequest('POST', {
       workflowId: 'workflow-id',
+      blockId: 'trigger-id',
       state: {
         blocks: {
           'trigger-id': {
-            type: 'input_trigger',
+            type: 'schedule',
             subBlocks: {
-              startWorkflow: { value: 'schedule' },
               scheduleType: { value: 'daily' },
-              scheduleTime: { value: '09:30' },
               dailyTime: { value: '09:30' },
+              timezone: { value: 'UTC' },
             },
           },
         },
