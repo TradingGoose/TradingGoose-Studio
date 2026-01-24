@@ -29,7 +29,7 @@ export async function executeProviderRequest(
   const provider = getProvider(providerId)
   if (!provider) {
     throw new MarketProviderError({
-      code: 'UNSUPPORTED_PROVIDER',
+      code: 'UNSUPPORTED PROVIDER',
       message: `Market provider not found: ${providerId}`,
       provider: providerId,
       status: 404,
@@ -41,7 +41,7 @@ export async function executeProviderRequest(
 
   if (!supportsKind) {
     throw new MarketProviderError({
-      code: 'INVALID_REQUEST',
+      code: 'INVALID REQUEST',
       message: `Provider ${providerId} does not support ${request.kind}`,
       provider: providerId,
       status: 400,
@@ -52,7 +52,7 @@ export async function executeProviderRequest(
     case 'series': {
       if (!provider.fetchMarketSeries) {
         throw new MarketProviderError({
-          code: 'INVALID_REQUEST',
+          code: 'INVALID REQUEST',
           message: `Provider ${providerId} does not support market series`,
           provider: providerId,
           status: 400,
@@ -63,7 +63,7 @@ export async function executeProviderRequest(
       const adjusted = applySeriesWindow(response, window)
       if (!Array.isArray((adjusted as MarketSeries).bars) || adjusted.bars.length === 0) {
         throw new MarketProviderError({
-          code: 'EMPTY_SERIES',
+          code: 'EMPTY SERIES',
           message: 'No data returned for the requested time range',
           provider: providerId,
           status: 422,
@@ -74,7 +74,7 @@ export async function executeProviderRequest(
     case 'live': {
       if (!provider.fetchMarketLive) {
         throw new MarketProviderError({
-          code: 'INVALID_REQUEST',
+          code: 'INVALID REQUEST',
           message: `Provider ${providerId} does not support live market data`,
           provider: providerId,
           status: 400,
@@ -86,7 +86,7 @@ export async function executeProviderRequest(
       const kind = (request as { kind?: string }).kind ?? 'unknown'
       logger.warn('Unknown market request kind', { providerId, kind })
       throw new MarketProviderError({
-        code: 'INVALID_REQUEST',
+        code: 'INVALID REQUEST',
         message: `Unsupported market request kind: ${kind}`,
         provider: providerId,
         status: 400,

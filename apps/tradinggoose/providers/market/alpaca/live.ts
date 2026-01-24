@@ -17,6 +17,7 @@ export async function fetchAlpacaLiveSnapshot(
     kind: 'series',
     listing: request.listing,
     interval: request.interval,
+    auth: request.auth,
     providerParams,
   }
 

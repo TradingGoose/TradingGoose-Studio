@@ -3,6 +3,7 @@ export type MarketProviderErrorCode =
   | 'INVALID REQUEST'
   | 'UNSUPPORTED PROVIDER'
   | 'PROVIDER ERROR'
+  | 'LISTING RESOLVE FAILED'
 
 export type MarketProviderErrorDetails = {
   code: MarketProviderErrorCode

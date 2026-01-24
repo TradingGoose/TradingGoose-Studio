@@ -68,7 +68,7 @@ export const finnhubProviderConfig: MarketProviderConfig = {
     series: {
       supportsInterval: true,
       intervals: ['1m', '5m', '15m', '30m', '1h', '1d', '1w', '1mo'],
-      supportsStartEnd: true,
+      windowModes: ['range', 'bars', 'absolute'],
       normalizationModes: [],
       retention: {
         byInterval: {

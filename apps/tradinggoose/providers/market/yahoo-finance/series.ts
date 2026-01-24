@@ -178,7 +178,7 @@ export async function fetchYahooFinanceSeries(
     primaryMicCode: context.micCode ?? context.primaryMicCode,
     start,
     end,
-    timezone: result.meta?.exchangeTimezoneName || context.timeZoneName,
+    timezone: context.timeZoneName,
     normalizationMode: request.normalizationMode,
     bars,
   }

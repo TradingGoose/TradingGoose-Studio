@@ -16,10 +16,12 @@ export interface MarketProviderRouteBody {
   providerType?: 'market'
   kind?: MarketDataType
   listing?: ListingIdentity
+  auth?: {
+    apiKey?: string
+    apiSecret?: string
+  }
   interval?: string
-  start?: string | number
-  end?: string | number
-  window?: MarketSeriesWindow
+  windows?: MarketSeriesWindow[]
   normalizationMode?: NormalizationMode
   stream?: string
   providerParams?: Record<string, any>
@@ -64,26 +66,36 @@ export async function handleMarketProviderRequest({
         }
       })
 
-    const MarketSeriesWindowSchema = z
-      .object({
-        mode: z.enum(['bars', 'range']),
-        barCount: z.number().optional(),
-        range: z
-          .object({
-            value: z.number(),
-            unit: z.enum(['day', 'week', 'month', 'year']),
-          })
-          .optional(),
-      })
-      .optional()
+    const MarketSeriesWindowSchema = z.discriminatedUnion('mode', [
+      z.object({
+        mode: z.literal('bars'),
+        barCount: z.number(),
+      }),
+      z.object({
+        mode: z.literal('range'),
+        range: z.object({
+          value: z.number(),
+          unit: z.enum(['day', 'week', 'month', 'year']),
+        }),
+      }),
+      z.object({
+        mode: z.literal('absolute'),
+        start: z.union([z.string(), z.number()]),
+        end: z.union([z.string(), z.number()]).optional(),
+      }),
+    ])
 
     const MarketProviderRequestSchema = z.object({
       kind: z.enum(MARKET_DATA_TYPES).default('series'),
       listing: ListingSchema,
+      auth: z
+        .object({
+          apiKey: z.string().optional(),
+          apiSecret: z.string().optional(),
+        })
+        .optional(),
       interval: z.string().optional(),
-      start: z.union([z.string(), z.number()]).optional(),
-      end: z.union([z.string(), z.number()]).optional(),
-      window: MarketSeriesWindowSchema,
+      windows: z.array(MarketSeriesWindowSchema).optional(),
       normalizationMode: z.enum(NORMALIZATION_MODES).optional(),
       stream: z.string().optional(),
       providerParams: z.record(z.any()).optional(),
@@ -92,10 +104,9 @@ export async function handleMarketProviderRequest({
     const parsed = MarketProviderRequestSchema.safeParse({
       kind: body.kind ?? 'series',
       listing: body.listing,
+      auth: body.auth,
       interval: body.interval,
-      start: body.start,
-      end: body.end,
-      window: body.window,
+      windows: body.windows,
       normalizationMode: body.normalizationMode,
       stream: body.stream,
       providerParams: body.providerParams,
@@ -119,16 +130,17 @@ export async function handleMarketProviderRequest({
     }
 
     const requestPayload = parsed.data as MarketProviderRequest
+    const normalizedRequest: MarketProviderRequest = requestPayload as MarketProviderRequest
 
     logger.info(`[${requestId}] Executing market provider request`, {
       provider: providerId,
-      kind: requestPayload.kind,
-      listing: resolveListingKey(requestPayload.listing),
-      interval: requestPayload.kind === 'series' ? requestPayload.interval : undefined,
-      normalizationMode: requestPayload.normalizationMode,
+      kind: normalizedRequest.kind,
+      listing: resolveListingKey(normalizedRequest.listing),
+      interval: normalizedRequest.kind === 'series' ? normalizedRequest.interval : undefined,
+      normalizationMode: normalizedRequest.normalizationMode,
     })
 
-    const response = await executeProviderRequest(providerId, requestPayload)
+    const response = await executeProviderRequest(providerId, normalizedRequest)
 
     const executionTime = Date.now() - startTime
     logger.info(`[${requestId}] Market provider request completed`, {

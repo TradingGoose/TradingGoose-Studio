@@ -360,10 +360,9 @@ export const YahooFinanceProviderConfig: MarketProviderConfig = {
         '1mo',
         '3mo',
       ],
-      supportsStartEnd: true,
+      windowModes: ['range', 'bars', 'absolute'],
       normalizationModes: ['raw', 'adjusted'],
       retention: {
-        default: { maxRangeDays: 60 },
         byInterval: {
           '1m': { maxRangeDays: 7 },
           '2m': { maxRangeDays: 60 },

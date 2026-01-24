@@ -16,8 +16,20 @@ export interface MarketSeriesParams {
   provider: string
   listing: ListingInputValue
   interval?: string
-  start: string | number
-  end: string | number
+  window?: {
+    mode: 'range' | 'bars' | 'absolute'
+    range?: { value: number; unit: 'day' | 'week' | 'month' | 'year' }
+    barCount?: number
+    start?: string | number
+    end?: string | number
+  }
+  fallbackWindow?: {
+    mode: 'range' | 'bars' | 'absolute'
+    range?: { value: number; unit: 'day' | 'week' | 'month' | 'year' }
+    barCount?: number
+    start?: string | number
+    end?: string | number
+  }
   normalizationMode?: string
   apiKey?: string
   apiSecret?: string
@@ -32,8 +44,8 @@ const RESERVED_PARAM_IDS = new Set([
   'provider',
   'listing',
   'interval',
-  'start',
-  'end',
+  'window',
+  'fallbackWindow',
   'normalizationMode',
   'providerParams',
 ])
@@ -86,18 +98,18 @@ const buildToolParams = (): ToolConfig['params'] => {
     description: 'Normalization mode supported by the provider (optional).',
   }
 
-  params.start = {
-    type: 'string',
+  params.window = {
+    type: 'json',
     required: true,
     visibility: 'user-or-llm',
-    description: 'Start of the interval (ISO date string or UNIX timestamp).',
+    description: 'Primary series window (range, bars, or absolute).',
   }
 
-  params.end = {
-    type: 'string',
-    required: true,
+  params.fallbackWindow = {
+    type: 'json',
+    required: false,
     visibility: 'user-or-llm',
-    description: 'End of the interval (ISO date string or UNIX timestamp).',
+    description: 'Fallback series window if the primary is unsupported or invalid.',
   }
 
   params.providerParams = {
@@ -163,19 +175,34 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
       const rawParams = params as Record<string, any>
       const providerParams = parseProviderParams(rawParams.providerParams)
       const listing = toListingValueObject(params.listing)
+      const auth: { apiKey?: string; apiSecret?: string } = {}
 
       if (!listing) {
         throw new Error('listing is required')
       }
+
+      delete providerParams.apiKey
+      delete providerParams.apiSecret
 
       providerParamIds.forEach((paramId) => {
         const entry = providerParamRegistry[paramId]
         if (!entry) return
         const value = coerceMarketProviderParamValue(entry.definition, rawParams[paramId])
         if (value !== undefined) {
+          if (paramId === 'apiKey') {
+            auth.apiKey = value as string
+            return
+          }
+          if (paramId === 'apiSecret') {
+            auth.apiSecret = value as string
+            return
+          }
           providerParams[paramId] = value
         }
       })
+
+      if (params.apiKey) auth.apiKey = params.apiKey
+      if (params.apiSecret) auth.apiSecret = params.apiSecret
 
       const interval = sanitizeInterval(params.provider, params.interval)
       const normalizationMode = sanitizeNormalizationMode(params.provider, params.normalizationMode)
@@ -187,15 +214,24 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
         delete providerParams.normalizationMode
       }
 
+      const windowModes = getMarketSeriesCapabilities(params.provider)?.windowModes ?? []
+      const requestedWindows = [params.window, params.fallbackWindow].filter(
+        (window): window is NonNullable<MarketSeriesParams['window']> => Boolean(window)
+      )
+      const windows =
+        windowModes.length > 0
+          ? requestedWindows.filter((window) => windowModes.includes(window.mode))
+          : requestedWindows
+
       return {
         provider: params.provider,
         providerNamespace: 'market',
         kind: 'series',
         listing,
         interval,
-        start: params.start,
-        end: params.end,
+        windows,
         normalizationMode,
+        auth: auth.apiKey || auth.apiSecret ? auth : undefined,
         providerParams: Object.keys(providerParams).length ? providerParams : undefined,
       }
     },

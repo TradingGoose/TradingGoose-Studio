@@ -134,15 +134,13 @@ function resolveMarket(request: MarketSeriesRequest, assetClass?: string): 'stoc
   return 'stocks'
 }
 
-function resolveCredentials(params?: Record<string, any>): {
+function resolveCredentials(auth?: { apiKey?: string; apiSecret?: string }): {
   keyId?: string
   secretKey?: string
 } {
-  const keyId =
-    (params?.apiKey as string | undefined) || process.env.ALPACA_API_KEY_ID
+  const keyId = auth?.apiKey || process.env.ALPACA_API_KEY_ID
 
-  const secretKey =
-    (params?.apiSecret as string | undefined) || process.env.ALPACA_API_SECRET_KEY
+  const secretKey = auth?.apiSecret || process.env.ALPACA_API_SECRET_KEY
 
   return { keyId, secretKey }
 }
@@ -207,7 +205,7 @@ export async function fetchAlpacaSeries(
     request.interval || (request.providerParams?.interval as string | undefined)
   )
 
-  const { keyId, secretKey } = resolveCredentials(request.providerParams)
+  const { keyId, secretKey } = resolveCredentials(request.auth)
 
   if (market === 'stocks' && (!keyId || !secretKey)) {
     throw new Error('Alpaca API key ID and secret key are required for stock market data')

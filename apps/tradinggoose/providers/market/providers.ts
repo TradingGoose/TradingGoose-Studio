@@ -12,6 +12,7 @@ import type {
   MarketDataAvailability,
   MarketDataType,
   MarketInterval,
+  MarketSeriesWindowMode,
   MarketLiveRequest,
   MarketLiveSnapshot,
   MarketSeriesRequest,
@@ -32,7 +33,7 @@ export type MarketProviderResponse = MarketSeries | MarketLiveSnapshot
 export interface MarketSeriesInputCapabilities {
   supportsInterval?: boolean
   intervals?: MarketInterval[]
-  supportsStartEnd?: boolean
+  windowModes?: MarketSeriesWindowMode[]
   normalizationModes?: NormalizationMode[]
   retention?: MarketSeriesRetentionPolicy
 }

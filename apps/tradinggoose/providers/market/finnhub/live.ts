@@ -88,6 +88,7 @@ export async function fetchFinnhubLiveSnapshot(
     interval: request.interval,
     start,
     end,
+    auth: request.auth,
     providerParams: request.providerParams,
   }
 

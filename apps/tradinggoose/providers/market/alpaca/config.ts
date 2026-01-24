@@ -201,7 +201,7 @@ export const alpacaProviderConfig: MarketProviderConfig = {
         '6mo',
         '12mo',
       ],
-      supportsStartEnd: true,
+      windowModes: ['range', 'bars', 'absolute'],
       normalizationModes: ['raw', 'adjusted', 'split_adjusted'],
       retention: {
         default: { maxBars: 10000 },

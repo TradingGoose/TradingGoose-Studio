@@ -1,10 +1,12 @@
 import { getMarketSeriesCapabilities } from '@/providers/market/providers'
+import { normalizeSeriesWindow, rangeToMs } from '@/providers/market/series-window'
 import type {
   MarketBar,
   MarketInterval,
   MarketSeries,
   MarketSeriesRequest,
   MarketSeriesWindow,
+  MarketSeriesWindowMode,
 } from '@/providers/market/types'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -31,11 +33,10 @@ const INTERVAL_MS: Record<MarketInterval, number> = {
   '12mo': 365 * DAY_MS,
 }
 
-type PlannedSeriesWindow = {
-  mode: 'bars' | 'range'
-  barCount?: number
-  rangeMs?: number
-}
+type PlannedSeriesWindow =
+  | { mode: 'bars'; barCount: number }
+  | { mode: 'range'; rangeMs: number }
+  | { mode: 'absolute'; startMs: number; endMs: number }
 
 const intervalToMs = (interval?: string): number | null => {
   if (!interval) return null
@@ -45,24 +46,6 @@ const intervalToMs = (interval?: string): number | null => {
   return null
 }
 
-const rangeToMs = (range?: MarketSeriesWindow['range']): number | null => {
-  if (!range) return null
-  const value = Number(range.value)
-  if (!Number.isFinite(value) || value <= 0) return null
-  switch (range.unit) {
-    case 'day':
-      return value * DAY_MS
-    case 'week':
-      return value * 7 * DAY_MS
-    case 'month':
-      return value * 30 * DAY_MS
-    case 'year':
-      return value * 365 * DAY_MS
-    default:
-      return null
-  }
-}
-
 const rangeParamFromMs = (rangeMs?: number | null): string | null => {
   if (!rangeMs || !Number.isFinite(rangeMs) || rangeMs <= 0) return null
   const dayCount = Math.ceil(rangeMs / DAY_MS)
@@ -70,6 +53,18 @@ const rangeParamFromMs = (rangeMs?: number | null): string | null => {
   if (dayCount % 365 === 0) return `${dayCount / 365}y`
   if (dayCount % 30 === 0) return `${dayCount / 30}mo`
   return `${dayCount}d`
+}
+
+const toEpochMs = (value?: string | number): number | null => {
+  if (value === undefined || value === null) return null
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value > 1e12 ? value : value * 1000
+  }
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
 }
 
 const resolveRetention = (providerId: string, interval?: string) => {
@@ -125,6 +120,33 @@ const normalizeWindow = (
     return rangeMs > 0 ? { mode: 'range', rangeMs } : null
   }
 
+  if (window.mode === 'absolute') {
+    const startMs = toEpochMs(window.start)
+    const endMs = toEpochMs(window.end) ?? Date.now()
+    if (!startMs || !Number.isFinite(endMs)) return null
+    if (startMs >= endMs) return null
+
+    let resolvedStart = startMs
+    let resolvedEnd = endMs
+
+    if (retention?.maxRangeDays && retention.maxRangeDays > 0) {
+      const maxRangeMs = retention.maxRangeDays * DAY_MS
+      if (resolvedEnd - resolvedStart > maxRangeMs) {
+        resolvedStart = resolvedEnd - maxRangeMs
+      }
+    }
+
+    if (intervalMs && retention?.maxBars && retention.maxBars > 0) {
+      const maxRangeByBars = retention.maxBars * intervalMs
+      if (resolvedEnd - resolvedStart > maxRangeByBars) {
+        resolvedStart = resolvedEnd - maxRangeByBars
+      }
+    }
+
+    if (resolvedStart >= resolvedEnd) return null
+    return { mode: 'absolute', startMs: resolvedStart, endMs: resolvedEnd }
+  }
+
   return null
 }
 
@@ -144,11 +166,28 @@ export const planMarketSeriesRequest = (
   providerId: string,
   request: MarketSeriesRequest
 ): { request: MarketSeriesRequest; window: PlannedSeriesWindow | null } => {
+  const capabilities = getMarketSeriesCapabilities(providerId)
+  const allowedModes =
+    capabilities?.windowModes && capabilities.windowModes.length > 0
+      ? capabilities.windowModes
+      : (['range'] as MarketSeriesWindowMode[])
   const interval =
     request.interval || (request.providerParams?.interval as string | undefined)
   const intervalMs = intervalToMs(interval)
   const retention = resolveRetention(providerId, interval)
-  const window = normalizeWindow(request.window, intervalMs, retention)
+  const requestedWindows = Array.isArray(request.windows) ? request.windows : []
+  const normalizedWindows = requestedWindows
+    .map((window) => normalizeSeriesWindow(window, allowedModes))
+    .filter((window): window is MarketSeriesWindow => Boolean(window))
+  let window: PlannedSeriesWindow | null = null
+
+  for (const candidate of normalizedWindows) {
+    const normalized = normalizeWindow(candidate, intervalMs, retention)
+    if (normalized) {
+      window = normalized
+      break
+    }
+  }
 
   if (!window) {
     return { request, window: null }
@@ -158,7 +197,11 @@ export const planMarketSeriesRequest = (
     ...request,
     providerParams: request.providerParams ? { ...request.providerParams } : undefined,
   }
-  if (window.mode === 'bars' || window.mode === 'range') {
+
+  if (window.mode === 'absolute') {
+    planned.start = new Date(window.startMs).toISOString()
+    planned.end = new Date(window.endMs).toISOString()
+  } else {
     delete planned.start
     delete planned.end
   }
@@ -174,8 +217,8 @@ export const planMarketSeriesRequest = (
 
   const barCount =
     window.mode === 'bars'
-      ? window.barCount ?? null
-      : window.rangeMs && intervalMs
+      ? window.barCount
+      : window.mode === 'range' && intervalMs
         ? Math.ceil(window.rangeMs / intervalMs)
         : null
   if (barCount && planned.providerParams?.limit == null) {
@@ -205,6 +248,10 @@ export const applySeriesWindow = (
   }
 
   let filtered = entries
+
+  if (window.mode === 'absolute') {
+    filtered = entries.filter((entry) => entry.ts >= window.startMs && entry.ts <= window.endMs)
+  }
 
   if (window.mode === 'range' && window.rangeMs) {
     const startMs = endMs - window.rangeMs
