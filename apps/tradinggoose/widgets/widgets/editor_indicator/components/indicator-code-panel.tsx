@@ -186,7 +186,7 @@ export function IndicatorCodePanel({
       const warnings = Array.isArray(payload?.data?.warnings)
         ? payload.data.warnings
           .map((warning: { message?: string }) => warning?.message)
-          .filter((warning): warning is string => Boolean(warning))
+          .filter((warning: any): warning is string => Boolean(warning))
         : []
       const plotsCount = payload?.data?.plotsCount ?? 0
       const signalsCount = payload?.data?.signalsCount ?? 0
