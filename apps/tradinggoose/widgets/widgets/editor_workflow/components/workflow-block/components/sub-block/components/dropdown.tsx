@@ -1,9 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { SearchableDropdown, type SearchableDropdownOption } from '@/components/ui/searchable-dropdown'
+import { Check, ChevronDown } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { ResponseBlockHandler } from '@/executor/handlers/response/response-handler'
 import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-depends-on-gate'
 import type { SubBlockConfig } from '@/blocks/types'
+import { cn } from '@/lib/utils'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
@@ -12,6 +21,20 @@ import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-c
 type DropdownOptionObject = {
   label: string
   id: string
+  icon?: React.ComponentType<{ className?: string }>
+  group?: string
+  disabled?: boolean
+  dstOn?: boolean
+  observesDst?: boolean
+  searchLabel?: string
+  rightLabel?: string
+}
+
+type DropdownOption = {
+  id: string
+  label: string
+  searchLabel?: string
+  rightLabel?: string
   icon?: React.ComponentType<{ className?: string }>
   group?: string
   disabled?: boolean
@@ -108,10 +131,13 @@ export function Dropdown({
 
 
   const fetchOptions = resolvedConfig.fetchOptions
-  const [fetchedOptions, setFetchedOptions] = useState<Array<{ label: string; id: string }>>([])
+  const [fetchedOptions, setFetchedOptions] = useState<DropdownOptionObject[]>([])
   const [isLoadingOptions, setIsLoadingOptions] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [hasFetchedOptions, setHasFetchedOptions] = useState(false)
+  const [open, setOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   const fetchOptionsIfNeeded = useCallback(async () => {
     if (!fetchOptions || isPreview || finalDisabled) return
@@ -146,7 +172,17 @@ export function Dropdown({
   }, [options, config])
 
   const normalizedFetchedOptions = useMemo<DropdownOptionObject[]>(() => {
-    return fetchedOptions.map((opt) => ({ label: opt.label, id: opt.id }))
+    return fetchedOptions.map((opt) => ({
+      id: opt.id,
+      label: opt.label,
+      icon: opt.icon,
+      group: opt.group,
+      disabled: opt.disabled,
+      dstOn: opt.dstOn,
+      observesDst: opt.observesDst,
+      searchLabel: opt.searchLabel,
+      rightLabel: opt.rightLabel,
+    }))
   }, [fetchedOptions])
 
   const availableOptions = useMemo<Array<string | DropdownOptionObject>>(() => {
@@ -369,7 +405,31 @@ export function Dropdown({
     }
   }
 
-  const dropdownOptions = useMemo<SearchableDropdownOption[]>(() => {
+  const buildStatusIcon = (className: string) => {
+    const StatusIcon = ({ className: iconClassName }: { className?: string }) => (
+      <span className={cn('inline-block rounded-full', className, iconClassName)} />
+    )
+    return StatusIcon
+  }
+
+  const resolveStatusIcon = (option: DropdownOptionObject) => {
+    if (option.icon) return option.icon
+    if (typeof option.observesDst !== 'boolean' && typeof option.dstOn !== 'boolean') {
+      return undefined
+    }
+
+    if (option.observesDst === false) {
+      return buildStatusIcon('bg-muted-foreground/40')
+    }
+
+    if (option.dstOn === true) {
+      return buildStatusIcon('bg-green-500/40')
+    }
+
+    return buildStatusIcon('bg-red-500/40')
+  }
+
+  const dropdownOptions = useMemo<DropdownOption[]>(() => {
     return availableOptions.map((option) => {
       if (typeof option === 'string') {
         return { id: option, label: option }
@@ -377,7 +437,9 @@ export function Dropdown({
       return {
         id: option.id,
         label: option.label,
-        icon: option.icon,
+        searchLabel: option.searchLabel,
+        rightLabel: option.rightLabel,
+        icon: resolveStatusIcon(option),
         group: option.group,
         disabled: option.disabled,
       }
@@ -386,19 +448,155 @@ export function Dropdown({
 
   const selectedOption = dropdownOptions.find((option) => option.id === value) ?? null
 
+  const normalizedSearch = searchTerm.trim().toLowerCase()
+  const shouldFilter = enableSearch && normalizedSearch.length > 0
+
+  const filteredOptions = useMemo(() => {
+    if (!shouldFilter) return dropdownOptions
+    return dropdownOptions.filter((option) =>
+      (option.searchLabel ?? option.label).toLowerCase().includes(normalizedSearch)
+    )
+  }, [dropdownOptions, normalizedSearch, shouldFilter])
+
+  const groupedOptions = useMemo(() => {
+    const groupOrder: string[] = []
+    const grouped: Record<string, DropdownOption[]> = {}
+
+    filteredOptions.forEach((option) => {
+      const group = option.group || 'Options'
+      if (!groupOrder.includes(group)) {
+        groupOrder.push(group)
+      }
+      if (!grouped[group]) {
+        grouped[group] = []
+      }
+      grouped[group].push(option)
+    })
+
+    return { groupOrder, grouped }
+  }, [filteredOptions])
+
+  useEffect(() => {
+    if (!open) {
+      setSearchTerm('')
+      return
+    }
+    if (enableSearch) {
+      const timer = setTimeout(() => {
+        searchInputRef.current?.focus()
+      }, 0)
+      return () => clearTimeout(timer)
+    }
+  }, [open, enableSearch])
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (finalDisabled) return
+    setOpen(nextOpen)
+  }
+
+  const hasOptions = filteredOptions.length > 0
+  const emptyMessage = fetchError || (shouldFilter ? 'No matching options.' : 'No options available.')
+  const triggerLabel = selectedOption?.label ?? ''
+  const triggerRightLabel = selectedOption?.rightLabel
+
   return (
-    <SearchableDropdown
-      value={value ?? undefined}
-      selectedOption={selectedOption}
-      options={dropdownOptions}
-      placeholder={placeholder}
-      disabled={finalDisabled}
-      className={className}
-      enableSearch={enableSearch}
-      searchPlaceholder={searchPlaceholder}
-      isLoading={isLoadingOptions}
-      emptyMessage={fetchError ?? undefined}
-      onChange={(selectedValue) => handleSelect(selectedValue)}
-    />
+    <DropdownMenu open={open} onOpenChange={handleOpenChange}>
+      <DropdownMenuTrigger asChild>
+        <button
+          type='button'
+          className={cn(
+            'flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm transition-colors',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+            finalDisabled && 'cursor-not-allowed opacity-50',
+            className
+          )}
+          disabled={finalDisabled}
+        >
+          {selectedOption?.icon ? (
+            <selectedOption.icon className='mr-2 h-3 w-3' />
+          ) : null}
+          <span
+            className={cn(
+              'flex-1 truncate text-left',
+              !triggerLabel && 'text-muted-foreground'
+            )}
+          >
+            {triggerLabel || placeholder}
+          </span>
+          {triggerRightLabel ? (
+            <span className='ml-2 flex-shrink-0 text-muted-foreground text-xs tabular-nums'>
+              ({triggerRightLabel})
+            </span>
+          ) : null}
+          <ChevronDown className='ml-2 h-4 w-4 flex-shrink-0 text-muted-foreground' />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        portalled={false}
+        align='start'
+        className='w-[var(--radix-popper-anchor-width)] p-0'
+      >
+        {enableSearch && (
+          <div className='border-b border-border p-2'>
+            <Input
+              ref={searchInputRef}
+              placeholder={searchPlaceholder || 'Search...'}
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              className='h-8'
+            />
+          </div>
+        )}
+        <div className='allow-scroll max-h-48 overflow-y-auto p-1' style={{ scrollbarWidth: 'thin' }}>
+          {isLoadingOptions ? (
+            <DropdownMenuItem disabled className='justify-center text-muted-foreground'>
+              Loading...
+            </DropdownMenuItem>
+          ) : !hasOptions ? (
+            <DropdownMenuItem disabled className='justify-center text-muted-foreground'>
+              {emptyMessage}
+            </DropdownMenuItem>
+          ) : (
+            groupedOptions.groupOrder.map((group) => {
+              const groupOptions = groupedOptions.grouped[group] || []
+              return (
+                <div key={group}>
+                  {groupedOptions.groupOrder.length > 1 && (
+                    <DropdownMenuLabel className='px-2 pb-0.5 pt-2.5 text-xs font-medium text-muted-foreground'>
+                      {group}
+                    </DropdownMenuLabel>
+                  )}
+                  {groupOptions.map((option) => {
+                    const isSelected = option.id === value
+                    return (
+                      <DropdownMenuItem
+                        key={option.id}
+                        disabled={option.disabled}
+                        className='flex items-center'
+                        onSelect={(event) => {
+                          event.preventDefault()
+                          if (option.disabled) return
+                          handleSelect(option.id)
+                          setOpen(false)
+                        }}
+                      >
+                        {option.icon ? <option.icon className='mr-2 h-3 w-3' /> : null}
+                        <span className='flex-1 truncate'>{option.label}</span>
+                        {option.rightLabel ? (
+                          <span className='ml-2 flex-shrink-0 text-muted-foreground text-xs tabular-nums'>
+                            ({option.rightLabel})
+                          </span>
+                        ) : null}
+                        {isSelected && <Check className='ml-2 h-4 w-4 flex-shrink-0' />}
+                      </DropdownMenuItem>
+                    )
+                  })}
+                </div>
+              )
+            })
+          )}
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

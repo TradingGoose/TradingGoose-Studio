@@ -6,7 +6,7 @@ import { populateTriggerFieldsFromConfig } from '@/hooks/use-trigger-config-aggr
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import { getTrigger, isTriggerValid } from '@/triggers'
-import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('useWebhookManagement')
 
@@ -88,7 +88,7 @@ export function useWebhookManagement({
   isPreview = false,
   useWebhookUrl = false,
 }: UseWebhookManagementProps): WebhookManagementState {
-  const workflowId = useWorkflowId()
+  const workflowId = useOptionalWorkflowRoute()?.workflowId
 
   const triggerDef = triggerId && isTriggerValid(triggerId) ? getTrigger(triggerId) : null
 

@@ -10,7 +10,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { useWand } from '@/hooks/workflow/use-wand'
 import type { SubBlockConfig } from '@/blocks/types'
@@ -19,9 +19,24 @@ import { useWebhookManagement } from '@/hooks/use-webhook-management'
 
 const logger = createLogger('ShortInput')
 
+const useOptionalReactFlow = () => {
+  try {
+    return useReactFlow()
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes('[React Flow]: Seems like you have not used zustand provider')
+    ) {
+      return null
+    }
+    throw error
+  }
+}
+
 interface ShortInputProps {
   placeholder?: string
   password?: boolean
+  inputId?: string
   blockId: string
   subBlockId: string
   isConnecting: boolean
@@ -34,6 +49,8 @@ interface ShortInputProps {
   readOnly?: boolean
   showCopyButton?: boolean
   useWebhookUrl?: boolean
+  workspaceId?: string
+  enableTags?: boolean
 }
 
 export function ShortInput({
@@ -41,6 +58,7 @@ export function ShortInput({
   subBlockId,
   placeholder,
   password,
+  inputId,
   isConnecting,
   config,
   onChange,
@@ -51,6 +69,8 @@ export function ShortInput({
   readOnly = false,
   showCopyButton = false,
   useWebhookUrl = false,
+  workspaceId,
+  enableTags = true,
 }: ShortInputProps) {
   // Local state for immediate UI updates during streaming
   const [localContent, setLocalContent] = useState<string>('')
@@ -107,10 +127,11 @@ export function ShortInput({
 
   const emitTagSelection = useTagSelection(blockId, subBlockId)
 
-  const workspaceId = useWorkspaceId()
+  const workflowRoute = useOptionalWorkflowRoute()
+  const resolvedWorkspaceId = workspaceId ?? workflowRoute?.workspaceId
 
-  // Get ReactFlow instance for zoom control
-  const reactFlowInstance = useReactFlow()
+  // Get ReactFlow instance for zoom control (optional outside ReactFlow providers)
+  const reactFlowInstance = useOptionalReactFlow()
 
   // Use preview value when in preview mode, otherwise use store value or prop value
   const baseValue = isPreview ? previewValue : propValue !== undefined ? propValue : storeValue
@@ -215,7 +236,7 @@ export function ShortInput({
     }
 
     // Check for tag trigger
-    if (!readOnly) {
+    if (enableTags && !readOnly) {
       const tagTrigger = checkTagTrigger(newValue, newCursorPosition)
       setShowTags(tagTrigger.show)
     }
@@ -248,6 +269,9 @@ export function ShortInput({
 
   // Handle wheel events to control ReactFlow zoom
   const handleWheel = (e: React.WheelEvent<HTMLInputElement>) => {
+    if (!reactFlowInstance) {
+      return true
+    }
     // Only handle zoom when Ctrl/Cmd key is pressed
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault()
@@ -328,7 +352,9 @@ export function ShortInput({
         }
 
         setCursorPosition(dropPosition + 1)
-        setShowTags(true)
+        if (enableTags) {
+          setShowTags(true)
+        }
 
         // Pass the source block ID from the dropped connection
         if (data.connectionData?.sourceBlockId) {
@@ -352,7 +378,9 @@ export function ShortInput({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
       setShowEnvVars(false)
-      setShowTags(false)
+      if (enableTags) {
+        setShowTags(false)
+      }
       return
     }
 
@@ -421,6 +449,7 @@ export function ShortInput({
       <div className='group relative w-full'>
         <Input
           ref={inputRef}
+          id={inputId}
           className={cn(
             'allow-scroll w-full overflow-auto text-transparent caret-foreground [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground/50 [&::-webkit-scrollbar]:hidden',
             isConnecting &&
@@ -525,24 +554,26 @@ export function ShortInput({
               searchTerm={searchTerm}
               inputValue={value?.toString() ?? ''}
               cursorPosition={cursorPosition}
-              workspaceId={workspaceId}
+              workspaceId={resolvedWorkspaceId}
               onClose={() => {
                 setShowEnvVars(false)
                 setSearchTerm('')
               }}
             />
-            <TagDropdown
-              visible={showTags}
-              onSelect={handleEnvVarSelect}
-              blockId={blockId}
-              activeSourceBlockId={activeSourceBlockId}
-              inputValue={value?.toString() ?? ''}
-              cursorPosition={cursorPosition}
-              onClose={() => {
-                setShowTags(false)
-                setActiveSourceBlockId(null)
-              }}
-            />
+            {enableTags && (
+              <TagDropdown
+                visible={showTags}
+                onSelect={handleEnvVarSelect}
+                blockId={blockId}
+                activeSourceBlockId={activeSourceBlockId}
+                inputValue={value?.toString() ?? ''}
+                cursorPosition={cursorPosition}
+                onClose={() => {
+                  setShowTags(false)
+                  setActiveSourceBlockId(null)
+                }}
+              />
+            )}
           </>
         )}
       </div>
