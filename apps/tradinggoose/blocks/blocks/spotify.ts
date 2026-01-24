@@ -157,6 +157,7 @@ export const SpotifyBlock: BlockConfig<ToolResponse> = {
       id: 'credential',
       title: 'Spotify Account',
       type: 'oauth-input',
+      provider: 'spotify',
       serviceId: 'spotify',
       required: true,
     },

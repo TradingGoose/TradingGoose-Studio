@@ -64,6 +64,7 @@ export const WordPressBlock: BlockConfig<WordPressResponse> = {
       id: 'credential',
       title: 'WordPress Account',
       type: 'oauth-input',
+      provider: 'wordpress',
       serviceId: 'wordpress',
       requiredScopes: ['global'],
       placeholder: 'Select WordPress account',

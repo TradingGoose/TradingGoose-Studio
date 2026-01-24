@@ -37,6 +37,7 @@ export const GoogleSlidesBlock: BlockConfig<GoogleSlidesResponse> = {
       title: 'Google Account',
       type: 'oauth-input',
       required: true,
+      provider: 'google-drive',
       serviceId: 'google-drive',
       requiredScopes: [
         'https://www.googleapis.com/auth/drive.file',

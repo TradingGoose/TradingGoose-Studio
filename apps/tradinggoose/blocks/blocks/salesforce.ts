@@ -62,6 +62,7 @@ export const SalesforceBlock: BlockConfig<SalesforceResponse> = {
       id: 'credential',
       title: 'Salesforce Account',
       type: 'oauth-input',
+      provider: 'salesforce',
       serviceId: 'salesforce',
       requiredScopes: ['api', 'refresh_token', 'openid', 'offline_access'],
       placeholder: 'Select Salesforce account',

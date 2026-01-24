@@ -38,6 +38,7 @@ export const ZoomBlock: BlockConfig<ZoomResponse> = {
       id: 'credential',
       title: 'Zoom Account',
       type: 'oauth-input',
+      provider: 'zoom',
       serviceId: 'zoom',
       requiredScopes: [
         'user:read:user',

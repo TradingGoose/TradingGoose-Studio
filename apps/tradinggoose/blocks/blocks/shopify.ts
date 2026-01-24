@@ -60,6 +60,7 @@ export const ShopifyBlock: BlockConfig<ShopifyResponse> = {
       id: 'credential',
       title: 'Shopify Account',
       type: 'oauth-input',
+      provider: 'shopify',
       serviceId: 'shopify',
       requiredScopes: [
         'write_products',

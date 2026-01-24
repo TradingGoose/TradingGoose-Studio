@@ -55,6 +55,7 @@ export const JiraServiceManagementBlock: BlockConfig<JsmResponse> = {
       title: 'Jira Account',
       type: 'oauth-input',
       required: true,
+      provider: 'jira',
       serviceId: 'jira',
       requiredScopes: [
         'read:jira-user',

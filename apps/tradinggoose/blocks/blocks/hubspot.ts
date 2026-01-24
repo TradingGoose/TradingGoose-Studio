@@ -39,6 +39,7 @@ export const HubSpotBlock: BlockConfig<HubSpotResponse> = {
       id: 'credential',
       title: 'HubSpot Account',
       type: 'oauth-input',
+      provider: 'hubspot',
       serviceId: 'hubspot',
       requiredScopes: [
         'crm.objects.contacts.read',

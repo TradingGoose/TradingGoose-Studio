@@ -45,6 +45,7 @@ export const PipedriveBlock: BlockConfig<PipedriveResponse> = {
       id: 'credential',
       title: 'Pipedrive Account',
       type: 'oauth-input',
+      provider: 'pipedrive',
       serviceId: 'pipedrive',
       requiredScopes: [
         'base',

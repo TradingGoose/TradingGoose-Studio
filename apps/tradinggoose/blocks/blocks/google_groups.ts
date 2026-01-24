@@ -38,6 +38,7 @@ export const GoogleGroupsBlock: BlockConfig = {
       title: 'Google Groups Account',
       type: 'oauth-input',
       required: true,
+      provider: 'google-groups',
       serviceId: 'google-groups',
       requiredScopes: [
         'https://www.googleapis.com/auth/admin.directory.group',

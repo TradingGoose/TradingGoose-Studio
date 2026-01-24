@@ -37,6 +37,7 @@ export const DropboxBlock: BlockConfig<DropboxResponse> = {
       id: 'credential',
       title: 'Dropbox Account',
       type: 'oauth-input',
+      provider: 'dropbox',
       serviceId: 'dropbox',
       requiredScopes: [
         'account_info.read',

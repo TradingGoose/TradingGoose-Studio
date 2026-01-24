@@ -32,6 +32,7 @@ export const AsanaBlock: BlockConfig<AsanaResponse> = {
       id: 'credential',
       title: 'Asana Account',
       type: 'oauth-input',
+      provider: 'asana',
 
       required: true,
       serviceId: 'asana',

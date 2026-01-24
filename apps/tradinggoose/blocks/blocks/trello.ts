@@ -41,6 +41,7 @@ export const TrelloBlock: BlockConfig<ToolResponse> = {
       id: 'credential',
       title: 'Trello Account',
       type: 'oauth-input',
+      provider: 'trello',
       serviceId: 'trello',
       requiredScopes: ['read', 'write'],
       placeholder: 'Select Trello account',
