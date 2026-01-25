@@ -1,4 +1,4 @@
-import { CalendlyIcon } from '@/components/icons'
+import { CalendlyIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { ToolResponse } from '@/tools/types'
@@ -89,13 +89,13 @@ export const CalendlyBlock: BlockConfig<ToolResponse> = {
     {
       id: 'min_start_time',
       title: 'Min Start Time',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: 'ISO 8601 format (e.g., 2024-01-01T00:00:00Z)',
       condition: { field: 'operation', value: 'calendly_list_scheduled_events' },
       wandConfig: {
         enabled: true,
         prompt: `Generate an ISO 8601 timestamp based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "today" -> Today's date at 00:00:00Z
 - "beginning of this week" -> Monday of the current week at 00:00:00Z
@@ -110,13 +110,13 @@ Return ONLY the timestamp string in ISO 8601 format - no explanations, no quotes
     {
       id: 'max_start_time',
       title: 'Max Start Time',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: 'ISO 8601 format (e.g., 2024-12-31T23:59:59Z)',
       condition: { field: 'operation', value: 'calendly_list_scheduled_events' },
       wandConfig: {
         enabled: true,
         prompt: `Generate an ISO 8601 timestamp based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "end of today" -> Today's date at 23:59:59Z
 - "end of this week" -> Sunday of the current week at 23:59:59Z

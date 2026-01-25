@@ -3,6 +3,7 @@ import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import { formatTimezoneLabel, parseUtcOffsetMinutes } from '@/lib/time-format'
 
 const logger = createLogger('Utils')
 const HEX_KEY_REGEX = /^[0-9a-fA-F]{64}$/
@@ -136,12 +137,12 @@ export function convertScheduleOptionsToCron(
       return `${options.hourlyMinute || '00'} * * * *`
     }
     case 'daily': {
-      // Expected dailyTime in HH:MM
+      // Expected dailyTime in HH:mm or HH:mm:ss
       const [minute, hour] = (options.dailyTime || '00:09').split(':')
       return `${minute || '00'} ${hour || '09'} * * *`
     }
     case 'weekly': {
-      // Expected weeklyDay as MON, TUE, etc. and weeklyDayTime in HH:MM
+      // Expected weeklyDay as MON, TUE, etc. and weeklyDayTime in HH:mm or HH:mm:ss
       const dayMap: Record<string, number> = {
         MON: 1,
         TUE: 2,
@@ -156,7 +157,7 @@ export function convertScheduleOptionsToCron(
       return `${minute || '00'} ${hour || '09'} * * ${day}`
     }
     case 'monthly': {
-      // Expected monthlyDay and monthlyTime in HH:MM
+      // Expected monthlyDay and monthlyTime in HH:mm or HH:mm:ss
       const day = options.monthlyDay || '1'
       const [minute, hour] = (options.monthlyTime || '00:09').split(':')
       return `${minute || '00'} ${hour || '09'} ${day} * *`
@@ -171,93 +172,37 @@ export function convertScheduleOptionsToCron(
 }
 
 /**
- * Get a user-friendly timezone abbreviation
- * @param timezone - IANA timezone string
- * @param date - Date to check for DST
- * @returns A simplified timezone string (e.g., "PST" instead of "America/Los_Angeles")
- */
-export function getTimezoneAbbreviation(timezone: string, date: Date = new Date()): string {
-  if (timezone === 'UTC') return 'UTC'
-
-  // Common timezone mappings
-  const timezoneMap: Record<string, { standard: string; daylight: string }> = {
-    'America/Los_Angeles': { standard: 'PST', daylight: 'PDT' },
-    'America/Denver': { standard: 'MST', daylight: 'MDT' },
-    'America/Chicago': { standard: 'CST', daylight: 'CDT' },
-    'America/New_York': { standard: 'EST', daylight: 'EDT' },
-    'Europe/London': { standard: 'GMT', daylight: 'BST' },
-    'Europe/Paris': { standard: 'CET', daylight: 'CEST' },
-    'Asia/Tokyo': { standard: 'JST', daylight: 'JST' }, // Japan doesn't use DST
-    'Australia/Sydney': { standard: 'AEST', daylight: 'AEDT' },
-    'Asia/Singapore': { standard: 'SGT', daylight: 'SGT' }, // Singapore doesn't use DST
-  }
-
-  // If we have a mapping for this timezone
-  if (timezone in timezoneMap) {
-    // January 1 is guaranteed to be standard time in northern hemisphere
-    // July 1 is guaranteed to be daylight time in northern hemisphere (if observed)
-    const januaryDate = new Date(date.getFullYear(), 0, 1)
-    const julyDate = new Date(date.getFullYear(), 6, 1)
-
-    // Get offset in January (standard time)
-    const januaryFormatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone,
-      timeZoneName: 'short',
-    })
-
-    // Get offset in July (likely daylight time)
-    const julyFormatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone,
-      timeZoneName: 'short',
-    })
-
-    // If offsets are different, timezone observes DST
-    const isDSTObserved = januaryFormatter.format(januaryDate) !== julyFormatter.format(julyDate)
-
-    // If DST is observed, check if current date is in DST by comparing its offset
-    // with January's offset (standard time)
-    if (isDSTObserved) {
-      const currentFormatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: timezone,
-        timeZoneName: 'short',
-      })
-
-      const isDST = currentFormatter.format(date) !== januaryFormatter.format(januaryDate)
-      return isDST ? timezoneMap[timezone].daylight : timezoneMap[timezone].standard
-    }
-
-    // If DST is not observed, always use standard
-    return timezoneMap[timezone].standard
-  }
-
-  // For unknown timezones, use full IANA name
-  return timezone
-}
-
-/**
  * Format a date into a human-readable format
  * @param date - The date to format
- * @param timezone - Optional IANA timezone string (e.g., 'America/Los_Angeles', 'UTC')
+ * @param utcOffset - Optional UTC offset string (e.g., '+02:00', '-07:00', 'UTC')
  * @returns A formatted date string in the format "MMM D, YYYY h:mm A"
  */
-export function formatDateTime(date: Date, timezone?: string): string {
-  const formattedDate = date.toLocaleString('en-US', {
+export function formatDateTime(date: Date, utcOffset?: string): string {
+  if (!utcOffset) {
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    })
+  }
+
+  const offsetMinutes = parseUtcOffsetMinutes(utcOffset)
+  const shifted = new Date(date.getTime() + offsetMinutes * 60 * 1000)
+  const formattedDate = shifted.toLocaleString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
-    timeZone: timezone || undefined,
+    timeZone: 'UTC',
   })
 
-  // If timezone is provided, add a friendly timezone abbreviation
-  if (timezone) {
-    const tzAbbr = getTimezoneAbbreviation(timezone, date)
-    return `${formattedDate} ${tzAbbr}`
-  }
-
-  return formattedDate
+  const tzLabel = formatTimezoneLabel(utcOffset)
+  return tzLabel ? `${formattedDate} ${tzLabel}` : formattedDate
 }
 
 /**

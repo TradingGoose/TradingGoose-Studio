@@ -126,7 +126,9 @@ export function DeployModal({
       const targetBlock = apiTriggerBlock
 
       if (targetBlock) {
-        const inputFormat = useSubBlockStore.getState().getValue(targetBlock.id, 'inputFormat')
+        const inputFormat = useSubBlockStore
+          .getState()
+          .getValue(targetBlock.id, 'inputFormat', workflowId ?? undefined)
 
         const exampleData: Record<string, any> = {}
 

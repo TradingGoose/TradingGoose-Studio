@@ -1,0 +1,118 @@
+import { airtableWebhookTrigger } from '@/triggers/airtable'
+import {
+  calendlyInviteeCanceledTrigger,
+  calendlyInviteeCreatedTrigger,
+  calendlyRoutingFormSubmittedTrigger,
+  calendlyWebhookTrigger,
+} from '@/triggers/calendly'
+import {
+  circlebackMeetingCompletedTrigger,
+  circlebackMeetingNotesTrigger,
+  circlebackWebhookTrigger,
+} from '@/triggers/circleback'
+import { firefliesTranscriptionCompleteTrigger } from '@/triggers/fireflies'
+import { genericWebhookTrigger } from '@/triggers/generic'
+import { githubWebhookTrigger } from '@/triggers/github'
+import { gmailPollingTrigger } from '@/triggers/gmail'
+import { googleFormsWebhookTrigger } from '@/triggers/googleforms'
+import {
+  grainHighlightCreatedTrigger,
+  grainHighlightUpdatedTrigger,
+  grainRecordingCreatedTrigger,
+  grainRecordingUpdatedTrigger,
+  grainStoryCreatedTrigger,
+  grainWebhookTrigger,
+} from '@/triggers/grain'
+import {
+  hubspotCompanyCreatedTrigger,
+  hubspotCompanyDeletedTrigger,
+  hubspotCompanyPropertyChangedTrigger,
+  hubspotContactCreatedTrigger,
+  hubspotContactDeletedTrigger,
+  hubspotContactPrivacyDeletedTrigger,
+  hubspotContactPropertyChangedTrigger,
+  hubspotConversationCreationTrigger,
+  hubspotConversationDeletionTrigger,
+  hubspotConversationNewMessageTrigger,
+  hubspotConversationPrivacyDeletionTrigger,
+  hubspotConversationPropertyChangedTrigger,
+  hubspotDealCreatedTrigger,
+  hubspotDealDeletedTrigger,
+  hubspotDealPropertyChangedTrigger,
+  hubspotTicketCreatedTrigger,
+  hubspotTicketDeletedTrigger,
+  hubspotTicketPropertyChangedTrigger,
+} from '@/triggers/hubspot'
+import { imapPollingTrigger } from '@/triggers/imap'
+import {
+  microsoftTeamsChatSubscriptionTrigger,
+  microsoftTeamsWebhookTrigger,
+} from '@/triggers/microsoftteams'
+import { outlookPollingTrigger } from '@/triggers/outlook'
+import { rssPollingTrigger } from '@/triggers/rss'
+import { slackWebhookTrigger } from '@/triggers/slack'
+import { stripeWebhookTrigger } from '@/triggers/stripe'
+import { telegramWebhookTrigger } from '@/triggers/telegram'
+import { twilioVoiceWebhookTrigger } from '@/triggers/twilio_voice'
+import type { TriggerRegistry } from '@/triggers/types'
+import {
+  webflowCollectionItemChangedTrigger,
+  webflowCollectionItemCreatedTrigger,
+  webflowCollectionItemDeletedTrigger,
+  webflowFormSubmissionTrigger,
+} from '@/triggers/webflow'
+import { whatsappWebhookTrigger } from '@/triggers/whatsapp'
+
+export const TRIGGER_REGISTRY: TriggerRegistry = {
+  slack_webhook: slackWebhookTrigger,
+  airtable_webhook: airtableWebhookTrigger,
+  calendly_webhook: calendlyWebhookTrigger,
+  calendly_invitee_created: calendlyInviteeCreatedTrigger,
+  calendly_invitee_canceled: calendlyInviteeCanceledTrigger,
+  calendly_routing_form_submitted: calendlyRoutingFormSubmittedTrigger,
+  generic_webhook: genericWebhookTrigger,
+  github_webhook: githubWebhookTrigger,
+  fireflies_transcription_complete: firefliesTranscriptionCompleteTrigger,
+  gmail_poller: gmailPollingTrigger,
+  grain_webhook: grainWebhookTrigger,
+  grain_recording_created: grainRecordingCreatedTrigger,
+  grain_recording_updated: grainRecordingUpdatedTrigger,
+  grain_highlight_created: grainHighlightCreatedTrigger,
+  grain_highlight_updated: grainHighlightUpdatedTrigger,
+  grain_story_created: grainStoryCreatedTrigger,
+  circleback_meeting_completed: circlebackMeetingCompletedTrigger,
+  circleback_meeting_notes: circlebackMeetingNotesTrigger,
+  circleback_webhook: circlebackWebhookTrigger,
+  microsoftteams_webhook: microsoftTeamsWebhookTrigger,
+  microsoftteams_chat_subscription: microsoftTeamsChatSubscriptionTrigger,
+  outlook_poller: outlookPollingTrigger,
+  rss_poller: rssPollingTrigger,
+  stripe_webhook: stripeWebhookTrigger,
+  telegram_webhook: telegramWebhookTrigger,
+  whatsapp_webhook: whatsappWebhookTrigger,
+  google_forms_webhook: googleFormsWebhookTrigger,
+  twilio_voice_webhook: twilioVoiceWebhookTrigger,
+  webflow_collection_item_created: webflowCollectionItemCreatedTrigger,
+  webflow_collection_item_changed: webflowCollectionItemChangedTrigger,
+  webflow_collection_item_deleted: webflowCollectionItemDeletedTrigger,
+  webflow_form_submission: webflowFormSubmissionTrigger,
+  hubspot_contact_created: hubspotContactCreatedTrigger,
+  hubspot_contact_deleted: hubspotContactDeletedTrigger,
+  hubspot_contact_privacy_deleted: hubspotContactPrivacyDeletedTrigger,
+  hubspot_contact_property_changed: hubspotContactPropertyChangedTrigger,
+  hubspot_company_created: hubspotCompanyCreatedTrigger,
+  hubspot_company_deleted: hubspotCompanyDeletedTrigger,
+  hubspot_company_property_changed: hubspotCompanyPropertyChangedTrigger,
+  hubspot_conversation_creation: hubspotConversationCreationTrigger,
+  hubspot_conversation_deletion: hubspotConversationDeletionTrigger,
+  hubspot_conversation_new_message: hubspotConversationNewMessageTrigger,
+  hubspot_conversation_privacy_deletion: hubspotConversationPrivacyDeletionTrigger,
+  hubspot_conversation_property_changed: hubspotConversationPropertyChangedTrigger,
+  hubspot_deal_created: hubspotDealCreatedTrigger,
+  hubspot_deal_deleted: hubspotDealDeletedTrigger,
+  hubspot_deal_property_changed: hubspotDealPropertyChangedTrigger,
+  hubspot_ticket_created: hubspotTicketCreatedTrigger,
+  hubspot_ticket_deleted: hubspotTicketDeletedTrigger,
+  hubspot_ticket_property_changed: hubspotTicketPropertyChangedTrigger,
+  imap_poller: imapPollingTrigger,
+}

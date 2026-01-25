@@ -9,18 +9,21 @@
 
 import type React from 'react'
 import {
+
+} from '@/components/icons/icons'
+import {
+  CerebrasIcon,
+  OllamaIcon,
+  xAIIcon,
+  OpenRouterIcon,
   AnthropicIcon,
   AzureIcon,
-  CerebrasIcon,
   DeepseekIcon,
   GeminiIcon,
   GroqIcon,
   MistralIcon,
-  OllamaIcon,
   OpenAIIcon,
-  OpenRouterIcon,
-  xAIIcon,
-} from '@/components/icons'
+} from '@/components/icons/provider-icons'
 
 export interface ModelPricing {
   input: number // Per 1M tokens

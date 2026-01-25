@@ -96,14 +96,8 @@ const getActiveWorkflowIdFromState = (
   channelId?: string
 ): string | null => {
   const channelKey = resolveChannelId(channelId)
-  if (channelId) {
-    return state.loadedWorkflowIds[channelKey]
-      ? (state.activeWorkflowIds[channelKey] ?? null)
-      : null
-  }
-
-  return state.loadedWorkflowIds[DEFAULT_WORKFLOW_CHANNEL_ID]
-    ? (state.activeWorkflowIds[DEFAULT_WORKFLOW_CHANNEL_ID] ?? state.activeWorkflowId)
+  return state.loadedWorkflowIds[channelKey]
+    ? (state.activeWorkflowIds[channelKey] ?? null)
     : null
 }
 
@@ -237,10 +231,12 @@ async function fetchWorkflowsFromDB(workspaceId?: string): Promise<void> {
 
     // Only set first workflow as active if no active workflow is set and we have workflows
     const currentState = useWorkflowRegistry.getState()
-    if (!currentState.activeWorkflowId && Object.keys(registryWorkflows).length > 0) {
+    if (
+      !currentState.activeWorkflowIds[DEFAULT_WORKFLOW_CHANNEL_ID] &&
+      Object.keys(registryWorkflows).length > 0
+    ) {
       const firstWorkflowId = Object.keys(registryWorkflows)[0]
       useWorkflowRegistry.setState((state) => ({
-        activeWorkflowId: firstWorkflowId,
         activeWorkflowIds: {
           ...state.activeWorkflowIds,
           [DEFAULT_WORKFLOW_CHANNEL_ID]: firstWorkflowId,
@@ -382,7 +378,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
     (set, get) => ({
       // Store state
       workflows: {},
-      activeWorkflowId: null,
       activeWorkflowIds: {},
       loadedWorkflowIds: {},
       isLoading: false,
@@ -436,7 +431,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
 
           // Update state - sidebar will load workflows when URL changes
           set({
-            activeWorkflowId: null,
             loadedWorkflowIds: {},
             activeWorkflowIds: {},
             workflows: {},
@@ -651,10 +645,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
         }
 
         // Update all stores atomically to prevent race conditions
-        // Set activeWorkflowId and workflow state together
         set((state) => ({
-          // Keep legacy activeWorkflowId in sync with most recent activation for backward compatibility
-          activeWorkflowId: id,
           activeWorkflowIds: {
             ...state.activeWorkflowIds,
             [channelKey]: id,
@@ -832,10 +823,13 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
 
         // Set as active workflow (default channel) and update store
         set((state) => ({
-          activeWorkflowId: id,
           activeWorkflowIds: {
             ...state.activeWorkflowIds,
             [DEFAULT_WORKFLOW_CHANNEL_ID]: id,
+          },
+          loadedWorkflowIds: {
+            ...state.loadedWorkflowIds,
+            [DEFAULT_WORKFLOW_CHANNEL_ID]: true,
           },
         }))
         useWorkflowStore.setState(initialState)
@@ -1084,7 +1078,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
 
           // If deleting active workflow, clear active workflow ID immediately
           // Don't automatically switch to another workflow to prevent race conditions
-          let newActiveWorkflowId = state.activeWorkflowId
           const newActiveWorkflowIds = { ...state.activeWorkflowIds }
           const newLoadedWorkflowIds = { ...state.loadedWorkflowIds }
 
@@ -1095,8 +1088,10 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
             }
           })
 
-          if (state.activeWorkflowId === id) {
-            newActiveWorkflowId = null
+          const wasDefaultActive =
+            state.activeWorkflowIds[DEFAULT_WORKFLOW_CHANNEL_ID] === id
+
+          if (wasDefaultActive) {
 
             // Clear workflow store state immediately when deleting active workflow
             useWorkflowStore.setState({
@@ -1114,7 +1109,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
 
           return {
             workflows: newWorkflows,
-            activeWorkflowId: newActiveWorkflowId,
             activeWorkflowIds: newActiveWorkflowIds,
             loadedWorkflowIds: newLoadedWorkflowIds,
             error: null,
@@ -1226,7 +1220,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
 
         set({
           workflows: {},
-          activeWorkflowId: null,
           activeWorkflowIds: {},
           isLoading: true,
           error: null,

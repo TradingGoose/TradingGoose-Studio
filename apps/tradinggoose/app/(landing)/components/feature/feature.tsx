@@ -4,7 +4,8 @@ import React from 'react'
 import { type Edge, type Node, Position } from 'reactflow'
 
 import { BinaryIcon, BookIcon, CalendarIcon, CodeIcon, Globe2Icon, MessageSquareIcon, VariableIcon } from 'lucide-react'
-import { AgentIcon, OpenAIIcon, PackageSearchIcon, ScheduleIcon } from '@/components/icons'
+import { AgentIcon, PackageSearchIcon, ScheduleIcon } from '@/components/icons/icons'
+import { OpenAIIcon } from '@/components/icons/provider-icons'
 import { soehne } from '@/app/fonts/soehne/soehne'
 import {
   CARD_WIDTH,
@@ -137,9 +138,9 @@ export default function Feature() {
           type: 'landing',
           position: isLoopChild
             ? {
-                x: block.id === 'agent' ? 160 : 160,
-                y: block.id === 'agent' ? 122 : 320,
-              }
+              x: block.id === 'agent' ? 160 : 160,
+              y: block.id === 'agent' ? 122 : 320,
+            }
             : block.positions[breakpoint],
           data: {
             icon: block.icon,

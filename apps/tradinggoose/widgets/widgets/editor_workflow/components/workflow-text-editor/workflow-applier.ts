@@ -23,7 +23,7 @@ export async function applyWorkflowDiff(
   console.log('🔥 applyWorkflowDiff called!', { format, contentLength: content.length })
 
   try {
-    const { activeWorkflowId } = useWorkflowRegistry.getState()
+    const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
 
     if (!activeWorkflowId) {
       return {

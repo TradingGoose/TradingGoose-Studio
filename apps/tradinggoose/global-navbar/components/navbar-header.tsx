@@ -23,7 +23,7 @@ export function NavbarHeader({ workspaceName, brandName, pageTitle, pageIcon }: 
     )
 
   return (
-    <header className='relative z-10 flex h-14 items-center gap-3 border-b px-4'>
+    <header className='relative z-10 flex h-12 items-center gap-3 border-b px-4'>
       <div className='flex w-full flex-nowrap gap-2 text-sm'>
         <div className='flex min-w-0 flex-grow basis-[30%] items-center justify-start gap-2'>
           <SidebarTrigger className='text-muted-foreground' />

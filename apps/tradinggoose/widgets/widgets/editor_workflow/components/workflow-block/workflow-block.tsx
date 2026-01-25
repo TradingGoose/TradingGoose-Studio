@@ -4,6 +4,7 @@ import { Handle, type NodeProps, Position, useStore, useUpdateNodeInternals } fr
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { PopoverEnvironmentProvider } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipEnvironmentProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -15,7 +16,7 @@ import {
   useOptionalWorkflowRoute,
   useWorkflowId,
 } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import type { BlockConfig, SubBlockConfig, SubBlockType } from '@/blocks/types'
+import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
 import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
 import { useExecutionStore } from '@/stores/execution/store'
 import { useWorkflowDiffStore } from '@/stores/workflow-diff'
@@ -32,6 +33,8 @@ import { ActionBar } from './components/action-bar/action-bar'
 import { ConnectionBlocks } from './components/connection-blocks/connection-blocks'
 import { useSubBlockValue } from './components/sub-block/hooks/use-sub-block-value'
 import { SubBlock } from './components/sub-block/sub-block'
+
+const WORKFLOW_POPOVER_PORTAL_KEY = '__workflowPopoverPortal'
 
 const logger = createLogger('WorkflowBlock')
 
@@ -77,7 +80,8 @@ export const WorkflowBlock = memo(
     const nameInputRef = useRef<HTMLInputElement>(null)
     const updateNodeInternals = useUpdateNodeInternals()
     const [tooltipContainer, setTooltipContainer] = useState<HTMLElement | null>(null)
-    const tooltipScale = useStore(
+    const [popoverContainer, setPopoverContainer] = useState<HTMLElement | null>(null)
+    const viewportScale = useStore(
       useCallback((state: any) => {
         if (Array.isArray(state.transform)) {
           return state.transform[2] ?? 1
@@ -89,14 +93,79 @@ export const WorkflowBlock = memo(
       }, []),
       useCallback((a: number, b: number) => Math.abs(a - b) < 0.001, [])
     )
-    const normalizedTooltipScale = Number.isFinite(tooltipScale) ? tooltipScale : 1
+    const normalizedViewportScale = Number.isFinite(viewportScale) ? viewportScale : 1
 
     // Portal tooltips into the canvas viewport so they scale with React Flow zoom
     useEffect(() => {
       if (!blockRef.current) return
       const viewport = blockRef.current.closest('.react-flow__viewport') as HTMLElement | null
       const renderer = blockRef.current.closest('.react-flow__renderer') as HTMLElement | null
+      const flow = blockRef.current.closest('.workflow-container') as HTMLElement | null
       setTooltipContainer(viewport ?? renderer)
+      if (!flow) {
+        setPopoverContainer(renderer)
+        return
+      }
+
+      type WorkflowPopoverPortal = HTMLElement & {
+        __workflowPopoverCount?: number
+        __workflowPopoverCleanup?: () => void
+      }
+
+      let portal = (flow as any)[WORKFLOW_POPOVER_PORTAL_KEY] as WorkflowPopoverPortal | undefined
+      if (!portal) {
+        portal = document.createElement('div') as WorkflowPopoverPortal
+        portal.className = 'workflow-popover-portal'
+        portal.style.position = 'fixed'
+        portal.style.inset = '0'
+        portal.style.pointerEvents = 'none'
+        portal.style.zIndex = '70'
+        document.body.appendChild(portal)
+
+        let frameId = 0
+        const updateClipPath = () => {
+          frameId = 0
+          const rect = flow.getBoundingClientRect()
+          const top = Math.max(0, rect.top)
+          const left = Math.max(0, rect.left)
+          const right = Math.max(0, window.innerWidth - rect.right)
+          const bottom = Math.max(0, window.innerHeight - rect.bottom)
+          portal.style.clipPath = `inset(${top}px ${right}px ${bottom}px ${left}px)`
+        }
+        const scheduleClipUpdate = () => {
+          if (frameId) return
+          frameId = window.requestAnimationFrame(updateClipPath)
+        }
+
+        scheduleClipUpdate()
+        const resizeObserver = new ResizeObserver(scheduleClipUpdate)
+        resizeObserver.observe(flow)
+        window.addEventListener('resize', scheduleClipUpdate)
+        window.addEventListener('scroll', scheduleClipUpdate, true)
+
+        portal.__workflowPopoverCleanup = () => {
+          resizeObserver.disconnect()
+          window.removeEventListener('resize', scheduleClipUpdate)
+          window.removeEventListener('scroll', scheduleClipUpdate, true)
+          if (frameId) {
+            window.cancelAnimationFrame(frameId)
+          }
+          portal.remove()
+        }
+
+        ;(flow as any)[WORKFLOW_POPOVER_PORTAL_KEY] = portal
+      }
+
+      portal.__workflowPopoverCount = (portal.__workflowPopoverCount ?? 0) + 1
+      setPopoverContainer(portal)
+
+      return () => {
+        portal.__workflowPopoverCount = Math.max(0, (portal.__workflowPopoverCount ?? 1) - 1)
+        if (portal.__workflowPopoverCount === 0) {
+          portal.__workflowPopoverCleanup?.()
+          delete (flow as any)[WORKFLOW_POPOVER_PORTAL_KEY]
+        }
+      }
     }, [])
 
     // Use the clean abstraction for current workflow state
@@ -134,15 +203,7 @@ export const WorkflowBlock = memo(
     const resolveActiveWorkflowId = useCallback(
       (state?: WorkflowRegistry) => {
         const sourceState = state ?? useWorkflowRegistry.getState()
-        if (typeof sourceState.getActiveWorkflowId === 'function') {
-          return sourceState.getActiveWorkflowId(workflowChannelId)
-        }
-
-        if (workflowChannelId && workflowChannelId !== DEFAULT_WORKFLOW_CHANNEL_ID) {
-          return sourceState.activeWorkflowIds?.[workflowChannelId] ?? null
-        }
-
-        return sourceState.activeWorkflowId
+        return sourceState.getActiveWorkflowId(workflowChannelId)
       },
       [workflowChannelId]
     )
@@ -192,12 +253,21 @@ export const WorkflowBlock = memo(
       : (storeBlockLayout?.measuredWidth ?? 0)
 
     const tooltipPortalContainer = tooltipContainer ?? undefined
+    const popoverPortalContainer = popoverContainer ?? undefined
     const tooltipEnvironmentValue = useMemo(
       () => ({
         container: tooltipPortalContainer,
-        scale: normalizedTooltipScale,
+        scale: normalizedViewportScale,
       }),
-      [tooltipPortalContainer, normalizedTooltipScale]
+      [tooltipPortalContainer, normalizedViewportScale]
+    )
+    const popoverEnvironmentValue = useMemo(
+      () => ({
+        container: popoverPortalContainer,
+        scale: normalizedViewportScale,
+        zIndex: 70,
+      }),
+      [normalizedViewportScale, popoverPortalContainer]
     )
 
     // Get per-block webhook status by checking if webhook is configured
@@ -521,40 +591,45 @@ export const WorkflowBlock = memo(
       } else {
         // In normal mode, use merged state
         const blocks = useWorkflowStore.getState(workflowChannelId).blocks
-        const mergedState = mergeSubblockState(blocks, activeWorkflowId || undefined, id)[id]
+        const mergedState = activeWorkflowId
+          ? mergeSubblockState(blocks, activeWorkflowId, id)[id]
+          : blocks[id]
         stateToUse = mergedState?.subBlocks || {}
       }
 
       const effectiveAdvanced = displayAdvancedMode
-      const effectiveTrigger = displayTriggerMode
+      const isPureTriggerBlock = config.category === 'triggers'
+      const effectiveTrigger = displayTriggerMode || isPureTriggerBlock
       const e2bClientEnabled = isTruthy(getEnv('NEXT_PUBLIC_E2B_ENABLED'))
 
       // Filter visible blocks and those that meet their conditions
       const visibleSubBlocks = config.subBlocks.filter((block) => {
         if (block.hidden) return false
+        if (data.isPreview && block.hideFromPreview) return false
+
+        if (block.requiresFeature && !isTruthy(getEnv(block.requiresFeature))) {
+          return false
+        }
 
         // Filter out E2B-related blocks if E2B is not enabled on the client
         if (!e2bClientEnabled && (block.id === 'remoteExecution' || block.id === 'language')) {
           return false
         }
 
-        // Special handling for trigger mode
-        if (block.type === ('trigger-config' as SubBlockType)) {
-          // Show trigger-config blocks when in trigger mode OR for pure trigger blocks
-          const isPureTriggerBlock = config?.triggers?.enabled && config.category === 'triggers'
-          return effectiveTrigger || isPureTriggerBlock
-        }
+        if (effectiveTrigger) {
+          const isValidTriggerSubblock = isPureTriggerBlock
+            ? block.mode === 'trigger' || !block.mode
+            : block.mode === 'trigger'
 
-        if (effectiveTrigger && block.type !== ('trigger-config' as SubBlockType)) {
-          // In trigger mode, hide all non-trigger-config blocks
+          if (!isValidTriggerSubblock) {
+            return false
+          }
+        } else if (block.mode === 'trigger') {
           return false
         }
 
-        // Filter by mode if specified
-        if (block.mode) {
-          if (block.mode === 'basic' && effectiveAdvanced) return false
-          if (block.mode === 'advanced' && !effectiveAdvanced) return false
-        }
+        if (block.mode === 'basic' && effectiveAdvanced) return false
+        if (block.mode === 'advanced' && !effectiveAdvanced) return false
 
         // If there's no condition, the block should be shown
         if (!block.condition) return true
@@ -770,76 +845,77 @@ export const WorkflowBlock = memo(
 
     return (
       <TooltipEnvironmentProvider value={tooltipEnvironmentValue}>
-        <div className='group relative'>
-          <Card
-            ref={blockRef}
-            className={cn(
-              'rounded-md relative cursor-default select-none shadow-xs border border-border',
-              'transition-block-bg transition-ring',
-              displayIsWide ? 'w-[480px]' : 'w-[320px]',
-              !isEnabled && 'shadow-sm',
-              isActive && 'animate-pulse-ring ring-2 ring-blue-500',
-              isPending && 'ring-2 ring-yellow-500',
-              // Diff highlighting
-              diffStatus === 'new' && 'bg-green-50/50 ring-2 ring-green-500 dark:bg-green-900/10',
-              diffStatus === 'edited' &&
-              'bg-orange-50/50 ring-2 ring-orange-500 dark:bg-orange-900/10',
-              // Deleted block highlighting (in original workflow)
-              isDeletedBlock && 'bg-red-50/50 ring-2 ring-red-500 dark:bg-red-900/10',
-              'z-[20]'
-            )}
-          >
-            {/* Show debug indicator for pending blocks */}
-            {isPending && (
-              <div className='-top-6 -translate-x-1/2 absolute left-1/2 z-10 transform rounded-t-md bg-yellow-500 px-2 py-0.5 text-white text-xs'>
-                Next Step
-              </div>
-            )}
+        <PopoverEnvironmentProvider value={popoverEnvironmentValue}>
+          <div className='group relative'>
+            <Card
+              ref={blockRef}
+              className={cn(
+                'rounded-md relative cursor-default select-none shadow-xs border border-border',
+                'transition-block-bg transition-ring',
+                displayIsWide ? 'w-[480px]' : 'w-[320px]',
+                !isEnabled && 'shadow-sm',
+                isActive && 'animate-pulse-ring ring-2 ring-blue-500',
+                isPending && 'ring-2 ring-yellow-500',
+                // Diff highlighting
+                diffStatus === 'new' && 'bg-green-50/50 ring-2 ring-green-500 dark:bg-green-900/10',
+                diffStatus === 'edited' &&
+                  'bg-orange-50/50 ring-2 ring-orange-500 dark:bg-orange-900/10',
+                // Deleted block highlighting (in original workflow)
+                isDeletedBlock && 'bg-red-50/50 ring-2 ring-red-500 dark:bg-red-900/10',
+                'z-[20]'
+              )}
+            >
+              {/* Show debug indicator for pending blocks */}
+              {isPending && (
+                <div className='-top-6 -translate-x-1/2 absolute left-1/2 z-10 transform rounded-t-md bg-yellow-500 px-2 py-0.5 text-white text-xs'>
+                  Next Step
+                </div>
+              )}
 
-            <ActionBar blockId={id} blockType={type} disabled={!userPermissions.canEdit} />
-            {/* Connection Blocks - Don't show for trigger blocks or blocks in trigger mode */}
-            {config.category !== 'triggers' && !displayTriggerMode && (
-              <ConnectionBlocks
-                blockId={id}
-                setIsConnecting={setIsConnecting}
-                isDisabled={!userPermissions.canEdit}
-                horizontalHandles={horizontalHandles}
-              />
-            )}
+              <ActionBar blockId={id} blockType={type} disabled={!userPermissions.canEdit} />
+              {/* Connection Blocks - Don't show for trigger blocks or blocks in trigger mode */}
+              {config.category !== 'triggers' && !displayTriggerMode && (
+                <ConnectionBlocks
+                  blockId={id}
+                  setIsConnecting={setIsConnecting}
+                  isDisabled={!userPermissions.canEdit}
+                  horizontalHandles={horizontalHandles}
+                />
+              )}
 
-            {/* Input Handle - Don't show for trigger blocks or blocks in trigger mode */}
-            {config.category !== 'triggers' && !displayTriggerMode && (
-              <Handle
-                type='target'
-                position={horizontalHandles ? Position.Left : Position.Top}
-                id='target'
-                className={cn(
-                  horizontalHandles ? '!w-[7px] !h-5' : '!w-5 !h-[7px]',
-                  '!bg-slate-300 dark:!bg-slate-500 !rounded-xs !border-none',
-                  '!z-[30]',
-                  'group-hover:!shadow-[0_0_0_3px_rgba(156,163,175,0.15)]',
-                  horizontalHandles
-                    ? 'hover:!w-[10px] hover:!left-[-10px] hover:!rounded-l-full hover:!rounded-r-none'
-                    : 'hover:!h-[10px] hover:!top-[-10px] hover:!rounded-t-full hover:!rounded-b-none',
-                  '!cursor-crosshair',
-                  'transition-[colors] duration-150',
-                  horizontalHandles ? '!left-[-7px]' : '!top-[-7px]'
-                )}
-                style={{
-                  ...(horizontalHandles
-                    ? { top: '50%', transform: 'translateY(-50%)' }
-                    : { left: '50%', transform: 'translateX(-50%)' }),
-                }}
-                data-nodeid={id}
-                data-handleid='target'
-                isConnectableStart={false}
-                isConnectableEnd={true}
-                isValidConnection={(connection) => connection.source !== id}
-              />
-            )}
+              {/* Input Handle - Don't show for trigger blocks or blocks in trigger mode */}
+              {config.category !== 'triggers' && !displayTriggerMode && (
+                <Handle
+                  type='target'
+                  position={horizontalHandles ? Position.Left : Position.Top}
+                  id='target'
+                  className={cn(
+                    horizontalHandles ? '!w-[7px] !h-5' : '!w-5 !h-[7px]',
+                    '!bg-slate-300 dark:!bg-slate-500 !rounded-xs !border-none',
+                    '!z-[30]',
+                    'group-hover:!shadow-[0_0_0_3px_rgba(156,163,175,0.15)]',
+                    horizontalHandles
+                      ? 'hover:!w-[10px] hover:!left-[-10px] hover:!rounded-l-full hover:!rounded-r-none'
+                      : 'hover:!h-[10px] hover:!top-[-10px] hover:!rounded-t-full hover:!rounded-b-none',
+                    '!cursor-crosshair',
+                    'transition-[colors] duration-150',
+                    horizontalHandles ? '!left-[-7px]' : '!top-[-7px]'
+                  )}
+                  style={{
+                    ...(horizontalHandles
+                      ? { top: '50%', transform: 'translateY(-50%)' }
+                      : { left: '50%', transform: 'translateX(-50%)' }),
+                  }}
+                  data-nodeid={id}
+                  data-handleid='target'
+                  isConnectableStart={false}
+                  isConnectableEnd={true}
+                  isValidConnection={(connection) => connection.source !== id}
+                />
+              )}
 
-            {/* Block Header */}
-            <div
+              {/* Block Header */}
+              <div
               className={cn(
                 'workflow-drag-handle flex cursor-grab items-center justify-between p-3 [&:active]:cursor-grabbing',
                 subBlockRows.length > 0 && 'border-b'
@@ -847,7 +923,7 @@ export const WorkflowBlock = memo(
               onMouseDown={(e) => {
                 e.stopPropagation()
               }}
-            >
+              >
               <div className='flex min-w-0 flex-1 items-center gap-3'>
                 <div
                   className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-secondary/60 text-foreground'
@@ -1003,7 +1079,9 @@ export const WorkflowBlock = memo(
                     </TooltipContent>
                   </Tooltip>
                 )}
-                {config.subBlocks.some((block) => block.mode) && (
+                {config.subBlocks.some(
+                  (block) => block.mode === 'advanced' || block.mode === 'basic'
+                ) && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -1188,10 +1266,10 @@ export const WorkflowBlock = memo(
                   </Tooltip>
                 )}
               </div>
-            </div>
+              </div>
 
-            {/* Block Content - Only render if there are subblocks */}
-            {
+              {/* Block Content - Only render if there are subblocks */}
+              {
               subBlockRows.length > 0 && (
                 <div
                   ref={contentRef}
@@ -1242,10 +1320,10 @@ export const WorkflowBlock = memo(
                   ))}
                 </div>
               )
-            }
+              }
 
-            {/* Output Handle */}
-            {
+              {/* Output Handle */}
+              {
               type !== 'condition' && type !== 'response' && (
                 <>
                   <Handle
@@ -1318,9 +1396,10 @@ export const WorkflowBlock = memo(
                   )}
                 </>
               )
-            }
-          </Card>
-        </div>
+              }
+            </Card>
+          </div>
+        </PopoverEnvironmentProvider>
       </TooltipEnvironmentProvider>
     )
   },

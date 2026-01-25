@@ -77,7 +77,7 @@ export class GetBlockUpstreamReferencesClientTool extends BaseClientTool {
         return
       }
 
-      const { activeWorkflowId } = useWorkflowRegistry.getState()
+      const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
       if (!activeWorkflowId) {
         await this.markToolComplete(400, 'No active workflow found')
         this.setState(ClientToolCallState.error)

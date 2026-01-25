@@ -1,5 +1,6 @@
-import { ZoomIcon } from '@/components/icons'
+import { ZoomIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
+import { fetchTimeZoneOptions } from '@/components/timezone-selector/fetchers'
 import { AuthMode } from '@/blocks/types'
 import type { ZoomResponse } from '@/tools/zoom/types'
 
@@ -37,6 +38,7 @@ export const ZoomBlock: BlockConfig<ZoomResponse> = {
       id: 'credential',
       title: 'Zoom Account',
       type: 'oauth-input',
+      provider: 'zoom',
       serviceId: 'zoom',
       requiredScopes: [
         'user:read:user',
@@ -129,7 +131,7 @@ export const ZoomBlock: BlockConfig<ZoomResponse> = {
     {
       id: 'startTime',
       title: 'Start Time',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: '2025-06-03T10:00:00Z',
       condition: {
         field: 'operation',
@@ -157,6 +159,7 @@ Return ONLY the timestamp string - no explanations, no quotes, no extra text.`,
       id: 'duration',
       title: 'Duration (minutes)',
       type: 'short-input',
+      inputType: 'number',
       placeholder: '30',
       condition: {
         field: 'operation',
@@ -167,7 +170,10 @@ Return ONLY the timestamp string - no explanations, no quotes, no extra text.`,
     {
       id: 'timezone',
       title: 'Timezone',
-      type: 'short-input',
+      type: 'dropdown',
+      enableSearch: true,
+      fetchOptions: fetchTimeZoneOptions,
+      value: () => '',
       placeholder: 'America/Los_Angeles',
       condition: {
         field: 'operation',
@@ -300,7 +306,8 @@ Return ONLY the timestamp string - no explanations, no quotes, no extra text.`,
     {
       id: 'fromDate',
       title: 'From Date',
-      type: 'short-input',
+      type: 'datetime-input',
+      hideTime: true,
       placeholder: 'yyyy-mm-dd (within last 6 months)',
       condition: {
         field: 'operation',
@@ -325,7 +332,8 @@ Return ONLY the date string - no explanations, no quotes, no extra text.`,
     {
       id: 'toDate',
       title: 'To Date',
-      type: 'short-input',
+      type: 'datetime-input',
+      hideTime: true,
       placeholder: 'yyyy-mm-dd',
       condition: {
         field: 'operation',

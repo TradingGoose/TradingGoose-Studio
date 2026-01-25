@@ -9,7 +9,6 @@ import {
   formatDuration,
   formatTime,
   getInvalidCharacters,
-  getTimezoneAbbreviation,
   isValidName,
   redactApiKeys,
   validateName,
@@ -198,6 +197,14 @@ describe('date formatting functions', () => {
     expect(result).toMatch(/2:30 PM|14:30/)
   })
 
+  it.concurrent('should format datetime with UTC offset', () => {
+    const date = new Date('2023-05-15T14:30:00.000Z')
+    const result = formatDateTime(date, '+02:00')
+    expect(result).toContain('May 15, 2023')
+    expect(result).toContain('4:30 PM')
+    expect(result).toContain('UTC+02:00')
+  })
+
   it.concurrent('should format date correctly', () => {
     const date = new Date('2023-05-15T14:30:00')
     const result = formatDate(date)
@@ -232,40 +239,6 @@ describe('formatDuration', () => {
   it.concurrent('should format hours, minutes correctly', () => {
     const result = formatDuration(3725000) // 1h 2m 5s
     expect(result).toBe('1h 2m')
-  })
-})
-
-describe('getTimezoneAbbreviation', () => {
-  it.concurrent('should return UTC for UTC timezone', () => {
-    const result = getTimezoneAbbreviation('UTC')
-    expect(result).toBe('UTC')
-  })
-
-  it.concurrent('should return PST/PDT for Los Angeles timezone', () => {
-    const winterDate = new Date('2023-01-15') // Standard time
-    const summerDate = new Date('2023-07-15') // Daylight time
-
-    const winterResult = getTimezoneAbbreviation('America/Los_Angeles', winterDate)
-    const summerResult = getTimezoneAbbreviation('America/Los_Angeles', summerDate)
-
-    expect(['PST', 'PDT']).toContain(winterResult)
-    expect(['PST', 'PDT']).toContain(summerResult)
-  })
-
-  it.concurrent('should return JST for Tokyo timezone (no DST)', () => {
-    const winterDate = new Date('2023-01-15')
-    const summerDate = new Date('2023-07-15')
-
-    const winterResult = getTimezoneAbbreviation('Asia/Tokyo', winterDate)
-    const summerResult = getTimezoneAbbreviation('Asia/Tokyo', summerDate)
-
-    expect(winterResult).toBe('JST')
-    expect(summerResult).toBe('JST')
-  })
-
-  it.concurrent('should return full timezone name for unknown timezones', () => {
-    const result = getTimezoneAbbreviation('Unknown/Timezone')
-    expect(result).toBe('Unknown/Timezone')
   })
 })
 

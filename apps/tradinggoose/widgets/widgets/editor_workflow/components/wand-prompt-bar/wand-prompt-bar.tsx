@@ -81,8 +81,8 @@ export function WandPromptBar({
     <div
       ref={promptBarRef}
       className={cn(
-        '-translate-y-3 absolute right-0 bottom-full left-0 gap-2',
-        'rounded-md border bg-background shadow-md',
+        '-translate-y-1 absolute right-0 bottom-full left-0 gap-2',
+        'rounded-md border bg-background shadow-sm',
         'z-9999999 transition-all duration-150',
         isExiting ? 'opacity-0' : 'opacity-100',
         className
@@ -160,7 +160,7 @@ export function WandPromptBar({
         }
 
         .status-indicator.streaming {
-          background-color: transparent;
+          background-color: var(--primary);
         }
 
         .status-indicator.streaming::before {
@@ -170,7 +170,7 @@ export function WandPromptBar({
           border-radius: 50%;
           background: radial-gradient(
             circle,
-            var(--primary) 0%,
+            var(--primary) 10%,
             var(--primary-hover) 60%,
             transparent 80%
           );

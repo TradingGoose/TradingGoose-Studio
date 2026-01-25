@@ -7,7 +7,7 @@ import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-stat
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
-import { WorkflowDropdown } from '@/widgets/widgets/shared/components/workflow-dropdown'
+import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
 import {
   emitWorkflowSelectionChange,
   useWorkflowSelectionPersistence,

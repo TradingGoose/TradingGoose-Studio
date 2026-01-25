@@ -1,4 +1,4 @@
-import { DuckDuckGoIcon } from '@/components/icons'
+import { DuckDuckGoIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import type { DuckDuckGoResponse } from '@/tools/duckduckgo/types'
 

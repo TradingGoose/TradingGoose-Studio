@@ -1,4 +1,4 @@
-import { ElasticsearchIcon } from '@/components/icons'
+import { ElasticsearchIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { ElasticsearchResponse } from '@/tools/elasticsearch/types'
@@ -424,6 +424,7 @@ Return ONLY valid JSON - no explanations, no markdown code blocks.`,
       id: 'timeout',
       title: 'Timeout (seconds)',
       type: 'short-input',
+      inputType: 'number',
       placeholder: '30',
       condition: { field: 'operation', value: 'elasticsearch_cluster_health' },
     },

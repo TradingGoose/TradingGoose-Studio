@@ -34,9 +34,10 @@ import {
   SliderInput,
   Switch,
   Table,
+  Text,
   TimeInput,
   ToolInput,
-  TriggerConfig,
+  TriggerSave,
   VariablesInput,
   WebhookConfig,
 } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components'
@@ -80,10 +81,13 @@ export const SubBlock = memo(
     }
 
     const isFieldRequired = () => {
-      return config.required === true
+      if (typeof config.required === 'boolean') {
+        return config.required
+      }
+      return Boolean(config.required)
     }
 
-    if (config.hidden) {
+    if (config.hidden || (isPreview && config.hideFromPreview)) {
       return null
     }
 
@@ -111,6 +115,9 @@ export const SubBlock = memo(
               isPreview={isPreview}
               previewValue={previewValue}
               disabled={isDisabled}
+              readOnly={config.readOnly}
+              showCopyButton={config.showCopyButton}
+              useWebhookUrl={config.useWebhookUrl}
             />
           )
         case 'long-input':
@@ -198,10 +205,20 @@ export const SubBlock = memo(
               placeholder={config.placeholder}
               language={config.language}
               generationType={config.generationType}
+              value={
+                typeof config.value === 'function'
+                  ? config.value(subBlockValues || {})
+                  : undefined
+              }
               isPreview={isPreview}
               previewValue={previewValue}
               disabled={isDisabled}
               onValidationChange={handleValidationChange}
+              readOnly={config.readOnly}
+              collapsible={config.collapsible}
+              defaultCollapsed={config.defaultCollapsed}
+              defaultValue={config.defaultValue}
+              showCopyButton={config.showCopyButton}
               wandConfig={
                 config.wandConfig || {
                   enabled: false,
@@ -360,27 +377,6 @@ export const SubBlock = memo(
               isPreview={isPreview}
               value={webhookValue}
               disabled={isDisabled}
-            />
-          )
-        }
-        case 'trigger-config': {
-          // For trigger config, we need to construct the value from multiple subblock values
-          const triggerValue =
-            isPreview && subBlockValues
-              ? {
-                  triggerId: subBlockValues.triggerId?.value,
-                  triggerPath: subBlockValues.triggerPath?.value,
-                  triggerConfig: subBlockValues.triggerConfig?.value,
-                }
-              : previewValue
-          return (
-            <TriggerConfig
-              blockId={blockId}
-              isConnecting={isConnecting}
-              isPreview={isPreview}
-              value={triggerValue}
-              disabled={isDisabled}
-              availableTriggers={config.availableTriggers}
             />
           )
         }
@@ -570,6 +566,28 @@ export const SubBlock = memo(
               isConnecting={isConnecting}
             />
           )
+        case 'text':
+          return (
+            <Text
+              blockId={blockId}
+              subBlockId={config.id}
+              content={
+                typeof config.value === 'function'
+                  ? config.value(subBlockValues || {})
+                  : (config.defaultValue as string) || ''
+              }
+            />
+          )
+        case 'trigger-save':
+          return (
+            <TriggerSave
+              blockId={blockId}
+              subBlockId={config.id}
+              triggerId={config.triggerId}
+              isPreview={isPreview}
+              disabled={disabled}
+            />
+          )
         default:
           return <div>Unknown input type: {config.type}</div>
       }
@@ -577,7 +595,8 @@ export const SubBlock = memo(
 
     const required = isFieldRequired()
 
-    const showLabel = config.type !== 'switch' && config.type !== 'market-selector'
+    const showLabel =
+      config.type !== 'switch' && config.type !== 'market-selector' && config.type !== 'trigger-save'
 
     return (
       <div
@@ -617,7 +636,7 @@ export const SubBlock = memo(
                 </TooltipContent>
               </Tooltip>
             )}
-            {config.description && (
+            {(config.tooltip || config.description) && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Info className='h-4 w-4 cursor-pointer text-muted-foreground' />
@@ -626,7 +645,9 @@ export const SubBlock = memo(
                   side='top'
                   className='max-w-[400px] select-text whitespace-pre-wrap'
                 >
-                  {config.description.split('\n').map((line, idx) => (
+                  {(config.tooltip || config.description || '')
+                    .split('\n')
+                    .map((line, idx) => (
                     <p
                       key={idx}
                       className={idx === 0 ? 'mb-1 text-sm' : 'text-muted-foreground text-xs'}

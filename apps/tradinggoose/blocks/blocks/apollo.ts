@@ -1,4 +1,4 @@
-import { ApolloIcon } from '@/components/icons'
+import { ApolloIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { ApolloResponse } from '@/tools/apollo/types'
@@ -415,7 +415,8 @@ export const ApolloBlock: BlockConfig<ApolloResponse> = {
     {
       id: 'close_date',
       title: 'Close Date',
-      type: 'short-input',
+      type: 'datetime-input',
+      hideTime: true,
       placeholder: 'ISO date (e.g., 2024-12-31)',
       condition: {
         field: 'operation',
@@ -527,13 +528,13 @@ Return ONLY the date string in YYYY-MM-DD format - no explanations, no quotes, n
     {
       id: 'due_at',
       title: 'Due Date',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: 'ISO date (e.g., 2024-12-31T23:59:59Z)',
       condition: { field: 'operation', value: 'task_create' },
       wandConfig: {
         enabled: true,
         prompt: `Generate an ISO 8601 timestamp based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "tomorrow at 5pm" -> Calculate tomorrow's date at 17:00:00Z
 - "end of day" -> Today's date at 23:59:59Z

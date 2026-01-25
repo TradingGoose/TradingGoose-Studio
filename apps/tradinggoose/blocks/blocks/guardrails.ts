@@ -1,4 +1,4 @@
-import { ShieldCheckIcon } from '@/components/icons'
+import { ShieldCheckIcon } from '@/components/icons/icons'
 import { isHosted } from '@/lib/environment'
 import type { BlockConfig } from '@/blocks/types'
 import { getHostedModels, getProviderIcon } from '@/providers/ai/utils'

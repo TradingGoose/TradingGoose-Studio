@@ -31,6 +31,10 @@
   z-index: 60 !important;
 }
 
+.workflow-popover-portal [data-radix-popper-content-wrapper] {
+  pointer-events: auto;
+}
+
 /* ==========================================================================
    LANDING LOOP ANIMATION
    ========================================================================== */
@@ -214,6 +218,60 @@
     --sidebar-accent-foreground: 0 0% 98.039%;
     --sidebar-border: 0 0% 10%;
     --sidebar-ring: 48 100% 50%;
+  }
+}
+
+@layer utilities {
+  .schema-param-highlight {
+    @apply text-green-600 font-medium;
+  }
+
+  .schema-param-highlight * {
+    color: inherit !important;
+    font-weight: inherit;
+  }
+
+  .monaco-editor .schema-param-highlight {
+    color: rgb(22 163 74) !important;
+    font-weight: 600 !important;
+  }
+
+  .monaco-editor .schema-param-hidden {
+    font-size: 0 !important;
+    color: transparent !important;
+    letter-spacing: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+  }
+
+  .monaco-editor .schema-param-alias {
+    color: rgb(22 163 74);
+    font-weight: 600;
+    white-space: pre;
+  }
+
+  .monaco-editor,
+  .monaco-editor .margin,
+  .monaco-editor-background {
+    background-color: transparent !important;
+  }
+
+  .monaco-editor .monaco-decoration-reference,
+  .monaco-editor .monaco-decoration-env {
+    color: rgb(59 130 246);
+    font-weight: 500;
+  }
+
+  /* Prevent Monaco hover tooltips from stealing pointer events (avoids flicker in find widget). */
+  .workbench-hover-container,
+  .monaco-hover {
+    pointer-events: none;
+  }
+
+  /* Ensure the context view wrapper doesn't intercept hover events. */
+  .context-view:has(.monaco-hover) {
+    pointer-events: none;
   }
 }
 

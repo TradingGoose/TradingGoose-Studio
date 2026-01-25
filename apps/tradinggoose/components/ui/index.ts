@@ -86,13 +86,14 @@ export { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from './inpu
 export { OTPInputForm } from './input-otp-form'
 export { Label } from './label'
 export { LoadingAgent } from './loading-agent'
+export { MonacoEditor } from '@/components/monaco-editor'
+export type { MonacoDecoration, MonacoEditorHandle } from '@/components/monaco-editor'
 export { Notice } from './notice'
 export { Popover, PopoverContent, PopoverTrigger } from './popover'
 export { Progress } from './progress'
 export { RadioGroup, RadioGroupItem } from './radio-group'
 export { ScrollArea, ScrollBar } from './scroll-area'
 export { SearchHighlight } from './search-highlight'
-export { SearchableDropdown } from './searchable-dropdown'
 export {
   Select,
   SelectContent,

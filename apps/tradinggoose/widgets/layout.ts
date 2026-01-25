@@ -15,6 +15,7 @@ export type PersistedColorPair = {
   workflowId?: string | null
   listing?: ListingIdentity | null
   copilotChatId?: string | null
+  indicatorId?: string | null
 }
 
 export type PersistedColorPairsState = {
@@ -70,12 +71,22 @@ export const createDefaultColorPairsState = (): PersistedColorPairsState => ({
 })
 
 const normalizeListingIdentity = (value: unknown): ListingIdentity | null => {
-  if (!value) return null
+  if (!value || typeof value !== 'object') return null
   const listing = toListingValueObject(value as any)
   if (!listing) return null
   if (!resolveListingKey(listing)) return null
   return listing
 }
+
+const normalizeListingParamsForStorage = (
+  params?: Record<string, unknown> | null
+): Record<string, unknown> | null | undefined => {
+  if (!params || typeof params !== 'object') return params
+  if (!('listing' in params)) return params
+  const listing = normalizeListingIdentity((params as { listing?: unknown }).listing)
+  return { ...params, listing }
+}
+
 
 export function normalizeColorPairsState(state?: unknown): PersistedColorPairsState {
   if (!state || typeof state !== 'object') {
@@ -114,12 +125,18 @@ export function normalizeColorPairsState(state?: unknown): PersistedColorPairsSt
         ? ((raw as { copilotChatId?: unknown }).copilotChatId as string)
         : null
     const listing = normalizeListingIdentity((raw as { listing?: unknown }).listing)
+    const indicatorId =
+      typeof (raw as { indicatorId?: unknown }).indicatorId === 'string' &&
+      ((raw as { indicatorId?: unknown }).indicatorId as string).trim().length > 0
+        ? ((raw as { indicatorId?: unknown }).indicatorId as string)
+        : null
 
     normalized.push({
       color: rawColor,
       workflowId,
       listing,
       copilotChatId,
+      indicatorId,
     })
     seen.add(rawColor)
   }
@@ -214,9 +231,24 @@ function normalizeWidgetInstance(widget: WidgetInstance): WidgetInstance {
 
 export function serializeLayout(node: LayoutNode): PersistedLayoutNode {
   if (node.type === 'panel') {
+    const widget = node.widget
+    if (!widget) {
+      return {
+        type: 'panel',
+        widget,
+      }
+    }
+    const normalizedParams = normalizeListingParamsForStorage(widget.params ?? null)
+    const nextWidget =
+      normalizedParams === widget.params
+        ? widget
+        : {
+            ...widget,
+            params: normalizedParams ?? null,
+          }
     return {
       type: 'panel',
-      widget: node.widget,
+      widget: nextWidget,
     }
   }
 

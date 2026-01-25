@@ -1,4 +1,4 @@
-import { PolymarketIcon } from '@/components/icons'
+import { PolymarketIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 
 export const PolymarketBlock: BlockConfig = {
@@ -161,6 +161,7 @@ export const PolymarketBlock: BlockConfig = {
       id: 'fidelity',
       title: 'Fidelity (minutes)',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'Data resolution in minutes (e.g., 60)',
       condition: { field: 'operation', value: ['get_price_history'] },
     },
@@ -168,6 +169,7 @@ export const PolymarketBlock: BlockConfig = {
       id: 'startTs',
       title: 'Start Timestamp',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'Unix timestamp UTC (if no interval)',
       condition: { field: 'operation', value: ['get_price_history'] },
       wandConfig: {
@@ -187,6 +189,7 @@ Return ONLY the Unix timestamp as a number - no explanations, no quotes, no extr
       id: 'endTs',
       title: 'End Timestamp',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'Unix timestamp UTC (if no interval)',
       condition: { field: 'operation', value: ['get_price_history'] },
       wandConfig: {

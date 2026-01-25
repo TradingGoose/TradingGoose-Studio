@@ -1,4 +1,4 @@
-import { GoogleCalendarIcon } from '@/components/icons'
+import { GoogleCalendarIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { GoogleCalendarResponse } from '@/tools/google_calendar/types'
@@ -94,18 +94,18 @@ export const GoogleCalendarBlock: BlockConfig<GoogleCalendarResponse> = {
     {
       id: 'startDateTime',
       title: 'Start Date & Time',
-      type: 'short-input',
+      type: 'datetime-input',
       layout: 'half',
-      placeholder: '2025-06-03T10:00:00-08:00',
+      placeholder: '2025-06-03T10:00:00Z',
       condition: { field: 'operation', value: 'create' },
       required: true,
     },
     {
       id: 'endDateTime',
       title: 'End Date & Time',
-      type: 'short-input',
+      type: 'datetime-input',
       layout: 'half',
-      placeholder: '2025-06-03T11:00:00-08:00',
+      placeholder: '2025-06-03T11:00:00Z',
       condition: { field: 'operation', value: 'create' },
       required: true,
     },
@@ -122,7 +122,7 @@ export const GoogleCalendarBlock: BlockConfig<GoogleCalendarResponse> = {
     {
       id: 'timeMin',
       title: 'Start Time Filter',
-      type: 'short-input',
+      type: 'datetime-input',
       layout: 'half',
       placeholder: '2025-06-03T00:00:00Z',
       condition: { field: 'operation', value: 'list' },
@@ -130,7 +130,7 @@ export const GoogleCalendarBlock: BlockConfig<GoogleCalendarResponse> = {
     {
       id: 'timeMax',
       title: 'End Time Filter',
-      type: 'short-input',
+      type: 'datetime-input',
       layout: 'half',
       placeholder: '2025-06-04T00:00:00Z',
       condition: { field: 'operation', value: 'list' },

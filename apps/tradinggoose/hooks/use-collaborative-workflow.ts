@@ -185,7 +185,12 @@ export function useCollaborativeWorkflow() {
                 Object.entries(payload.subBlocks).forEach(([subblockId, subblock]) => {
                   const value = (subblock as any)?.value
                   if (value !== undefined && value !== null) {
-                    subBlockStore.setValue(payload.id, subblockId, value)
+                    subBlockStore.setValue(
+                      payload.id,
+                      subblockId,
+                      value,
+                      activeWorkflowId ?? currentWorkflowId ?? undefined
+                    )
                   }
                 })
               }
@@ -304,7 +309,12 @@ export function useCollaborativeWorkflow() {
                 Object.entries(payload.subBlocks).forEach(([subblockId, subblock]) => {
                   const value = (subblock as any)?.value
                   if (value !== undefined) {
-                    subBlockStore.setValue(payload.id, subblockId, value)
+                    subBlockStore.setValue(
+                      payload.id,
+                      subblockId,
+                      value,
+                      activeWorkflowId ?? currentWorkflowId ?? undefined
+                    )
                   }
                 })
               }
@@ -437,7 +447,12 @@ export function useCollaborativeWorkflow() {
 
       try {
         // The setValue function automatically uses the active workflow ID
-        subBlockStore.setValue(blockId, subblockId, value)
+        subBlockStore.setValue(
+          blockId,
+          subblockId,
+          value,
+          activeWorkflowId ?? currentWorkflowId ?? undefined
+        )
       } catch (error) {
         logger.error('Error applying remote subblock update:', error)
       } finally {
@@ -615,6 +630,7 @@ export function useCollaborativeWorkflow() {
     subBlockStore,
     variablesStore,
     activeWorkflowId,
+    currentWorkflowId,
     confirmOperation,
     failOperation,
     emitWorkflowOperation,
@@ -890,7 +906,9 @@ export function useCollaborativeWorkflow() {
       findAllDescendants(id)
 
       // Capture state before removal, including all nested blocks with subblock values
-      const allBlocks = mergeSubblockState(workflowStore.blocks, activeWorkflowId || undefined)
+      const allBlocks = activeWorkflowId
+        ? mergeSubblockState(workflowStore.blocks, activeWorkflowId)
+        : workflowStore.blocks
       const capturedBlocks: Record<string, BlockState> = {}
       blocksToRemove.forEach((blockId) => {
         if (allBlocks[blockId]) {
@@ -1106,7 +1124,12 @@ export function useCollaborativeWorkflow() {
       }
 
       // Apply locally first (immediate UI feedback)
-      subBlockStore.setValue(blockId, subblockId, value)
+      subBlockStore.setValue(
+        blockId,
+        subblockId,
+        value,
+        activeWorkflowId ?? currentWorkflowId ?? undefined
+      )
 
       // Declarative clearing: clear sub-blocks that depend on this subblockId
       try {
@@ -1148,7 +1171,12 @@ export function useCollaborativeWorkflow() {
 
       if (!isInActiveRoom()) {
         // Still apply locally so the UI updates outside of active rooms.
-        subBlockStore.setValue(blockId, subblockId, value)
+        subBlockStore.setValue(
+          blockId,
+          subblockId,
+          value,
+          activeWorkflowId ?? currentWorkflowId ?? undefined
+        )
         logger.debug('Skipping tag selection - not in active workflow', {
           currentWorkflowId,
           activeWorkflowId,
@@ -1159,7 +1187,12 @@ export function useCollaborativeWorkflow() {
       }
 
       // Apply locally first (immediate UI feedback)
-      subBlockStore.setValue(blockId, subblockId, value)
+      subBlockStore.setValue(
+        blockId,
+        subblockId,
+        value,
+        activeWorkflowId ?? currentWorkflowId ?? undefined
+      )
 
       // Use the operation queue but with immediate processing (no debouncing)
       const operationId = crypto.randomUUID()
@@ -1293,7 +1326,12 @@ export function useCollaborativeWorkflow() {
         // The server will persist these values as part of the block creation
         if (activeWorkflowId && Object.keys(subBlockValues).length > 0) {
           Object.entries(subBlockValues).forEach(([subblockId, value]) => {
-            subBlockStore.setValue(newId, subblockId, value)
+            subBlockStore.setValue(
+              newId,
+              subblockId,
+              value,
+              activeWorkflowId ?? currentWorkflowId ?? undefined
+            )
           })
         }
 

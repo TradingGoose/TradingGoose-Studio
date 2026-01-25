@@ -16,7 +16,7 @@ import { useSyncExternalStore } from 'react'
 import {
   widgetHeaderControlClassName,
   widgetHeaderIconButtonClassName,
-} from '@/widgets/widgets/shared/components/widget-header-control'
+} from '@/widgets/widgets/components/widget-header-control'
 import {
   AlertDialog,
   AlertDialogAction,

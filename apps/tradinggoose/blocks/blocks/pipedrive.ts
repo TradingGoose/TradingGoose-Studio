@@ -1,4 +1,4 @@
-import { PipedriveIcon } from '@/components/icons'
+import { PipedriveIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { PipedriveResponse } from '@/tools/pipedrive/types'
@@ -45,6 +45,7 @@ export const PipedriveBlock: BlockConfig<PipedriveResponse> = {
       id: 'credential',
       title: 'Pipedrive Account',
       type: 'oauth-input',
+      provider: 'pipedrive',
       serviceId: 'pipedrive',
       requiredScopes: [
         'base',
@@ -95,13 +96,13 @@ export const PipedriveBlock: BlockConfig<PipedriveResponse> = {
     {
       id: 'updated_since',
       title: 'Updated Since',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: 'Date (2025-01-01T10:20:00Z)',
       condition: { field: 'operation', value: ['get_all_deals'] },
       wandConfig: {
         enabled: true,
         prompt: `Generate an ISO 8601 timestamp based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "yesterday" -> Calculate yesterday's date at 00:00:00Z
 - "last week" -> Calculate 7 days ago at 00:00:00Z
@@ -192,7 +193,8 @@ Return ONLY the timestamp string - no explanations, no quotes, no extra text.`,
     {
       id: 'expected_close_date',
       title: 'Expected Close Date',
-      type: 'short-input',
+      type: 'datetime-input',
+      hideTime: true,
       placeholder: 'YYYY-MM-DD ',
       condition: { field: 'operation', value: ['create_deal', 'update_deal'] },
       wandConfig: {
@@ -387,7 +389,8 @@ Return ONLY the date string in YYYY-MM-DD format - no explanations, no quotes, n
     {
       id: 'start_date',
       title: 'Start Date',
-      type: 'short-input',
+      type: 'datetime-input',
+      hideTime: true,
       placeholder: 'YYYY-MM-DD ',
       condition: { field: 'operation', value: ['create_project'] },
       wandConfig: {
@@ -406,7 +409,8 @@ Return ONLY the date string in YYYY-MM-DD format - no explanations, no quotes, n
     {
       id: 'end_date',
       title: 'End Date',
-      type: 'short-input',
+      type: 'datetime-input',
+      hideTime: true,
       placeholder: 'YYYY-MM-DD ',
       condition: { field: 'operation', value: ['create_project'] },
       wandConfig: {
@@ -505,7 +509,8 @@ Return ONLY the date string in YYYY-MM-DD format - no explanations, no quotes, n
     {
       id: 'due_date',
       title: 'Due Date',
-      type: 'short-input',
+      type: 'datetime-input',
+      hideTime: true,
       placeholder: 'YYYY-MM-DD',
       required: true,
       condition: { field: 'operation', value: ['create_activity', 'update_activity'] },
@@ -525,19 +530,19 @@ Return ONLY the date string in YYYY-MM-DD format - no explanations, no quotes, n
     {
       id: 'due_time',
       title: 'Due Time',
-      type: 'short-input',
-      placeholder: 'HH:MM ',
+      type: 'time-input',
+      placeholder: 'HH:mm:ss',
       condition: { field: 'operation', value: ['create_activity', 'update_activity'] },
       wandConfig: {
         enabled: true,
-        prompt: `Generate a time in HH:MM format (24-hour) based on the user's description.
+        prompt: `Generate a time in HH:mm:ss format (24-hour) based on the user's description.
 Examples:
-- "9am" -> 09:00
-- "2:30 PM" -> 14:30
-- "noon" -> 12:00
-- "end of business day" -> 17:00
+- "9am" -> 09:00:00
+- "2:30 PM" -> 14:30:00
+- "noon" -> 12:00:00
+- "end of business day" -> 17:00:00
 
-Return ONLY the time string in HH:MM format - no explanations, no quotes, no extra text.`,
+Return ONLY the time string in HH:mm:ss format - no explanations, no quotes, no extra text.`,
         placeholder: 'Describe the time (e.g., "9am", "2:30 PM")...',
         generationType: 'timestamp',
       },
@@ -545,8 +550,8 @@ Return ONLY the time string in HH:MM format - no explanations, no quotes, no ext
     {
       id: 'duration',
       title: 'Duration',
-      type: 'short-input',
-      placeholder: 'HH:MM ',
+      type: 'time-input',
+      placeholder: 'HH:mm:ss',
       condition: { field: 'operation', value: ['create_activity', 'update_activity'] },
     },
     {
@@ -646,7 +651,8 @@ Return ONLY the time string in HH:MM format - no explanations, no quotes, no ext
     {
       id: 'expected_close_date',
       title: 'Expected Close Date',
-      type: 'short-input',
+      type: 'datetime-input',
+      hideTime: true,
       placeholder: 'YYYY-MM-DD',
       condition: { field: 'operation', value: ['create_lead', 'update_lead'] },
       wandConfig: {

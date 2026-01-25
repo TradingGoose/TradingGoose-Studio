@@ -269,7 +269,7 @@ const workflowStoreState: WorkflowStoreStateCreator = (set, get) => ({
   removeBlock: (id: string) => {
     // First, clean up any subblock values for this block
     const subBlockStore = useSubBlockStore.getState()
-    const activeWorkflowId = useWorkflowRegistry.getState().activeWorkflowId
+    const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
 
     const newState = {
       blocks: { ...get().blocks },
@@ -495,7 +495,10 @@ const workflowStoreState: WorkflowStoreStateCreator = (set, get) => ({
     const newName = getUniqueBlockName(block.name, get().blocks)
 
     // Get merged state to capture current subblock values
-    const mergedBlock = mergeSubblockState(get().blocks, id)[id]
+    const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
+    const mergedBlock = activeWorkflowId
+      ? mergeSubblockState(get().blocks, activeWorkflowId, id)[id]
+      : get().blocks[id]
 
     // Create new subblocks with merged values
     const newSubBlocks = Object.entries(mergedBlock.subBlocks).reduce(
@@ -526,7 +529,6 @@ const workflowStoreState: WorkflowStoreStateCreator = (set, get) => ({
     }
 
     // Update the subblock store with the duplicated values
-    const activeWorkflowId = useWorkflowRegistry.getState().activeWorkflowId
     if (activeWorkflowId) {
       const subBlockValues =
         useSubBlockStore.getState().workflowValues[activeWorkflowId]?.[id] || {}
@@ -605,7 +607,7 @@ const workflowStoreState: WorkflowStoreStateCreator = (set, get) => ({
 
     // Update references in subblock store
     const subBlockStore = useSubBlockStore.getState()
-    const activeWorkflowId = useWorkflowRegistry.getState().activeWorkflowId
+    const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
     if (activeWorkflowId) {
       // Get the workflow values for the active workflow
       // workflowValues: {[block_id]:{[subblock_id]:[subblock_value]}}
@@ -867,7 +869,7 @@ const workflowStoreState: WorkflowStoreStateCreator = (set, get) => ({
   },
 
   revertToDeployedState: async (deployedState: WorkflowState) => {
-    const activeWorkflowId = useWorkflowRegistry.getState().activeWorkflowId
+    const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
 
     if (!activeWorkflowId) {
       logger.error('Cannot revert: no active workflow ID')
@@ -1005,7 +1007,7 @@ const workflowStoreState: WorkflowStoreStateCreator = (set, get) => ({
     // Handle webhook enable/disable when toggling trigger mode
     const handleWebhookToggle = async () => {
       try {
-        const activeWorkflowId = useWorkflowRegistry.getState().activeWorkflowId
+        const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
         if (!activeWorkflowId) return
 
         // Check if there's a webhook for this block

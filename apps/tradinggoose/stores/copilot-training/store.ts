@@ -6,6 +6,7 @@ import {
   computeEditSequence,
   type EditOperation,
 } from '@/lib/workflows/training/compute-edit-sequence'
+import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { DEFAULT_WORKFLOW_CHANNEL_ID, useWorkflowStore } from '@/stores/workflows/workflow/store'
 import { mergeSubblockState } from '@/stores/workflows/utils'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
@@ -93,9 +94,12 @@ const updateChannelState = (
  */
 function captureWorkflowSnapshot(channelId?: string): WorkflowState {
   const rawState = useWorkflowStore.getState(channelId).getWorkflowState()
+  const workflowId = useWorkflowRegistry.getState().getActiveWorkflowId(channelId)
 
   // Merge subblock values to get complete state
-  const blocksWithSubblockValues = mergeSubblockState(rawState.blocks)
+  const blocksWithSubblockValues = workflowId
+    ? mergeSubblockState(rawState.blocks, workflowId)
+    : rawState.blocks
 
   // Clean the state - only include essential fields
   return {
@@ -196,8 +200,8 @@ export const useCopilotTrainingStore = create<CopilotTrainingState>()(
         // Compute the edit sequence
         const { operations, summary } = computeEditSequence(sanitizedStart, sanitizedEnd)
 
-        // Get workflow ID from the store
-        const { activeWorkflowId } = useWorkflowStore.getState(channelId) as any
+        // Get workflow ID from the registry for this channel
+        const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId(channelId)
 
         const dataset: TrainingDataset = {
           id: crypto.randomUUID(),

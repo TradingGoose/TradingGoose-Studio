@@ -1,4 +1,4 @@
-import { DropboxIcon } from '@/components/icons'
+import { DropboxIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { DropboxResponse } from '@/tools/dropbox/types'
@@ -37,6 +37,7 @@ export const DropboxBlock: BlockConfig<DropboxResponse> = {
       id: 'credential',
       title: 'Dropbox Account',
       type: 'oauth-input',
+      provider: 'dropbox',
       serviceId: 'dropbox',
       requiredScopes: [
         'account_info.read',
@@ -232,13 +233,13 @@ export const DropboxBlock: BlockConfig<DropboxResponse> = {
     {
       id: 'expires',
       title: 'Expiration Date',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: '2025-12-31T23:59:59Z',
       condition: { field: 'operation', value: 'dropbox_create_shared_link' },
       wandConfig: {
         enabled: true,
         prompt: `Generate an ISO 8601 timestamp based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "in 1 week" -> Calculate 7 days from now at 23:59:59Z
 - "end of month" -> Calculate last day of current month at 23:59:59Z

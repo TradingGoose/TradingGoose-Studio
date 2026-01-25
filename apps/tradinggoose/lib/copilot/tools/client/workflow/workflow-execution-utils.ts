@@ -55,7 +55,7 @@ export interface WorkflowExecutionContext {
  * Get the current workflow execution context from stores
  */
 export function getWorkflowExecutionContext(): WorkflowExecutionContext {
-  const { activeWorkflowId } = useWorkflowRegistry.getState()
+  const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
   if (!activeWorkflowId) {
     throw new Error('No active workflow found')
   }
@@ -128,7 +128,7 @@ export async function executeWorkflowWithLogging(
   })
 
   // Merge subblock states from the appropriate store
-  const mergedStates = mergeSubblockState(validBlocks)
+  const mergedStates = mergeSubblockState(validBlocks, activeWorkflowId)
 
   // Don't filter out trigger blocks - let the executor handle them properly
   // The standard executor has TriggerBlockHandler that knows how to handle triggers

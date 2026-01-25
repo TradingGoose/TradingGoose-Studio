@@ -1,5 +1,6 @@
 import type { JSX, SVGProps } from 'react'
 import type { ToolResponse } from '@/tools/types'
+import type { TimeFormat } from '@/lib/time-format'
 
 export type BlockIcon = (props: SVGProps<SVGSVGElement>) => JSX.Element
 export type ParamType = 'string' | 'number' | 'boolean' | 'json' | 'array'
@@ -57,7 +58,7 @@ export type SubBlockType =
   | 'datetime-input' // Date + time input
   | 'oauth-input' // OAuth credential selector
   | 'webhook-config' // Webhook configuration
-  | 'trigger-config' // Trigger configuration
+  | 'trigger-save' // Trigger save button with validation
   | 'schedule-config' // Schedule status and information
   | 'file-selector' // File selector for Google Drive, etc.
   | 'project-selector' // Project selector for Jira, Discord, etc.
@@ -76,6 +77,7 @@ export type SubBlockType =
   | 'file-upload' // File uploader
   | 'input-mapping' // Map parent variables to child workflow input schema
   | 'variables-input' // Variable assignments for updating workflow variables
+  | 'text' // Read-only text display
 
 export type SubBlockLayout = 'full' | 'half'
 
@@ -125,9 +127,30 @@ export interface SubBlockConfig {
   title?: string
   type: SubBlockType
   layout?: SubBlockLayout
-  mode?: 'basic' | 'advanced' | 'both' // Default is 'both' if not specified
+  mode?: 'basic' | 'advanced' | 'both' | 'trigger' // Default is 'both' if not specified
   canonicalParamId?: string
-  required?: boolean
+  required?:
+    | boolean
+    | {
+        field: string
+        value: string | number | boolean | Array<string | number | boolean>
+        not?: boolean
+        and?: {
+          field: string
+          value: string | number | boolean | Array<string | number | boolean> | undefined
+          not?: boolean
+        }
+      }
+    | (() => {
+        field: string
+        value: string | number | boolean | Array<string | number | boolean>
+        not?: boolean
+        and?: {
+          field: string
+          value: string | number | boolean | Array<string | number | boolean> | undefined
+          not?: boolean
+        }
+      })
   defaultValue?: string | number | boolean | Record<string, unknown> | Array<unknown>
   options?:
   | {
@@ -153,9 +176,11 @@ export interface SubBlockConfig {
   max?: number
   columns?: string[]
   placeholder?: string
+  format?: TimeFormat
   timezone?: string
   clearable?: boolean
   hideCalendarIcon?: boolean
+  inputType?: 'text' | 'number'
   minDate?: string | Date
   maxDate?: string | Date
   hideTime?: boolean
@@ -166,11 +191,16 @@ export interface SubBlockConfig {
     second?: boolean
   }
   password?: boolean
+  readOnly?: boolean
+  showCopyButton?: boolean
   enableSearch?: boolean
   searchPlaceholder?: string
   connectionDroppable?: boolean
   hidden?: boolean
+  hideFromPreview?: boolean
+  requiresFeature?: string
   description?: string
+  tooltip?: string
   value?: (params: Record<string, any>) => string
   grouped?: boolean
   scrollable?: boolean
@@ -198,12 +228,15 @@ export interface SubBlockConfig {
     }
   })
   // Props specific to 'code' sub-block type
-  language?: 'javascript' | 'json'
+  language?: 'javascript' | 'json' | 'python'
   generationType?: GenerationType
+  collapsible?: boolean
+  defaultCollapsed?: boolean
   // OAuth specific properties
   provider?: string
   serviceId?: string
   requiredScopes?: string[]
+  supportsCredentialSets?: boolean
   // File selector specific properties
   mimeType?: string
   // File upload specific properties
@@ -230,7 +263,17 @@ export interface SubBlockConfig {
   triggerProvider?: string // Which provider's triggers to show
   // Declarative dependency hints for cross-field clearing or invalidation
   // Example: dependsOn: ['credential'] means this field should be cleared when credential changes
-  dependsOn?: string[]
+  dependsOn?: string[] | { all?: string[]; any?: string[] }
+  // Copyable-text specific: Use webhook URL from webhook management hook
+  useWebhookUrl?: boolean
+  // Trigger-save specific: The trigger ID for validation and saving
+  triggerId?: string
+  // Dropdown/Combobox: Function to fetch a single option's label by ID (for hydration)
+  fetchOptionById?: (
+    blockId: string,
+    subBlockId: string,
+    optionId: string
+  ) => Promise<{ label: string; id: string } | null>
 }
 
 export interface BlockConfig<T extends ToolResponse = ToolResponse> {

@@ -1,7 +1,8 @@
 'use client'
 
 import { Component, type ReactNode, useEffect } from 'react'
-import { BotIcon } from 'lucide-react'
+import { CircleX } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { createLogger } from '@/lib/logs/console/logger'
 
@@ -16,8 +17,8 @@ interface ErrorUIProps {
 }
 
 export function ErrorUI({
-  title = 'Workflow Error',
-  message = 'This workflow encountered an error and is currently unavailable. Please try again later or create a new workflow.',
+  title = "Workflow Error",
+  message = "This workflow encountered an error and is currently unavailable. Please try again later or create a new workflow.",
   onReset,
   fullScreen = false,
 }: ErrorUIProps) {
@@ -33,10 +34,17 @@ export function ErrorUI({
         <div className='flex flex-1 items-center justify-center'>
           <Card className='max-w-md space-y-4 p-6 text-center'>
             <div className='flex justify-center'>
-              <BotIcon className='h-16 w-16 text-muted-foreground' />
+              <CircleX className='h-16 w-16 text-muted-foreground' />
             </div>
             <h3 className='font-semibold text-lg'>{title}</h3>
             <p className='text-muted-foreground'>{message}</p>
+            {onReset ? (
+              <div className='flex justify-center'>
+                <Button type='button' variant='outline' onClick={onReset}>
+                  Try again
+                </Button>
+              </div>
+            ) : null}
           </Card>
         </div>
       </div>
@@ -85,7 +93,13 @@ export function NextError({ error, reset }: NextErrorProps) {
     logger.error('Workflow error:', { error })
   }, [error])
 
-  return <ErrorUI onReset={reset} />
+  return (
+    <ErrorUI
+      title='Application Error'
+      message='Something went wrong with the application. Please try again later.'
+      onReset={reset}
+    />
+  )
 }
 
 // ======== Next.js Global Error Page Component ========

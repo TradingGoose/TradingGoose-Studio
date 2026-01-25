@@ -1,4 +1,4 @@
-import { TwilioIcon } from '@/components/icons'
+import { TwilioIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { ToolResponse } from '@/tools/types'
@@ -100,6 +100,7 @@ export const TwilioVoiceBlock: BlockConfig<ToolResponse> = {
       id: 'timeout',
       title: 'Timeout (seconds)',
       type: 'short-input',
+      inputType: 'number',
       placeholder: '60',
       condition: {
         field: 'operation',
@@ -183,7 +184,8 @@ export const TwilioVoiceBlock: BlockConfig<ToolResponse> = {
     {
       id: 'startTimeAfter',
       title: 'After (YYYY-MM-DD)',
-      type: 'short-input',
+      type: 'datetime-input',
+      hideTime: true,
       placeholder: '2025-01-01',
       condition: {
         field: 'operation',
@@ -208,7 +210,8 @@ Return ONLY the date string in YYYY-MM-DD format - no explanations, no quotes, n
     {
       id: 'startTimeBefore',
       title: 'Before (YYYY-MM-DD)',
-      type: 'short-input',
+      type: 'datetime-input',
+      hideTime: true,
       placeholder: '2025-12-31',
       condition: {
         field: 'operation',

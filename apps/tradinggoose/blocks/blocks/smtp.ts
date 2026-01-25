@@ -1,4 +1,4 @@
-import { SmtpIcon } from '@/components/icons'
+import { SmtpIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { SmtpSendMailResult } from '@/tools/smtp/types'

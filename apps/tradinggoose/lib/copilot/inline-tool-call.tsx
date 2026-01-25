@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import useDrivePicker from 'react-google-drive-picker'
-import { GoogleDriveIcon } from '@/components/icons'
+import { GoogleDriveIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { getClientTool } from '@/lib/copilot/tools/client/manager'

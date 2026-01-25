@@ -60,15 +60,14 @@ function resolveResolution(interval?: string): string {
 
 type FinnhubEndpoint = 'stock' | 'forex' | 'crypto'
 
-function resolveTimeRange(request: MarketSeriesRequest): { from: number; to: number } {
-  const nowSeconds = Math.floor(Date.now() / 1000)
+function resolveTimeRange(
+  request: MarketSeriesRequest
+): { from?: number; to?: number } {
+  const to = toUnixSeconds(request.end)
+  const from = toUnixSeconds(request.start)
 
-  const to = toUnixSeconds(request.end) ?? nowSeconds
-  const explicitFrom = toUnixSeconds(request.start)
-  const from = explicitFrom ?? nowSeconds - 30 * 24 * 60 * 60
-
-  if (from >= to) {
-    return { from: nowSeconds - 30 * 24 * 60 * 60, to: nowSeconds }
+  if (from != null && to != null && from >= to) {
+    return { from, to: undefined }
   }
 
   return { from, to }
@@ -123,11 +122,13 @@ export async function fetchFinnhubSeries(
 
   const symbol = resolveProviderSymbol(finnhubProviderConfig, context)
   const { from, to } = resolveTimeRange(request)
+  if (from == null || to == null) {
+    throw new Error('Finnhub series requests require explicit start and end times')
+  }
   const interval = request.interval || (request.providerParams?.interval as string | undefined)
   const resolution = resolveResolution(interval)
 
-  const apiKey =
-    (request.providerParams?.apiKey as string | undefined) || process.env.FINNHUB_API_KEY
+  const apiKey = request.auth?.apiKey || process.env.FINNHUB_API_KEY
 
   if (!apiKey) {
     throw new Error('Finnhub API key is required')

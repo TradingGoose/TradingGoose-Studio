@@ -358,8 +358,8 @@ function extractInputs(metadata: CopilotBlockMetadata): {
       continue
     }
 
-    // Skip trigger config (only relevant when setting up triggers)
-    if (schema.id === 'triggerConfig' || schema.type === 'trigger-config') {
+    // Skip internal trigger config payloads
+    if (schema.id === 'triggerConfig') {
       continue
     }
 

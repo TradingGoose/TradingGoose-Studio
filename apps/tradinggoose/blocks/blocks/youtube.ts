@@ -1,4 +1,4 @@
-import { YouTubeIcon } from '@/components/icons'
+import { YouTubeIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { YouTubeResponse } from '@/tools/youtube/types'

@@ -1,4 +1,4 @@
-import { TrelloIcon } from '@/components/icons'
+import { TrelloIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { ToolResponse } from '@/tools/types'
@@ -41,6 +41,7 @@ export const TrelloBlock: BlockConfig<ToolResponse> = {
       id: 'credential',
       title: 'Trello Account',
       type: 'oauth-input',
+      provider: 'trello',
       serviceId: 'trello',
       requiredScopes: ['read', 'write'],
       placeholder: 'Select Trello account',
@@ -142,8 +143,8 @@ export const TrelloBlock: BlockConfig<ToolResponse> = {
     {
       id: 'due',
       title: 'Due Date',
-      type: 'short-input',
-      placeholder: 'YYYY-MM-DD or ISO 8601',
+      type: 'datetime-input',
+      placeholder: 'YYYY-MM-DD or YYYY-MM-DDTHH:mm:ssZ',
       condition: {
         field: 'operation',
         value: 'trello_create_card',
@@ -151,13 +152,13 @@ export const TrelloBlock: BlockConfig<ToolResponse> = {
       wandConfig: {
         enabled: true,
         prompt: `Generate a date or timestamp based on the user's description.
-The timestamp should be in ISO 8601 format: YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in ISO 8601 format: YYYY-MM-DD or YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "tomorrow" -> Calculate tomorrow's date in YYYY-MM-DD format
 - "next Friday" -> Calculate the next Friday in YYYY-MM-DD format
 - "in 3 days" -> Calculate 3 days from now in YYYY-MM-DD format
 - "end of month" -> Calculate the last day of the current month
-- "next week at 3pm" -> Calculate next week's date at 15:00:00Z
+- "next week at 3pm UTC" -> Calculate next week's date at 15:00:00Z
 
 Return ONLY the date/timestamp string - no explanations, no quotes, no extra text.`,
         placeholder: 'Describe the due date (e.g., "next Friday", "in 2 weeks")...',
@@ -244,8 +245,8 @@ Return ONLY the date/timestamp string - no explanations, no quotes, no extra tex
     {
       id: 'due',
       title: 'Due Date',
-      type: 'short-input',
-      placeholder: 'YYYY-MM-DD or ISO 8601',
+      type: 'datetime-input',
+      placeholder: 'YYYY-MM-DD or YYYY-MM-DDTHH:mm:ssZ',
       condition: {
         field: 'operation',
         value: 'trello_update_card',
@@ -253,13 +254,13 @@ Return ONLY the date/timestamp string - no explanations, no quotes, no extra tex
       wandConfig: {
         enabled: true,
         prompt: `Generate a date or timestamp based on the user's description.
-The timestamp should be in ISO 8601 format: YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in ISO 8601 format: YYYY-MM-DD or YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "tomorrow" -> Calculate tomorrow's date in YYYY-MM-DD format
 - "next Friday" -> Calculate the next Friday in YYYY-MM-DD format
 - "in 3 days" -> Calculate 3 days from now in YYYY-MM-DD format
 - "end of month" -> Calculate the last day of the current month
-- "next week at 3pm" -> Calculate next week's date at 15:00:00Z
+- "next week at 3pm UTC" -> Calculate next week's date at 15:00:00Z
 
 Return ONLY the date/timestamp string - no explanations, no quotes, no extra text.`,
         placeholder: 'Describe the due date (e.g., "next Friday", "in 2 weeks")...',

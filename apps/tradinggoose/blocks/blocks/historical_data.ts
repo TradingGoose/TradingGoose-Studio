@@ -1,4 +1,4 @@
-import { ChartBarIcon } from '@/components/icons'
+import { ChartBarIcon } from '@/components/icons/icons'
 import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { MarketSeriesOutput } from '@/tools/market_data'
@@ -311,11 +311,20 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
       tool: () => 'historical_data_fetch',
       params: (params) => {
         const resolvedProviderParams: Record<string, any> = {}
+        const auth: { apiKey?: string; apiSecret?: string } = {}
         providerParamIds.forEach((paramId) => {
           const entry = providerParamRegistry[paramId]
           if (!entry) return
           const value = coerceMarketProviderParamValue(entry.definition, params[paramId])
           if (value !== undefined) {
+            if (paramId === 'apiKey') {
+              auth.apiKey = value as string
+              return
+            }
+            if (paramId === 'apiSecret') {
+              auth.apiSecret = value as string
+              return
+            }
             resolvedProviderParams[paramId] = value
           }
         })
@@ -323,18 +332,18 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
         const interval = sanitizeInterval(params.provider, params.interval)
         const normalizationMode = sanitizeNormalizationMode(params.provider, params.normalizationMode)
 
-        let mergedProviderParams: Record<string, any> | undefined =
+        let providerParams: Record<string, any> | undefined =
           Object.keys(resolvedProviderParams).length ? resolvedProviderParams : undefined
 
-        if (mergedProviderParams) {
+        if (providerParams) {
           if (interval === undefined) {
-            delete mergedProviderParams.interval
+            delete providerParams.interval
           }
           if (normalizationMode === undefined) {
-            delete mergedProviderParams.normalizationMode
+            delete providerParams.normalizationMode
           }
-          if (!Object.keys(mergedProviderParams).length) {
-            mergedProviderParams = undefined
+          if (!Object.keys(providerParams).length) {
+            providerParams = undefined
           }
         }
 
@@ -345,7 +354,9 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
           start: params.start,
           end: params.end,
           normalizationMode,
-          providerParams: mergedProviderParams,
+          providerParams,
+          apiKey: auth.apiKey,
+          apiSecret: auth.apiSecret,
           ...resolvedProviderParams,
         }
       },

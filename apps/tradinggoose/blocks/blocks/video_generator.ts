@@ -1,4 +1,4 @@
-import { VideoIcon } from '@/components/icons'
+import { VideoIcon } from '@/components/icons/icons'
 import { AuthMode, type BlockConfig } from '@/blocks/types'
 import type { VideoBlockResponse } from '@/tools/video/types'
 

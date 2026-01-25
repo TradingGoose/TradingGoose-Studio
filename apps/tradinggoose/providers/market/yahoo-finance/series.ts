@@ -84,10 +84,13 @@ function buildChartUrl(symbol: string, request: MarketSeriesRequest): string {
   const period1 = toUnixSeconds(request.start)
   const period2 = toUnixSeconds(request.end)
   const isIntraday = /m$/i.test(interval) || /h$/i.test(interval)
+  const rangeOverride = request.providerParams?.range as string | undefined
 
   if (period1 && period2) {
     params.set('period1', String(period1))
     params.set('period2', String(period2))
+  } else if (rangeOverride) {
+    params.set('range', rangeOverride)
   } else {
     params.set('range', isIntraday ? '7d' : '1mo')
   }
@@ -175,7 +178,7 @@ export async function fetchYahooFinanceSeries(
     primaryMicCode: context.micCode ?? context.primaryMicCode,
     start,
     end,
-    timezone: result.meta?.exchangeTimezoneName || context.timeZoneName,
+    timezone: context.timeZoneName,
     normalizationMode: request.normalizationMode,
     bars,
   }

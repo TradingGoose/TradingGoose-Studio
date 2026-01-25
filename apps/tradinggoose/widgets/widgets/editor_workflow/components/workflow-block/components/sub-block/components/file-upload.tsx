@@ -18,7 +18,7 @@ import { Progress } from '@/components/ui/progress'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { WorkspaceFileRecord } from '@/lib/uploads/contexts/workspace'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowId, useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 
@@ -78,7 +78,8 @@ export function FileUpload({
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Stores
-  const { activeWorkflowId } = useWorkflowRegistry()
+  const registryWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId())
+  const activeWorkflowId = useWorkflowId() || registryWorkflowId || null
   const workspaceId = useWorkspaceId()
 
   // Use preview value when in preview mode, otherwise use store value

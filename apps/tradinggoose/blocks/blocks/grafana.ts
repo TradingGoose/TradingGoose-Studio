@@ -1,4 +1,4 @@
-import { GrafanaIcon } from '@/components/icons'
+import { GrafanaIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { GrafanaResponse } from '@/tools/grafana/types'
@@ -455,6 +455,7 @@ Return ONLY the annotation text - no explanations, no quotes, no extra text.`,
       id: 'time',
       title: 'Time (epoch ms)',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'Optional - defaults to now',
       condition: {
         field: 'operation',
@@ -478,6 +479,7 @@ Return ONLY the numeric timestamp - no explanations, no quotes, no extra text.`,
       id: 'timeEnd',
       title: 'End Time (epoch ms)',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'Optional - for range annotations',
       condition: {
         field: 'operation',
@@ -512,6 +514,7 @@ Return ONLY the numeric timestamp - no explanations, no quotes, no extra text.`,
       id: 'from',
       title: 'From Time (epoch ms)',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'Filter from time',
       condition: { field: 'operation', value: 'grafana_list_annotations' },
       wandConfig: {
@@ -532,6 +535,7 @@ Return ONLY the numeric timestamp - no explanations, no quotes, no extra text.`,
       id: 'to',
       title: 'To Time (epoch ms)',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'Filter to time',
       condition: { field: 'operation', value: 'grafana_list_annotations' },
       wandConfig: {

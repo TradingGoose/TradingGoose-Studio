@@ -1,4 +1,4 @@
-import { ConnectIcon } from '@/components/icons'
+import { ConnectIcon } from '@/components/icons/icons'
 import { isHosted } from '@/lib/environment'
 import { AuthMode, type BlockConfig } from '@/blocks/types'
 import type { ProviderId } from '@/providers/ai/types'
@@ -64,8 +64,8 @@ Key Instructions:
 
 Available Target Blocks:
 ${targetBlocks
-  .map(
-    (block) => `
+      .map(
+        (block) => `
 ID: ${block.id}
 Type: ${block.type}
 Title: ${block.title}
@@ -74,8 +74,8 @@ System Prompt: ${JSON.stringify(block.subBlocks?.systemPrompt || '')}
 Configuration: ${JSON.stringify(block.subBlocks, null, 2)}
 ${block.currentState ? `Current State: ${JSON.stringify(block.currentState, null, 2)}` : ''}
 ---`
-  )
-  .join('\n')}
+      )
+      .join('\n')}
 
 Routing Instructions:
 1. Analyze the input request carefully against each block's:
@@ -158,15 +158,15 @@ export const RouterBlock: BlockConfig<RouterResponse> = {
       // Hide API key for hosted models and Ollama models
       condition: isHosted
         ? () => ({
-            field: 'model',
-            value: getHostedModels(),
-            not: true, // Show for all models EXCEPT those listed
-          })
+          field: 'model',
+          value: getHostedModels(),
+          not: true, // Show for all models EXCEPT those listed
+        })
         : () => ({
-            field: 'model',
-            value: getCurrentOllamaModels(),
-            not: true, // Show for all models EXCEPT Ollama models
-          }),
+          field: 'model',
+          value: getCurrentOllamaModels(),
+          not: true, // Show for all models EXCEPT Ollama models
+        }),
     },
     {
       id: 'azureEndpoint',

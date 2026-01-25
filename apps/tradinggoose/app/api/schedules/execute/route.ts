@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
             cronExpression: schedule.cronExpression || undefined,
             lastRanAt: schedule.lastRanAt?.toISOString(),
             failedCount: schedule.failedCount || 0,
+            timezone: schedule.timezone,
             now: now.toISOString(),
           }
 
@@ -75,6 +76,7 @@ export async function GET(request: NextRequest) {
           cronExpression: schedule.cronExpression || undefined,
           lastRanAt: schedule.lastRanAt?.toISOString(),
           failedCount: schedule.failedCount || 0,
+          timezone: schedule.timezone,
           now: now.toISOString(),
         }
 

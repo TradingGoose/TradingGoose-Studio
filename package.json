@@ -25,7 +25,9 @@
     "check": "bunx biome check --files-ignore-unknown=true",
     "prepare": "bun husky",
     "type-check": "turbo run type-check",
-    "release": "bun run scripts/create-single-release.ts"
+    "release": "bun run scripts/create-single-release.ts",
+    "db:generate": "cd ./packages/db && drizzle-kit generate --config=./drizzle.config.ts",
+    "db:migrate": "cd ./packages/db && drizzle-kit migrate --config=./drizzle.config.ts"
   },
   "overrides": {
     "react": "19.1.0",
@@ -41,6 +43,7 @@
     "@tanstack/react-query": "5.90.8",
     "cronstrue": "3.3.0",
     "drizzle-orm": "^0.44.5",
+    "klinecharts": "10.0.0-beta1",
     "mongodb": "6.19.0",
     "postgres": "^3.4.5",
     "react-day-picker": "^9",

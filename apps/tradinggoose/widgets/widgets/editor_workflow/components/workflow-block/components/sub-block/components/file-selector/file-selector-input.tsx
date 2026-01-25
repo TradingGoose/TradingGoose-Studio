@@ -38,8 +38,8 @@ export function FileSelectorInput({
   previewContextValues,
 }: FileSelectorInputProps) {
   const { collaborativeSetSubblockValue } = useCollaborativeWorkflow()
-  const { activeWorkflowId } = useWorkflowRegistry()
-  const workflowIdFromUrl = useWorkflowId() || activeWorkflowId || ''
+  const registryWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId())
+  const workflowIdFromUrl = useWorkflowId() || registryWorkflowId || ''
   // Central dependsOn gating for this selector instance
   const { finalDisabled } = useDependsOnGate(blockId, subBlock, { disabled, isPreview })
 

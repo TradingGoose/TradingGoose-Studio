@@ -1,4 +1,4 @@
-import { SQSIcon } from '@/components/icons'
+import { SQSIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import type { SqsResponse } from '@/tools/sqs/types'
 

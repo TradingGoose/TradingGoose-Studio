@@ -1,9 +1,19 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import type { MarketBar, MarketSeries, MarketSeriesRequest, NormalizationMode } from '@/providers/market/types'
+import type {
+  MarketBar,
+  MarketSeries,
+  MarketSeriesRequest,
+  MarketProviderAuth,
+  NormalizationMode,
+} from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 import { alphaVantageProviderConfig } from '@/providers/market/alpha-vantage/config'
 
 const logger = createLogger('MarketProvider:AlphaVantage')
+
+const PROVIDER_UTC_OFFSET = Number.isFinite(alphaVantageProviderConfig.utcOffset)
+  ? alphaVantageProviderConfig.utcOffset ?? 0
+  : 0
 
 const DEFAULT_INTERVAL = '1d'
 
@@ -30,8 +40,8 @@ function resolveInterval(request: MarketSeriesRequest): string {
   return request.interval || (request.providerParams?.interval as string | undefined) || DEFAULT_INTERVAL
 }
 
-function resolveApiKey(params?: Record<string, any>): string | undefined {
-  return (params?.apiKey as string | undefined) || process.env.ALPHAVANTAGE_API_KEY
+function resolveApiKey(auth?: MarketProviderAuth): string | undefined {
+  return auth?.apiKey || process.env.ALPHAVANTAGE_API_KEY
 }
 
 function isIntradayInterval(interval: string): interval is keyof typeof INTRADAY_INTERVAL_MAP {
@@ -83,19 +93,9 @@ function resolveCryptoFunction(interval: string): { functionName: string; interv
   return { functionName: 'DIGITAL_CURRENCY_DAILY', type: 'digital' }
 }
 
-function extractSeries(payload: Record<string, any>): { series?: Record<string, any>; meta?: Record<string, string> } {
-  const meta = (payload['Meta Data'] || payload['Meta data'] || payload['MetaData']) as
-    | Record<string, string>
-    | undefined
+function extractSeries(payload: Record<string, any>): Record<string, any> | undefined {
   const seriesKey = Object.keys(payload).find((key) => /Time Series/i.test(key))
-  const series = seriesKey ? (payload[seriesKey] as Record<string, any>) : undefined
-  return { series, meta }
-}
-
-function extractTimezone(meta?: Record<string, string>): string | undefined {
-  if (!meta) return undefined
-  const key = Object.keys(meta).find((entry) => /time zone/i.test(entry))
-  return key ? meta[key] : undefined
+  return seriesKey ? (payload[seriesKey] as Record<string, any>) : undefined
 }
 
 function toMillis(value?: string | number): number | undefined {
@@ -110,12 +110,37 @@ function toMillis(value?: string | number): number | undefined {
   return undefined
 }
 
-function toIsoTimestamp(raw: string): string | undefined {
+const HAS_TZ_SUFFIX = /([zZ]|[+-]\d{2}:?\d{2})$/
+
+function formatUtcOffset(utcOffsetHours: number): string {
+  if (!Number.isFinite(utcOffsetHours)) return '+00:00'
+  const sign = utcOffsetHours >= 0 ? '+' : '-'
+  const absolute = Math.abs(utcOffsetHours)
+  const rawHours = Math.floor(absolute)
+  const rawMinutes = Math.round((absolute - rawHours) * 60)
+  const carryHours = rawMinutes >= 60 ? rawHours + 1 : rawHours
+  const minutes = rawMinutes >= 60 ? 0 : rawMinutes
+  const hours = String(carryHours).padStart(2, '0')
+  const mins = String(minutes).padStart(2, '0')
+  return `${sign}${hours}:${mins}`
+}
+
+function toIsoTimestamp(raw: string, utcOffsetHours: number): string | undefined {
   if (!raw) return undefined
-  const normalized = raw.includes(' ')
-    ? `${raw.replace(' ', 'T')}Z`
-    : `${raw}T00:00:00Z`
-  const date = new Date(normalized)
+  const trimmed = raw.trim()
+  if (!trimmed) return undefined
+  if (HAS_TZ_SUFFIX.test(trimmed)) {
+    const date = new Date(trimmed)
+    return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
+  }
+
+  const normalized = trimmed.includes('T')
+    ? trimmed
+    : trimmed.includes(' ')
+      ? trimmed.replace(' ', 'T')
+      : `${trimmed}T00:00:00`
+  const offset = formatUtcOffset(utcOffsetHours)
+  const date = new Date(`${normalized}${offset}`)
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
 }
 
@@ -197,7 +222,7 @@ function parseBars(
   const bars: MarketBar[] = []
 
   Object.entries(series).forEach(([timestamp, entry]) => {
-    const timeStamp = toIsoTimestamp(timestamp)
+    const timeStamp = toIsoTimestamp(timestamp, PROVIDER_UTC_OFFSET)
     if (!timeStamp || !entry || typeof entry !== 'object') return
 
     const parsed =
@@ -242,7 +267,7 @@ function filterBarsByRange(
 export async function fetchAlphaVantageSeries(
   request: MarketSeriesRequest
 ): Promise<MarketSeries> {
-  const apiKey = resolveApiKey(request.providerParams)
+  const apiKey = resolveApiKey(request.auth)
   if (!apiKey) {
     throw new Error('Alpha Vantage API key is required')
   }
@@ -340,7 +365,7 @@ export async function fetchAlphaVantageSeries(
     throw new Error(message)
   }
 
-  const { series, meta } = extractSeries(payload)
+  const series = extractSeries(payload)
   if (!series || !Object.keys(series).length) {
     throw new Error('No series data returned')
   }
@@ -353,8 +378,6 @@ export async function fetchAlphaVantageSeries(
     throw new Error('No data returned for the requested time range')
   }
 
-  const timezone = extractTimezone(meta) || context.timeZoneName
-
   return {
     listing: context.listing,
     listingBase: context.base,
@@ -362,7 +385,7 @@ export async function fetchAlphaVantageSeries(
     primaryMicCode: context.micCode ?? context.primaryMicCode,
     start: filteredBars[0]?.timeStamp,
     end: filteredBars[filteredBars.length - 1]?.timeStamp,
-    timezone,
+    timezone: context.timeZoneName,
     normalizationMode: request.normalizationMode,
     bars: filteredBars,
   }

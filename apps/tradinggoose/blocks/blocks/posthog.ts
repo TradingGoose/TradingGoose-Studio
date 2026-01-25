@@ -1,4 +1,4 @@
-import { PosthogIcon } from '@/components/icons'
+import { PosthogIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { PostHogResponse } from '@/tools/posthog/types'
@@ -244,13 +244,13 @@ Return ONLY the JSON object.`,
     {
       id: 'timestamp',
       title: 'Timestamp (ISO 8601)',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: '2024-01-01T12:00:00Z',
       condition: { field: 'operation', value: 'posthog_capture_event' },
       wandConfig: {
         enabled: true,
         prompt: `Generate an ISO 8601 timestamp based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "now" -> Current timestamp in ISO 8601 format
 - "yesterday at 3pm" -> Yesterday's date at 15:00:00Z
@@ -414,13 +414,13 @@ Return ONLY the JSON array.`,
     {
       id: 'before',
       title: 'Before (ISO 8601)',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: '2024-01-01T12:00:00Z',
       condition: { field: 'operation', value: 'posthog_list_events' },
       wandConfig: {
         enabled: true,
         prompt: `Generate an ISO 8601 timestamp based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "today" -> Today's date at 00:00:00Z
 - "this week" -> The start of this week at 00:00:00Z
@@ -434,13 +434,13 @@ Return ONLY the timestamp string - no explanations, no quotes, no extra text.`,
     {
       id: 'after',
       title: 'After (ISO 8601)',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: '2024-01-01T00:00:00Z',
       condition: { field: 'operation', value: 'posthog_list_events' },
       wandConfig: {
         enabled: true,
         prompt: `Generate an ISO 8601 timestamp based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "yesterday" -> Yesterday's date at 00:00:00Z
 - "last week" -> 7 days ago at 00:00:00Z
@@ -793,14 +793,14 @@ Return ONLY the annotation text.`,
     {
       id: 'dateMarker',
       title: 'Date Marker (ISO 8601)',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: '2024-01-01T12:00:00Z',
       condition: { field: 'operation', value: 'posthog_create_annotation' },
       required: true,
       wandConfig: {
         enabled: true,
         prompt: `Generate an ISO 8601 timestamp based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "today" -> Today's date at 00:00:00Z
 - "when we launched" -> Parse the contextual date if given, otherwise today
@@ -849,13 +849,13 @@ Return ONLY the timestamp string - no explanations, no quotes, no extra text.`,
     {
       id: 'experimentStartDate',
       title: 'Start Date (ISO 8601)',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: '2024-01-01T00:00:00Z',
       condition: { field: 'operation', value: 'posthog_create_experiment' },
       wandConfig: {
         enabled: true,
         prompt: `Generate an ISO 8601 timestamp based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "today" -> Today's date at 00:00:00Z
 - "next Monday" -> Next Monday's date at 00:00:00Z
@@ -869,13 +869,13 @@ Return ONLY the timestamp string - no explanations, no quotes, no extra text.`,
     {
       id: 'experimentEndDate',
       title: 'End Date (ISO 8601)',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: '2024-12-31T23:59:59Z',
       condition: { field: 'operation', value: 'posthog_create_experiment' },
       wandConfig: {
         enabled: true,
         prompt: `Generate an ISO 8601 timestamp based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "in 2 weeks" -> 14 days from now at 23:59:59Z
 - "end of month" -> Last day of current month at 23:59:59Z
@@ -976,7 +976,7 @@ Return ONLY the JSON array.`,
     {
       id: 'surveyStartDate',
       title: 'Start Date (ISO 8601)',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: '2024-01-01T00:00:00Z',
       condition: {
         field: 'operation',
@@ -985,7 +985,7 @@ Return ONLY the JSON array.`,
       wandConfig: {
         enabled: true,
         prompt: `Generate an ISO 8601 timestamp based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "now" -> Current timestamp
 - "tomorrow" -> Tomorrow's date at 00:00:00Z
@@ -999,7 +999,7 @@ Return ONLY the timestamp string - no explanations, no quotes, no extra text.`,
     {
       id: 'surveyEndDate',
       title: 'End Date (ISO 8601)',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: '2024-12-31T23:59:59Z',
       condition: {
         field: 'operation',
@@ -1008,7 +1008,7 @@ Return ONLY the timestamp string - no explanations, no quotes, no extra text.`,
       wandConfig: {
         enabled: true,
         prompt: `Generate an ISO 8601 timestamp based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "in 1 month" -> 30 days from now at 23:59:59Z
 - "end of quarter" -> Last day of current quarter at 23:59:59Z

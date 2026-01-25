@@ -1,4 +1,4 @@
-import { GoogleSlidesIcon } from '@/components/icons'
+import { GoogleSlidesIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { GoogleSlidesResponse } from '@/tools/google_slides/types'
@@ -37,6 +37,7 @@ export const GoogleSlidesBlock: BlockConfig<GoogleSlidesResponse> = {
       title: 'Google Account',
       type: 'oauth-input',
       required: true,
+      provider: 'google-drive',
       serviceId: 'google-drive',
       requiredScopes: [
         'https://www.googleapis.com/auth/drive.file',

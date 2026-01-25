@@ -24,9 +24,7 @@ export function useDependsOnGate(
   const routeContext = useOptionalWorkflowRoute()
   const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
   const activeWorkflowId = useWorkflowRegistry((state) =>
-    typeof state.getActiveWorkflowId === 'function'
-      ? state.getActiveWorkflowId(resolvedChannelId)
-      : state.activeWorkflowId
+    state.getActiveWorkflowId(resolvedChannelId)
   )
 
   // Use only explicit dependsOn from block config. No inference.

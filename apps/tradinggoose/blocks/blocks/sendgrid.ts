@@ -1,4 +1,4 @@
-import { SendgridIcon } from '@/components/icons'
+import { SendgridIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import type { SendMailResult } from '@/tools/sendgrid/types'
 

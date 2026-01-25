@@ -14,8 +14,8 @@ import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/
 import {
   widgetHeaderControlClassName,
   widgetHeaderIconButtonClassName,
-} from '@/widgets/widgets/shared/components/widget-header-control'
-import { WorkflowDropdown } from '@/widgets/widgets/shared/components/workflow-dropdown'
+} from '@/widgets/widgets/components/widget-header-control'
+import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
 import {
   emitWorkflowSelectionChange,
   useWorkflowSelectionPersistence,

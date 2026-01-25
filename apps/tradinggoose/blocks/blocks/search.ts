@@ -1,4 +1,4 @@
-import { SearchIcon } from '@/components/icons'
+import { SearchIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 
 export const SearchBlock: BlockConfig = {

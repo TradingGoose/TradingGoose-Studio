@@ -1,4 +1,4 @@
-import { SalesforceIcon } from '@/components/icons'
+import { SalesforceIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { SalesforceResponse } from '@/tools/salesforce/types'
@@ -62,6 +62,7 @@ export const SalesforceBlock: BlockConfig<SalesforceResponse> = {
       id: 'credential',
       title: 'Salesforce Account',
       type: 'oauth-input',
+      provider: 'salesforce',
       serviceId: 'salesforce',
       requiredScopes: ['api', 'refresh_token', 'openid', 'offline_access'],
       placeholder: 'Select Salesforce account',
@@ -295,7 +296,8 @@ export const SalesforceBlock: BlockConfig<SalesforceResponse> = {
     {
       id: 'closeDate',
       title: 'Close Date',
-      type: 'short-input',
+      type: 'datetime-input',
+      hideTime: true,
       placeholder: 'YYYY-MM-DD (required for create)',
       condition: { field: 'operation', value: ['create_opportunity', 'update_opportunity'] },
       required: true,
@@ -372,7 +374,8 @@ Return ONLY the date string in YYYY-MM-DD format - no explanations, no quotes, n
     {
       id: 'activityDate',
       title: 'Due Date',
-      type: 'short-input',
+      type: 'datetime-input',
+      hideTime: true,
       placeholder: 'YYYY-MM-DD',
       condition: { field: 'operation', value: ['create_task', 'update_task'] },
       wandConfig: {

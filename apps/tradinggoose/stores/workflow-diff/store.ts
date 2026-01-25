@@ -299,7 +299,8 @@ export const useWorkflowDiffStore = create<WorkflowDiffState & WorkflowDiffActio
         },
 
         acceptChanges: async () => {
-          const { activeWorkflowId, activeWorkflowIds } = useWorkflowRegistry.getState()
+          const { activeWorkflowIds } = useWorkflowRegistry.getState()
+          const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
 
           if (!activeWorkflowId) {
             logger.error('No active workflow ID found when accepting diff')

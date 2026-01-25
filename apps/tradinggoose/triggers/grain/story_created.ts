@@ -1,4 +1,4 @@
-import { GrainIcon } from '@/components/icons'
+import { GrainIcon } from '@/components/icons/icons'
 import type { TriggerConfig } from '@/triggers/types'
 import { buildStoryOutputs, grainSetupInstructions } from './utils'
 

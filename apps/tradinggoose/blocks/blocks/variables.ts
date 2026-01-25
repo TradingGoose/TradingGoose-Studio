@@ -1,4 +1,4 @@
-import { Variable } from '@/components/icons'
+import { Variable } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 
 export const VariablesBlock: BlockConfig = {

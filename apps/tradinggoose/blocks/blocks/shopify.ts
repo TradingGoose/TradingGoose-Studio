@@ -1,4 +1,4 @@
-import { ShopifyIcon } from '@/components/icons'
+import { ShopifyIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 
@@ -60,6 +60,7 @@ export const ShopifyBlock: BlockConfig<ShopifyResponse> = {
       id: 'credential',
       title: 'Shopify Account',
       type: 'oauth-input',
+      provider: 'shopify',
       serviceId: 'shopify',
       requiredScopes: [
         'write_products',

@@ -1,4 +1,4 @@
-import { ZepIcon } from '@/components/icons'
+import { ZepIcon } from '@/components/icons/icons'
 import { AuthMode, type BlockConfig } from '@/blocks/types'
 import type { ZepResponse } from '@/tools/zep/types'
 

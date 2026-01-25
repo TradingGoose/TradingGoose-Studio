@@ -12,6 +12,7 @@ import type {
   MarketDataAvailability,
   MarketDataType,
   MarketInterval,
+  MarketSeriesWindowMode,
   MarketLiveRequest,
   MarketLiveSnapshot,
   MarketSeriesRequest,
@@ -19,6 +20,7 @@ import type {
   NormalizationMode,
 } from '@/providers/market/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
+import { AlphaVantageIcon, YahooIcon, FinnhubIcon, AlpacaIcon } from '@/components/icons/provider-icons'
 import { alphaVantageProviderConfig } from '@/providers/market/alpha-vantage/config'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
@@ -31,8 +33,19 @@ export type MarketProviderResponse = MarketSeries | MarketLiveSnapshot
 export interface MarketSeriesInputCapabilities {
   supportsInterval?: boolean
   intervals?: MarketInterval[]
-  supportsStartEnd?: boolean
+  windowModes?: MarketSeriesWindowMode[]
   normalizationModes?: NormalizationMode[]
+  retention?: MarketSeriesRetentionPolicy
+}
+
+export interface MarketSeriesRetentionRule {
+  maxRangeDays?: number
+  maxBars?: number
+}
+
+export interface MarketSeriesRetentionPolicy {
+  default?: MarketSeriesRetentionRule
+  byInterval?: Partial<Record<MarketInterval, MarketSeriesRetentionRule>>
 }
 
 export interface MarketLiveInputCapabilities {
@@ -171,24 +184,28 @@ export const MARKET_PROVIDER_DEFINITIONS: Record<string, MarketProviderDefinitio
     name: 'Alpha Vantage',
     description: 'Alpha Vantage market data (time series).',
     config: alphaVantageProviderConfig,
+    icon: AlphaVantageIcon,
   },
   alpaca: {
     id: 'alpaca',
     name: 'Alpaca',
     description: 'Alpaca market data (stock & crypto bars).',
     config: alpacaProviderConfig,
+    icon: AlpacaIcon,
   },
   'yahoo-finance': {
     id: 'yahoo-finance',
     name: 'Yahoo Finance',
     description: 'Yahoo Finance market data (charts/quotes).',
     config: YahooFinanceProviderConfig,
+    icon: YahooIcon,
   },
   finnhub: {
     id: 'finnhub',
     name: 'Finnhub',
     description: 'Finnhub market data (candles).',
     config: finnhubProviderConfig,
+    icon: FinnhubIcon,
   },
 }
 
@@ -241,10 +258,15 @@ export function getMarketProviderKinds(providerId: string): MarketDataType[] {
   return Array.from(kinds)
 }
 
-export function getMarketProviderOptions(): Array<{ id: string; name: string }> {
+export function getMarketProviderOptions(): Array<{
+  id: string
+  name: string
+  icon?: React.ComponentType<{ className?: string }>
+}> {
   return Object.values(MARKET_PROVIDER_DEFINITIONS).map((provider) => ({
     id: provider.id,
     name: provider.name,
+    icon: provider.icon,
   }))
 }
 
@@ -258,10 +280,15 @@ export function getMarketProvidersByKind(kind: MarketDataType): MarketProviderDe
 
 export function getMarketProviderOptionsByKind(
   kind: MarketDataType
-): Array<{ id: string; name: string }> {
+): Array<{
+  id: string
+  name: string
+  icon?: React.ComponentType<{ className?: string }>
+}> {
   return getMarketProvidersByKind(kind).map((provider) => ({
     id: provider.id,
     name: provider.name,
+    icon: provider.icon,
   }))
 }
 

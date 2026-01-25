@@ -95,8 +95,8 @@ export class EditWorkflowClientTool extends BaseClientTool {
       // Resolve workflowId
       let workflowId = args?.workflowId
       if (!workflowId) {
-        const { activeWorkflowId } = useWorkflowRegistry.getState()
-        workflowId = activeWorkflowId as any
+        const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
+        workflowId = activeWorkflowId ?? undefined
       }
       if (!workflowId) {
         this.setState(ClientToolCallState.error)

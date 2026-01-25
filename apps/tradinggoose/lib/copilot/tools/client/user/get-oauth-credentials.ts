@@ -44,7 +44,7 @@ export class GetOAuthCredentialsClientTool extends BaseClientTool {
       this.setState(ClientToolCallState.executing)
       const payload: GetOAuthCredentialsArgs = { ...(args || {}) }
       if (!payload.workflowId && !payload.userId) {
-        const { activeWorkflowId } = useWorkflowRegistry.getState()
+        const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
         if (activeWorkflowId) payload.workflowId = activeWorkflowId
       }
       const res = await fetch('/api/copilot/execute-copilot-server-tool', {

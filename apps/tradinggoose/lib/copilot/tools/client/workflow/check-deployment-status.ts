@@ -45,7 +45,7 @@ export class CheckDeploymentStatusClientTool extends BaseClientTool {
     try {
       this.setState(ClientToolCallState.executing)
 
-      const { activeWorkflowId } = useWorkflowRegistry.getState()
+      const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
       const workflowId = args?.workflowId || activeWorkflowId
 
       if (!workflowId) {

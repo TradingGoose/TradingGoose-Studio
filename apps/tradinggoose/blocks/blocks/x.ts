@@ -1,4 +1,4 @@
-import { xIcon } from '@/components/icons'
+import { xIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { XResponse } from '@/tools/x/types'
@@ -116,7 +116,7 @@ export const XBlock: BlockConfig<XResponse> = {
     {
       id: 'startTime',
       title: 'Start Time',
-      type: 'short-input',
+      type: 'datetime-input',
       layout: 'full',
       placeholder: 'YYYY-MM-DDTHH:mm:ssZ',
       condition: { field: 'operation', value: 'x_search' },
@@ -124,7 +124,7 @@ export const XBlock: BlockConfig<XResponse> = {
     {
       id: 'endTime',
       title: 'End Time',
-      type: 'short-input',
+      type: 'datetime-input',
       layout: 'full',
       placeholder: 'YYYY-MM-DDTHH:mm:ssZ',
       condition: { field: 'operation', value: 'x_search' },

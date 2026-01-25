@@ -10,7 +10,7 @@ const logger = createLogger('WorkflowExporter')
 /**
  * Get subblock values organized by block for the exporter
  */
-function getSubBlockValues() {
+function getSubBlockValues(workflowId?: string | null) {
   const workflowState = useWorkflowStore.getState()
   const subBlockStore = useSubBlockStore.getState()
 
@@ -19,7 +19,7 @@ function getSubBlockValues() {
     subBlockValues[blockId] = {}
     // Get all subblock values for this block
     Object.keys(workflowState.blocks[blockId].subBlocks || {}).forEach((subBlockId) => {
-      const value = subBlockStore.getValue(blockId, subBlockId)
+      const value = subBlockStore.getValue(blockId, subBlockId, workflowId ?? undefined)
       if (value !== undefined) {
         subBlockValues[blockId][subBlockId] = value
       }
@@ -34,7 +34,8 @@ function getSubBlockValues() {
  */
 export function generateFullWorkflowData() {
   const workflowState = useWorkflowStore.getState()
-  const { workflows, activeWorkflowId } = useWorkflowRegistry.getState()
+  const { workflows } = useWorkflowRegistry.getState()
+  const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
 
   const currentWorkflow = activeWorkflowId ? workflows[activeWorkflowId] : null
 
@@ -42,7 +43,7 @@ export function generateFullWorkflowData() {
     throw new Error('No active workflow found')
   }
 
-  const subBlockValues = getSubBlockValues()
+  const subBlockValues = getSubBlockValues(activeWorkflowId)
 
   return {
     workflow: {

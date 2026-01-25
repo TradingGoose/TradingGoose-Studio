@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Wand2 } from 'lucide-react'
+import { Check, Copy, Wand2 } from 'lucide-react'
 import { useReactFlow } from 'reactflow'
 import { Button } from '@/components/ui/button'
 import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
@@ -10,17 +10,33 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { useWand } from '@/hooks/workflow/use-wand'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useTagSelection } from '@/hooks/use-tag-selection'
+import { useWebhookManagement } from '@/hooks/use-webhook-management'
 
 const logger = createLogger('ShortInput')
+
+const useOptionalReactFlow = () => {
+  try {
+    return useReactFlow()
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes('[React Flow]: Seems like you have not used zustand provider')
+    ) {
+      return null
+    }
+    throw error
+  }
+}
 
 interface ShortInputProps {
   placeholder?: string
   password?: boolean
+  inputId?: string
   blockId: string
   subBlockId: string
   isConnecting: boolean
@@ -30,6 +46,11 @@ interface ShortInputProps {
   isPreview?: boolean
   previewValue?: string | null
   disabled?: boolean
+  readOnly?: boolean
+  showCopyButton?: boolean
+  useWebhookUrl?: boolean
+  workspaceId?: string
+  enableTags?: boolean
 }
 
 export function ShortInput({
@@ -37,6 +58,7 @@ export function ShortInput({
   subBlockId,
   placeholder,
   password,
+  inputId,
   isConnecting,
   config,
   onChange,
@@ -44,6 +66,11 @@ export function ShortInput({
   isPreview = false,
   previewValue,
   disabled = false,
+  readOnly = false,
+  showCopyButton = false,
+  useWebhookUrl = false,
+  workspaceId,
+  enableTags = true,
 }: ShortInputProps) {
   // Local state for immediate UI updates during streaming
   const [localContent, setLocalContent] = useState<string>('')
@@ -51,6 +78,14 @@ export function ShortInput({
   const [isFocused, setIsFocused] = useState(false)
   const [showEnvVars, setShowEnvVars] = useState(false)
   const [showTags, setShowTags] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const webhookManagement = useWebhookManagement({
+    blockId,
+    triggerId: undefined,
+    isPreview,
+    useWebhookUrl,
+  })
 
   // Wand functionality (only if wandConfig is enabled)
   const wandHook = config.wandConfig?.enabled
@@ -92,16 +127,28 @@ export function ShortInput({
 
   const emitTagSelection = useTagSelection(blockId, subBlockId)
 
-  const workspaceId = useWorkspaceId()
+  const workflowRoute = useOptionalWorkflowRoute()
+  const resolvedWorkspaceId = workspaceId ?? workflowRoute?.workspaceId
 
-  // Get ReactFlow instance for zoom control
-  const reactFlowInstance = useReactFlow()
+  // Get ReactFlow instance for zoom control (optional outside ReactFlow providers)
+  const reactFlowInstance = useOptionalReactFlow()
 
   // Use preview value when in preview mode, otherwise use store value or prop value
   const baseValue = isPreview ? previewValue : propValue !== undefined ? propValue : storeValue
 
   // During streaming, use local content; otherwise use base value
   const value = wandHook?.isStreaming ? localContent : baseValue
+
+  const effectiveValue =
+    useWebhookUrl && webhookManagement.webhookUrl ? webhookManagement.webhookUrl : value
+
+  const isNumericInput = config.inputType === 'number'
+  const resolvedInputType = password ? 'password' : isNumericInput ? 'number' : 'text'
+  const numericStep = isNumericInput ? (config.step ?? (config.integer ? 1 : undefined)) : undefined
+  const numericInputMode =
+    isNumericInput && (config.integer || numericStep === 1 || numericStep === undefined)
+      ? 'numeric'
+      : 'decimal'
 
   // Sync local content with base value when not streaming
   useEffect(() => {
@@ -154,7 +201,7 @@ export function ShortInput({
   // Handle input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Don't allow changes if disabled
-    if (disabled) {
+    if (disabled || readOnly) {
       e.preventDefault()
       return
     }
@@ -175,7 +222,7 @@ export function ShortInput({
     const envVarTrigger = checkEnvVarTrigger(newValue, newCursorPosition)
 
     // For API key fields, always show dropdown when typing (without requiring {{ trigger)
-    if (isApiKeyField && isFocused) {
+    if (isApiKeyField && isFocused && !readOnly) {
       // Only show dropdown if there's text to filter by or the field is empty
       const shouldShowDropdown = newValue.trim() !== '' || newValue === ''
       setShowEnvVars(shouldShowDropdown)
@@ -189,8 +236,10 @@ export function ShortInput({
     }
 
     // Check for tag trigger
-    const tagTrigger = checkTagTrigger(newValue, newCursorPosition)
-    setShowTags(tagTrigger.show)
+    if (enableTags && !readOnly) {
+      const tagTrigger = checkTagTrigger(newValue, newCursorPosition)
+      setShowTags(tagTrigger.show)
+    }
   }
 
   // Sync scroll position between input and overlay
@@ -220,6 +269,9 @@ export function ShortInput({
 
   // Handle wheel events to control ReactFlow zoom
   const handleWheel = (e: React.WheelEvent<HTMLInputElement>) => {
+    if (!reactFlowInstance) {
+      return true
+    }
     // Only handle zoom when Ctrl/Cmd key is pressed
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault()
@@ -300,7 +352,9 @@ export function ShortInput({
         }
 
         setCursorPosition(dropPosition + 1)
-        setShowTags(true)
+        if (enableTags) {
+          setShowTags(true)
+        }
 
         // Pass the source block ID from the dropped connection
         if (data.connectionData?.sourceBlockId) {
@@ -324,7 +378,9 @@ export function ShortInput({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
       setShowEnvVars(false)
-      setShowTags(false)
+      if (enableTags) {
+        setShowTags(false)
+      }
       return
     }
 
@@ -341,7 +397,9 @@ export function ShortInput({
 
   // Value display logic
   const displayValue =
-    password && !isFocused ? '•'.repeat(value?.toString().length ?? 0) : (value?.toString() ?? '')
+    password && !isFocused
+      ? '•'.repeat(effectiveValue?.toString().length ?? 0)
+      : (effectiveValue?.toString() ?? '')
 
   // Explicitly mark environment variable references with '{{' and '}}' when inserting
   const handleEnvVarSelect = (newValue: string) => {
@@ -358,6 +416,18 @@ export function ShortInput({
   }
 
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
+
+  const handleCopy = async () => {
+    const textToCopy = useWebhookUrl ? webhookManagement.webhookUrl : effectiveValue?.toString()
+    if (!textToCopy) return
+    try {
+      await navigator.clipboard.writeText(textToCopy)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch (error) {
+      logger.error('Failed to copy text', { error })
+    }
+  }
 
   return (
     <>
@@ -379,21 +449,27 @@ export function ShortInput({
       <div className='group relative w-full'>
         <Input
           ref={inputRef}
+          id={inputId}
           className={cn(
             'allow-scroll w-full overflow-auto text-transparent caret-foreground [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground/50 [&::-webkit-scrollbar]:hidden',
             isConnecting &&
             config?.connectionDroppable !== false &&
-            'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500'
+            'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500',
+            showCopyButton && wandHook ? 'pr-20' : showCopyButton ? 'pr-12' : undefined
           )}
           placeholder={placeholder ?? ''}
-          type='text'
+          type={resolvedInputType}
+          inputMode={isNumericInput ? numericInputMode : undefined}
+          min={isNumericInput ? config.min : undefined}
+          max={isNumericInput ? config.max : undefined}
+          step={numericStep}
           value={displayValue}
           onChange={handleChange}
           onFocus={() => {
             setIsFocused(true)
 
             // If this is an API key field, automatically show env vars dropdown
-            if (isApiKeyField) {
+            if (isApiKeyField && !readOnly) {
               setShowEnvVars(true)
               setSearchTerm('')
 
@@ -419,6 +495,7 @@ export function ShortInput({
           autoComplete='off'
           style={{ overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           disabled={disabled}
+          readOnly={readOnly}
         />
         <div
           ref={overlayRef}
@@ -430,17 +507,30 @@ export function ShortInput({
             style={{ scrollbarWidth: 'none', minWidth: 'fit-content' }}
           >
             {password && !isFocused
-              ? '•'.repeat(value?.toString().length ?? 0)
-              : formatDisplayText(value?.toString() ?? '', {
+              ? '•'.repeat(effectiveValue?.toString().length ?? 0)
+              : formatDisplayText(effectiveValue?.toString() ?? '', {
                 accessiblePrefixes,
                 highlightAll: !accessiblePrefixes,
               })}
           </div>
         </div>
 
-        {/* Wand Button */}
-        {wandHook && !isPreview && !wandHook.isStreaming && (
-          <div className='-translate-y-1/2 absolute top-1/2 right-3 z-10 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100'>
+        <div className='-translate-y-1/2 absolute top-1/2 right-1 z-10 flex items-center gap-1'>
+          {showCopyButton && effectiveValue && (
+            <Button
+              variant='ghost'
+              size='icon'
+              onClick={handleCopy}
+              disabled={disabled}
+              aria-label='Copy value'
+              className='h-8 w-8 rounded-sm border border-transparent bg-muted/80 text-muted-foreground shadow-sm transition-all duration-200 hover:bg-muted hover:text-foreground hover:shadow'
+            >
+              {copied ? <Check className='h-4 w-4' /> : <Copy className='h-4 w-4' />}
+            </Button>
+          )}
+
+          {/* Wand Button */}
+          {wandHook && !isPreview && !wandHook.isStreaming && !readOnly && (
             <Button
               variant='ghost'
               size='icon'
@@ -449,12 +539,12 @@ export function ShortInput({
               }
               disabled={wandHook.isLoading || wandHook.isStreaming || disabled}
               aria-label='Generate content with AI'
-              className='h-8 w-8 rounded-full border border-transparent bg-muted/80 text-muted-foreground shadow-sm transition-all duration-200 hover:bg-muted hover:text-foreground hover:shadow'
+              className='h-8 w-8 rounded-sm border border-transparent bg-muted/80 text-muted-foreground shadow-sm transition-all duration-200 hover:bg-muted hover:text-foreground hover:shadow'
             >
               <Wand2 className='h-4 w-4' />
             </Button>
-          </div>
-        )}
+          )}
+        </div>
 
         {!wandHook?.isStreaming && (
           <>
@@ -464,24 +554,26 @@ export function ShortInput({
               searchTerm={searchTerm}
               inputValue={value?.toString() ?? ''}
               cursorPosition={cursorPosition}
-              workspaceId={workspaceId}
+              workspaceId={resolvedWorkspaceId}
               onClose={() => {
                 setShowEnvVars(false)
                 setSearchTerm('')
               }}
             />
-            <TagDropdown
-              visible={showTags}
-              onSelect={handleEnvVarSelect}
-              blockId={blockId}
-              activeSourceBlockId={activeSourceBlockId}
-              inputValue={value?.toString() ?? ''}
-              cursorPosition={cursorPosition}
-              onClose={() => {
-                setShowTags(false)
-                setActiveSourceBlockId(null)
-              }}
-            />
+            {enableTags && (
+              <TagDropdown
+                visible={showTags}
+                onSelect={handleEnvVarSelect}
+                blockId={blockId}
+                activeSourceBlockId={activeSourceBlockId}
+                inputValue={value?.toString() ?? ''}
+                cursorPosition={cursorPosition}
+                onClose={() => {
+                  setShowTags(false)
+                  setActiveSourceBlockId(null)
+                }}
+              />
+            )}
           </>
         )}
       </div>

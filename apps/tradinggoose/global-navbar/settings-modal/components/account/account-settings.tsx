@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { AgentIcon } from '@/components/icons'
+import { AgentIcon } from '@/components/icons/icons'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useSession } from '@/lib/auth-client'
 import { getBaseUrl } from '@/lib/urls/utils'
@@ -331,193 +331,189 @@ export function AccountSettings() {
   }, [avatarVersion, previewUrl, session?.user?.image, session?.user?.updatedAt, userImage])
 
   return (
-    <div className='bg-muted/20 px-6 py-6'>
-      <Card className='rounded-md border bg-background shadow-xs'>
-        <CardContent className='p-0'>
-          <div className='grid gap-6 p-6 sm:grid-cols-[280px,1fr]'>
-            <Card className='border-none bg-transparent shadow-none'>
-              <CardHeader className='pb-4'>
-                <CardTitle className='text-base font-semibold'>Profile Picture</CardTitle>
-              </CardHeader>
-              <CardContent className='space-y-4'>
-                <div
-                  className={`group relative flex flex-col items-center justify-center gap-4 rounded-md border-2 border-dashed px-4 py-6 text-center transition-all ${isDragActive
-                    ? 'border-primary bg-primary/10'
-                    : 'border-muted-foreground/35 bg-card hover:border-primary/40 hover:bg-muted/70'
-                    }`}
-                  onClick={handleThumbnailClick}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                >
-                  <Input
-                    type='file'
-                    accept='image/png,image/jpeg,image/jpg'
-                    className='hidden'
-                    ref={fileInputRef}
-                    onChange={handleFileChange}
-                    disabled={isUploading}
+    <div className='bg-background px-6 py-6'>
+      <div className='grid gap-6 p-6 sm:grid-cols-[280px,1fr] '>
+        <Card className='border-none  shadow-none'>
+          <CardHeader className='pb-4'>
+            <CardTitle className='text-base font-semibold'>Profile Picture</CardTitle>
+          </CardHeader>
+          <CardContent className='space-y-4'>
+            <div
+              className={`group relative flex flex-col items-center justify-center gap-4 rounded-md border-2 border-dashed px-4 py-6 text-center transition-all ${isDragActive
+                ? 'border-primary bg-primary/10'
+                : 'border-muted-foreground/35 bg-card hover:border-primary/40 hover:bg-muted/70'
+                }`}
+              onClick={handleThumbnailClick}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <Input
+                type='file'
+                accept='image/png,image/jpeg,image/jpg'
+                className='hidden'
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                disabled={isUploading}
+              />
+              <div className='relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-md border bg-muted shadow-sm'>
+                {avatarSrc ? (
+                  <Image
+                    src={avatarSrc}
+                    alt={name || session?.user?.name || 'User'}
+                    width={96}
+                    height={96}
+                    className='h-full w-full object-cover'
                   />
-                  <div className='relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-md border bg-muted shadow-sm'>
-                    {avatarSrc ? (
-                      <Image
-                        src={avatarSrc}
-                        alt={name || session?.user?.name || 'User'}
-                        width={96}
-                        height={96}
-                        className='h-full w-full object-cover'
-                      />
-                    ) : (
-                      <AgentIcon className='h-10 w-10 text-muted-foreground' />
-                    )}
-                    {isUploading && (
-                      <div className='absolute inset-0 flex items-center justify-center rounded-md bg-black/40 text-white'>
-                        <Loader2 className='h-5 w-5 animate-spin' />
-                      </div>
-                    )}
-                  </div>
-                  <div className='space-y-1'>
-                    <p className='font-medium text-sm'>Drop an image or click to upload</p>
-                    <p className='text-muted-foreground text-xs'>PNG or JPG, max 5MB</p>
-                  </div>
-                </div>
-
-                {profilePictureError && (
-                  <div className='flex items-start gap-2 rounded-sm border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-xs'>
-                    <AlertCircle className='mt-0.5 h-4 w-4 flex-none' />
-                    <span>{profilePictureError}</span>
+                ) : (
+                  <AgentIcon className='h-10 w-10 text-muted-foreground' />
+                )}
+                {isUploading && (
+                  <div className='absolute inset-0 flex items-center justify-center rounded-md bg-black/40 text-white'>
+                    <Loader2 className='h-5 w-5 animate-spin' />
                   </div>
                 )}
-              </CardContent>
-            </Card>
-            <Card className='border-none bg-transparent shadow-none'>
-              <CardHeader className='space-y-1 pb-5'>
-                <CardTitle className='text-lg font-semibold'>Profile Details</CardTitle>
-                <p className='text-muted-foreground text-sm'>Update your name and manage access.</p>
-              </CardHeader>
-              <CardContent className='space-y-5'>
-                <div className='space-y-3'>
-                  <div className='space-y-1'>
-                    <Label htmlFor='accountName'>Full name</Label>
-                    {isEditingName ? (
-                      <div className='py-1.5'>
-                        <div className='flex items-center gap-2 max-w-md'>
-                          <Input
-                            id='accountName'
-                            ref={editNameInputRef}
-                            value={editingNameValue}
-                            onChange={(event) => setEditingNameValue(event.target.value)}
-                            onBlur={() => {
-                              if (nameEditActionRef.current === 'save') {
-                                return
-                              }
-                              nameEditActionRef.current = null
-                              cancelEditingName()
-                            }}
-                            onKeyDown={(event) => {
-                              if (event.key === 'Enter') {
-                                event.preventDefault()
-                                void commitEditingName()
-                              } else if (event.key === 'Escape') {
-                                event.preventDefault()
-                                cancelEditingName()
-                              }
-                            }}
-                            disabled={isUpdatingName}
-                            className='h-8 flex-1 min-w-0'
-                            autoComplete='off'
-                          />
-                          <button
-                            type='button'
-                            onMouseDown={() => {
-                              nameEditActionRef.current = 'save'
-                            }}
-                            className='inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
-                            onClick={() => {
-                              nameEditActionRef.current = null
-                              void commitEditingName()
-                            }}
-                            disabled={isUpdatingName}
-                          >
-                            <Check className='h-3.5 w-3.5' />
-                            <span className='sr-only'>Save name</span>
-                          </button>
-                          <button
-                            type='button'
-                            onMouseDown={() => {
-                              nameEditActionRef.current = 'cancel'
-                            }}
-                            className='inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
-                            onClick={cancelEditingName}
-                            disabled={isUpdatingName}
-                          >
-                            <X className='h-3.5 w-3.5' />
-                            <span className='sr-only'>Cancel editing name</span>
-                          </button>
-                        </div>
-                        {nameError && <p className='text-destructive text-xs'>{nameError}</p>}
-                      </div>
-                    ) : (
-                      <div className='flex items-center gap-2'>
-                        <p className='font-medium'>{name || '—'}</p>
-                        <button
-                          type='button'
-                          className='inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
-                          onClick={startEditingName}
-                          disabled={isUpdatingName}
-                        >
-                          <Pencil className='h-3.5 w-3.5' />
-                          <span className='sr-only'>Edit name</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  <div className='space-y-1'>
-                    <Label>Email address</Label>
-                    <div className='rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground'>
-                      {email || '—'}
-                    </div>
-                    <p className='text-muted-foreground text-xs'>Email changes are handled by support.</p>
-                  </div>
-                </div>
+              </div>
+              <div className='space-y-1'>
+                <p className='font-medium text-sm'>Drop an image or click to upload</p>
+                <p className='text-muted-foreground text-xs'>PNG or JPG, max 5MB</p>
+              </div>
+            </div>
 
-                <div className='rounded-sm border bg-muted/30 px-4 py-4'>
-                  <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
-                    <div>
-                      <Label className='text-sm font-semibold'>Password reset</Label>
-                      <p className='text-muted-foreground text-sm'>We’ll email you a secure link.</p>
+            {profilePictureError && (
+              <div className='flex items-start gap-2 rounded-sm border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-xs'>
+                <AlertCircle className='mt-0.5 h-4 w-4 flex-none' />
+                <span>{profilePictureError}</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        <Card className='border-none shadow-none'>
+          <CardHeader className='space-y-1 pb-5'>
+            <CardTitle className='text-lg font-semibold'>Profile Details</CardTitle>
+            <p className='text-muted-foreground text-sm'>Update your name and manage access.</p>
+          </CardHeader>
+          <CardContent className='space-y-5'>
+            <div className='space-y-3'>
+              <div className='space-y-1'>
+                <Label htmlFor='accountName'>Full name</Label>
+                {isEditingName ? (
+                  <div className='py-1.5'>
+                    <div className='flex items-center gap-2 max-w-md'>
+                      <Input
+                        id='accountName'
+                        ref={editNameInputRef}
+                        value={editingNameValue}
+                        onChange={(event) => setEditingNameValue(event.target.value)}
+                        onBlur={() => {
+                          if (nameEditActionRef.current === 'save') {
+                            return
+                          }
+                          nameEditActionRef.current = null
+                          cancelEditingName()
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault()
+                            void commitEditingName()
+                          } else if (event.key === 'Escape') {
+                            event.preventDefault()
+                            cancelEditingName()
+                          }
+                        }}
+                        disabled={isUpdatingName}
+                        className='h-8 flex-1 min-w-0'
+                        autoComplete='off'
+                      />
+                      <button
+                        type='button'
+                        onMouseDown={() => {
+                          nameEditActionRef.current = 'save'
+                        }}
+                        className='inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
+                        onClick={() => {
+                          nameEditActionRef.current = null
+                          void commitEditingName()
+                        }}
+                        disabled={isUpdatingName}
+                      >
+                        <Check className='h-3.5 w-3.5' />
+                        <span className='sr-only'>Save name</span>
+                      </button>
+                      <button
+                        type='button'
+                        onMouseDown={() => {
+                          nameEditActionRef.current = 'cancel'
+                        }}
+                        className='inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
+                        onClick={cancelEditingName}
+                        disabled={isUpdatingName}
+                      >
+                        <X className='h-3.5 w-3.5' />
+                        <span className='sr-only'>Cancel editing name</span>
+                      </button>
                     </div>
-                    <Button
-                      type='button'
-                      size='sm'
-                      onClick={handlePasswordReset}
-                      disabled={isSendingReset}
-                    >
-                      {isSendingReset ? (
-                        <>
-                          <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                          Sending…
-                        </>
-                      ) : (
-                        'Send link'
-                      )}
-                    </Button>
+                    {nameError && <p className='text-destructive text-xs'>{nameError}</p>}
                   </div>
-                  {passwordResetStatus && (
-                    <p
-                      className={`mt-3 text-sm ${passwordResetStatus.type === 'success' ? 'text-emerald-600' : 'text-destructive'
-                        }`}
-                      role='status'
+                ) : (
+                  <div className='flex items-center gap-2'>
+                    <p className='font-medium'>{name || '—'}</p>
+                    <button
+                      type='button'
+                      className='inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
+                      onClick={startEditingName}
+                      disabled={isUpdatingName}
                     >
-                      {passwordResetStatus.message}
-                    </p>
-                  )}
+                      <Pencil className='h-3.5 w-3.5' />
+                      <span className='sr-only'>Edit name</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className='space-y-1'>
+                <Label>Email address</Label>
+                <div className='rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground'>
+                  {email || '—'}
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </CardContent>
-      </Card>
+                <p className='text-muted-foreground text-xs'>Email changes are handled by support.</p>
+              </div>
+            </div>
+
+            <div className='rounded-sm border bg-muted/30 px-4 py-4'>
+              <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
+                <div>
+                  <Label className='text-sm font-semibold'>Password reset</Label>
+                  <p className='text-muted-foreground text-sm'>We’ll email you a secure link.</p>
+                </div>
+                <Button
+                  type='button'
+                  size='sm'
+                  onClick={handlePasswordReset}
+                  disabled={isSendingReset}
+                >
+                  {isSendingReset ? (
+                    <>
+                      <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                      Sending…
+                    </>
+                  ) : (
+                    'Send link'
+                  )}
+                </Button>
+              </div>
+              {passwordResetStatus && (
+                <p
+                  className={`mt-3 text-sm ${passwordResetStatus.type === 'success' ? 'text-emerald-600' : 'text-destructive'
+                    }`}
+                  role='status'
+                >
+                  {passwordResetStatus.message}
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

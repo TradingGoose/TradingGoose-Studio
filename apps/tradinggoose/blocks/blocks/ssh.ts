@@ -1,4 +1,4 @@
-import { SshIcon } from '@/components/icons'
+import { SshIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { SSHResponse } from '@/tools/ssh/types'

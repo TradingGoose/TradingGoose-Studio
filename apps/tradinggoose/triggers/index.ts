@@ -1,58 +1,61 @@
-// Import trigger definitions
+import type { SubBlockConfig } from '@/blocks/types'
+import { generateMockPayloadFromOutputsDefinition } from '@/lib/workflows/triggers/trigger-utils'
+import { TRIGGER_REGISTRY } from '@/triggers/registry'
+import type { TriggerConfig } from '@/triggers/types'
 
-import { airtableWebhookTrigger } from './airtable'
-import { genericWebhookTrigger } from './generic'
-import { githubWebhookTrigger } from './github'
-import { gmailPollingTrigger } from './gmail'
-import { googleFormsWebhookTrigger } from './googleforms/webhook'
-import {
-  microsoftTeamsChatSubscriptionTrigger,
-  microsoftTeamsWebhookTrigger,
-} from './microsoftteams'
-import { outlookPollingTrigger } from './outlook'
-import { slackWebhookTrigger } from './slack'
-import { stripeWebhookTrigger } from './stripe/webhook'
-import { telegramWebhookTrigger } from './telegram'
-import type { TriggerConfig, TriggerRegistry } from './types'
-import {
-  webflowCollectionItemChangedTrigger,
-  webflowCollectionItemCreatedTrigger,
-  webflowCollectionItemDeletedTrigger,
-  webflowFormSubmissionTrigger,
-} from './webflow'
-import { whatsappWebhookTrigger } from './whatsapp'
-
-// Central registry of all available triggers
-export const TRIGGER_REGISTRY: TriggerRegistry = {
-  slack_webhook: slackWebhookTrigger,
-  airtable_webhook: airtableWebhookTrigger,
-  generic_webhook: genericWebhookTrigger,
-  github_webhook: githubWebhookTrigger,
-  gmail_poller: gmailPollingTrigger,
-  microsoftteams_webhook: microsoftTeamsWebhookTrigger,
-  microsoftteams_chat_subscription: microsoftTeamsChatSubscriptionTrigger,
-  outlook_poller: outlookPollingTrigger,
-  stripe_webhook: stripeWebhookTrigger,
-  telegram_webhook: telegramWebhookTrigger,
-  whatsapp_webhook: whatsappWebhookTrigger,
-  google_forms_webhook: googleFormsWebhookTrigger,
-  webflow_collection_item_created: webflowCollectionItemCreatedTrigger,
-  webflow_collection_item_changed: webflowCollectionItemChangedTrigger,
-  webflow_collection_item_deleted: webflowCollectionItemDeletedTrigger,
-  webflow_form_submission: webflowFormSubmissionTrigger,
-}
-
-// Utility functions for working with triggers
 export function getTrigger(triggerId: string): TriggerConfig | undefined {
-  return TRIGGER_REGISTRY[triggerId]
+  const trigger = TRIGGER_REGISTRY[triggerId]
+  if (!trigger) {
+    return undefined
+  }
+
+  const clonedTrigger: TriggerConfig = {
+    ...trigger,
+    subBlocks: [...trigger.subBlocks],
+  }
+
+  if (
+    clonedTrigger.subBlocks &&
+    (trigger.webhook || trigger.id.includes('webhook') || trigger.id.includes('poller'))
+  ) {
+    const samplePayloadExists = clonedTrigger.subBlocks.some((sb) => sb.id === 'samplePayload')
+
+    if (!samplePayloadExists && trigger.outputs) {
+      const mockPayload = generateMockPayloadFromOutputsDefinition(trigger.outputs)
+      const generatedPayload = JSON.stringify(mockPayload, null, 2)
+
+      const samplePayloadSubBlock: SubBlockConfig = {
+        id: 'samplePayload',
+        title: 'Event Payload Example',
+        type: 'code',
+        language: 'json',
+        defaultValue: generatedPayload,
+        readOnly: true,
+        collapsible: true,
+        defaultCollapsed: true,
+        hideFromPreview: true,
+        mode: 'trigger',
+        condition: {
+          field: 'selectedTriggerId',
+          value: trigger.id,
+        },
+      }
+
+      clonedTrigger.subBlocks.push(samplePayloadSubBlock)
+    }
+  }
+
+  return clonedTrigger
 }
 
 export function getTriggersByProvider(provider: string): TriggerConfig[] {
-  return Object.values(TRIGGER_REGISTRY).filter((trigger) => trigger.provider === provider)
+  return Object.values(TRIGGER_REGISTRY)
+    .filter((trigger) => trigger.provider === provider)
+    .map((trigger) => getTrigger(trigger.id)!)
 }
 
 export function getAllTriggers(): TriggerConfig[] {
-  return Object.values(TRIGGER_REGISTRY)
+  return Object.keys(TRIGGER_REGISTRY).map((triggerId) => getTrigger(triggerId)!)
 }
 
 export function getTriggerIds(): string[] {
@@ -63,5 +66,76 @@ export function isTriggerValid(triggerId: string): boolean {
   return triggerId in TRIGGER_REGISTRY
 }
 
-// Export types for use elsewhere
-export type { TriggerConfig, TriggerRegistry } from './types'
+export type { TriggerConfig, TriggerRegistry } from '@/triggers/types'
+
+export interface BuildTriggerSubBlocksOptions {
+  triggerId: string
+  triggerOptions: Array<{ label: string; id: string }>
+  includeDropdown?: boolean
+  setupInstructions: string
+  extraFields?: SubBlockConfig[]
+  webhookPlaceholder?: string
+}
+
+export function buildTriggerSubBlocks(options: BuildTriggerSubBlocksOptions): SubBlockConfig[] {
+  const {
+    triggerId,
+    triggerOptions,
+    includeDropdown = false,
+    setupInstructions,
+    extraFields = [],
+    webhookPlaceholder = 'Webhook URL will be generated',
+  } = options
+
+  const blocks: SubBlockConfig[] = []
+
+  if (includeDropdown) {
+    blocks.push({
+      id: 'selectedTriggerId',
+      title: 'Trigger Type',
+      type: 'dropdown',
+      mode: 'trigger',
+      options: triggerOptions,
+      value: () => triggerId,
+      required: true,
+    })
+  }
+
+  blocks.push({
+    id: 'webhookUrlDisplay',
+    title: 'Webhook URL',
+    type: 'short-input',
+    readOnly: true,
+    showCopyButton: true,
+    useWebhookUrl: true,
+    placeholder: webhookPlaceholder,
+    mode: 'trigger',
+    condition: { field: 'selectedTriggerId', value: triggerId },
+  })
+
+  if (extraFields.length > 0) {
+    blocks.push(...extraFields)
+  }
+
+  blocks.push({
+    id: 'triggerSave',
+    title: '',
+    type: 'trigger-save',
+    hideFromPreview: true,
+    mode: 'trigger',
+    triggerId: triggerId,
+    condition: { field: 'selectedTriggerId', value: triggerId },
+  })
+
+  blocks.push({
+    id: 'triggerInstructions',
+    title: 'Setup Instructions',
+    hideFromPreview: true,
+    type: 'text',
+    defaultValue: setupInstructions,
+    mode: 'trigger',
+    condition: { field: 'selectedTriggerId', value: triggerId },
+  })
+
+  return blocks
+}

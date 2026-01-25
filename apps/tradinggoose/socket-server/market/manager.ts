@@ -27,8 +27,10 @@ export interface MarketSubscribePayload {
   market?: AlpacaMarket
   feed?: AlpacaFeed
   cryptoRegion?: AlpacaCryptoRegion
-  apiKey?: string
-  apiSecret?: string
+  auth?: {
+    apiKey?: string
+    apiSecret?: string
+  }
   providerParams?: Record<string, any>
 }
 
@@ -162,7 +164,7 @@ export class MarketStreamManager {
     const { keyId, secretKey } = resolveAlpacaCredentials(payload)
 
     if (!keyId || !secretKey) {
-      throw new Error('Alpaca API key ID and secret are required for streaming')
+      throw new Error('Alpaca ApiKey and ApiSecret are required for streaming')
     }
 
     const streamKey = buildAlpacaStreamKey({
@@ -345,31 +347,31 @@ export class MarketStreamManager {
     const stream =
       config.provider === 'alpaca'
         ? new AlpacaMarketStream(
-            {
-              market: config.market,
-              feed: config.feed,
-              cryptoRegion: config.cryptoRegion,
-              keyId: config.keyId,
-              secretKey: config.secretKey,
-            },
-            {
-              onBar: ({ symbol, bar, raw }) => this.handleBar(streamKey, symbol, bar, raw),
-              onTrade: ({ symbol, trade, raw }) =>
-                this.handleTrade(streamKey, symbol, trade, raw),
-              onQuote: ({ symbol, quote, raw }) =>
-                this.handleQuote(streamKey, symbol, quote, raw),
-              onError: (payload) => this.handleStreamError(streamKey, payload.message, payload.detail),
-            }
-          )
+          {
+            market: config.market,
+            feed: config.feed,
+            cryptoRegion: config.cryptoRegion,
+            keyId: config.keyId,
+            secretKey: config.secretKey,
+          },
+          {
+            onBar: ({ symbol, bar, raw }) => this.handleBar(streamKey, symbol, bar, raw),
+            onTrade: ({ symbol, trade, raw }) =>
+              this.handleTrade(streamKey, symbol, trade, raw),
+            onQuote: ({ symbol, quote, raw }) =>
+              this.handleQuote(streamKey, symbol, quote, raw),
+            onError: (payload) => this.handleStreamError(streamKey, payload.message, payload.detail),
+          }
+        )
         : new FinnhubMarketStream(
-            {
-              apiKey: config.apiKey,
-            },
-            {
-              onBar: ({ symbol, bar, raw }) => this.handleBar(streamKey, symbol, bar, raw),
-              onError: (payload) => this.handleStreamError(streamKey, payload.message, payload.detail),
-            }
-          )
+          {
+            apiKey: config.apiKey,
+          },
+          {
+            onBar: ({ symbol, bar, raw }) => this.handleBar(streamKey, symbol, bar, raw),
+            onError: (payload) => this.handleStreamError(streamKey, payload.message, payload.detail),
+          }
+        )
 
     const state: StreamState = {
       stream,
@@ -562,11 +564,11 @@ function resolveProviderId(provider?: MarketProviderId): MarketProviderId {
 function resolveMarket(payload: MarketSubscribePayload, assetClass?: string): AlpacaMarket {
   const override = String(
     payload.market ??
-      payload.providerParams?.market ??
-      payload.providerParams?.alpacaMarket ??
-      payload.providerParams?.assetClass ??
-      payload.providerParams?.endpoint ??
-      ''
+    payload.providerParams?.market ??
+    payload.providerParams?.alpacaMarket ??
+    payload.providerParams?.assetClass ??
+    payload.providerParams?.endpoint ??
+    ''
   ).toLowerCase()
 
   if (override === 'crypto') return 'crypto'
@@ -589,18 +591,17 @@ function resolveCryptoRegion(payload: MarketSubscribePayload): AlpacaCryptoRegio
   return 'us'
 }
 
-function resolveAlpacaCredentials(payload: MarketSubscribePayload): { keyId?: string; secretKey?: string } {
-  const keyId =
-    payload.apiKey || payload.providerParams?.apiKey || process.env.ALPACA_API_KEY_ID
-
-  const secretKey =
-    payload.apiSecret || payload.providerParams?.apiSecret || process.env.ALPACA_API_SECRET_KEY
+function resolveAlpacaCredentials(
+  payload: MarketSubscribePayload
+): { keyId?: string; secretKey?: string } {
+  const keyId = payload.auth?.apiKey || process.env.ALPACA_API_KEY_ID
+  const secretKey = payload.auth?.apiSecret || process.env.ALPACA_API_SECRET_KEY
 
   return { keyId, secretKey }
 }
 
 function resolveFinnhubApiKey(payload: MarketSubscribePayload): string | undefined {
-  return payload.apiKey || payload.providerParams?.apiKey || process.env.FINNHUB_API_KEY
+  return payload.auth?.apiKey || process.env.FINNHUB_API_KEY
 }
 
 function buildAlpacaStreamKey(config: {

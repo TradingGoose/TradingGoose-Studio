@@ -121,9 +121,12 @@ vi.mock('@/stores/workflows/workflow/store-client', () => ({
 }))
 
 vi.mock('@/stores/workflows/registry/store', () => ({
-  useWorkflowRegistry: vi.fn(() => ({
-    activeWorkflowId: 'test-workflow',
-  })),
+  useWorkflowRegistry: vi.fn((selector?: (state: any) => any) => {
+    const state = {
+      getActiveWorkflowId: () => 'test-workflow',
+    }
+    return typeof selector === 'function' ? selector(state) : state
+  }),
 }))
 
 vi.mock('@/stores/panel/variables/store', () => ({

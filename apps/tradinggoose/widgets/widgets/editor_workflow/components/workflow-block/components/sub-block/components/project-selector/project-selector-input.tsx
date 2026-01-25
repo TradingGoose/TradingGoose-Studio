@@ -19,7 +19,7 @@ import { useForeignCredential } from '@/widgets/widgets/editor_workflow/componen
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 interface ProjectSelectorInputProps {
   blockId: string
@@ -51,7 +51,7 @@ export function ProjectSelectorInput({
   // Reactive dependencies from store for Linear
   const [linearCredential] = useSubBlockValue(blockId, 'credential')
   const [linearTeamId] = useSubBlockValue(blockId, 'teamId')
-  const activeWorkflowId = useWorkflowRegistry((s) => s.activeWorkflowId) as string | null
+  const workflowId = useWorkflowId()
   const { finalDisabled } = useDependsOnGate(blockId, subBlock, { disabled, isPreview })
 
   // Get provider-specific values
@@ -107,7 +107,7 @@ export function ProjectSelectorInput({
                   label={subBlock.placeholder || 'Select Linear team'}
                   disabled={finalDisabled}
                   showPreview={true}
-                  workflowId={activeWorkflowId || ''}
+                  workflowId={workflowId || ''}
                 />
               ) : (
                 (() => {
@@ -124,7 +124,7 @@ export function ProjectSelectorInput({
                       teamId={teamId}
                       label={subBlock.placeholder || 'Select Linear project'}
                       disabled={isDisabled}
-                      workflowId={activeWorkflowId || ''}
+                      workflowId={workflowId || ''}
                     />
                   )
                 })()
@@ -160,7 +160,7 @@ export function ProjectSelectorInput({
               onProjectInfoChange={setProjectInfo}
               credentialId={(jiraCredential as string) || ''}
               isForeignCredential={isForeignCredential}
-              workflowId={activeWorkflowId || ''}
+              workflowId={workflowId || ''}
             />
           </div>
         </TooltipTrigger>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, ExternalLink, Search, Waypoints } from 'lucide-react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -35,7 +35,50 @@ export function Integrations() {
     const [pendingService, setPendingService] = useState<string | null>(null)
     const [authSuccess, setAuthSuccess] = useState(false)
     const [showActionRequired, setShowActionRequired] = useState(false)
-    const isLoading = servicesPending && services.length === 0
+    const [providerAvailability, setProviderAvailability] = useState<Record<string, boolean>>({})
+    const [availabilityLoaded, setAvailabilityLoaded] = useState(false)
+    const isLoading = (servicesPending && services.length === 0) || !availabilityLoaded
+
+    const providerIds = useMemo(() => {
+        const ids = new Set<string>()
+        Object.values(OAUTH_PROVIDERS).forEach((provider) => {
+            Object.values(provider.services).forEach((service) => {
+                if (service.providerId) ids.add(service.providerId)
+            })
+        })
+        return Array.from(ids)
+    }, [])
+
+    useEffect(() => {
+        let isMounted = true
+
+        const loadAvailability = async () => {
+            try {
+                const query = providerIds.length
+                    ? `?providers=${encodeURIComponent(providerIds.join(','))}`
+                    : ''
+                const response = await fetch(`/api/auth/oauth/providers${query}`, {
+                    cache: 'no-store',
+                })
+                if (!response.ok) return
+                const data = (await response.json()) as Record<string, boolean>
+                if (!isMounted) return
+                setProviderAvailability(data)
+            } catch (error) {
+                logger.error('Failed to load provider availability', error)
+            } finally {
+                if (isMounted) {
+                    setAvailabilityLoaded(true)
+                }
+            }
+        }
+
+        void loadAvailability()
+
+        return () => {
+            isMounted = false
+        }
+    }, [providerIds])
 
     // Check for OAuth callback
     useEffect(() => {
@@ -128,8 +171,13 @@ export function Integrations() {
         }
     }
 
+    const connectibleServices = useMemo(() => {
+        if (!availabilityLoaded) return []
+        return services.filter((service) => Boolean(providerAvailability[service.providerId]))
+    }, [services, providerAvailability, availabilityLoaded])
+
     // Group services by provider
-    const groupedServices = services.reduce(
+    const groupedServices = connectibleServices.reduce(
         (acc, service) => {
             // Find the provider for this service
             const providerKey =
@@ -271,78 +319,113 @@ export function Integrations() {
                                     ) : (
                                         <div className='flex flex-col gap-6'>
                                             {/* Services list */}
-                                            {Object.entries(filteredGroupedServices).map(([providerKey, providerServices]) => (
-                                                <div key={providerKey} className='flex flex-col gap-2'>
-                                                    <Label className='font-normal text-muted-foreground text-xs uppercase'>
-                                                        {OAUTH_PROVIDERS[providerKey]?.name || 'Other Services'}
-                                                    </Label>
-                                                    {providerServices.map((service) => (
-                                                        <div
-                                                            key={service.id}
-                                                            className={cn(
-                                                                'flex items-center justify-between gap-4',
-                                                                pendingService === service.id && '-m-2 rounded-sm bg-[var(--primary)]/5 p-2'
-                                                            )}
-                                                            ref={pendingService === service.id ? pendingServiceRef : undefined}
-                                                        >
-                                                            <div className='flex items-center gap-3'>
-                                                                <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-secondary/60'>
-                                                                    {typeof service.icon === 'function'
-                                                                        ? service.icon({ className: 'h-5 w-5' })
-                                                                        : service.icon}
-                                                                </div>
-                                                                <div className='min-w-0'>
-                                                                    <div className='flex items-center gap-2'>
-                                                                        <span className='font-normal text-sm'>{service.name}</span>
+                                            {Object.entries(filteredGroupedServices).map(
+                                                ([providerKey, providerServices]) => (
+                                                    <div key={providerKey} className='flex flex-col gap-2'>
+                                                        <Label className='font-normal text-muted-foreground text-xs uppercase'>
+                                                            {OAUTH_PROVIDERS[providerKey]?.name || 'Other Services'}
+                                                        </Label>
+                                                        {providerServices.map((service) => (
+                                                            <div
+                                                                key={service.id}
+                                                                className={cn(
+                                                                    'flex items-center justify-between gap-4',
+                                                                    pendingService === service.id &&
+                                                                        '-m-2 rounded-sm bg-[var(--primary)]/5 p-2'
+                                                                )}
+                                                                ref={
+                                                                    pendingService === service.id
+                                                                        ? pendingServiceRef
+                                                                        : undefined
+                                                                }
+                                                            >
+                                                                <div className='flex items-center gap-3'>
+                                                                    <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-secondary/60'>
+                                                                        {typeof service.icon === 'function'
+                                                                            ? service.icon({ className: 'h-5 w-5' })
+                                                                            : service.icon}
                                                                     </div>
-                                                                    {service.accounts && service.accounts.length > 0 ? (
-                                                                        <p className='truncate text-muted-foreground text-xs'>
-                                                                            {service.accounts.map((a) => a.name).join(', ')}
-                                                                        </p>
-                                                                    ) : (
-                                                                        <p className='truncate text-muted-foreground text-xs'>
-                                                                            {service.description}
-                                                                        </p>
-                                                                    )}
+                                                                    <div className='min-w-0'>
+                                                                        <div className='flex items-center gap-2'>
+                                                                            <span className='font-normal text-sm'>
+                                                                                {service.name}
+                                                                            </span>
+                                                                        </div>
+                                                                        {service.accounts &&
+                                                                        service.accounts.length > 0 ? (
+                                                                            <p className='truncate text-muted-foreground text-xs'>
+                                                                                {service.accounts
+                                                                                    .map((a) => a.name)
+                                                                                    .join(', ')}
+                                                                            </p>
+                                                                        ) : (
+                                                                            <p className='truncate text-muted-foreground text-xs'>
+                                                                                {service.description}
+                                                                            </p>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
-                                                            </div>
 
-                                                            {service.accounts && service.accounts.length > 0 ? (
-                                                                <Button
-                                                                    variant='ghost'
-                                                                    size='sm'
-                                                                    onClick={() => handleDisconnect(service, service.accounts![0].id)}
-                                                                    disabled={isConnecting === `${service.id}-${service.accounts![0].id}`}
-                                                                    className={cn(
-                                                                        'h-8 text-muted-foreground hover:text-foreground',
-                                                                        isConnecting === `${service.id}-${service.accounts![0].id}` &&
-                                                                        'cursor-not-allowed'
-                                                                    )}
-                                                                >
-                                                                    Disconnect
-                                                                </Button>
-                                                            ) : (
-                                                                <Button
-                                                                    variant='outline'
-                                                                    size='sm'
-                                                                    onClick={() => handleConnect(service)}
-                                                                    disabled={isConnecting === service.id}
-                                                                    className={cn('h-8', isConnecting === service.id && 'cursor-not-allowed')}
-                                                                >
-                                                                    Connect
-                                                                </Button>
-                                                            )}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ))}
+                                                                {service.accounts &&
+                                                                service.accounts.length > 0 ? (
+                                                                    <Button
+                                                                        variant='ghost'
+                                                                        size='sm'
+                                                                        onClick={() =>
+                                                                            handleDisconnect(
+                                                                                service,
+                                                                                service.accounts![0].id
+                                                                            )
+                                                                        }
+                                                                        disabled={
+                                                                            isConnecting ===
+                                                                            `${service.id}-${service.accounts![0].id}`
+                                                                        }
+                                                                        className={cn(
+                                                                            'h-8 text-muted-foreground hover:text-foreground',
+                                                                            isConnecting ===
+                                                                                `${service.id}-${service.accounts![0].id}` &&
+                                                                                'cursor-not-allowed'
+                                                                        )}
+                                                                    >
+                                                                        Disconnect
+                                                                    </Button>
+                                                                ) : (
+                                                                    <Button
+                                                                        variant='outline'
+                                                                        size='sm'
+                                                                        onClick={() => handleConnect(service)}
+                                                                        disabled={isConnecting === service.id}
+                                                                        className={cn(
+                                                                            'h-8',
+                                                                            isConnecting === service.id &&
+                                                                                'cursor-not-allowed'
+                                                                        )}
+                                                                    >
+                                                                        Connect
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )
+                                            )}
+
+                                            {!isLoading &&
+                                                !searchTerm.trim() &&
+                                                Object.keys(filteredGroupedServices).length === 0 && (
+                                                    <div className='py-8 text-center text-muted-foreground text-sm'>
+                                                        No connectible integrations are configured.
+                                                    </div>
+                                                )}
 
                                             {/* Show message when search has no results */}
-                                            {searchTerm.trim() && Object.keys(filteredGroupedServices).length === 0 && (
-                                                <div className='py-8 text-center text-muted-foreground text-sm'>
-                                                    No services found matching "{searchTerm}"
-                                                </div>
-                                            )}
+                                            {searchTerm.trim() &&
+                                                Object.keys(filteredGroupedServices).length === 0 && (
+                                                    <div className='py-8 text-center text-muted-foreground text-sm'>
+                                                        No services found matching "{searchTerm}"
+                                                    </div>
+                                                )}
                                         </div>
                                     )}
                                 </div>

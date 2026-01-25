@@ -31,7 +31,7 @@ import {
 import { McpServerModal } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/mcp-server-modal/mcp-server-modal'
 import { ToolCredentialSelector } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/tool-credential-selector'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowId, useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { getAllBlocks } from '@/blocks'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
 import { getProviderFromModel, supportsToolUsageControl } from '@/providers/ai/utils'
@@ -465,6 +465,7 @@ export function ToolInput({
   allowExpandInPreview,
 }: ToolInputProps) {
   const workspaceId = useWorkspaceId()
+  const workflowId = useWorkflowId()
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlockId)
   const [modelValue] = useSubBlockValue<string | null>(blockId, 'model')
   const [customToolModalOpen, setCustomToolModalOpen] = useState(false)
@@ -934,11 +935,11 @@ export function ToolInput({
     if (tool.type === 'jira') {
       const subBlockStore = useSubBlockStore.getState()
       // Clear all fields that might be shared between operations
-      subBlockStore.setValue(blockId, 'summary', '')
-      subBlockStore.setValue(blockId, 'description', '')
-      subBlockStore.setValue(blockId, 'issueKey', '')
-      subBlockStore.setValue(blockId, 'projectId', '')
-      subBlockStore.setValue(blockId, 'parentIssue', '')
+      subBlockStore.setValue(blockId, 'summary', '', workflowId)
+      subBlockStore.setValue(blockId, 'description', '', workflowId)
+      subBlockStore.setValue(blockId, 'issueKey', '', workflowId)
+      subBlockStore.setValue(blockId, 'projectId', '', workflowId)
+      subBlockStore.setValue(blockId, 'parentIssue', '', workflowId)
     }
 
     setStoreValue(

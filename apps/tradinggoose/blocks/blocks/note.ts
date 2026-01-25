@@ -1,4 +1,4 @@
-import { NoteIcon } from '@/components/icons'
+import { NoteIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 
 export const NoteBlock: BlockConfig = {

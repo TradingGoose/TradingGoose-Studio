@@ -1,4 +1,4 @@
-import { GrainIcon } from '@/components/icons'
+import { GrainIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import { getTrigger } from '@/triggers'
@@ -67,7 +67,7 @@ export const GrainBlock: BlockConfig = {
     {
       id: 'beforeDatetime',
       title: 'Before Date',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: 'ISO8601 timestamp (e.g., 2024-01-01T00:00:00Z)',
       condition: {
         field: 'operation',
@@ -76,7 +76,7 @@ export const GrainBlock: BlockConfig = {
       wandConfig: {
         enabled: true,
         prompt: `Generate an ISO 8601 timestamp based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "yesterday" -> Calculate yesterday's date at 00:00:00Z
 - "last week" -> Calculate 7 days ago at 00:00:00Z
@@ -91,7 +91,7 @@ Return ONLY the timestamp string - no explanations, no quotes, no extra text.`,
     {
       id: 'afterDatetime',
       title: 'After Date',
-      type: 'short-input',
+      type: 'datetime-input',
       placeholder: 'ISO8601 timestamp (e.g., 2024-01-01T00:00:00Z)',
       condition: {
         field: 'operation',
@@ -100,7 +100,7 @@ Return ONLY the timestamp string - no explanations, no quotes, no extra text.`,
       wandConfig: {
         enabled: true,
         prompt: `Generate an ISO 8601 timestamp based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SSZ (UTC timezone).
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ (UTC timezone).
 Examples:
 - "today" -> Today's date at 00:00:00Z
 - "last Monday" -> Calculate last Monday's date at 00:00:00Z

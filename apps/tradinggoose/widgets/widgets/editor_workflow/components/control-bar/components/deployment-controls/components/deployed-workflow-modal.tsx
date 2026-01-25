@@ -51,18 +51,19 @@ export function DeployedWorkflowModal({
   isSelectedVersionActive,
 }: DeployedWorkflowModalProps) {
   const [showRevertDialog, setShowRevertDialog] = useState(false)
-  const activeWorkflowId = useWorkflowRegistry((state) => state.activeWorkflowId)
+  const registryWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId())
+  const resolvedWorkflowId = workflowId ?? registryWorkflowId
 
   // Get current workflow state to compare with deployed state
   const currentWorkflowState = useWorkflowStore((state) => ({
-    blocks: activeWorkflowId ? mergeSubblockState(state.blocks, activeWorkflowId) : state.blocks,
+    blocks: resolvedWorkflowId ? mergeSubblockState(state.blocks, resolvedWorkflowId) : state.blocks,
     edges: state.edges,
     loops: state.loops,
     parallels: state.parallels,
   }))
 
   const handleRevert = async () => {
-    if (!activeWorkflowId) {
+    if (!resolvedWorkflowId) {
       logger.error('Cannot revert: no active workflow ID')
       return
     }

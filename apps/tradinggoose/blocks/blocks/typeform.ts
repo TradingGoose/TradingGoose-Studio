@@ -1,4 +1,4 @@
-import { TypeformIcon } from '@/components/icons'
+import { TypeformIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { TypeformResponse } from '@/tools/typeform/types'
@@ -56,17 +56,17 @@ export const TypeformBlock: BlockConfig<TypeformResponse> = {
     {
       id: 'since',
       title: 'Since',
-      type: 'short-input',
+      type: 'datetime-input',
       layout: 'half',
-      placeholder: 'Retrieve responses after this date (ISO format)',
+      placeholder: 'YYYY-MM-DD or YYYY-MM-DDTHH:mm:ssZ',
       condition: { field: 'operation', value: 'typeform_responses' },
     },
     {
       id: 'until',
       title: 'Until',
-      type: 'short-input',
+      type: 'datetime-input',
       layout: 'half',
-      placeholder: 'Retrieve responses before this date (ISO format)',
+      placeholder: 'YYYY-MM-DD or YYYY-MM-DDTHH:mm:ssZ',
       condition: { field: 'operation', value: 'typeform_responses' },
     },
     {

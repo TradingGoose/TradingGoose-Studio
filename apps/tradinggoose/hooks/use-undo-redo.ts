@@ -528,7 +528,7 @@ export function useUndoRedo() {
                 const subBlockStore = useSubBlockStore.getState()
                 Object.entries(snap.subBlocks).forEach(([subBlockId, subBlock]: [string, any]) => {
                   if (subBlock.value !== null && subBlock.value !== undefined) {
-                    subBlockStore.setValue(snap.id, subBlockId, subBlock.value)
+                    subBlockStore.setValue(snap.id, subBlockId, subBlock.value, activeWorkflowId)
                   }
                 })
               }
@@ -924,7 +924,12 @@ export function useUndoRedo() {
                 Object.entries(snapNested.subBlocks).forEach(
                   ([subBlockId, subBlock]: [string, any]) => {
                     if (subBlock.value !== null && subBlock.value !== undefined) {
-                      subBlockStore.setValue(snapNested.id, subBlockId, subBlock.value)
+                      subBlockStore.setValue(
+                        snapNested.id,
+                        subBlockId,
+                        subBlock.value,
+                        activeWorkflowId
+                      )
                     }
                   }
                 )

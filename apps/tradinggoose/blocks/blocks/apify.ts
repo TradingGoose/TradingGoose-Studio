@@ -1,4 +1,4 @@
-import { ApifyIcon } from '@/components/icons'
+import { ApifyIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import type { RunActorResult } from '@/tools/apify/types'
 
@@ -77,6 +77,7 @@ Return ONLY the valid JSON object - no explanations, no markdown.`,
       id: 'timeout',
       title: 'Timeout',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'Actor timeout in seconds',
       required: false,
     },
@@ -91,6 +92,7 @@ Return ONLY the valid JSON object - no explanations, no markdown.`,
       id: 'waitForFinish',
       title: 'Wait For Finish',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'Initial wait time in seconds (0-60)',
       required: false,
       condition: {

@@ -772,7 +772,7 @@ export default function Dashboard() {
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
           placeholder='Search workflows...'
-          className='h-9 w-full rounded-md border bg-background pr-3 pl-10 text-sm'
+          className='h-full w-full rounded-md border bg-background pr-3 pl-10 text-sm'
         />
       </div>
     </div>

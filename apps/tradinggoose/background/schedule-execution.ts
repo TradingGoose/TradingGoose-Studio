@@ -8,6 +8,7 @@ import { checkServerSideUsageLimits } from '@/lib/billing'
 import { getHighestPrioritySubscription } from '@/lib/billing/core/subscription'
 import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
 import { createLogger } from '@/lib/logs/console/logger'
+import { resolveTimezoneOffsetMinutes } from '@/lib/timezone/timezone-resolver'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import {
@@ -35,25 +36,26 @@ export type ScheduleExecutionPayload = {
   cronExpression?: string
   lastRanAt?: string
   failedCount?: number
+  timezone: string
   now: string
 }
 
-function calculateNextRunTime(
+async function calculateNextRunTime(
   schedule: { cronExpression?: string; lastRanAt?: string },
-  blocks: Record<string, BlockState>
-): Date {
+  blocks: Record<string, BlockState>,
+  timezone: string
+): Promise<Date> {
   const scheduleBlock = Object.values(blocks).find((block) => block.type === 'schedule')
   if (!scheduleBlock) throw new Error('No schedule trigger block found')
   const scheduleType = getSubBlockValue(scheduleBlock, 'scheduleType')
   const scheduleValues = getScheduleTimeValues(scheduleBlock)
 
-  // Get timezone from schedule configuration (default to UTC)
-  const timezone = scheduleValues.timezone || 'UTC'
+  const utcOffsetMinutes = await resolveTimezoneOffsetMinutes(timezone)
 
   if (schedule.cronExpression) {
-    // Use Croner with timezone support for accurate scheduling
+    // Use Croner with explicit UTC offset for scheduling
     const cron = new Cron(schedule.cronExpression, {
-      timezone,
+      utcOffset: utcOffsetMinutes,
     })
     const nextDate = cron.nextRun()
     if (!nextDate) throw new Error('Invalid cron expression or no future occurrences')
@@ -61,7 +63,7 @@ function calculateNextRunTime(
   }
 
   const lastRanAt = schedule.lastRanAt ? new Date(schedule.lastRanAt) : null
-  return calculateNextTime(scheduleType, scheduleValues, lastRanAt)
+  return calculateNextTime(scheduleType, scheduleValues, lastRanAt, utcOffsetMinutes)
 }
 
 export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
@@ -150,7 +152,11 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       )
       try {
         const deployedData = await loadDeployedWorkflowState(payload.workflowId)
-        const nextRunAt = calculateNextRunTime(payload, deployedData.blocks as any)
+        const nextRunAt = await calculateNextRunTime(
+          payload,
+          deployedData.blocks as any,
+          payload.timezone
+        )
         await db
           .update(workflowSchedule)
           .set({ updatedAt: now, nextRunAt })
@@ -414,7 +420,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       if (executionSuccess.success) {
         logger.info(`[${requestId}] Workflow ${payload.workflowId} executed successfully`)
 
-        const nextRunAt = calculateNextRunTime(payload, executionSuccess.blocks)
+        const nextRunAt = await calculateNextRunTime(payload, executionSuccess.blocks, payload.timezone)
 
         logger.debug(
           `[${requestId}] Calculated next run time: ${nextRunAt.toISOString()} for workflow ${payload.workflowId}`
@@ -442,7 +448,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
 
         const newFailedCount = (payload.failedCount || 0) + 1
         const shouldDisable = newFailedCount >= MAX_CONSECUTIVE_FAILURES
-        const nextRunAt = calculateNextRunTime(payload, executionSuccess.blocks)
+        const nextRunAt = await calculateNextRunTime(payload, executionSuccess.blocks, payload.timezone)
 
         if (shouldDisable) {
           logger.warn(
@@ -532,7 +538,11 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
           if (workflowRecord?.isDeployed) {
             try {
               const deployedData = await loadDeployedWorkflowState(payload.workflowId)
-              nextRunAt = calculateNextRunTime(payload, deployedData.blocks as any)
+              nextRunAt = await calculateNextRunTime(
+                payload,
+                deployedData.blocks as any,
+                payload.timezone
+              )
             } catch {
               nextRunAt = new Date(now.getTime() + 24 * 60 * 60 * 1000)
             }

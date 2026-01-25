@@ -35,7 +35,7 @@ export class GetGlobalWorkflowVariablesClientTool extends BaseClientTool {
   async execute(): Promise<void> {
     try {
       this.setState(ClientToolCallState.executing)
-      const { activeWorkflowId } = useWorkflowRegistry.getState()
+      const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
       if (!activeWorkflowId) {
         await this.markToolComplete(400, 'No active workflow found')
         this.setState(ClientToolCallState.error)

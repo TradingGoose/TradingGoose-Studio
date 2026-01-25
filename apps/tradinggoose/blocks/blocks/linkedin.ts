@@ -1,4 +1,4 @@
-import { LinkedInIcon } from '@/components/icons'
+import { LinkedInIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { LinkedInResponse } from '@/tools/linkedin/types'
@@ -32,6 +32,7 @@ export const LinkedInBlock: BlockConfig<LinkedInResponse> = {
       id: 'credential',
       title: 'LinkedIn Account',
       type: 'oauth-input',
+      provider: 'linkedin',
       serviceId: 'linkedin',
       requiredScopes: ['profile', 'openid', 'email', 'w_member_social'],
       placeholder: 'Select LinkedIn account',

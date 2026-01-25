@@ -1,4 +1,4 @@
-import { AhrefsIcon } from '@/components/icons'
+import { AhrefsIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { AhrefsResponse } from '@/tools/ahrefs/types'
@@ -43,7 +43,8 @@ export const AhrefsBlock: BlockConfig<AhrefsResponse> = {
     {
       id: 'date',
       title: 'Date',
-      type: 'short-input',
+      type: 'datetime-input',
+      hideTime: true,
       placeholder: 'YYYY-MM-DD (defaults to today)',
       condition: { field: 'operation', value: 'ahrefs_domain_rating' },
       wandConfig: {
@@ -99,7 +100,8 @@ Return ONLY the date string in YYYY-MM-DD format - no explanations, no quotes, n
     {
       id: 'date',
       title: 'Date',
-      type: 'short-input',
+      type: 'datetime-input',
+      hideTime: true,
       placeholder: 'YYYY-MM-DD (defaults to today)',
       condition: { field: 'operation', value: 'ahrefs_backlinks' },
       wandConfig: {
@@ -141,7 +143,8 @@ Return ONLY the date string in YYYY-MM-DD format - no explanations, no quotes, n
     {
       id: 'date',
       title: 'Date',
-      type: 'short-input',
+      type: 'datetime-input',
+      hideTime: true,
       placeholder: 'YYYY-MM-DD (defaults to today)',
       condition: { field: 'operation', value: 'ahrefs_backlinks_stats' },
       wandConfig: {
@@ -197,7 +200,8 @@ Return ONLY the date string in YYYY-MM-DD format - no explanations, no quotes, n
     {
       id: 'date',
       title: 'Date',
-      type: 'short-input',
+      type: 'datetime-input',
+      hideTime: true,
       placeholder: 'YYYY-MM-DD (defaults to today)',
       condition: { field: 'operation', value: 'ahrefs_referring_domains' },
       wandConfig: {
@@ -277,7 +281,8 @@ Return ONLY the date string in YYYY-MM-DD format - no explanations, no quotes, n
     {
       id: 'date',
       title: 'Date',
-      type: 'short-input',
+      type: 'datetime-input',
+      hideTime: true,
       placeholder: 'YYYY-MM-DD (defaults to today)',
       condition: { field: 'operation', value: 'ahrefs_organic_keywords' },
       wandConfig: {
@@ -356,7 +361,8 @@ Return ONLY the date string in YYYY-MM-DD format - no explanations, no quotes, n
     {
       id: 'date',
       title: 'Date',
-      type: 'short-input',
+      type: 'datetime-input',
+      hideTime: true,
       placeholder: 'YYYY-MM-DD (defaults to today)',
       condition: { field: 'operation', value: 'ahrefs_top_pages' },
       wandConfig: {
@@ -445,7 +451,8 @@ Return ONLY the date string in YYYY-MM-DD format - no explanations, no quotes, n
     {
       id: 'date',
       title: 'Date',
-      type: 'short-input',
+      type: 'datetime-input',
+      hideTime: true,
       placeholder: 'YYYY-MM-DD (defaults to today)',
       condition: { field: 'operation', value: 'ahrefs_broken_backlinks' },
       wandConfig: {

@@ -1,4 +1,4 @@
-import { ServiceNowIcon } from '@/components/icons'
+import { ServiceNowIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import type { ServiceNowResponse } from '@/tools/servicenow/types'
 

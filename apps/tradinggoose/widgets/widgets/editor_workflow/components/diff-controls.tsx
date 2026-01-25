@@ -9,7 +9,11 @@ import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
 import { useWorkflowDiffStore } from '@/stores/workflow-diff'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { mergeSubblockState } from '@/stores/workflows/utils'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
+import {
+  DEFAULT_WORKFLOW_CHANNEL_ID,
+  useWorkflowStore,
+} from '@/stores/workflows/workflow/store-client'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('DiffControls')
 
@@ -59,8 +63,10 @@ export const DiffControls = memo(function DiffControls({
 
   const copilotStoreApi = useCopilotStoreApi()
 
-  const { activeWorkflowId } = useWorkflowRegistry(
-    useCallback((state) => ({ activeWorkflowId: state.activeWorkflowId }), [])
+  const routeContext = useOptionalWorkflowRoute()
+  const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
+  const activeWorkflowId = useWorkflowRegistry(
+    useCallback((state) => state.getActiveWorkflowId(resolvedChannelId), [resolvedChannelId])
   )
 
   const handleToggleDiff = useCallback(() => {

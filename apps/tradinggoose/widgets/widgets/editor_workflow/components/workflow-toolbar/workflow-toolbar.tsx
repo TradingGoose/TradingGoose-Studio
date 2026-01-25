@@ -24,7 +24,11 @@ import {
   getTriggersForSidebar,
   hasTriggerCapability,
 } from '@/lib/workflows/trigger-utils'
-import { parseProvider } from '@/lib/oauth/oauth'
+import {
+  getProviderIdsForBlocks,
+  isBlockAvailable,
+  type ProviderAvailability,
+} from '@/lib/workflows/block-availability'
 import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import type { BlockConfig } from '@/blocks/types'
 import { ToolbarBlock } from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-block'
@@ -34,7 +38,7 @@ import {
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuTextClassName,
-} from '@/widgets/widgets/shared/components/widget-header-control'
+} from '@/widgets/widgets/components/widget-header-control'
 
 interface WorkflowToolbarProps {
   workspaceId?: string
@@ -50,115 +54,12 @@ interface ToolbarListData {
   includeSpecialBlocks: boolean
 }
 
-type ProviderAvailability = Record<string, boolean>
-
 const DEFAULT_PROVIDER_AVAILABILITY: ProviderAvailability = {}
-
-const NON_OAUTH_CREDENTIAL_HINTS = [
-  'apiKey',
-  'apiSecret',
-  'accessToken',
-  'refreshToken',
-  'botToken',
-  'authToken',
-  'token',
-  'secretKey',
-  'secret',
-]
 
 const FALLBACK_TEXT = 'Select a workspace to browse blocks'
 const DROPDOWN_MAX_HEIGHT = '20rem'
 const DROPDOWN_VIEWPORT_HEIGHT = '14.0rem'
 
-const getConditionField = (
-  condition: BlockConfig['subBlocks'][number]['condition']
-): string | undefined => {
-  if (!condition || typeof condition === 'function') return undefined
-  return condition.field
-}
-
-const isRequiredOAuthInput = (block: BlockConfig['subBlocks'][number]) => {
-  if (block.type !== 'oauth-input') return false
-  if (block.required === true) return true
-  return !block.condition && block.required !== false
-}
-
-const isNonOAuthCredentialInput = (block: BlockConfig['subBlocks'][number]) => {
-  if (block.type === 'oauth-input') return false
-  const id = block.id.toLowerCase()
-  return NON_OAUTH_CREDENTIAL_HINTS.some((hint) => id.includes(hint.toLowerCase()))
-}
-
-const isProviderAvailable = (providerId: string, availability: ProviderAvailability) => {
-  if (providerId in availability) {
-    return Boolean(availability[providerId])
-  }
-
-  const { baseProvider } = parseProvider(providerId)
-  return Boolean(availability[baseProvider])
-}
-
-const getBlockOAuthRequirements = (block: BlockConfig) => {
-  const requiredOauthInputs = block.subBlocks.filter(isRequiredOAuthInput)
-
-  const unconditionalProviders = new Set<string>()
-  const conditionalProviders = new Set<string>()
-  const oauthConditionFields = new Set<string>()
-
-  for (const subBlock of requiredOauthInputs) {
-    const providerId = subBlock.provider ?? subBlock.serviceId
-    if (!providerId) continue
-    const conditionField = getConditionField(subBlock.condition)
-    if (conditionField) {
-      conditionalProviders.add(providerId)
-      oauthConditionFields.add(conditionField)
-    } else {
-      unconditionalProviders.add(providerId)
-    }
-  }
-
-  let hasNonOAuthAlternative = false
-
-  if (oauthConditionFields.size > 0) {
-    for (const subBlock of block.subBlocks) {
-      if (subBlock.required !== true) continue
-      if (!isNonOAuthCredentialInput(subBlock)) continue
-      const conditionField = getConditionField(subBlock.condition)
-      if (conditionField && oauthConditionFields.has(conditionField)) {
-        hasNonOAuthAlternative = true
-        break
-      }
-    }
-  }
-
-  return {
-    unconditionalProviders: Array.from(unconditionalProviders),
-    conditionalProviders: Array.from(conditionalProviders),
-    hasNonOAuthAlternative,
-  }
-}
-
-const isBlockAvailable = (block: BlockConfig, availability: ProviderAvailability) => {
-  const { unconditionalProviders, conditionalProviders, hasNonOAuthAlternative } =
-    getBlockOAuthRequirements(block)
-
-  if (unconditionalProviders.length > 0) {
-    const allUnconditionalAvailable = unconditionalProviders.every((providerId) =>
-      isProviderAvailable(providerId, availability)
-    )
-    if (!allUnconditionalAvailable) return false
-  }
-
-  if (conditionalProviders.length === 0) {
-    return true
-  }
-
-  if (hasNonOAuthAlternative) {
-    return true
-  }
-
-  return conditionalProviders.some((providerId) => isProviderAvailable(providerId, availability))
-}
 
 function useToolbarList(
   searchQuery: string,
@@ -185,20 +86,20 @@ function useToolbarList(
 
     const regularBlocks = isBlocksMode
       ? filtered
-          .filter((block) => block.category === 'blocks')
-          .sort((a, b) => a.name.localeCompare(b.name))
+        .filter((block) => block.category === 'blocks')
+        .sort((a, b) => a.name.localeCompare(b.name))
       : []
 
     const toolBlocks = isToolsMode
       ? filtered
-          .filter((block) => block.category === 'tools')
-          .sort((a, b) => a.name.localeCompare(b.name))
+        .filter((block) => block.category === 'tools')
+        .sort((a, b) => a.name.localeCompare(b.name))
       : []
 
     const triggerBlocks = isTriggerMode
       ? filtered
-          .filter((block) => block.category === 'triggers' || hasTriggerCapability(block))
-          .sort((a, b) => a.name.localeCompare(b.name))
+        .filter((block) => block.category === 'triggers' || hasTriggerCapability(block))
+        .sort((a, b) => a.name.localeCompare(b.name))
       : []
 
     return {
@@ -214,18 +115,10 @@ export function WorkflowToolbar({ workspaceId, channelId }: WorkflowToolbarProps
   const [providerAvailability, setProviderAvailability] = useState<ProviderAvailability>(
     DEFAULT_PROVIDER_AVAILABILITY
   )
-  const providerIds = useMemo(() => {
-    const providers = new Set<string>()
-    const blocks = [...getBlocksForSidebar(), ...getTriggersForSidebar()]
-
-    for (const block of blocks) {
-      const { unconditionalProviders, conditionalProviders } = getBlockOAuthRequirements(block)
-      unconditionalProviders.forEach((provider) => providers.add(provider))
-      conditionalProviders.forEach((provider) => providers.add(provider))
-    }
-
-    return Array.from(providers)
-  }, [])
+  const providerIds = useMemo(
+    () => getProviderIdsForBlocks([...getBlocksForSidebar(), ...getTriggersForSidebar()]),
+    []
+  )
 
   useEffect(() => {
     let isMounted = true

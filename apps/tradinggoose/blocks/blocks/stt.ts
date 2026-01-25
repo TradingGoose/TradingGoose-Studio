@@ -1,4 +1,4 @@
-import { STTIcon } from '@/components/icons'
+import { STTIcon } from '@/components/icons/icons'
 import { AuthMode, type BlockConfig } from '@/blocks/types'
 import type { SttBlockResponse } from '@/tools/stt/types'
 

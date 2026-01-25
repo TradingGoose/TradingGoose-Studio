@@ -5,6 +5,7 @@ import { generateThemeCSS } from '@/lib/branding/inject-theme'
 import { generateBrandedMetadata, generateStructuredData } from '@/lib/branding/metadata'
 import { createLogger } from '@/lib/logs/console/logger'
 import { PostHogProvider } from '@/lib/posthog/provider'
+import 'monaco-editor/min/vs/editor/editor.main.css'
 import '@/app/globals.css'
 
 import { QueryProvider } from '@/app/query-provider'

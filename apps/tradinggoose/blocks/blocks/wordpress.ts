@@ -1,4 +1,4 @@
-import { WordpressIcon } from '@/components/icons'
+import { WordpressIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { WordPressResponse } from '@/tools/wordpress/types'
@@ -64,6 +64,7 @@ export const WordPressBlock: BlockConfig<WordPressResponse> = {
       id: 'credential',
       title: 'WordPress Account',
       type: 'oauth-input',
+      provider: 'wordpress',
       serviceId: 'wordpress',
       requiredScopes: ['global'],
       placeholder: 'Select WordPress account',

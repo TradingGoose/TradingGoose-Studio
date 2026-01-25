@@ -38,11 +38,12 @@ export function TimeInput({
   const parseTimeValue = React.useCallback((raw: string | null | undefined) => {
     const now = new Date()
     if (!raw) return now
-    const [hours, minutes] = raw.split(':')
+    const [hours, minutes, seconds] = raw.split(':')
     const hour = Number.parseInt(hours, 10)
     const minute = Number.parseInt(minutes, 10)
-    if (Number.isNaN(hour) || Number.isNaN(minute)) return now
-    return setSeconds(setMinutes(setHours(now, hour), minute), 0)
+    const second = Number.parseInt(seconds ?? '0', 10)
+    if (Number.isNaN(hour) || Number.isNaN(minute) || Number.isNaN(second)) return now
+    return setSeconds(setMinutes(setHours(now, hour), minute), second)
   }, [])
 
   const dateValue = React.useMemo(() => parseTimeValue(value ?? undefined), [parseTimeValue, value])
@@ -55,7 +56,7 @@ export function TimeInput({
         return
       }
       initialSkipRef.current = false
-      setStoreValue(format(nextDate, 'HH:mm'))
+      setStoreValue(format(nextDate, 'HH:mm:ss'))
     },
     [disabled, isPreview, setStoreValue]
   )

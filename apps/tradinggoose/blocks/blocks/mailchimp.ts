@@ -1,4 +1,4 @@
-import { MailchimpIcon } from '@/components/icons'
+import { MailchimpIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 
@@ -662,8 +662,8 @@ Return ONLY the JSON object - no explanations or markdown.`,
     {
       id: 'scheduleTime',
       title: 'Schedule Time',
-      type: 'short-input',
-      placeholder: 'ISO 8601 date-time (e.g., 2024-12-31T10:00:00+00:00)',
+      type: 'datetime-input',
+      placeholder: 'YYYY-MM-DDTHH:mm:ssZ (e.g., 2024-12-31T10:00:00Z)',
       required: {
         field: 'operation',
         value: ['schedule_campaign'],
@@ -674,13 +674,12 @@ Return ONLY the JSON object - no explanations or markdown.`,
       },
       wandConfig: {
         enabled: true,
-        prompt: `Generate an ISO 8601 timestamp with timezone offset based on the user's description.
-The timestamp should be in the format: YYYY-MM-DDTHH:MM:SS+00:00 (with timezone offset).
+        prompt: `Generate a UTC timestamp based on the user's description.
+The timestamp should be in the format: YYYY-MM-DDTHH:mm:ssZ.
 Examples:
-- "tomorrow at 10am" -> Tomorrow's date at 10:00:00+00:00
-- "next Monday at 9am EST" -> Next Monday at 09:00:00-05:00
-- "in 2 hours" -> Current time plus 2 hours with appropriate timezone
-- "next week Tuesday at noon" -> Calculate next Tuesday at 12:00:00+00:00
+- "tomorrow at 10am UTC" -> Tomorrow's date at 10:00:00Z
+- "in 2 hours" -> Current time plus 2 hours in UTC
+- "next week Tuesday at noon UTC" -> Calculate next Tuesday at 12:00:00Z
 
 Return ONLY the timestamp string - no explanations, no quotes, no extra text.`,
         placeholder:

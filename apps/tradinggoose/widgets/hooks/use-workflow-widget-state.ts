@@ -76,9 +76,7 @@ export const useWorkflowWidgetState = ({
   }, [resolvedPairColor, params])
 
   const rawActiveWorkflowIdForChannel = useWorkflowRegistry((state) =>
-    typeof state.getActiveWorkflowId === 'function'
-      ? state.getActiveWorkflowId(channelId)
-      : state.activeWorkflowId
+    state.getActiveWorkflowId(channelId)
   )
 
   const workspaceHasWorkflows = useMemo(() => {

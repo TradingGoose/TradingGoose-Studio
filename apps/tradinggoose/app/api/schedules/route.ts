@@ -5,6 +5,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { resolveTimezoneState } from '@/lib/timezone/timezone-resolver'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import {
   type BlockState,
@@ -271,28 +272,30 @@ export async function POST(req: NextRequest) {
 
     if (isScheduleBlock) {
       logger.info(`[${requestId}] Processing schedule trigger block for workflow ${workflowId}`)
-    } else if (startWorkflow !== 'schedule') {
-      logger.info(
-        `[${requestId}] Setting workflow to scheduled mode based on schedule configuration`
-      )
     }
 
     logger.debug(`[${requestId}] Schedule type for workflow ${workflowId}: ${scheduleType}`)
 
     let cronExpression: string | null = null
     let nextRunAt: Date | undefined
-    const timezone = getSubBlockValue(targetBlock, 'timezone') || 'UTC'
+    const timezoneRaw = getSubBlockValue(targetBlock, 'timezone') || 'UTC'
+    let timezoneState
+    try {
+      timezoneState = await resolveTimezoneState(timezoneRaw)
+    } catch (error) {
+      logger.error(`[${requestId}] Invalid timezone: ${timezoneRaw}`, error)
+      return NextResponse.json({ error: 'Invalid timezone' }, { status: 400 })
+    }
+    const timezone = timezoneState.storageValue
+    const utcOffsetMinutes = timezoneState.utcOffsetMinutes
 
     try {
       const defaultScheduleType = scheduleType || 'daily'
-      const scheduleStartAt = getSubBlockValue(targetBlock, 'scheduleStartAt')
-      const scheduleTime = getSubBlockValue(targetBlock, 'scheduleTime')
 
       logger.debug(`[${requestId}] Schedule configuration:`, {
         type: defaultScheduleType,
         timezone,
-        startDate: scheduleStartAt || 'not specified',
-        time: scheduleTime || 'not specified',
+        utcOffsetMinutes,
       })
 
       cronExpression = generateCronExpression(defaultScheduleType, scheduleValues)
@@ -300,7 +303,7 @@ export async function POST(req: NextRequest) {
       // Additional validation for custom cron expressions
       if (defaultScheduleType === 'custom' && cronExpression) {
         // Validate with timezone for accurate validation
-        const validation = validateCronExpression(cronExpression, timezone)
+        const validation = validateCronExpression(cronExpression, utcOffsetMinutes)
         if (!validation.isValid) {
           logger.error(`[${requestId}] Invalid cron expression: ${validation.error}`)
           return NextResponse.json(
@@ -310,7 +313,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      nextRunAt = calculateNextRunTime(defaultScheduleType, scheduleValues)
+      nextRunAt = calculateNextRunTime(defaultScheduleType, scheduleValues, undefined, utcOffsetMinutes)
 
       logger.debug(
         `[${requestId}] Generated cron: ${cronExpression}, next run at: ${nextRunAt.toISOString()}`

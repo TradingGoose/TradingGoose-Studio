@@ -7,7 +7,7 @@ export const yfinanceSymbolRules: MarketSymbolRule[] = [
     active: true,
   }, {
     city: 'SHENZHEN',
-    template: '{base}.sz',
+    template: '{base}.sz', // AAPL/USD => AAPL.SZ 
     active: true,
   },
   {
@@ -34,28 +34,9 @@ export const yfinanceSymbolRules: MarketSymbolRule[] = [
     active: true,
   },
   {
-    mic: 'XNYS',
-    template: '{base}',
-    active: true,
-  },
-  {
-    mic: 'XNAS',
-    template: '{base}',
-    active: true,
-  },
-  {
-    mic: 'XASE',
-    template: '{base}',
-    active: true,
-  },
-  {
-    mic: 'ARCX',
-    template: '{base}',
-    active: true,
-  },
-  {
-    mic: 'BATS',
-    template: '{base}',
+    assetClass: 'stock',
+    mic: 'XTSE',
+    template: '{base}.TO',
     active: true,
   },
   {

@@ -1,4 +1,4 @@
-import { DatadogIcon } from '@/components/icons'
+import { DatadogIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { DatadogResponse } from '@/tools/datadog/types'
@@ -96,6 +96,7 @@ Return ONLY the query string - no explanations, no quotes around the entire quer
       id: 'from',
       title: 'From (Unix Timestamp)',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'e.g., 1701360000',
       condition: { field: 'operation', value: 'datadog_query_timeseries' },
       required: true,
@@ -117,6 +118,7 @@ Return ONLY the numeric timestamp - no explanations, no quotes, no extra text.`,
       id: 'to',
       title: 'To (Unix Timestamp)',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'e.g., 1701446400',
       condition: { field: 'operation', value: 'datadog_query_timeseries' },
       required: true,
@@ -367,6 +369,7 @@ Return ONLY valid JSON - no explanations, no markdown code blocks.`,
       id: 'end',
       title: 'End Time (Unix Timestamp)',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'Leave empty for indefinite',
       condition: { field: 'operation', value: 'datadog_mute_monitor' },
       wandConfig: {
@@ -522,6 +525,7 @@ Return the message text directly - no extra formatting.`,
       id: 'downtimeStart',
       title: 'Start Time (Unix Timestamp)',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'Leave empty for now',
       condition: { field: 'operation', value: 'datadog_create_downtime' },
       wandConfig: {
@@ -542,6 +546,7 @@ Return ONLY the numeric timestamp - no explanations, no quotes, no extra text.`,
       id: 'downtimeEnd',
       title: 'End Time (Unix Timestamp)',
       type: 'short-input',
+      inputType: 'number',
       placeholder: 'e.g., 1701450000',
       condition: { field: 'operation', value: 'datadog_create_downtime' },
       wandConfig: {

@@ -6,7 +6,7 @@ import {
   HIPAABadgeIcon,
   LinkedInIcon,
   xIcon as XIcon,
-} from '@/components/icons'
+} from '@/components/icons/icons'
 import { inter } from '@/app/fonts/inter'
 
 const blocks = [

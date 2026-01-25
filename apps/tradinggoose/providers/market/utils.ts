@@ -5,6 +5,7 @@ import {
   toListingValueObject,
   type ListingInputValue,
 } from '@/lib/listing/identity'
+import { MarketProviderError } from '@/providers/market/errors'
 import type { AssetClass } from '@/providers/market/types'
 import type { ListingContext, MarketProviderConfig, MarketSymbolRule, RuleScopeKey } from './providers'
 
@@ -13,17 +14,48 @@ const logger = createLogger('MarketProviderUtils')
 export async function resolveListingContext(listing: ListingInputValue): Promise<ListingContext> {
   const normalizedListing = toListingValueObject(listing)
   if (!normalizedListing) {
-    throw new Error('listing is required')
+    throw new MarketProviderError({
+      code: 'LISTING RESOLVE FAILED',
+      message: 'listing is required',
+      status: 400,
+    })
   }
 
   const listingKey = resolveListingKey(normalizedListing)
   if (!listingKey) {
-    throw new Error('listing is required')
+    throw new MarketProviderError({
+      code: 'LISTING RESOLVE FAILED',
+      message: 'listing is required',
+      status: 400,
+    })
   }
 
-  const resolved = await resolveListingIdentity(normalizedListing)
+  let resolved: Awaited<ReturnType<typeof resolveListingIdentity>>
+  try {
+    resolved = await resolveListingIdentity(normalizedListing)
+  } catch (error) {
+    const message =
+      error instanceof Error && error.message
+        ? `${error.message}`
+        : 'Listing resolution failed'
+    throw new MarketProviderError({
+      code: 'LISTING RESOLVE FAILED',
+      message,
+      status: 502,
+      details: {
+        listing: normalizedListing,
+      },
+    })
+  }
   if (!resolved?.base) {
-    throw new Error('listing base is required')
+    throw new MarketProviderError({
+      code: 'LISTING RESOLVE FAILED',
+      message: 'Listing could not be resolved',
+      status: 422,
+      details: {
+        listing: normalizedListing,
+      },
+    })
   }
 
   const assetClass =

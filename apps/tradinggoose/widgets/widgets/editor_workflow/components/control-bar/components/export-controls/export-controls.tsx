@@ -7,7 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { createLogger } from '@/lib/logs/console/logger'
 import { useWorkflowJsonStore } from '@/stores/workflows/json/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { widgetHeaderIconButtonClassName } from '@/widgets/widgets/shared/components/widget-header-control'
+import { widgetHeaderIconButtonClassName } from '@/widgets/widgets/components/widget-header-control'
 
 const logger = createLogger('ExportControls')
 
@@ -20,7 +20,8 @@ interface ExportControlsProps {
 
 export function ExportControls({ disabled = false, variant = 'workspace' }: ExportControlsProps) {
   const [isExporting, setIsExporting] = useState(false)
-  const { workflows, activeWorkflowId } = useWorkflowRegistry()
+  const { workflows } = useWorkflowRegistry()
+  const activeWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId())
   const { getJson } = useWorkflowJsonStore()
 
   const currentWorkflow = activeWorkflowId ? workflows[activeWorkflowId] : null

@@ -68,7 +68,7 @@ export class RunWorkflowClientTool extends BaseClientTool {
         return
       }
 
-      const { activeWorkflowId } = useWorkflowRegistry.getState()
+      const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
       if (!activeWorkflowId) {
         logger.debug('Execution prevented: no active workflow')
         this.setState(ClientToolCallState.error)

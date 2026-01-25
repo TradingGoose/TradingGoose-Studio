@@ -18,7 +18,7 @@ export function getWorkflowWithValues(workflowId: string, channelId?: string) {
   const activeWorkflowId =
     typeof registryState.getActiveWorkflowId === 'function'
       ? registryState.getActiveWorkflowId(channelId)
-      : registryState.activeWorkflowId
+      : null
   const workflowStore = useWorkflowStore.getState(channelId)
 
   if (!workflows[workflowId]) {
@@ -80,7 +80,7 @@ export function getBlockWithValues(blockId: string, channelId?: string): BlockSt
   const activeWorkflowId =
     typeof registryState.getActiveWorkflowId === 'function'
       ? registryState.getActiveWorkflowId(channelId)
-      : registryState.activeWorkflowId
+      : null
 
   if (!activeWorkflowId || !workflowStore.blocks[blockId]) return null
 
@@ -96,7 +96,7 @@ export function getBlockWithValues(blockId: string, channelId?: string): BlockSt
 export function getAllWorkflowsWithValues() {
   const { workflows } = useWorkflowRegistry.getState()
   const result: Record<string, any> = {}
-  const activeWorkflowId = useWorkflowRegistry.getState().activeWorkflowId
+  const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
   const currentState = useWorkflowStore.getState()
 
   // Only sync the active workflow to ensure we always send valid state data

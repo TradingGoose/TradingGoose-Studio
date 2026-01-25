@@ -1,6 +1,7 @@
 import type { Edge } from 'reactflow'
 import { v4 as uuidv4 } from 'uuid'
 import { createLogger } from '@/lib/logs/console/logger'
+import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { mergeSubblockState } from '@/stores/workflows/utils'
 import type { BlockState, WorkflowState } from '@/stores/workflows/workflow/types'
 import type { BlockWithDiff } from './types'
@@ -348,9 +349,13 @@ export class WorkflowDiffEngine {
       // Merge subblock values from subblock store to ensure manual edits are included in baseline
       let mergedBaseline: WorkflowState = currentWorkflowState
       try {
+        const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
+        const mergedBlocks = activeWorkflowId
+          ? mergeSubblockState(currentWorkflowState.blocks, activeWorkflowId)
+          : currentWorkflowState.blocks
         mergedBaseline = {
           ...currentWorkflowState,
-          blocks: mergeSubblockState(currentWorkflowState.blocks),
+          blocks: mergedBlocks,
         }
         logger.info('Merged subblock values into baseline for diff creation', {
           blockCount: Object.keys(mergedBaseline.blocks || {}).length,
@@ -506,9 +511,13 @@ export class WorkflowDiffEngine {
       // If editing on top of diff, use the diff state as-is
       if (!isEditingOnTopOfDiff) {
         try {
+          const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
+          const mergedBlocks = activeWorkflowId
+            ? mergeSubblockState(baselineForComparison.blocks, activeWorkflowId)
+            : baselineForComparison.blocks
           mergedBaseline = {
             ...baselineForComparison,
-            blocks: mergeSubblockState(baselineForComparison.blocks),
+            blocks: mergedBlocks,
           }
           logger.info('Merged subblock values into baseline for diff creation', {
             blockCount: Object.keys(mergedBaseline.blocks || {}).length,

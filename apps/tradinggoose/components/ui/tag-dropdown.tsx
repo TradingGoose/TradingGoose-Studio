@@ -10,9 +10,13 @@ import { useVariablesStore } from '@/stores/panel/variables/store'
 import type { Variable } from '@/stores/panel/variables/types'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
+import {
+  DEFAULT_WORKFLOW_CHANNEL_ID,
+  useWorkflowStore,
+} from '@/stores/workflows/workflow/store-client'
 import type { BlockState } from '@/stores/workflows/workflow/types'
 import { getTool } from '@/tools/utils'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 interface BlockTagGroup {
   blockName: string
@@ -98,8 +102,8 @@ const ensureRootTag = (tags: string[], rootTag: string): string[] => {
   return [rootTag, ...tags]
 }
 
-const getSubBlockValue = (blockId: string, property: string): any => {
-  return useSubBlockStore.getState().getValue(blockId, property)
+const getSubBlockValue = (blockId: string, property: string, workflowId?: string): any => {
+  return useSubBlockStore.getState().getValue(blockId, property, workflowId)
 }
 
 const createTagEventHandlers = (
@@ -131,6 +135,7 @@ const getOutputTypeForPath = (
   blockConfig: BlockConfig | null,
   blockId: string,
   outputPath: string,
+  workflowId?: string,
   mergedSubBlocksOverride?: Record<string, any>
 ): string => {
   if (block?.triggerMode && blockConfig?.triggers?.enabled) {
@@ -143,7 +148,7 @@ const getOutputTypeForPath = (
     const subBlocks = mergedSubBlocksOverride ?? (blockState?.subBlocks || {})
     return getBlockOutputType(block.type, outputPath, subBlocks)
   } else {
-    const operationValue = getSubBlockValue(blockId, 'operation')
+    const operationValue = getSubBlockValue(blockId, 'operation', workflowId)
     if (blockConfig && operationValue) {
       return getToolOutputType(blockConfig, operationValue, outputPath)
     }
@@ -303,7 +308,11 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
     shallow
   )
 
-  const workflowId = useWorkflowRegistry((state) => state.activeWorkflowId)
+  const routeContext = useOptionalWorkflowRoute()
+  const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
+  const workflowId = useWorkflowRegistry((state) =>
+    state.getActiveWorkflowId(resolvedChannelId)
+  )
 
   const rawAccessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
@@ -396,7 +405,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
       let blockTags: string[]
 
       if (sourceBlock.type === 'evaluator') {
-        const metricsValue = getSubBlockValue(activeSourceBlockId, 'metrics')
+        const metricsValue = getSubBlockValue(activeSourceBlockId, 'metrics', workflowId)
 
         if (metricsValue && Array.isArray(metricsValue) && metricsValue.length > 0) {
           const validMetrics = metricsValue.filter((metric: { name?: string }) => metric?.name)
@@ -409,7 +418,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
         }
       } else if (sourceBlock.type === 'variables') {
         // For variables block, show assigned variable names as outputs
-        const variablesValue = getSubBlockValue(activeSourceBlockId, 'variables')
+        const variablesValue = getSubBlockValue(activeSourceBlockId, 'variables', workflowId)
 
         if (variablesValue && Array.isArray(variablesValue) && variablesValue.length > 0) {
           const validAssignments = variablesValue.filter((assignment: { variableName?: string }) =>
@@ -460,7 +469,8 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
         } else {
           // Check for tool-specific outputs first
           const operationValue =
-            mergedSubBlocks?.operation?.value ?? getSubBlockValue(activeSourceBlockId, 'operation')
+            mergedSubBlocks?.operation?.value ??
+            getSubBlockValue(activeSourceBlockId, 'operation', workflowId)
           const toolOutputPaths = operationValue
             ? generateToolOutputPaths(blockConfig, operationValue)
             : []
@@ -713,7 +723,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
           blockTags = []
         }
       } else if (accessibleBlock.type === 'evaluator') {
-        const metricsValue = getSubBlockValue(accessibleBlockId, 'metrics')
+        const metricsValue = getSubBlockValue(accessibleBlockId, 'metrics', workflowId)
 
         if (metricsValue && Array.isArray(metricsValue) && metricsValue.length > 0) {
           const validMetrics = metricsValue.filter((metric: { name?: string }) => metric?.name)
@@ -726,7 +736,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
         }
       } else if (accessibleBlock.type === 'variables') {
         // For variables block, show assigned variable names as outputs
-        const variablesValue = getSubBlockValue(accessibleBlockId, 'variables')
+        const variablesValue = getSubBlockValue(accessibleBlockId, 'variables', workflowId)
 
         if (variablesValue && Array.isArray(variablesValue) && variablesValue.length > 0) {
           const validAssignments = variablesValue.filter((assignment: { variableName?: string }) =>
@@ -754,7 +764,8 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
         } else {
           // Check for tool-specific outputs first
           const operationValue =
-            mergedSubBlocks?.operation?.value ?? getSubBlockValue(accessibleBlockId, 'operation')
+            mergedSubBlocks?.operation?.value ??
+            getSubBlockValue(accessibleBlockId, 'operation', workflowId)
           const toolOutputPaths = operationValue
             ? generateToolOutputPaths(blockConfig, operationValue)
             : []
@@ -786,6 +797,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
             blockConfig,
             accessibleBlockId,
             outputPath,
+            workflowId,
             mergedSubBlocks
           )
           return allowedSet.has(outputType)
@@ -1013,6 +1025,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
             blockConfig,
             blockGroup.blockId,
             fieldName,
+            workflowId,
             mergedSubBlocks
           )
 
@@ -1463,6 +1476,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                                   blockConfig || null,
                                   group.blockId,
                                   outputPath,
+                                  workflowId,
                                   mergedSubBlocks
                                 )
                               }
@@ -1608,6 +1622,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                                           blockConfig || null,
                                           group.blockId,
                                           childOutputPath,
+                                          workflowId,
                                           mergedSubBlocks
                                         )
                                       }

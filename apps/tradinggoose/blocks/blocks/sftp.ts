@@ -1,4 +1,4 @@
-import { SftpIcon } from '@/components/icons'
+import { SftpIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { SftpUploadResult } from '@/tools/sftp/types'

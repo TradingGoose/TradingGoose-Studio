@@ -24,7 +24,7 @@ export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
 
       generateJson: () => {
         // Get the active workflow ID from registry
-        const { activeWorkflowId } = useWorkflowRegistry.getState()
+        const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
 
         if (!activeWorkflowId) {
           logger.warn('No active workflow to generate JSON for')
