@@ -2,13 +2,15 @@ import type {
   TradingActionResponse,
   TradingHoldingsResponse,
   TradingProviderId,
-} from '@/trading_providers/types'
+} from '@/providers/trading/types'
+import type { ListingInputValue } from '@/lib/listing/identity'
 
 export interface TradingActionParams {
   provider: TradingProviderId
-  symbol: string
+  listing: ListingInputValue
   side: 'buy' | 'sell'
-  quantity: number
+  quantity?: number
+  notional?: number
   orderType?: string
   timeInForce?: string
   limitPrice?: number

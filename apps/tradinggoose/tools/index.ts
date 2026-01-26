@@ -3,6 +3,8 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { parseMcpToolId } from '@/lib/mcp/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
+import { resolveListingIdentity } from '@/lib/listing/resolve'
+import { toListingValueObject } from '@/lib/listing/identity'
 import type { ExecutionContext } from '@/executor/types'
 import type { ErrorInfo } from '@/tools/error-extractors'
 import { extractErrorMessage } from '@/tools/error-extractors'
@@ -30,6 +32,34 @@ const MCP_SYSTEM_PARAMETERS = new Set([
   'blockData',
   'blockNameMapping',
 ])
+
+const hasResolvedListingDetails = (record: Record<string, unknown>): boolean => {
+  const listingType = typeof record.listing_type === 'string' ? record.listing_type : null
+  if (!listingType) return false
+  const base = typeof record.base === 'string' ? record.base.trim() : ''
+  if (!base) return false
+  if (listingType === 'equity') return true
+  const quote = typeof record.quote === 'string' ? record.quote.trim() : ''
+  return Boolean(quote)
+}
+
+const hydrateAlpacaOrderListing = async (params: Record<string, any>): Promise<void> => {
+  const listingValue = params.listing
+  if (!listingValue || typeof listingValue !== 'object') return
+  const record = listingValue as Record<string, unknown>
+
+  if (hasResolvedListingDetails(record)) return
+
+  const identity = toListingValueObject(listingValue)
+  if (!identity) return
+
+  const resolved = await resolveListingIdentity(identity).catch(() => null)
+  if (!resolved) {
+    throw new Error('Unable to resolve listing details for Alpaca order.')
+  }
+
+  params.listing = resolved
+}
 
 /**
  * Create an Error instance from errorInfo and attach useful context
@@ -237,6 +267,9 @@ export async function executeTool(
 
     // For internal routes or when skipProxy is true, call the API directly
     // Internal routes are automatically detected by checking if URL starts with /api/
+    if (toolId === 'trading_place_order' && contextParams.provider === 'alpaca') {
+      await hydrateAlpacaOrderListing(contextParams)
+    }
     const endpointUrl =
       typeof tool.request.url === 'function' ? tool.request.url(contextParams) : tool.request.url
     const isInternalRoute = endpointUrl.startsWith('/api/')

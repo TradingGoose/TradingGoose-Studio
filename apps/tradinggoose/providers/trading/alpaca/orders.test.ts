@@ -1,0 +1,97 @@
+import { describe, expect, it } from 'vitest'
+import { buildAlpacaOrderRequest } from '@/providers/trading/alpaca/orders'
+
+const baseParams = {
+  listing: 'AAPL',
+  side: 'buy' as const,
+  orderType: 'market',
+  timeInForce: 'day',
+  environment: 'paper' as const,
+  accessToken: 'test-token',
+}
+
+describe('buildAlpacaOrderRequest', () => {
+  it('uses notional when provided', () => {
+    const request = buildAlpacaOrderRequest({
+      ...baseParams,
+      notional: 500.75,
+    })
+
+    expect(request.url).toBe('https://paper-api.alpaca.markets/v2/orders')
+    expect(request.body).toMatchObject({
+      notional: 500.75,
+      side: 'buy',
+      type: 'market',
+      time_in_force: 'day',
+    })
+    expect(request.body).not.toHaveProperty('qty')
+  })
+
+  it('uses qty when quantity is provided', () => {
+    const request = buildAlpacaOrderRequest({
+      ...baseParams,
+      quantity: 2,
+    })
+
+    expect(request.body).toMatchObject({
+      qty: '2',
+      side: 'buy',
+      type: 'market',
+      time_in_force: 'day',
+    })
+    expect(request.body).not.toHaveProperty('notional')
+  })
+
+  it('prefers quantity when both quantity and notional are provided', () => {
+    const request = buildAlpacaOrderRequest({
+      ...baseParams,
+      quantity: 1,
+      notional: 100,
+    })
+
+    expect(request.body).toMatchObject({
+      qty: '1',
+      side: 'buy',
+      type: 'market',
+      time_in_force: 'day',
+    })
+    expect(request.body).not.toHaveProperty('notional')
+  })
+
+  it('uses notional when orderSizingMode=notional', () => {
+    const request = buildAlpacaOrderRequest({
+      ...baseParams,
+      quantity: 1,
+      notional: 100,
+      orderSizingMode: 'notional',
+    } as typeof baseParams & { orderSizingMode: string; notional: number; quantity: number })
+
+    expect(request.body).toMatchObject({
+      notional: 100,
+      side: 'buy',
+      type: 'market',
+      time_in_force: 'day',
+    })
+    expect(request.body).not.toHaveProperty('qty')
+  })
+
+  it('requires notional when orderSizingMode=notional', () => {
+    expect(() =>
+      buildAlpacaOrderRequest({
+        ...baseParams,
+        quantity: 1,
+        orderSizingMode: 'notional',
+      } as typeof baseParams & { orderSizingMode: string; quantity: number })
+    ).toThrow('orderSizingMode=notional')
+  })
+
+  it('rejects notional orders with non-day time in force', () => {
+    expect(() =>
+      buildAlpacaOrderRequest({
+        ...baseParams,
+        notional: 100,
+        timeInForce: 'gtc',
+      })
+    ).toThrow('time_in_force=day')
+  })
+})
