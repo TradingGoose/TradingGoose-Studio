@@ -64,6 +64,13 @@ export interface TradingProviderParamOption {
   label: string
 }
 
+export interface TradingProviderParamCondition {
+  field: string
+  value: string | number | boolean | Array<string | number | boolean>
+  not?: boolean
+  and?: TradingProviderParamCondition | TradingProviderParamCondition[]
+}
+
 export interface TradingProviderParamDefinition {
   id: string
   type: TradingProviderParamType
@@ -89,6 +96,8 @@ export interface TradingProviderParamDefinition {
   integer?: boolean
   rows?: number
   dependsOn?: string[]
+  condition?: TradingProviderParamCondition
+  displayOrder?: number
 }
 
 export interface TradingProviderParamConfig {
@@ -403,6 +412,8 @@ function mergeParamDefinition(
     integer: current.integer ?? next.integer,
     rows: current.rows ?? next.rows,
     dependsOn: current.dependsOn ?? next.dependsOn,
+    condition: current.condition ?? next.condition,
+    displayOrder: current.displayOrder ?? next.displayOrder,
   }
 
   merged.required = Boolean(current.required) && Boolean(next.required)

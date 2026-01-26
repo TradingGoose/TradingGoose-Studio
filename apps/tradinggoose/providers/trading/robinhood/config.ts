@@ -32,6 +32,14 @@ const params: TradingProviderConfig['params'] = {
   ],
   order: [
     {
+      id: 'quantity',
+      type: 'number',
+      title: 'Quantity (Shares)',
+      description: 'Number of shares to trade.',
+      required: false,
+      visibility: 'user-or-llm',
+    },
+    {
       id: 'instrumentUrl',
       type: 'string',
       title: 'Instrument URL',

@@ -2,6 +2,11 @@ import { createLogger } from '@/lib/logs/console/logger'
 import type { TimeFormat } from '@/lib/time-format'
 import type { ParameterVisibility, ToolConfig } from '@/tools/types'
 import { getTool } from '@/tools/utils'
+import {
+  getTradingProviderParamCatalog,
+  getTradingProviderParamDefinitions,
+} from '@/providers/trading/providers'
+import type { TradingProviderParamDefinition } from '@/providers/trading/providers'
 
 const logger = createLogger('ToolsParams')
 
@@ -12,7 +17,9 @@ export interface Option {
 
 export interface ComponentCondition {
   field: string
-  value: string
+  value: string | number | boolean | Array<string | number | boolean>
+  not?: boolean
+  and?: ComponentCondition | ComponentCondition[]
 }
 
 export interface UIComponentConfig {
@@ -149,6 +156,69 @@ export interface ToolWithParameters {
 
 let blockConfigCache: Record<string, BlockConfig> | null = null
 
+const resolveProviderInputType = (
+  definition: TradingProviderParamDefinition
+): UIComponentConfig['type'] => {
+  if (definition.inputType) return definition.inputType
+  if (definition.options?.length) return 'dropdown'
+
+  switch (definition.type) {
+    case 'boolean':
+      return 'switch'
+    case 'json':
+    case 'array':
+      return 'code'
+    case 'number':
+      return 'short-input'
+    default:
+      return 'short-input'
+  }
+}
+
+const normalizeConditionList = (
+  condition?: ComponentCondition | ComponentCondition[]
+): ComponentCondition[] => {
+  if (!condition) return []
+  return Array.isArray(condition) ? condition : [condition]
+}
+
+const combineConditions = (
+  base?: ComponentCondition,
+  extra?: ComponentCondition | ComponentCondition[]
+): ComponentCondition | undefined => {
+  if (!base) return extra as ComponentCondition | undefined
+  if (!extra) return base
+
+  const baseAnd = normalizeConditionList(base.and)
+  const extraList = normalizeConditionList(extra)
+
+  return {
+    ...base,
+    and: [...baseAnd, ...extraList],
+  }
+}
+
+const buildProviderUiComponent = (
+  definition: TradingProviderParamDefinition,
+  condition?: ComponentCondition
+): UIComponentConfig => ({
+  type: resolveProviderInputType(definition),
+  options: definition.options?.map((option) => ({ id: option.id, label: option.label })),
+  placeholder: definition.placeholder,
+  password: definition.password,
+  title: definition.title,
+  layout: definition.layout,
+  min: definition.min,
+  max: definition.max,
+  step: definition.step,
+  integer: definition.integer,
+  rows: definition.rows,
+  dependsOn: definition.dependsOn,
+  fetchOptions: definition.fetchOptions,
+  condition,
+  inputType: definition.type === 'number' ? 'number' : undefined,
+})
+
 function getBlockConfigurations(): Record<string, BlockConfig> {
   if (!blockConfigCache) {
     try {
@@ -172,7 +242,8 @@ function getBlockConfigurations(): Record<string, BlockConfig> {
  */
 export function getToolParametersConfig(
   toolId: string,
-  blockType?: string
+  blockType?: string,
+  contextValues?: Record<string, any>
 ): ToolWithParameters | null {
   try {
     const toolConfig = getTool(toolId)
@@ -194,8 +265,77 @@ export function getToolParametersConfig(
       blockConfig = blockConfigs[blockType] || null
     }
 
+    const tradingProviderContext = (() => {
+      if (toolId !== 'trading_place_order') return null
+
+      const providerId = contextValues?.provider as string | undefined
+      const providerDefinitions = providerId
+        ? getTradingProviderParamDefinitions(providerId, 'order')
+        : []
+      const providerCatalog = getTradingProviderParamCatalog('order')
+
+      return {
+        providerId,
+        providerDefinitions,
+        providerCatalog,
+      }
+    })()
+
+    const baseParamEntries = Object.entries(toolConfig.params)
+    let orderedParamEntries = baseParamEntries
+
+    if (tradingProviderContext?.providerDefinitions?.length) {
+      const baseParamIds = baseParamEntries.map(([paramId]) => paramId)
+      const providerParamIds = tradingProviderContext.providerDefinitions
+        .map((definition) => definition.id)
+        .filter((paramId) => baseParamIds.includes(paramId))
+
+      if (providerParamIds.length > 0) {
+        const providerOrder = tradingProviderContext.providerDefinitions
+          .filter((definition) => providerParamIds.includes(definition.id))
+          .map((definition, index) => ({
+            id: definition.id,
+            displayOrder: definition.displayOrder,
+            providerIndex: index,
+          }))
+          .sort((a, b) => {
+            const aHasOrder = typeof a.displayOrder === 'number'
+            const bHasOrder = typeof b.displayOrder === 'number'
+            if (aHasOrder && bHasOrder && a.displayOrder !== b.displayOrder) {
+              return (a.displayOrder as number) - (b.displayOrder as number)
+            }
+            if (aHasOrder && !bHasOrder) return -1
+            if (!aHasOrder && bHasOrder) return 1
+            return a.providerIndex - b.providerIndex
+          })
+          .map((entry) => entry.id)
+
+        const firstProviderIndex = baseParamIds.findIndex((paramId) =>
+          providerParamIds.includes(paramId)
+        )
+
+        if (firstProviderIndex >= 0) {
+          const remainingIds = baseParamIds.filter(
+            (paramId) => !providerParamIds.includes(paramId)
+          )
+          const reorderedIds = [
+            ...remainingIds.slice(0, firstProviderIndex),
+            ...providerOrder,
+            ...remainingIds.slice(firstProviderIndex),
+          ]
+          const entryMap = new Map(baseParamEntries)
+          orderedParamEntries = reorderedIds
+            .map((paramId) => {
+              const entry = entryMap.get(paramId)
+              return entry ? [paramId, entry] : undefined
+            })
+            .filter(Boolean) as Array<[string, any]>
+        }
+      }
+    }
+
     // Convert tool params to our standard format with UI component info
-    const allParameters: ToolParameterConfig[] = Object.entries(toolConfig.params).map(
+    const allParameters: ToolParameterConfig[] = orderedParamEntries.map(
       ([paramId, param]) => {
         const toolParam: ToolParameterConfig = {
           id: paramId,
@@ -287,6 +427,53 @@ export function getToolParametersConfig(
               dependsOn: subBlock.dependsOn,
               fetchOptions: subBlock.fetchOptions,
             }
+          }
+        }
+
+        if (tradingProviderContext?.providerCatalog) {
+          const providerDefinitions = tradingProviderContext.providerDefinitions ?? []
+          const providerDefinition = providerDefinitions.find(
+            (definition) => definition.id === paramId
+          )
+          const registryEntry = tradingProviderContext.providerCatalog.registry[paramId]
+          const providerCondition =
+            registryEntry?.providers?.length > 0
+              ? ({
+                  field: 'provider',
+                  value: registryEntry.providers,
+                } as ComponentCondition)
+              : undefined
+          const definitionCondition = providerDefinition?.condition as
+            | ComponentCondition
+            | undefined
+          const mergedCondition = combineConditions(definitionCondition, providerCondition)
+
+          if (providerDefinition) {
+            toolParam.description = providerDefinition.description || toolParam.description
+            if (providerDefinition.defaultValue !== undefined) {
+              toolParam.default = providerDefinition.defaultValue
+            }
+          }
+
+          if (!toolParam.uiComponent && (providerDefinition || providerCondition)) {
+            const baseDefinition =
+              providerDefinition ??
+              ({
+                id: paramId,
+                type: param.type,
+                title: undefined,
+                description: toolParam.description,
+                placeholder: undefined,
+                required: param.required,
+                visibility: param.visibility,
+              } as TradingProviderParamDefinition)
+
+            toolParam.uiComponent = buildProviderUiComponent(baseDefinition, mergedCondition)
+          } else if (toolParam.uiComponent && mergedCondition) {
+            toolParam.uiComponent.condition = combineConditions(
+              mergedCondition,
+              toolParam.uiComponent.condition
+            )
           }
         }
 

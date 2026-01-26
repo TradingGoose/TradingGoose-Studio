@@ -19,7 +19,7 @@ const params: TradingProviderConfig['params'] = {
       description: 'Alpaca API key ID.',
       placeholder: 'APCA-API-KEY-ID',
       required: false,
-      visibility: 'user-only',
+      visibility: 'hidden',
       password: true,
     },
     {
@@ -29,7 +29,7 @@ const params: TradingProviderConfig['params'] = {
       description: 'Alpaca API secret key.',
       placeholder: 'APCA-API-SECRET-KEY',
       required: false,
-      visibility: 'user-only',
+      visibility: 'hidden',
       password: true,
     },
     {
@@ -55,6 +55,9 @@ const params: TradingProviderConfig['params'] = {
       required: true,
       visibility: 'user-or-llm',
       inputType: 'dropdown',
+      defaultValue: 'quantity',
+      dependsOn: ['provider'],
+      displayOrder: 0,
       options: [
         { id: 'quantity', label: 'Quantity (Shares)' },
         { id: 'notional', label: 'Dollar Amount (USD)' },
@@ -67,6 +70,8 @@ const params: TradingProviderConfig['params'] = {
       description: 'Number of shares to trade when sizing by quantity.',
       required: false,
       visibility: 'user-or-llm',
+      condition: { field: 'orderSizingMode', value: 'notional', not: true },
+      displayOrder: 20,
     },
     {
       id: 'notional',
@@ -75,6 +80,9 @@ const params: TradingProviderConfig['params'] = {
       description: 'Dollar amount to trade when sizing by notional.',
       required: false,
       visibility: 'user-or-llm',
+      condition: { field: 'orderSizingMode', value: 'notional' },
+      dependsOn: ['provider'],
+      displayOrder: 30,
     },
   ],
 }

@@ -1,12 +1,14 @@
 import { DollarIcon } from '@/components/icons/icons'
-import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
+import type { BlockConfig, SubBlockCondition, SubBlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import { buildInputsFromToolParams } from '@/blocks/utils'
 import {
-  getProviderFields,
+  getTradingProviderParamCatalog,
+  getTradingProviderParamDefinitions,
   getTradingProviderIdsForParam,
   getTradingProviders,
 } from '@/providers/trading'
+import type { TradingProviderParamDefinition } from '@/providers/trading/providers'
 import { tradingActionTool } from '@/tools/trading'
 import type { TradingActionResponse } from '@/tools/trading/types'
 
@@ -17,6 +19,148 @@ const providerOptions = getTradingProviders().map((provider) => ({
 
 const providersWithEnvironment = getTradingProviderIdsForParam('order', 'environment')
 
+const BLOCK_RESERVED_PARAM_IDS = new Set([
+  'provider',
+  'credential',
+  'environment',
+  'side',
+  'listing',
+  'orderType',
+  'limitPrice',
+  'stopPrice',
+  'timeInForce',
+])
+
+const TOOL_RESERVED_PARAM_IDS = new Set([
+  'provider',
+  'credential',
+  'environment',
+  'side',
+  'listing',
+  'quantity',
+  'notional',
+  'orderType',
+  'limitPrice',
+  'stopPrice',
+  'timeInForce',
+])
+
+const providerParamCatalog = getTradingProviderParamCatalog('order')
+const providerParamRegistry = providerParamCatalog.registry
+const providerParamOrderIndex = new Map(
+  providerParamCatalog.order.map((paramId, index) => [paramId, index])
+)
+
+const orderedProviderParamIds = [...providerParamCatalog.order].sort((a, b) => {
+  const aOrder = providerParamRegistry[a]?.definition.displayOrder
+  const bOrder = providerParamRegistry[b]?.definition.displayOrder
+  const aHasOrder = typeof aOrder === 'number'
+  const bHasOrder = typeof bOrder === 'number'
+
+  if (aHasOrder && bHasOrder && aOrder !== bOrder) {
+    return aOrder - bOrder
+  }
+  if (aHasOrder && !bHasOrder) return -1
+  if (!aHasOrder && bHasOrder) return 1
+  return (providerParamOrderIndex.get(a) ?? 0) - (providerParamOrderIndex.get(b) ?? 0)
+})
+
+const isSensitiveParam = (paramId: string): boolean => {
+  const lowered = paramId.toLowerCase()
+  return (
+    lowered.includes('apikey') ||
+    lowered.includes('api_key') ||
+    lowered.includes('secret') ||
+    lowered.includes('token') ||
+    lowered.includes('password')
+  )
+}
+
+const formatParamTitle = (paramId: string): string => {
+  if (paramId === 'apiKey') return 'API Key'
+  if (paramId === 'apiSecret') return 'API Secret'
+
+  if (paramId.includes('_') || paramId.includes('-')) {
+    return paramId
+      .split(/[-_]/)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+  }
+
+  if (/[A-Z]/.test(paramId)) {
+    const result = paramId.replace(/([A-Z])/g, ' $1')
+    return (
+      result.charAt(0).toUpperCase() +
+      result
+        .slice(1)
+        .replace(/ Api/g, ' API')
+        .replace(/ Id/g, ' ID')
+        .replace(/ Url/g, ' URL')
+        .replace(/ Uri/g, ' URI')
+    )
+  }
+
+  return paramId.charAt(0).toUpperCase() + paramId.slice(1)
+}
+
+const shouldIncludeProviderParam = (
+  definition: TradingProviderParamDefinition,
+  reservedParams: Set<string> = BLOCK_RESERVED_PARAM_IDS
+): boolean => {
+  if (reservedParams.has(definition.id)) return false
+  if (definition.visibility === 'hidden' || definition.visibility === 'llm-only') return false
+  return true
+}
+
+const resolveParamInputType = (
+  definition: TradingProviderParamDefinition
+): SubBlockConfig['type'] => {
+  if (definition.inputType) return definition.inputType
+  if (definition.options?.length) return 'dropdown'
+
+  switch (definition.type) {
+    case 'boolean':
+      return 'switch'
+    case 'json':
+    case 'array':
+      return 'code'
+    case 'number':
+      return 'short-input'
+    default:
+      return 'short-input'
+  }
+}
+
+const normalizeConditionList = (
+  condition?: SubBlockCondition | SubBlockCondition[]
+): SubBlockCondition[] => {
+  if (!condition) return []
+  return Array.isArray(condition) ? condition : [condition]
+}
+
+const mergeParamConditions = (
+  definitionCondition?: TradingProviderParamDefinition['condition'],
+  providerCondition?: SubBlockCondition
+): SubBlockCondition | undefined => {
+  if (!definitionCondition) return providerCondition
+  if (!providerCondition) return definitionCondition as SubBlockCondition
+
+  const baseCondition = definitionCondition as SubBlockCondition
+  const baseAnd = normalizeConditionList(baseCondition.and)
+
+  if (baseAnd.length === 0) {
+    return {
+      ...baseCondition,
+      and: providerCondition,
+    }
+  }
+
+  return {
+    ...baseCondition,
+    and: [...baseAnd, providerCondition],
+  }
+}
+
 const toOptionalNumber = (value: unknown): number | undefined => {
   if (value === null || value === undefined) return undefined
   if (typeof value === 'string' && value.trim() === '') return undefined
@@ -24,23 +168,50 @@ const toOptionalNumber = (value: unknown): number | undefined => {
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
-const providerFieldBlocks = (): SubBlockConfig[] => {
-  const providers = getTradingProviders()
-  return providers.flatMap((provider) =>
-    (provider.fields || []).map((field) => ({
-      id: field.id,
-      title: field.label,
-      type: field.type === 'dropdown' ? 'dropdown' : 'short-input',
-      layout: 'full',
-      required: field.required,
-      placeholder: field.placeholder,
-      description: field.description,
-      options: field.options?.map((option) => ({ label: option.label, id: option.id })),
-      condition: { field: 'provider', value: provider.id },
-      canonicalParamId: field.id,
-    }))
-  )
-}
+const providerParamBlocks = (): SubBlockConfig[] =>
+  orderedProviderParamIds
+    .map((paramId) => {
+      const entry = providerParamRegistry[paramId]
+      if (!entry) return null
+
+      const definition = entry.definition
+      if (!shouldIncludeProviderParam(definition)) return null
+
+      const inputType = resolveParamInputType(definition)
+      const numericInputType =
+        (inputType === 'short-input' || inputType === 'long-input') &&
+        definition.type === 'number'
+          ? 'number'
+          : undefined
+      const providerCondition = entry.providers.length
+        ? ({ field: 'provider', value: entry.providers } as SubBlockCondition)
+        : undefined
+      const condition = mergeParamConditions(definition.condition, providerCondition)
+
+      return {
+        id: paramId,
+        title: definition.title || formatParamTitle(paramId),
+        type: inputType,
+        layout: definition.layout || 'full',
+        required: definition.required,
+        placeholder: definition.placeholder || definition.description,
+        description: definition.description,
+        options: definition.options,
+        defaultValue: definition.defaultValue,
+        fetchOptions: definition.fetchOptions,
+        min: definition.min,
+        max: definition.max,
+        step: definition.step,
+        integer: definition.integer,
+        rows: definition.rows,
+        dependsOn: definition.dependsOn,
+        mode: definition.mode,
+        inputType: numericInputType,
+        password: definition.password ?? isSensitiveParam(paramId),
+        condition,
+      } as SubBlockConfig
+    })
+    .filter((block): block is SubBlockConfig => Boolean(block))
 
 const providerCredentialBlocks = (): SubBlockConfig[] => {
   const providers = getTradingProviders()
@@ -122,25 +293,6 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       required: true,
     },
     {
-      id: 'quantity',
-      title: 'Quantity (Shares)',
-      type: 'short-input',
-      layout: 'half',
-      placeholder: 'Number of shares',
-      required: false,
-      description: 'Required for non-Alpaca orders or when dollar amount is not provided.',
-    },
-    {
-      id: 'notional',
-      title: 'Dollar Amount (USD)',
-      type: 'short-input',
-      layout: 'half',
-      placeholder: 'e.g. 500.00',
-      required: false,
-      description: 'Alpaca only. Provide either quantity or dollar amount, not both.',
-      condition: { field: 'provider', value: 'alpaca' },
-    },
-    {
       id: 'orderType',
       title: 'Order Type',
       type: 'dropdown',
@@ -184,7 +336,7 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       ],
       placeholder: 'Defaults vary by provider',
     },
-    ...providerFieldBlocks(),
+    ...providerParamBlocks(),
   ],
   tools: {
     access: ['trading_place_order'],
@@ -203,13 +355,16 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
             .find((value) => value !== undefined)
         }
         const credential = resolveCredential()
-        const extraFields = getProviderFields(provider, 'order').reduce((acc, field) => {
-          const key = `${provider}_${field.id}`
-          if (params[key] !== undefined) {
-            acc[field.id] = params[key]
-          }
-          return acc
-        }, {} as Record<string, any>)
+        const extraFields = getTradingProviderParamDefinitions(provider, 'order').reduce(
+          (acc, definition) => {
+            if (!shouldIncludeProviderParam(definition, TOOL_RESERVED_PARAM_IDS)) return acc
+            if (params[definition.id] !== undefined) {
+              acc[definition.id] = params[definition.id]
+            }
+            return acc
+          },
+          {} as Record<string, any>
+        )
 
         return {
           provider,

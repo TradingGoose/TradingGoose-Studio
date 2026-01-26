@@ -642,35 +642,37 @@ export const WorkflowBlock = memo(
         const normalizeValue = (value: any) =>
           value && typeof value === 'object' && 'id' in value ? (value as any).id : value
         const normalizedFieldValue = normalizeValue(stateToUse[actualCondition.field]?.value)
-        const andFieldValue = actualCondition.and
-          ? normalizeValue(stateToUse[actualCondition.and.field]?.value)
-          : undefined
+        const andConditions = Array.isArray(actualCondition.and)
+          ? actualCondition.and
+          : actualCondition.and
+            ? [actualCondition.and]
+            : []
 
-        // Check if the condition value is an array
-        const isValueMatch = Array.isArray(actualCondition.value)
-          ? normalizedFieldValue != null &&
-          (actualCondition.not
-            ? !actualCondition.value.includes(
-              normalizedFieldValue as string | number | boolean
+        const evaluateMatch = (
+          condition: {
+            value: string | number | boolean | Array<string | number | boolean>
+            not?: boolean
+          },
+          fieldValue: string | number | boolean | null | undefined
+        ) => {
+          if (Array.isArray(condition.value)) {
+            return (
+              fieldValue != null &&
+              (condition.not
+                ? !condition.value.includes(fieldValue as string | number | boolean)
+                : condition.value.includes(fieldValue as string | number | boolean))
             )
-            : actualCondition.value.includes(
-              normalizedFieldValue as string | number | boolean
-            ))
-          : actualCondition.not
-            ? normalizedFieldValue !== actualCondition.value
-            : normalizedFieldValue === actualCondition.value
+          }
+          return condition.not ? fieldValue !== condition.value : fieldValue === condition.value
+        }
 
-        // Check both conditions if 'and' is present
+        const isValueMatch = evaluateMatch(actualCondition, normalizedFieldValue)
         const isAndValueMatch =
-          !actualCondition.and ||
-          (Array.isArray(actualCondition.and.value)
-            ? andFieldValue != null &&
-            (actualCondition.and.not
-              ? !actualCondition.and.value.includes(andFieldValue as string | number | boolean)
-              : actualCondition.and.value.includes(andFieldValue as string | number | boolean))
-            : actualCondition.and.not
-              ? andFieldValue !== actualCondition.and.value
-              : andFieldValue === actualCondition.and.value)
+          andConditions.length === 0 ||
+          andConditions.every((andCondition) => {
+            const andFieldValue = normalizeValue(stateToUse[andCondition.field]?.value)
+            return evaluateMatch(andCondition, andFieldValue)
+          })
 
         return isValueMatch && isAndValueMatch
       })
