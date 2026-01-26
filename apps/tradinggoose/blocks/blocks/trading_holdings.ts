@@ -1,13 +1,21 @@
 import { DollarIcon } from '@/components/icons/icons'
 import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
-import { getProviderFields, getTradingProviders } from '@/trading_providers'
+import { buildInputsFromToolParams } from '@/blocks/utils'
+import {
+  getProviderFields,
+  getTradingProviderIdsForParam,
+  getTradingProviders,
+} from '@/providers/trading'
+import { tradingHoldingsTool } from '@/tools/trading'
 import type { TradingHoldingsResponse } from '@/tools/trading/types'
 
 const providerOptions = getTradingProviders().map((provider) => ({
   label: provider.name,
   id: provider.id,
 }))
+
+const providersWithEnvironment = getTradingProviderIdsForParam('holdings', 'environment')
 
 const providerFieldBlocks = (): SubBlockConfig[] => {
   const providers = getTradingProviders()
@@ -29,13 +37,35 @@ const providerFieldBlocks = (): SubBlockConfig[] => {
   )
 }
 
+const providerCredentialBlocks = (): SubBlockConfig[] => {
+  const providers = getTradingProviders()
+  return providers
+    .filter((provider) => provider.authType === 'oauth' && provider.oauth)
+    .map((provider) => {
+      const oauth = provider.oauth!
+      return {
+        id: `${provider.id}Credential`,
+        title: oauth.credentialTitle || `${provider.name} Account`,
+        type: 'oauth-input',
+        layout: 'full',
+        required: true,
+        provider: oauth.provider,
+        serviceId: oauth.serviceId || oauth.provider,
+        requiredScopes: oauth.scopes || [],
+        placeholder: oauth.credentialPlaceholder || `Select or connect ${provider.name} account`,
+        condition: { field: 'provider', value: provider.id },
+        canonicalParamId: 'credential',
+      }
+    })
+}
+
 export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
   type: 'trading_holdings',
   name: 'Trading Holdings',
-  description: 'Fetch account holdings/positions from supported brokers.',
+  description: 'Fetch a unified account snapshot from supported brokers.',
   authMode: AuthMode.OAuth,
   longDescription:
-    'Unified holdings block that returns the current positions for Alpaca, Tradier, or Robinhood.',
+    'Unified holdings block that returns an account snapshot for Alpaca, Tradier, or Robinhood.',
   category: 'tools',
   bgColor: '#115e59',
   icon: DollarIcon,
@@ -57,55 +87,14 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
         { label: 'Paper (Sandbox)', id: 'paper' },
         { label: 'Live Trading', id: 'live' },
       ],
-      condition: { field: 'provider', value: 'alpaca' },
+      condition: providersWithEnvironment.length
+        ? { field: 'provider', value: providersWithEnvironment }
+        : undefined,
+      hidden: providersWithEnvironment.length === 0,
       placeholder: 'Select environment',
       required: false,
     },
-    {
-      id: 'tradierCredential',
-      title: 'Tradier Account',
-      type: 'oauth-input',
-      layout: 'full',
-      required: true,
-      provider: 'tradier',
-      serviceId: 'tradier',
-      requiredScopes: ['read', 'write', 'trade'],
-      placeholder: 'Select or connect Tradier account',
-      condition: { field: 'provider', value: 'tradier' },
-      canonicalParamId: 'credential',
-    },
-    {
-      id: 'robinhoodCredential',
-      title: 'Robinhood Account',
-      type: 'oauth-input',
-      layout: 'full',
-      required: true,
-      provider: 'robinhood',
-      serviceId: 'robinhood',
-      requiredScopes: ['internal', 'read', 'trading'],
-      placeholder: 'Select or connect Robinhood account',
-      condition: { field: 'provider', value: 'robinhood' },
-      canonicalParamId: 'credential',
-    },
-    {
-      id: 'apiKey',
-      title: 'API Key',
-      type: 'short-input',
-      layout: 'half',
-      placeholder: 'APCA-API-KEY-ID',
-      condition: { field: 'provider', value: 'alpaca' },
-      required: true,
-    },
-    {
-      id: 'apiSecret',
-      title: 'API Secret',
-      type: 'short-input',
-      layout: 'half',
-      placeholder: 'APCA-API-SECRET-KEY',
-      condition: { field: 'provider', value: 'alpaca' },
-      required: true,
-      password: true,
-    },
+    ...providerCredentialBlocks(),
     ...providerFieldBlocks(),
   ],
   tools: {
@@ -114,8 +103,17 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
       tool: () => 'trading_get_holdings',
       params: (params) => {
         const provider = params.provider
-        const credential =
-          params.credential || params.tradierCredential || params.robinhoodCredential
+        const resolveCredential = () => {
+          if (params.credential) return params.credential
+          if (provider) {
+            const providerKey = `${provider}Credential`
+            if (params[providerKey] !== undefined) return params[providerKey]
+          }
+          return getTradingProviders()
+            .map((definition) => params[`${definition.id}Credential`])
+            .find((value) => value !== undefined)
+        }
+        const credential = resolveCredential()
         const extraFields = getProviderFields(provider, 'holdings').reduce((acc, field) => {
           const key = `${provider}_${field.id}`
           if (params[key] !== undefined) {
@@ -127,26 +125,18 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
         return {
           provider,
           credential,
-          apiKey: params.apiKey,
-          apiSecret: params.apiSecret,
           environment: params.environment,
           ...extraFields,
         }
       },
     },
   },
-  inputs: {
-    provider: { type: 'string', description: 'Selected trading provider' },
-    credential: { type: 'string', description: 'OAuth credential identifier' },
-    apiKey: { type: 'string', description: 'API key for API-key providers' },
-    apiSecret: { type: 'string', description: 'API secret for API-key providers' },
-    environment: { type: 'string', description: 'Paper or live environment' },
-    accountId: { type: 'string', description: 'Provider-specific account identifier' },
-    accountUrl: { type: 'string', description: 'Account resource URL (Robinhood)' },
-  },
+  inputs: buildInputsFromToolParams(tradingHoldingsTool.params, {
+    include: ['credential'],
+  }),
   outputs: {
     summary: { type: 'string', description: 'Status of holdings retrieval' },
     provider: { type: 'string', description: 'Provider used' },
-    holdings: { type: 'json', description: 'Holdings payload and raw response' },
+    holdings: { type: 'json', description: 'Unified account snapshot payload' },
   },
 }

@@ -1,5 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { getTradingProvider } from '@/trading_providers'
+import { executeTradingProviderRequest, getTradingProvider } from '@/providers/trading'
 import type { ToolConfig } from '@/tools/types'
 import type { TradingHoldingsParams, TradingHoldingsResponse } from '@/tools/trading/types'
 
@@ -7,7 +7,8 @@ const logger = createLogger('TradingHoldingsTool')
 
 const buildHoldingsRequest = (params: TradingHoldingsParams) => {
   const provider = getTradingProvider(params.provider)
-  const request = provider.buildHoldingsRequest(params)
+  const { provider: providerId, ...rest } = params
+  const request = executeTradingProviderRequest(providerId, { kind: 'holdings', ...rest })
   logger.info(`Building holdings request for ${provider.id}`)
   return request
 }
@@ -24,7 +25,7 @@ const resolveHoldingsRequest = (params: TradingHoldingsParams) => {
 export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldingsResponse> = {
   id: 'trading_get_holdings',
   name: 'Trading: Get Holdings',
-  description: 'Fetch account positions/holdings from Alpaca, Tradier, or Robinhood.',
+  description: 'Fetch a unified account snapshot from Alpaca, Tradier, or Robinhood.',
   version: '1.0.0',
 
   params: {
@@ -40,23 +41,35 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldi
       visibility: 'user-only',
       description: 'Trading environment for Alpaca (paper or live).',
     },
+    credential: {
+      type: 'string',
+      required: false,
+      visibility: 'hidden',
+      description: 'OAuth credential id for the selected broker (populated from selected account).',
+    },
+    tradierCredential: {
+      type: 'string',
+      required: false,
+      visibility: 'user-only',
+      description: 'Tradier OAuth credential id.',
+    },
+    robinhoodCredential: {
+      type: 'string',
+      required: false,
+      visibility: 'user-only',
+      description: 'Robinhood OAuth credential id.',
+    },
+    alpacaCredential: {
+      type: 'string',
+      required: false,
+      visibility: 'user-only',
+      description: 'Alpaca OAuth credential id.',
+    },
     accessToken: {
       type: 'string',
       required: false,
       visibility: 'hidden',
-      description: 'OAuth access token (Tradier/Robinhood).',
-    },
-    apiKey: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'API key (Alpaca).',
-    },
-    apiSecret: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'API secret (Alpaca).',
+      description: 'OAuth access token (injected from credential).',
     },
     accountId: {
       type: 'string',
@@ -82,14 +95,25 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldi
   transformResponse: async (response, params) => {
     const provider = getTradingProvider(params.provider)
     const raw = await response.json().catch(() => ({}))
-    const normalized = provider.normalizeHoldings ? provider.normalizeHoldings(raw) : raw
+    const normalized = provider.normalizeHoldings
+      ? provider.normalizeHoldings(raw, {
+          environment: params.environment,
+          accessToken: params.accessToken,
+          apiKey: params.apiKey,
+          apiSecret: params.apiSecret,
+          accountId: params.accountId,
+          accountUrl: params.accountUrl,
+          providerId: provider.id,
+          providerName: provider.name,
+        })
+      : raw
 
     return {
       success: true,
       output: {
         summary: `Fetched holdings from ${provider.name}`,
         provider: provider.id,
-        holdings: normalized as any[],
+        holdings: normalized,
       },
     }
   },
@@ -97,6 +121,6 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldi
   outputs: {
     summary: { type: 'string', description: 'Status message for holdings retrieval.' },
     provider: { type: 'string', description: 'Broker/provider used for the request.' },
-    holdings: { type: 'json', description: 'Normalized holdings list with raw data.' },
+    holdings: { type: 'json', description: 'Unified account snapshot with positions.' },
   },
 }
