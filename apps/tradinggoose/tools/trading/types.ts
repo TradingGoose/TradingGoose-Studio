@@ -19,6 +19,8 @@ export interface TradingActionParams {
   // Auth
   credential?: string
   accessToken?: string
+  apiKey?: string
+  apiSecret?: string
   tradierCredential?: string
   robinhoodCredential?: string
   alpacaCredential?: string
@@ -26,6 +28,7 @@ export interface TradingActionParams {
   accountId?: string
   accountUrl?: string
   instrumentUrl?: string
+  orderSizingMode?:string
 }
 
 export interface TradingHoldingsParams {

@@ -102,6 +102,12 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       visibility: 'user-or-llm',
       description: 'Dollar amount to trade (Alpaca only).',
     },
+    orderSizingMode: {
+      type: 'string',
+      required: false,
+      visibility: 'user-or-llm',
+      description: 'Order sizing mode (quantity or notional) for Alpaca.',
+    },
     orderType: {
       type: 'string',
       required: false,
@@ -161,6 +167,18 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       required: false,
       visibility: 'hidden',
       description: 'OAuth access token (injected from credential).',
+    },
+    apiKey: {
+      type: 'string',
+      required: false,
+      visibility: 'hidden',
+      description: 'Alpaca API key ID (optional if using OAuth).',
+    },
+    apiSecret: {
+      type: 'string',
+      required: false,
+      visibility: 'hidden',
+      description: 'Alpaca API secret key (optional if using OAuth).',
     },
     accountId: {
       type: 'string',

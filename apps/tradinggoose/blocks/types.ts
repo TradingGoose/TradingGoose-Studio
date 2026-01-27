@@ -81,6 +81,13 @@ export type SubBlockType =
 
 export type SubBlockLayout = 'full' | 'half'
 
+export interface SubBlockCondition {
+  field: string
+  value: string | number | boolean | Array<string | number | boolean>
+  not?: boolean
+  and?: SubBlockCondition | SubBlockCondition[]
+}
+
 export type ExtractToolOutput<T> = T extends ToolResponse ? T['output'] : never
 
 export type ToolOutputToValueType<T> = T extends Record<string, any>
@@ -207,26 +214,8 @@ export interface SubBlockConfig {
   maxHeight?: number
   selectAllOption?: boolean
   condition?:
-  | {
-    field: string
-    value: string | number | boolean | Array<string | number | boolean>
-    not?: boolean
-    and?: {
-      field: string
-      value: string | number | boolean | Array<string | number | boolean> | undefined
-      not?: boolean
-    }
-  }
-  | (() => {
-    field: string
-    value: string | number | boolean | Array<string | number | boolean>
-    not?: boolean
-    and?: {
-      field: string
-      value: string | number | boolean | Array<string | number | boolean> | undefined
-      not?: boolean
-    }
-  })
+  | SubBlockCondition
+  | (() => SubBlockCondition)
   // Props specific to 'code' sub-block type
   language?: 'javascript' | 'json' | 'python'
   generationType?: GenerationType

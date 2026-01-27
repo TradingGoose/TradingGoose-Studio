@@ -841,7 +841,7 @@ export function ToolInput({
     }
 
     const dependentParamIds = (() => {
-      const toolParams = getToolParametersConfig(tool.toolId, tool.type)
+      const toolParams = getToolParametersConfig(tool.toolId, tool.type, tool.params)
       const params = toolParams?.userInputParameters ?? []
       const dependencyMap = new Map<string, string[]>()
 
@@ -907,7 +907,7 @@ export function ToolInput({
     }
 
     // Get parameters for the new tool
-    const toolParams = getToolParametersConfig(newToolId, tool.type)
+    const toolParams = getToolParametersConfig(newToolId, tool.type, tool.params)
 
     if (!toolParams) {
       logger.info('❌ Early return: no toolParams')
@@ -919,7 +919,7 @@ export function ToolInput({
 
     // Preserve ALL existing parameters that also exist in the new tool configuration
     // This mimics how regular blocks work - each field maintains its state independently
-    const oldToolParams = getToolParametersConfig(tool.toolId, tool.type)
+    const oldToolParams = getToolParametersConfig(tool.toolId, tool.type, tool.params)
     const oldParamIds = new Set(oldToolParams?.userInputParameters.map((p) => p.id) || [])
     const newParamIds = new Set(toolParams.userInputParameters.map((p) => p.id))
 
@@ -1072,37 +1072,33 @@ export function ToolInput({
     }
 
     const fieldValue = currentValues[condition.field]
-    let result = false
+    const andConditions = Array.isArray(condition.and)
+      ? condition.and
+      : condition.and
+        ? [condition.and]
+        : []
 
-    if (Array.isArray(condition.value)) {
-      result = condition.value.includes(fieldValue)
-    } else {
-      result = fieldValue === condition.value
+    const evaluateMatch = (
+      matchCondition: {
+        value: string | number | boolean | Array<string | number | boolean>
+        not?: boolean
+      },
+      valueToCheck: any
+    ) => {
+      const isMatch = Array.isArray(matchCondition.value)
+        ? matchCondition.value.includes(valueToCheck)
+        : valueToCheck === matchCondition.value
+      return matchCondition.not ? !isMatch : isMatch
     }
 
-    if (condition.not) {
-      result = !result
-    }
+    const baseMatch = evaluateMatch(condition, fieldValue)
+    const andMatch =
+      andConditions.length === 0 ||
+      andConditions.every((andCondition) =>
+        evaluateMatch(andCondition, currentValues[andCondition.field])
+      )
 
-    // Handle 'and' conditions
-    if (condition.and) {
-      const andFieldValue = currentValues[condition.and.field]
-      let andResult = false
-
-      if (Array.isArray(condition.and.value)) {
-        andResult = condition.and.value.includes(andFieldValue)
-      } else {
-        andResult = andFieldValue === condition.and.value
-      }
-
-      if (condition.and.not) {
-        andResult = !andResult
-      }
-
-      result = result && andResult
-    }
-
-    return result
+    return baseMatch && andMatch
   }
 
   // Render the appropriate UI component based on parameter configuration
@@ -1437,7 +1433,9 @@ export function ToolInput({
 
             // Get tool parameters using the new utility with block type for UI components
             const toolParams =
-              !isCustomTool && !isMcpTool ? getToolParametersConfig(currentToolId, tool.type) : null
+              !isCustomTool && !isMcpTool
+                ? getToolParametersConfig(currentToolId, tool.type, tool.params)
+                : null
 
             // For custom tools, extract parameters from schema
             const customToolParams =

@@ -44,6 +44,7 @@ export interface TradingOrderInput extends TradingSymbolInput {
   side: 'buy' | 'sell'
   quantity?: number
   notional?: number
+  orderSizingMode?: string
   orderType?: string
   timeInForce?: string
   limitPrice?: number
