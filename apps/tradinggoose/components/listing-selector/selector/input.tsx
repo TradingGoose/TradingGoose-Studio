@@ -33,6 +33,7 @@ export interface StockSelectorProps {
   blockId?: string
   disabled?: boolean
   className?: string
+  providerType?: 'market' | 'trading'
   onListingChange?: (listing: ListingOption | null) => void
   onListingValueChange?: (value: string | null) => void
   onListingTagSelect?: (value: string) => void
@@ -52,6 +53,7 @@ export function StockSelector({
   blockId,
   disabled,
   className,
+  providerType = 'market',
   onListingChange,
   onListingValueChange,
   onListingTagSelect,
@@ -125,6 +127,7 @@ export function StockSelector({
     open,
     query,
     providerId,
+    providerType,
     instanceId,
     updateInstance,
     isVariableInput: isVariableListingInput,

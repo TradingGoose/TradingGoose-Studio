@@ -226,6 +226,9 @@ export interface SubBlockConfig {
   serviceId?: string
   requiredScopes?: string[]
   supportsCredentialSets?: boolean
+  // Market selector provider override
+  providerType?: 'market' | 'trading'
+  providerFieldId?: string
   // File selector specific properties
   mimeType?: string
   // File upload specific properties

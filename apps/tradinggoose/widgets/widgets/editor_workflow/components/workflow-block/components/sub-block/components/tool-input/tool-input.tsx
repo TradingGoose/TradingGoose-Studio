@@ -1107,7 +1107,8 @@ export function ToolInput({
     value: string,
     onChange: (value: string) => void,
     toolIndex?: number,
-    currentToolParams?: Record<string, any>
+    currentToolParams?: Record<string, any>,
+    toolId?: string
   ) => {
     // Create unique subBlockId for tool parameters to avoid conflicts
     // Use real blockId so tag dropdown and drag-drop work correctly
@@ -1204,7 +1205,13 @@ export function ToolInput({
           />
         )
 
-      case 'market-selector':
+      case 'market-selector': {
+        const providerFieldId =
+          toolIndex !== undefined
+            ? `${subBlockId}-tool-${toolIndex}-provider`
+            : `${subBlockId}-provider`
+        const providerType = toolId?.startsWith('trading_') ? 'trading' : 'market'
+
         return (
           <ListingSelectorInput
             blockId={blockId}
@@ -1214,6 +1221,8 @@ export function ToolInput({
             value={value}
             onChange={(listing) => onChange(listing ?? null)}
             disabled={disabled}
+            providerFieldId={providerFieldId}
+            providerType={providerType}
             config={{
               id: uniqueSubBlockId,
               type: 'market-selector',
@@ -1222,6 +1231,7 @@ export function ToolInput({
             }}
           />
         )
+      }
 
       case 'channel-selector':
         return (
@@ -1793,7 +1803,8 @@ export function ToolInput({
                                     {
                                       ...tool.params,
                                       ...(tool.operation ? { operation: tool.operation } : {}),
-                                    }
+                                    },
+                                    tool.toolId
                                   )
                                 ) : (
                                   <ShortInput
