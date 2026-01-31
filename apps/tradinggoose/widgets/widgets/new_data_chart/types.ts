@@ -1,0 +1,71 @@
+import type { MutableRefObject } from 'react'
+import type { ListingIdentity } from '@/lib/listing/identity'
+import type { MarketInterval, MarketSessionWindow } from '@/providers/market/types'
+import type { BarMs } from '@/widgets/widgets/new_data_chart/series-data'
+
+export type DataChartCandleType =
+  | 'candle_solid'
+  | 'candle_stroke'
+  | 'candle_up_stroke'
+  | 'candle_down_stroke'
+  | 'ohlc'
+  | 'area'
+
+export type NewIndicatorRef = {
+  id: string
+}
+
+export type DataChartAuthParams = {
+  apiKey?: string
+  apiSecret?: string
+  [key: string]: unknown
+}
+
+export type DataChartDataParams = {
+  provider?: string
+  providerParams?: Record<string, unknown>
+  auth?: DataChartAuthParams
+  interval?: MarketInterval | string
+  live?: {
+    enabled?: boolean
+    interval?: MarketInterval | string
+  }
+}
+
+export type DataChartViewParams = {
+  locale?: string
+  timezone?: string
+  start?: number
+  end?: number
+  interval?: MarketInterval | string
+  marketSession?: 'regular' | 'extended'
+  pricePrecision?: number
+  volumePrecision?: number
+  candleType?: DataChartCandleType
+  priceAxisType?: 'normal' | 'percentage' | 'log'
+  pineIndicators?: NewIndicatorRef[]
+  rangePresetId?: string
+  stylesOverride?: Record<string, unknown>
+}
+
+export type DataChartWidgetParams = {
+  workflowId?: string
+  listing?: ListingIdentity | null
+  data?: DataChartDataParams
+  view?: DataChartViewParams
+  runtime?: {
+    refreshAt?: number
+  }
+}
+
+export type NewDataChartViewParams = DataChartViewParams
+export type NewDataChartWidgetParams = DataChartWidgetParams
+
+export type NewDataChartDataContext = {
+  barsMsRef: MutableRefObject<BarMs[]>
+  indexByOpenTimeMsRef: MutableRefObject<Map<number, number>>
+  openTimeMsByIndexRef: MutableRefObject<number[]>
+  marketSessionsRef: MutableRefObject<MarketSessionWindow[]>
+  intervalMs: number | null
+  dataVersion: number
+}
