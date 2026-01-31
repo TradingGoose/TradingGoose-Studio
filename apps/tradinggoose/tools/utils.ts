@@ -35,7 +35,8 @@ interface RequestParams {
   url: string
   method: string
   headers: Record<string, string>
-  body?: string
+  body?: string | FormData
+  timeout?: number
 }
 
 /**
@@ -62,13 +63,34 @@ export function formatRequestParams(tool: ToolConfig, params: Record<string, any
   const isPreformattedContent =
     headers['Content-Type'] === 'application/x-ndjson' ||
     headers['Content-Type'] === 'application/x-www-form-urlencoded'
-  const body = hasBody
-    ? isPreformattedContent && typeof bodyResult === 'string'
-      ? bodyResult
-      : JSON.stringify(bodyResult)
-    : undefined
+  let body: string | FormData | undefined
+  if (hasBody) {
+    if (typeof FormData !== 'undefined' && bodyResult instanceof FormData) {
+      body = bodyResult
+    } else {
+      if (isPreformattedContent) {
+        if (typeof bodyResult === 'string') {
+          body = bodyResult
+        } else if (bodyResult && typeof bodyResult === 'object' && 'body' in bodyResult) {
+          body = (bodyResult as { body: string }).body
+        } else {
+          body = JSON.stringify(bodyResult)
+        }
+      } else {
+        body = typeof bodyResult === 'string' ? bodyResult : JSON.stringify(bodyResult)
+      }
+    }
+  }
 
-  return { url, method, headers, body }
+  const MAX_TIMEOUT_MS = 600000
+  const rawTimeout = params.timeout
+  const timeout = rawTimeout != null ? Number(rawTimeout) : undefined
+  const validTimeout =
+    timeout != null && Number.isFinite(timeout) && timeout > 0
+      ? Math.min(timeout, MAX_TIMEOUT_MS)
+      : undefined
+
+  return { url, method, headers, body, timeout: validTimeout }
 }
 
 /**
@@ -258,7 +280,8 @@ export function createCustomToolRequestBody(
       workflowVariables: workflowVariables, // Workflow variables for <variable.name> resolution
       blockData: blockData, // Runtime block outputs for <block.field> resolution
       blockNameMapping: blockNameMapping, // Block name to ID mapping
-      workflowId: workflowId, // Pass workflowId for server-side context
+      workflowId: params._context?.workflowId || workflowId, // Pass workflowId for server-side context
+      userId: params._context?.userId, // Pass userId for auth context
       isCustomTool: true, // Flag to indicate this is a custom tool execution
     }
   }
@@ -306,7 +329,7 @@ export async function getToolAsync(
 
   // Check if it's a custom tool
   if (toolId.startsWith('custom_')) {
-    return getCustomTool(toolId, workflowId)
+    return getCustomTool(toolId, workflowId, workspaceId)
   }
 
   return undefined
@@ -353,7 +376,8 @@ function createToolConfig(customTool: any, customToolId: string): ToolConfig {
 // Create a tool config from a custom tool definition
 async function getCustomTool(
   customToolId: string,
-  workflowId?: string
+  workflowId?: string,
+  workspaceId?: string
 ): Promise<ToolConfig | undefined> {
   const identifier = customToolId.replace('custom_', '')
 
@@ -368,7 +392,18 @@ async function getCustomTool(
       url.searchParams.append('workspaceId', workspaceId)
     }
 
-    const response = await fetch(url.toString())
+    const headers: Record<string, string> = {}
+    if (typeof window === 'undefined') {
+      try {
+        const { generateInternalToken } = await import('@/lib/auth/internal')
+        const internalToken = await generateInternalToken()
+        headers.Authorization = `Bearer ${internalToken}`
+      } catch (error) {
+        logger.warn('Failed to generate internal token for custom tools fetch', { error })
+      }
+    }
+
+    const response = await fetch(url.toString(), { headers })
 
     if (!response.ok) {
       logger.error(`Failed to fetch custom tools: ${response.statusText}`)

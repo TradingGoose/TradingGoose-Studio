@@ -1,6 +1,7 @@
 import { generateInternalToken } from '@/lib/auth/internal'
 import { createLogger } from '@/lib/logs/console/logger'
 import { parseMcpToolId } from '@/lib/mcp/utils'
+import { validateExternalUrl } from '@/lib/security/input-validation'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
 import { resolveListingIdentity } from '@/lib/listing/resolve'
@@ -17,6 +18,63 @@ import {
 } from '@/tools/utils'
 
 const logger = createLogger('Tools')
+
+/**
+ * Maximum request body size in bytes before we warn/error about size limits.
+ * Next.js has a default middleware/proxy body limit of 10MB.
+ */
+const MAX_REQUEST_BODY_SIZE_BYTES = 10 * 1024 * 1024 // 10MB
+
+/**
+ * User-friendly error message for body size limit exceeded
+ */
+const BODY_SIZE_LIMIT_ERROR_MESSAGE =
+  'Request body size limit exceeded (10MB). The workflow data is too large to process. Try reducing the size of variables, inputs, or data being passed between blocks.'
+
+/**
+ * Validates request body size and throws a user-friendly error if exceeded
+ */
+function validateRequestBodySize(body: string | undefined, requestId: string, context: string): void {
+  if (!body) return
+
+  const bodySize = Buffer.byteLength(body, 'utf8')
+  if (bodySize > MAX_REQUEST_BODY_SIZE_BYTES) {
+    const bodySizeMB = (bodySize / (1024 * 1024)).toFixed(2)
+    const maxSizeMB = (MAX_REQUEST_BODY_SIZE_BYTES / (1024 * 1024)).toFixed(0)
+    logger.error(`[${requestId}] Request body size exceeds limit for ${context}:`, {
+      bodySize,
+      bodySizeMB: `${bodySizeMB}MB`,
+      maxSize: MAX_REQUEST_BODY_SIZE_BYTES,
+      maxSizeMB: `${maxSizeMB}MB`,
+    })
+    throw new Error(BODY_SIZE_LIMIT_ERROR_MESSAGE)
+  }
+}
+
+function isBodySizeLimitError(errorMessage: string): boolean {
+  const lowerMessage = errorMessage.toLowerCase()
+  return (
+    lowerMessage.includes('body size') ||
+    lowerMessage.includes('payload too large') ||
+    lowerMessage.includes('entity too large') ||
+    lowerMessage.includes('request entity too large') ||
+    lowerMessage.includes('body_not_allowed') ||
+    lowerMessage.includes('request body larger than')
+  )
+}
+
+function handleBodySizeLimitError(error: unknown, requestId: string, context: string): boolean {
+  const errorMessage = error instanceof Error ? error.message : String(error)
+
+  if (isBodySizeLimitError(errorMessage)) {
+    logger.error(`[${requestId}] Request body size limit exceeded for ${context}:`, {
+      originalError: errorMessage,
+    })
+    throw new Error(BODY_SIZE_LIMIT_ERROR_MESSAGE)
+  }
+
+  return false
+}
 
 /**
  * System parameters that should be filtered out when extracting tool arguments
@@ -121,11 +179,10 @@ async function processFileOutputs(
   }
 }
 
-// Execute a tool by calling either the proxy for external APIs or directly for internal routes
+// Execute a tool by making internal/external requests directly (no proxy indirection)
 export async function executeTool(
   toolId: string,
   params: Record<string, any>,
-  skipProxy = false,
   skipPostProcess = false,
   executionContext?: ExecutionContext
 ): Promise<ToolResponse> {
@@ -265,17 +322,10 @@ export async function executeTool(
       }
     }
 
-    // For internal routes or when skipProxy is true, call the API directly
-    // Internal routes are automatically detected by checking if URL starts with /api/
-    if (toolId === 'trading_place_order' && contextParams.provider === 'alpaca') {
-      await hydrateAlpacaOrderListing(contextParams)
-    }
-    const endpointUrl =
-      typeof tool.request.url === 'function' ? tool.request.url(contextParams) : tool.request.url
-    const isInternalRoute = endpointUrl.startsWith('/api/')
-
-    if (isInternalRoute || skipProxy) {
-      const result = await handleInternalRequest(toolId, tool, contextParams)
+    // Check for direct execution (no HTTP request needed)
+    if (tool.directExecution) {
+      logger.info(`[${requestId}] Using directExecution for ${toolId}`)
+      const result = await tool.directExecution(contextParams)
 
       // Apply post-processing if available and not skipped
       let finalResult = result
@@ -307,8 +357,12 @@ export async function executeTool(
       }
     }
 
-    // For external APIs, use the proxy
-    const result = await handleProxyRequest(toolId, contextParams, executionContext)
+    // Execute the tool request directly (internal routes use regular fetch)
+    if (toolId === 'trading_place_order' && contextParams.provider === 'alpaca') {
+      await hydrateAlpacaOrderListing(contextParams)
+    }
+
+    const result = await executeToolRequest(toolId, tool, contextParams)
 
     // Apply post-processing if available and not skipped
     let finalResult = result
@@ -489,34 +543,47 @@ async function addInternalAuthIfNeeded(
 }
 
 /**
- * Handle an internal/direct tool request
+ * Execute a tool request directly
+ * Internal routes (/api/...) use regular fetch
+ * External URLs are validated before fetch
  */
-async function handleInternalRequest(
+async function executeToolRequest(
   toolId: string,
   tool: ToolConfig,
   params: Record<string, any>
 ): Promise<ToolResponse> {
   const requestId = generateRequestId()
 
-  // Format the request parameters
   const requestParams = formatRequestParams(tool, params)
 
   try {
     const baseUrl = getBaseUrl()
-    // Handle the case where url may be a function or string
-    const endpointUrl =
-      typeof tool.request.url === 'function' ? tool.request.url(params) : tool.request.url
-
+    const endpointUrl = requestParams.url
     const fullUrlObj = new URL(endpointUrl, baseUrl)
     const isInternalRoute = endpointUrl.startsWith('/api/')
+
+    if (isInternalRoute) {
+      const workflowId = params._context?.workflowId
+      if (workflowId) {
+        fullUrlObj.searchParams.set('workflowId', workflowId)
+      }
+    }
+
     const fullUrl = fullUrlObj.toString()
 
-    // For custom tools, validate parameters on the client side before sending
     if (toolId.startsWith('custom_') && tool.request.body) {
       const requestBody = tool.request.body(params)
-      if (requestBody.schema && requestBody.params) {
+      if (
+        typeof requestBody === 'object' &&
+        requestBody !== null &&
+        'schema' in requestBody &&
+        'params' in requestBody
+      ) {
         try {
-          validateClientSideParams(requestBody.params, requestBody.schema)
+          validateClientSideParams(
+            (requestBody as any).params,
+            (requestBody as any).schema
+          )
         } catch (validationError) {
           logger.error(`[${requestId}] Custom tool validation failed for ${toolId}:`, {
             error:
@@ -530,45 +597,104 @@ async function handleInternalRequest(
     const headers = new Headers(requestParams.headers)
     await addInternalAuthIfNeeded(headers, isInternalRoute, requestId, toolId)
 
-    // Prepare request options
-    const requestOptions = {
-      method: requestParams.method,
-      headers: headers,
-      body: requestParams.body,
+    if (typeof requestParams.body === 'string') {
+      validateRequestBodySize(requestParams.body, requestId, toolId)
     }
 
-    const response = await fetch(fullUrl, requestOptions)
+    let response: Response
 
-    // For non-OK responses, attempt JSON first; if parsing fails, preserve legacy error expected by tests
+    if (isInternalRoute) {
+      const controller = new AbortController()
+      const timeout = requestParams.timeout || 300000
+      const timeoutId = setTimeout(() => controller.abort(), timeout)
+
+      try {
+        response = await fetch(fullUrl, {
+          method: requestParams.method,
+          headers: headers,
+          body: requestParams.body,
+          signal: controller.signal,
+        })
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw new Error(`Request timed out after ${timeout}ms`)
+        }
+        throw error
+      } finally {
+        clearTimeout(timeoutId)
+      }
+    } else {
+      const urlValidation = validateExternalUrl(fullUrl, 'toolUrl')
+      if (!urlValidation.isValid) {
+        throw new Error(`Invalid tool URL: ${urlValidation.error}`)
+      }
+
+      if (requestParams.timeout) {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), requestParams.timeout)
+        try {
+          response = await fetch(fullUrl, {
+            method: requestParams.method,
+            headers: headers,
+            body: requestParams.body,
+            signal: controller.signal,
+          })
+        } catch (error) {
+          if (error instanceof Error && error.name === 'AbortError') {
+            throw new Error(`Request timed out after ${requestParams.timeout}ms`)
+          }
+          throw error
+        } finally {
+          clearTimeout(timeoutId)
+        }
+      } else {
+        response = await fetch(fullUrl, {
+          method: requestParams.method,
+          headers: headers,
+          body: requestParams.body,
+        })
+      }
+    }
+
     if (!response.ok) {
+      if (response.status === 413) {
+        logger.error(`[${requestId}] Request body too large for ${toolId} (HTTP 413):`, {
+          status: response.status,
+          statusText: response.statusText,
+        })
+        throw new Error(BODY_SIZE_LIMIT_ERROR_MESSAGE)
+      }
+
       let errorData: any
       try {
         errorData = await response.json()
-      } catch (jsonError) {
-        logger.error(`[${requestId}] JSON parse error for ${toolId}:`, {
-          error: jsonError instanceof Error ? jsonError.message : String(jsonError),
-        })
-        throw new Error(`Failed to parse response from ${toolId}: ${jsonError}`)
+      } catch (_jsonError) {
+        try {
+          errorData = await response.text()
+        } catch (_textError) {
+          errorData = null
+        }
       }
 
-      const { isError, errorInfo } = isErrorResponse(response, errorData)
-      if (isError) {
-        const errorToTransform = createTransformedErrorFromErrorInfo(errorInfo, tool.errorExtractor)
-
-        logger.error(`[${requestId}] Internal API error for ${toolId}:`, {
-          status: errorInfo?.status,
-          errorData: errorInfo?.data,
-        })
-
-        throw errorToTransform
+      const errorInfo: ErrorInfo = {
+        status: response.status,
+        statusText: response.statusText,
+        data: errorData,
       }
+
+      const errorToTransform = createTransformedErrorFromErrorInfo(errorInfo, tool.errorExtractor)
+
+      logger.error(`[${requestId}] Internal API error for ${toolId}:`, {
+        status: errorInfo.status,
+        errorData: errorInfo.data,
+      })
+
+      throw errorToTransform
     }
 
-    // Parse response data once with guard for empty 202 bodies
     let responseData
     const status = response.status
-    if (status === 202) {
-      // Many APIs (e.g., Microsoft Graph) return 202 with empty body
+    if (status === 202 || status === 204 || status === 205) {
       responseData = { status }
     } else {
       if (tool.transformResponse) {
@@ -585,11 +711,9 @@ async function handleInternalRequest(
       }
     }
 
-    // Check for error conditions
     const { isError, errorInfo } = isErrorResponse(response, responseData)
 
     if (isError) {
-      // Handle error case
       const errorToTransform = createTransformedErrorFromErrorInfo(errorInfo, tool.errorExtractor)
 
       logger.error(`[${requestId}] Internal API error for ${toolId}:`, {
@@ -600,10 +724,8 @@ async function handleInternalRequest(
       throw errorToTransform
     }
 
-    // Success case: use transformResponse if available
     if (tool.transformResponse) {
       try {
-        // Create a mock response object that provides the methods transformResponse needs
         const mockResponse = {
           ok: response.ok,
           status: response.status,
@@ -612,6 +734,8 @@ async function handleInternalRequest(
           url: fullUrl,
           json: () => response.json(),
           text: () => response.text(),
+          arrayBuffer: () => response.arrayBuffer(),
+          blob: () => response.blob(),
         } as Response
 
         const data = await tool.transformResponse(mockResponse, params)
@@ -624,18 +748,18 @@ async function handleInternalRequest(
       }
     }
 
-    // Default success response handling
     return {
       success: true,
       output: responseData.output || responseData,
       error: undefined,
     }
   } catch (error: any) {
+    handleBodySizeLimitError(error, requestId, toolId)
+
     logger.error(`[${requestId}] Internal request error for ${toolId}:`, {
       error: error instanceof Error ? error.message : String(error),
     })
 
-    // Let the error bubble up to be handled in the main executeTool function
     throw error
   }
 }
@@ -702,81 +826,6 @@ function validateClientSideParams(
     }
     if (type === 'object' && (typeof paramValue !== 'object' || paramValue === null)) {
       throw new Error(`Parameter ${paramName} should be an object`)
-    }
-  }
-}
-
-/**
- * Handle a request via the proxy
- */
-async function handleProxyRequest(
-  toolId: string,
-  params: Record<string, any>,
-  executionContext?: ExecutionContext
-): Promise<ToolResponse> {
-  const requestId = generateRequestId()
-
-  const baseUrl = getBaseUrl()
-  const proxyUrl = new URL('/api/proxy', baseUrl).toString()
-
-  try {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    await addInternalAuthIfNeeded(headers, true, requestId, `proxy:${toolId}`)
-
-    const response = await fetch(proxyUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ toolId, params, executionContext }),
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      logger.error(`[${requestId}] Proxy request failed for ${toolId}:`, {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorText.substring(0, 200), // Limit error text length
-      })
-
-      let errorMessage = `HTTP error ${response.status}: ${response.statusText}`
-
-      try {
-        const errorJson = JSON.parse(errorText)
-        errorMessage =
-          // Primary error patterns
-          errorJson.errors?.[0]?.message ||
-          errorJson.errors?.[0]?.detail ||
-          errorJson.error?.message ||
-          (typeof errorJson.error === 'string' ? errorJson.error : undefined) ||
-          errorJson.message ||
-          errorJson.error_description ||
-          errorJson.fault?.faultstring ||
-          errorJson.faultstring ||
-          // Fallback
-          (typeof errorJson.error === 'object'
-            ? `API Error: ${response.status} ${response.statusText}`
-            : `HTTP error ${response.status}: ${response.statusText}`)
-      } catch (parseError) {
-        // If not JSON, use the raw text
-        if (errorText) {
-          errorMessage = `${errorMessage}: ${errorText}`
-        }
-      }
-
-      throw new Error(errorMessage)
-    }
-
-    // Parse the successful response
-    const result = await response.json()
-    return result
-  } catch (error: any) {
-    logger.error(`[${requestId}] Proxy request error for ${toolId}:`, {
-      error: error instanceof Error ? error.message : String(error),
-    })
-
-    return {
-      success: false,
-      output: {},
-      error: error.message || 'Proxy request failed',
     }
   }
 }

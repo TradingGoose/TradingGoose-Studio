@@ -217,7 +217,7 @@ export interface SubBlockConfig {
   | SubBlockCondition
   | (() => SubBlockCondition)
   // Props specific to 'code' sub-block type
-  language?: 'javascript' | 'json' | 'python'
+  language?: 'javascript' | 'json' | 'python' | 'sql' | 'html' | 'plaintext'
   generationType?: GenerationType
   collapsible?: boolean
   defaultCollapsed?: boolean

@@ -257,6 +257,7 @@ export const StripeBlock: BlockConfig<StripeResponse> = {
       id: 'address',
       title: 'Address (JSON)',
       type: 'code',
+      language: 'json',
       placeholder: '{"line1": "123 Main St", "city": "New York", "country": "US"}',
       condition: {
         field: 'operation',
@@ -268,6 +269,7 @@ export const StripeBlock: BlockConfig<StripeResponse> = {
       id: 'items',
       title: 'Items (JSON Array)',
       type: 'code',
+      language: 'json',
       placeholder: '[{"price": "price_1234567890", "quantity": 1}]',
       condition: {
         field: 'operation',
@@ -280,6 +282,7 @@ export const StripeBlock: BlockConfig<StripeResponse> = {
       id: 'items',
       title: 'Items (JSON Array)',
       type: 'code',
+      language: 'json',
       placeholder: '[{"price": "price_1234567890", "quantity": 1}]',
       condition: {
         field: 'operation',
@@ -389,6 +392,7 @@ export const StripeBlock: BlockConfig<StripeResponse> = {
       id: 'images',
       title: 'Images (JSON Array)',
       type: 'code',
+      language: 'json',
       placeholder: '["https://example.com/image1.jpg", "https://example.com/image2.jpg"]',
       condition: {
         field: 'operation',
@@ -421,6 +425,7 @@ export const StripeBlock: BlockConfig<StripeResponse> = {
       id: 'recurring',
       title: 'Recurring (JSON)',
       type: 'code',
+      language: 'json',
       placeholder: '{"interval": "month", "interval_count": 1}',
       condition: {
         field: 'operation',
@@ -454,6 +459,7 @@ export const StripeBlock: BlockConfig<StripeResponse> = {
       id: 'metadata',
       title: 'Metadata (JSON)',
       type: 'code',
+      language: 'json',
       placeholder: '{"key1": "value1", "key2": "value2"}',
       condition: {
         field: 'operation',

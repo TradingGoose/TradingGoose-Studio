@@ -10,17 +10,6 @@ export const jiraWriteTool: ToolConfig<JiraWriteParams, JiraWriteResponse> = {
   oauth: {
     required: true,
     provider: 'jira',
-    additionalScopes: [
-      'read:jira-user',
-      'write:jira-work',
-      'read:project:jira',
-      'read:issue:jira',
-      'write:issue:jira',
-      'write:comment:jira',
-      'write:comment.property:jira',
-      'write:attachment:jira',
-      'read:attachment:jira',
-    ],
   },
 
   params: {
@@ -57,14 +46,14 @@ export const jiraWriteTool: ToolConfig<JiraWriteParams, JiraWriteResponse> = {
     priority: {
       type: 'string',
       required: false,
-      visibility: 'hidden',
-      description: 'Priority for the issue',
+      visibility: 'user-or-llm',
+      description: 'Priority ID or name for the issue (e.g., "10000" or "High")',
     },
     assignee: {
       type: 'string',
       required: false,
-      visibility: 'hidden',
-      description: 'Assignee for the issue',
+      visibility: 'user-or-llm',
+      description: 'Assignee account ID for the issue',
     },
     cloudId: {
       type: 'string',
@@ -78,6 +67,42 @@ export const jiraWriteTool: ToolConfig<JiraWriteParams, JiraWriteResponse> = {
       required: true,
       visibility: 'hidden',
       description: 'Type of issue to create (e.g., Task, Story)',
+    },
+    labels: {
+      type: 'array',
+      required: false,
+      visibility: 'user-or-llm',
+      description: 'Labels for the issue (array of label names)',
+    },
+    duedate: {
+      type: 'string',
+      required: false,
+      visibility: 'user-or-llm',
+      description: 'Due date for the issue (format: YYYY-MM-DD)',
+    },
+    reporter: {
+      type: 'string',
+      required: false,
+      visibility: 'user-or-llm',
+      description: 'Reporter account ID for the issue',
+    },
+    environment: {
+      type: 'string',
+      required: false,
+      visibility: 'user-or-llm',
+      description: 'Environment information for the issue',
+    },
+    customFieldId: {
+      type: 'string',
+      required: false,
+      visibility: 'user-or-llm',
+      description: 'Custom field ID (e.g., customfield_10001)',
+    },
+    customFieldValue: {
+      type: 'string',
+      required: false,
+      visibility: 'user-or-llm',
+      description: 'Value for the custom field',
     },
   },
 
@@ -100,6 +125,12 @@ export const jiraWriteTool: ToolConfig<JiraWriteParams, JiraWriteResponse> = {
         cloudId: params.cloudId,
         issueType: params.issueType,
         parent: params.parent,
+        labels: params.labels,
+        duedate: params.duedate,
+        reporter: params.reporter,
+        environment: params.environment,
+        customFieldId: params.customFieldId,
+        customFieldValue: params.customFieldValue,
       }
     },
   },
@@ -141,14 +172,10 @@ export const jiraWriteTool: ToolConfig<JiraWriteParams, JiraWriteResponse> = {
   },
 
   outputs: {
-    success: {
-      type: 'boolean',
-      description: 'Operation success status',
-    },
-    output: {
-      type: 'object',
-      description:
-        'Created Jira issue details with timestamp, issue key, summary, success status, and URL',
-    },
+    ts: { type: 'string', description: 'Timestamp of the operation' },
+    issueKey: { type: 'string', description: 'Created issue key (e.g., PROJ-123)' },
+    summary: { type: 'string', description: 'Issue summary' },
+    url: { type: 'string', description: 'URL to the created issue' },
+    assigneeId: { type: 'string', description: 'Account ID of the assigned user (if assigned)' },
   },
 }

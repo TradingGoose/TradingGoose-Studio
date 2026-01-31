@@ -5,19 +5,12 @@ export const slackMessageTool: ToolConfig<SlackMessageParams, SlackMessageRespon
   id: 'slack_message',
   name: 'Slack Message',
   description:
-    'Send messages to Slack channels or users through the Slack API. Supports Slack mrkdwn formatting.',
+    'Send messages to Slack channels or direct messages. Supports Slack mrkdwn formatting.',
   version: '1.0.0',
 
   oauth: {
     required: true,
     provider: 'slack',
-    additionalScopes: [
-      'channels:read',
-      'groups:read',
-      'chat:write',
-      'chat:write.public',
-      'users:read',
-    ],
   },
 
   params: {
@@ -26,6 +19,12 @@ export const slackMessageTool: ToolConfig<SlackMessageParams, SlackMessageRespon
       required: false,
       visibility: 'user-only',
       description: 'Authentication method: oauth or bot_token',
+    },
+    destinationType: {
+      type: 'string',
+      required: false,
+      visibility: 'user-only',
+      description: 'Destination type: channel or dm',
     },
     botToken: {
       type: 'string',
@@ -41,15 +40,27 @@ export const slackMessageTool: ToolConfig<SlackMessageParams, SlackMessageRespon
     },
     channel: {
       type: 'string',
-      required: true,
+      required: false,
       visibility: 'user-only',
       description: 'Target Slack channel (e.g., #general)',
+    },
+    dmUserId: {
+      type: 'string',
+      required: false,
+      visibility: 'user-only',
+      description: 'Target Slack user for direct messages',
     },
     text: {
       type: 'string',
       required: true,
       visibility: 'user-or-llm',
       description: 'Message text to send (supports Slack mrkdwn formatting)',
+    },
+    thread_ts: {
+      type: 'string',
+      required: false,
+      visibility: 'user-or-llm',
+      description: 'Thread timestamp to reply to (creates thread reply)',
     },
     files: {
       type: 'file[]',
@@ -66,10 +77,13 @@ export const slackMessageTool: ToolConfig<SlackMessageParams, SlackMessageRespon
       'Content-Type': 'application/json',
     }),
     body: (params: SlackMessageParams) => {
+      const isDM = params.destinationType === 'dm'
       return {
         accessToken: params.accessToken || params.botToken,
-        channel: params.channel,
+        channel: isDM ? undefined : params.channel,
+        userId: isDM ? params.dmUserId : params.userId,
         text: params.text,
+        thread_ts: params.thread_ts || undefined,
         files: params.files || null,
       }
     },
@@ -87,7 +101,16 @@ export const slackMessageTool: ToolConfig<SlackMessageParams, SlackMessageRespon
   },
 
   outputs: {
+    message: {
+      type: 'object',
+      description: 'Complete message object with all properties returned by Slack',
+    },
+    // Legacy properties for backward compatibility
     ts: { type: 'string', description: 'Message timestamp' },
     channel: { type: 'string', description: 'Channel ID where message was sent' },
+    fileCount: {
+      type: 'number',
+      description: 'Number of files uploaded (when files are attached)',
+    },
   },
 }

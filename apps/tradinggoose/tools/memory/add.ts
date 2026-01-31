@@ -8,20 +8,30 @@ export const memoryAddTool: ToolConfig<any, MemoryResponse> = {
   version: '1.0.0',
 
   params: {
+    conversationId: {
+      type: 'string',
+      required: false,
+      visibility: 'user-or-llm',
+      description:
+        'Conversation identifier (e.g., user-123, session-abc). If a memory with this conversationId already exists, the new message will be appended to it.',
+    },
     id: {
       type: 'string',
-      required: true,
+      required: false,
+      visibility: 'user-or-llm',
       description:
-        'Identifier for the memory. If a memory with this ID already exists, the new data will be appended to it.',
+        'Legacy parameter for conversation identifier. Use conversationId instead. Provided for backwards compatibility.',
     },
     role: {
       type: 'string',
       required: true,
+      visibility: 'user-or-llm',
       description: 'Role for agent memory (user, assistant, or system)',
     },
     content: {
       type: 'string',
       required: true,
+      visibility: 'user-or-llm',
       description: 'Content for agent memory',
     },
   },
@@ -33,48 +43,24 @@ export const memoryAddTool: ToolConfig<any, MemoryResponse> = {
       'Content-Type': 'application/json',
     }),
     body: (params) => {
-      // Get workflowId from context (set by workflow execution)
-      const workflowId = params._context?.workflowId
-
-      // Prepare error response instead of throwing error
-      if (!workflowId) {
-        return {
-          _errorResponse: {
-            status: 400,
-            data: {
-              success: false,
-              error: {
-                message: 'workflowId is required and must be provided in execution context',
-              },
-            },
-          },
-        }
+      const workspaceId = params._context?.workspaceId
+      if (!workspaceId) {
+        throw new Error('workspaceId is required in execution context')
       }
+
+      const conversationId = params.conversationId || params.id
+      if (!conversationId) {
+        throw new Error('conversationId or id is required')
+      }
+      const key = conversationId
 
       const body: Record<string, any> = {
-        key: params.id,
-        type: 'agent', // Always agent type
-        workflowId,
-      }
-
-      // Validate and set data
-      if (!params.role || !params.content) {
-        return {
-          _errorResponse: {
-            status: 400,
-            data: {
-              success: false,
-              error: {
-                message: 'Role and content are required for agent memory',
-              },
-            },
-          },
-        }
-      }
-
-      body.data = {
-        role: params.role,
-        content: params.content,
+        key,
+        workspaceId,
+        data: {
+          role: params.role,
+          content: params.content,
+        },
       }
 
       return body
@@ -85,7 +71,6 @@ export const memoryAddTool: ToolConfig<any, MemoryResponse> = {
     const result = await response.json()
     const data = result.data || result
 
-    // For agent memories, return the full array of message objects
     const memories = Array.isArray(data.data) ? data.data : [data.data]
 
     return {

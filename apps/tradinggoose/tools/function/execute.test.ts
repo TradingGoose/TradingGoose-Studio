@@ -54,11 +54,12 @@ describe('Function Execute Tool', () => {
         workflowVariables: {},
         blockData: {},
         blockNameMapping: {},
+        blockOutputSchemas: {},
         isCustomTool: false,
         language: 'javascript',
-        useLocalVM: false,
         timeout: 5000,
         workflowId: undefined,
+        userId: undefined,
       })
     })
 
@@ -82,10 +83,11 @@ describe('Function Execute Tool', () => {
         workflowVariables: {},
         blockData: {},
         blockNameMapping: {},
+        blockOutputSchemas: {},
         isCustomTool: false,
         language: 'javascript',
-        useLocalVM: false,
         workflowId: undefined,
+        userId: undefined,
       })
     })
 
@@ -101,10 +103,11 @@ describe('Function Execute Tool', () => {
         workflowVariables: {},
         blockData: {},
         blockNameMapping: {},
+        blockOutputSchemas: {},
         isCustomTool: false,
         language: 'javascript',
-        useLocalVM: false,
         workflowId: undefined,
+        userId: undefined,
       })
     })
   })

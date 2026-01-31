@@ -463,7 +463,7 @@ ${fieldDescriptions}
                 )
 
                 // Use general tool system for requests
-                const result = await executeTool(toolName, executionParams, true)
+                const result = await executeTool(toolName, executionParams)
                 const toolCallEndTime = Date.now()
                 const toolCallDuration = toolCallEndTime - toolCallStartTime
 
@@ -813,7 +813,7 @@ ${fieldDescriptions}
               const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
 
               // Use general tool system for requests
-              const result = await executeTool(toolName, executionParams, true)
+              const result = await executeTool(toolName, executionParams)
               const toolCallEndTime = Date.now()
               const toolCallDuration = toolCallEndTime - toolCallStartTime
 
