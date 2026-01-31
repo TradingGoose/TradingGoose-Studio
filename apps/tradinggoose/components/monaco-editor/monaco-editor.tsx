@@ -51,6 +51,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
     const extraLibsRef = useRef<IDisposable[]>([])
     const containerRef = useRef<HTMLDivElement | null>(null)
     const modelPathRef = useRef<string | null>(null)
+    const markerFilteringRef = useRef(false)
     const [monacoInstance, setMonacoInstance] = useState<MonacoModule | null>(null)
     const [editorReady, setEditorReady] = useState(false)
     const [placeholderOffset, setPlaceholderOffset] = useState({ top: 8, left: 12 })
@@ -64,7 +65,19 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
     const resolvedPath = useMemo(() => {
       if (path) return path
       const extension =
-        language === 'typescript' ? 'ts' : language === 'json' ? 'json' : 'js'
+        language === 'typescript'
+          ? 'ts'
+          : language === 'json'
+            ? 'json'
+            : language === 'python'
+              ? 'py'
+              : language === 'sql'
+                ? 'sql'
+                : language === 'html'
+                  ? 'html'
+                  : language === 'plaintext'
+                    ? 'txt'
+              : 'js'
       const current = modelPathRef.current
       if (current && current.endsWith(`.${extension}`)) return current
       const id =
@@ -183,6 +196,163 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
       decorationIdsRef.current = editor.deltaDecorations(decorationIdsRef.current, nextDecorations)
     }
 
+    const getTypeScriptDefaults = (monaco: MonacoModule) => {
+      const tsNamespace = (monaco as MonacoModule & {
+        typescript?: {
+          typescriptDefaults?: {
+            getCompilerOptions: () => Record<string, unknown>
+            setCompilerOptions: (options: Record<string, unknown>) => void
+            setDiagnosticsOptions: (options: Record<string, unknown>) => void
+          }
+          javascriptDefaults?: {
+            getCompilerOptions: () => Record<string, unknown>
+            setCompilerOptions: (options: Record<string, unknown>) => void
+            setDiagnosticsOptions: (options: Record<string, unknown>) => void
+          }
+          JsxEmit?: { None?: unknown }
+        }
+      }).typescript
+      return {
+        tsDefaults: tsNamespace?.typescriptDefaults,
+        jsDefaults: tsNamespace?.javascriptDefaults,
+        jsxEmit: tsNamespace?.JsxEmit,
+      }
+    }
+
+    const configureTypeScriptDefaults = (monaco: MonacoModule) => {
+      const { tsDefaults, jsDefaults, jsxEmit } = getTypeScriptDefaults(monaco)
+      const applyCompilerOptions = (defaults?: typeof tsDefaults) => {
+        if (!defaults) return
+        defaults.setCompilerOptions({
+          ...defaults.getCompilerOptions(),
+          allowJs: true,
+          allowNonTsExtensions: true,
+          allowTopLevelReturn: true,
+          checkJs: false,
+          noImplicitAny: false,
+          suppressImplicitAnyIndexErrors: true,
+          ...(jsxEmit?.None ? { jsx: jsxEmit.None } : {}),
+        })
+      }
+      const applyDiagnosticsOptions = (defaults?: typeof tsDefaults) => {
+        if (!defaults) return
+        defaults.setDiagnosticsOptions({
+          noSemanticValidation: false,
+          noSyntaxValidation: false,
+          diagnosticCodesToIgnore: [1108, 8010],
+        })
+      }
+      applyCompilerOptions(tsDefaults)
+      applyCompilerOptions(jsDefaults)
+      applyDiagnosticsOptions(tsDefaults)
+      applyDiagnosticsOptions(jsDefaults)
+    }
+
+    const getPlaceholderRanges = (source: string) => {
+      const ranges: Array<{ start: number; end: number }> = []
+      const envVarRegex = /\{\{[^}\s]+\}\}/g
+      const isPlaceholderStartChar = (char?: string) => !!char && /[A-Za-z_]/.test(char)
+      const isInvalidPlaceholderPrefix = (char?: string) =>
+        !!char && /[A-Za-z0-9_$\]\)\}]/.test(char)
+      let match: RegExpExecArray | null
+
+      while ((match = envVarRegex.exec(source)) !== null) {
+        ranges.push({ start: match.index, end: match.index + match[0].length })
+      }
+
+      for (let i = 0; i < source.length; i += 1) {
+        if (source[i] !== '<') continue
+        const next = source[i + 1]
+        if (!isPlaceholderStartChar(next)) continue
+        let prevIndex = i - 1
+        while (prevIndex >= 0 && /\s/.test(source[prevIndex])) {
+          prevIndex -= 1
+        }
+        if (isInvalidPlaceholderPrefix(source[prevIndex])) continue
+
+        let end = i + 1
+        while (end < source.length) {
+          const ch = source[end]
+          if (ch === '>') {
+            end += 1
+            break
+          }
+          if (/\s/.test(ch)) {
+            break
+          }
+          end += 1
+        }
+        if (end > i + 1) {
+          ranges.push({ start: i, end })
+          i = Math.max(i, end - 1)
+        }
+      }
+
+      return ranges
+    }
+
+    const filterPlaceholderMarkers = () => {
+      if (markerFilteringRef.current) return
+      const monaco = monacoRef.current
+      const editor = editorRef.current
+      if (!monaco || !editor) return
+      const model = editor.getModel()
+      if (!model) return
+      const languageId = model.getLanguageId()
+      if (languageId !== 'javascript' && languageId !== 'typescript') return
+
+      const ranges = getPlaceholderRanges(model.getValue())
+      if (ranges.length === 0) return
+
+      markerFilteringRef.current = true
+      const owners = ['typescript', 'javascript']
+      const markerIntersects = (start: number, end: number, markerStart: number, markerEnd: number) =>
+        markerStart < end && markerEnd > start
+      const isJsxPlaceholderError = (message: string) => {
+        const normalized = message.toLowerCase()
+        return (
+          normalized.includes('jsx element') ||
+          (normalized.includes('did you mean') && normalized.includes('>')) ||
+          normalized.includes('&gt') ||
+          normalized.includes("'</' expected") ||
+          normalized.includes('expected corresponding jsx closing tag')
+        )
+      }
+
+      try {
+        owners.forEach((owner) => {
+          const markers = monaco.editor.getModelMarkers({ resource: model.uri, owner })
+          if (markers.length === 0) return
+
+          const filtered = markers.filter((marker) => {
+            const markerStart = model.getOffsetAt({
+              lineNumber: marker.startLineNumber,
+              column: marker.startColumn,
+            })
+            const markerEnd = model.getOffsetAt({
+              lineNumber: marker.endLineNumber,
+              column: marker.endColumn,
+            })
+            if (ranges.some((range) => markerIntersects(range.start, range.end, markerStart, markerEnd))) {
+              return false
+            }
+            if (marker.message && isJsxPlaceholderError(String(marker.message))) {
+              return false
+            }
+            return true
+          })
+
+          if (filtered.length !== markers.length) {
+            monaco.editor.setModelMarkers(model, owner, filtered)
+          }
+        })
+      } finally {
+        queueMicrotask(() => {
+          markerFilteringRef.current = false
+        })
+      }
+    }
+
     useImperativeHandle(ref, () => ({
       getEditor: () => editorRef.current,
       focus: () => editorRef.current?.focus(),
@@ -260,6 +430,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
         import('monaco-editor/esm/vs/language/typescript/monaco.contribution'),
         import('monaco-editor/esm/vs/basic-languages/javascript/javascript.contribution'),
         import('monaco-editor/esm/vs/basic-languages/python/python.contribution'),
+        import('monaco-editor/esm/vs/basic-languages/sql/sql.contribution'),
       ])
         .then(([monaco]) => {
           if (!isActive) return
@@ -302,42 +473,13 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
 
     useEffect(() => {
       if (!monacoInstance) return
-      const configureTypescript = (monaco: MonacoModule) => {
-        const tsDefaults = monaco.languages.typescript?.typescriptDefaults
-        const jsDefaults = monaco.languages.typescript?.javascriptDefaults
-        const applyCompilerOptions = (defaults?: typeof tsDefaults) => {
-          if (!defaults) return
-          defaults.setCompilerOptions({
-            ...defaults.getCompilerOptions(),
-            allowJs: true,
-            allowNonTsExtensions: true,
-            allowTopLevelReturn: true,
-            checkJs: false,
-            noImplicitAny: false,
-            suppressImplicitAnyIndexErrors: true,
-          })
-        }
-        const applyDiagnosticsOptions = (defaults?: typeof tsDefaults) => {
-          if (!defaults) return
-          defaults.setDiagnosticsOptions({
-            noSemanticValidation: false,
-            noSyntaxValidation: false,
-            diagnosticCodesToIgnore: [1108, 8010],
-          })
-        }
-        applyCompilerOptions(tsDefaults)
-        applyCompilerOptions(jsDefaults)
-        applyDiagnosticsOptions(tsDefaults)
-        applyDiagnosticsOptions(jsDefaults)
-      }
-      configureTypescript(monacoInstance)
+      configureTypeScriptDefaults(monacoInstance)
     }, [monacoInstance])
 
     useEffect(() => {
       const monaco = monacoInstance
       if (!monaco) return
-      const tsDefaults = monaco.languages.typescript?.typescriptDefaults
-      const jsDefaults = monaco.languages.typescript?.javascriptDefaults
+      const { tsDefaults, jsDefaults } = getTypeScriptDefaults(monaco)
       if (!tsDefaults && !jsDefaults) return
       extraLibsRef.current.forEach((lib) => lib.dispose())
       extraLibsRef.current = []
@@ -460,32 +602,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
             updatePlaceholderOffset()
 
             if (monaco) {
-              const tsDefaults = monaco.languages.typescript?.typescriptDefaults
-              const jsDefaults = monaco.languages.typescript?.javascriptDefaults
-              const applyCompilerOptions = (defaults?: typeof tsDefaults) => {
-                if (!defaults) return
-                defaults.setCompilerOptions({
-                  ...defaults.getCompilerOptions(),
-                  allowJs: true,
-                  allowNonTsExtensions: true,
-                  allowTopLevelReturn: true,
-                  checkJs: false,
-                  noImplicitAny: false,
-                  suppressImplicitAnyIndexErrors: true,
-                })
-              }
-              const applyDiagnosticsOptions = (defaults?: typeof tsDefaults) => {
-                if (!defaults) return
-                defaults.setDiagnosticsOptions({
-                  noSemanticValidation: false,
-                  noSyntaxValidation: false,
-                  diagnosticCodesToIgnore: [1108, 8010],
-                })
-              }
-              applyCompilerOptions(tsDefaults)
-              applyCompilerOptions(jsDefaults)
-              applyDiagnosticsOptions(tsDefaults)
-              applyDiagnosticsOptions(jsDefaults)
+              configureTypeScriptDefaults(monaco)
             }
 
             const model = editor.getModel()
@@ -553,13 +670,24 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
               })
             )
 
+            subscriptionsRef.current.push(
+              monaco.editor.onDidChangeMarkers((resources) => {
+                const model = editor.getModel()
+                if (!model) return
+                const modelUri = model.uri.toString()
+                if (!resources.some((uri) => uri.toString() === modelUri)) return
+                filterPlaceholderMarkers()
+              })
+            )
+
             updateAutoHeight()
             applyDecorations()
+            filterPlaceholderMarkers()
           }}
           options={{
             minimap: { enabled: false },
             scrollBeyondLastLine: false,
-            wordWrap: 'off',
+            wordWrap: 'on',
             renderLineHighlight: 'none',
             glyphMargin: false,
             lineNumbersMinChars: 3,
