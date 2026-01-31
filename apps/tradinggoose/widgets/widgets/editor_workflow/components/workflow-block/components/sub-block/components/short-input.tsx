@@ -493,6 +493,7 @@ export function ShortInput({
           onWheel={handleWheel}
           onKeyDown={handleKeyDown}
           autoComplete='off'
+          type='text'
           style={{ overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           disabled={disabled}
           readOnly={readOnly}

@@ -755,9 +755,9 @@ export function DashboardClient({
                             const docColor = sanitizeHexColor(doc.bgColor) ?? undefined
                             return (
                               <div
-                                className='flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-secondary/60 text-foreground'
+                                className='flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-secondary text-foreground'
                                 style={{
-                                  backgroundColor: docColor ? `${docColor}30` : undefined,
+                                  backgroundColor: docColor ? `${docColor}20` : undefined,
                                   color: docColor || undefined,
                                 }}
                               >
@@ -1367,9 +1367,9 @@ function DropdownSection({
             >
               {ItemIcon && (
                 <div
-                  className='flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-secondary/60 text-foreground'
+                  className='flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-secondary text-foreground'
                   style={{
-                    backgroundColor: iconColor ? `${iconColor}30` : undefined,
+                    backgroundColor: iconColor ? `${iconColor}20` : undefined,
                     color: iconColor || undefined,
                   }}
                 >

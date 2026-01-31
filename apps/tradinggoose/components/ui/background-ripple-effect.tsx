@@ -159,9 +159,9 @@ const DivGrid = ({
           <div
             key={idx}
             className={cn(
-              'cell relative  border-[1px] opacity-50 transition-all duration-150 will-change-transform shadow-inner shadow-md',
-              'bg-amber-400 shadow-amber-500  border-amber-800',
-              'dark:bg-yellow-700 dark:shadow-amber-600 dark:border-amber-400',
+              'cell relative  border-[1px] opacity-50 transition-all duration-150 will-change-transform shadow-inner shadow-lg',
+              'bg-stone-300 shadow-stone-500  border-amber-600',
+              'dark:bg-stone-800 dark:shadow-stone-600',
               clickedCell && 'animate-cell-ripple [animation-fill-mode:none]',
               !interactive && 'pointer-events-none',
               isHovered && 'opacity-90 brightness-95'

@@ -6,7 +6,7 @@ export const LoopTool = {
   name: 'Loop',
   description: 'Create a Loop',
   icon: RepeatIcon,
-  bgColor: '#2FB3FF',
+  bgColor: '#00ccff',
   data: {
     label: 'Loop',
     loopType: 'for',
