@@ -10,7 +10,6 @@ export const jiraUpdateTool: ToolConfig<JiraUpdateParams, JiraUpdateResponse> = 
   oauth: {
     required: true,
     provider: 'jira',
-    additionalScopes: ['read:jira-user', 'write:jira-work', 'write:issue:jira', 'read:jira-work'],
   },
 
   params: {
@@ -137,14 +136,8 @@ export const jiraUpdateTool: ToolConfig<JiraUpdateParams, JiraUpdateResponse> = 
   },
 
   outputs: {
-    success: {
-      type: 'boolean',
-      description: 'Operation success status',
-    },
-    output: {
-      type: 'object',
-      description:
-        'Updated Jira issue details with timestamp, issue key, summary, and success status',
-    },
+    ts: { type: 'string', description: 'Timestamp of the operation' },
+    issueKey: { type: 'string', description: 'Updated issue key (e.g., PROJ-123)' },
+    summary: { type: 'string', description: 'Issue summary after update' },
   },
 }

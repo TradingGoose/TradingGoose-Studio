@@ -104,7 +104,7 @@ export const readGDriveFileServerTool: BaseServerTool<ReadGDriveFileParams, any>
         throw new Error(
           'No Google Drive connection found for this user. Please connect Google Drive in settings.'
         )
-      const result = await executeTool('google_drive_get_content', { accessToken, fileId }, true)
+      const result = await executeTool('google_drive_get_content', { accessToken, fileId })
       if (!result.success) throw new Error(result.error || 'Failed to read Google Drive document')
       const output = (result as any).output || result
       const content = output?.output?.content ?? output?.content
@@ -120,8 +120,7 @@ export const readGDriveFileServerTool: BaseServerTool<ReadGDriveFileParams, any>
         )
       const result = await executeTool(
         'google_sheets_read',
-        { accessToken, spreadsheetId: fileId, ...(params?.range ? { range: params.range } : {}) },
-        true
+        { accessToken, spreadsheetId: fileId, ...(params?.range ? { range: params.range } : {}) }
       )
       if (!result.success) throw new Error(result.error || 'Failed to read Google Sheets data')
       const output = (result as any).output || result

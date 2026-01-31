@@ -88,7 +88,7 @@ export interface ToolConfig<P = any, R = any> {
     url: string | ((params: P) => string)
     method: HttpMethod | ((params: P) => HttpMethod)
     headers: (params: P) => Record<string, string>
-    body?: (params: P) => Record<string, any>
+    body?: (params: P) => Record<string, any> | string | FormData | undefined
   }
 
   // Post-processing (optional) - allows additional processing after the initial request
@@ -100,6 +100,12 @@ export interface ToolConfig<P = any, R = any> {
 
   // Response handling
   transformResponse?: (response: Response, params?: P) => Promise<R>
+
+  /**
+   * Direct execution function for tools that don't need HTTP requests.
+   * If provided, this will be called instead of making an HTTP request.
+   */
+  directExecution?: (params: P) => Promise<ToolResponse>
 }
 
 export interface TableRow {

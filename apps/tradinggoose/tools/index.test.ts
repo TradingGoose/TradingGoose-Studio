@@ -204,9 +204,8 @@ describe('executeTool Function', () => {
       {
         url: 'https://api.example.com/data',
         method: 'GET',
-      },
-      true
-    ) // Skip proxy
+      }
+    )
 
     expect(result.success).toBe(true)
     expect(result.output).toBeDefined()
@@ -232,9 +231,8 @@ describe('executeTool Function', () => {
       {
         code: 'return { result: "hello world" }',
         language: 'javascript',
-      },
-      true
-    ) // Skip proxy
+      }
+    )
 
     // Restore original tool
     tools.function_execute = originalFunctionTool
@@ -280,8 +278,7 @@ describe('executeTool Function', () => {
       {
         url: 'https://api.example.com/data',
         method: 'GET',
-      },
-      true
+      }
     )
 
     expect(result.success).toBe(false)
@@ -294,8 +291,7 @@ describe('executeTool Function', () => {
       'http_request',
       {
         url: 'https://api.example.com/data',
-      },
-      true
+      }
     )
 
     expect(result.timing).toBeDefined()
@@ -372,7 +368,7 @@ describe('Automatic Internal Route Detection', () => {
     Object.assign(tools, originalTools)
   })
 
-  it('should detect external routes (full URLs) and use proxy', async () => {
+  it('should detect external routes (full URLs) and call them directly', async () => {
     // Mock a tool with an external route
     const mockTool = {
       id: 'test_external_tool',
@@ -391,14 +387,13 @@ describe('Automatic Internal Route Detection', () => {
     const originalTools = { ...tools }
     ;(tools as any).test_external_tool = mockTool
 
-    // Mock fetch for the proxy call
+    // Mock fetch for the external API call
     global.fetch = Object.assign(
       vi.fn().mockImplementation(async (url) => {
-        // Should call the proxy, not the external API directly
-        expect(url).toBe('http://localhost:3000/api/proxy')
+        expect(url).toBe('https://api.example.com/endpoint')
         const responseData = {
           success: true,
-          output: { result: 'External route via proxy' },
+          output: { result: 'External route direct' },
         }
         return {
           ok: true,
@@ -415,7 +410,7 @@ describe('Automatic Internal Route Detection', () => {
     const result = await executeTool('test_external_tool', {}, false)
 
     expect(result.success).toBe(true)
-    expect(result.output.result).toBe('External route via proxy')
+    expect(result.output.result).toBe('External route direct')
 
     // Restore original tools
     Object.assign(tools, originalTools)
@@ -495,14 +490,13 @@ describe('Automatic Internal Route Detection', () => {
     const originalTools = { ...tools }
     ;(tools as any).test_dynamic_external = mockTool
 
-    // Mock fetch for the proxy call
+    // Mock fetch for the external API call
     global.fetch = Object.assign(
       vi.fn().mockImplementation(async (url) => {
-        // Should call the proxy, not the external API directly
-        expect(url).toBe('http://localhost:3000/api/proxy')
+        expect(url).toBe('https://api.external.com/users')
         const responseData = {
           success: true,
-          output: { result: 'Dynamic external route via proxy' },
+          output: { result: 'Dynamic external route direct' },
         }
         return {
           ok: true,
@@ -519,54 +513,12 @@ describe('Automatic Internal Route Detection', () => {
     const result = await executeTool('test_dynamic_external', { endpoint: 'users' }, false)
 
     expect(result.success).toBe(true)
-    expect(result.output.result).toBe('Dynamic external route via proxy')
+    expect(result.output.result).toBe('Dynamic external route direct')
 
     // Restore original tools
     Object.assign(tools, originalTools)
   })
 
-  it('should respect skipProxy parameter and call internal routes directly even for external URLs', async () => {
-    const mockTool = {
-      id: 'test_skip_proxy',
-      name: 'Test Skip Proxy Tool',
-      description: 'A test tool to verify skipProxy behavior',
-      version: '1.0.0',
-      params: {},
-      request: {
-        url: 'https://api.example.com/endpoint',
-        method: 'GET',
-        headers: () => ({ 'Content-Type': 'application/json' }),
-      },
-      transformResponse: vi.fn().mockResolvedValue({
-        success: true,
-        output: { result: 'Skipped proxy, called directly' },
-      }),
-    }
-
-    const originalTools = { ...tools }
-    ;(tools as any).test_skip_proxy = mockTool
-
-    global.fetch = Object.assign(
-      vi.fn().mockImplementation(async (url) => {
-        expect(url).toBe('https://api.example.com/endpoint')
-        return {
-          ok: true,
-          status: 200,
-          json: () => Promise.resolve({ success: true, data: 'test' }),
-          clone: vi.fn().mockReturnThis(),
-        }
-      }),
-      { preconnect: vi.fn() }
-    ) as typeof fetch
-
-    const result = await executeTool('test_skip_proxy', {}, true) // skipProxy = true
-
-    expect(result.success).toBe(true)
-    expect(result.output.result).toBe('Skipped proxy, called directly')
-    expect(mockTool.transformResponse).toHaveBeenCalled()
-
-    Object.assign(tools, originalTools)
-  })
 })
 
 describe('Centralized Error Handling', () => {
@@ -603,11 +555,7 @@ describe('Centralized Error Handling', () => {
       { preconnect: vi.fn() }
     ) as typeof fetch
 
-    const result = await executeTool(
-      'function_execute',
-      { code: 'return { result: "test" }' },
-      true
-    )
+    const result = await executeTool('function_execute', { code: 'return { result: "test" }' })
 
     expect(result.success).toBe(false)
     expect(result.error).toBe(expectedError)
@@ -704,14 +652,10 @@ describe('Centralized Error Handling', () => {
       { preconnect: vi.fn() }
     ) as typeof fetch
 
-    const result = await executeTool(
-      'function_execute',
-      { code: 'return { result: "test" }' },
-      true
-    )
+    const result = await executeTool('function_execute', { code: 'return { result: "test" }' })
 
     expect(result.success).toBe(false)
-    expect(result.error).toBe('Failed to parse response from function_execute: Error: Invalid JSON')
+    expect(result.error).toBe('Internal Server Error')
   })
 
   it('should handle complex nested error objects', async () => {
@@ -790,7 +734,6 @@ describe('MCP Tool Execution', () => {
       'mcp-123-list_files',
       { path: '/test' },
       false,
-      false,
       mockContext
     )
 
@@ -826,7 +769,6 @@ describe('MCP Tool Execution', () => {
       'mcp-timestamp123-complex-tool-name',
       { param: 'value' },
       false,
-      false,
       mockContext2
     )
   })
@@ -859,7 +801,6 @@ describe('MCP Tool Execution', () => {
         server: 'mcp-123',
         tool: 'read_file',
       },
-      false,
       false,
       mockContext3
     )
@@ -898,7 +839,6 @@ describe('MCP Tool Execution', () => {
         requestId: 'req-123',
       },
       false,
-      false,
       mockContext4
     )
   })
@@ -924,7 +864,6 @@ describe('MCP Tool Execution', () => {
       'mcp-123-nonexistent_tool',
       { param: 'value' },
       false,
-      false,
       mockContext5
     )
 
@@ -947,7 +886,6 @@ describe('MCP Tool Execution', () => {
       'invalid-mcp-id',
       { param: 'value' },
       false,
-      false,
       mockContext6
     )
 
@@ -965,7 +903,6 @@ describe('MCP Tool Execution', () => {
     const result = await executeTool(
       'mcp-123-test_tool',
       { param: 'value' },
-      false,
       false,
       mockContext7
     )

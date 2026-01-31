@@ -44,6 +44,7 @@ export const DatadogBlock: BlockConfig<DatadogResponse> = {
       id: 'series',
       title: 'Metrics Data (JSON)',
       type: 'code',
+      language: 'json',
       placeholder: `[
   {
     "metric": "custom.app.response_time",
@@ -299,6 +300,7 @@ Return the notification message text directly.`,
       id: 'options',
       title: 'Options (JSON)',
       type: 'code',
+      language: 'json',
       placeholder: '{"notify_no_data": true, "thresholds": {"critical": 90}}',
       condition: { field: 'operation', value: 'datadog_create_monitor' },
       wandConfig: {
@@ -468,6 +470,7 @@ Return ONLY the relative time string - no explanations, no quotes, no extra text
       id: 'logs',
       title: 'Logs (JSON)',
       type: 'code',
+      language: 'json',
       placeholder: `[
   {
     "message": "Application started successfully",

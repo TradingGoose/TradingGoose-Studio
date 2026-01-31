@@ -201,7 +201,7 @@ export async function POST(req: NextRequest) {
       executionParams.timeout = executionParams.timeout || DEFAULT_EXECUTION_TIMEOUT_MS
     }
 
-    const result = await executeTool(toolName, executionParams, true)
+    const result = await executeTool(toolName, executionParams)
 
     return NextResponse.json({
       success: true,

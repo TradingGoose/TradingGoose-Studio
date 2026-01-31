@@ -46,6 +46,7 @@ export const FunctionBlock: BlockConfig<CodeExecutionOutput> = {
       id: 'code',
       type: 'code',
       layout: 'full',
+      language: 'javascript',
       wandConfig: {
         enabled: true,
         maintainHistory: true,

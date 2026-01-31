@@ -260,6 +260,7 @@ export const EvaluatorBlock: BlockConfig<EvaluatorResponse> = {
       title: 'System Prompt',
       type: 'code',
       layout: 'full',
+      language: 'json',
       hidden: true,
       value: (params: Record<string, any>) => {
         try {

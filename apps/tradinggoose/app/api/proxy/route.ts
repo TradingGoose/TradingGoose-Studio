@@ -309,7 +309,6 @@ export async function POST(request: NextRequest) {
     const result = await executeTool(
       toolId,
       params,
-      true, // skipProxy (we're already in the proxy)
       !hasFileOutputs, // skipPostProcess (don't skip if tool has file outputs)
       executionContext // pass execution context for file processing
     )
