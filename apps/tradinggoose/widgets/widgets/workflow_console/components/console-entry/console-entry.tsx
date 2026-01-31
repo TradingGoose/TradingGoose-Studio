@@ -379,7 +379,7 @@ export function ConsoleEntry({ entry, consoleWidth }: ConsoleEntryProps) {
   const defaultBlockColor = '#6B7280'
   const rawBlockColor = entry.blockType === 'serializer' ? '#EF4444' : blockConfig?.bgColor
   const sanitizedBlockColor = sanitizeHexColor(rawBlockColor) ?? defaultBlockColor
-  const iconBackgroundColor = sanitizedBlockColor ? `${sanitizedBlockColor}30` : undefined
+  const iconBackgroundColor = sanitizedBlockColor ? `${sanitizedBlockColor}20` : undefined
 
   // Handle image load error callback
   const handleImageLoadError = (hasError: boolean) => {
@@ -446,8 +446,8 @@ export function ConsoleEntry({ entry, consoleWidth }: ConsoleEntryProps) {
             <button
               onClick={() => setShowInput(false)}
               className={`flex h-5 items-center rounded-lg px-2 transition-colors ${!showInput
-                  ? 'border-[#e5e5e5] bg-[#f5f5f5] text-[#1a1a1a] dark:border-[#424242] dark:bg-[#1f1f1f] dark:text-[#ffffff]'
-                  : 'bg-secondary text-muted-foreground hover:bg-secondary hover:text-card-foreground'
+                ? 'border-[#e5e5e5] bg-[#f5f5f5] text-[#1a1a1a] dark:border-[#424242] dark:bg-[#1f1f1f] dark:text-[#ffffff]'
+                : 'bg-secondary text-muted-foreground hover:bg-secondary hover:text-card-foreground'
                 }`}
             >
               <span className='font-normal text-xs leading-normal'>Output</span>
@@ -455,8 +455,8 @@ export function ConsoleEntry({ entry, consoleWidth }: ConsoleEntryProps) {
             <button
               onClick={() => setShowInput(true)}
               className={`flex h-5 items-center rounded-lg px-2 transition-colors ${showInput
-                  ? 'border-[#e5e5e5] bg-[#f5f5f5] text-[#1a1a1a] dark:border-[#424242] dark:bg-[#1f1f1f] dark:text-[#ffffff]'
-                  : 'bg-secondary text-muted-foreground hover:bg-secondary hover:text-card-foreground'
+                ? 'border-[#e5e5e5] bg-[#f5f5f5] text-[#1a1a1a] dark:border-[#424242] dark:bg-[#1f1f1f] dark:text-[#ffffff]'
+                : 'bg-secondary text-muted-foreground hover:bg-secondary hover:text-card-foreground'
                 }`}
             >
               <span className='font-normal text-xs leading-normal'>Input</span>

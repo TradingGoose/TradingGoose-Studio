@@ -331,7 +331,7 @@ export function Integrations() {
                                                                 className={cn(
                                                                     'flex items-center justify-between gap-4',
                                                                     pendingService === service.id &&
-                                                                        '-m-2 rounded-sm bg-[var(--primary)]/5 p-2'
+                                                                    '-m-2 rounded-sm bg-[var(--primary)]/5 p-2'
                                                                 )}
                                                                 ref={
                                                                     pendingService === service.id
@@ -340,7 +340,7 @@ export function Integrations() {
                                                                 }
                                                             >
                                                                 <div className='flex items-center gap-3'>
-                                                                    <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-secondary/60'>
+                                                                    <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-secondary'>
                                                                         {typeof service.icon === 'function'
                                                                             ? service.icon({ className: 'h-5 w-5' })
                                                                             : service.icon}
@@ -352,7 +352,7 @@ export function Integrations() {
                                                                             </span>
                                                                         </div>
                                                                         {service.accounts &&
-                                                                        service.accounts.length > 0 ? (
+                                                                            service.accounts.length > 0 ? (
                                                                             <p className='truncate text-muted-foreground text-xs'>
                                                                                 {service.accounts
                                                                                     .map((a) => a.name)
@@ -367,7 +367,7 @@ export function Integrations() {
                                                                 </div>
 
                                                                 {service.accounts &&
-                                                                service.accounts.length > 0 ? (
+                                                                    service.accounts.length > 0 ? (
                                                                     <Button
                                                                         variant='ghost'
                                                                         size='sm'
@@ -384,8 +384,8 @@ export function Integrations() {
                                                                         className={cn(
                                                                             'h-8 text-muted-foreground hover:text-foreground',
                                                                             isConnecting ===
-                                                                                `${service.id}-${service.accounts![0].id}` &&
-                                                                                'cursor-not-allowed'
+                                                                            `${service.id}-${service.accounts![0].id}` &&
+                                                                            'cursor-not-allowed'
                                                                         )}
                                                                     >
                                                                         Disconnect
@@ -399,7 +399,7 @@ export function Integrations() {
                                                                         className={cn(
                                                                             'h-8',
                                                                             isConnecting === service.id &&
-                                                                                'cursor-not-allowed'
+                                                                            'cursor-not-allowed'
                                                                         )}
                                                                     >
                                                                         Connect

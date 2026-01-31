@@ -102,12 +102,12 @@ export const SubflowNodeComponent = memo(({ data, id }: NodeProps<SubflowNodeDat
 
   const getNestedStyles = () => {
     const styles: Record<string, string> = {
-      backgroundColor: 'rgba(0, 0, 0, 0.02)',
+      backgroundColor: 'rgba(125, 126, 127, 0.1)',
     }
     if (nestingLevel > 0) {
       const colors = ['#e2e8f0', '#cbd5e1', '#94a3b8', '#64748b', '#475569']
       const colorIndex = (nestingLevel - 1) % colors.length
-      styles.backgroundColor = `${colors[colorIndex]}30`
+      styles.backgroundColor = `${colors[colorIndex]}20`
     }
     return styles
   }
@@ -116,7 +116,7 @@ export const SubflowNodeComponent = memo(({ data, id }: NodeProps<SubflowNodeDat
 
   const startHandleId = data.kind === 'loop' ? 'loop-start-source' : 'parallel-start-source'
   const endHandleId = data.kind === 'loop' ? 'loop-end-source' : 'parallel-end-source'
-  const startBg = data.kind === 'loop' ? '#2FB3FF' : '#FEE12B'
+  const startBg = data.kind === 'loop' ? '#00ccff' : '#ffdd00'
 
   return (
     <>
@@ -188,12 +188,12 @@ export const SubflowNodeComponent = memo(({ data, id }: NodeProps<SubflowNodeDat
             {/* Subflow Start */}
             <div
               className='-translate-y-1/2 absolute top-1/2 left-8 flex h-10 w-10 transform items-center justify-center rounded-md p-2'
-              style={{ pointerEvents: isPreview ? 'none' : 'auto', backgroundColor: startBg }}
+              style={{ pointerEvents: isPreview ? 'none' : 'auto', backgroundColor: `color-mix(in srgb, ${startBg} 20%, transparent)` }}
               data-parent-id={id}
               data-node-role={`${data.kind}-start`}
               data-extent='parent'
             >
-              <StartIcon className='h-6 w-6 text-white' />
+              <StartIcon className='h-6 w-6 ' style={{ color: startBg }} />
 
               <Handle
                 type='source'

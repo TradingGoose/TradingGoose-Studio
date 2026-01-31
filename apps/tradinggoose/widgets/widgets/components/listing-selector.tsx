@@ -93,7 +93,7 @@ const ListingSelectorRow = ({ listing }: { listing?: ListingOption | null }) => 
 
   return (
     <div className='flex min-w-0 flex-1 items-center gap-2 flex items-center'>
-      <Avatar className='h-4 w-4 rounded-xs bg-secondary/60'>
+      <Avatar className='h-4 w-4 rounded-xs bg-secondary'>
         {listing?.iconUrl ? <AvatarImage src={listing.iconUrl} alt={symbol} /> : null}
         <AvatarFallback className='text-xs text-accent-foreground'>
           {listing ? getListingFallback(listing) : '??'}

@@ -27,7 +27,7 @@ interface CodeProps {
   subBlockId: string
   isConnecting: boolean
   placeholder?: string
-  language?: 'javascript' | 'json' | 'python'
+  language?: 'javascript' | 'json' | 'python' | 'sql' | 'html' | 'plaintext'
   generationType?: GenerationType
   value?: string
   isPreview?: boolean
@@ -150,7 +150,13 @@ export function Code({
   const [languageValue] = useSubBlockValue<string>(blockId, 'language')
   const [remoteExecution] = useSubBlockValue<boolean>(blockId, 'remoteExecution')
 
-  const effectiveLanguage = (languageValue as 'javascript' | 'python' | 'json') || language
+  const effectiveLanguage = useMemo(() => {
+    if (remoteExecution) {
+      if (languageValue === CodeLanguage.Python) return 'python'
+      if (languageValue === CodeLanguage.JavaScript) return 'javascript'
+    }
+    return language
+  }, [language, languageValue, remoteExecution])
 
   const dynamicPlaceholder = useMemo(() => {
     if (remoteExecution && languageValue === CodeLanguage.Python) {
@@ -492,7 +498,7 @@ IMPORTANT FORMATTING RULES:
                 e.preventDefault()
               }
             }}
-            language={effectiveLanguage === 'python' ? 'python' : 'javascript'}
+            language={effectiveLanguage ?? 'javascript'}
             placeholder={isCollapsed ? '' : dynamicPlaceholder}
             decorations={decorations}
             autoHeight
