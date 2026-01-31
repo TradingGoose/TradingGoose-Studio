@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import type { ListingOption } from '@/lib/listing/identity'
 import { resolveListingKey, toListingValue, toListingValueObject } from '@/lib/listing/identity'
-import { resolveListingIdentity } from '@/lib/listing/resolve'
+import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import {
   createEmptyListingSelectorInstance,
   useListingSelectorStore,
@@ -308,7 +308,7 @@ export function ListingSelector({
     const requestId = ++hydrateRequestRef.current
     let cancelled = false
 
-    resolveListingIdentity(identity)
+    requestListingResolution(identity)
       .then((resolved) => {
         if (cancelled || hydrateRequestRef.current !== requestId) return
         if (!resolved) return

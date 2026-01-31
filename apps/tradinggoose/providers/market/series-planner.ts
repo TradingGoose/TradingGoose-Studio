@@ -58,7 +58,7 @@ const rangeParamFromMs = (rangeMs?: number | null): string | null => {
 const toEpochMs = (value?: string | number): number | null => {
   if (value === undefined || value === null) return null
   if (typeof value === 'number' && Number.isFinite(value)) {
-    return value > 1e12 ? value : value * 1000
+    return value
   }
   if (typeof value === 'string') {
     const parsed = Date.parse(value)
@@ -165,7 +165,13 @@ const normalizeBars = (bars: MarketBar[]) => {
 export const planMarketSeriesRequest = (
   providerId: string,
   request: MarketSeriesRequest
-): { request: MarketSeriesRequest; window: PlannedSeriesWindow | null } => {
+): {
+  request: MarketSeriesRequest
+  window: PlannedSeriesWindow | null
+  mode: MarketSeriesWindowMode | null
+  fallback: boolean
+  reason?: string
+} => {
   const capabilities = getMarketSeriesCapabilities(providerId)
   const allowedModes =
     capabilities?.windowModes && capabilities.windowModes.length > 0
@@ -175,22 +181,35 @@ export const planMarketSeriesRequest = (
     request.interval || (request.providerParams?.interval as string | undefined)
   const intervalMs = intervalToMs(interval)
   const retention = resolveRetention(providerId, interval)
+  // Windows are priority-ordered by the caller; pick the first supported+valid mode.
   const requestedWindows = Array.isArray(request.windows) ? request.windows : []
-  const normalizedWindows = requestedWindows
-    .map((window) => normalizeSeriesWindow(window, allowedModes))
-    .filter((window): window is MarketSeriesWindow => Boolean(window))
   let window: PlannedSeriesWindow | null = null
+  let resolvedMode: MarketSeriesWindowMode | null = null
+  let fallback = false
+  let reason: string | undefined
 
-  for (const candidate of normalizedWindows) {
-    const normalized = normalizeWindow(candidate, intervalMs, retention)
+  const requestedPrimaryMode =
+    requestedWindows.length > 0 ? requestedWindows[0]?.mode ?? null : null
+
+  for (const candidate of requestedWindows) {
+    if (!candidate || !allowedModes.includes(candidate.mode)) continue
+    const normalizedCandidate = normalizeSeriesWindow(candidate, [candidate.mode])
+    if (!normalizedCandidate) continue
+    const normalized = normalizeWindow(normalizedCandidate, intervalMs, retention)
     if (normalized) {
       window = normalized
+      resolvedMode = candidate.mode
       break
     }
   }
 
+  if (resolvedMode && requestedPrimaryMode && resolvedMode !== requestedPrimaryMode) {
+    fallback = true
+    reason = `Window mode ${requestedPrimaryMode} unsupported or invalid; used ${resolvedMode}`
+  }
+
   if (!window) {
-    return { request, window: null }
+    return { request, window: null, mode: null, fallback: false }
   }
 
   const planned: MarketSeriesRequest = {
@@ -198,6 +217,7 @@ export const planMarketSeriesRequest = (
     providerParams: request.providerParams ? { ...request.providerParams } : undefined,
   }
 
+  // Keep range windows as range; session-based anchoring happens in market-hours layer.
   if (window.mode === 'absolute') {
     planned.start = new Date(window.startMs).toISOString()
     planned.end = new Date(window.endMs).toISOString()
@@ -206,6 +226,7 @@ export const planMarketSeriesRequest = (
     delete planned.end
   }
 
+  // Range param preserves "latest available" semantics for providers that support range windows.
   const rangeParam =
     window.mode === 'range' ? rangeParamFromMs(window.rangeMs) : null
   if (rangeParam && planned.providerParams?.range == null) {
@@ -227,8 +248,19 @@ export const planMarketSeriesRequest = (
       limit: barCount,
     }
   }
+  if (
+    window.mode === 'bars' &&
+    intervalMs &&
+    !planned.start &&
+    !planned.end
+  ) {
+    const endMs = Date.now()
+    const startMs = Math.max(0, endMs - window.barCount * intervalMs)
+    planned.start = new Date(startMs).toISOString()
+    planned.end = new Date(endMs).toISOString()
+  }
 
-  return { request: planned, window }
+  return { request: planned, window, mode: resolvedMode, fallback, reason }
 }
 
 export const applySeriesWindow = (

@@ -322,7 +322,23 @@ export async function fetchAlpacaSeries(
 
   const rawBars = resolveBars(payload, symbol)
   if (!Array.isArray(rawBars) || !rawBars.length) {
-    throw new Error('No bar data returned')
+    const allowEmpty = request.providerParams?.allowEmpty === true
+    if (!allowEmpty) {
+      throw new Error('No bar data returned')
+    }
+    const startTime = toIsoString(request.start)
+    const endTime = toIsoString(request.end)
+    return {
+      listing: context.listing,
+      listingBase: context.base,
+      listingQuote: context.quote,
+      primaryMicCode: context.micCode ?? context.primaryMicCode,
+      start: startTime,
+      end: endTime,
+      timezone: context.timeZoneName,
+      normalizationMode: request.normalizationMode,
+      bars: [],
+    }
   }
 
   const bars: MarketBar[] = []
