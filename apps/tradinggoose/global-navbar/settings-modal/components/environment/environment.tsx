@@ -97,6 +97,26 @@ const formatDateTime = (value?: string) => {
   }
 }
 
+const cloneEnvVars = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T
+
+const areRecordsEqual = (a: Record<string, string>, b: Record<string, string>) => {
+  const aKeys = Object.keys(a)
+  if (aKeys.length !== Object.keys(b).length) return false
+  return aKeys.every((key) => a[key] === b[key])
+}
+
+const buildEnvSignature = (
+  vars: Array<Pick<UIEnvironmentVariable, 'key' | 'value' | 'createdAt' | 'updatedAt'>>
+) => {
+  if (vars.length === 0) return ''
+  return vars
+    .map(({ key, value, createdAt, updatedAt }) =>
+      [key ?? '', value ?? '', createdAt ?? '', updatedAt ?? ''].join('\u0001')
+    )
+    .sort()
+    .join('\u0002')
+}
+
 interface UIEnvironmentVariable extends StoreEnvironmentVariable {
   id?: number
   createdAt?: string
@@ -244,6 +264,8 @@ const EnvironmentVariablesComponent = (
     return false
   }, [envVars, workspaceVars])
 
+  const shouldHydrate = !hasChanges && !isSaving
+
   const workspaceKeySet = useMemo(
     () =>
       new Set(workspaceVars.map((envVar) => envVar.key).filter((key) => key.length > 0)),
@@ -269,17 +291,20 @@ const EnvironmentVariablesComponent = (
   }
 
   useEffect(() => {
+    if (!shouldHydrate) return
     const existingVars = Object.values(variables)
     const initialVars = existingVars.length
       ? existingVars.map((envVar) => ({
         ...envVar,
         id: generateRowId(),
       }))
-      : [createEmptyEnvVar()]
-    initialVarsRef.current = JSON.parse(JSON.stringify(initialVars))
-    setEnvVars(JSON.parse(JSON.stringify(initialVars)))
+      : []
+    initialVarsRef.current = cloneEnvVars(initialVars)
+    if (buildEnvSignature(initialVars) !== buildEnvSignature(envVars)) {
+      setEnvVars(cloneEnvVars(initialVars))
+    }
     pendingClose.current = false
-  }, [variables])
+  }, [variables, shouldHydrate])
 
   useEffect(() => {
     if (onLoadingChange) {
@@ -289,13 +314,15 @@ const EnvironmentVariablesComponent = (
 
   useEffect(() => {
     if (!workspaceId) {
-      setWorkspaceVars([])
-      setConflicts([])
-      initialWorkspaceVarsRef.current = []
+      if (shouldHydrate) {
+        setWorkspaceVars([])
+        setConflicts([])
+        initialWorkspaceVarsRef.current = []
+      }
       return
     }
 
-    if (!workspaceEnvData) return
+    if (!workspaceEnvData || !shouldHydrate) return
 
     const toUIVariables = (
       input: Record<string, string>,
@@ -312,14 +339,16 @@ const EnvironmentVariablesComponent = (
     const workspaceList = toUIVariables(workspaceEnvData.workspace || {}, workspaceEnvData.workspaceMeta)
     const personalList = toUIVariables(workspaceEnvData.personal || {}, workspaceEnvData.personalMeta)
 
-    setWorkspaceVars(workspaceList)
-    initialWorkspaceVarsRef.current = JSON.parse(JSON.stringify(workspaceList))
-    if (personalList.length) {
+    initialWorkspaceVarsRef.current = cloneEnvVars(workspaceList)
+    initialVarsRef.current = cloneEnvVars(personalList)
+    if (buildEnvSignature(workspaceList) !== buildEnvSignature(workspaceVars)) {
+      setWorkspaceVars(workspaceList)
+    }
+    if (buildEnvSignature(personalList) !== buildEnvSignature(envVars)) {
       setEnvVars(personalList)
-      initialVarsRef.current = JSON.parse(JSON.stringify(personalList))
     }
     setConflicts(workspaceEnvData.conflicts || [])
-  }, [workspaceId, workspaceEnvData])
+  }, [workspaceId, workspaceEnvData, shouldHydrate])
 
   useEffect(() => {
     if (!isModalVariant) return
@@ -385,24 +414,24 @@ const EnvironmentVariablesComponent = (
 
   const removeEnvVar = (index: number) => {
     const newEnvVars = envVars.filter((_, i) => i !== index)
-    setEnvVars(newEnvVars.length ? newEnvVars : [createEmptyEnvVar()])
+    setEnvVars(newEnvVars)
   }
 
   const removeWorkspaceVar = (index: number) => {
     const next = workspaceVars.filter((_, i) => i !== index)
-    setWorkspaceVars(next.length ? next : [createEmptyEnvVar()])
+    setWorkspaceVars(next)
   }
 
   const removeVarById = (scope: 'workspace' | 'personal', id: number) => {
     if (scope === 'workspace') {
       setWorkspaceVars((prev) => {
         const next = prev.filter((item) => item.id !== id)
-        return next.length ? next : [createEmptyEnvVar()]
+        return next
       })
     } else {
       setEnvVars((prev) => {
         const next = prev.filter((item) => item.id !== id)
-        return next.length ? next : [createEmptyEnvVar()]
+        return next
       })
     }
   }
@@ -557,51 +586,72 @@ const EnvironmentVariablesComponent = (
   }
 
   const handleSave = async () => {
+    const personalSnapshot = cloneEnvVars(envVars)
+    const workspaceSnapshot = cloneEnvVars(workspaceVars)
+    const initialPersonalSnapshot = cloneEnvVars(initialVarsRef.current)
+    const initialWorkspaceSnapshot = cloneEnvVars(initialWorkspaceVarsRef.current)
+    const activeWorkspaceId = workspaceId
+
+    const toRecord = (vars: UIEnvironmentVariable[]) =>
+      vars
+        .filter((v) => v.key && v.value)
+        .reduce(
+          (acc, { key, value }) => ({
+            ...acc,
+            [key]: value,
+          }),
+          {}
+        )
+
+    const personalBefore = toRecord(initialPersonalSnapshot)
+    const personalAfter = toRecord(personalSnapshot)
+    const workspaceBefore = toRecord(initialWorkspaceSnapshot)
+    const workspaceAfter = toRecord(workspaceSnapshot)
+
+    const hasPersonalChanges = !areRecordsEqual(personalBefore, personalAfter)
+    const hasWorkspaceChanges = !areRecordsEqual(workspaceBefore, workspaceAfter)
+
+    const toUpsert: Record<string, string> = {}
+    const toDelete: string[] = []
+
+    if (hasWorkspaceChanges) {
+      for (const [k, v] of Object.entries(workspaceAfter)) {
+        if (!(k in workspaceBefore) || workspaceBefore[k] !== v) {
+          toUpsert[k] = v
+        }
+      }
+      for (const k of Object.keys(workspaceBefore)) {
+        if (!(k in workspaceAfter)) toDelete.push(k)
+      }
+    }
+
     try {
       setShowUnsavedChanges(false)
       if (isModalVariant) {
         onOpenChange?.(false)
       }
 
-      const toRecord = (vars: UIEnvironmentVariable[]) =>
-        vars
-          .filter((v) => v.key && v.value)
-          .reduce(
-            (acc, { key, value }) => ({
-              ...acc,
-              [key]: value,
-            }),
-            {}
-          )
-
-      const validVariables = toRecord(envVars)
-      await savePersonalMutation.mutateAsync({ variables: validVariables })
-
-      const before = toRecord(initialWorkspaceVarsRef.current)
-      const after = toRecord(workspaceVars)
-      const toUpsert: Record<string, string> = {}
-      const toDelete: string[] = []
-
-      for (const [k, v] of Object.entries(after)) {
-        if (!(k in before) || before[k] !== v) {
-          toUpsert[k] = v
-        }
-      }
-      for (const k of Object.keys(before)) {
-        if (!(k in after)) toDelete.push(k)
+      if (hasPersonalChanges) {
+        await savePersonalMutation.mutateAsync({ variables: personalAfter })
       }
 
-      if (workspaceId) {
+      if (activeWorkspaceId && hasWorkspaceChanges) {
         if (Object.keys(toUpsert).length) {
-          await upsertWorkspaceMutation.mutateAsync({ workspaceId, variables: toUpsert })
+          await upsertWorkspaceMutation.mutateAsync({
+            workspaceId: activeWorkspaceId,
+            variables: toUpsert,
+          })
         }
         if (toDelete.length) {
-          await removeWorkspaceMutation.mutateAsync({ workspaceId, keys: toDelete })
+          await removeWorkspaceMutation.mutateAsync({
+            workspaceId: activeWorkspaceId,
+            keys: toDelete,
+          })
         }
       }
 
-      initialWorkspaceVarsRef.current = JSON.parse(JSON.stringify(workspaceVars))
-      initialVarsRef.current = JSON.parse(JSON.stringify(envVars))
+      initialWorkspaceVarsRef.current = cloneEnvVars(workspaceSnapshot)
+      initialVarsRef.current = cloneEnvVars(personalSnapshot)
     } catch (error) {
       logger.error('Failed to save environment variables:', error)
     }
@@ -780,12 +830,12 @@ const EnvironmentVariablesComponent = (
 
         return (
           <tr key={rowId} className='border-b transition-colors hover:bg-card/30'>
-            <td className='px-4 py-4 text-center align-top'>
+            <td className='px-4 py-2 text-center align-center'>
               <span className='text-muted-foreground text-sm'>
                 {formatDateTime(envVar.createdAt)}
               </span>
             </td>
-            <td className='px-4 py-4 text-center align-top'>
+            <td className='px-4 py-2 text-center align-center'>
               {isEditing ? (
                 <div className='space-y-2'>
                   <div className='flex max-w-md items-center gap-2'>
@@ -817,7 +867,7 @@ const EnvironmentVariablesComponent = (
                 </div>
               )}
             </td>
-            <td className='px-4 py-4 text-center align-top'>
+            <td className='px-4 py-2 text-center align-center'>
               {isEditing ? (
                 <Input
                   ref={(el) => {
@@ -879,12 +929,12 @@ const EnvironmentVariablesComponent = (
                 </div>
               )}
             </td>
-            <td className='px-4 py-4 text-center align-top'>
+            <td className='px-4 py-2 text-center align-center'>
               <span className='text-muted-foreground text-sm'>
                 {formatDateTime(envVar.updatedAt ?? envVar.createdAt)}
               </span>
             </td>
-            <td className='px-4 py-4 text-center align-top'>
+            <td className='px-4 py-2 text-center align-center'>
               <div className='flex items-center justify-end gap-1.5'>
                 {isEditing ? (
                   <>
@@ -1003,8 +1053,30 @@ const EnvironmentVariablesComponent = (
 
   if (isPageVariant) {
     return (
-      <div className='flex h-full min-h-0 flex-1 flex-col overflow-hidden space-y-4'>
+      <div className='flex h-full min-h-0 flex-1 flex-col overflow-hidden'>
         {renderTableView()}
+        <div className='bg-background'>
+          <div className='flex w-full items-center justify-end px-6 py-4'>
+            {isBusy ? (
+              <Skeleton className='h-9 w-[108px] rounded-sm' />
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={handleSave}
+                    disabled={!hasChanges || hasConflicts || isBusy}
+                    className={`h-9 rounded-sm ${hasConflicts ? 'cursor-not-allowed opacity-50' : ''}`}
+                  >
+                    Save Changes
+                  </Button>
+                </TooltipTrigger>
+                {hasConflicts && (
+                  <TooltipContent>Resolve all conflicts before saving</TooltipContent>
+                )}
+              </Tooltip>
+            )}
+          </div>
+        </div>
       </div>
     )
   }
@@ -1164,9 +1236,15 @@ const EnvironmentVariablesComponent = (
                 {' '}
                 Personal{' '}
               </div>
-              {filteredEnvVars.map(({ envVar, originalIndex }) => (
-                <div key={envVar.id || originalIndex}>{renderEnvVarRow(envVar, originalIndex)}</div>
-              ))}
+              {!resolvedSearchTerm.trim() && envVars.length === 0 ? (
+                <div className='text-muted-foreground text-sm'>No personal variables yet.</div>
+              ) : (
+                filteredEnvVars.map(({ envVar, originalIndex }) => (
+                  <div key={envVar.id || originalIndex}>
+                    {renderEnvVarRow(envVar, originalIndex)}
+                  </div>
+                ))
+              )}
               {/* Show message when search has no results across both sections */}
               {resolvedSearchTerm.trim() &&
                 filteredEnvVars.length === 0 &&
