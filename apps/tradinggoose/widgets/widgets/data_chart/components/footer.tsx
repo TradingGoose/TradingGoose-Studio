@@ -153,10 +153,10 @@ const DataChartTimezoneDropdown = ({
   }, [options, search])
 
   const buildStatusDotClass = (option?: { observesDst?: boolean; dstOn?: boolean }) => {
-    if (!option || option.observesDst === false) return 'bg-muted-foreground/40'
+    if (!option || option.observesDst === false) return 'bg-transparent'
     if (option.dstOn === true) return 'bg-green-500/40'
     if (option.dstOn === false) return 'bg-red-500/40'
-    return 'bg-muted-foreground/40'
+    return 'bg-transparent'
   }
 
   const handleTimezoneSelect = (nextTimezone: string | null) => {
@@ -328,7 +328,7 @@ const DataChartNormalizationDropdown = ({
     if (selectedMode === fallbackMode) return
     if (
       (params.data?.providerParams as Record<string, unknown> | undefined)?.normalization_mode ===
-        fallbackMode
+      fallbackMode
     ) {
       return
     }
@@ -421,9 +421,9 @@ export const DataChartFooter = ({
   const rangeWindow = params.data?.window?.mode === 'range' ? params.data.window : null
   const selectedRangeId = rangeWindow
     ? availablePresets.find((preset) => {
-        const range = rangeWindow.range
-        return preset.range.value === range.value && preset.range.unit === range.unit
-      })?.id
+      const range = rangeWindow.range
+      return preset.range.value === range.value && preset.range.unit === range.unit
+    })?.id
     : null
 
   const handleRangeSelect = (presetId: string) => {

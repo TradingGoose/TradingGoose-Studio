@@ -1537,27 +1537,27 @@ export function ToolInput({
                           : isMcpTool
                             ? sanitizeHexColor(mcpTool?.bgColor) ?? sanitizeHexColor('#6366F1')
                             : sanitizeHexColor(toolBlock?.bgColor)
-                        const iconColor = toolColor || '#FFFFFF'
+                        const iconColor = toolColor || 'undefined'
                         return (
                           <div
                             className='relative flex h-5 w-5 flex-shrink-0 items-center justify-center overflow-hidden rounded-sm bg-background/60 text-foreground'
                             style={{
-                              backgroundColor: toolColor ? `${toolColor}30` : undefined,
-                              color: iconColor,
+                              backgroundColor: toolColor ? `${toolColor}20` : undefined,
+                              color: toolColor ? `${toolColor}` : undefined,
                             }}
                           >
                             {isCustomTool ? (
-                              <WrenchIcon className='h-3 w-3' style={{ color: iconColor }} />
+                              <WrenchIcon className='h-4 w-4' style={{ color: iconColor }} />
                             ) : isMcpTool ? (
                               <IconComponent
                                 icon={Server}
-                                className='h-3 w-3'
+                                className='h-4 w-4'
                                 style={{ color: iconColor }}
                               />
                             ) : (
                               <IconComponent
                                 icon={toolBlock?.icon}
-                                className='h-3 w-3'
+                                className='h-4 w-4'
                                 style={{ color: iconColor }}
                               />
                             )}

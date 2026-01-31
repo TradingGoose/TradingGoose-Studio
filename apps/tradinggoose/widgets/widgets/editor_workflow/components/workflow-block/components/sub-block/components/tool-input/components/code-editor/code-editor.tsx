@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 interface CodeEditorProps {
   value: string
   onChange: (value: string) => void
-  language: 'javascript' | 'json' | 'typescript'
+  language: 'javascript' | 'json' | 'typescript' | 'sql' | 'html' | 'plaintext'
   placeholder?: string
   className?: string
   minHeight?: string

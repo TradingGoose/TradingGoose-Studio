@@ -67,8 +67,8 @@ export const checkTagTrigger = (text: string, cursorPosition: number): { show: b
 const BLOCK_COLORS = {
   VARIABLE: '#2F8BFF',
   DEFAULT: '#2F55FF',
-  LOOP: '#2FB3FF',
-  PARALLEL: '#FEE12B',
+  LOOP: '#00ccff',
+  PARALLEL: '#ffdd00',
 } as const
 
 const TAG_PREFIXES = {
@@ -1424,7 +1424,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                     blockColor = BLOCK_COLORS.PARALLEL
                   }
 
-                  const blockBackground = blockColor ? `${blockColor}30` : undefined
+                  const blockBackground = blockColor ? `${blockColor}20` : undefined
 
                   return (
                     <div key={group.blockId} className='relative'>

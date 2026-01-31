@@ -320,19 +320,19 @@ describe('SubflowNodeComponent', () => {
 
     it.concurrent('should generate correct background colors for loop kind', () => {
       const loopData = { ...defaultProps.data, kind: 'loop' as const }
-      const startBg = loopData.kind === 'loop' ? '#2FB3FF' : '#FEE12B'
+      const startBg = loopData.kind === 'loop' ? '#00ccff' : '#ffdd00'
 
-      expect(startBg).toBe('#2FB3FF')
+      expect(startBg).toBe('#00ccff')
     })
 
     it.concurrent('should generate correct background colors for parallel kind', () => {
       type SubflowKind = 'loop' | 'parallel'
       const testBgGeneration = (kind: SubflowKind) => {
-        return kind === 'loop' ? '#2FB3FF' : '#FEE12B'
+        return kind === 'loop' ? '#00ccff' : '#ffdd00'
       }
 
       const startBg = testBgGeneration('parallel')
-      expect(startBg).toBe('#FEE12B')
+      expect(startBg).toBe('#ffdd00')
     })
 
     it.concurrent('should demonstrate handle ID generation for any kind', () => {
@@ -377,16 +377,16 @@ describe('SubflowNodeComponent', () => {
         // Test handle ID generation for both kinds
         const startHandleId = data.kind === 'loop' ? 'loop-start-source' : 'parallel-start-source'
         const endHandleId = data.kind === 'loop' ? 'loop-end-source' : 'parallel-end-source'
-        const startBg = data.kind === 'loop' ? '#2FB3FF' : '#FEE12B'
+        const startBg = data.kind === 'loop' ? '#00ccff' : '#ffdd00'
 
         if (kind === 'loop') {
           expect(startHandleId).toBe('loop-start-source')
           expect(endHandleId).toBe('loop-end-source')
-          expect(startBg).toBe('#2FB3FF')
+          expect(startBg).toBe('#00ccff')
         } else {
           expect(startHandleId).toBe('parallel-start-source')
           expect(endHandleId).toBe('parallel-end-source')
-          expect(startBg).toBe('#FEE12B')
+          expect(startBg).toBe('#ffdd00')
         }
       })
     })
