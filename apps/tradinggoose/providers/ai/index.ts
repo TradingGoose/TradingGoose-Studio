@@ -19,6 +19,23 @@ function sanitizeRequest(request: ProviderRequest): ProviderRequest {
     sanitizedRequest.temperature = undefined
   }
 
+  const systemPrompt =
+    typeof sanitizedRequest.systemPrompt === 'string' ? sanitizedRequest.systemPrompt : ''
+  const hasSystemPrompt = systemPrompt.trim().length > 0
+  sanitizedRequest.systemPrompt = hasSystemPrompt ? systemPrompt : ''
+
+  const context =
+    typeof sanitizedRequest.context === 'string' ? sanitizedRequest.context : undefined
+  const hasContext = typeof context === 'string' && context.trim().length > 0
+  sanitizedRequest.context = hasContext ? context : undefined
+
+  const hasMessages = Array.isArray(sanitizedRequest.messages) && sanitizedRequest.messages.length
+
+  if (!hasMessages && !hasContext && !hasSystemPrompt) {
+    sanitizedRequest.messages = [{ role: 'user', content: 'Hello' }]
+    logger.warn('Empty provider request detected. Added fallback user message to avoid empty input.')
+  }
+
   return sanitizedRequest
 }
 
