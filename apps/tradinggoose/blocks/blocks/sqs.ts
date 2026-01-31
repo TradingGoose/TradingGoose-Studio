@@ -70,6 +70,7 @@ export const SQSBlock: BlockConfig<SqsResponse> = {
       id: 'data',
       title: 'Data (JSON)',
       type: 'code',
+      language: 'json',
       placeholder: '{\n  "name": "John Doe",\n  "email": "john@example.com",\n  "active": true\n}',
       condition: { field: 'operation', value: 'send' },
       required: true,

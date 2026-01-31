@@ -40,8 +40,7 @@ export const listGDriveFilesServerTool: BaseServerTool<ListGDriveFilesParams, an
         accessToken,
         ...(query ? { query } : {}),
         ...(typeof pageSize === 'number' ? { pageSize } : {}),
-      },
-      true
+      }
     )
     if (!result.success) {
       throw new Error(result.error || 'Failed to list Google Drive files')

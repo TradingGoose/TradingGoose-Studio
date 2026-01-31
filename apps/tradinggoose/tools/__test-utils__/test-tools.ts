@@ -176,7 +176,7 @@ export class ToolTester<P = any, R = any> {
   /**
    * Execute the tool with provided parameters
    */
-  async execute(params: P, skipProxy = true): Promise<ToolResponse> {
+  async execute(params: P): Promise<ToolResponse> {
     const url =
       typeof this.tool.request.url === 'function'
         ? this.tool.request.url(params)

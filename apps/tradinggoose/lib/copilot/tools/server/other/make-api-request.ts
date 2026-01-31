@@ -28,11 +28,13 @@ export const makeApiRequestServerTool: BaseServerTool<MakeApiRequestParams, any>
     const headersTable = toTableRows(headers)
     const queryParamsTable = toTableRows(queryParams as Record<string, any> | undefined)
 
-    const result = await executeTool(
-      'http_request',
-      { url, method, params: queryParamsTable, headers: headersTable, body },
-      true
-    )
+    const result = await executeTool('http_request', {
+      url,
+      method,
+      params: queryParamsTable,
+      headers: headersTable,
+      body,
+    })
     if (!result.success) throw new Error(result.error || 'API request failed')
     const output = (result as any).output || result
     const data = output.output?.data ?? output.data

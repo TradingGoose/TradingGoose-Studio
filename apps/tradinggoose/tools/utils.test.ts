@@ -129,6 +129,7 @@ describe('formatRequestParams', () => {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       body: undefined, // No body for GET
+      timeout: undefined,
     })
 
     expect(mockTool.request.headers).toHaveBeenCalledWith(params)
@@ -145,6 +146,7 @@ describe('formatRequestParams', () => {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       body: undefined,
+      timeout: undefined,
     })
   })
 
@@ -683,6 +685,7 @@ describe('createCustomToolRequestBody', () => {
         BASE_URL: 'https://example.com',
       },
       workflowId: undefined,
+      userId: undefined,
       workflowVariables: {},
       blockData: {},
       blockNameMapping: {},
@@ -710,6 +713,7 @@ describe('createCustomToolRequestBody', () => {
       schema: { type: 'object', properties: {} },
       envVars: {},
       workflowId: 'test-workflow-123',
+      userId: undefined,
       workflowVariables: {},
       blockData: {},
       blockNameMapping: {},
