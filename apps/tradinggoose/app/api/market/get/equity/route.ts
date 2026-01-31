@@ -1,33 +1,22 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
 import { proxyMarketRequest } from '@/app/api/market/proxy'
-import { buildQueryParams, optionalString } from '@/app/api/market/search/validation'
+import { parseListParam } from '@/app/api/market/search/validation'
 
 export const dynamic = 'force-dynamic'
 
-const GetEquitySchema = z.object({
-  equity_id: optionalString,
-  equityId: optionalString,
-})
-
 export async function GET(request: NextRequest) {
-  const params = buildQueryParams(request, ['equity_id', 'equityId'])
-  const parsed = GetEquitySchema.safeParse(params)
-
-  if (!parsed.success) {
+  const equityIds = parseListParam(request.nextUrl.searchParams, 'equity_id')
+  if (!equityIds.length) {
+    return NextResponse.json({ error: 'equity_id is required.' }, { status: 400 })
+  }
+  if (equityIds.length > 200) {
     return NextResponse.json(
-      { error: 'Invalid query params', details: parsed.error.errors },
+      { error: 'equity_id supports up to 200 values.' },
       { status: 400 }
     )
   }
 
-  const equityId = parsed.data.equity_id ?? parsed.data.equityId
-  if (!equityId) {
-    return NextResponse.json({ error: 'equity_id is required.' }, { status: 400 })
-  }
-
   const searchParams = new URLSearchParams(request.nextUrl.searchParams)
-  searchParams.set('equity_id', equityId)
   searchParams.delete('equityId')
 
   return proxyMarketRequest(request, ['get', 'equity'], searchParams)
