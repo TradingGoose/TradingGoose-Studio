@@ -92,6 +92,7 @@
     "js-yaml": "^4.1.1",
     "jwt-decode": "^4.0.0",
     "klinecharts": "10.0.0-beta1",
+    "lightweight-charts": "^5.1.0",
     "lucide-react": "0.555.0",
     "mammoth": "^1.9.0",
     "monaco-editor": "0.55.1",
