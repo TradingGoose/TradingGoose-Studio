@@ -10,7 +10,7 @@ import {
   resolveListingKey,
   toListingValueObject,
 } from '@/lib/listing/identity'
-import { resolveListingIdentity } from '@/lib/listing/resolve'
+import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import {
   getFlagData,
   getListingFallback,
@@ -131,7 +131,7 @@ export const useListingState = ({
     const requestId = ++listingResolveRef.current
     let cancelled = false
 
-    resolveListingIdentity(listingIdentity)
+    requestListingResolution(listingIdentity)
       .then((resolved) => {
         if (cancelled || listingResolveRef.current !== requestId) return
         if (!resolved) {

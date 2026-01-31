@@ -18,6 +18,7 @@ import type {
   MarketSeriesRequest,
   MarketSeries,
   NormalizationMode,
+  MarketSessionMode,
 } from '@/providers/market/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
 import { AlphaVantageIcon, YahooIcon, FinnhubIcon, AlpacaIcon } from '@/components/icons/provider-icons'
@@ -36,6 +37,7 @@ export interface MarketSeriesInputCapabilities {
   windowModes?: MarketSeriesWindowMode[]
   normalizationModes?: NormalizationMode[]
   retention?: MarketSeriesRetentionPolicy
+  marketSessions?: MarketSessionMode[]
 }
 
 export interface MarketSeriesRetentionRule {

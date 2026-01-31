@@ -1,4 +1,3 @@
-import { marketClient } from '@/lib/market/client'
 import { MARKET_API_VERSION } from '@/lib/market/client/constants'
 import { resolveListingKey, type ListingIdentity, type ListingResolved } from '@/lib/listing/identity'
 
@@ -35,28 +34,34 @@ const uniqueNonEmpty = (values: string[]) => {
   return result
 }
 
-const toCodeRow = (row: unknown): CodeRow | null => {
-  if (!row || typeof row !== 'object') return null
-  const record = row as CodeRow
-  return { code: record.code, name: record.name ?? null, iconUrl: record.iconUrl ?? null }
-}
-
 const fetchMarketSearch = async <T>(
   path: string,
-  params: URLSearchParams
+  params: URLSearchParams,
+  signal?: AbortSignal
 ): Promise<T | null> => {
   if (!params.get('version')) {
     params.set('version', MARKET_API_VERSION)
   }
-  const response = await marketClient.makeRequest<MarketSearchResponse<T>>(
-    `/api/get/${path}?${params.toString()}`
-  )
-  if (!response.success) {
-    throw new Error(response.error || `Market search failed: ${path}`)
+
+  const response = await fetch(`/api/market/get/${path}?${params.toString()}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    signal,
+  })
+
+  let payload: MarketSearchResponse<T> | null = null
+  try {
+    payload = (await response.json()) as MarketSearchResponse<T>
+  } catch {
+    payload = null
   }
 
-  const payload = response.data as MarketSearchResponse<T> | null
-  if (!payload || typeof payload !== 'object') return null
+  if (!response.ok) {
+    throw new Error(payload?.error || `Market search failed: ${path}`)
+  }
+  if (!payload) return null
   if (payload.error) {
     throw new Error(payload.error)
   }
@@ -66,7 +71,8 @@ const fetchMarketSearch = async <T>(
 const fetchMarketBatch = async <T>(
   path: string,
   paramName: string,
-  ids: string[]
+  ids: string[],
+  signal?: AbortSignal
 ): Promise<Record<string, T | null>> => {
   const uniqueIds = uniqueNonEmpty(ids)
   const result: Record<string, T | null> = {}
@@ -74,7 +80,7 @@ const fetchMarketBatch = async <T>(
 
   const params = new URLSearchParams()
   uniqueIds.forEach((id) => params.append(paramName, id))
-  const data = await fetchMarketSearch<any>(path, params)
+  const data = await fetchMarketSearch<any>(path, params, signal)
 
   if (!data) {
     uniqueIds.forEach((id) => {
@@ -104,15 +110,27 @@ const fetchMarketBatch = async <T>(
   return result
 }
 
-const getBatchRow = async <T>(path: string, paramName: string, id: string): Promise<T | null> => {
-  const records = await fetchMarketBatch<T>(path, paramName, [id])
+const toCodeRow = (row: unknown): CodeRow | null => {
+  if (!row || typeof row !== 'object') return null
+  const record = row as CodeRow
+  return { code: record.code, name: record.name ?? null, iconUrl: record.iconUrl ?? null }
+}
+
+const getBatchRow = async <T>(
+  path: string,
+  paramName: string,
+  id: string,
+  signal?: AbortSignal
+): Promise<T | null> => {
+  const records = await fetchMarketBatch<T>(path, paramName, [id], signal)
   return records[id] ?? null
 }
 
 const resolveEquityById = async (
-  equityId: string
+  equityId: string,
+  signal?: AbortSignal
 ): Promise<ResolvedListingDetails | null> => {
-  const listing = await getBatchRow<any>('equity', 'equity_id', equityId)
+  const listing = await getBatchRow<any>('equity', 'equity_id', equityId, signal)
   if (!listing || typeof listing !== 'object') return null
   return {
     base: listing.base,
@@ -128,22 +146,30 @@ const resolveEquityById = async (
 }
 
 const resolveCurrencyById = async (
-  currencyId: string
+  currencyId: string,
+  signal?: AbortSignal
 ): Promise<{ code?: string; name?: string | null; iconUrl?: string | null } | null> => {
-  return toCodeRow(await getBatchRow<any>('currency', 'currency_id', currencyId))
+  return toCodeRow(await getBatchRow<any>('currency', 'currency_id', currencyId, signal))
 }
 
 const resolveCryptoById = async (
-  cryptoId: string
+  cryptoId: string,
+  signal?: AbortSignal
 ): Promise<{ code?: string; name?: string | null; iconUrl?: string | null } | null> => {
-  return toCodeRow(await getBatchRow<any>('crypto', 'crypto_id', cryptoId))
+  return toCodeRow(await getBatchRow<any>('crypto', 'crypto_id', cryptoId, signal))
 }
 
 const resolveCurrencyPair = async (
   baseId: string,
-  quoteId: string
+  quoteId: string,
+  signal?: AbortSignal
 ): Promise<ResolvedListingDetails | null> => {
-  const records = await fetchMarketBatch<any>('currency', 'currency_id', [baseId, quoteId])
+  const records = await fetchMarketBatch<any>(
+    'currency',
+    'currency_id',
+    [baseId, quoteId],
+    signal
+  )
   const baseRow = toCodeRow(records[baseId])
   const quoteRow = toCodeRow(records[quoteId])
   if (!baseRow?.code || !quoteRow?.code) return null
@@ -162,9 +188,15 @@ const resolveCurrencyPair = async (
 
 const resolveCryptoPair = async (
   baseId: string,
-  quoteId: string
+  quoteId: string,
+  signal?: AbortSignal
 ): Promise<ResolvedListingDetails | null> => {
-  const records = await fetchMarketBatch<any>('crypto', 'crypto_id', [baseId, quoteId])
+  const records = await fetchMarketBatch<any>(
+    'crypto',
+    'crypto_id',
+    [baseId, quoteId],
+    signal
+  )
   const baseRow = toCodeRow(records[baseId])
   const quoteRow = toCodeRow(records[quoteId])
   if (!baseRow?.code || !quoteRow?.code) return null
@@ -183,11 +215,12 @@ const resolveCryptoPair = async (
 
 const resolveCryptoWithCurrencyQuote = async (
   baseId: string,
-  quoteId: string
+  quoteId: string,
+  signal?: AbortSignal
 ): Promise<ResolvedListingDetails | null> => {
   const [cryptoRecords, currencyRecords] = await Promise.all([
-    fetchMarketBatch<any>('crypto', 'crypto_id', [baseId]),
-    fetchMarketBatch<any>('currency', 'currency_id', [quoteId]),
+    fetchMarketBatch<any>('crypto', 'crypto_id', [baseId], signal),
+    fetchMarketBatch<any>('currency', 'currency_id', [quoteId], signal),
   ])
   const baseRow = toCodeRow(cryptoRecords[baseId])
   const quoteRow = toCodeRow(currencyRecords[quoteId])
@@ -205,8 +238,9 @@ const resolveCryptoWithCurrencyQuote = async (
   }
 }
 
-export async function resolveListingIdentity(
-  listing: ListingIdentity
+export async function requestListingResolution(
+  listing: ListingIdentity,
+  signal?: AbortSignal
 ): Promise<ListingResolved | null> {
   if (!listing) return null
 
@@ -217,22 +251,22 @@ export async function resolveListingIdentity(
 
   if (listingType === 'equity') {
     if (!equityId) return null
-    const details = await resolveEquityById(equityId)
+    const details = await resolveEquityById(equityId, signal)
     return details ? buildResolvedListing(listing, details) : null
   }
 
   if (!baseId || !quoteId) return null
 
   if (listingType === 'currency') {
-    const details = await resolveCurrencyPair(baseId, quoteId)
+    const details = await resolveCurrencyPair(baseId, quoteId, signal)
     return details ? buildResolvedListing(listing, details) : null
   }
 
   if (listingType === 'crypto') {
     const isCryptoQuote = quoteId.toUpperCase().includes('CRYP')
     const details = isCryptoQuote
-      ? await resolveCryptoPair(baseId, quoteId)
-      : await resolveCryptoWithCurrencyQuote(baseId, quoteId)
+      ? await resolveCryptoPair(baseId, quoteId, signal)
+      : await resolveCryptoWithCurrencyQuote(baseId, quoteId, signal)
     return details ? buildResolvedListing(listing, details) : null
   }
 

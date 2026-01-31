@@ -21,7 +21,7 @@ import {
   toListingValueObject,
   type ListingOption,
 } from '@/lib/listing/identity'
-import { resolveListingIdentity } from '@/lib/listing/resolve'
+import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import {
   createEmptyListingSelectorInstance,
   useListingSelectorStore,
@@ -219,7 +219,7 @@ export function StockSelector({
     const requestId = ++hydrateRequestRef.current
     let cancelled = false
 
-    resolveListingIdentity(identity)
+    requestListingResolution(identity)
       .then((resolved) => {
         if (cancelled || hydrateRequestRef.current !== requestId) return
         if (!resolved) return
@@ -228,7 +228,7 @@ export function StockSelector({
           selectedListingValue: identity,
         })
       })
-      .catch(() => {})
+      .catch(() => { })
 
     return () => {
       cancelled = true
@@ -373,7 +373,7 @@ export function StockSelector({
             }
           }}
           disabled={disabled}
-          autoComplete='off'
+          type='text'
         />
         {showRichOverlay ? (
           <div className='pointer-events-none absolute inset-y-0 left-0 flex items-center px-1 w-full'>

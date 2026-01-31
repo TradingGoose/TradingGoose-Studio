@@ -362,6 +362,7 @@ export const YahooFinanceProviderConfig: MarketProviderConfig = {
       ],
       windowModes: ['range', 'bars', 'absolute'],
       normalizationModes: ['raw', 'adjusted'],
+      marketSessions: ['regular', 'extended'],
       retention: {
         byInterval: {
           '1m': { maxRangeDays: 7 },

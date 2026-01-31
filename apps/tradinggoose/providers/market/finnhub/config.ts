@@ -70,6 +70,7 @@ export const finnhubProviderConfig: MarketProviderConfig = {
       intervals: ['1m', '5m', '15m', '30m', '1h', '1d', '1w', '1mo'],
       windowModes: ['range', 'bars', 'absolute'],
       normalizationModes: [],
+      marketSessions: ['regular'],
       retention: {
         byInterval: {
           '1m': { maxRangeDays: 365 },
