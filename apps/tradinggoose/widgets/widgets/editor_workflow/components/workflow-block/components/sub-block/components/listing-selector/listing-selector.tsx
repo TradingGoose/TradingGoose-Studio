@@ -24,6 +24,8 @@ interface ListingSelectorInputProps {
   onChange?: (value: ListingInputValue) => void
   disabled?: boolean
   config?: SubBlockConfig
+  providerType?: 'market' | 'trading'
+  providerFieldId?: string
 }
 
 function isVariableListingInput(value: string): boolean {
@@ -41,9 +43,12 @@ export function ListingSelectorInput({
   onChange,
   disabled = false,
   config,
+  providerType,
+  providerFieldId,
 }: ListingSelectorInputProps) {
   const [storeValue, setStoreValue] = useSubBlockValue<ListingInputValue>(blockId, subBlockId)
-  const [providerValue] = useSubBlockValue<string | null>(blockId, 'provider')
+  const providerField = providerFieldId ?? config?.providerFieldId ?? 'provider'
+  const [providerValue] = useSubBlockValue<string | null>(blockId, providerField)
   const ensureInstance = useListingSelectorStore((state) => state.ensureInstance)
   const updateInstance = useListingSelectorStore((state) => state.updateInstance)
   const instance = useListingSelectorStore((state) => state.instances[`${blockId}-${subBlockId}`])
@@ -190,6 +195,7 @@ export function ListingSelectorInput({
       instanceId={instanceId}
       blockId={blockId}
       disabled={disabled || isPreview}
+      providerType={providerType ?? config?.providerType ?? 'market'}
       listingRequired={config?.required === true}
       onListingChange={(listing) => {
         if (isPreview || disabled) return

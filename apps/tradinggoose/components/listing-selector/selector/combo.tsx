@@ -11,6 +11,7 @@ export interface ListingSelectorProps {
   blockId?: string
   className?: string
   disabled?: boolean
+  providerType?: 'market' | 'trading'
   onListingChange?: (listing: ListingOption | null) => void
   onListingValueChange?: (value: string | null) => void
   onListingTagSelect?: (value: string) => void
@@ -22,6 +23,7 @@ export function ListingSelector({
   blockId,
   className,
   disabled,
+  providerType = 'market',
   onListingChange,
   onListingValueChange,
   onListingTagSelect,
@@ -44,6 +46,7 @@ export function ListingSelector({
           instanceId={instanceId}
           blockId={blockId}
           disabled={disabled}
+          providerType={providerType}
           onListingChange={onListingChange}
           onListingValueChange={onListingValueChange}
           onListingTagSelect={onListingTagSelect}

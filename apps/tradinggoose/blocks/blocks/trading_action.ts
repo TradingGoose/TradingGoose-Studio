@@ -290,6 +290,7 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       title: 'Listing',
       type: 'market-selector',
       layout: 'full',
+      providerType: 'trading',
       required: true,
     },
     {

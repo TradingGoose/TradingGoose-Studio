@@ -2,12 +2,111 @@ import type { TradingProviderConfig } from '@/providers/trading/providers'
 import { alpacaTradingSymbolRules } from '@/providers/trading/alpaca/rules'
 import type { AssetClass } from '@/providers/market/types'
 
-const availableAssetClasses: AssetClass[] = ['stock', 'etf', 'crypto']
+const availableAssetClasses: AssetClass[] = ['stock']
+const supportsCrypto = availableAssetClasses.includes('crypto')
+const availableCryptoQuoteCodes = ['USD', 'USDC', 'USDT', 'BTC']
+const availableCryptoBaseCodes = [
+  'AAVE',
+  'AVAX',
+  'BAT',
+  'BCH',
+  'BTC',
+  'CRV',
+  'DOGE',
+  'DOT',
+  'ETH',
+  'GRT',
+  'LINK',
+  'LTC',
+  'SHIB',
+  'SKY',
+  'SUSHI',
+  'UNI',
+  'USDC',
+  'USDT',
+  'XRP',
+  'XTZ',
+  'YFI',
+]
+
+const exchangeCodesList: TradingProviderConfig['exchangeCodes'] = [
+  'A',
+  'B',
+  'C',
+  'D',
+  'G',
+  'H',
+  'I',
+  'J',
+  'K',
+  'L',
+  'M',
+  'N',
+  'P',
+  'Q',
+  'U',
+  'V',
+  'W',
+  'X',
+  'Y',
+  'Z',
+]
+
+const exchangeCodeToMicMap: TradingProviderConfig['exchangeCodeToMic'] = {
+  A: ['XASE'],
+  B: ['XBOS'],
+  C: ['XCIS'],
+  D: ['FINR'],
+  G: ['24EQ'],
+  H: ['MRPL'],
+  I: ['XISE'],
+  J: ['EDGA'],
+  K: ['EDGX'],
+  L: ['LTSE'],
+  M: ['XCHI'],
+  N: ['XNYS'],
+  P: ['ARCX'],
+  Q: ['XNAS'],
+  U: ['MEMX'],
+  V: ['IEXG'],
+  W: ['CBSX'],
+  X: ['XPSX'],
+  Y: ['BATY'],
+  Z: ['BATS'],
+}
+
+const micToExchangeCodeMap: TradingProviderConfig['micToExchangeCode'] = {
+  XASE: 'A',
+  XBOS: 'B',
+  XCIS: 'C',
+  FINR: 'D',
+  '24EQ': 'G',
+  MRPL: 'H',
+  XISE: 'I',
+  EDGA: 'J',
+  EDGX: 'K',
+  LTSE: 'L',
+  XCHI: 'M',
+  XNYS: 'N',
+  ARCX: 'P',
+  XNAS: 'Q',
+  MEMX: 'U',
+  IEXG: 'V',
+  CBSX: 'W',
+  XPSX: 'X',
+  BATY: 'Y',
+  BATS: 'Z',
+}
+
 
 const availability: TradingProviderConfig['availability'] = {
   assetClass: availableAssetClasses,
   order: true,
   holdings: true,
+  availableCurrencyBase: [],
+  availableCurrencyQuote: [],
+  availableCryptoBase: supportsCrypto ? availableCryptoBaseCodes : [],
+  availableCryptoQuote: supportsCrypto ? availableCryptoQuoteCodes : [],
 }
 
 const params: TradingProviderConfig['params'] = {
@@ -87,8 +186,6 @@ const params: TradingProviderConfig['params'] = {
   ],
 }
 
-const exchangeCodeToMicMap: TradingProviderConfig['exchangeCodeToMic'] = {}
-const micToExchangeCodeMap: TradingProviderConfig['micToExchangeCode'] = {}
 
 export const alpacaTradingProviderConfig: TradingProviderConfig = {
   id: 'alpaca',
@@ -123,6 +220,6 @@ export const alpacaTradingProviderConfig: TradingProviderConfig = {
   },
   exchangeCodeToMic: exchangeCodeToMicMap,
   micToExchangeCode: micToExchangeCodeMap,
-  exchangeCodes: [],
+  exchangeCodes: exchangeCodesList,
   rules: alpacaTradingSymbolRules,
 }
