@@ -1,5 +1,6 @@
 import { getBlock } from '@/blocks'
 import type { BlockConfig } from '@/blocks/types'
+import { extractFieldsFromSchema, parseResponseFormatSafely } from '@/lib/response-format'
 import { getTrigger } from '@/triggers'
 
 /**
@@ -27,6 +28,26 @@ export function getBlockOutputs(
 
   // Start with the static outputs defined in the config
   let outputs = { ...(blockConfig.outputs || {}) }
+
+  if (blockType === 'agent') {
+    const responseFormatValue = subBlocks?.responseFormat?.value
+    if (responseFormatValue) {
+      const parsed = parseResponseFormatSafely(responseFormatValue, 'agent')
+      if (parsed) {
+        const fields = extractFieldsFromSchema(parsed)
+        if (fields.length > 0) {
+          const responseOutputs: Record<string, any> = {}
+          for (const field of fields) {
+            responseOutputs[field.name] = {
+              type: field.type || 'any',
+              description: field.description || `Field from Agent: ${field.name}`,
+            }
+          }
+          return responseOutputs
+        }
+      }
+    }
+  }
 
   // For blocks with inputFormat, add dynamic outputs
   if (hasInputFormat(blockConfig) && subBlocks?.inputFormat?.value) {

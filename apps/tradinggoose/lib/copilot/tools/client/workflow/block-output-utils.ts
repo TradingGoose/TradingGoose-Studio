@@ -1,4 +1,3 @@
-import { extractFieldsFromSchema, parseResponseFormatSafely } from '@/lib/response-format'
 import { getBlockOutputPaths } from '@/lib/workflows/block-outputs'
 import { getBlock } from '@/blocks'
 import { normalizeBlockName } from '@/stores/workflows/utils'
@@ -117,17 +116,6 @@ export function computeBlockOutputPaths(block: BlockState, ctx: WorkflowContext)
       )
     }
     return []
-  }
-
-  if (blockConfig) {
-    const responseFormatValue = mergedSubBlocks?.responseFormat?.value
-    const responseFormat = parseResponseFormatSafely(responseFormatValue, block.id)
-    if (responseFormat) {
-      const schemaFields = extractFieldsFromSchema(responseFormat)
-      if (schemaFields.length > 0) {
-        return schemaFields.map((field) => field.name)
-      }
-    }
   }
 
   return getBlockOutputPaths(block.type, mergedSubBlocks, block.triggerMode)
