@@ -109,7 +109,7 @@ export function ConnectionBlocks({
         {/* Block icon with color */}
         {Icon && (
           <div
-            className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-sm bg-secondary text-foreground'
+            className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-xs bg-secondary text-foreground'
             style={{
               backgroundColor: bgColor ? `${bgColor}20` : undefined,
               color: bgColor || undefined,
