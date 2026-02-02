@@ -190,24 +190,22 @@ export class InputResolver {
     // Filter inputs based on sub-block conditions to only process active fields
     const inputs = this.filterInputsByConditions(block, allInputs)
     const result: Record<string, any> = {}
+    const isConditionBlock = block.metadata?.id === 'condition'
+
+    if (isConditionBlock && 'conditions' in inputs) {
+      result.conditions = this.resolveConditionInput(inputs.conditions, context, block)
+    }
+
     // Process each input parameter
     for (const [key, value] of Object.entries(inputs)) {
+      if (isConditionBlock && key === 'conditions') {
+        continue
+      }
       // Skip null or undefined values
       if (value === null || value === undefined) {
         result[key] = value
         continue
       }
-
-      // *** Add check for Condition Block's 'conditions' key early ***
-      const isConditionBlock = block.metadata?.id === 'condition'
-      const isConditionsKey = key === 'conditions'
-
-      if (isConditionBlock && isConditionsKey && typeof value === 'string') {
-        // Pass the raw string directly without resolving refs or parsing JSON
-        result[key] = value
-        continue // Skip further processing for this key
-      }
-      // *** End of early check ***
 
       // Handle string values that may contain references
       if (typeof value === 'string') {
@@ -319,6 +317,43 @@ export class InputResolver {
     }
 
     return result
+  }
+
+  private resolveConditionInput(
+    value: any,
+    context: ExecutionContext,
+    block: SerializedBlock
+  ): any {
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value)
+        if (Array.isArray(parsed)) {
+          return parsed.map((cond: any) => ({
+            ...cond,
+            value:
+              typeof cond.value === 'string'
+                ? this.resolveConditionTemplate(cond.value, context, block)
+                : cond.value,
+          }))
+        }
+      } catch {
+        // Fall through to template resolution below.
+      }
+
+      return this.resolveConditionTemplate(value, context, block)
+    }
+
+    if (Array.isArray(value)) {
+      return value.map((cond: any) => ({
+        ...cond,
+        value:
+          typeof cond.value === 'string'
+            ? this.resolveConditionTemplate(cond.value, context, block)
+            : cond.value,
+      }))
+    }
+
+    return value
   }
 
   /**
@@ -463,16 +498,10 @@ export class InputResolver {
     const blockMatches = extractReferencePrefixes(value)
     if (blockMatches.length === 0) return value
 
-    const accessiblePrefixes = this.getAccessiblePrefixes(currentBlock)
-
     let resolvedValue = value
 
     for (const match of blockMatches) {
       const { raw, prefix } = match
-      if (!accessiblePrefixes.has(prefix)) {
-        continue
-      }
-
       if (raw.startsWith('<variable.')) {
         continue
       }
@@ -696,20 +725,12 @@ export class InputResolver {
       const validation = this.validateBlockReference(blockRef, currentBlock.id)
 
       if (!validation.isValid) {
-        throw new Error(validation.errorMessage!)
+        continue
       }
 
       const sourceBlock = this.blockById.get(validation.resolvedBlockId!)!
 
       if (sourceBlock.enabled === false) {
-        throw new Error(
-          `Block "${sourceBlock.metadata?.name || sourceBlock.id}" is disabled, and block "${currentBlock.metadata?.name || currentBlock.id}" depends on it.`
-        )
-      }
-
-      const isInActivePath = context.activeExecutionPath.has(sourceBlock.id)
-
-      if (!isInActivePath) {
         resolvedValue = resolvedValue.replace(raw, '')
         continue
       }
@@ -736,87 +757,75 @@ export class InputResolver {
       }
 
       if (!blockState) {
-        // If the block is in a loop, return empty string
-        const isInLoop = this.loopsByBlockId.has(sourceBlock.id)
-
-        if (isInLoop) {
-          resolvedValue = resolvedValue.replace(raw, '')
-          continue
-        }
-
-        // If the block hasn't been executed and isn't in the active path,
-        // it means it's in an inactive branch - return empty string
-        if (!context.activeExecutionPath.has(sourceBlock.id)) {
-          resolvedValue = resolvedValue.replace(raw, '')
-          continue
-        }
-
-        throw new Error(
-          `No state found for block "${sourceBlock.metadata?.name || sourceBlock.id}" (ID: ${sourceBlock.id}).`
-        )
+        resolvedValue = resolvedValue.replace(raw, '')
+        continue
       }
 
       let replacementValue: any = blockState.output
 
-      for (const part of pathParts) {
-        if (!replacementValue || typeof replacementValue !== 'object') {
-          throw new Error(
-            `Invalid path "${part}" in "${path}" for block "${currentBlock.metadata?.name || currentBlock.id}".`
-          )
-        }
-
-        // Handle array indexing syntax like "files[0]" or "items[1]"
-        const arrayMatch = part.match(/^([^[]+)\[(\d+)\]$/)
-        if (arrayMatch) {
-          const [, arrayName, indexStr] = arrayMatch
-          const index = Number.parseInt(indexStr, 10)
-
-          // First access the array property
-          const arrayValue = replacementValue[arrayName]
-          if (!Array.isArray(arrayValue)) {
-            throw new Error(
-              `Property "${arrayName}" is not an array in path "${path}" for block "${sourceBlock.metadata?.name || sourceBlock.id}".`
-            )
+      try {
+        for (const part of pathParts) {
+          if (!replacementValue || typeof replacementValue !== 'object') {
+            replacementValue = undefined
+            break
           }
 
-          // Then access the array element
-          if (index < 0 || index >= arrayValue.length) {
-            throw new Error(
-              `Array index ${index} is out of bounds for "${arrayName}" (length: ${arrayValue.length}) in path "${path}" for block "${sourceBlock.metadata?.name || sourceBlock.id}".`
+          // Handle array indexing syntax like "files[0]" or "items[1]"
+          const arrayMatch = part.match(/^([^[]+)\[(\d+)\]$/)
+          if (arrayMatch) {
+            const [, arrayName, indexStr] = arrayMatch
+            const index = Number.parseInt(indexStr, 10)
+
+            // First access the array property
+            const arrayValue = replacementValue[arrayName]
+            if (!Array.isArray(arrayValue)) {
+              replacementValue = undefined
+              break
+            }
+
+            // Then access the array element
+            if (index < 0 || index >= arrayValue.length) {
+              replacementValue = undefined
+              break
+            }
+
+            replacementValue = arrayValue[index]
+          } else if (/^(?:[^[]+(?:\[\d+\])+|(?:\[\d+\])+)$/.test(part)) {
+            // Enhanced: support multiple indices like "values[0][0]"
+            replacementValue = this.resolvePartWithIndices(
+              replacementValue,
+              part,
+              path,
+              sourceBlock.metadata?.name || sourceBlock.id
             )
-          }
+          } else {
+            // Regular property access with FileReference mapping
+            const directValue = resolvePropertyAccess(replacementValue, part)
 
-          replacementValue = arrayValue[index]
-        } else if (/^(?:[^[]+(?:\[\d+\])+|(?:\[\d+\])+)$/.test(part)) {
-          // Enhanced: support multiple indices like "values[0][0]"
-          replacementValue = this.resolvePartWithIndices(
-            replacementValue,
-            part,
-            path,
-            sourceBlock.metadata?.name || sourceBlock.id
-          )
-        } else {
-          // Regular property access with FileReference mapping
-          const directValue = resolvePropertyAccess(replacementValue, part)
-
-          // If working with an array, allow property access on the first element as a compatibility fallback.
-          if (directValue === undefined && Array.isArray(replacementValue)) {
-            const firstItem = replacementValue[0]
-            if (firstItem && typeof firstItem === 'object' && part in firstItem) {
-              replacementValue = (firstItem as any)[part]
+            // If working with an array, allow property access on the first element as a compatibility fallback.
+            if (directValue === undefined && Array.isArray(replacementValue)) {
+              const firstItem = replacementValue[0]
+              if (firstItem && typeof firstItem === 'object' && part in firstItem) {
+                replacementValue = (firstItem as any)[part]
+              } else {
+                replacementValue = directValue
+              }
             } else {
               replacementValue = directValue
             }
-          } else {
-            replacementValue = directValue
+          }
+
+          if (replacementValue === undefined) {
+            break
           }
         }
+      } catch {
+        replacementValue = undefined
+      }
 
-        if (replacementValue === undefined) {
-          throw new Error(
-            `No value found at path "${path}" in block "${sourceBlock.metadata?.name || sourceBlock.id}".`
-          )
-        }
+      if (replacementValue === undefined) {
+        resolvedValue = resolvedValue.replace(raw, '')
+        continue
       }
 
       const blockType = currentBlock.metadata?.id
@@ -1123,13 +1132,13 @@ export class InputResolver {
    * Only returns the actual block names that users see in the UI.
    */
   private getAccessibleBlockNamesForError(currentBlockId: string): string[] {
-    const accessibleBlockIds = this.getAccessibleBlocks(currentBlockId)
     const names: string[] = []
 
-    for (const blockId of accessibleBlockIds) {
-      const block = this.blockById.get(blockId)
-      if (block?.metadata?.name) {
+    for (const block of this.workflow.blocks) {
+      if (block.metadata?.name) {
         names.push(block.metadata.name)
+      } else {
+        names.push(block.id)
       }
     }
 
@@ -1171,17 +1180,7 @@ export class InputResolver {
       const accessibleNames = this.getAccessibleBlockNamesForError(currentBlockId)
       return {
         isValid: false,
-        errorMessage: `Block "${blockRef}" was not found. Available connected blocks: ${accessibleNames.join(', ')}`,
-      }
-    }
-
-    // Check if block is accessible (connected)
-    const accessibleBlocks = this.getAccessibleBlocks(currentBlockId)
-    if (!accessibleBlocks.has(sourceBlock.id)) {
-      const accessibleNames = this.getAccessibleBlockNamesForError(currentBlockId)
-      return {
-        isValid: false,
-        errorMessage: `Block "${blockRef}" is not connected to this block. Available connected blocks: ${accessibleNames.join(', ')}`,
+        errorMessage: `Block "${blockRef}" was not found. Available blocks: ${accessibleNames.join(', ')}`,
       }
     }
 
@@ -1732,6 +1731,24 @@ export class InputResolver {
     return this.tryParseJSON(resolvedEnv)
   }
 
+  private resolveConditionTemplate(
+    template: string,
+    context: ExecutionContext,
+    block: SerializedBlock
+  ): string {
+    const resolvedVars = this.resolveVariableReferences(template, block)
+    const resolvedReferences = this.resolveBlockReferences(resolvedVars, context, block)
+    const resolvedEnv = this.resolveEnvVariables(resolvedReferences)
+
+    if (typeof resolvedEnv === 'string') {
+      return resolvedEnv
+    }
+    if (resolvedEnv === null || resolvedEnv === undefined) {
+      return ''
+    }
+    return typeof resolvedEnv === 'object' ? JSON.stringify(resolvedEnv) : String(resolvedEnv)
+  }
+
   /**
    * Processes object/array values recursively.
    * Handles special cases like table-like arrays with cells.
@@ -1839,6 +1856,14 @@ export class InputResolver {
       const sourceBlock = this.blockById.get(blockId)
       if (sourceBlock?.metadata?.name) {
         prefixes.add(normalizeBlockName(sourceBlock.metadata.name))
+      }
+    })
+
+    // Allow references to any known block (mirror sim's global tag resolution)
+    this.workflow.blocks.forEach((workflowBlock) => {
+      prefixes.add(normalizeBlockName(workflowBlock.id))
+      if (workflowBlock.metadata?.name) {
+        prefixes.add(normalizeBlockName(workflowBlock.metadata.name))
       }
     })
 
