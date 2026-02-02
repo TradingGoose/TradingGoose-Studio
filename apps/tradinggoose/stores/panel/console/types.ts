@@ -20,6 +20,10 @@ export interface ConsoleEntry {
   iterationCurrent?: number
   iterationTotal?: number
   iterationType?: 'loop' | 'parallel'
+  /** Whether this block is currently running */
+  isRunning?: boolean
+  /** Whether this block execution was canceled */
+  isCanceled?: boolean
 }
 
 export interface ConsoleUpdate {
@@ -32,6 +36,14 @@ export interface ConsoleUpdate {
   success?: boolean
   endedAt?: string
   durationMs?: number
+  /** Whether this block is currently running */
+  isRunning?: boolean
+  /** Whether this block execution was canceled */
+  isCanceled?: boolean
+  /** Iteration context for loops and parallels */
+  iterationCurrent?: number
+  iterationTotal?: number
+  iterationType?: 'loop' | 'parallel'
 }
 
 export interface ConsoleStore {
@@ -44,4 +56,6 @@ export interface ConsoleStore {
   getWorkflowEntries: (workflowId: string) => ConsoleEntry[]
   toggleConsole: () => void
   updateConsole: (blockId: string, update: string | ConsoleUpdate, executionId?: string) => void
+  updateConsoleEntry: (entryId: string, update: string | ConsoleUpdate) => void
+  cancelRunningEntries: (workflowId: string) => void
 }
