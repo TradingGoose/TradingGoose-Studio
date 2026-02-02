@@ -226,10 +226,10 @@ export class LoopManager {
         }
       } else if (block.metadata?.id === BlockType.CONDITION) {
         // For condition blocks, only follow the selected condition path
-        const selectedConditionId = context.decisions.condition.get(currentBlockId)
-        if (selectedConditionId) {
+        const selectedOption = context.decisions.condition.get(currentBlockId)
+        if (selectedOption) {
           const selectedConnection = outgoing.find(
-            (conn) => conn.sourceHandle === `condition-${selectedConditionId}`
+            (conn) => conn.sourceHandle === `condition-${selectedOption}`
           )
           if (selectedConnection?.target) {
             toVisit.push(selectedConnection.target)

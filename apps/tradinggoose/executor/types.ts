@@ -42,7 +42,7 @@ export interface NormalizedBlockOutput {
     blockType?: string
     blockTitle?: string
   }
-  selectedConditionId?: string // ID of selected condition
+  selectedOption?: string // ID of selected condition option
   conditionResult?: boolean // Whether condition evaluated to true
   // Generic result fields
   result?: any // Generic result value
