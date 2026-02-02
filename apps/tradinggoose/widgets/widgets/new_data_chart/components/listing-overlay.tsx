@@ -37,7 +37,7 @@ export const ListingOverlay = ({
   const intervalText = intervalLabel ?? ''
 
   const wrapperClass =
-    'flex max-w-[calc(100%-1.5rem)] items-center gap-2 text-sm font-semibold text-foreground'
+    'flex items-center gap-2 text-sm font-semibold text-foreground'
 
   if (isResolving) {
     return (
