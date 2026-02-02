@@ -281,7 +281,7 @@ describe('Parallel Block Activation Regression Tests', () => {
       // Condition executes and selects if path (parallel)
       mockContext.blockStates.set('condition-1', {
         output: {
-          selectedConditionId: 'if',
+          selectedOption: 'if',
           conditionResult: true,
           selectedPath: { blockId: 'parallel-1', blockType: BlockType.PARALLEL },
         },
@@ -304,7 +304,7 @@ describe('Parallel Block Activation Regression Tests', () => {
       // Condition executes and selects else path (function)
       mockContext.blockStates.set('condition-1', {
         output: {
-          selectedConditionId: 'else',
+          selectedOption: 'else',
           conditionResult: false,
           selectedPath: { blockId: 'function-1', blockType: BlockType.FUNCTION },
         },

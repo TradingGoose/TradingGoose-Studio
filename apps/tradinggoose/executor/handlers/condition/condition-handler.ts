@@ -105,32 +105,18 @@ export class ConditionBlockHandler implements BlockHandler {
       throw new Error(`Invalid conditions format: ${error.message}`)
     }
 
-    // Find source block for the condition (used for context if needed, maybe remove later)
+    // Find source block for the condition (used for context if available)
     const sourceBlockId = context.workflow?.connections.find(
       (conn) => conn.target === block.id
     )?.source
 
-    if (!sourceBlockId) {
-      throw new Error(`No source block found for condition block ${block.id}`)
-    }
-
-    const sourceOutput = context.blockStates.get(sourceBlockId)?.output
-    if (!sourceOutput) {
-      throw new Error(`No output found for source block ${sourceBlockId}`)
-    }
-
-    // Get source block to derive a dynamic key (maybe remove later)
-    const sourceBlock = context.workflow?.blocks.find((b) => b.id === sourceBlockId)
-    if (!sourceBlock) {
-      throw new Error(`Source block ${sourceBlockId} not found`)
-    }
+    const sourceOutput = sourceBlockId ? context.blockStates.get(sourceBlockId)?.output : undefined
 
     // Build evaluation context (primarily for potential 'context' object in Function)
     // We might not strictly need sourceKey here if references handle everything
     const evalContext = {
       ...(typeof sourceOutput === 'object' && sourceOutput !== null ? sourceOutput : {}),
-      // Add other relevant context if needed, like loop variables
-      ...(context.loopItems.get(block.id) || {}), // Example: Add loop context if applicable
+      ...(context.loopItems.get(block.id) || {}),
     }
     logger.info('Base eval context:', JSON.stringify(evalContext, null, 2))
 
@@ -174,10 +160,13 @@ export class ConditionBlockHandler implements BlockHandler {
           (conn) => conn.sourceHandle === `condition-${condition.id}`
         ) as { target: string; sourceHandle?: string } | undefined
 
-        if (connection && conditionMet) {
-          selectedConnection = connection
-          selectedCondition = condition
-          break // Found the first matching condition
+        if (conditionMet) {
+          if (connection) {
+            selectedConnection = connection
+            selectedCondition = condition
+          }
+          // If condition is true but there's no connection, branch ends gracefully
+          break
         }
       } catch (error: any) {
         logger.error(`Failed to evaluate condition "${condition.title}": ${error.message}`)
@@ -187,12 +176,9 @@ export class ConditionBlockHandler implements BlockHandler {
 
     // Handle case where no condition was met (should only happen if no 'else' exists)
     if (!selectedConnection || !selectedCondition) {
-      // Check if an 'else' block exists but wasn't selected (shouldn't happen with current logic)
+      // Check if an 'else' block exists but wasn't selected
       const elseCondition = conditions.find((c) => c.title === 'else')
       if (elseCondition) {
-        logger.warn(`No condition met, but an 'else' block exists. Selecting 'else' path.`, {
-          blockId: block.id,
-        })
         const elseConnection = outgoingConnections?.find(
           (conn) => conn.sourceHandle === `condition-${elseCondition.id}`
         ) as { target: string; sourceHandle?: string } | undefined
@@ -200,14 +186,20 @@ export class ConditionBlockHandler implements BlockHandler {
           selectedConnection = elseConnection
           selectedCondition = elseCondition
         } else {
-          throw new Error(
-            `No path found for condition block "${block.metadata?.name}", and 'else' connection missing.`
-          )
+          return {
+            ...((sourceOutput as any) || {}),
+            conditionResult: false,
+            selectedPath: null,
+            selectedOption: null,
+          }
         }
       } else {
-        throw new Error(
-          `No matching path found for condition block "${block.metadata?.name}", and no 'else' block exists.`
-        )
+        return {
+          ...((sourceOutput as any) || {}),
+          conditionResult: false,
+          selectedPath: null,
+          selectedOption: null,
+        }
       }
     }
 
@@ -235,7 +227,7 @@ export class ConditionBlockHandler implements BlockHandler {
         blockType: targetBlock.metadata?.id || 'unknown',
         blockTitle: targetBlock.metadata?.name || 'Untitled Block',
       },
-      selectedConditionId: selectedCondition.id,
+      selectedOption: selectedCondition.id,
     }
   }
 }

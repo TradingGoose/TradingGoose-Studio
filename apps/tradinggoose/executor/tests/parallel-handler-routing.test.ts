@@ -174,7 +174,7 @@ describe('Parallel Handler Integration with PathTracker', () => {
           blockType: 'function',
           blockTitle: 'Function 2',
         },
-        selectedConditionId: 'test-if',
+        selectedOption: 'test-if',
       },
       executed: true,
       executionTime: 0,

@@ -146,7 +146,7 @@ describe('ConditionBlockHandler', () => {
         blockType: 'target',
         blockTitle: 'Target Block 1',
       },
-      selectedConditionId: 'cond1',
+      selectedOption: 'cond1',
     }
 
     // Mock the full resolution pipeline
@@ -186,7 +186,7 @@ describe('ConditionBlockHandler', () => {
         blockType: 'target',
         blockTitle: 'Target Block 2',
       },
-      selectedConditionId: 'else1',
+      selectedOption: 'else1',
     }
 
     // Mock the full resolution pipeline
@@ -336,14 +336,17 @@ describe('ConditionBlockHandler', () => {
     )
   })
 
-  it('should throw error if source block output is missing', async () => {
+  it('should execute even if source block output is missing', async () => {
     const conditions = [{ id: 'cond1', title: 'if', value: 'true' }]
     const inputs = { conditions: JSON.stringify(conditions) }
     mockContext.blockStates.delete(mockSourceBlock.id)
 
-    await expect(handler.execute(mockBlock, inputs, mockContext)).rejects.toThrow(
-      `No output found for source block ${mockSourceBlock.id}`
-    )
+    mockResolver.resolveVariableReferences.mockReturnValue('true')
+    mockResolver.resolveBlockReferences.mockReturnValue('true')
+    mockResolver.resolveEnvVariables.mockReturnValue('true')
+
+    const result = await handler.execute(mockBlock, inputs, mockContext)
+    expect((result as any).selectedOption).toBe('cond1')
   })
 
   it('should throw error if target block is missing', async () => {
@@ -362,7 +365,7 @@ describe('ConditionBlockHandler', () => {
     )
   })
 
-  it('should throw error if no condition matches and no else exists', async () => {
+  it('should return no selected path if no condition matches and no else exists', async () => {
     const conditions = [
       { id: 'cond1', title: 'if', value: 'false' },
       { id: 'cond2', title: 'else if', value: 'context.value === 99' },
@@ -389,9 +392,10 @@ describe('ConditionBlockHandler', () => {
       .mockReturnValueOnce('false')
       .mockReturnValueOnce('context.value === 99')
 
-    await expect(handler.execute(mockBlock, inputs, mockContext)).rejects.toThrow(
-      `No matching path found for condition block "${mockBlock.metadata?.name}", and no 'else' block exists.`
-    )
+    const result = await handler.execute(mockBlock, inputs, mockContext)
+    expect((result as any).conditionResult).toBe(false)
+    expect((result as any).selectedPath).toBeNull()
+    expect((result as any).selectedOption).toBeNull()
   })
 
   it('should use loop context during evaluation if available', async () => {
@@ -411,6 +415,6 @@ describe('ConditionBlockHandler', () => {
     const result = await handler.execute(mockBlock, inputs, mockContext)
 
     expect(mockContext.decisions.condition.get(mockBlock.id)).toBe('cond1')
-    expect((result as any).selectedConditionId).toBe('cond1')
+    expect((result as any).selectedOption).toBe('cond1')
   })
 })
