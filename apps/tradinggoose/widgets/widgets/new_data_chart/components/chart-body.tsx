@@ -26,6 +26,7 @@ import type {
 } from '@/widgets/widgets/new_data_chart/types'
 import type { BarMs } from '@/widgets/widgets/new_data_chart/series-data'
 import type { MarketSessionWindow } from '@/providers/market/types'
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from '@/components/ui/empty'
 
 export const NewDataChartWidgetBody = ({
   params,
@@ -122,7 +123,7 @@ export const NewDataChartWidgetBody = ({
     setDataVersion((prev) => prev + 1)
   }, [])
 
-  const { seriesTimezone } = useChartDataLoader({
+  const { seriesTimezone, chartError } = useChartDataLoader({
     chartRef,
     chartContainerRef,
     mainSeriesRef,
@@ -192,6 +193,11 @@ export const NewDataChartWidgetBody = ({
     chartReady,
   })
 
+  const hasProvider = Boolean(providerId)
+  const hasListing = Boolean(listing)
+  const showEmptyState = !hasProvider || !hasListing
+  const showErrorState = !showEmptyState && Boolean(chartError)
+
   if (!workspaceId) {
     return (
       <div className='flex h-full w-full items-center justify-center px-4 text-center text-muted-foreground text-xs'>
@@ -200,20 +206,59 @@ export const NewDataChartWidgetBody = ({
     )
   }
 
+  const emptyTitle = !hasProvider
+    ? hasListing
+      ? 'Select a provider'
+      : 'Select a provider and listing'
+    : 'Select a listing'
+  const emptyDescription = !hasProvider
+    ? hasListing
+      ? 'Choose a provider to display chart data.'
+      : 'Choose a provider and listing to display chart data.'
+    : 'Choose a listing to display chart data.'
+
+  const errorTitle = 'Failed to load data'
+  const errorDescription = chartError ?? 'Unable to load chart data.'
+
   return (
     <div className='flex h-full w-full flex-col'>
       <div className='relative flex-1 overflow-hidden'>
         <div
           ref={chartContainerRef}
-          className='relative z-0 h-full w-full bg-background text-foreground'
+          aria-hidden={showErrorState}
+          className={`relative z-0 h-full w-full bg-background text-foreground${
+            showErrorState ? ' opacity-0 pointer-events-none' : ''
+          }`}
         />
-        <ChartLegend
-          legend={legendData}
-          listingLabel={listingLabel}
-          listing={resolvedListing}
-          intervalLabel={intervalLabel}
-          isResolving={isResolving}
-        />
+        {!showEmptyState && !showErrorState && (
+          <ChartLegend
+            legend={legendData}
+            listingLabel={listingLabel}
+            listing={resolvedListing}
+            intervalLabel={intervalLabel}
+            isResolving={isResolving}
+          />
+        )}
+        {showEmptyState && (
+          <div className='absolute inset-0 z-10 flex'>
+            <Empty className='h-full w-full border-border/40 bg-background/60'>
+              <EmptyHeader>
+                <EmptyTitle>{emptyTitle}</EmptyTitle>
+                <EmptyDescription>{emptyDescription}</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          </div>
+        )}
+        {showErrorState && (
+          <div className='absolute inset-0 z-10 flex'>
+            <Empty className='h-full w-full border-border/40 bg-background/60'>
+              <EmptyHeader>
+                <EmptyTitle>{errorTitle}</EmptyTitle>
+                <EmptyDescription>{errorDescription}</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          </div>
+        )}
       </div>
       <DataChartFooter
         params={dataParams as DataChartWidgetParams}
