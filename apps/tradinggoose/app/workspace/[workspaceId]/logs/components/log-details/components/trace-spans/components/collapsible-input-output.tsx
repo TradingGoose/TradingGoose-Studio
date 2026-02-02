@@ -52,16 +52,11 @@ export function CollapsibleInputOutput({ span, spanId, depth }: CollapsibleInput
             ) : (
               <ChevronRight className='h-3 w-3' />
             )}
-            {span.status === 'error' ? 'Error Details' : 'Output'}
+            {span.status === 'error' ? 'Error' : 'Output'}
           </button>
           {outputExpanded && (
             <div className='mb-2 overflow-hidden rounded-md bg-secondary/30 p-3'>
-              <BlockDataDisplay
-                data={span.output}
-                blockType={span.type}
-                isInput={false}
-                isError={span.status === 'error'}
-              />
+              <BlockDataDisplay data={span.output} blockType={span.type} isInput={false} />
             </div>
           )}
         </div>

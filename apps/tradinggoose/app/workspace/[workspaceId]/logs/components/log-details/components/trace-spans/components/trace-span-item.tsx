@@ -149,7 +149,7 @@ export function TraceSpanItem({
       const block = getBlock(type)
       const color = (block as { bgColor?: string } | null)?.bgColor
       if (color) return color as string
-    } catch {}
+    } catch { }
     return getSpanColor(type)
   }
   const spanColor = getBlockColor(span.type)
@@ -243,8 +243,7 @@ export function TraceSpanItem({
   return (
     <div
       className={cn(
-        'relative border-b transition-colors last:border-b-0',
-        expanded ? 'bg-muted/50 dark:bg-accent/30' : 'hover:bg-card/30 hover:dark:bg-accent/20'
+        'relative border-b transition-colors last:border-b-0'
       )}
     >
       {depth > 0 && (
@@ -268,7 +267,7 @@ export function TraceSpanItem({
           >
             <div className='mb-0.5 flex items-center space-x-2'>
               <div
-                className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-sm bg-secondary text-foreground'
+                className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-xs bg-secondary text-foreground'
                 style={{
                   backgroundColor: blockIconColor ? `${blockIconColor}20` : undefined,
                   color: blockIconColor || undefined,
@@ -387,7 +386,7 @@ export function TraceSpanItem({
                           formatCostFn = require('@/providers/ai/utils').formatCost as (
                             v: number
                           ) => string
-                        } catch {}
+                        } catch { }
                         return (
                           <div className='space-y-0.5'>
                             {typeof input === 'number' && (

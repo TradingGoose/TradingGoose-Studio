@@ -10,7 +10,7 @@ interface CopyButtonProps {
   showLabel?: boolean
 }
 
-export function CopyButton({ text, className = '', showLabel = true }: CopyButtonProps) {
+export function CopyButton({ text, className = '', showLabel = false }: CopyButtonProps) {
   const [copied, setCopied] = useState(false)
 
   const copyToClipboard = () => {
