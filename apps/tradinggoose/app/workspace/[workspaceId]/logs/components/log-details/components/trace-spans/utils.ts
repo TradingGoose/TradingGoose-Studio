@@ -62,59 +62,11 @@ export function normalizeChildWorkflowSpan(span: TraceSpan): TraceSpan {
   return enrichedSpan
 }
 
-export function transformBlockData(data: unknown, blockType: string, isInput: boolean) {
-  if (!data) return null
+export function transformBlockData(data: unknown, _blockType: string, isInput: boolean) {
+  if (data === null || data === undefined) return data
 
   if (isInput) {
-    const cleanInput = redactApiKeys(data)
-
-    Object.keys(cleanInput).forEach((key) => {
-      if (cleanInput[key] === null || cleanInput[key] === undefined) {
-        delete cleanInput[key]
-      }
-    })
-
-    return cleanInput
-  }
-
-  if (typeof data === 'object' && data !== null && 'response' in data) {
-    const dataWithResponse = data as Record<string, unknown>
-    const response = dataWithResponse.response as Record<string, unknown>
-
-    switch (blockType) {
-      case 'agent':
-        return {
-          content: response.content,
-          model: 'model' in dataWithResponse ? dataWithResponse.model : undefined,
-          tokens: 'tokens' in dataWithResponse ? dataWithResponse.tokens : undefined,
-          toolCalls: response.toolCalls,
-          ...('cost' in dataWithResponse && dataWithResponse.cost
-            ? { cost: dataWithResponse.cost }
-            : {}),
-        }
-
-      case 'function':
-        return {
-          result: response.result,
-          stdout: response.stdout,
-          ...('executionTime' in response && response.executionTime
-            ? { executionTime: `${response.executionTime}ms` }
-            : {}),
-        }
-
-      case 'api':
-        return {
-          data: response.data,
-          status: response.status,
-          headers: response.headers,
-        }
-
-      case 'tool':
-        return response
-
-      default:
-        return response
-    }
+    return redactApiKeys(data)
   }
 
   return data
