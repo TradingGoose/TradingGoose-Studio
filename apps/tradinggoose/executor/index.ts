@@ -85,6 +85,7 @@ export class Executor {
   private actualWorkflow: SerializedWorkflow
   private isCancelled = false
   private isChildExecution = false
+  private consoleEntryIdByBlockId = new Map<string, string>()
 
   /**
    * Updates block output with streamed content, handling both structured and unstructured responses
@@ -131,6 +132,53 @@ export class Executor {
       // No response format, use standard content setting
       blockState.output.content = fullContent
     }
+  }
+
+  private finalizeStreamingConsoleEntry(blockId: string, context: ExecutionContext): void {
+    const entryId = this.consoleEntryIdByBlockId.get(blockId)
+    if (!entryId) return
+
+    const { entries, updateConsoleEntry } = useConsoleStore.getState()
+    const entry = entries.find((candidate) => candidate.id === entryId)
+
+    if (!entry) {
+      this.consoleEntryIdByBlockId.delete(blockId)
+      return
+    }
+
+    if (entry.isCanceled) {
+      this.consoleEntryIdByBlockId.delete(blockId)
+      return
+    }
+
+    const endedAt = new Date().toISOString()
+    const durationMs = entry.startedAt
+      ? Math.max(0, new Date(endedAt).getTime() - new Date(entry.startedAt).getTime())
+      : entry.durationMs
+    const blockState = context.blockStates.get(blockId)
+
+    updateConsoleEntry(entryId, {
+      replaceOutput: blockState?.output,
+      endedAt,
+      durationMs,
+      isRunning: false,
+      isCanceled: false,
+    })
+
+    const matchingLog = entry.startedAt
+      ? context.blockLogs.find((log) => log.blockId === blockId && log.startedAt === entry.startedAt)
+      : context.blockLogs.find((log) => log.blockId === blockId)
+    if (matchingLog) {
+      matchingLog.endedAt = endedAt
+      if (durationMs !== undefined) {
+        matchingLog.durationMs = durationMs
+      }
+      if (blockState?.output) {
+        matchingLog.output = blockState.output
+      }
+    }
+
+    this.consoleEntryIdByBlockId.delete(blockId)
   }
 
   constructor(
@@ -328,19 +376,19 @@ export class Executor {
                   const [streamForClient, streamForExecutor] = streamingExec.stream.tee()
 
                   // Apply response format processing to the client stream if needed
-                  const blockId = (streamingExec.execution as any).blockId
+                  const streamBlockId = (streamingExec.execution as any).blockId
 
                   // Get response format from initial block states (passed from useWorkflowExecution)
                   // The initialBlockStates contain the subblock values including responseFormat
                   let responseFormat: any
-                  if (this.initialBlockStates?.[blockId]) {
-                    const blockState = this.initialBlockStates[blockId] as any
+                  if (this.initialBlockStates?.[streamBlockId]) {
+                    const blockState = this.initialBlockStates[streamBlockId] as any
                     responseFormat = blockState.responseFormat
                   }
 
                   const processedClientStream = streamingResponseFormatProcessor.processStream(
                     streamForClient,
-                    blockId,
+                    streamBlockId,
                     context.selectedOutputs || [],
                     responseFormat
                   )
@@ -367,10 +415,9 @@ export class Executor {
                       fullContent += decoder.decode(value, { stream: true })
                     }
 
-                    const blockId = (streamingExec.execution as any).blockId
-                    const blockState = context.blockStates.get(blockId)
+                    const blockState = context.blockStates.get(streamBlockId)
                     this.updateBlockOutputWithStreamedContent(
-                      blockId,
+                      streamBlockId,
                       fullContent,
                       blockState,
                       context
@@ -378,17 +425,19 @@ export class Executor {
                   } catch (readerError: any) {
                     logger.error('Error reading stream for executor:', readerError)
                     // Set partial content if available
-                    const blockId = (streamingExec.execution as any).blockId
-                    const blockState = context.blockStates.get(blockId)
+                    const blockState = context.blockStates.get(streamBlockId)
                     if (fullContent) {
                       this.updateBlockOutputWithStreamedContent(
-                        blockId,
+                        streamBlockId,
                         fullContent,
                         blockState,
                         context
                       )
                     }
                   } finally {
+                    if (streamBlockId) {
+                      this.finalizeStreamingConsoleEntry(streamBlockId, context)
+                    }
                     try {
                       reader.releaseLock()
                     } catch (releaseError: any) {
@@ -1739,6 +1788,53 @@ export class Executor {
     }
 
     const addConsole = useConsoleStore.getState().addConsole
+    const updateConsole = useConsoleStore.getState().updateConsole
+    const updateConsoleEntry = useConsoleStore.getState().updateConsoleEntry
+    const consoleBlockId = parallelInfo ? blockId : block.id
+    const blockType = block.metadata?.id || 'unknown'
+    const blockName = block.metadata?.name || 'Unnamed Block'
+    const blockConfig = getBlock(block.metadata?.id || '')
+    const isTriggerBlock = blockConfig?.category === 'triggers'
+    const shouldLogToConsole =
+      block.metadata?.id !== BlockType.LOOP &&
+      block.metadata?.id !== BlockType.PARALLEL &&
+      !isTriggerBlock
+    let didAddConsole = false
+    let consoleEntryId: string | null = null
+    const resolveIterationContext = () => {
+      let iterationCurrent: number | undefined
+      let iterationTotal: number | undefined
+      let iterationType: 'loop' | 'parallel' | undefined
+
+      if (parallelInfo) {
+        const parallelState = context.parallelExecutions?.get(parallelInfo.parallelId)
+        iterationCurrent = parallelInfo.iterationIndex + 1
+        iterationTotal = parallelState?.parallelCount
+        iterationType = 'parallel'
+      } else {
+        const containingLoopId = this.resolver.getContainingLoopId(block.id)
+        if (containingLoopId) {
+          const currentIteration = context.loopIterations.get(containingLoopId)
+          const loop = context.workflow?.loops?.[containingLoopId]
+          if (currentIteration !== undefined && loop) {
+            iterationCurrent = currentIteration
+            if (loop.loopType === 'forEach') {
+              const forEachItems = context.loopItems.get(`${containingLoopId}_items`)
+              if (forEachItems) {
+                iterationTotal = Array.isArray(forEachItems)
+                  ? forEachItems.length
+                  : Object.keys(forEachItems).length
+              }
+            } else if (loop.loopType === 'for') {
+              iterationTotal = loop.iterations || 5
+            }
+            iterationType = 'loop'
+          }
+        }
+      }
+
+      return { iterationCurrent, iterationTotal, iterationType }
+    }
 
     try {
       if (block.enabled === false) {
@@ -1753,6 +1849,32 @@ export class Executor {
 
       // Store input data in the block log
       blockLog.input = inputs
+
+      const iterationContext = resolveIterationContext()
+
+      if (shouldLogToConsole) {
+        const consoleEntry = addConsole({
+          input: blockLog.input,
+          output: undefined,
+          success: true,
+          durationMs: 0,
+          startedAt: blockLog.startedAt,
+          endedAt: undefined,
+          workflowId: context.workflowId,
+          blockId: consoleBlockId,
+          executionId: this.contextExtensions.executionId,
+          blockName,
+          blockType,
+          iterationCurrent: iterationContext.iterationCurrent,
+          iterationTotal: iterationContext.iterationTotal,
+          iterationType: iterationContext.iterationType,
+          isRunning: true,
+          isCanceled: false,
+        })
+        didAddConsole = true
+        consoleEntryId = consoleEntry.id
+        this.consoleEntryIdByBlockId.set(consoleBlockId, consoleEntry.id)
+      }
 
       // Track block execution start
       trackWorkflowTelemetry('block_execution_start', {
@@ -1810,7 +1932,12 @@ export class Executor {
         'stream' in rawOutput &&
         'execution' in rawOutput
       ) {
+        const deferStreamingFinalize = Boolean(context.onStream)
         const streamingExec = rawOutput as StreamingExecution
+        const streamingExecutionData = streamingExec.execution as any
+        if (parallelInfo || !streamingExecutionData?.blockId) {
+          streamingExecutionData.blockId = consoleBlockId
+        }
         const output = (streamingExec.execution as any).output as NormalizedBlockOutput
 
         context.blockStates.set(blockId, {
@@ -1856,69 +1983,53 @@ export class Executor {
 
         context.blockLogs.push(blockLog)
 
-        // Skip console logging for infrastructure blocks and trigger blocks
-        // For streaming blocks, we'll add the console entry after stream processing
-        const blockConfig = getBlock(block.metadata?.id || '')
-        const isTriggerBlock = blockConfig?.category === 'triggers'
-        if (
-          block.metadata?.id !== BlockType.LOOP &&
-          block.metadata?.id !== BlockType.PARALLEL &&
-          !isTriggerBlock
-        ) {
-          // Determine iteration context for this block
-          let iterationCurrent: number | undefined
-          let iterationTotal: number | undefined
-          let iterationType: 'loop' | 'parallel' | undefined
-          const blockName = block.metadata?.name || 'Unnamed Block'
-
-          if (parallelInfo) {
-            // This is a parallel iteration
-            const parallelState = context.parallelExecutions?.get(parallelInfo.parallelId)
-            iterationCurrent = parallelInfo.iterationIndex + 1
-            iterationTotal = parallelState?.parallelCount
-            iterationType = 'parallel'
+        if (shouldLogToConsole) {
+          if (didAddConsole && consoleEntryId) {
+            updateConsoleEntry(consoleEntryId, {
+              replaceOutput: blockLog.output,
+              success: true,
+              durationMs: deferStreamingFinalize ? undefined : blockLog.durationMs,
+              endedAt: deferStreamingFinalize ? undefined : blockLog.endedAt,
+              isRunning: deferStreamingFinalize,
+              isCanceled: false,
+            })
+          } else if (didAddConsole) {
+            updateConsole(
+              consoleBlockId,
+              {
+                replaceOutput: blockLog.output,
+                success: true,
+                durationMs: deferStreamingFinalize ? undefined : blockLog.durationMs,
+                endedAt: deferStreamingFinalize ? undefined : blockLog.endedAt,
+                isRunning: deferStreamingFinalize,
+                isCanceled: false,
+              },
+              this.contextExtensions.executionId
+            )
           } else {
-            // Check if this block is inside a loop
-            const containingLoopId = this.resolver.getContainingLoopId(block.id)
-            if (containingLoopId) {
-              const currentIteration = context.loopIterations.get(containingLoopId)
-              const loop = context.workflow?.loops?.[containingLoopId]
-              if (currentIteration !== undefined && loop) {
-                iterationCurrent = currentIteration
-                if (loop.loopType === 'forEach') {
-                  // For forEach loops, get the total from the items
-                  const forEachItems = context.loopItems.get(`${containingLoopId}_items`)
-                  if (forEachItems) {
-                    iterationTotal = Array.isArray(forEachItems)
-                      ? forEachItems.length
-                      : Object.keys(forEachItems).length
-                  }
-                } else if (loop.loopType === 'for') {
-                  // For 'for' loops, use the iterations count
-                  iterationTotal = loop.iterations || 5
-                }
-                // For while/doWhile loops, don't set iterationTotal (no max)
-                iterationType = 'loop'
-              }
-            }
+            addConsole({
+              input: blockLog.input,
+              output: blockLog.output,
+              success: true,
+              durationMs: blockLog.durationMs,
+              startedAt: blockLog.startedAt,
+              endedAt: blockLog.endedAt,
+              workflowId: context.workflowId,
+              blockId: consoleBlockId,
+              executionId: this.contextExtensions.executionId,
+              blockName,
+              blockType,
+              iterationCurrent: iterationContext.iterationCurrent,
+              iterationTotal: iterationContext.iterationTotal,
+              iterationType: iterationContext.iterationType,
+              isRunning: false,
+              isCanceled: false,
+            })
           }
+        }
 
-          addConsole({
-            input: blockLog.input,
-            output: blockLog.output,
-            success: true,
-            durationMs: blockLog.durationMs,
-            startedAt: blockLog.startedAt,
-            endedAt: blockLog.endedAt,
-            workflowId: context.workflowId,
-            blockId: parallelInfo ? blockId : block.id,
-            executionId: this.contextExtensions.executionId,
-            blockName,
-            blockType: block.metadata?.id || 'unknown',
-            iterationCurrent,
-            iterationTotal,
-            iterationType,
-          })
+        if (didAddConsole && !deferStreamingFinalize) {
+          this.consoleEntryIdByBlockId.delete(consoleBlockId)
         }
 
         trackWorkflowTelemetry('block_execution', {
@@ -1984,68 +2095,53 @@ export class Executor {
 
       context.blockLogs.push(blockLog)
 
-      // Skip console logging for infrastructure blocks and trigger blocks
-      const nonStreamBlockConfig = getBlock(block.metadata?.id || '')
-      const isNonStreamTriggerBlock = nonStreamBlockConfig?.category === 'triggers'
-      if (
-        block.metadata?.id !== BlockType.LOOP &&
-        block.metadata?.id !== BlockType.PARALLEL &&
-        !isNonStreamTriggerBlock
-      ) {
-        // Determine iteration context for this block
-        let iterationCurrent: number | undefined
-        let iterationTotal: number | undefined
-        let iterationType: 'loop' | 'parallel' | undefined
-        const blockName = block.metadata?.name || 'Unnamed Block'
-
-        if (parallelInfo) {
-          // This is a parallel iteration
-          const parallelState = context.parallelExecutions?.get(parallelInfo.parallelId)
-          iterationCurrent = parallelInfo.iterationIndex + 1
-          iterationTotal = parallelState?.parallelCount
-          iterationType = 'parallel'
+      if (shouldLogToConsole) {
+        if (didAddConsole && consoleEntryId) {
+          updateConsoleEntry(consoleEntryId, {
+            replaceOutput: blockLog.output,
+            success: true,
+            durationMs: blockLog.durationMs,
+            endedAt: blockLog.endedAt,
+            isRunning: false,
+            isCanceled: false,
+          })
+        } else if (didAddConsole) {
+          updateConsole(
+            consoleBlockId,
+            {
+              replaceOutput: blockLog.output,
+              success: true,
+              durationMs: blockLog.durationMs,
+              endedAt: blockLog.endedAt,
+              isRunning: false,
+              isCanceled: false,
+            },
+            this.contextExtensions.executionId
+          )
         } else {
-          // Check if this block is inside a loop
-          const containingLoopId = this.resolver.getContainingLoopId(block.id)
-          if (containingLoopId) {
-            const currentIteration = context.loopIterations.get(containingLoopId)
-            const loop = context.workflow?.loops?.[containingLoopId]
-            if (currentIteration !== undefined && loop) {
-              iterationCurrent = currentIteration
-              if (loop.loopType === 'forEach') {
-                // For forEach loops, get the total from the items
-                const forEachItems = context.loopItems.get(`${containingLoopId}_items`)
-                if (forEachItems) {
-                  iterationTotal = Array.isArray(forEachItems)
-                    ? forEachItems.length
-                    : Object.keys(forEachItems).length
-                }
-              } else if (loop.loopType === 'for') {
-                // For 'for' loops, use the iterations count
-                iterationTotal = loop.iterations || 5
-              }
-              // For while/doWhile loops, don't set iterationTotal (no max)
-              iterationType = 'loop'
-            }
-          }
+          addConsole({
+            input: blockLog.input,
+            output: blockLog.output,
+            success: true,
+            durationMs: blockLog.durationMs,
+            startedAt: blockLog.startedAt,
+            endedAt: blockLog.endedAt,
+            workflowId: context.workflowId,
+            blockId: consoleBlockId,
+            executionId: this.contextExtensions.executionId,
+            blockName,
+            blockType,
+            iterationCurrent: iterationContext.iterationCurrent,
+            iterationTotal: iterationContext.iterationTotal,
+            iterationType: iterationContext.iterationType,
+            isRunning: false,
+            isCanceled: false,
+          })
         }
+      }
 
-        addConsole({
-          input: blockLog.input,
-          output: blockLog.output,
-          success: true,
-          durationMs: blockLog.durationMs,
-          startedAt: blockLog.startedAt,
-          endedAt: blockLog.endedAt,
-          workflowId: context.workflowId,
-          blockId: parallelInfo ? blockId : block.id,
-          executionId: this.contextExtensions.executionId,
-          blockName,
-          blockType: block.metadata?.id || 'unknown',
-          iterationCurrent,
-          iterationTotal,
-          iterationType,
-        })
+      if (didAddConsole) {
+        this.consoleEntryIdByBlockId.delete(consoleBlockId)
       }
 
       trackWorkflowTelemetry('block_execution', {
@@ -2059,7 +2155,7 @@ export class Executor {
         success: true,
       })
 
-      if (context.onBlockComplete && !isNonStreamTriggerBlock) {
+      if (context.onBlockComplete && !isTriggerBlock) {
         try {
           await context.onBlockComplete(blockId, output)
         } catch (callbackError: any) {
@@ -2102,6 +2198,15 @@ export class Executor {
       blockLog.endedAt = new Date().toISOString()
       blockLog.durationMs =
         new Date(blockLog.endedAt).getTime() - new Date(blockLog.startedAt).getTime()
+      const isCancellation =
+        this.isCancelled ||
+        error?.message === 'Workflow execution was cancelled' ||
+        error === 'Workflow execution was cancelled'
+      const consoleErrorMessage = isCancellation
+        ? undefined
+        : error.message ||
+          `Error executing ${block.metadata?.id || 'unknown'} block: ${String(error)}`
+      const errorIterationContext = resolveIterationContext()
 
       // If this error came from a child workflow execution, persist its trace spans on the log
       if (isWorkflowBlockType(block.metadata?.id)) {
@@ -2111,71 +2216,56 @@ export class Executor {
       // Log the error even if we'll continue execution through error path
       context.blockLogs.push(blockLog)
 
-      // Skip console logging for infrastructure blocks and trigger blocks
-      const errorBlockConfig = getBlock(block.metadata?.id || '')
-      const isErrorTriggerBlock = errorBlockConfig?.category === 'triggers'
-      if (
-        block.metadata?.id !== BlockType.LOOP &&
-        block.metadata?.id !== BlockType.PARALLEL &&
-        !isErrorTriggerBlock
-      ) {
-        // Determine iteration context for this block
-        let iterationCurrent: number | undefined
-        let iterationTotal: number | undefined
-        let iterationType: 'loop' | 'parallel' | undefined
-        const blockName = block.metadata?.name || 'Unnamed Block'
-
-        if (parallelInfo) {
-          // This is a parallel iteration
-          const parallelState = context.parallelExecutions?.get(parallelInfo.parallelId)
-          iterationCurrent = parallelInfo.iterationIndex + 1
-          iterationTotal = parallelState?.parallelCount
-          iterationType = 'parallel'
+      if (shouldLogToConsole) {
+        if (didAddConsole && consoleEntryId) {
+          updateConsoleEntry(consoleEntryId, {
+            replaceOutput: isCancellation ? undefined : {},
+            success: false,
+            error: consoleErrorMessage,
+            durationMs: blockLog.durationMs,
+            endedAt: blockLog.endedAt,
+            isRunning: false,
+            isCanceled: isCancellation,
+          })
+        } else if (didAddConsole) {
+          updateConsole(
+            consoleBlockId,
+            {
+              replaceOutput: isCancellation ? undefined : {},
+              success: false,
+              error: consoleErrorMessage,
+              durationMs: blockLog.durationMs,
+              endedAt: blockLog.endedAt,
+              isRunning: false,
+              isCanceled: isCancellation,
+            },
+            this.contextExtensions.executionId
+          )
         } else {
-          // Check if this block is inside a loop
-          const containingLoopId = this.resolver.getContainingLoopId(block.id)
-          if (containingLoopId) {
-            const currentIteration = context.loopIterations.get(containingLoopId)
-            const loop = context.workflow?.loops?.[containingLoopId]
-            if (currentIteration !== undefined && loop) {
-              iterationCurrent = currentIteration
-              if (loop.loopType === 'forEach') {
-                // For forEach loops, get the total from the items
-                const forEachItems = context.loopItems.get(`${containingLoopId}_items`)
-                if (forEachItems) {
-                  iterationTotal = Array.isArray(forEachItems)
-                    ? forEachItems.length
-                    : Object.keys(forEachItems).length
-                }
-              } else if (loop.loopType === 'for') {
-                // For 'for' loops, use the iterations count
-                iterationTotal = loop.iterations || 5
-              }
-              // For while/doWhile loops, don't set iterationTotal (no max)
-              iterationType = 'loop'
-            }
-          }
+          addConsole({
+            input: blockLog.input,
+            output: isCancellation ? undefined : {},
+            success: false,
+            error: consoleErrorMessage,
+            durationMs: blockLog.durationMs,
+            startedAt: blockLog.startedAt,
+            endedAt: blockLog.endedAt,
+            workflowId: context.workflowId,
+            blockId: consoleBlockId,
+            executionId: this.contextExtensions.executionId,
+            blockName,
+            blockType,
+            iterationCurrent: errorIterationContext.iterationCurrent,
+            iterationTotal: errorIterationContext.iterationTotal,
+            iterationType: errorIterationContext.iterationType,
+            isRunning: false,
+            isCanceled: isCancellation,
+          })
         }
+      }
 
-        addConsole({
-          input: blockLog.input,
-          output: {},
-          success: false,
-          error:
-            error.message ||
-            `Error executing ${block.metadata?.id || 'unknown'} block: ${String(error)}`,
-          durationMs: blockLog.durationMs,
-          startedAt: blockLog.startedAt,
-          endedAt: blockLog.endedAt,
-          workflowId: context.workflowId,
-          blockId: parallelInfo ? blockId : block.id,
-          executionId: this.contextExtensions.executionId,
-          blockName,
-          blockType: block.metadata?.id || 'unknown',
-          iterationCurrent,
-          iterationTotal,
-          iterationType,
-        })
+      if (didAddConsole) {
+        this.consoleEntryIdByBlockId.delete(consoleBlockId)
       }
 
       // Check for error connections and follow them if they exist

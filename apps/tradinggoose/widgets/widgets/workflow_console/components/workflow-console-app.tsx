@@ -2,7 +2,7 @@
 
 import { useSession } from '@/lib/auth-client'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
-import { Console } from './console/console'
+import { Terminal } from './terminal/terminal'
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { SocketProvider } from '@/contexts/socket-context'
 import {
@@ -14,6 +14,7 @@ interface WorkflowConsoleAppProps {
   workspaceId: string
   workflowId: string
   panelWidth: number
+  panelId?: string
   channelId?: string
 }
 
@@ -21,6 +22,7 @@ const WorkflowConsoleApp = ({
   workspaceId,
   workflowId,
   panelWidth,
+  panelId,
   channelId = DEFAULT_WORKFLOW_CHANNEL_ID,
 }: WorkflowConsoleAppProps) => {
   const session = useSession()
@@ -42,8 +44,12 @@ const WorkflowConsoleApp = ({
           channelId={channelId}
         >
           <WorkflowStoreProvider channelId={channelId} workflowId={workflowId}>
-            <div className='flex h-full w-full flex-col overflow-y-auto'>
-              <Console panelWidth={panelWidth} hideScrollbar={false} />
+            <div className='flex h-full w-full flex-col overflow-hidden'>
+              <Terminal
+                panelWidth={panelWidth}
+                hideScrollbar={false}
+                uiKey={panelId ?? `${workspaceId}-${workflowId}`}
+              />
             </div>
           </WorkflowStoreProvider>
         </WorkflowRouteProvider>

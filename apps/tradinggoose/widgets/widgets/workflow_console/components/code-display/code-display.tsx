@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { highlight, languages } from 'prismjs'
 import 'prismjs/components/prism-javascript'
+import 'prismjs/components/prism-json'
 import 'prismjs/themes/prism.css'
 
 // Add dark mode fix for Prism.js
@@ -25,11 +26,24 @@ if (typeof document !== 'undefined') {
 interface CodeDisplayProps {
   code: string
   language?: string
+  wrapText?: boolean
 }
 
-export const CodeDisplay = ({ code, language = 'javascript' }: CodeDisplayProps) => {
+export const CodeDisplay = ({
+  code,
+  language = 'javascript',
+  wrapText = true,
+}: CodeDisplayProps) => {
   const [visualLineHeights, setVisualLineHeights] = useState<number[]>([])
   const containerRef = useRef<HTMLDivElement>(null)
+  const resolvedLanguage = languages[language] ? language : 'javascript'
+  const resolvedGrammar = languages[resolvedLanguage]
+
+  const escapeHtml = (value: string) =>
+    value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
 
   // Calculate sidebar width based on number of lines
   const lineCount = code.split('\n').length
@@ -38,6 +52,11 @@ export const CodeDisplay = ({ code, language = 'javascript' }: CodeDisplayProps)
   // Calculate visual line heights similar to code.tsx
   useEffect(() => {
     if (!containerRef.current) return
+
+    if (!wrapText) {
+      setVisualLineHeights(new Array(lineCount).fill(1))
+      return
+    }
 
     const calculateVisualLines = () => {
       const preElement = containerRef.current?.querySelector('pre')
@@ -88,7 +107,7 @@ export const CodeDisplay = ({ code, language = 'javascript' }: CodeDisplayProps)
       clearTimeout(timeoutId)
       resizeObserver.disconnect()
     }
-  }, [code, sidebarWidth])
+  }, [code, sidebarWidth, wrapText, lineCount])
 
   // Render line numbers with proper visual line handling
   const renderLineNumbers = () => {
@@ -144,11 +163,16 @@ export const CodeDisplay = ({ code, language = 'javascript' }: CodeDisplayProps)
       <div className='relative' style={{ paddingLeft: `${sidebarWidth}px` }}>
         <pre
           className='max-w-full overflow-hidden px-3 py-2 text-sm leading-[21px]'
-          style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+          style={{
+            whiteSpace: wrapText ? 'pre-wrap' : 'pre',
+            wordBreak: wrapText ? 'break-word' : 'normal',
+          }}
         >
           <code
             dangerouslySetInnerHTML={{
-              __html: highlight(code, languages[language], language),
+              __html: resolvedGrammar
+                ? highlight(code, resolvedGrammar, resolvedLanguage)
+                : escapeHtml(code),
             }}
           />
         </pre>
