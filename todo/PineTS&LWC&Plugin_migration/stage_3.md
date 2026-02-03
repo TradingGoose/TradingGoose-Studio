@@ -246,6 +246,9 @@ Map `draw.options` directly to line-tool option names to avoid translation bugs:
 - Sort markers by time; **do not cap here**. Capping is applied during visible‑range rendering (Step 6.1.a) to avoid dropping in‑view markers.
 
 ### 5) Wire drawings + signals into `new_data_chart`
+5.0 Hook location (align with Stage 1 structure)
+- Implement drawing/signal wiring in `apps/tradinggoose/widgets/widgets/new_data_chart/hooks/` (e.g., extend `use-new-indicator-sync` or add `use-drawings-sync`).
+- Invoke from `components/chart-body.tsx` alongside existing chart hooks.
 5.1 Line-tools adapter (difurious plugin per series/pane)
 - Add a new adapter under `apps/tradinggoose/widgets/widgets/new_data_chart/drawings/`.
 - Create **one difurious line-tools-core plugin instance per target series/pane**:
