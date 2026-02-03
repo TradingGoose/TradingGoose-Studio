@@ -2,7 +2,7 @@
 
 ## Stage plans
 - Stage 1: Build `new_data_chart` (LWC + data pipeline) -> `./stage_1.md`
-- Stage 2: Build `new_indicators` + `new_editor_indicator_new` -> `./stage_2.md`
+- Stage 2: Build `new_indicators` + `new_editor_indicator` -> `./stage_2.md`
 - Stage 3: Drawings/signals + hardening -> `./stage_3.md`
 
 ## System standards cross-check
@@ -15,7 +15,7 @@
 ## 1) Goal (changed direction)
 Build a parallel LWC + PineTS system without modifying the existing KLineCharts-based widgets or indicator pipeline. New code lives under:
 - `apps/tradinggoose/widgets/widgets/new_data_chart`
-- `apps/tradinggoose/widgets/widgets/new_editor_indicator_new`
+- `apps/tradinggoose/widgets/widgets/new_editor_indicator`
 - `apps/tradinggoose/lib/new_indicators`
 
 Legacy system remains intact while the new system is developed, validated, and optionally rolled out later.
@@ -80,7 +80,7 @@ Legacy system remains intact while the new system is developed, validated, and o
 - New LWC chart hook, data loader, live updates, scroll-back, rescale.
 - New widget registration in `apps/tradinggoose/widgets/registry.tsx`.
 
-### Stage 2 (new_indicators + new_editor_indicator_new)
+### Stage 2 (new_indicators + new_editor_indicator)
 - New PineTS runtime and normalization utilities.
 - New DB table + new API routes for PineTS indicators.
 - New editor widget for PineTS JS.

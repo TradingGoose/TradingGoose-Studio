@@ -23,9 +23,9 @@ Introduce a parallel PineTS-based indicator system without touching the legacy i
 - **Runtime**: PineTS execution is **server-only** (no client-side PineTS execution in widgets).
 
 ## Dependencies / sequencing
-- Stage 1 (`new_data_chart`) must provide `barsMs` + `openTimeMsByIndex` for PineTS execution and offsets.
+- Stage 1 (`new_data_chart`) must provide `barsMs` + `openTimeMsByIndex` (+ `indexByOpenTimeMs`) for PineTS execution and offsets.
 - DB migration tooling available for new table.
-- PineTS (npm `pinets@^0.8.x`) and LWC (npm `lightweight-charts@^5.1.x`) are already aligned in overview.
+- LWC is already installed in `apps/tradinggoose/package.json` (`lightweight-charts@^5.1.x`); PineTS (`pinets@^0.8.x`) is **not** yet installed and must be added in this stage.
 - Licensing check for PineTS (AGPL-3.0) is required before any public release.
 - A server execution route must exist for chart rendering; Stage 3 hardens sandboxing.
 
@@ -107,7 +107,7 @@ Introduce a parallel PineTS-based indicator system without touching the legacy i
 
 ## Risk resolution (decisions + mitigations)
 1. **Sandboxing user code in verify (PineTS transpiler uses `new Function`).**
-   - **Decision (v0.2):** reuse the legacy **VM sandbox** pattern for *execution* (`app/api/indicators/verify/route.ts`), but acknowledge that PineTS transpilation still uses `new Function` in the host process. Verification remains **internal-only** + gated by auth/write permissions.
+   - **Decision (v0.2):** reuse the legacy **VM sandbox** pattern for *execution* (`app/api/indicators/verify/route.ts`), but acknowledge that PineTS transpilation still uses `new Function` in the host process. Verification requires auth + write permission (mirror legacy verify).
    - **Mitigation:**
      - Add a hard execution timeout using `Promise.race` (align with `lib/execution/constants.ts`; choose a shorter limit for verify, e.g. 3–10s).
      - Run in Node runtime only (`runtime = 'nodejs'`, `dynamic = 'force-dynamic'`).
@@ -177,7 +177,7 @@ Introduce a parallel PineTS-based indicator system without touching the legacy i
 - Stage 3+ could instrument PineTS inputs for auto-capture if needed.
 
 0.4 Verify sandbox + timeouts.
-- v0.2: internal-only, auth + write permission required.
+- v0.2: auth + write permission required (mirror legacy verify).
 - Add explicit execution timeout (shorter than `DEFAULT_EXECUTION_TIMEOUT_MS`).
 - Do not expose network/process APIs in the runtime context.
 
@@ -238,6 +238,10 @@ Introduce a parallel PineTS-based indicator system without touching the legacy i
 - GET: return all PineTS indicators for workspace.
 - POST: upsert indicators into new table only.
 - DELETE: delete by `id` and `workspaceId`.
+- Use `createLogger` + `generateRequestId` and mirror legacy response shapes:
+  - GET → `{ data: result }`
+  - POST → `{ success: true, data: resultIndicators }`
+  - DELETE → `{ success: true }`
 - Endpoint path: `/api/new_indicators/custom` (served by `app/api/new_indicators/custom/route.ts`).
 
 Example Zod schema (align to legacy shape):
@@ -249,6 +253,7 @@ const PineIndicatorSchema = z.object({
       id: z.string().optional(),
       name: z.string().min(1, 'Indicator name is required'),
       color: z.string().optional(),
+      // PineTS equivalent of legacy calcCode.
       pineCode: z.string().default(''),
       inputMeta: z.record(z.any()).optional(),
     })
@@ -262,6 +267,7 @@ const PineIndicatorSchema = z.object({
 - Validate `workspaceId` and `pineCode` + optional `inputs` map.
 - Use `generateMockMarketSeries()` and map to PineTS bars (openTime/closeTime in ms).
 - Execute the **user function** inside a Node `vm` context (mirror `executeIndicatorInVm` from legacy verify).
+- Use `Script` + `createContext` with filename `indicator-code.js` so line/column parsing matches legacy `parseExecutionError` behavior.
 - Note: PineTS transpilation still uses `new Function` in the host process (see risk section).
 - Run `normalizeIndicatorCode` -> `runPineTS` -> `normalizeContext`.
 - Return counts: `plotsCount`, `markersCount`, `drawingsCount`, `signalsCount`.
@@ -273,6 +279,7 @@ const PineIndicatorSchema = z.object({
 
 2.3 Error handling and codes (align with legacy verify patterns).
 - `empty_code`, `ts_error`, `runtime_error`.
+- `invalid_output` when no plots/markers/signals are produced (mirror legacy verify’s empty output guard).
 - Include best-effort line/column parsing if transpile errors include locations.
 - Do not expose full stack traces to clients by default (log server-side).
 - Add `unsupported_feature` for blocked APIs (e.g., `request.security`, `request.security_lower_tf`).
@@ -285,6 +292,7 @@ const PineIndicatorSchema = z.object({
 2.4 Create `apps/tradinggoose/app/api/new_indicators/execute/route.ts` (server-only runtime).
 - `runtime = 'nodejs'`, `dynamic = 'force-dynamic'`.
 - Auth/permissions mirror `new_indicators/custom` and `new_indicators/verify`.
+- Use `createLogger` + `generateRequestId`, and return `{ success: true, data }` on success (mirror legacy API conventions).
 - Input payload (suggested):
   - `workspaceId`, `indicatorIds[]` (server fetches code by id).
   - `barsMs` (array of `{ openTime, closeTime, open, high, low, close, volume? }`).
@@ -326,6 +334,7 @@ const PineIndicatorSchema = z.object({
 - Detect function expressions (reuse logic from legacy `looksLikeFunctionExpression`).
 - If not a function, wrap in `(context) => { ... }`.
 - Transpile TypeScript (mirror legacy `transpileTypeScript` in `lib/indicators/custom/compile.ts`).
+- Strip empty `export {}` lines after transpile (legacy does this to keep VM errors clean).
 - Return `{ code, error?, transpiledCode? }` for error reporting.
 
 3.3 `run-pinets.ts`.
@@ -475,28 +484,28 @@ const PineIndicatorSchema = z.object({
 
 ### 7) Connect new indicators to `new_data_chart`
 7.0 Params + selection (critical to avoid mixing legacy semantics).
-- Update `apps/tradinggoose/widgets/widgets/new_data_chart/types.ts` to **not** alias `DataChartWidgetParams` directly.
-- Define a PineTS-specific view shape:
-  - `view.pineIndicators?: NewIndicatorRef[]` (locked; do not use `view.newIndicators`).
-  - `NewIndicatorRef` includes `{ id: string }` plus any future flags.
-- Add helper utils under `apps/tradinggoose/widgets/widgets/new_data_chart/utils.ts`:
+- **Stage 1 already defines local types** in `apps/tradinggoose/widgets/widgets/new_data_chart/types.ts` (no legacy aliasing).
+- **Keep using** the local `DataChartViewParams` with `view.pineIndicators?: NewIndicatorRef[]` (locked; do not use `view.newIndicators`).
+- **Do not** reintroduce legacy `view.indicators` or `DataChartIndicatorRef` anywhere in `new_data_chart`.
+- Add helper utils under `apps/tradinggoose/widgets/widgets/new_data_chart/utils/indicator-refs.ts`:
   - `buildPineIndicatorRefs(ids: string[]): NewIndicatorRef[]`.
   - `resolvePineIndicatorIds(view)` to keep param parsing centralized.
 - **Do not** use `buildIndicatorRefs` or `DataChartIndicatorRef` from legacy chart utils.
 
 7.0.1 Dropdown wiring.
-- Create a **new** `new_indicator-dropdown` component for PineTS indicators (do not reuse `IndicatorDropdown`).
+- Create a **new** PineTS indicator dropdown component under `apps/tradinggoose/widgets/widgets/new_data_chart/components/` (do not reuse `IndicatorDropdown`).
 - New dropdown uses `useNewIndicators` + `useNewIndicatorsStore`.
 - Selection writes to `view.pineIndicators` only.
 - Scope selection to `new_data_chart` widget key to avoid cross-talk.
 
 7.1 Add a new indicator sync hook under `new_data_chart` (server execution).
-- Suggested file: `apps/tradinggoose/widgets/widgets/new_data_chart/components/body/use-new-indicator-sync.ts`.
+- Suggested file: `apps/tradinggoose/widgets/widgets/new_data_chart/hooks/use-new-indicator-sync.ts`.
 - Inputs: `chartRef`, `mainSeriesRef`, `dataContext`, `indicatorRefs`, `indicators`.
 - `dataContext` **must** match the Stage‑1 handoff contract (`NewDataChartDataContext`):
   - `barsMsRef`
   - `indexByOpenTimeMsRef`
   - `openTimeMsByIndexRef`
+  - `marketSessionsRef`
   - `intervalMs`
   - `dataVersion`
 

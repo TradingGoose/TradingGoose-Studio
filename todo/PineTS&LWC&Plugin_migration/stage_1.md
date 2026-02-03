@@ -4,11 +4,14 @@
 Deliver a working LWC chart widget under `apps/tradinggoose/widgets/widgets/new_data_chart` without modifying the legacy `data_chart` widget. This stage establishes the **new data pipeline** (market series + live bars + scroll‑back) and LWC rendering core for the new system.
 
 ## Scope
-- New widget + hooks + remapping utilities (parallel system).
-- LWC chart instance, data loading, live updates, scroll‑back, rescale.
-- Timezone formatting using explicit selected timezone or UTC (no browser‑local fallback).
+- New widget + hooks + utils/options for the parallel LWC chart system.
+- LWC chart instance, data loading, live updates, scroll‑back, rescale, and visible‑range persistence.
+- Timezone formatting using explicit selected timezone or UTC (no browser‑local fallback) + timezone selector UI.
+- Header controls (provider/listing/interval/candle) + footer controls (range presets, market session, normalization).
+- Listing overlay + crosshair legend.
+- Provider settings (required params + auth) scoped to the widget.
 - Register the new widget in the global widget registry.
-- Reuse existing provider/listing controls where safe, but **do not** expose legacy indicators in this stage.
+- **Do not** expose legacy indicators in this stage.
 
 ## Non‑goals
 - PineTS indicator execution (Stage 2).
@@ -136,7 +139,8 @@ Deliver a working LWC chart widget under `apps/tradinggoose/widgets/widgets/new_
 1.1 Create directories:
 - `apps/tradinggoose/widgets/widgets/new_data_chart/`
 - `apps/tradinggoose/widgets/widgets/new_data_chart/components/`
-- `apps/tradinggoose/widgets/widgets/new_data_chart/components/body/`
+- `apps/tradinggoose/widgets/widgets/new_data_chart/hooks/`
+- `apps/tradinggoose/widgets/widgets/new_data_chart/utils/`
 
 1.2 Create `apps/tradinggoose/widgets/widgets/new_data_chart/index.tsx`:
 - Export `newDataChartWidget` with key `new_data_chart`.
@@ -160,76 +164,76 @@ export const newDataChartWidget: DashboardWidgetDefinition = {
 - Import `newDataChartWidget`.
 - Add to `widgetRegistry` map with key `new_data_chart`.
 
+1.4 Create `apps/tradinggoose/widgets/widgets/new_data_chart/options.ts`:
+- `providerOptions = getMarketProviderOptionsByKind('series')` for provider selector.
+- `CANDLE_TYPE_OPTIONS` list (solid/hollow/up/down/ohlc/area) with icons for the candle dropdown.
+
 ### 2) Types + params wiring (avoid legacy indicator coupling)
 2.1 Create `apps/tradinggoose/widgets/widgets/new_data_chart/types.ts`:
-- **Do not** alias `DataChartWidgetParams`; it includes `view.indicators` wired to legacy indicator selection.
-- Define a new view type that **omits** legacy indicators and reserves a PineTS field:
-```ts
-type NewIndicatorRef = { id: string }
-type NewDataChartViewParams = Omit<DataChartViewParams, 'indicators'> & {
-  pineIndicators?: NewIndicatorRef[]
-}
-export type NewDataChartWidgetParams = Omit<DataChartWidgetParams, 'view'> & {
-  view?: NewDataChartViewParams
-}
-```
-- `new_data_chart` must ignore `view.indicators` entirely to prevent legacy mixing.
-- **Compatibility decision:** when reusing legacy helpers/components typed to `DataChartWidgetParams` (e.g., `useChartDefaults`, provider/listing controls, footer), pass `NewDataChartWidgetParams` via an explicit boundary cast/adapter:
-   - `const legacyParams = dataParams as unknown as DataChartWidgetParams`
-   - Use `legacyParams` only for shared fields (data/view locale/timezone, etc.).
-   - Do **not** read/write `view.indicators` in new code.
+- Define **local** `DataChart*` types for the new widget (no re‑export of legacy `data_chart` types).
+- `DataChartViewParams` includes: `locale`, `timezone`, `start`, `end`, `interval`, `marketSession`, `pricePrecision`, `volumePrecision`, `candleType`, `priceAxisType`, `rangePresetId`, `stylesOverride`, and `pineIndicators` (reserved for Stage 2).
+- `DataChartDataParams` includes provider selection, `providerParams`, `auth`, and optional `live` config.
+- `DataChartWidgetParams` includes `listing`, `data`, `view`, and `runtime.refreshAt`.
+- `NewDataChartViewParams` and `NewDataChartWidgetParams` are **aliases** of these local types for readability; no legacy `view.indicators` field exists.
 
 2.2 Params persistence (events):
 - Use `useDataChartParamsPersistence({ onWidgetParamsChange, panelId, widget, params })`.
 - **Note:** the hook does not accept `widgetKey`; it scopes by `widget.key`.
-- All `emitDataChartParamsChange` calls must pass `widgetKey: 'new_data_chart'`.
+- All `emitDataChartParamsChange` calls pass a `widgetKey` derived from `widget.key` (fallback to `'new_data_chart'` when needed).
 
 ### 3) Widget body composition (parallel to legacy, but LWC)
-3.1 Create `apps/tradinggoose/widgets/widgets/new_data_chart/components/body.tsx`:
+3.1 Create `apps/tradinggoose/widgets/widgets/new_data_chart/components/chart-body.tsx`:
 - Mirror `DataChartWidgetBody` structure without indicator sync.
 - Use:
   - `useSocket()` for live bars.
-  - `usePairColorContext()` and `pairColor` logic for listing (match legacy).
-  - `resolveSeriesWindow()` for interval/window resolution.
-  - `useChartDefaults()` to persist derived interval/window to params.
-  - `useListingState()` + `ListingOverlay` for symbol display.
-  - `ChartStateOverlays` for missing provider/listing/interval and error display.
+  - `usePairColorContext()` + `pairColor` logic for listing (match legacy).
+  - `resolveSeriesWindow()` + `intervalToMs()` for interval/window resolution.
+  - `useChartDefaults()` to persist derived interval + default `marketSession`.
+  - `useChartInstance()` to create the LWC chart + refs.
+  - `useChartDataLoader()` to load series + scroll‑back + live bars.
+  - `useChartVisibleRange()` to persist `view.start`/`view.end` from the visible range.
+    - Debounce writes (~250ms) and also keep `view.interval` in sync when needed.
+    - Range inference uses `openTimeMsByIndex` and `intervalMs` to extrapolate when the visible range extends beyond loaded bars.
+  - `useChartLegend()` + `<ChartLegend />` overlay for crosshair values.
+  - `useChartStyles()` + `useThemeVersion()` for options/series updates.
+  - `useListingState()` to resolve listing details for the legend overlay.
+  - Maintain a shared `dataContextRef` (bars/index maps/market sessions/intervalMs) and pass it to loader + live bars + legend.
 
 3.2 Data handling state:
-- Keep `dataVersion` and update it on initial load and occasional live updates (same debounce as legacy).
+- Keep `dataVersion` and update it on initial load and throttled live updates (10s guard).
 - Track `seriesTimezone` from data loader for formatting.
 - **Also bump `dataVersion` after scroll‑back merges** so Stage‑2 PineTS sync recomputes indicators on backfill.
 
-3.3 Missing state logic (same messages as legacy):
-- Missing provider → “Select a market data provider.”
-- Missing listing → “Select a listing to load data.”
-- Missing interval → “Select a supported interval.”
+3.3 Empty/error state logic:
+- No workspace → “Select a workspace to load chart data.”
+- Missing provider/listing → show `Empty` overlay with:
+  - “Select a provider and listing” / “Select a provider” / “Select a listing”
+  - matching descriptions in `chart-body.tsx`.
+- Errors (after provider + listing present) → “Failed to load data” with provider‑derived message.
 
 ### 4) Header/controls (avoid legacy indicator UI)
 4.1 Create `apps/tradinggoose/widgets/widgets/new_data_chart/components/header.tsx`:
-- **Reuse** `DataChartProviderControls` and `DataChartListingControl` (they are library‑agnostic).
-- Provide a **new** chart controls component that only renders:
+- Use the **new_data_chart** `DataChartProviderControls` and `DataChartListingControl` (mirrored from legacy logic).
+  - Provider controls include settings popover (required params + auth), provider selector, and refresh button.
+  - Listing control uses the listing selector store and pair‑color context for non‑gray widgets.
+- Use `DataChartChartControls` from `components/chart-controls.tsx` to render:
   - Interval dropdown
   - Candle type dropdown
 - **Do not** render legacy indicator dropdown in Stage 1.
 
-4.2 If reusing existing controls:
-- Import `DataChartIntervalDropdown` + `DataChartCandleTypeDropdown` from legacy chart controls.
-- Compose them into a new `NewDataChartChartControls` component.
+4.2 Controls are implemented locally in `components/chart-controls.tsx` (not imported from legacy).
 
 ### 5) LWC chart instance
-5.1 Create `apps/tradinggoose/widgets/widgets/new_data_chart/components/body/use-chart-instance.ts`:
-- `createChart(container, options)`.
-- Create main series using `chart.addSeries(CandlestickSeries, options)`.
-- Keep refs: `chartRef`, `containerRef`, `mainSeriesRef`.
-- `ResizeObserver` to call `chart.resize(width, height)` (or `chart.applyOptions({ width, height })`).
-- Cleanup: `chart.remove()` and disconnect observer.
+5.1 Create `apps/tradinggoose/widgets/widgets/new_data_chart/hooks/use-chart-instance.ts`:
+- `createChart(container, options)` (no series created here).
+- Keep refs: `chartRef`, `chartContainerRef`, `mainSeriesRef`, plus `chartReady` state.
+- `ResizeObserver` to call `chart.resize(width, height)` when the container changes.
+- Cleanup: `chart.remove()` and disconnect observer; clear refs.
 - **Reference checkpoint (sizing):** confirm container sizing expectations in `../lightweight-charts-react-components/lib/README.md` ("Chart Container Sizing") before finalizing container styles and ResizeObserver behavior.
 
 5.2 Initial chart options (baseline):
-- `layout: { fontFamily, textColor, background }` (derive from container computed styles).
+- `layout: { fontFamily, textColor, background, attributionLogo: false }` (derive from container computed styles; only set background when non‑transparent).
 - `grid` line colors (match legacy tone: subtle, e.g., `#88888825`).
-- `crosshair` settings default (can refine later).
 - **Right‑offset decision:** use `timeScale.rightOffset = DEFAULT_RIGHT_OFFSET (50)` to match the **applied default range** logic in `ChartComponent.jsx` (`applyDefaultCandlePosition`), which overrides the initial options. Treat `DEFAULT_RIGHT_OFFSET` as the source of truth to avoid UX drift.
 - **Time scale visibility:** set `timeScale.timeVisible = true` (matches `ChartComponent.jsx`).
 - **Scroll/scale defaults:** match `ChartComponent.jsx` unless we deliberately diverge:
@@ -239,8 +243,8 @@ export type NewDataChartWidgetParams = Omit<DataChartWidgetParams, 'view'> & {
 - **Reference checkpoint (options naming):** verify option/event names in `../lightweight-charts-react-components/lib/src/chart/types.ts` and `../lightweight-charts-react-components/lib/src/chart/useChart.ts` to avoid typos (no new events added in Stage 1).
 
 ### 6) Style + series mapping (LWC)
-6.1 Create `apps/tradinggoose/widgets/widgets/new_data_chart/components/chart-styles.ts`:
-- Map `DataChartViewParams` → LWC options.
+6.1 Create `apps/tradinggoose/widgets/widgets/new_data_chart/utils/chart-styles.ts` and wire it in `hooks/use-chart-styles.ts`:
+- Map `DataChartViewParams` → LWC options + formatters.
 - Use `PriceScaleMode` mapping:
   - `normal` → `PriceScaleMode.Normal`
   - `percentage` → `PriceScaleMode.Percentage`
@@ -262,7 +266,7 @@ export type NewDataChartWidgetParams = Omit<DataChartWidgetParams, 'view'> & {
   - `borderVisible: true`, `borderUpColor`, `borderDownColor`
 - `ohlc` → `BarSeries` (use `upColor` / `downColor`).
 - `area` → `AreaSeries` (convert OHLC → `{ time, value }` using `close` as `value`, matching `../openalgo-chart/src/components/Chart/utils/seriesFactories.js`).
-Note: LWC does **not** expose separate hollow‑candle series types; hollow variants are achieved via `CandlestickSeries` styling. `openalgo-chart` only demonstrates **up‑hollow** via `hollow-candlestick` (maps to `candle_up_stroke`). For `candle_stroke` (full hollow) and `candle_down_stroke`, apply the transparent body rules above using LWC candlestick options (`../lightweight-charts/src/model/series/candlestick-series.ts`) and the UI types in `apps/tradinggoose/widgets/widgets/data_chart/types.ts`.
+Note: LWC does **not** expose separate hollow‑candle series types; hollow variants are achieved via `CandlestickSeries` styling. `openalgo-chart` only demonstrates **up‑hollow** via `hollow-candlestick` (maps to `candle_up_stroke`). For `candle_stroke` (full hollow) and `candle_down_stroke`, apply the transparent body rules above using LWC candlestick options (`../lightweight-charts/src/model/series/candlestick-series.ts`) and the UI types in `apps/tradinggoose/widgets/widgets/new_data_chart/types.ts`.
 
 6.2.a Candle type changes (resolved):
 - LWC does **not** support in‑place type changes.
@@ -270,7 +274,7 @@ Note: LWC does **not** expose separate hollow‑candle series types; hollow vari
   1) `chart.removeSeries(mainSeriesRef.current)` if present.
   2) Recreate series with new type.
   3) Re‑apply priceFormat + style options.
-  4) Re‑set current data via **type‑aware** mapping (`candlesSec` for OHLC; `{time,value}` for area).
+  4) Re‑set current data via **type‑aware** mapping (`mapBarsMsToSeriesData` for OHLC vs area).
 
 6.3 Precision:
 - Use `priceFormat` on series:
@@ -325,17 +329,21 @@ chart.applyOptions({
   - `TimeWithSeconds` → `HH:mm:ss`
 - Reuse the same offset/IANA timezone handling as `formatLwcTime` (shift offsets, format in UTC).
 
-### 8) Remapping utilities (ms → sec, merge, index)
-8.1 Create `apps/tradinggoose/widgets/widgets/new_data_chart/remapping.ts`:
+### 8) Series data utilities (ms → sec, merge, index)
+8.1 Create `apps/tradinggoose/widgets/widgets/new_data_chart/series-data.ts`:
+- `DEFAULT_BAR_COUNT = 500` and `DEFAULT_RANGE_PRESETS` (1D/5D/1W/1M/3M/6M/1Y/5Y/ALL with default intervals).
+- `intervalToMs()` + `formatIntervalLabel()` for interval handling.
 - `mapMarketBarToBarMs(bar, intervalMs)` → `BarMs | null`.
 - `mapMarketSeriesToBarsMs(series, intervalMs)` → sorted/deduped array.
 - **Type‑aware mappers**:
   - `mapBarsMsToOhlcSec(barsMs)` → `{ time, open, high, low, close }[]` for Candlestick/Bar.
-  - `mapBarsMsToLineSec(barsMs)` → **OHLC → `{ time, value }`** for Area (`value = close`, per `seriesFactories.js`).
+  - `mapBarsMsToLineSec(barsMs)` → **OHLC → `{ time, value }`** for Area (`value = close`).
   - `mapBarsMsToSeriesData(barsMs, candleType)` → routes to the correct mapper.
+  - `mapBarMsToSeriesDatum(bar, candleType)` for incremental updates.
 - `mergeBarsMs(base, incoming)` → dedupe + sorted merge.
-- **After merge:** recompute `closeTime` for adjacent bars affected by insert/replace (especially the previous last bar when appending new data).
+- **After merge:** recompute `closeTime` for adjacent bars (previous bar’s `closeTime` becomes next bar’s `openTime`).
 - `buildIndexMaps(barsMs)` → index map + reverse list.
+- Range helpers: `addRangeToDate` / `subtractRangeFromDate` for presets.
 
 8.2 Fallback alignment (critical):
 - Use legacy `mapMarketBarToData` fallback rules (see “Data contracts” section).
@@ -348,6 +356,7 @@ export type NewDataChartDataContext = {
   barsMsRef: MutableRefObject<BarMs[]>
   indexByOpenTimeMsRef: MutableRefObject<Map<number, number>>
   openTimeMsByIndexRef: MutableRefObject<number[]>
+  marketSessionsRef: MutableRefObject<MarketSessionWindow[]>
   intervalMs: number | null
   dataVersion: number
 }
@@ -360,19 +369,27 @@ export type NewDataChartDataContext = {
 - Stage 2 must not recompute index maps **in the browser**. Server execution may recompute from `barsMs` (deterministic) or accept maps in the request payload if needed for offsets.
   - **Consistency requirement:** if the server recomputes, it must use the exact same dedupe/sort/indexing logic as `buildIndexMaps(barsMs)` in this stage (sort by `openTime`, dedupe by `openTime`).
 
+8.4 Series window helpers (`apps/tradinggoose/widgets/widgets/new_data_chart/series-window.ts`):
+- Resolve `seriesWindow` using provider capabilities (`intervals`, `windowModes`, `supportsInterval`).
+- Honor `view.rangePresetId` by mapping to `DEFAULT_RANGE_PRESETS`.
+- Choose intervals via `chooseIntervalForRange()` (targets `DEFAULT_BAR_COUNT`).
+- Expose `sanitizeNormalizationMode()` and `coerceProviderParams()` helpers.
+
 ### 9) Data loader (LWC)
-9.1 Create `apps/tradinggoose/widgets/widgets/new_data_chart/components/body/use-chart-data-loader.ts`:
+9.1 Create `apps/tradinggoose/widgets/widgets/new_data_chart/hooks/use-chart-data-loader.ts`:
 - Mirror the lifecycle of legacy `useChartDataLoader`, adjusted for LWC.
-- Inputs: `chartRef`, `mainSeriesRef`, `containerRef`, `socket`, `providerId`, `listing`, `seriesWindow`, `dataParams`, **`dataContext` refs** (`barsMsRef`, `indexByOpenTimeMsRef`, `openTimeMsByIndexRef`).
+- Inputs: `chartRef`, `chartContainerRef`, `mainSeriesRef`, `socket`, `providerId`, `listing`, `seriesWindow`, `dataParams`, **`dataContext` refs** (`barsMsRef`, `indexByOpenTimeMsRef`, `openTimeMsByIndexRef`, `marketSessionsRef`).
 - State: `chartError`, `seriesTimezone`.
 - Refs: `barsMsRef`, `lastProviderRef`, `lastListingKeyRef`, `lastWindowSpanRef`, `expectedBarsRef`, `loaderVersionRef`, `lastRefreshAtRef`, `rescaleKeyRef`.
 
 9.2 Provider params & normalization:
 - Build `providerParams` using `coerceProviderParams` and **remove** API credentials.
+- If `view.marketSession` is set, include `marketSession` in the provider params before coercion.
 - Resolve `normalizationMode` like legacy:
   - From `providerParams.normalization_mode` (trimmed)
   - Fallback to provider’s first supported mode
   - `sanitizeNormalizationMode()` before use
+- Footer normalization dropdown auto-sets `providerParams.normalization_mode` to the provider’s first supported mode when unset.
 
 9.3 Fetch series:
 - POST `/api/providers` with body:
@@ -380,35 +397,42 @@ export type NewDataChartDataContext = {
 { "provider": "…", "providerNamespace": "market", "auth": {…}, "kind": "series", "listing": {…}, "interval": "…", "normalizationMode": "…", "providerParams": {…}, "windows": [...] }
 ```
 - Use `seriesWindow.requestInterval` (legacy pattern) for the request `interval` so providers that set `supportsInterval: false` don’t receive an unsupported interval.
+- If a pending absolute range (`view.start`/`view.end`) exists, fetch that range once; otherwise use `seriesWindow.windows`.
 - Parse with `assertMarketSeries` (legacy helper).
 - Convert to `barsMs` → **type‑aware series data** → `mainSeries.setData()`.
+- Merge `series.marketSessions` into `dataContext.marketSessionsRef` (dedupe by `start|type`, sorted).
 - Store `series.timezone` (trim) for timezone formatting.
+- If `expectedBars` is set and the seed response is short, call `fetchSeriesRange()` in a loop to **ensure a minimum bar count** (bounded attempts + retention limits).
 - **Reference checkpoint (replace vs update):** consult `../lightweight-charts-react-components/lib/src/series/types.ts` (`alwaysReplaceData`) and `useSeries` behavior before locking `setData` usage for full reloads.
 
 9.4 Reset conditions:
-- When provider/listing/interval/window changes or `dataParams.runtime.refreshAt` changes:
-  - Clear `barsMsRef` and LWC series data.
-  - Reset rescale scheduling and errors.
+- When provider/listing changes or `dataParams.runtime.refreshAt` changes:
+  - Snapshot `view.start`/`view.end` into a pending absolute range (if valid) for the next load.
+  - Clear `barsMsRef` and LWC series data; reset errors/timezone.
+  - Reset rescale scheduling and `lastWindowSpanRef`.
+- When interval/window changes (via `rescaleKey`), reset series data + expected bars tracking.
 
 9.5 Scroll‑back (prefetch older bars):
 - Subscribe to `timeScale().subscribeVisibleLogicalRangeChange`.
 - **Decision:** `PREFETCH_THRESHOLD = 126` (matches `../openalgo-chart/src/components/Chart/utils/chartConfig.js`).
-- **Decision:** enable scroll‑back only after at least `MIN_CANDLES_FOR_SCROLL_BACK = 50` loaded (also from `chartConfig.js`).
 - When `range.from <= threshold`, fetch older bars:
   - Use absolute window (`startMs` → `endMs`) based on `resolveForwardSpanMs` and provider retention rules.
-  - Merge into `barsMsRef`, recompute `candlesSec`, call `setData` once.
+  - Pass `allowEmpty: true` for backfill requests to avoid hard failures when no data.
+  - Guard with `isLoadingOlderDataRef` + `hasMoreHistoricalDataRef` + `historicalCursorRef`.
+  - Merge into `barsMsRef`, recompute index maps, call `setData` once.
   - Preserve view using `getVisibleLogicalRange` + `setVisibleLogicalRange` shifted by prepend count.
-  - Guard with `isLoadingOlderDataRef` + `hasMoreHistoricalDataRef` to avoid duplicate fetches.
   - If retention or capability limits exist, trim merged `barsMs` to max allowed bars.
+  - Trigger `onDataBackfill` after a successful merge.
 
 9.6 Retention rules:
 - Use `getMarketSeriesCapabilities(providerId)?.retention` (legacy logic).
 - Do not request data before retention start.
+- If `retention.maxBars` is set, trim merged history to the most recent `maxBars`.
 
 ### 10) Live bars (LWC)
-10.1 Create `apps/tradinggoose/widgets/widgets/new_data_chart/components/body/use-live-bars.ts`:
+10.1 Create `apps/tradinggoose/widgets/widgets/new_data_chart/hooks/use-live-bars.ts`:
 - Adapt from legacy `use-live-bars`.
-- Subscribe to `market-subscribe` and `market-bar` socket events.
+- Subscribe to `market-subscribe`, `market-bar`, `market-subscribed`, `market-subscribe-error`, and `connect` socket events.
 - Accept **`dataContext` refs** so live updates mutate the canonical `barsMsRef` and index maps used later by PineTS.
 - **Gate by provider** exactly like legacy:
   - `const liveProvider = providerId?.split('/')[0]`.
@@ -426,25 +450,25 @@ export type NewDataChartDataContext = {
 - Use **type‑aware updates**:
   - OHLC series: `update({ time, open, high, low, close })`
   - Area series: `update({ time, value: close })`
-- If out‑of‑order or type changed → re‑merge and `setData()` with the correct shape.
+- If out‑of‑order (incoming openTime < last openTime) → re‑merge and `setData()` with the correct shape.
 - **Reference checkpoint (incremental updates):** review `../lightweight-charts-react-components/lib/src/series/types.ts` and `useSeries` to confirm when incremental updates are preferred over full replace; mirror that decision here.
 
 ### 11) Rescale behavior
-11.1 Create `apps/tradinggoose/widgets/widgets/new_data_chart/components/body/use-chart-rescale.ts`:
-- Mirror legacy **expected‑bars spacing** behavior from `apps/tradinggoose/widgets/widgets/data_chart/components/chart-utils.ts` and `use-chart-rescale.ts`:
-  - Compute `expectedBars` via `resolveExpectedBars(...)` (already tracked in loader).
-  - Derive `barSpacing` from container width and expected bars (legacy `fitChartToData` logic) instead of only `fitContent()`.
-  - Apply via `timeScale().applyOptions({ barSpacing })` (or `chart.applyOptions({ timeScale: { barSpacing } })`).
-- On initial load: set bar spacing using expected bars, ensure `rightOffset = DEFAULT_RIGHT_OFFSET` remains applied (re‑apply via `timeScale().applyOptions({ rightOffset })` if needed), then **scroll to real time** (LWC `timeScale().scrollToRealTime()`), mirroring legacy `chart.scrollToRealTime()` instead of showing full history.
-- On backfill: shift visible range to avoid jumps.
-- Retry scheduling similar to legacy `useChartRescale` if the chart size is not ready.
+11.1 Create `apps/tradinggoose/widgets/widgets/new_data_chart/hooks/use-chart-rescale.ts`:
+- Schedule rescale via `requestAnimationFrame` until the chart width is non‑zero (max 30 attempts).
+- When data is available:
+  - `timeScale.resetTimeScale()`
+  - `timeScale.applyOptions({ rightOffset: DEFAULT_RIGHT_OFFSET })`
+  - If `expectedBars` is known, set `visibleLogicalRange` to `lastIndex - (expectedBars - 1)` → `lastIndex + DEFAULT_RIGHT_OFFSET`.
+  - Otherwise use `timeScale.fitContent()`.
+- Expose `resetRescale`, `scheduleRescale`, `cancelRescale`.
 
 ### 12) Widget UI wiring
-12.1 `components/body.tsx` should render:
-- `<div ref={chartContainerRef} className='relative z-0 h-full w-full' />`
-- `<ListingOverlay ... />`
-- `<ChartStateOverlays ... />`
-- Footer with `DataChartFooter` (safe to reuse for timezone + normalization).
+12.1 `components/chart-body.tsx` renders:
+- Chart container `<div ref={chartContainerRef} className='... bg-background text-foreground' />`.
+- `<ChartLegend />` overlay (internally uses `ListingOverlay`).
+- `Empty` overlays for missing workspace/provider/listing and errors.
+- Footer with `DataChartFooter` (range presets + timezone + market session + normalization).
 
 12.2 Header:
 - `renderNewDataChartHeader` returns provider + listing + interval/candle controls (no indicators).
@@ -455,6 +479,9 @@ export type NewDataChartDataContext = {
 - **Gate:** Live bars update the latest candle (observe within 10–20s).
 - **Gate:** Scroll left to trigger backfill (no visual jump; dataVersion bumps so PineTS sync can re-run).
 - **Gate:** Timezone dropdown changes crosshair/time scale labels (including UTC offsets).
+- **Gate:** Range preset tabs update interval + range (and clear custom start/end).
+- **Gate:** Market session + normalization dropdowns update provider params and reload without errors.
+- **Gate:** Panning/zooming persists `view.start`/`view.end` in widget params.
 - **Gate:** Legacy `data_chart` behavior remains unchanged.
 
 ---
@@ -462,6 +489,8 @@ export type NewDataChartDataContext = {
 ## Resolved decisions & mitigations
 - **Time formatting:** handle `Time` union (`UTCTimestamp | BusinessDay | string`) explicitly; never use browser‑local timezone; if timezone is a UTC offset, shift by offset minutes and format in UTC.
 - **Candle type changes:** re‑create series on change and re‑set data (documented in §6.2.a).
-- **Scroll‑back:** use `PREFETCH_THRESHOLD = 126` and `MIN_CANDLES_FOR_SCROLL_BACK = 50`; merge once and call `setData()` once per backfill; guard against concurrent loads.
+- **Scroll‑back:** use `PREFETCH_THRESHOLD = 126`; merge once and call `setData()` once per backfill; guard with `isLoadingOlderDataRef` / `hasMoreHistoricalDataRef` / retention limits.
 - **Right‑offset:** set `timeScale.rightOffset = DEFAULT_RIGHT_OFFSET (50)` to match `ChartComponent.jsx` default range behavior (see §5.2).
 - **Styles override:** whitelist `layout`, `grid`, `crosshair`, `rightPriceScale`, `leftPriceScale`, `timeScale`, `localization` and ignore others; disallow time formatter overrides.
+- **Rescale:** use `visibleLogicalRange` based on `expectedBars` + `DEFAULT_RIGHT_OFFSET`, fallback to `fitContent()` when expected bars are unknown.
+- **Visible range persistence:** debounce `view.start`/`view.end` updates from `subscribeVisibleLogicalRangeChange` to keep params in sync.
