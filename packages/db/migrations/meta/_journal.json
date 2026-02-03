@@ -43,6 +43,13 @@
       "when": 1769101222043,
       "tag": "0005_perpetual_leech",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1770059761088,
+      "tag": "0006_quick_falcon",
+      "breakpoints": true
     }
   ]
 }
