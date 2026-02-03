@@ -10,6 +10,7 @@ export type PairColorContext = {
   channelId?: string
   copilotChatId?: string | null
   indicatorId?: string | null
+  pineIndicatorId?: string | null
 }
 
 interface PairStoreState {
