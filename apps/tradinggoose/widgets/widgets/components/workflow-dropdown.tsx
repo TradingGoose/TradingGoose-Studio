@@ -284,7 +284,7 @@ export function WorkflowDropdown({
                 <span
                   className='h-5 w-5 p-0.5 rounded-xs'
                   style={{
-                    backgroundColor: workflow.color + '50',
+                    backgroundColor: workflow.color + '20',
                   }}
                   aria-hidden='true'
                 >
@@ -311,7 +311,7 @@ export function WorkflowDropdown({
     <div
       className='h-5 w-5 p-0.5 rounded-xs'
       style={{
-        backgroundColor: selectedWorkflow?.color + '50',
+        backgroundColor: selectedWorkflow?.color + '20',
       }}
       aria-hidden='true'
     >

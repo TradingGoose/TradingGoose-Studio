@@ -378,7 +378,7 @@ export function OutputSelect({
     <div
       className='h-5 w-5 p-0.5 rounded-xs'
       style={{
-        backgroundColor: selectedOutputColor ? `${selectedOutputColor}50` : undefined,
+        backgroundColor: selectedOutputColor ? `${selectedOutputColor}20` : undefined,
       }}
       aria-hidden='true'
     >

@@ -426,7 +426,7 @@ export function IndicatorDropdown({
                     <span
                       className='h-5 w-5 p-0.5 rounded-xs'
                       style={{
-                        backgroundColor: indicatorColor + '50',
+                        backgroundColor: indicatorColor + '20',
                       }}
                       aria-hidden='true'
                     >
@@ -473,7 +473,7 @@ export function IndicatorDropdown({
     <div
       className='h-5 w-5 p-0.5 rounded-xs'
       style={{
-        backgroundColor: selectedIndicatorColor + '50',
+        backgroundColor: selectedIndicatorColor + '20',
       }}
       aria-hidden='true'
     >

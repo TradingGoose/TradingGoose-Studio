@@ -176,7 +176,7 @@ export function IndicatorListItem({
           <span
             className='h-5 w-5 p-0.5 rounded-xs items-center justify-center flex'
             style={{
-              backgroundColor: indicator.color + '50',
+              backgroundColor: indicator.color + '20',
             }}
             aria-hidden='true'
           >
