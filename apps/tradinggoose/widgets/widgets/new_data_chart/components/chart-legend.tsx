@@ -1,5 +1,6 @@
 'use client'
 
+import type { Ref } from 'react'
 import type { ListingOption } from '@/lib/listing/identity'
 import { ListingOverlay } from '@/widgets/widgets/new_data_chart/components/listing-overlay'
 import type { LegendData } from '@/widgets/widgets/new_data_chart/hooks/use-chart-legend'
@@ -16,12 +17,14 @@ export const ChartLegend = ({
   listing,
   intervalLabel,
   isResolving,
+  containerRef,
 }: {
   legend: LegendData | null
   listingLabel?: string | null
   listing?: ListingOption | null
   intervalLabel?: string | null
   isResolving?: boolean
+  containerRef?: Ref<HTMLDivElement>
 }) => {
   if (!legend) return null
 
@@ -41,7 +44,10 @@ export const ChartLegend = ({
   const showListingOverlay = Boolean(listing || isResolving)
 
   return (
-    <div className='pointer-events-none absolute left-0 top-0 z-10 space-y-2 p-3 text-sm'>
+    <div
+      ref={containerRef}
+      className='pointer-events-none absolute left-0 top-0 z-10 space-y-2 p-3 text-sm'
+    >
       {showListingOverlay ? (
         <div className='mb-1'>
           <ListingOverlay

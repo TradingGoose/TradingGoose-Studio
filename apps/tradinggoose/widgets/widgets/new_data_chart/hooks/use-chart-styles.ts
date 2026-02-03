@@ -72,6 +72,7 @@ export const useChartStyles = ({
         ...(backgroundColor && backgroundColor !== 'transparent' && backgroundColor !== 'rgba(0, 0, 0, 0)'
           ? { background: { color: backgroundColor } }
           : {}),
+        panes: { separatorColor: '#ffab0088' },
       },
       grid: {
         vertLines: { color: '#88888825' },

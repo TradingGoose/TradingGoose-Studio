@@ -9,16 +9,18 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import type { MarketInterval } from '@/providers/market/types'
+import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
+import { PineIndicatorDropdown } from '@/widgets/widgets/components/pine-indicator-dropdown'
 import {
   widgetHeaderIconButtonClassName,
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuItemClassName,
 } from '@/widgets/widgets/components/widget-header-control'
-import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
-import type { DataChartWidgetParams } from '@/widgets/widgets/new_data_chart/types'
 import { CANDLE_TYPE_OPTIONS } from '@/widgets/widgets/new_data_chart/options'
 import { formatIntervalLabel } from '@/widgets/widgets/new_data_chart/series-data'
-import type { MarketInterval } from '@/providers/market/types'
+import type { DataChartWidgetParams } from '@/widgets/widgets/new_data_chart/types'
+import { buildPineIndicatorRefs } from '@/widgets/widgets/new_data_chart/utils/indicator-refs'
 
 type DataChartIntervalDropdownProps = {
   params: DataChartWidgetParams
@@ -39,14 +41,14 @@ export const DataChartIntervalDropdown = ({
 }: DataChartIntervalDropdownProps) => {
   const handleIntervalSelect = (nextInterval: string) => {
     const nextData = { ...(params.data ?? {}) } as Record<string, unknown>
-    delete nextData.window
-    delete nextData.fallbackWindow
+    nextData.window = undefined
+    nextData.fallbackWindow = undefined
     nextData.interval = nextInterval
 
     const nextView = { ...(params.view ?? {}) } as Record<string, unknown>
-    delete nextView.rangePresetId
-    delete nextView.start
-    delete nextView.end
+    nextView.rangePresetId = undefined
+    nextView.start = undefined
+    nextView.end = undefined
     nextView.interval = nextInterval
 
     emitDataChartParamsChange({
@@ -78,7 +80,7 @@ export const DataChartIntervalDropdown = ({
       </Tooltip>
       <DropdownMenuContent className={cn(widgetHeaderMenuContentClassName, 'w-44')}>
         {allowedIntervals.length === 0 ? (
-          <div className='px-2 py-2 text-xs text-muted-foreground'>No intervals</div>
+          <div className='px-2 py-2 text-muted-foreground text-xs'>No intervals</div>
         ) : (
           allowedIntervals.map((option) => (
             <DropdownMenuItem
@@ -172,6 +174,7 @@ export const DataChartCandleTypeDropdown = ({
 }
 
 type DataChartChartControlsProps = {
+  workspaceId?: string | null
   params: DataChartWidgetParams
   interval?: MarketInterval | string
   allowedIntervals: MarketInterval[]
@@ -181,6 +184,7 @@ type DataChartChartControlsProps = {
 }
 
 export const DataChartChartControls = ({
+  workspaceId,
   params,
   interval,
   allowedIntervals,
@@ -189,6 +193,25 @@ export const DataChartChartControls = ({
   widgetKey,
 }: DataChartChartControlsProps) => {
   const candleType = params.view?.candleType
+
+  const handleIndicatorChange = (nextIds: string[]) => {
+    const restView = { ...(params.view ?? {}) } as Record<string, unknown>
+    emitDataChartParamsChange({
+      params: {
+        view: {
+          ...restView,
+          pineIndicators: buildPineIndicatorRefs(
+            nextIds,
+            Array.isArray(params.view?.pineIndicators) ? params.view?.pineIndicators : []
+          ),
+        },
+      },
+      panelId,
+      widgetKey,
+    })
+  }
+
+  const selectedIndicatorIds = (params.view?.pineIndicators ?? []).map((indicator) => indicator.id)
 
   return (
     <div className='flex items-center gap-2'>
@@ -205,6 +228,14 @@ export const DataChartChartControls = ({
         candleType={candleType}
         panelId={panelId}
         widgetKey={widgetKey}
+      />
+      <PineIndicatorDropdown
+        workspaceId={workspaceId}
+        value={selectedIndicatorIds}
+        onChange={handleIndicatorChange}
+        align='end'
+        selectionMode='multiple'
+        includeDefaults
       />
     </div>
   )

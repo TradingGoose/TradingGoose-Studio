@@ -1,4 +1,5 @@
 import type { MutableRefObject } from 'react'
+import type { IPaneApi, ISeriesApi } from 'lightweight-charts'
 import type { ListingIdentity } from '@/lib/listing/identity'
 import type { MarketInterval, MarketSessionWindow } from '@/providers/market/types'
 import type { BarMs } from '@/widgets/widgets/new_data_chart/series-data'
@@ -13,6 +14,21 @@ export type DataChartCandleType =
 
 export type NewIndicatorRef = {
   id: string
+  inputs?: Record<string, unknown>
+}
+
+export type IndicatorRuntimePlot = {
+  key: string
+  title: string
+  color?: string
+  series: ISeriesApi<any>
+}
+
+export type IndicatorRuntimeEntry = {
+  id: string
+  pane: IPaneApi<any> | null
+  paneIndex: number
+  plots: IndicatorRuntimePlot[]
 }
 
 export type DataChartAuthParams = {

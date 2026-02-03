@@ -1,7 +1,7 @@
 'use client'
 
 import { type WheelEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ChartNetwork, Check, ClockFading } from 'lucide-react'
+import { ChartNetwork, Check, Clock, ClockFading, ClockPlus } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,10 +15,14 @@ import { fetchTimeZoneOptions, formatTimezoneLabel } from '@/components/timezone
 import { isUtcOffset, normalizeUtcOffset } from '@/lib/time-format'
 import { cn } from '@/lib/utils'
 import { getMarketSeriesCapabilities } from '@/providers/market/providers'
-import type { MarketInterval } from '@/providers/market/types'
+import type { MarketInterval, MarketRangeUnit } from '@/providers/market/types'
 import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
 import type { DataChartWidgetParams } from '@/widgets/widgets/new_data_chart/types'
-import { DEFAULT_RANGE_PRESETS, addRangeToDate } from '@/widgets/widgets/new_data_chart/series-data'
+import {
+  DEFAULT_RANGE_PRESETS,
+  addRangeToDate,
+  formatIntervalLabel,
+} from '@/widgets/widgets/new_data_chart/series-data'
 import { chooseIntervalForRange } from '@/widgets/widgets/new_data_chart/series-window'
 import {
   widgetHeaderControlClassName,
@@ -279,10 +283,94 @@ const DataChartTimezoneDropdown = ({
 const formatNormalizationLabel = (value: string) =>
   value.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
 
+const formatRangeLabel = (range: { value: number; unit: MarketRangeUnit }) => {
+  const rawValue = Number(range.value)
+  const value = Number.isFinite(rawValue) && rawValue > 0 ? rawValue : 1
+  const unitLabel =
+    range.unit === 'day'
+      ? 'day'
+      : range.unit === 'week'
+        ? 'week'
+        : range.unit === 'month'
+          ? 'month'
+          : 'year'
+  return `${value} ${unitLabel}${value === 1 ? '' : 's'}`
+}
+
 type DataChartNormalizationDropdownProps = {
   params: DataChartWidgetParams
   panelId?: string
   widgetKey?: string
+}
+
+type DataChartMarketSessionDropdownProps = {
+  params: DataChartWidgetParams
+  panelId?: string
+  widgetKey?: string
+}
+
+const DataChartMarketSessionDropdown = ({
+  params,
+  panelId,
+  widgetKey,
+}: DataChartMarketSessionDropdownProps) => {
+  const selectedSession =
+    params.view?.marketSession === 'extended' ? 'extended' : 'regular'
+  const sessionLabel = selectedSession === 'extended' ? 'Extended' : 'Regular'
+  const sessionIcon = selectedSession === 'extended' ? ClockPlus : Clock
+  const tooltipLabel = `${sessionLabel}`
+
+  const handleSessionSelect = (nextValue: 'regular' | 'extended') => {
+    const nextView = { ...(params.view ?? {}) } as Record<string, unknown>
+    nextView.marketSession = nextValue
+    emitDataChartParamsChange({
+      params: {
+        view: nextView,
+      },
+      panelId,
+      widgetKey,
+    })
+  }
+
+  const SessionIcon = sessionIcon
+
+  return (
+    <DropdownMenu>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <button type='button' className={widgetHeaderIconButtonClassName()}>
+              <SessionIcon className='h-3.5 w-3.5' />
+              <span className='sr-only'>Market session</span>
+            </button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent side='top'>{tooltipLabel}</TooltipContent>
+      </Tooltip>
+      <DropdownMenuContent
+        align='end'
+        className={cn(widgetHeaderMenuContentClassName, 'w-44')}
+      >
+        {(['regular', 'extended'] as const).map((mode) => {
+          const label = mode === 'extended' ? 'Extended session' : 'Regular session'
+          const isSelected = mode === selectedSession
+          return (
+            <DropdownMenuItem
+              key={mode}
+              onSelect={(event) => {
+                event.preventDefault()
+                handleSessionSelect(mode)
+              }}
+              className={cn(widgetHeaderMenuItemClassName, 'cursor-pointer')}
+            >
+              <span className={cn(widgetHeaderMenuTextClassName, 'truncate')}>{label}</span>
+              {isSelected ? <Check className='ml-auto h-3.5 w-3.5 text-primary' /> : null}
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
 }
 
 const DataChartNormalizationDropdown = ({
@@ -398,7 +486,8 @@ const DataChartNormalizationDropdown = ({
                     <Check className='ml-auto h-3.5 w-3.5 text-primary' />
                   ) : null}
                 </DropdownMenuItem>
-              )}
+              )
+            }
             )}
           </>
         )}
@@ -498,7 +587,34 @@ export const DataChartFooter = ({
                       value={preset.id}
                       className='px-2 py-1 text-xs font-medium transition-colors data-[state=active]:shadow-sm'
                     >
-                      {preset.label}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className='inline-flex items-center'>{preset.label}</span>
+                        </TooltipTrigger>
+                        <TooltipContent side='top'>
+                          {(() => {
+                            const anchor = new Date(0)
+                            const rangeEnd = addRangeToDate(anchor, preset.range)
+                            const rangeMs = rangeEnd.getTime() - anchor.getTime()
+                            const resolvedInterval =
+                              preset.interval ??
+                              chooseIntervalForRange(rangeMs, allowedIntervals) ??
+                              (typeof params.data?.interval === 'string'
+                                ? params.data.interval
+                                : null)
+                            const rangeLabel =
+                              preset.id === 'all'
+                                ? 'All available data'
+                                : formatRangeLabel(preset.range)
+                            const intervalLabel = resolvedInterval
+                              ? formatIntervalLabel(resolvedInterval)
+                              : null
+                            return intervalLabel
+                              ? `${rangeLabel} in ${intervalLabel} interval`
+                              : rangeLabel
+                          })()}
+                        </TooltipContent>
+                      </Tooltip>
                     </TabsTrigger>
                   ))}
                 </TabsList>
@@ -512,6 +628,11 @@ export const DataChartFooter = ({
               panelId={panelId}
               widgetKey={widgetKey}
               exchangeTimezone={exchangeTimezone}
+            />
+            <DataChartMarketSessionDropdown
+              params={params}
+              panelId={panelId}
+              widgetKey={widgetKey}
             />
             <DataChartNormalizationDropdown
               params={params}

@@ -1,6 +1,6 @@
 'use client'
 
-import { type MutableRefObject, useCallback, useRef } from 'react'
+import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
 import type { IChartApi } from 'lightweight-charts'
 import { DEFAULT_RIGHT_OFFSET } from '@/widgets/widgets/new_data_chart/utils/chart-styles'
 
@@ -16,9 +16,7 @@ const resolveChartWidth = (chart: IChartApi, container: HTMLDivElement | null) =
   return 0
 }
 
-const resolveWindowBars = (
-  expectedBars?: number | null
-): number | null => {
+const resolveWindowBars = (expectedBars?: number | null): number | null => {
   if (typeof expectedBars !== 'number' || !Number.isFinite(expectedBars)) return null
   if (expectedBars <= 0) return null
   return Math.floor(expectedBars)
@@ -28,6 +26,9 @@ export const useChartRescale = ({ chartRef, chartContainerRef }: UseChartRescale
   const shouldRescaleRef = useRef(true)
   const rescaleRafRef = useRef<number | null>(null)
   const rescaleAttemptsRef = useRef(0)
+  const lastArgsRef = useRef<{ expectedBars?: number | null; dataLength?: number | null } | null>(
+    null
+  )
 
   const resetRescale = useCallback(() => {
     shouldRescaleRef.current = true
@@ -36,6 +37,7 @@ export const useChartRescale = ({ chartRef, chartContainerRef }: UseChartRescale
 
   const scheduleRescale = useCallback(
     (expectedBars?: number | null, dataLength?: number | null) => {
+      lastArgsRef.current = { expectedBars, dataLength }
       if (!shouldRescaleRef.current) return
       if (rescaleRafRef.current !== null) return
 
@@ -83,7 +85,7 @@ export const useChartRescale = ({ chartRef, chartContainerRef }: UseChartRescale
           return
         }
 
-        shouldRescaleRef.current = false
+        rescaleAttemptsRef.current = 0
       })
     },
     [chartContainerRef, chartRef]
@@ -95,6 +97,19 @@ export const useChartRescale = ({ chartRef, chartContainerRef }: UseChartRescale
       rescaleRafRef.current = null
     }
   }, [])
+
+  useEffect(() => {
+    const container = chartContainerRef.current
+    if (!container) return
+    const observer = new ResizeObserver(() => {
+      const lastArgs = lastArgsRef.current
+      if (!lastArgs) return
+      if (!shouldRescaleRef.current) return
+      scheduleRescale(lastArgs.expectedBars, lastArgs.dataLength)
+    })
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [chartContainerRef, scheduleRescale])
 
   return { resetRescale, scheduleRescale, cancelRescale }
 }

@@ -40,6 +40,7 @@ export const renderNewDataChartHeader: DashboardWidgetDefinition['renderHeader']
     ),
     right: (
       <DataChartChartControls
+        workspaceId={context?.workspaceId}
         params={dataParams as DataChartWidgetParams}
         interval={seriesWindow.interval}
         allowedIntervals={seriesWindow.allowedIntervals}
