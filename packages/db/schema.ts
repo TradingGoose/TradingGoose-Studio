@@ -625,6 +625,26 @@ export const customIndicators = pgTable(
   })
 )
 
+export const pineIndicators = pgTable(
+  'pine_indicators',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspace.id, { onDelete: 'cascade' }),
+    userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
+    name: text('name').notNull().default('New Indicator'),
+    color: text('color').notNull().default('#3972F6'),
+    pineCode: text('pine_code').notNull().default(''),
+    inputMeta: json('input_meta'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    workspaceIdIdx: index('pine_indicators_workspace_id_idx').on(table.workspaceId),
+  })
+)
+
 export const subscription = pgTable(
   'subscription',
   {
