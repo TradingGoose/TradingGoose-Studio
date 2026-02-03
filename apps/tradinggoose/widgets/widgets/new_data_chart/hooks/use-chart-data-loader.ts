@@ -66,6 +66,7 @@ type UseChartDataLoaderArgs = {
     ISeriesApi<'Candlestick'> | ISeriesApi<'Bar'> | ISeriesApi<'Area'> | null
   >
   socket?: Socket | null
+  workspaceId?: string | null
   providerId?: string | null
   listing: ListingIdentity | null
   seriesWindow: SeriesWindow
@@ -96,6 +97,7 @@ export const useChartDataLoader = ({
   chartContainerRef,
   mainSeriesRef,
   socket,
+  workspaceId,
   providerId,
   listing,
   seriesWindow,
@@ -166,6 +168,7 @@ export const useChartDataLoader = ({
   const liveInterval = dataParams.data?.live?.interval ?? seriesWindow.interval ?? requestInterval
   const { startLiveSubscription, stopLiveSubscription } = useLiveBars({
     socket,
+    workspaceId,
     providerId,
     listing,
     interval: liveInterval,
@@ -294,6 +297,7 @@ export const useChartDataLoader = ({
         body: JSON.stringify({
           provider: providerId,
           providerNamespace: 'market',
+          workspaceId: workspaceId ?? undefined,
           auth: authParams,
           ...request,
         }),
@@ -614,6 +618,7 @@ export const useChartDataLoader = ({
     mainSeriesRef,
     dataParams.runtime?.refreshAt,
     listing,
+    workspaceId,
     providerId,
     authParams,
     providerParams,

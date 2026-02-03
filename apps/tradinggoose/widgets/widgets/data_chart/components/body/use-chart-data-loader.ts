@@ -49,6 +49,7 @@ type UseChartDataLoaderArgs = {
   chartRef: MutableRefObject<Chart | null>
   chartContainerRef: MutableRefObject<HTMLDivElement | null>
   socket?: Socket | null
+  workspaceId?: string | null
   providerId?: string | null
   listing: ListingIdentity | null
   seriesWindow: SeriesWindow
@@ -62,6 +63,7 @@ export const useChartDataLoader = ({
   chartRef,
   chartContainerRef,
   socket,
+  workspaceId,
   providerId,
   listing,
   seriesWindow,
@@ -124,6 +126,7 @@ export const useChartDataLoader = ({
   const liveInterval = dataParams.data?.live?.interval ?? seriesWindow.interval ?? requestInterval
   const { startLiveSubscription, stopLiveSubscription } = useLiveBars({
     socket,
+    workspaceId,
     providerId,
     listing,
     interval: liveInterval,
@@ -208,6 +211,7 @@ export const useChartDataLoader = ({
         body: JSON.stringify({
           provider: providerId,
           providerNamespace: 'market',
+          workspaceId: workspaceId ?? undefined,
           auth: authParams,
           ...request,
         }),
@@ -369,6 +373,7 @@ export const useChartDataLoader = ({
     dataParams.runtime?.refreshAt,
     listing,
     onDataLoaded,
+    workspaceId,
     providerId,
     authParams,
     providerParams,
