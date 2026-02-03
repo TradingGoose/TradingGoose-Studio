@@ -1,5 +1,6 @@
 import { createHash } from 'crypto'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { resolveListingKey, type ListingIdentity } from '@/lib/listing/identity'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
@@ -21,6 +22,7 @@ export type MarketChannel = 'bars' | 'trades' | 'quotes'
 
 export interface MarketSubscribePayload {
   provider?: MarketProviderId
+  workspaceId?: string
   listing?: ListingIdentity
   channel?: MarketChannel
   interval?: string
@@ -85,14 +87,15 @@ export class MarketStreamManager {
     socket: AuthenticatedSocket,
     payload: MarketSubscribePayload
   ): Promise<MarketSubscriptionInfo> {
-    const provider = resolveProviderId(payload.provider)
+    const resolvedPayload = await resolveMarketSubscribeEnv(payload, socket.userId)
+    const provider = resolveProviderId(resolvedPayload.provider)
 
     if (provider === 'alpaca') {
-      return this.subscribeAlpaca(socket, payload)
+      return this.subscribeAlpaca(socket, resolvedPayload)
     }
 
     if (provider === 'finnhub') {
-      return this.subscribeFinnhub(socket, payload)
+      return this.subscribeFinnhub(socket, resolvedPayload)
     }
 
     throw new Error('Unsupported market data provider')
@@ -632,4 +635,93 @@ function buildFinnhubStreamKey(config: { provider: MarketProviderId; apiKey: str
 function normalizeSymbol(symbol?: string): string {
   if (!symbol) return ''
   return symbol.trim().toUpperCase()
+}
+
+const ENV_VAR_PATTERN = /\{\{([^}]+)\}\}/g
+
+function hasEnvVarRefs(value: unknown): boolean {
+  if (typeof value === 'string') {
+    return value.includes('{{') && value.includes('}}')
+  }
+  if (Array.isArray(value)) {
+    return value.some((item) => hasEnvVarRefs(item))
+  }
+  if (value && typeof value === 'object') {
+    return Object.values(value).some((item) => hasEnvVarRefs(item))
+  }
+  return false
+}
+
+function resolveEnvVarRefs(
+  value: unknown,
+  envVars: Record<string, string>,
+  missing: Set<string>
+): unknown {
+  if (typeof value === 'string') {
+    return value.replace(ENV_VAR_PATTERN, (_match, key) => {
+      const trimmedKey = String(key).trim()
+      if (!trimmedKey) return _match
+      const envValue = envVars[trimmedKey]
+      if (envValue === undefined) {
+        missing.add(trimmedKey)
+        return ''
+      }
+      return envValue
+    })
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => resolveEnvVarRefs(item, envVars, missing))
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.entries(value).reduce<Record<string, unknown>>((acc, [key, val]) => {
+      acc[key] = resolveEnvVarRefs(val, envVars, missing)
+      return acc
+    }, {})
+  }
+
+  return value
+}
+
+async function resolveMarketSubscribeEnv(
+  payload: MarketSubscribePayload,
+  userId?: string
+): Promise<MarketSubscribePayload> {
+  if (
+    !hasEnvVarRefs(payload.auth) &&
+    !hasEnvVarRefs(payload.providerParams)
+  ) {
+    return payload
+  }
+
+  if (!userId) {
+    throw new Error('Authentication required to resolve environment variables')
+  }
+
+  const envVars = await getEffectiveDecryptedEnv(userId, payload.workspaceId)
+  const missingVars = new Set<string>()
+  const resolvedAuth = payload.auth
+    ? (resolveEnvVarRefs(payload.auth, envVars, missingVars) as MarketSubscribePayload['auth'])
+    : payload.auth
+  const resolvedProviderParams = payload.providerParams
+    ? (resolveEnvVarRefs(
+      payload.providerParams,
+      envVars,
+      missingVars
+    ) as MarketSubscribePayload['providerParams'])
+    : payload.providerParams
+
+  if (missingVars.size > 0) {
+    const missingList = Array.from(missingVars)
+    throw new Error(
+      `Missing required environment variable${missingList.length > 1 ? 's' : ''}: ${missingList.join(', ')}`
+    )
+  }
+
+  return {
+    ...payload,
+    auth: resolvedAuth,
+    providerParams: resolvedProviderParams,
+  }
 }

@@ -21,6 +21,7 @@ type MarketBarEvent = {
 
 type UseLiveBarsArgs = {
   socket?: Socket | null
+  workspaceId?: string | null
   providerId?: string | null
   listing: ListingIdentity | null
   interval?: string | null
@@ -33,6 +34,7 @@ type UseLiveBarsArgs = {
 
 export const useLiveBars = ({
   socket,
+  workspaceId,
   providerId,
   listing,
   interval,
@@ -188,6 +190,7 @@ export const useLiveBars = ({
       const handleConnect = () => {
         socketInstance.emit('market-subscribe', {
           provider: liveProvider,
+          workspaceId: workspaceId ?? undefined,
           listing,
           channel: 'bars',
           interval,
@@ -227,6 +230,7 @@ export const useLiveBars = ({
       providerId,
       providerParams,
       stopLiveSubscription,
+      workspaceId,
     ]
   )
 

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { resolveListingKey, type ListingIdentity } from '@/lib/listing/identity'
 import { executeProviderRequest } from '@/providers/market'
 import { MarketProviderError, normalizeMarketProviderError } from '@/providers/market/errors'
@@ -14,6 +16,7 @@ export interface MarketProviderRouteBody {
   provider?: string
   providerNamespace?: 'market'
   providerType?: 'market'
+  workspaceId?: string
   kind?: MarketDataType
   listing?: ListingIdentity
   auth?: {
@@ -41,6 +44,11 @@ export async function handleMarketProviderRequest({
   startTime,
 }: HandleMarketProviderParams) {
   try {
+    const workspaceId =
+      typeof body.workspaceId === 'string' && body.workspaceId.trim()
+        ? body.workspaceId.trim()
+        : undefined
+
     const ListingSchema = z
       .object({
         equity_id: z.string(),
@@ -130,7 +138,52 @@ export async function handleMarketProviderRequest({
     }
 
     const requestPayload = parsed.data as MarketProviderRequest
-    const normalizedRequest: MarketProviderRequest = requestPayload as MarketProviderRequest
+    let normalizedRequest: MarketProviderRequest = requestPayload as MarketProviderRequest
+
+    if (
+      hasEnvVarRefs(normalizedRequest.auth) ||
+      hasEnvVarRefs(normalizedRequest.providerParams)
+    ) {
+      const session = await getSession()
+      if (!session?.user?.id) {
+        throw new MarketProviderError({
+          code: 'INVALID REQUEST',
+          message: 'Authentication required to resolve environment variables',
+          provider: providerId,
+          status: 401,
+        })
+      }
+
+      const envVars = await getEffectiveDecryptedEnv(session.user.id, workspaceId)
+      const missingVars = new Set<string>()
+      const resolvedAuth = normalizedRequest.auth
+        ? (resolveEnvVarRefs(normalizedRequest.auth, envVars, missingVars) as MarketProviderRequest['auth'])
+        : normalizedRequest.auth
+      const resolvedProviderParams = normalizedRequest.providerParams
+        ? (resolveEnvVarRefs(
+          normalizedRequest.providerParams,
+          envVars,
+          missingVars
+        ) as MarketProviderRequest['providerParams'])
+        : normalizedRequest.providerParams
+
+      if (missingVars.size > 0) {
+        const missingList = Array.from(missingVars)
+        throw new MarketProviderError({
+          code: 'INVALID REQUEST',
+          message: `Missing required environment variable${missingList.length > 1 ? 's' : ''}: ${missingList.join(', ')}`,
+          provider: providerId,
+          status: 400,
+          details: { missing: missingList },
+        })
+      }
+
+      normalizedRequest = {
+        ...normalizedRequest,
+        auth: resolvedAuth,
+        providerParams: resolvedProviderParams,
+      }
+    }
 
     logger.info(`[${requestId}] Executing market provider request`, {
       provider: providerId,
@@ -174,4 +227,51 @@ export async function handleMarketProviderRequest({
       { status: normalized.status ?? 502 }
     )
   }
+}
+
+const ENV_VAR_PATTERN = /\{\{([^}]+)\}\}/g
+
+function hasEnvVarRefs(value: unknown): boolean {
+  if (typeof value === 'string') {
+    return value.includes('{{') && value.includes('}}')
+  }
+  if (Array.isArray(value)) {
+    return value.some((item) => hasEnvVarRefs(item))
+  }
+  if (value && typeof value === 'object') {
+    return Object.values(value).some((item) => hasEnvVarRefs(item))
+  }
+  return false
+}
+
+function resolveEnvVarRefs(
+  value: unknown,
+  envVars: Record<string, string>,
+  missing: Set<string>
+): unknown {
+  if (typeof value === 'string') {
+    return value.replace(ENV_VAR_PATTERN, (_match, key) => {
+      const trimmedKey = String(key).trim()
+      if (!trimmedKey) return _match
+      const envValue = envVars[trimmedKey]
+      if (envValue === undefined) {
+        missing.add(trimmedKey)
+        return ''
+      }
+      return envValue
+    })
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => resolveEnvVarRefs(item, envVars, missing))
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.entries(value).reduce<Record<string, unknown>>((acc, [key, val]) => {
+      acc[key] = resolveEnvVarRefs(val, envVars, missing)
+      return acc
+    }, {})
+  }
+
+  return value
 }

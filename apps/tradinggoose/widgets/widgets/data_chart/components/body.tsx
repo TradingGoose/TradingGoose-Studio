@@ -108,6 +108,7 @@ export const DataChartWidgetBody = ({
     chartRef,
     chartContainerRef,
     socket,
+    workspaceId,
     providerId,
     listing,
     seriesWindow,
