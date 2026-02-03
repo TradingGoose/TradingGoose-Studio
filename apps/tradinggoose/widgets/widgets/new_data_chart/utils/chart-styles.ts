@@ -10,9 +10,8 @@ import { isUtcOffset, parseUtcOffsetMinutes } from '@/lib/time-format'
 import type { DataChartCandleType, DataChartViewParams } from '@/widgets/widgets/new_data_chart/types'
 
 export const DEFAULT_RIGHT_OFFSET = 50
-const DEFAULT_UP_COLOR = '#089981'
-const DEFAULT_DOWN_COLOR = '#F23645'
-const DEFAULT_LINE_COLOR = '#2962FF'
+export const DEFAULT_UP_COLOR = '#089981'
+export const DEFAULT_DOWN_COLOR = '#F23645'
 
 const DEFAULT_CANDLE_TYPE: DataChartCandleType = 'candle_solid'
 
@@ -75,19 +74,19 @@ export const formatLwcTime = (
   const showSeconds = hasTime && adjustedDate.getUTCSeconds() !== 0
   const options: Intl.DateTimeFormatOptions = hasTime
     ? {
-        year: 'numeric',
-        month: 'short',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-        ...(showSeconds ? { second: '2-digit' } : null),
-      }
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      ...(showSeconds ? { second: '2-digit' } : null),
+    }
     : {
-        year: 'numeric',
-        month: 'short',
-        day: '2-digit',
-      }
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+    }
 
   const formatter = buildFormatter(
     locale,
@@ -182,9 +181,9 @@ export const buildSeriesOptions = (
     return {
       seriesType: AreaSeries,
       options: {
-        topColor: 'rgba(41, 98, 255, 0.4)',
-        bottomColor: 'rgba(41, 98, 255, 0.0)',
-        lineColor: DEFAULT_LINE_COLOR,
+        topColor: '#ffab0070',
+        bottomColor: '#ffab0000',
+        lineColor: '#ffab00',
         lineWidth: 2,
         ...commonPriceFormat,
       },

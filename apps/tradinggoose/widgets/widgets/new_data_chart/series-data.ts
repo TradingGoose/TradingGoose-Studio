@@ -1,4 +1,9 @@
-import type { MarketBar, MarketInterval, MarketRangeUnit, MarketSeries } from '@/providers/market/types'
+import type {
+  MarketBar,
+  MarketInterval,
+  MarketRangeUnit,
+  MarketSeries,
+} from '@/providers/market/types'
 import type { DataChartCandleType } from '@/widgets/widgets/new_data_chart/types'
 
 export const DEFAULT_BAR_COUNT = 500
@@ -96,6 +101,15 @@ type LineSec = {
 
 const toSeconds = (ms: number) => Math.floor(ms / 1000)
 
+const coerceFiniteNumber = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
 const recomputeCloseTimes = (bars: BarMs[], intervalMs?: number | null): BarMs[] => {
   if (bars.length === 0) return bars
   const nextBars = bars.map((bar) => ({ ...bar }))
@@ -120,12 +134,21 @@ export const mapMarketBarToBarMs = (
   if (!bar) return null
   const timestamp = Date.parse(bar.timeStamp)
   if (!Number.isFinite(timestamp)) return null
-  const open = bar.open ?? bar.close ?? 0
-  const close = bar.close ?? bar.open ?? 0
-  const high = bar.high ?? bar.close ?? 0
-  const low = bar.low ?? bar.close ?? 0
+  const openValue = coerceFiniteNumber(bar.open)
+  const closeValue = coerceFiniteNumber(bar.close)
+  const fallback = closeValue ?? openValue
+  if (fallback === null) return null
+  const open = openValue ?? closeValue ?? fallback
+  const close = closeValue ?? openValue ?? fallback
+  const highValue = coerceFiniteNumber(bar.high)
+  const lowValue = coerceFiniteNumber(bar.low)
+  const high = highValue ?? Math.max(open, close)
+  const low = lowValue ?? Math.min(open, close)
+  if (![open, high, low, close].every((value) => Number.isFinite(value))) return null
   const openTime = timestamp
   const closeTime = intervalMs ? openTime + intervalMs : openTime
+  const volume = coerceFiniteNumber(bar.volume) ?? undefined
+  const turnover = coerceFiniteNumber(bar.turnover) ?? undefined
 
   return {
     openTime,
@@ -134,8 +157,8 @@ export const mapMarketBarToBarMs = (
     high,
     low,
     close,
-    volume: bar.volume ?? undefined,
-    turnover: bar.turnover ?? undefined,
+    volume,
+    turnover,
   }
 }
 
@@ -156,19 +179,40 @@ export const mapMarketSeriesToBarsMs = (
 }
 
 export const mapBarsMsToOhlcSec = (barsMs: BarMs[]): OhlcSec[] =>
-  barsMs.map((bar) => ({
-    time: toSeconds(bar.openTime),
-    open: bar.open,
-    high: bar.high,
-    low: bar.low,
-    close: bar.close,
-  }))
+  barsMs.flatMap((bar) => {
+    const time = toSeconds(bar.openTime)
+    if (!Number.isFinite(time)) return []
+    if (
+      !Number.isFinite(bar.open) ||
+      !Number.isFinite(bar.high) ||
+      !Number.isFinite(bar.low) ||
+      !Number.isFinite(bar.close)
+    ) {
+      return []
+    }
+    return [
+      {
+        time,
+        open: bar.open,
+        high: bar.high,
+        low: bar.low,
+        close: bar.close,
+      },
+    ]
+  })
 
 export const mapBarsMsToLineSec = (barsMs: BarMs[]): LineSec[] =>
-  barsMs.map((bar) => ({
-    time: toSeconds(bar.openTime),
-    value: bar.close,
-  }))
+  barsMs.flatMap((bar) => {
+    const time = toSeconds(bar.openTime)
+    if (!Number.isFinite(time)) return []
+    if (!Number.isFinite(bar.close)) return []
+    return [
+      {
+        time,
+        value: bar.close,
+      },
+    ]
+  })
 
 export const mapBarMsToSeriesDatum = (
   bar: BarMs,
