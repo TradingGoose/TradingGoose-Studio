@@ -46,6 +46,7 @@
     "klinecharts": "10.0.0-beta1",
     "lightweight-charts": "5.1.0",
     "mongodb": "6.19.0",
+    "pinets": "0.8.6",
     "postgres": "^3.4.5",
     "react-day-picker": "^9",
     "remark-gfm": "4.0.1",
