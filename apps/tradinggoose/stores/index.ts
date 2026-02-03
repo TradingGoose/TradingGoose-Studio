@@ -5,6 +5,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getCopilotStore, useCopilotStore } from '@/stores/copilot/store'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import { useCustomIndicatorsStore } from '@/stores/custom-indicators/store'
+import { useNewIndicatorsStore } from '@/stores/new-indicators/store'
 import { useExecutionStore } from '@/stores/execution/store'
 import { useConsoleStore } from '@/stores/panel/console/store'
 import { useVariablesStore } from '@/stores/panel/variables/store'
@@ -223,6 +224,7 @@ export {
   useCopilotStore,
   useCustomToolsStore,
   useCustomIndicatorsStore,
+  useNewIndicatorsStore,
   useVariablesStore,
   useSubBlockStore,
   useSubscriptionStore,
@@ -250,6 +252,7 @@ export const resetAllStores = () => {
   getCopilotStore().setState({ messages: [], isSendingMessage: false, error: null })
   useCustomToolsStore.getState().resetAll()
   useCustomIndicatorsStore.getState().resetAll()
+  useNewIndicatorsStore.getState().resetAll()
   // Variables store has no tracking to reset; registry hydrates
   useSubscriptionStore.getState().reset() // Reset subscription store
 }
@@ -265,6 +268,7 @@ export const logAllStores = () => {
     copilot: getCopilotStore().getState(),
     customTools: useCustomToolsStore.getState(),
     customIndicators: useCustomIndicatorsStore.getState(),
+    newIndicators: useNewIndicatorsStore.getState(),
     subBlock: useSubBlockStore.getState(),
     variables: useVariablesStore.getState(),
     subscription: useSubscriptionStore.getState(),

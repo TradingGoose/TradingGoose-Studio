@@ -12,6 +12,8 @@ import { workflowConsoleWidget } from '@/widgets/widgets/workflow_console'
 import { workflowCopilotWidget } from '@/widgets/widgets/workflow_copilot'
 import { listIndicatorWidget } from '@/widgets/widgets/list_indicator'
 import { editorIndicatorWidget } from '@/widgets/widgets/editor_indicator'
+import { listIndicatorNewWidget } from '@/widgets/widgets/list_indicator_new'
+import { newEditorIndicatorWidget } from '@/widgets/widgets/new_editor_indicator'
 import { workflowListWidget } from '@/widgets/widgets/list_workflow'
 import { workflowVariablesWidget } from '@/widgets/widgets/workflow_variables'
 
@@ -40,6 +42,8 @@ const widgetRegistry: Record<string, DashboardWidgetDefinition> = {
   workflow_copilot: workflowCopilotWidget,
   list_indicator: listIndicatorWidget,
   editor_indicator: editorIndicatorWidget,
+  list_indicator_new: listIndicatorNewWidget,
+  new_editor_indicator: newEditorIndicatorWidget,
   workflow_list: workflowListWidget,
   workflow_variables: workflowVariablesWidget,
 }
