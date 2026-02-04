@@ -145,10 +145,16 @@ export async function executeProviderRequest(
           )
         }
       }
-      const filteredResponse =
-        marketSessions && sessionPref
-          ? filterSeriesBySessions(response, marketSessions, sessionPref)
-          : response
+      const sessionInterval =
+        adjustedRequest.interval ||
+        (adjustedRequest.providerParams?.interval as string | undefined)
+      const shouldFilterSessions =
+        marketSessions &&
+        sessionPref &&
+        isIntradayInterval(sessionInterval)
+      const filteredResponse = shouldFilterSessions
+        ? filterSeriesBySessions(response, marketSessions, sessionPref)
+        : response
       const adjusted = applySeriesWindow(filteredResponse, window)
       if (marketSessions) {
         const adjustedBounds = resolveSeriesBoundsMs(adjusted)
@@ -204,3 +210,23 @@ export async function executeProviderRequest(
 }
 
 export * from './providers'
+
+const INTRADAY_INTERVAL_UNITS = new Set(['m', 'h'])
+
+const isIntradayInterval = (value?: string | null): boolean => {
+  if (!value) return true
+  const normalized = String(value).trim().toLowerCase()
+  const match = normalized.match(/^(\d+)\s*(m|h|d|w|mo|y)$/)
+  if (match?.[2]) {
+    return INTRADAY_INTERVAL_UNITS.has(match[2])
+  }
+  if (
+    normalized.includes('day') ||
+    normalized.includes('week') ||
+    normalized.includes('month') ||
+    normalized.includes('year')
+  ) {
+    return false
+  }
+  return true
+}

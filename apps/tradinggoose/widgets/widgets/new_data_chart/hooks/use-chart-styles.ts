@@ -1,7 +1,7 @@
 'use client'
 
 import { type MutableRefObject, useEffect, useRef } from 'react'
-import type { IChartApi, ISeriesApi } from 'lightweight-charts'
+import type { IChartApi, ISeriesApi, TickMarkType, Time } from 'lightweight-charts'
 import type { DataChartViewParams } from '@/widgets/widgets/new_data_chart/types'
 import {
   buildSeriesOptions,
@@ -37,6 +37,31 @@ const resolvePriceFormat = (precision?: number | null) => {
   return {
     precision: resolvedPrecision,
     minMove: 1 / Math.pow(10, resolvedPrecision),
+  }
+}
+
+const buildCompactPriceFormatter = (precision: number, locale?: string) => {
+  const formatter = new Intl.NumberFormat(locale || undefined, {
+    maximumFractionDigits: precision,
+    minimumFractionDigits: 0,
+    useGrouping: false,
+  })
+  const thresholds = [
+    { value: 1_000_000_000_000, suffix: 'T' },
+    { value: 1_000_000_000, suffix: 'B' },
+    { value: 1_000_000, suffix: 'M' },
+    { value: 1_000, suffix: 'K' },
+  ]
+
+  return (value: number) => {
+    if (!Number.isFinite(value)) return ''
+    const absValue = Math.abs(value)
+    const match = thresholds.find((entry) => absValue >= entry.value)
+    if (!match) {
+      return formatter.format(value)
+    }
+    const scaledValue = value / match.value
+    return `${formatter.format(scaledValue)}${match.suffix}`
   }
 }
 
@@ -100,17 +125,26 @@ export const useChartStyles = ({
 
     const { timezone, locale } = buildTimeFormatterConfig(chartSettings, seriesTimezone)
     const resolvedLocale = locale
+    const precision = resolvePriceFormat(chartSettings?.pricePrecision).precision
+    const hasPriceFormatterOverride =
+      typeof localizationOverride === 'object' &&
+      localizationOverride !== null &&
+      'priceFormatter' in localizationOverride
+    const priceFormatter = hasPriceFormatterOverride
+      ? undefined
+      : buildCompactPriceFormatter(precision, resolvedLocale)
 
     chart.applyOptions({
       localization: {
         ...(typeof localizationOverride === 'object' && localizationOverride ? localizationOverride : {}),
         ...(resolvedLocale ? { locale: resolvedLocale } : {}),
-        timeFormatter: (time) => formatLwcTime(time, timezone, resolvedLocale),
+        ...(priceFormatter ? { priceFormatter } : {}),
+        timeFormatter: (time: Time) => formatLwcTime(time, timezone, resolvedLocale),
       },
       timeScale: {
         ...(typeof timeScaleOverride === 'object' && timeScaleOverride ? timeScaleOverride : {}),
         timeVisible: true,
-        tickMarkFormatter: (time, tickType) =>
+        tickMarkFormatter: (time: Time, tickType: TickMarkType) =>
           formatLwcTick(time, tickType, timezone, resolvedLocale),
       },
     })
@@ -118,7 +152,6 @@ export const useChartStyles = ({
     chart.timeScale().applyOptions({ rightOffset: DEFAULT_RIGHT_OFFSET })
 
     const candleType = resolveCandleType(chartSettings?.candleType)
-    const precision = resolvePriceFormat(chartSettings?.pricePrecision).precision
 
     const candleTypeChanged = lastCandleTypeRef.current !== candleType
     const precisionChanged = lastPrecisionRef.current !== precision
@@ -143,14 +176,14 @@ export const useChartStyles = ({
       }
     } else if (precisionChanged && mainSeriesRef.current) {
       const priceFormat = resolvePriceFormat(chartSettings?.pricePrecision)
-      mainSeriesRef.current.applyOptions({ priceFormat: { type: 'price', ...priceFormat } })
+      mainSeriesRef.current.applyOptions({ priceFormat: { type: 'price' as const, ...priceFormat } })
     }
 
     lastCandleTypeRef.current = candleType
     lastPrecisionRef.current = precision
 
     const priceScaleMode = resolvePriceScaleMode(chartSettings?.priceAxisType)
-    chart.priceScale('right').applyOptions({ mode: priceScaleMode })
+    chart.priceScale('right').applyOptions({ mode: priceScaleMode, minimumWidth: 40 })
   }, [
     chartRef,
     chartContainerRef,
@@ -166,10 +199,10 @@ export const useChartStyles = ({
     const series = mainSeriesRef.current
     if (!series) return
     const seriesType = series.seriesType()
-    const isLineSeries = seriesType === 'Area' || seriesType === 'Line'
+    const isAreaSeries = seriesType === 'Area'
     const seriesData = mapBarsMsToSeriesData(
       dataContext.barsMsRef.current,
-      isLineSeries ? 'area' : null
+      isAreaSeries ? 'area' : null
     )
     series.setData(seriesData as never)
   }, [chartSettings?.candleType, dataContext, dataVersion, mainSeriesRef, chartReady])

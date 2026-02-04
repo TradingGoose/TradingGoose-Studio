@@ -81,13 +81,9 @@ export const NewDataChartWidgetBody = ({
   const [indicatorRuntimeVersion, setIndicatorRuntimeVersion] = useState(0)
   const [hiddenIndicators, setHiddenIndicators] = useState<Set<string>>(new Set())
   const [paneSnapshot, setPaneSnapshot] = useState<IPaneApi<any>[]>([])
-  const [paneStateVersion, setPaneStateVersion] = useState(0)
   const [paneLayout, setPaneLayout] = useState<Array<{ top: number; height: number }>>([])
   const [settingsIndicatorId, setSettingsIndicatorId] = useState<string | null>(null)
   const [settingsDraft, setSettingsDraft] = useState<Record<string, unknown>>({})
-  const collapsedPaneHeightsRef = useRef(new Map<IPaneApi<any>, number>())
-  const maximizedPaneRef = useRef<IPaneApi<any> | null>(null)
-  const maximizedHeightsRef = useRef<Map<IPaneApi<any>, number> | null>(null)
   const legendContainerRef = useRef<HTMLDivElement | null>(null)
   const [legendOffset, setLegendOffset] = useState(0)
 
@@ -351,26 +347,7 @@ export const NewDataChartWidgetBody = ({
       }
       observer.disconnect()
     }
-  }, [chartContainerRef, paneSnapshot, paneStateVersion, updatePaneLayout])
-
-  useEffect(() => {
-    const paneSet = new Set(paneSnapshot)
-    let paneStateChanged = false
-    collapsedPaneHeightsRef.current.forEach((_height, pane) => {
-      if (!paneSet.has(pane)) {
-        collapsedPaneHeightsRef.current.delete(pane)
-        paneStateChanged = true
-      }
-    })
-    if (maximizedPaneRef.current && !paneSet.has(maximizedPaneRef.current)) {
-      maximizedPaneRef.current = null
-      maximizedHeightsRef.current = null
-      paneStateChanged = true
-    }
-    if (paneStateChanged) {
-      setPaneStateVersion((prev) => prev + 1)
-    }
-  }, [paneSnapshot])
+  }, [chartContainerRef, paneSnapshot, updatePaneLayout])
 
   useEffect(() => {
     indicatorRuntimeRef.current.forEach((entry, indicatorId) => {
@@ -518,65 +495,8 @@ export const NewDataChartWidgetBody = ({
     [paneSnapshot.length, refreshPaneSnapshot]
   )
 
-  const handleToggleCollapse = useCallback(
-    (pane: IPaneApi<any>) => {
-      if (paneSnapshot.length < 2) return
-      if (maximizedPaneRef.current) {
-        const saved = maximizedHeightsRef.current
-        if (saved) {
-          saved.forEach((height, savedPane) => {
-            if (paneSnapshot.includes(savedPane)) {
-              savedPane.setHeight(height)
-            }
-          })
-        }
-        maximizedPaneRef.current = null
-        maximizedHeightsRef.current = null
-      }
-
-      const collapsedHeights = collapsedPaneHeightsRef.current
-      if (collapsedHeights.has(pane)) {
-        const previousHeight = collapsedHeights.get(pane) ?? 0
-        collapsedHeights.delete(pane)
-        if (previousHeight > 0) {
-          pane.setHeight(previousHeight)
-        }
-      } else {
-        collapsedHeights.set(pane, pane.getHeight())
-        pane.setHeight(30)
-      }
-      setPaneStateVersion((prev) => prev + 1)
-    },
-    [paneSnapshot]
-  )
-
-  const handleToggleMaximize = useCallback(
-    (pane: IPaneApi<any>) => {
-      if (paneSnapshot.length < 2) return
-      if (maximizedPaneRef.current === pane) {
-        const saved = maximizedHeightsRef.current
-        if (saved) {
-          saved.forEach((height, savedPane) => {
-            if (paneSnapshot.includes(savedPane)) {
-              savedPane.setHeight(height)
-            }
-          })
-        }
-        maximizedPaneRef.current = null
-        maximizedHeightsRef.current = null
-      } else {
-        const saved = new Map<IPaneApi<any>, number>()
-        paneSnapshot.forEach((entry) => saved.set(entry, entry.getHeight()))
-        maximizedPaneRef.current = pane
-        maximizedHeightsRef.current = saved
-        pane.setHeight(Number.MAX_SAFE_INTEGER)
-      }
-      setPaneStateVersion((prev) => prev + 1)
-    },
-    [paneSnapshot]
-  )
-
   const indicatorControlsByPane = useMemo(() => {
+    const mainPaneIndex = mainSeriesRef.current?.getPane().paneIndex() ?? 0
     const grouped = new Map<
       number,
       Array<{
@@ -586,6 +506,7 @@ export const NewDataChartWidgetBody = ({
         inputs?: Record<string, unknown>
         values: IndicatorPlotValue[]
         isHidden: boolean
+        errorMessage?: string
       }>
     >()
 
@@ -593,7 +514,7 @@ export const NewDataChartWidgetBody = ({
       const meta = indicatorMetaById.get(id)
       if (!meta) return
       const runtimeEntry = indicatorRuntimeRef.current.get(id)
-      const paneIndex = runtimeEntry?.paneIndex ?? 0
+      const paneIndex = runtimeEntry?.pane ? runtimeEntry.pane.paneIndex() : mainPaneIndex
       const list = grouped.get(paneIndex) ?? []
       list.push({
         id,
@@ -602,6 +523,7 @@ export const NewDataChartWidgetBody = ({
         inputs: indicatorRefsById.get(id)?.inputs,
         values: indicatorLegend.get(id) ?? [],
         isHidden: hiddenIndicators.has(id),
+        errorMessage: runtimeEntry?.errorMessage,
       })
       grouped.set(paneIndex, list)
     })
@@ -614,7 +536,7 @@ export const NewDataChartWidgetBody = ({
     hiddenIndicators,
     indicatorRuntimeVersion,
     indicatorRefsById,
-    paneStateVersion,
+    paneSnapshot,
   ])
 
   const settingsMeta = useMemo(() => {
@@ -671,69 +593,72 @@ export const NewDataChartWidgetBody = ({
             }`}
         />
         {!showEmptyState && !showErrorState && (
-          <>
-            <ChartLegend
-              legend={legendData}
-              listingLabel={listingLabel}
-              listing={resolvedListing}
-              intervalLabel={intervalLabel}
-              isResolving={isResolving}
-              containerRef={legendContainerRef}
-            />
-            <div className='pointer-events-none absolute inset-0 z-10'>
-              {paneSnapshot.map((pane) => {
+          <div className='pointer-events-none absolute inset-0 z-10'>
+            {(() => {
+              const mainPaneIndex = mainSeriesRef.current?.getPane().paneIndex() ?? 0
+              return paneSnapshot.map((pane) => {
                 const paneIndex = pane.paneIndex()
                 const layout = paneLayout[paneIndex]
                 if (!layout) return null
                 const indicatorItems = indicatorControlsByPane.get(paneIndex) ?? []
-                const topOffset = paneIndex === 0 ? legendOffset - 8 : 8
+                const isMainPane = paneIndex === mainPaneIndex
+                const topOffset = isMainPane ? legendOffset - 3 : 3
 
                 return (
                   <div
                     key={`pane-overlay-${paneIndex}`}
-                    className='pointer-events-none absolute right-0 left-0'
+                    className='absolute left-0 right-0'
                     style={{ top: `${layout.top}px`, height: `${layout.height}px` }}
                   >
-                    {indicatorItems.length > 0 && (
-                      <div
-                        className='pointer-events-auto absolute left-2 mr-6 pr-20'
-                        style={{ top: `${topOffset}px` }}
-                      >
-                        <div className='flex flex-col gap-1'>
-                          {indicatorItems.map((item) => (
-                            <IndicatorControl
-                              key={item.id}
-                              indicatorId={item.id}
-                              name={item.name}
-                              inputMeta={item.inputMeta}
-                              indicatorInputs={item.inputs}
-                              plotValues={item.values}
-                              isHidden={item.isHidden}
-                              onToggleHidden={handleToggleHidden}
-                              onRemove={handleRemoveIndicator}
-                              onOpenSettings={handleOpenSettings}
-                            />
-                          ))}
+                    <div className='relative h-full w-full'>
+                      {isMainPane && (
+                        <ChartLegend
+                          legend={legendData}
+                          listingLabel={listingLabel}
+                          listing={resolvedListing}
+                          intervalLabel={intervalLabel}
+                          isResolving={isResolving}
+                          containerRef={legendContainerRef}
+                        />
+                      )}
+                      {indicatorItems.length > 0 && (
+                        <div
+                          className='pointer-events-auto absolute left-[3px] right-0 mr-24 pr-20'
+                          style={{ top: `${topOffset}px` }}
+                        >
+                          <div className='flex flex-col items-start gap-1'>
+                            {indicatorItems.map((item) => (
+                              <IndicatorControl
+                                key={item.id}
+                                indicatorId={item.id}
+                                name={item.name}
+                                inputMeta={item.inputMeta}
+                                indicatorInputs={item.inputs}
+                                plotValues={item.values}
+                                isHidden={item.isHidden}
+                                errorMessage={item.errorMessage}
+                                onToggleHidden={handleToggleHidden}
+                                onRemove={handleRemoveIndicator}
+                                onOpenSettings={handleOpenSettings}
+                              />
+                            ))}
+                          </div>
                         </div>
+                      )}
+                      <div className='pointer-events-auto absolute top-[3px] right-[4px] pr-14'>
+                        <PaneControl
+                          paneIndex={paneIndex}
+                          paneCount={paneSnapshot.length}
+                          onMoveUp={() => handleMovePaneUp(pane)}
+                          onMoveDown={() => handleMovePaneDown(pane)}
+                        />
                       </div>
-                    )}
-                    <div className='pointer-events-auto absolute top-1.5 right-2 pr-16'>
-                      <PaneControl
-                        paneIndex={paneIndex}
-                        paneCount={paneSnapshot.length}
-                        isCollapsed={collapsedPaneHeightsRef.current.has(pane)}
-                        isMaximized={maximizedPaneRef.current === pane}
-                        onMoveUp={() => handleMovePaneUp(pane)}
-                        onMoveDown={() => handleMovePaneDown(pane)}
-                        onToggleCollapse={() => handleToggleCollapse(pane)}
-                        onToggleMaximize={() => handleToggleMaximize(pane)}
-                      />
                     </div>
                   </div>
                 )
-              })}
-            </div>
-          </>
+              })
+            })()}
+          </div>
         )}
         {showEmptyState && (
           <div className='absolute inset-0 z-10 flex'>
@@ -758,7 +683,7 @@ export const NewDataChartWidgetBody = ({
       </div>
       {settingsMeta && (
         <div
-          className='absolute inset-0 z-40 flex items-center justify-center bg-black/40 p-4'
+          className='absolute inset-0 z-40 flex items-center justify-center backdrop-blur-sm bg-secondary/40 p-4'
           onClick={(event) => {
             if (event.target === event.currentTarget) {
               handleCloseSettings()

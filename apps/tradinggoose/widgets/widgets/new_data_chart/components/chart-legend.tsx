@@ -46,7 +46,7 @@ export const ChartLegend = ({
   return (
     <div
       ref={containerRef}
-      className='pointer-events-none absolute left-0 top-0 z-10 space-y-2 p-3 text-sm'
+      className='pointer-events-none absolute left-1 top-0 z-10 py-1 gap-2 text-sm'
     >
       {showListingOverlay ? (
         <div className='mb-1'>

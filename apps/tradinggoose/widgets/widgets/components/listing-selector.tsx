@@ -113,7 +113,7 @@ const ListingSelectorRow = ({ listing }: { listing?: ListingOption | null }) => 
         <span className='ml-1 text-xs'>{flagData.emoji}</span>
       ) : null}
       {assetClassLabel && listing ? (
-        <span className='ml-auto text-xs font-semibold text-muted-foreground'>
+        <span className='ml-auto p-1 text-xs font-semibold text-muted-foreground'>
           {assetClassLabel}
         </span>
       ) : null}
@@ -550,17 +550,17 @@ export function ListingSelector({
           disabled={disabled}
         />
         {showRichOverlay ? (
-          <div className='pointer-events-none absolute inset-y-0 left-0 flex items-center px-2 w-full'>
+          <div className='pointer-events-none absolute inset-y-0 left-0 flex items-center px-1 w-full'>
             <ListingSelectorRow listing={selectedListing} />
           </div>
         ) : null}
         {showPlaceholderOverlay ? (
-          <div className='pointer-events-none absolute inset-y-0 left-0 flex items-center px-2 w-full'>
+          <div className='pointer-events-none absolute inset-y-0 left-0 flex items-center px-1 w-full'>
             <ListingSelectorRow listing={null} />
           </div>
         ) : null}
         {showTagOverlay ? (
-          <div className='pointer-events-none absolute inset-y-0 left-0 flex items-center px-2 w-full'>
+          <div className='pointer-events-none absolute inset-y-0 left-0 flex items-center px-1 w-full'>
             <div className='w-full truncate text-sm'>
               {formatDisplayText(query, {
                 accessiblePrefixes,
