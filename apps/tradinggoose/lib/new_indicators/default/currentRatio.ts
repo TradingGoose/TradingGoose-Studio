@@ -1,11 +1,9 @@
-import { createDefaultPineIndicator } from './create-default-indicator'
+import { createDefaultPineIndicator } from '../create-default-indicator'
 
 const currentRatio = createDefaultPineIndicator({
   id: 'CR',
   name: 'Current Ratio',
-  pineCode: `const { close, high, low, open } = $.data;
-const { indicator, input, math, plot, ta } = $.pine;
-
+  pineCode: `
 indicator('Current Ratio');
 
 const period = input.int(26, 'Length');

@@ -1,10 +1,9 @@
-import { createDefaultPineIndicator } from './create-default-indicator'
+import { createDefaultPineIndicator } from '../create-default-indicator'
 
 const stopAndReverse = createDefaultPineIndicator({
   id: 'SAR',
   name: 'Stop and Reverse',
-  pineCode: `const { indicator, input, plot, ta } = $.pine;
-
+  pineCode: `
 indicator('Stop and Reverse', { overlay: true });
 
 const start = input.float(0.02, 'Start');

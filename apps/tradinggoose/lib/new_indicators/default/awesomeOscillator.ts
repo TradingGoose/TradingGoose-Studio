@@ -1,10 +1,9 @@
-import { createDefaultPineIndicator } from './create-default-indicator'
+import { createDefaultPineIndicator } from '../create-default-indicator'
 
 const awesomeOscillator = createDefaultPineIndicator({
   id: 'AO',
   name: 'Awesome Oscillator',
-  pineCode: `const { hl2 } = $.data;
-const { indicator, input, plot, ta } = $.pine;
+  pineCode: `
 
 indicator('Awesome Oscillator');
 

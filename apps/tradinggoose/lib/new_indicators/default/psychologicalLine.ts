@@ -1,11 +1,9 @@
-import { createDefaultPineIndicator } from './create-default-indicator'
+import { createDefaultPineIndicator } from '../create-default-indicator'
 
 const psychologicalLine = createDefaultPineIndicator({
   id: 'PSY',
   name: 'Psychological Line',
-  pineCode: `const { close } = $.data;
-const { indicator, input, plot, ta } = $.pine;
-
+  pineCode: `
 indicator('Psychological Line');
 
 const up = close > close[1] ? 1 : 0;

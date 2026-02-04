@@ -1,16 +1,16 @@
-import { createDefaultPineIndicator } from './create-default-indicator'
+import { createDefaultPineIndicator } from '../create-default-indicator'
 
 const simpleMovingAverage = createDefaultPineIndicator({
   id: 'SMA',
   name: 'Simple Moving Average',
-  pineCode: `const { close } = $.data;
-const { indicator, input, plot, ta } = $.pine;
-
+  pineCode: `
 indicator('Simple Moving Average', { overlay: true });
 
-const length = input.int(12, 'Length');
+const length = input.int(9, 'Length');
+const offset = input.int(0, 'Offset');
+const sma = ta.sma(close, length);
 
-plot(ta.ema(close, length), 'SMA');`,
+plot(sma, 'MA', { offset });`,
 })
 
 export default simpleMovingAverage
