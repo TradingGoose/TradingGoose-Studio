@@ -552,6 +552,50 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
 
     const safePlaceholderTop = Number.isFinite(placeholderOffset.top) ? placeholderOffset.top : 8
     const safePlaceholderLeft = Number.isFinite(placeholderOffset.left) ? placeholderOffset.left : 12
+    const baseOptions = useMemo(
+      () => ({
+        minimap: { enabled: false },
+        scrollBeyondLastLine: false,
+        wordWrap: 'on',
+        renderLineHighlight: 'none',
+        glyphMargin: false,
+        lineNumbersMinChars: 3,
+        lineDecorationsWidth: 3,
+        folding: false,
+        overviewRulerBorder: false,
+        automaticLayout: true,
+        fontSize: 14,
+        lineHeight: 21,
+        //fontFamily:
+        //'var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+        readOnly: readOnly || disabled,
+        domReadOnly: readOnly || disabled,
+        hover: { enabled: true, sticky: true },
+        parameterHints: { enabled: false },
+        suggest: { showInlineDetails: true },
+        suggestOnTriggerCharacters: false,
+        quickSuggestions: { other: 'inline', comments: true, strings: true },
+        inlineSuggest: { enabled: true },
+        scrollbar: {
+          verticalScrollbarSize: 6,
+          horizontalScrollbarSize: 6,
+          useShadows: false,
+          alwaysConsumeMouseWheel: false,
+        },
+      }),
+      [readOnly, disabled]
+    )
+    const mergedOptions = useMemo(() => {
+      if (!options) return baseOptions
+      return {
+        ...baseOptions,
+        ...options,
+        scrollbar: {
+          ...(baseOptions.scrollbar ?? {}),
+          ...(options.scrollbar ?? {}),
+        },
+      }
+    }, [baseOptions, options])
 
     if (!monacoInstance) {
       return (
@@ -684,37 +728,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
             applyDecorations()
             filterPlaceholderMarkers()
           }}
-          options={{
-            minimap: { enabled: false },
-            scrollBeyondLastLine: false,
-            wordWrap: 'on',
-            renderLineHighlight: 'none',
-            glyphMargin: false,
-            lineNumbersMinChars: 3,
-            lineDecorationsWidth: 3,
-            folding: false,
-            overviewRulerBorder: false,
-            automaticLayout: true,
-            fontSize: 14,
-            lineHeight: 21,
-            //fontFamily:
-            //'var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-            readOnly: readOnly || disabled,
-            domReadOnly: readOnly || disabled,
-            hover: { enabled: true, sticky: true },
-            parameterHints: { enabled: false },
-            suggest: { showInlineDetails: true },
-            suggestOnTriggerCharacters: false,
-            quickSuggestions: { other: 'inline', comments: true, strings: true },
-            inlineSuggest: { enabled: true },
-            scrollbar: {
-              verticalScrollbarSize: 6,
-              horizontalScrollbarSize: 6,
-              useShadows: false,
-              alwaysConsumeMouseWheel: false,
-            },
-            ...options,
-          }}
+          options={mergedOptions}
         />
       </div>
     )
