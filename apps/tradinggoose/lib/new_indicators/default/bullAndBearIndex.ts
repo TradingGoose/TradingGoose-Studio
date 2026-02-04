@@ -1,11 +1,9 @@
-import { createDefaultPineIndicator } from './create-default-indicator'
+import { createDefaultPineIndicator } from '../create-default-indicator'
 
 const bullAndBearIndex = createDefaultPineIndicator({
   id: 'BBI',
   name: 'Bull and Bear Index',
-  pineCode: `const { close } = $.data;
-const { indicator, input, plot, ta } = $.pine;
-
+  pineCode: `
 indicator('Bull and Bear Index', { overlay: true });
 
 const length1 = input.int(3, 'Length 1');

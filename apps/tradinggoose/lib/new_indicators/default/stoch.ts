@@ -1,24 +1,20 @@
-import { createDefaultPineIndicator } from './create-default-indicator'
+import { createDefaultPineIndicator } from '../create-default-indicator'
 
 const stoch = createDefaultPineIndicator({
   id: 'STOCH',
   name: 'Stochastic',
-  pineCode: `const { close, high, low } = $.data;
-const { indicator, input, plot, ta } = $.pine;
-
+  pineCode: `
 indicator('Stochastic');
 
-const length = input.int(9, 'Length');
-const smoothK = input.int(3, 'Smooth K');
-const smoothD = input.int(3, 'Smooth D');
-const rsv = ta.stoch(close, high, low, length);
-const k = ta.rma(rsv, smoothK);
-const d = ta.rma(k, smoothD);
-const j = 3 * k - 2 * d;
+const periodK = input.int(14, '%K Length');
+const smoothK = input.int(1, '%K Smoothing');
+const periodD = input.int(3, '%D Smoothing');
+const stochRaw = ta.stoch(close, high, low, periodK);
+const k = ta.sma(stochRaw, smoothK);
+const d = ta.sma(k, periodD);
 
-plot(k, 'K');
-plot(d, 'D');
-plot(j, 'J');`,
+plot(k, '%K');
+plot(d, '%D');`,
 })
 
 export default stoch

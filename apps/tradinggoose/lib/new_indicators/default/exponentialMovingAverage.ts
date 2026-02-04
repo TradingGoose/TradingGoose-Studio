@@ -1,20 +1,16 @@
-import { createDefaultPineIndicator } from './create-default-indicator'
+import { createDefaultPineIndicator } from '../create-default-indicator'
 
 const exponentialMovingAverage = createDefaultPineIndicator({
   id: 'EMA',
   name: 'Exponential Moving Average',
-  pineCode: `const { close } = $.data;
-const { indicator, input, plot, ta } = $.pine;
-
+  pineCode: `
 indicator('Exponential Moving Average', { overlay: true });
 
-const length1 = input.int(6, 'Length 1');
-const length2 = input.int(12, 'Length 2');
-const length3 = input.int(20, 'Length 3');
+const length = input.int(9, 'Length');
+const offset = input.int(0, 'Offset');
+const ema = ta.ema(close, length);
 
-plot(ta.ema(close, length1), 'EMA6');
-plot(ta.ema(close, length2), 'EMA12');
-plot(ta.ema(close, length3), 'EMA20');`,
+plot(ema, 'EMA', { offset });`,
 })
 
 export default exponentialMovingAverage

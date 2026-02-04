@@ -1,11 +1,9 @@
-import { createDefaultPineIndicator } from './create-default-indicator'
+import { createDefaultPineIndicator } from '../create-default-indicator'
 
 const bollingerBands = createDefaultPineIndicator({
   id: 'BOLL',
   name: 'Bollinger Bands',
-  pineCode: `const { close } = $.data;
-const { indicator, input, plot, ta } = $.pine;
-
+  pineCode: `
 indicator('Bollinger Bands', { overlay: true });
 
 const length = input.int(20, 'Length');

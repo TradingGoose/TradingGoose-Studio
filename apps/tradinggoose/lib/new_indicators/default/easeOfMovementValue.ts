@@ -1,23 +1,21 @@
-import { createDefaultPineIndicator } from './create-default-indicator'
+import { createDefaultPineIndicator } from '../create-default-indicator'
 
 const easeOfMovementValue = createDefaultPineIndicator({
   id: 'EMV',
-  name: 'Ease of Movement Value',
-  pineCode: `const { high, low, volume } = $.data;
-const { indicator, input, plot, ta } = $.pine;
+  name: 'Ease of Movement',
+  pineCode: `
+indicator('Ease of Movement');
 
-indicator('Ease of Movement Value');
-
-const distance = (high + low) / 2 - (high[1] + low[1]) / 2;
-const range = high - low;
-const vol = volume ?? 0;
-const ratio = range !== 0 ? vol / 100000000 / range : 0;
-const emv = ratio !== 0 ? distance / ratio : 0;
 const length = input.int(14, 'Length');
-const maEmv = ta.sma(emv, length);
+const divisor = input.int(10000, 'Divisor');
+const hl2 = (high + low) / 2;
+const hl2Change = ta.change(hl2, 1);
+const vol = volume ?? 0;
+const boxRatio = vol !== 0 ? (high - low) / (vol / divisor) : NaN;
+const eomRaw = hl2Change * boxRatio;
+const eom = ta.sma(eomRaw, length);
 
-plot(emv, 'EMV');
-plot(maEmv, 'MAEMV');`,
+plot(eom, 'EOM');`,
 })
 
 export default easeOfMovementValue

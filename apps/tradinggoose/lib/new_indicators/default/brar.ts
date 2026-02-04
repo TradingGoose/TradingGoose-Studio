@@ -1,11 +1,9 @@
-import { createDefaultPineIndicator } from './create-default-indicator'
+import { createDefaultPineIndicator } from '../create-default-indicator'
 
 const brar = createDefaultPineIndicator({
   id: 'BRAR',
   name: 'Brar',
-  pineCode: `const { close, high, low, open } = $.data;
-const { indicator, input, math, plot } = $.pine;
-
+  pineCode: `
 indicator('Brar');
 
 const period = input.int(26, 'Length');

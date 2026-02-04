@@ -1,11 +1,9 @@
-import { createDefaultPineIndicator } from './create-default-indicator'
+import { createDefaultPineIndicator } from '../create-default-indicator'
 
 const bias = createDefaultPineIndicator({
   id: 'BIAS',
   name: 'Bias',
-  pineCode: `const { close } = $.data;
-const { indicator, input, plot, ta } = $.pine;
-
+  pineCode: `
 indicator('Bias');
 
 const length1 = input.int(6, 'Length 1');

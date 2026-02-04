@@ -1,11 +1,9 @@
-import { createDefaultPineIndicator } from './create-default-indicator'
+import { createDefaultPineIndicator } from '../create-default-indicator'
 
 const volumeRatio = createDefaultPineIndicator({
   id: 'VR',
   name: 'Volume Ratio',
-  pineCode: `const { close, volume } = $.data;
-const { indicator, input, math, plot, ta } = $.pine;
-
+  pineCode: `
 indicator('Volume Ratio');
 
 const period = input.int(26, 'Length');

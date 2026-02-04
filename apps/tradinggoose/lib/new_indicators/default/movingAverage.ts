@@ -1,11 +1,9 @@
-import { createDefaultPineIndicator } from './create-default-indicator'
+import { createDefaultPineIndicator } from '../create-default-indicator'
 
 const movingAverage = createDefaultPineIndicator({
   id: 'MA',
   name: 'Moving Average',
-  pineCode: `const { close } = $.data;
-const { indicator, input, plot, ta } = $.pine;
-
+  pineCode: `
 indicator('Moving Average', { overlay: true });
 
 const length1 = input.int(5, 'Length 1');

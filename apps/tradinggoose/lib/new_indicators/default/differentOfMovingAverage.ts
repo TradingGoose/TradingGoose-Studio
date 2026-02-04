@@ -1,11 +1,9 @@
-import { createDefaultPineIndicator } from './create-default-indicator'
+import { createDefaultPineIndicator } from '../create-default-indicator'
 
 const differentOfMovingAverage = createDefaultPineIndicator({
   id: 'DMA',
   name: 'Different of Moving Average',
-  pineCode: `const { close } = $.data;
-const { indicator, input, plot, ta } = $.pine;
-
+  pineCode: `
 indicator('Different of Moving Average');
 
 const shortLength = input.int(10, 'Short Length');

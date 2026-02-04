@@ -1,11 +1,9 @@
-import { createDefaultPineIndicator } from './create-default-indicator'
+import { createDefaultPineIndicator } from '../create-default-indicator'
 
 const commodityChannelIndex = createDefaultPineIndicator({
   id: 'CCI',
   name: 'Commodity Channel Index',
-  pineCode: `const { close, high, low } = $.data;
-const { indicator, input, plot, ta } = $.pine;
-
+  pineCode: `
 indicator('Commodity Channel Index');
 
 const tp = (high + low + close) / 3;
