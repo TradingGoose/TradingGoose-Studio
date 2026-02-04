@@ -81,6 +81,41 @@ export const normalizeBarsMs = (barsMs: BarMs[], intervalMs?: number | null): Ba
   return recomputeCloseTimes(merged, intervalMs)
 }
 
+export const aggregateBarsMs = (barsMs: BarMs[], intervalMs: number): BarMs[] => {
+  if (!Array.isArray(barsMs) || barsMs.length === 0) return []
+  if (!Number.isFinite(intervalMs) || intervalMs <= 0) return barsMs
+  const sorted = [...barsMs].sort((a, b) => a.openTime - b.openTime)
+  const buckets = new Map<number, BarMs>()
+
+  sorted.forEach((bar) => {
+    const bucketStart = Math.floor(bar.openTime / intervalMs) * intervalMs
+    const existing = buckets.get(bucketStart)
+    if (!existing) {
+      buckets.set(bucketStart, {
+        openTime: bucketStart,
+        closeTime: bucketStart + intervalMs,
+        open: bar.open,
+        high: bar.high,
+        low: bar.low,
+        close: bar.close,
+        volume: typeof bar.volume === 'number' ? bar.volume : undefined,
+      })
+      return
+    }
+
+    existing.high = Math.max(existing.high, bar.high)
+    existing.low = Math.min(existing.low, bar.low)
+    existing.close = bar.close
+
+    const hasVolume = typeof existing.volume === 'number' || typeof bar.volume === 'number'
+    if (hasVolume) {
+      existing.volume = (existing.volume ?? 0) + (bar.volume ?? 0)
+    }
+  })
+
+  return Array.from(buckets.values()).sort((a, b) => a.openTime - b.openTime)
+}
+
 export const buildIndexMaps = (barsMs: BarMs[]) => {
   const indexByOpenTimeMs = new Map<number, number>()
   const openTimeMsByIndex: number[] = []
@@ -92,4 +127,3 @@ export const buildIndexMaps = (barsMs: BarMs[]) => {
 
   return { indexByOpenTimeMs, openTimeMsByIndex }
 }
-

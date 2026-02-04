@@ -21,6 +21,24 @@ export type PineWarning = {
   message: string
 }
 
+export type PineIndicatorOptions = {
+  overlay?: boolean
+  format?: string
+  precision?: number
+  scale?: string
+  max_bars_back?: number
+  timeframe?: string
+  timeframe_gaps?: boolean
+  explicit_plot_zorder?: boolean
+  max_lines_count?: number
+  max_labels_count?: number
+  max_boxes_count?: number
+  max_polylines_count?: number
+  calc_bars_count?: number
+  dynamic_requests?: boolean
+  behind_chart?: boolean
+}
+
 export type NormalizedPinePlot = {
   title: string
   overlay: boolean
@@ -66,6 +84,7 @@ export type NormalizedPineOutput = {
   drawings: unknown[]
   signals: unknown[]
   unsupported: PineUnsupportedInfo
+  indicator?: PineIndicatorOptions
 }
 
 export type BarMs = {
@@ -77,4 +96,3 @@ export type BarMs = {
   close: number
   volume?: number
 }
-
