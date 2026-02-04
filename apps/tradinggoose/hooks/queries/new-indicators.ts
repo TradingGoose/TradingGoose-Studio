@@ -216,6 +216,10 @@ export function useUpdateNewIndicator() {
         throw new Error('Indicator not found')
       }
 
+      const resolvedInputMeta = Object.prototype.hasOwnProperty.call(updates, 'inputMeta')
+        ? updates.inputMeta
+        : currentIndicator.inputMeta
+
       const response = await fetch(API_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -226,7 +230,7 @@ export function useUpdateNewIndicator() {
               name: updates.name ?? currentIndicator.name,
               color: updates.color ?? currentIndicator.color,
               pineCode: updates.pineCode ?? currentIndicator.pineCode,
-              inputMeta: updates.inputMeta ?? currentIndicator.inputMeta,
+              inputMeta: resolvedInputMeta,
             },
           ],
           workspaceId,
