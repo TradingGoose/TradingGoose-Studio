@@ -390,6 +390,9 @@ type IndicatorOutput = {
           editorHandleRef={codeEditorHandleRef}
           onCursorChange={handleCursorChange}
           extraLibs={indicatorExtraLibs}
+          editorOptions={{
+            scrollbar: { alwaysConsumeMouseWheel: true },
+          }}
           showWandButton={true}
           onWandClick={() => {
             activeWand.isPromptVisible

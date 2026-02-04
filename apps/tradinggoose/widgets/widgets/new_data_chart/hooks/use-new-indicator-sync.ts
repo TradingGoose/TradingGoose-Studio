@@ -16,7 +16,7 @@ import {
 import { getStableVibrantColor } from '@/lib/colors'
 import { DEFAULT_PINE_INDICATOR_MAP } from '@/lib/new_indicators/default'
 import { buildInputsMapFromMeta } from '@/lib/new_indicators/input-meta'
-import type { NormalizedPineOutput } from '@/lib/new_indicators/types'
+import type { NormalizedPineOutput, PineIndicatorOptions } from '@/lib/new_indicators/types'
 import type { NewIndicatorDefinition } from '@/stores/new-indicators/types'
 import type {
   IndicatorRuntimeEntry,
@@ -36,6 +36,77 @@ const EXECUTION_DEBOUNCE_MS = 300
 const DEFAULT_PINE_LINE_WIDTH = 1
 
 type MainSeries = ISeriesApi<'Candlestick'> | ISeriesApi<'Bar'> | ISeriesApi<'Area'>
+
+const normalizeEnumValue = (value?: string) => {
+  if (!value) return undefined
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+  const normalized = trimmed.toLowerCase()
+  return normalized.includes('.') ? normalized.split('.').pop() : normalized
+}
+
+const resolvePriceFormat = (format?: string, precision?: number) => {
+  const normalizedFormat = normalizeEnumValue(format)
+  const formatType =
+    normalizedFormat === 'price' || normalizedFormat === 'volume' || normalizedFormat === 'percent'
+      ? normalizedFormat
+      : undefined
+  const hasPrecision = typeof precision === 'number' && Number.isFinite(precision)
+  if (!formatType && !hasPrecision) return null
+
+  const resolvedPrecision = hasPrecision ? Math.max(0, Math.min(10, Math.round(precision))) : 2
+  const minMove = 1 / Math.pow(10, resolvedPrecision)
+
+  return {
+    type: formatType ?? 'price',
+    precision: resolvedPrecision,
+    minMove,
+  }
+}
+
+const resolveIndicatorFormat = (options?: PineIndicatorOptions) => {
+  const direct = normalizeEnumValue(options?.format)
+  if (direct) return direct
+  const scale = normalizeEnumValue(options?.scale)
+  if (scale === 'percent' || scale === 'volume') return scale
+  return undefined
+}
+
+const resolveIndicatorScale = (options?: PineIndicatorOptions) => {
+  const scale = normalizeEnumValue(options?.scale)
+  if (scale === 'left' || scale === 'right' || scale === 'none') return scale
+  return undefined
+}
+
+const isSeriesOnChart = (chart: IChartApi, series: ISeriesApi<any>) => {
+  const panes = chart.panes()
+  if (!panes.length) return false
+  return panes.some((pane) => pane.getSeries().includes(series))
+}
+
+const safeRemoveSeries = (chart: IChartApi, series: ISeriesApi<any> | null) => {
+  if (!series) return
+  if (isSeriesOnChart(chart, series)) {
+    chart.removeSeries(series)
+  }
+}
+
+const resolvePaneForSeries = (
+  chart: IChartApi,
+  seriesList: ISeriesApi<any>[],
+  fallback: IPaneApi<any> | null
+) => {
+  const panes = chart.panes()
+  if (fallback && panes.includes(fallback)) return fallback
+  if (seriesList.length === 0) return null
+  for (const pane of panes) {
+    const paneSeries = pane.getSeries()
+    for (const series of seriesList) {
+      if (paneSeries.includes(series)) return pane
+    }
+  }
+  return null
+}
 
 const collectExplicitColors = (plot: NormalizedPineOutput['series'][number]['plot']) => {
   const colors: string[] = []
@@ -89,7 +160,10 @@ const resolveSeriesDefinition = (seriesType?: string) => {
 }
 
 const resolveSeriesOptions = (
-  plot: NormalizedPineOutput['series'][number]['plot']
+  plot: NormalizedPineOutput['series'][number]['plot'],
+  indicatorOptions?: PineIndicatorOptions,
+  indicatorId?: string,
+  overlay?: boolean
 ): Record<string, unknown> => {
   const options: Record<string, unknown> = { ...(plot.options ?? {}) }
   if (options.lineType === 'withSteps') {
@@ -119,6 +193,35 @@ const resolveSeriesOptions = (
     }
     if (!('bottomColor' in options)) {
       options.bottomColor = 'transparent'
+    }
+  }
+
+  const plotFormat = normalizeEnumValue(options.format as string | undefined)
+  const plotPrecision =
+    typeof options.precision === 'number' && Number.isFinite(options.precision)
+      ? (options.precision as number)
+      : undefined
+  const indicatorFormat = resolveIndicatorFormat(indicatorOptions)
+  const indicatorPrecision =
+    typeof indicatorOptions?.precision === 'number' && Number.isFinite(indicatorOptions.precision)
+      ? indicatorOptions.precision
+      : undefined
+  const priceFormat = resolvePriceFormat(plotFormat ?? indicatorFormat, plotPrecision ?? indicatorPrecision)
+  if (priceFormat && !('priceFormat' in options)) {
+    options.priceFormat = priceFormat
+  }
+
+  const scale = resolveIndicatorScale(indicatorOptions)
+  if (scale === 'left' || scale === 'right') {
+    if (!('priceScaleId' in options)) {
+      options.priceScaleId = scale
+    }
+  } else if (scale === 'none') {
+    if (overlay) {
+      options.lastValueVisible = false
+      options.priceLineVisible = false
+    } else if (indicatorId && !('priceScaleId' in options)) {
+      options.priceScaleId = `indicator:${indicatorId}:hidden`
     }
   }
 
@@ -228,6 +331,7 @@ export const useNewIndicatorSync = ({
   const indicatorSignatureRef = useRef(new Map<string, string>())
   const warningCacheRef = useRef(new Set<string>())
   const runtimeSignatureRef = useRef<string>('')
+  const runIdRef = useRef(0)
 
   const indicatorIds = useMemo(
     () => indicatorRefs.filter((ref) => ref && typeof ref.id === 'string').map((ref) => ref.id),
@@ -265,7 +369,24 @@ export const useNewIndicatorSync = ({
     if (!chart) return
 
     const seriesMap = indicatorSeriesMapRef.current.get(indicatorId)
-    const indicatorSeries = seriesMap ? Array.from(seriesMap.values()) : []
+    const seriesList = seriesMap ? Array.from(seriesMap.values()) : []
+    const pane = resolvePaneForSeries(
+      chart,
+      seriesList,
+      indicatorPaneMapRef.current.get(indicatorId) ?? null
+    )
+    const mainSeries = mainSeriesRef.current
+    if (pane && typeof chart.removePane === 'function') {
+      const panes = chart.panes()
+      const paneIndex = panes.indexOf(pane)
+      if (panes.length > 1 && paneIndex >= 0) {
+        const mainPane = mainSeries?.getPane()
+        if (pane !== mainPane) {
+          chart.removePane(paneIndex)
+        }
+      }
+    }
+
     if (seriesMap) {
       seriesMap.forEach((series) => {
         const markersPlugin = seriesMarkersMapRef.current.get(series)
@@ -273,40 +394,9 @@ export const useNewIndicatorSync = ({
           markersPlugin.detach()
           seriesMarkersMapRef.current.delete(series)
         }
-        chart.removeSeries(series)
+        safeRemoveSeries(chart, series)
       })
       indicatorSeriesMapRef.current.delete(indicatorId)
-    }
-
-    const pane = indicatorPaneMapRef.current.get(indicatorId)
-    if (pane && typeof chart.removePane === 'function') {
-      const panes = chart.panes()
-      if (panes.length > 1) {
-        const paneSeries = pane.getSeries()
-        const mainSeries = mainSeriesRef.current
-        const hasMainSeries = mainSeries
-          ? paneSeries.includes(mainSeries as unknown as ISeriesApi<any>)
-          : false
-        const hasOtherIndicator = Array.from(indicatorPaneMapRef.current.entries()).some(
-          ([id, entryPane]) => id !== indicatorId && entryPane === pane
-        )
-        if (!hasMainSeries && !hasOtherIndicator) {
-          // Remove any remaining series in this pane to ensure it can be dropped immediately.
-          paneSeries.forEach((series) => {
-            const markersPlugin = seriesMarkersMapRef.current.get(series)
-            if (markersPlugin) {
-              markersPlugin.detach()
-              seriesMarkersMapRef.current.delete(series)
-            }
-            chart.removeSeries(series)
-          })
-          const nextPanes = chart.panes()
-          const paneIndex = nextPanes.findIndex((entry) => entry === pane)
-          if (paneIndex >= 0 && nextPanes.length > 1) {
-            chart.removePane(paneIndex)
-          }
-        }
-      }
     }
     indicatorPaneMapRef.current.delete(indicatorId)
     indicatorPaneSeriesMapRef.current.delete(indicatorId)
@@ -318,6 +408,7 @@ export const useNewIndicatorSync = ({
     const mainSeries = mainSeriesRef.current
     if (!chart || !mainSeries) return
     if (!workspaceId) return
+    const runId = (runIdRef.current += 1)
 
     const activeIds = new Set(indicatorIds)
     const previousIds = indicatorIdsRef.current
@@ -455,6 +546,10 @@ export const useNewIndicatorSync = ({
         }
       }
 
+      if (controller.signal.aborted || runId !== runIdRef.current) {
+        return
+      }
+
       const results = [...cachedResults, ...fetchedResults]
       const resultMap = new Map(results.map((result) => [result.indicatorId, result]))
 
@@ -464,18 +559,36 @@ export const useNewIndicatorSync = ({
       }> = []
 
       const runtimeEntries = new Map<string, IndicatorRuntimeEntry>()
+      const mainPane = mainSeries.getPane()
+      const mainPaneIndex = mainPane.paneIndex()
 
       indicatorIds.forEach((indicatorId) => {
+        if (!indicatorIdsRef.current.has(indicatorId)) {
+          cleanupIndicator(indicatorId)
+          return
+        }
         const result = resultMap.get(indicatorId)
         if (!result || !result.output) {
-          if (result?.executionError?.message) {
-            warnOnce(result.executionError.message)
+          const errorMessage = result?.executionError?.message?.trim()
+          if (errorMessage) {
+            warnOnce(errorMessage)
           }
           cleanupIndicator(indicatorId)
+          if (errorMessage) {
+            runtimeEntries.set(indicatorId, {
+              id: indicatorId,
+              pane: null,
+              paneIndex: mainPaneIndex,
+              plots: [],
+              errorMessage,
+            })
+          }
           return
         }
 
         const output = result.output
+        const indicatorOptions = output.indicator
+        const indicatorScale = resolveIndicatorScale(indicatorOptions)
         const signature = buildIndicatorSignature(output)
         const previousSignature = indicatorSignatureRef.current.get(indicatorId)
         const shouldRebuild = previousSignature !== signature
@@ -488,7 +601,23 @@ export const useNewIndicatorSync = ({
         }
 
         const hasNonOverlay = output.series.some((plot) => plot.plot.overlay === false)
+        const shouldApplyBehindChart = indicatorOptions?.behind_chart === true && !hasNonOverlay
+        const shouldApplyExplicitOrder = indicatorOptions?.explicit_plot_zorder === true
+        const mainSeriesOrder = !hasNonOverlay && mainSeries ? mainSeries.seriesOrder() : 0
+        const baseSeriesOrder = shouldApplyBehindChart
+          ? 0
+          : !hasNonOverlay
+            ? mainSeriesOrder + 1
+            : 0
+        const existingSeriesMap = indicatorSeriesMapRef.current.get(indicatorId)
         let pane: IPaneApi<any> | null = indicatorPaneMapRef.current.get(indicatorId) ?? null
+        if (pane && !chart.panes().includes(pane)) {
+          pane = resolvePaneForSeries(
+            chart,
+            existingSeriesMap ? Array.from(existingSeriesMap.values()) : [],
+            null
+          )
+        }
         if (hasNonOverlay) {
           if (!pane) {
             if (typeof chart.addPane === 'function') {
@@ -505,7 +634,7 @@ export const useNewIndicatorSync = ({
         indicatorPaneMapRef.current.set(indicatorId, pane)
 
         const seriesMap =
-          indicatorSeriesMapRef.current.get(indicatorId) ?? new Map<string, ISeriesApi<any>>()
+          existingSeriesMap ?? new Map<string, ISeriesApi<any>>()
         indicatorSeriesMapRef.current.set(indicatorId, seriesMap)
 
         let paneAnchorSeries: ISeriesApi<any> | null = null
@@ -538,7 +667,12 @@ export const useNewIndicatorSync = ({
                   color: resolvePlotColor(plotKey),
                 }
               : seriesEntry.plot
-          const options = resolveSeriesOptions(resolvedPlot)
+          const options = resolveSeriesOptions(
+            resolvedPlot,
+            indicatorOptions,
+            indicatorId,
+            seriesEntry.plot.overlay !== false
+          )
           const legendColor = (() => {
             const optionColor =
               (options.color as string | undefined) ??
@@ -563,7 +697,7 @@ export const useNewIndicatorSync = ({
                 markersPlugin.detach()
                 seriesMarkersMapRef.current.delete(series)
               }
-              chart.removeSeries(series)
+              safeRemoveSeries(chart, series)
               seriesMap.delete(seriesKey)
             }
             series = targetPane
@@ -572,6 +706,14 @@ export const useNewIndicatorSync = ({
             seriesMap.set(seriesKey, series)
           } else if (series && typeof (series as any).applyOptions === 'function') {
             ;(series as any).applyOptions(options)
+          }
+
+          if (series && indicatorScale === 'none' && seriesEntry.plot.overlay === false) {
+            series.priceScale().applyOptions({ visible: false })
+          }
+
+          if (series && (shouldApplyExplicitOrder || shouldApplyBehindChart)) {
+            series.setSeriesOrder(baseSeriesOrder + plotIndex)
           }
 
           series.setData(
@@ -602,7 +744,7 @@ export const useNewIndicatorSync = ({
               markersPlugin.detach()
               seriesMarkersMapRef.current.delete(series)
             }
-            chart.removeSeries(series)
+            safeRemoveSeries(chart, series)
             seriesMap.delete(key)
           }
         })
@@ -632,7 +774,7 @@ export const useNewIndicatorSync = ({
               markersPlugin.detach()
               seriesMarkersMapRef.current.delete(anchor)
             }
-            chart.removeSeries(anchor)
+            safeRemoveSeries(chart, anchor)
           }
           seriesMap.delete('__anchor__')
         }
@@ -690,13 +832,38 @@ export const useNewIndicatorSync = ({
         const signature = Array.from(runtimeEntries.values())
           .map((entry) => {
             const plotKeys = entry.plots.map((plot) => plot.key).join(',')
-            return `${entry.id}:${entry.paneIndex}:${plotKeys}`
+            const errorTag = entry.errorMessage ? `:error:${entry.errorMessage}` : ''
+            return `${entry.id}:${entry.paneIndex}:${plotKeys}${errorTag}`
           })
           .join('|')
         if (signature !== runtimeSignatureRef.current) {
           runtimeSignatureRef.current = signature
           onIndicatorRuntimeChange?.()
         }
+      }
+
+      const panes = chart.panes()
+      if (panes.length > 1) {
+        const mainPane = mainSeries.getPane()
+        const referencedPanes = new Set<IPaneApi<any>>()
+        indicatorPaneMapRef.current.forEach((pane) => {
+          if (pane) referencedPanes.add(pane)
+        })
+
+        const removablePanes = panes
+          .filter(
+            (pane) =>
+              pane !== mainPane && !referencedPanes.has(pane) && pane.getSeries().length === 0
+          )
+          .sort((a, b) => b.paneIndex() - a.paneIndex())
+
+        removablePanes.forEach((pane) => {
+          const currentPanes = chart.panes()
+          const paneIndex = currentPanes.indexOf(pane)
+          if (currentPanes.length > 1 && paneIndex >= 0) {
+            chart.removePane(paneIndex)
+          }
+        })
       }
     }, EXECUTION_DEBOUNCE_MS)
 

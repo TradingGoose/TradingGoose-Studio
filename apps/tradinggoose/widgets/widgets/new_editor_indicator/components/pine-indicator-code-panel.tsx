@@ -1,12 +1,8 @@
 'use client'
 
 import { type MutableRefObject, useCallback, useEffect, useRef, useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
 import type { MonacoEditorHandle } from '@/components/monaco-editor'
-import { Button } from '@/components/ui/button'
 import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Notice } from '@/components/ui/notice'
 import {
   Select,
@@ -15,10 +11,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { InputMetaMap } from '@/lib/new_indicators/types'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  buildInputsMapFromMeta,
+  inferInputMetaFromPineCode,
+} from '@/lib/new_indicators/input-meta'
 import { useUpdateNewIndicator, useVerifyNewIndicator } from '@/hooks/queries/new-indicators'
 import { useWand } from '@/hooks/workflow/use-wand'
 import type { NewIndicatorDefinition } from '@/stores/new-indicators/types'
+import {
+  CHEAT_SHEET_GROUPS,
+  type CheatSheetGroup,
+} from '@/widgets/widgets/new_editor_indicator/components/pine-cheat-sheet'
+import { PINE_CHEAT_SHEET_EXTRA_LIBS } from '@/widgets/widgets/new_editor_indicator/components/pine-cheat-sheet-typings'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
 import { CodeEditor } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/code-editor/code-editor'
 
@@ -30,185 +35,23 @@ type PineIndicatorCodePanelProps = {
   verifyRef: MutableRefObject<() => void>
 }
 
-type InputRow = {
-  id: string
-  title: string
-  type: string
-  defval: string
-  minval: string
-  maxval: string
-  step: string
-  options: string
-  value: string
-}
-
-const INPUT_TYPE_OPTIONS = [
-  { value: 'float', label: 'Float' },
-  { value: 'int', label: 'Int' },
-  { value: 'bool', label: 'Bool' },
-  { value: 'string', label: 'String' },
-  { value: 'source', label: 'Source' },
-  { value: 'color', label: 'Color' },
-  { value: 'enum', label: 'Enum' },
-]
-
-const createRowId = () =>
-  typeof crypto !== 'undefined' && 'randomUUID' in crypto
-    ? crypto.randomUUID()
-    : Math.random().toString(36).slice(2)
-
-const createInputRow = (partial?: Partial<InputRow>): InputRow => ({
-  id: createRowId(),
-  title: '',
-  type: 'float',
-  defval: '',
-  minval: '',
-  maxval: '',
-  step: '',
-  options: '',
-  value: '',
-  ...partial,
-})
-
-const parseNumber = (value: string) => {
-  if (!value.trim()) return undefined
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : undefined
-}
-
-const parseValue = (value: string, type: string) => {
-  if (type === 'int' || type === 'float') {
-    const parsed = parseNumber(value)
-    if (typeof parsed !== 'number') return undefined
-    return type === 'int' ? Math.trunc(parsed) : parsed
-  }
-  if (type === 'bool') {
-    if (value.toLowerCase() === 'true') return true
-    if (value.toLowerCase() === 'false') return false
-    return undefined
-  }
-  return value
-}
-
-const buildInputMetaMap = (rows: InputRow[]) => {
-  const map: InputMetaMap = {}
-  const errors: string[] = []
-  const seen = new Set<string>()
-
-  rows.forEach((row) => {
-    const title = row.title.trim()
-    const hasAnyValue =
-      title ||
-      row.defval.trim() ||
-      row.minval.trim() ||
-      row.maxval.trim() ||
-      row.step.trim() ||
-      row.options.trim() ||
-      row.value.trim()
-
-    if (!title) {
-      if (hasAnyValue) {
-        errors.push('All inputs must include a title.')
-      }
-      return
-    }
-
-    const lowered = title.toLowerCase()
-    if (seen.has(lowered)) {
-      errors.push(`Input titles must be unique (case-insensitive): ${title}`)
-      return
-    }
-    seen.add(lowered)
-
-    const type = row.type || 'float'
-    const options = row.options
-      .split(',')
-      .map((option) => option.trim())
-      .filter(Boolean)
-
-    map[title] = {
-      title,
-      type,
-      defval: parseValue(row.defval, type),
-      minval: parseNumber(row.minval),
-      maxval: parseNumber(row.maxval),
-      step: parseNumber(row.step),
-      options: options.length > 0 ? options : undefined,
-      value: row.value.trim() ? parseValue(row.value, type) : undefined,
-    }
-  })
-
-  return { map, errors }
-}
-
-const buildInputsMap = (rows: InputRow[]) => {
-  const { map } = buildInputMetaMap(rows)
-  const inputs: Record<string, unknown> = {}
-
-  Object.entries(map).forEach(([title, meta]) => {
-    if (typeof meta.value !== 'undefined') {
-      inputs[title] = meta.value
-    } else if (typeof meta.defval !== 'undefined') {
-      inputs[title] = meta.defval
-    }
-  })
-
-  return inputs
-}
-
-const toRowsFromMeta = (inputMeta?: InputMetaMap | null) => {
-  const rows: InputRow[] = []
-  const indexByLower = new Map<string, number>()
-  let hadDuplicates = false
-
-  Object.entries(inputMeta ?? {}).forEach(([key, meta]) => {
-    if (!meta || typeof meta !== 'object') return
-    const title = typeof meta.title === 'string' ? meta.title.trim() : key.trim()
-    if (!title) return
-
-    const row = createInputRow({
-      title,
-      type: meta.type ?? 'float',
-      defval: typeof meta.defval === 'string' ? meta.defval : (meta.defval?.toString?.() ?? ''),
-      minval: typeof meta.minval === 'number' ? String(meta.minval) : '',
-      maxval: typeof meta.maxval === 'number' ? String(meta.maxval) : '',
-      step: typeof meta.step === 'number' ? String(meta.step) : '',
-      options: Array.isArray(meta.options) ? meta.options.join(', ') : '',
-      value: typeof meta.value === 'string' ? meta.value : (meta.value?.toString?.() ?? ''),
-    })
-
-    const lowered = title.toLowerCase()
-    if (indexByLower.has(lowered)) {
-      const idx = indexByLower.get(lowered) ?? -1
-      if (idx >= 0) {
-        rows[idx] = row
-        hadDuplicates = true
-      }
-      return
-    }
-
-    indexByLower.set(lowered, rows.length)
-    rows.push(row)
-  })
-
-  return { rows, hadDuplicates }
-}
-
 const PINE_WAND_PROMPT = `# Role
 You are an expert PineTS developer writing Pine Script-style indicators in TypeScript.
 
 # Runtime
 - The script runs inside: async ($) => { ... }.
-- Access data and Pine helpers like:
-  const { close, open, high, low, volume } = $.data;
-  const { ta, input, plot, plotshape, plotchar, plotarrow, hline, fill } = $.pine;
+- Use globals directly (no $.pine/$.data). Example:
+  const length = input.int(14, 'Length');
+  const sma = ta.sma(close, length);
+  plot(sma, 'SMA');
 - Do NOT return { plots, signals }. PineTS uses plot calls.
 - No imports, exports, require, or fetch.
 - Do not read future bars; assume bar-close data only.
 
 # Output
 - Use plot/plotshape/plotarrow/plotchar to emit visuals.
-- Use input.* to define user-configurable inputs (values come from the Input panel).
+- Use input.* to define user-configurable inputs directly in the script.
+- Do NOT reference $.pine or $.data.
 
 # Robustness
 - Guard against NaN/Infinity and divide-by-zero.
@@ -217,7 +60,7 @@ You are an expert PineTS developer writing Pine Script-style indicators in TypeS
 Current script code: {context}
 
 Rules:
-1) Output raw TypeScript/JavaScript only.
+1) Output raw TypeScript only.
 2) Do NOT include a function wrapper or signature.`
 
 export function PineIndicatorCodePanel({
@@ -231,9 +74,6 @@ export function PineIndicatorCodePanel({
   const verifyMutation = useVerifyNewIndicator()
 
   const [pineCode, setPineCode] = useState('')
-  const [inputRows, setInputRows] = useState<InputRow[]>([])
-  const [inputMetaWarning, setInputMetaWarning] = useState<string | null>(null)
-  const [inputMetaError, setInputMetaError] = useState<string | null>(null)
 
   const [verifyStatus, setVerifyStatus] = useState<
     | { state: 'idle' }
@@ -247,10 +87,16 @@ export function PineIndicatorCodePanel({
   const [envVarSearchTerm, setEnvVarSearchTerm] = useState('')
   const [cursorPosition, setCursorPosition] = useState(0)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
+  const [cheatSheetGroup, setCheatSheetGroup] = useState<CheatSheetGroup>('data')
 
   const codeEditorRef = useRef<HTMLDivElement>(null)
   const codeEditorHandleRef = useRef<MonacoEditorHandle | null>(null)
   const indicatorSignatureRef = useRef('')
+  const disallowedGlobalMessage =
+    'Do not use $.pine or $.data. Use globals directly (ta, input, plot, open, high, low, close, volume).'
+
+  const validateNoDollarGlobals = (code: string) =>
+    /\$\.(pine|data)\b/.test(code) ? disallowedGlobalMessage : null
 
   const calcWand = useWand({
     wandConfig: {
@@ -276,12 +122,6 @@ export function PineIndicatorCodePanel({
     indicatorSignatureRef.current = signature
 
     setPineCode(indicator.pineCode ?? '')
-    const metaResult = toRowsFromMeta(indicator.inputMeta ?? null)
-    setInputRows(metaResult.rows)
-    setInputMetaWarning(
-      metaResult.hadDuplicates ? 'Input titles had collisions. The latest value was kept.' : null
-    )
-    setInputMetaError(null)
     setVerifyStatus({ state: 'idle' })
   }, [indicator])
 
@@ -326,12 +166,12 @@ export function PineIndicatorCodePanel({
 
   const handleSave = useCallback(async () => {
     if (!workspaceId || !indicatorId) return
-    const { map, errors } = buildInputMetaMap(inputRows)
-    if (errors.length > 0) {
-      setInputMetaError(errors[0])
+    const disallowedMessage = validateNoDollarGlobals(pineCode)
+    if (disallowedMessage) {
+      setVerifyStatus({ state: 'error', message: disallowedMessage })
       return
     }
-    setInputMetaError(null)
+    const inferredInputMeta = inferInputMetaFromPineCode(pineCode)
 
     try {
       await updateMutation.mutateAsync({
@@ -339,40 +179,41 @@ export function PineIndicatorCodePanel({
         indicatorId,
         updates: {
           pineCode,
-          inputMeta: map,
+          inputMeta: inferredInputMeta ?? null,
         },
       })
     } catch (err) {
       console.error('Failed to update indicator', err)
     }
-  }, [workspaceId, indicatorId, updateMutation, pineCode, inputRows])
+  }, [workspaceId, indicatorId, updateMutation, pineCode])
 
   const handleVerify = useCallback(async () => {
     if (!workspaceId) return
     if (verifyStatus.state === 'running') return
-
-    const { errors } = buildInputMetaMap(inputRows)
-    if (errors.length > 0) {
-      setInputMetaError(errors[0])
-      setVerifyStatus({ state: 'error', message: errors[0] })
+    const disallowedMessage = validateNoDollarGlobals(pineCode)
+    if (disallowedMessage) {
+      setVerifyStatus({ state: 'error', message: disallowedMessage })
       return
     }
-    setInputMetaError(null)
 
     setVerifyStatus({ state: 'running' })
 
     try {
+      const inferredInputMeta = inferInputMetaFromPineCode(pineCode)
       const data = await verifyMutation.mutateAsync({
         workspaceId,
         pineCode,
-        inputs: buildInputsMap(inputRows),
+        inputs: buildInputsMapFromMeta(inferredInputMeta ?? undefined),
       })
 
-      const warnings = Array.isArray(data?.warnings)
-        ? data.warnings
+      const warnings: string[] = []
+      if (Array.isArray(data?.warnings)) {
+        warnings.push(
+          ...data.warnings
             .map((warning: { message?: string }) => warning?.message)
             .filter((warning: any): warning is string => Boolean(warning))
-        : []
+        )
+      }
       const unsupportedStyles = Array.isArray(data?.unsupported?.styles)
         ? data.unsupported.styles.filter((style: string) => style)
         : []
@@ -387,9 +228,8 @@ export function PineIndicatorCodePanel({
       }
       const plotsCount = data?.plotsCount ?? 0
       const markersCount = data?.markersCount ?? 0
-      const baseMessage = `Verification passed (${plotsCount} plot${
-        plotsCount === 1 ? '' : 's'
-      }, ${markersCount} marker${markersCount === 1 ? '' : 's'}).`
+      const baseMessage = `Verification passed (${plotsCount} plot${plotsCount === 1 ? '' : 's'
+        }, ${markersCount} marker${markersCount === 1 ? '' : 's'}).`
 
       if (warnings.length > 0) {
         setVerifyStatus({
@@ -409,7 +249,7 @@ export function PineIndicatorCodePanel({
       const message = error instanceof Error ? error.message : 'Verification failed.'
       setVerifyStatus({ state: 'error', message })
     }
-  }, [workspaceId, verifyMutation, pineCode, inputRows, verifyStatus.state])
+  }, [workspaceId, verifyMutation, pineCode, verifyStatus.state])
 
   useEffect(() => {
     saveRef.current = handleSave
@@ -419,251 +259,157 @@ export function PineIndicatorCodePanel({
     verifyRef.current = handleVerify
   }, [handleVerify, verifyRef])
 
-  const handleAddInput = () => {
-    setInputRows((prev) => [...prev, createInputRow()])
-  }
-
-  const handleRemoveInput = (rowId: string) => {
-    setInputRows((prev) => prev.filter((row) => row.id !== rowId))
-  }
-
-  const handleRowChange = (rowId: string, updates: Partial<InputRow>) => {
-    setInputRows((prev) => prev.map((row) => (row.id === rowId ? { ...row, ...updates } : row)))
-  }
-
-  const showVerifyNotice = verifyStatus.state !== 'idle'
-  const verifyNoticeVariant =
-    verifyStatus.state === 'success'
-      ? 'success'
-      : verifyStatus.state === 'warning'
-        ? 'warning'
-        : verifyStatus.state === 'error'
-          ? 'error'
-          : 'info'
-
   return (
-    <div className='flex h-full w-full flex-col gap-4 overflow-hidden p-4'>
-      <div className='flex-1 overflow-hidden'>
-        <div className='flex h-full flex-col gap-3'>
-          <div className='flex items-center justify-between'>
-            <div>
-              <div className='font-semibold text-sm'>PineTS Script</div>
-              <div className='text-muted-foreground text-xs'>
-                Use PineTS helpers (pine.plot, pine.plotshape, pine.input, etc.).
-              </div>
-            </div>
+    <div className='flex h-full w-full flex-col overflow-hidden p-2'>
+      <div className='space-y-2'>
+        <div className='rounded-md bg-muted flex justify-start gap-2 p-2'>
+          <div className='flex flex-wrap items-center gap-1 '>
+            <Select
+              value={cheatSheetGroup}
+              onValueChange={(value) => setCheatSheetGroup(value as CheatSheetGroup)}
+            >
+              <SelectTrigger className='h-7 w-36'>
+                <SelectValue placeholder='Group' />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(CHEAT_SHEET_GROUPS).map(([key, group]) => (
+                  <SelectItem key={key} value={key}>
+                    {group.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+          <div className='flex flex-wrap items-center gap-1'>
+            {CHEAT_SHEET_GROUPS[cheatSheetGroup].items.map((item) => {
+              const examples = 'examples' in item ? item.examples : undefined
+              const members = 'members' in item ? item.members : undefined
 
-          <div className='flex-1 overflow-hidden rounded-md border border-border bg-background'>
-            <div className='relative h-full min-h-[320px] p-2' ref={codeEditorRef}>
-              <WandPromptBar
-                isVisible={calcWand.isPromptVisible}
-                isLoading={calcWand.isLoading}
-                isStreaming={calcWand.isStreaming}
-                promptValue={calcWand.promptInputValue}
-                onSubmit={(prompt: string) => calcWand.generateStream({ prompt })}
-                onCancel={
-                  calcWand.isStreaming ? calcWand.cancelGeneration : calcWand.hidePromptInline
-                }
-                onChange={calcWand.updatePromptValue}
-                placeholder='Describe the PineTS indicator logic to generate...'
-                className='!top-0 relative mb-2'
-              />
-              <CodeEditor
-                value={pineCode}
-                onChange={handleCodeChange}
-                language='typescript'
-                placeholder='Write PineTS code here...'
-                minHeight='320px'
-                editorHandleRef={codeEditorHandleRef}
-                showWandButton
-                onWandClick={() => {
-                  calcWand.isPromptVisible
-                    ? calcWand.hidePromptInline()
-                    : calcWand.showPromptInline()
-                }}
-                wandButtonDisabled={calcWand.isLoading || calcWand.isStreaming}
-                onCursorChange={handleCursorChange}
-              />
-              {showEnvVars && (
-                <EnvVarDropdown
-                  visible={showEnvVars}
-                  onSelect={(nextValue) => {
-                    setPineCode(nextValue)
-                  }}
-                  searchTerm={envVarSearchTerm}
-                  inputValue={pineCode}
-                  cursorPosition={cursorPosition}
-                  workspaceId={workspaceId}
-                  onClose={() => setShowEnvVars(false)}
-                  className='w-64'
-                  style={{
-                    position: 'absolute',
-                    top: `${dropdownPosition.top}px`,
-                    left: `${dropdownPosition.left}px`,
-                  }}
-                />
-              )}
-            </div>
+              return (
+                <Tooltip key={item.key}>
+                  <TooltipTrigger asChild>
+                    <code className='cursor-help rounded bg-background px-1 py-0.5 text-xs text-foreground'>
+                      {item.key}
+                    </code>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side='top'
+                    className='max-h-48 max-w-[320px] overflow-auto whitespace-normal text-left'
+                  >
+                    <div className='space-y-1'>
+                      <div className='font-medium'>{item.key}</div>
+                      <div>{item.description}</div>
+                      {examples && examples.length > 0 && (
+                        <div className='text-secondary/80'>
+                          <div className='font-medium text-secondary'>Examples:</div>
+                          <div className='mt-1 space-y-0.5'>
+                            {examples.map((example) => (
+                              <div key={example}>{example}</div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {members && (
+                        <div className='text-secondary/80'>
+                          <span className='font-medium text-secondary'>Available:</span>{' '}
+                          {members}
+                        </div>
+                      )}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              )
+            })}
           </div>
-
-          {showVerifyNotice && (
-            <Notice variant={verifyNoticeVariant}>
-              <div className='space-y-2'>
-                <div>
-                  {verifyStatus.state === 'running' ? 'Verifying...' : verifyStatus.message}
-                </div>
-                {verifyStatus.state === 'warning' && verifyStatus.warnings.length > 0 && (
-                  <ul className='list-disc pl-5 text-xs'>
+        </div>
+        {verifyStatus.state !== 'idle' && (
+          <Notice
+            variant={
+              verifyStatus.state === 'error'
+                ? 'error'
+                : verifyStatus.state === 'warning'
+                  ? 'warning'
+                  : verifyStatus.state === 'success'
+                    ? 'success'
+                    : 'info'
+            }
+            title={
+              verifyStatus.state === 'running'
+                ? 'Verifying indicator...'
+                : verifyStatus.state === 'error'
+                  ? 'Verification failed'
+                  : verifyStatus.state === 'warning'
+                    ? 'Verification warnings'
+                    : 'Verification passed'
+            }
+          >
+            {verifyStatus.state === 'running' && 'Running server-side verification with mock data.'}
+            {verifyStatus.state === 'error' && verifyStatus.message}
+            {(verifyStatus.state === 'success' || verifyStatus.state === 'warning') && (
+              <div className='space-y-1'>
+                <div>{verifyStatus.message}</div>
+                {verifyStatus.warnings.length > 0 && (
+                  <ul className='list-disc space-y-1 pl-4'>
                     {verifyStatus.warnings.map((warning) => (
                       <li key={warning}>{warning}</li>
                     ))}
                   </ul>
                 )}
               </div>
-            </Notice>
-          )}
-        </div>
+            )}
+          </Notice>
+        )}
       </div>
 
-      <div className='rounded-md border border-border bg-muted/30 p-4'>
-        <div className='flex items-center justify-between'>
-          <div>
-            <div className='font-semibold text-sm'>Inputs</div>
-            <div className='text-muted-foreground text-xs'>
-              Define input titles and defaults for pine.input.* calls.
-            </div>
-          </div>
-          <Button type='button' variant='secondary' size='sm' onClick={handleAddInput}>
-            <Plus className='mr-1 h-4 w-4' />
-            Add input
-          </Button>
-        </div>
-
-        {inputMetaWarning && (
-          <div className='mt-3'>
-            <Notice variant='warning'>{inputMetaWarning}</Notice>
-          </div>
+      <div ref={codeEditorRef} className='relative mt-3 flex min-h-0 flex-1 flex-col rounded-md'>
+        <WandPromptBar
+          isVisible={calcWand.isPromptVisible}
+          isLoading={calcWand.isLoading}
+          isStreaming={calcWand.isStreaming}
+          promptValue={calcWand.promptInputValue}
+          onSubmit={(prompt: string) => calcWand.generateStream({ prompt })}
+          onCancel={calcWand.isStreaming ? calcWand.cancelGeneration : calcWand.hidePromptInline}
+          onChange={calcWand.updatePromptValue}
+          placeholder='Describe the PineTS indicator logic to generate...'
+          className='!top-0 relative mb-2'
+        />
+        <CodeEditor
+          value={pineCode}
+          onChange={handleCodeChange}
+          language='typescript'
+          placeholder='Write PineTS code here...'
+          minHeight='360px'
+          className='flex-1 min-h-0'
+          highlightVariables={true}
+          editorHandleRef={codeEditorHandleRef}
+          extraLibs={PINE_CHEAT_SHEET_EXTRA_LIBS}
+          editorOptions={{
+            scrollbar: { alwaysConsumeMouseWheel: true },
+          }}
+          showWandButton
+          onWandClick={() => {
+            calcWand.isPromptVisible ? calcWand.hidePromptInline() : calcWand.showPromptInline()
+          }}
+          wandButtonDisabled={calcWand.isLoading || calcWand.isStreaming}
+          onCursorChange={handleCursorChange}
+        />
+        {showEnvVars && (
+          <EnvVarDropdown
+            visible={showEnvVars}
+            onSelect={setPineCode}
+            searchTerm={envVarSearchTerm}
+            inputValue={pineCode}
+            cursorPosition={cursorPosition}
+            workspaceId={workspaceId}
+            onClose={() => setShowEnvVars(false)}
+            className='w-64'
+            style={{
+              position: 'absolute',
+              top: `${dropdownPosition.top}px`,
+              left: `${dropdownPosition.left}px`,
+            }}
+          />
         )}
-
-        {inputMetaError && (
-          <div className='mt-3'>
-            <Notice variant='error'>{inputMetaError}</Notice>
-          </div>
-        )}
-
-        <div className='mt-4 space-y-3'>
-          <div className='hidden grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_1.5fr_1fr_auto] gap-2 text-muted-foreground text-xs md:grid'>
-            <span>Title</span>
-            <span>Type</span>
-            <span>Default</span>
-            <span>Min</span>
-            <span>Max</span>
-            <span>Step</span>
-            <span>Options</span>
-            <span>Value</span>
-            <span />
-          </div>
-
-          {inputRows.length === 0 ? (
-            <div className='rounded-md border border-border border-dashed px-4 py-6 text-center text-muted-foreground text-xs'>
-              No inputs yet. Add inputs to configure pine.input values.
-            </div>
-          ) : (
-            inputRows.map((row) => (
-              <div
-                key={row.id}
-                className='grid grid-cols-1 items-center gap-2 md:grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_1.5fr_1fr_auto]'
-              >
-                <div className='space-y-1'>
-                  <Label className='text-xs md:hidden'>Title</Label>
-                  <Input
-                    value={row.title}
-                    onChange={(event) => handleRowChange(row.id, { title: event.target.value })}
-                    placeholder='Length'
-                  />
-                </div>
-                <div className='space-y-1'>
-                  <Label className='text-xs md:hidden'>Type</Label>
-                  <Select
-                    value={row.type}
-                    onValueChange={(value) => handleRowChange(row.id, { type: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder='Type' />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {INPUT_TYPE_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className='space-y-1'>
-                  <Label className='text-xs md:hidden'>Default</Label>
-                  <Input
-                    value={row.defval}
-                    onChange={(event) => handleRowChange(row.id, { defval: event.target.value })}
-                    placeholder='14'
-                  />
-                </div>
-                <div className='space-y-1'>
-                  <Label className='text-xs md:hidden'>Min</Label>
-                  <Input
-                    value={row.minval}
-                    onChange={(event) => handleRowChange(row.id, { minval: event.target.value })}
-                    placeholder='1'
-                  />
-                </div>
-                <div className='space-y-1'>
-                  <Label className='text-xs md:hidden'>Max</Label>
-                  <Input
-                    value={row.maxval}
-                    onChange={(event) => handleRowChange(row.id, { maxval: event.target.value })}
-                    placeholder='200'
-                  />
-                </div>
-                <div className='space-y-1'>
-                  <Label className='text-xs md:hidden'>Step</Label>
-                  <Input
-                    value={row.step}
-                    onChange={(event) => handleRowChange(row.id, { step: event.target.value })}
-                    placeholder='1'
-                  />
-                </div>
-                <div className='space-y-1'>
-                  <Label className='text-xs md:hidden'>Options</Label>
-                  <Input
-                    value={row.options}
-                    onChange={(event) => handleRowChange(row.id, { options: event.target.value })}
-                    placeholder='fast, slow'
-                  />
-                </div>
-                <div className='space-y-1'>
-                  <Label className='text-xs md:hidden'>Value</Label>
-                  <Input
-                    value={row.value}
-                    onChange={(event) => handleRowChange(row.id, { value: event.target.value })}
-                    placeholder='Optional override'
-                  />
-                </div>
-                <div className='flex items-center justify-end'>
-                  <Button
-                    type='button'
-                    variant='ghost'
-                    size='icon'
-                    className='h-8 w-8'
-                    onClick={() => handleRemoveInput(row.id)}
-                  >
-                    <Trash2 className='h-4 w-4' />
-                  </Button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
       </div>
     </div>
   )

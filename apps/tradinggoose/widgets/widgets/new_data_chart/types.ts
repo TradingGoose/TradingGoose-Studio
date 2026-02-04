@@ -29,6 +29,7 @@ export type IndicatorRuntimeEntry = {
   pane: IPaneApi<any> | null
   paneIndex: number
   plots: IndicatorRuntimePlot[]
+  errorMessage?: string
 }
 
 export type DataChartAuthParams = {

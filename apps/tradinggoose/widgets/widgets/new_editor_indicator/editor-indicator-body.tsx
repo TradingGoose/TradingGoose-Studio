@@ -31,9 +31,16 @@ export function NewEditorIndicatorWidgetBody({
   const setPairContext = useSetPairColorContext()
 
   const paramsIndicatorId = useMemo(() => getPineIndicatorIdFromParams(params), [params])
-  const indicatorId = isLinkedToColorPair
-    ? (pairContext?.pineIndicatorId ?? null)
-    : paramsIndicatorId
+  const fallbackIndicatorId = useMemo(() => {
+    if (pairContext?.pineIndicatorId) return null
+    return pairContext?.indicatorId ?? null
+  }, [pairContext?.indicatorId, pairContext?.pineIndicatorId])
+  const fallbackIndicator = useNewIndicatorsStore((state) =>
+    fallbackIndicatorId ? state.getIndicator(fallbackIndicatorId, workspaceId ?? undefined) : undefined
+  )
+  const resolvedPairIndicatorId =
+    pairContext?.pineIndicatorId ?? (fallbackIndicator ? fallbackIndicatorId : null)
+  const indicatorId = isLinkedToColorPair ? resolvedPairIndicatorId : paramsIndicatorId
 
   const indicator = useNewIndicatorsStore((state) =>
     indicatorId ? state.getIndicator(indicatorId, workspaceId ?? undefined) : undefined

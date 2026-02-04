@@ -163,7 +163,9 @@ export const buildSeriesOptions = (
   candleType: DataChartCandleType,
   priceFormat?: { precision: number; minMove: number }
 ) => {
-  const commonPriceFormat = priceFormat ? { priceFormat: { type: 'price', ...priceFormat } } : {}
+  const commonPriceFormat = priceFormat
+    ? { priceFormat: { type: 'price' as const, ...priceFormat } }
+    : {}
 
   if (candleType === 'ohlc') {
     return {
