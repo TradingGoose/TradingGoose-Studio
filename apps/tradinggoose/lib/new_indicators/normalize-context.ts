@@ -73,19 +73,19 @@ const resolveMarkerText = (plot: { title?: string; options?: Record<string, unkn
 
 const resolveSeriesStyle = (style?: string) => {
   const normalized = style ?? 'style_line'
-  if (normalized === 'style_histogram' || normalized === 'style_columns') {
+  if (normalized === 'style_histogram') {
     return { seriesType: 'Histogram' as const, needsMarkers: false }
   }
-  if (normalized === 'style_area' || normalized === 'style_areabr') {
+  if (normalized === 'style_area') {
     return { seriesType: 'Area' as const, needsMarkers: false }
   }
   if (normalized.startsWith('style_stepline')) {
     return { seriesType: 'Line' as const, needsMarkers: false, lineType: 'withSteps' }
   }
-  if (normalized === 'style_circles' || normalized === 'style_cross') {
+  if (normalized === 'style_circles') {
     return { seriesType: 'Line' as const, needsMarkers: true }
   }
-  if (normalized === 'style_line' || normalized === 'style_linebr') {
+  if (normalized === 'style_line') {
     return { seriesType: 'Line' as const, needsMarkers: false }
   }
   return { seriesType: 'Line' as const, needsMarkers: false }

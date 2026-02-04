@@ -1,10 +1,21 @@
 import { Script, createContext } from 'vm'
-import type { BarMs, NormalizedPineOutput, PineWarning, PineUnsupportedInfo } from '@/lib/new_indicators/types'
+import type {
+  BarMs,
+  NormalizedPineOutput,
+  PineWarning,
+  PineUnsupportedInfo,
+} from '@/lib/new_indicators/types'
+import {
+  coerceIndicatorCount,
+  inferIndicatorOptionsFromPineCode,
+  normalizeIndicatorOptions,
+  resolveIndicatorTimeframeMs,
+} from '@/lib/new_indicators/indicator-options'
 import { normalizeIndicatorCode } from '@/lib/new_indicators/normalize-indicator-code'
 import { runPineTS } from '@/lib/new_indicators/run-pinets'
 import { normalizeContext } from '@/lib/new_indicators/normalize-context'
 import { detectUnsupportedFeatures } from '@/lib/new_indicators/unsupported'
-import { buildIndexMaps, normalizeBarsMs } from '@/lib/new_indicators/series-data'
+import { aggregateBarsMs, buildIndexMaps, normalizeBarsMs } from '@/lib/new_indicators/series-data'
 
 export type PineExecutionError = {
   message: string
@@ -65,6 +76,94 @@ const createVmFunction = (code: string): Function => {
   return fn as Function
 }
 
+const toSeconds = (ms: number) => Math.floor(ms / 1000)
+
+const expandSeriesPointsToBase = (
+  points: NormalizedPineOutput['series'][number]['points'],
+  baseOpenTimeMsByIndex: number[],
+  timeframeGaps: boolean
+) => {
+  if (baseOpenTimeMsByIndex.length === 0) return points
+  const baseTimesSec = baseOpenTimeMsByIndex.map(toSeconds)
+  const expanded: NormalizedPineOutput['series'][number]['points'] = []
+  let pointIndex = 0
+  let lastPoint: NormalizedPineOutput['series'][number]['points'][number] | null = null
+
+  baseTimesSec.forEach((timeSec) => {
+    while (pointIndex < points.length && points[pointIndex]!.time <= timeSec) {
+      lastPoint = points[pointIndex] ?? null
+      pointIndex += 1
+    }
+
+    if (!lastPoint || typeof lastPoint.value !== 'number' || !Number.isFinite(lastPoint.value)) {
+      expanded.push({ time: timeSec, value: null })
+      return
+    }
+
+    if (timeframeGaps && lastPoint.time !== timeSec) {
+      expanded.push({ time: timeSec, value: null })
+      return
+    }
+
+    expanded.push({
+      time: timeSec,
+      value: lastPoint.value,
+      ...(lastPoint.color ? { color: lastPoint.color } : null),
+    })
+  })
+
+  return expanded
+}
+
+const expandOutputToBase = (
+  output: NormalizedPineOutput,
+  baseOpenTimeMsByIndex: number[],
+  timeframeGaps: boolean
+): NormalizedPineOutput => {
+  return {
+    ...output,
+    series: output.series.map((entry) => ({
+      ...entry,
+      points: expandSeriesPointsToBase(entry.points, baseOpenTimeMsByIndex, timeframeGaps),
+    })),
+  }
+}
+
+const applyIndicatorLimits = (
+  output: NormalizedPineOutput,
+  warnings: PineWarning[]
+): NormalizedPineOutput => {
+  const indicator = output.indicator
+  if (!indicator) return output
+
+  let series = output.series
+  let markers = output.markers
+
+  const maxLines = coerceIndicatorCount(indicator.max_lines_count)
+  if (maxLines && series.length > maxLines) {
+    series = series.slice(0, maxLines)
+    warnings.push({
+      code: 'indicator_max_lines_count',
+      message: `Indicator plots truncated to ${maxLines} (max_lines_count).`,
+    })
+  }
+
+  const maxLabels = coerceIndicatorCount(indicator.max_labels_count)
+  if (maxLabels && markers.length > maxLabels) {
+    markers = markers.slice(-maxLabels)
+    warnings.push({
+      code: 'indicator_max_labels_count',
+      message: `Indicator markers truncated to ${maxLabels} (max_labels_count).`,
+    })
+  }
+
+  return {
+    ...output,
+    series,
+    markers,
+  }
+}
+
 export async function compilePineIndicator({
   pineCode,
   barsMs,
@@ -80,6 +179,7 @@ export async function compilePineIndicator({
   interval?: string
   intervalMs?: number | null
 }): Promise<PineCompileResult> {
+  const inferredIndicatorOptions = inferIndicatorOptionsFromPineCode(pineCode)
   const unsupportedFeatures = detectUnsupportedFeatures(pineCode)
   if (unsupportedFeatures.length > 0) {
     return {
@@ -91,7 +191,53 @@ export async function compilePineIndicator({
   }
 
   const normalizedBars = normalizeBarsMs(barsMs, intervalMs)
-  const { indexByOpenTimeMs, openTimeMsByIndex } = buildIndexMaps(normalizedBars)
+  let baseBars = normalizedBars
+  let executionBars = normalizedBars
+  const compileWarnings: PineWarning[] = []
+
+  const timeframeMs = resolveIndicatorTimeframeMs(inferredIndicatorOptions?.timeframe)
+  const baseIntervalMs = intervalMs ?? null
+  const shouldResample =
+    typeof timeframeMs === 'number' &&
+    Number.isFinite(timeframeMs) &&
+    timeframeMs > 0 &&
+    typeof baseIntervalMs === 'number' &&
+    Number.isFinite(baseIntervalMs) &&
+    timeframeMs > baseIntervalMs
+
+  if (shouldResample && timeframeMs) {
+    executionBars = aggregateBarsMs(baseBars, timeframeMs)
+  } else if (
+    timeframeMs &&
+    typeof baseIntervalMs === 'number' &&
+    Number.isFinite(baseIntervalMs) &&
+    timeframeMs < baseIntervalMs
+  ) {
+    compileWarnings.push({
+      code: 'indicator_timeframe_unsupported',
+      message:
+        'Indicator timeframe is lower than the chart interval; running on chart bars instead.',
+    })
+  }
+
+  const calcBarsCount = coerceIndicatorCount(inferredIndicatorOptions?.calc_bars_count ?? undefined)
+  if (calcBarsCount && executionBars.length > calcBarsCount) {
+    executionBars = executionBars.slice(-calcBarsCount)
+    const cutoffTime = executionBars[0]?.openTime
+    if (typeof cutoffTime === 'number') {
+      baseBars = baseBars.filter((bar) => bar.openTime >= cutoffTime)
+    }
+  }
+
+  const maxBarsBack = coerceIndicatorCount(inferredIndicatorOptions?.max_bars_back ?? undefined)
+  if (maxBarsBack && executionBars.length < maxBarsBack) {
+    compileWarnings.push({
+      code: 'indicator_max_bars_back',
+      message: `Indicator max_bars_back (${maxBarsBack}) exceeds available bars (${executionBars.length}).`,
+    })
+  }
+
+  const { indexByOpenTimeMs, openTimeMsByIndex } = buildIndexMaps(executionBars)
   const normalizedCode = normalizeIndicatorCode(pineCode)
 
   if (normalizedCode.error) {
@@ -121,10 +267,13 @@ export async function compilePineIndicator({
   try {
     const fn = createVmFunction(normalizedCode.code)
     const result = await runPineTS({
-      barsMs: normalizedBars,
+      barsMs: executionBars,
       inputsMap,
       listingKey,
-      interval,
+      interval:
+        shouldResample && inferredIndicatorOptions?.timeframe
+          ? inferredIndicatorOptions.timeframe
+          : interval,
       code: fn,
     })
     pineContext = result.context
@@ -150,11 +299,36 @@ export async function compilePineIndicator({
     openTimeMsByIndex,
   })
 
+  const runtimeIndicatorOptions = normalizeIndicatorOptions(pineContext?.indicator, {
+    dropDefaults: true,
+  })
+  const mergedIndicatorOptions = {
+    ...(inferredIndicatorOptions ?? {}),
+    ...(runtimeIndicatorOptions ?? {}),
+  }
+  const indicatorOptions =
+    Object.keys(mergedIndicatorOptions).length > 0 ? mergedIndicatorOptions : undefined
+
+  const timeframeGaps =
+    typeof indicatorOptions?.timeframe_gaps === 'boolean'
+      ? indicatorOptions.timeframe_gaps
+      : true
+
+  let output: NormalizedPineOutput = {
+    ...normalized.output,
+    indicator: indicatorOptions,
+  }
+
+  if (shouldResample) {
+    output = expandOutputToBase(output, baseBars.map((bar) => bar.openTime), timeframeGaps)
+  }
+
+  output = applyIndicatorLimits(output, compileWarnings)
+
   return {
-    output: normalized.output,
-    warnings: normalized.warnings,
-    unsupported: normalized.output.unsupported,
+    output,
+    warnings: [...normalized.warnings, ...compileWarnings],
+    unsupported: output.unsupported,
     transpiledCode,
   }
 }
-
