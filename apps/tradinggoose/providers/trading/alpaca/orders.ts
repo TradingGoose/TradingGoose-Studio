@@ -3,9 +3,8 @@ import type {
   TradingOrderInput,
   TradingRequestConfig,
 } from '@/providers/trading/types'
-import { resolveTradingSymbol } from '@/providers/trading/utils'
-import { alpacaTradingProviderConfig } from '@/providers/trading/alpaca/config'
 import { buildAlpacaAuthHeaders } from '@/providers/trading/alpaca/auth'
+import { normalizeAlpacaListingSymbol } from '@/providers/trading/alpaca/listing'
 
 export const buildAlpacaOrderRequest = (
   params: TradingOrderInput
@@ -17,7 +16,7 @@ export const buildAlpacaOrderRequest = (
       ? 'https://paper-api.alpaca.markets'
       : 'https://api.alpaca.markets'
 
-  const symbol = resolveTradingSymbol(alpacaTradingProviderConfig, {
+  const symbol = normalizeAlpacaListingSymbol({
     listing: params.listing,
     base: params.base,
     quote: params.quote,

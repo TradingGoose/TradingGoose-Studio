@@ -3,8 +3,7 @@ import type {
   TradingOrderInput,
   TradingRequestConfig,
 } from '@/providers/trading/types'
-import { resolveTradingSymbol } from '@/providers/trading/utils'
-import { robinhoodTradingProviderConfig } from '@/providers/trading/robinhood/config'
+import { normalizeRobinhoodListingSymbol } from '@/providers/trading/robinhood/listing'
 
 export const buildRobinhoodOrderRequest = (
   params: TradingOrderInput
@@ -19,7 +18,7 @@ export const buildRobinhoodOrderRequest = (
     throw new Error('Quantity is required for Robinhood orders')
   }
 
-  const symbol = resolveTradingSymbol(robinhoodTradingProviderConfig, {
+  const symbol = normalizeRobinhoodListingSymbol({
     listing: params.listing,
     base: params.base,
     quote: params.quote,
