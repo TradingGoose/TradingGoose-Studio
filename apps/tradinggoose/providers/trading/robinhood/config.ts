@@ -65,7 +65,12 @@ export const robinhoodTradingProviderConfig: TradingProviderConfig = {
   },
   capabilities: {
     order: {
-      orderTypes: ['market', 'limit', 'stop', 'stop_limit'],
+      orderTypes: [
+        { id: 'market', label: 'Market' },
+        { id: 'limit', label: 'Limit', requires: ['limitPrice'] },
+        { id: 'stop', label: 'Stop', requires: ['stopPrice'] },
+        { id: 'stop_limit', label: 'Stop Limit', requires: ['limitPrice', 'stopPrice'] },
+      ],
       timeInForce: ['gfd', 'gtc', 'ioc', 'fok'],
       supportsLimit: true,
       supportsStop: true,

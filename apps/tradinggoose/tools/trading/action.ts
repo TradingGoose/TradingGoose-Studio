@@ -108,11 +108,18 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       visibility: 'user-or-llm',
       description: 'Order sizing mode (quantity or notional) for Alpaca.',
     },
+    orderClass: {
+      type: 'string',
+      required: false,
+      visibility: 'user-or-llm',
+      description: 'Order class for providers that support it (e.g., equity, option, multileg).',
+    },
     orderType: {
       type: 'string',
       required: false,
       visibility: 'user-or-llm',
-      description: 'Order type (market, limit, stop, stop_limit).',
+      description:
+        'Order type (provider-specific, e.g., market, limit, stop, stop_limit, trailing_stop, debit, credit, even).',
     },
     timeInForce: {
       type: 'string',
@@ -131,6 +138,18 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       required: false,
       visibility: 'user-or-llm',
       description: 'Stop price (required for stop/stop_limit orders).',
+    },
+    trailPrice: {
+      type: 'number',
+      required: false,
+      visibility: 'user-or-llm',
+      description: 'Trailing stop price offset (Alpaca trailing_stop).',
+    },
+    trailPercent: {
+      type: 'number',
+      required: false,
+      visibility: 'user-or-llm',
+      description: 'Trailing stop percent offset (Alpaca trailing_stop).',
     },
     environment: {
       type: 'string',

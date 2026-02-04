@@ -136,6 +136,8 @@ export interface SubBlockConfig {
   layout?: SubBlockLayout
   mode?: 'basic' | 'advanced' | 'both' | 'trigger' // Default is 'both' if not specified
   canonicalParamId?: string
+  providerType?: 'market' | 'trading'
+  providerFieldId?: string
   required?:
     | boolean
     | {

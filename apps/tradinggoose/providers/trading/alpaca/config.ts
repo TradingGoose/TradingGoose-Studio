@@ -199,7 +199,37 @@ export const alpacaTradingProviderConfig: TradingProviderConfig = {
   },
   capabilities: {
     order: {
-      orderTypes: ['market', 'limit', 'stop', 'stop_limit'],
+      orderTypes: [
+        {
+          id: 'market',
+          label: 'Market',
+          assetClasses: ['stock', 'crypto'],
+        },
+        {
+          id: 'limit',
+          label: 'Limit',
+          assetClasses: ['stock', 'crypto'],
+          requires: ['limitPrice'],
+        },
+        {
+          id: 'stop',
+          label: 'Stop',
+          assetClasses: ['stock'],
+          requires: ['stopPrice'],
+        },
+        {
+          id: 'stop_limit',
+          label: 'Stop Limit',
+          assetClasses: ['stock', 'crypto'],
+          requires: ['limitPrice', 'stopPrice'],
+        },
+        {
+          id: 'trailing_stop',
+          label: 'Trailing Stop',
+          assetClasses: ['stock'],
+          requires: ['trailPrice', 'trailPercent'],
+        },
+      ],
       timeInForce: ['day', 'gtc', 'ioc', 'fok'],
       supportsLimit: true,
       supportsStop: true,

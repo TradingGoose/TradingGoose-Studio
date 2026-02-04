@@ -7,6 +7,16 @@ export type TradingProviderId = 'alpaca' | 'tradier' | 'robinhood' | (string & {
 
 export type TradingAuthType = 'apiKey' | 'oauth'
 
+export type TradingOrderType =
+  | 'market'
+  | 'limit'
+  | 'stop'
+  | 'stop_limit'
+  | 'trailing_stop'
+  | 'debit'
+  | 'credit'
+  | 'even'
+
 export interface TradingFieldDefinition {
   id: string
   label: string
@@ -45,14 +55,17 @@ export interface TradingOrderInput extends TradingSymbolInput {
   quantity?: number
   notional?: number
   orderSizingMode?: string
-  orderType?: string
+  orderType?: TradingOrderType
   timeInForce?: string
   limitPrice?: number
   stopPrice?: number
+  trailPrice?: number
+  trailPercent?: number
   environment?: 'paper' | 'live'
   accessToken?: string
   apiKey?: string
   apiSecret?: string
+  orderClass?: string
   accountId?: string
   accountUrl?: string
   instrumentUrl?: string

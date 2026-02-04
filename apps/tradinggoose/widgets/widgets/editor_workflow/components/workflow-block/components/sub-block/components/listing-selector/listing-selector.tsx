@@ -26,6 +26,7 @@ interface ListingSelectorInputProps {
   config?: SubBlockConfig
   providerType?: 'market' | 'trading'
   providerFieldId?: string
+  providerValueOverride?: string | null
 }
 
 function isVariableListingInput(value: string): boolean {
@@ -45,10 +46,12 @@ export function ListingSelectorInput({
   config,
   providerType,
   providerFieldId,
+  providerValueOverride,
 }: ListingSelectorInputProps) {
   const [storeValue, setStoreValue] = useSubBlockValue<ListingInputValue>(blockId, subBlockId)
   const providerField = providerFieldId ?? config?.providerFieldId ?? 'provider'
-  const [providerValue] = useSubBlockValue<string | null>(blockId, providerField)
+  const [providerValueFromStore] = useSubBlockValue<string | null>(blockId, providerField)
+  const providerValue = providerValueOverride ?? providerValueFromStore
   const ensureInstance = useListingSelectorStore((state) => state.ensureInstance)
   const updateInstance = useListingSelectorStore((state) => state.updateInstance)
   const instance = useListingSelectorStore((state) => state.instances[`${blockId}-${subBlockId}`])

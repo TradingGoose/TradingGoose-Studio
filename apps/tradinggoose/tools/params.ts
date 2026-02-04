@@ -36,6 +36,8 @@ export interface UIComponentConfig {
   provider?: string
   serviceId?: string
   requiredScopes?: string[]
+  providerType?: 'market' | 'trading'
+  providerFieldId?: string
   mimeType?: string
   columns?: string[]
   min?: number
@@ -82,6 +84,8 @@ export interface SubBlockConfig {
   provider?: string
   serviceId?: string
   requiredScopes?: string[]
+  providerType?: 'market' | 'trading'
+  providerFieldId?: string
   mimeType?: string
   columns?: string[]
   min?: number
@@ -409,6 +413,8 @@ export function getToolParametersConfig(
               provider: subBlock.provider,
               serviceId: subBlock.serviceId,
               requiredScopes: subBlock.requiredScopes,
+              providerType: subBlock.providerType,
+              providerFieldId: subBlock.providerFieldId,
               mimeType: subBlock.mimeType,
               columns: subBlock.columns,
               min: subBlock.min,

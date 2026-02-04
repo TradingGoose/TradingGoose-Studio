@@ -1206,11 +1206,16 @@ export function ToolInput({
         )
 
       case 'market-selector': {
-        const providerFieldId =
-          toolIndex !== undefined
-            ? `${subBlockId}-tool-${toolIndex}-provider`
-            : `${subBlockId}-provider`
-        const providerType = toolId?.startsWith('trading_') ? 'trading' : 'market'
+        const providerFieldKey =
+          (uiComponent as { providerFieldId?: string })?.providerFieldId || 'provider'
+        const providerFieldId = `${subBlockId}-param-${providerFieldKey}`
+        const providerType =
+          (uiComponent as { providerType?: 'market' | 'trading' })?.providerType ||
+          (toolId?.startsWith('trading_') ? 'trading' : 'market')
+        const providerValueOverride =
+          (currentToolParams as Record<string, any> | undefined)?.[providerFieldKey] ??
+          (currentToolParams as Record<string, any> | undefined)?.provider ??
+          null
 
         return (
           <ListingSelectorInput
@@ -1222,6 +1227,7 @@ export function ToolInput({
             onChange={(listing) => onChange(listing ?? null)}
             disabled={disabled}
             providerFieldId={providerFieldId}
+            providerValueOverride={providerValueOverride}
             providerType={providerType}
             config={{
               id: uniqueSubBlockId,

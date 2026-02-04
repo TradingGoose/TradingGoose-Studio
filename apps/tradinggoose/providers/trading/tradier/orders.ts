@@ -51,7 +51,13 @@ export const buildTradierOrderRequest = (
   })
 
   const providerParams = params.providerParams ?? {}
-  const orderClass = String(providerParams.orderClass || providerParams.class || 'equity')
+  const orderClass = String(
+    providerParams.orderClass ||
+      providerParams.class ||
+      (params as { orderClass?: string }).orderClass ||
+      (params as { class?: string }).class ||
+      'equity'
+  )
   const duration = normalizeTradierDuration(providerParams.duration || params.timeInForce)
   const orderType = normalizeTradierOrderType(params.orderType)
 
