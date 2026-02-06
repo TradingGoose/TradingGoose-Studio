@@ -3,9 +3,8 @@ import type {
   TradingOrderInput,
   TradingRequestConfig,
 } from '@/providers/trading/types'
-import { resolveTradingSymbol } from '@/providers/trading/utils'
-import { alpacaTradingProviderConfig } from '@/providers/trading/alpaca/config'
 import { buildAlpacaAuthHeaders } from '@/providers/trading/alpaca/auth'
+import { normalizeAlpacaListingSymbol } from '@/providers/trading/alpaca/listing'
 
 export const buildAlpacaOrderRequest = (
   params: TradingOrderInput
@@ -17,7 +16,7 @@ export const buildAlpacaOrderRequest = (
       ? 'https://paper-api.alpaca.markets'
       : 'https://api.alpaca.markets'
 
-  const symbol = resolveTradingSymbol(alpacaTradingProviderConfig, {
+  const symbol = normalizeAlpacaListingSymbol({
     listing: params.listing,
     base: params.base,
     quote: params.quote,
@@ -64,6 +63,7 @@ export const buildAlpacaOrderRequest = (
 
   const orderType = (params.orderType || 'market').toLowerCase()
   const timeInForce = params.timeInForce || 'day'
+  const isTrailingStop = orderType === 'trailing_stop'
 
   if (useNotional) {
     const supportedTypes = new Set(['market', 'limit', 'stop', 'stop_limit'])
@@ -96,6 +96,33 @@ export const buildAlpacaOrderRequest = (
   }
   if (hasStopComponent && params.stopPrice !== undefined) {
     body.stop_price = params.stopPrice
+  }
+
+  if (isTrailingStop) {
+    if (params.limitPrice !== undefined || params.stopPrice !== undefined) {
+      throw new Error('Trailing stop orders use trail_price or trail_percent, not limit/stop price.')
+    }
+    const trailPrice =
+      typeof params.trailPrice === 'number' && Number.isFinite(params.trailPrice)
+        ? params.trailPrice
+        : undefined
+    const trailPercent =
+      typeof params.trailPercent === 'number' && Number.isFinite(params.trailPercent)
+        ? params.trailPercent
+        : undefined
+
+    if (
+      (trailPrice === undefined && trailPercent === undefined) ||
+      (trailPrice !== undefined && trailPercent !== undefined)
+    ) {
+      throw new Error('Trailing stop orders require either trailPrice or trailPercent.')
+    }
+    if (trailPrice !== undefined) {
+      body.trail_price = trailPrice
+    }
+    if (trailPercent !== undefined) {
+      body.trail_percent = trailPercent
+    }
   }
 
   return {

@@ -8,6 +8,7 @@ import {
   getTradingProviderIdsForParam,
   getTradingProviders,
 } from '@/providers/trading'
+import { getTradingOrderTypeOptions } from '@/providers/trading/order-types'
 import type { TradingProviderParamDefinition } from '@/providers/trading/providers'
 import { tradingActionTool } from '@/tools/trading'
 import type { TradingActionResponse } from '@/tools/trading/types'
@@ -28,6 +29,8 @@ const BLOCK_RESERVED_PARAM_IDS = new Set([
   'orderType',
   'limitPrice',
   'stopPrice',
+  'trailPrice',
+  'trailPercent',
   'timeInForce',
 ])
 
@@ -42,6 +45,8 @@ const TOOL_RESERVED_PARAM_IDS = new Set([
   'orderType',
   'limitPrice',
   'stopPrice',
+  'trailPrice',
+  'trailPercent',
   'timeInForce',
 ])
 
@@ -298,22 +303,27 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       title: 'Order Type',
       type: 'dropdown',
       layout: 'half',
-      options: [
-        { label: 'Market', id: 'market' },
-        { label: 'Limit', id: 'limit' },
-        { label: 'Stop', id: 'stop' },
-        { label: 'Stop Limit', id: 'stop_limit' },
-      ],
       required: true,
       value: () => 'market',
+      dependsOn: ['provider'],
+      fetchOptions: async (_blockId, _subBlockId, contextValues) => {
+        const providerId = contextValues?.provider as string | undefined
+        const orderClass =
+          (contextValues?.orderClass as string | undefined) ??
+          (contextValues?.class as string | undefined)
+        return getTradingOrderTypeOptions(providerId, {
+          listing: contextValues?.listing,
+          orderClass,
+        })
+      },
     },
     {
       id: 'limitPrice',
       title: 'Limit Price',
       type: 'short-input',
       layout: 'half',
-      placeholder: 'Required for limit orders',
-      condition: { field: 'orderType', value: ['limit', 'stop_limit'] },
+      placeholder: 'Required for limit/stop-limit and debit/credit/even orders',
+      condition: { field: 'orderType', value: ['limit', 'stop_limit', 'debit', 'credit', 'even'] },
     },
     {
       id: 'stopPrice',
@@ -322,6 +332,22 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       layout: 'half',
       placeholder: 'Required for stop/stop-limit orders',
       condition: { field: 'orderType', value: ['stop', 'stop_limit'] },
+    },
+    {
+      id: 'trailPrice',
+      title: 'Trail Price',
+      type: 'short-input',
+      layout: 'half',
+      placeholder: 'Trailing stop price offset (use price or percent)',
+      condition: { field: 'orderType', value: 'trailing_stop' },
+    },
+    {
+      id: 'trailPercent',
+      title: 'Trail Percent',
+      type: 'short-input',
+      layout: 'half',
+      placeholder: 'Trailing stop percent offset (use percent or price)',
+      condition: { field: 'orderType', value: 'trailing_stop' },
     },
     {
       id: 'timeInForce',
@@ -378,6 +404,8 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
           orderType: params.orderType,
           limitPrice: toOptionalNumber(params.limitPrice),
           stopPrice: toOptionalNumber(params.stopPrice),
+          trailPrice: toOptionalNumber(params.trailPrice),
+          trailPercent: toOptionalNumber(params.trailPercent),
           timeInForce: params.timeInForce,
           ...extraFields,
         }

@@ -1,9 +1,121 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import { resolveListingKey, toListingValueObject } from '@/lib/listing/identity'
+import { getBaseUrl } from '@/lib/urls/utils'
 import { executeTradingProviderRequest, getTradingProvider } from '@/providers/trading'
 import type { ToolConfig } from '@/tools/types'
-import type { TradingActionParams, TradingActionResponse } from '@/tools/trading/types'
+import type {
+  OrderSubmit,
+  OrderSubmitRequest,
+  OrderSubmitResponse,
+  TradingActionParams,
+  TradingActionResponse,
+} from '@/tools/trading/types'
 
 const logger = createLogger('TradingActionTool')
+
+const ORDER_HISTORY_OMIT_KEYS = new Set([
+  'provider',
+  'environment',
+  'side',
+  'listing',
+  'quantity',
+  'notional',
+  'orderType',
+  'limitPrice',
+  'stopPrice',
+  'trailPrice',
+  'trailPercent',
+  'timeInForce',
+  'orderSizingMode',
+  'orderClass',
+  'credential',
+  'accessToken',
+  'apiKey',
+  'apiSecret',
+  'tradierCredential',
+  'robinhoodCredential',
+  'alpacaCredential',
+  '_context',
+  '_workflowId',
+  '_credentialId',
+])
+
+const extractProviderParams = (params: TradingActionParams): Record<string, unknown> => {
+  const extras: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(params as Record<string, unknown>)) {
+    if (ORDER_HISTORY_OMIT_KEYS.has(key) || key.startsWith('_')) continue
+    if (value !== undefined) {
+      extras[key] = value
+    }
+  }
+  return extras
+}
+
+const buildOrderSubmitRequest = (params: TradingActionParams): OrderSubmitRequest => {
+  const providerParams = extractProviderParams(params)
+  const normalized = normalizeOrderSizing(params)
+  return {
+    side: params.side,
+    orderType: params.orderType,
+    timeInForce: params.timeInForce,
+    quantity: normalized.quantity,
+    notional: normalized.notional,
+    limitPrice: normalizeSizingValue(params.limitPrice),
+    stopPrice: normalizeSizingValue(params.stopPrice),
+    trailPrice: normalizeSizingValue(params.trailPrice),
+    trailPercent: normalizeSizingValue(params.trailPercent),
+    orderSizingMode: params.orderSizingMode,
+    orderClass: params.orderClass,
+    providerParams: Object.keys(providerParams).length ? providerParams : undefined,
+  }
+}
+
+const buildOrderSubmitResponse = (
+  normalizedOrder: Record<string, any> | undefined,
+  rawOrder: Record<string, any> | undefined,
+  success = true,
+  errorMessage?: string | null
+): OrderSubmitResponse => {
+  const orderId =
+    normalizedOrder?.id ?? rawOrder?.id ?? rawOrder?.order_id ?? rawOrder?.order?.id ?? null
+  const clientOrderId =
+    rawOrder?.client_order_id ??
+    rawOrder?.clientOrderId ??
+    rawOrder?.order?.client_order_id ??
+    null
+  const createdAt =
+    rawOrder?.created_at ??
+    rawOrder?.create_date ??
+    rawOrder?.createdAt ??
+    rawOrder?.order?.created_at ??
+    rawOrder?.order?.create_date ??
+    null
+  const submittedAt =
+    normalizedOrder?.submittedAt ??
+    rawOrder?.submitted_at ??
+    rawOrder?.submittedAt ??
+    rawOrder?.order?.submitted_at ??
+    null
+  const symbol = normalizedOrder?.symbol ?? rawOrder?.symbol ?? rawOrder?.order?.symbol ?? null
+  const status =
+    normalizedOrder?.status ??
+    rawOrder?.status ??
+    rawOrder?.state ??
+    rawOrder?.order?.status ??
+    null
+
+  return {
+    success,
+    orderId,
+    clientOrderId,
+    createdAt,
+    submittedAt,
+    symbol,
+    status,
+    errorMessage: errorMessage ?? null,
+    raw: rawOrder ?? normalizedOrder,
+  }
+}
 
 const normalizeSizingValue = (value: unknown): number | undefined => {
   if (value === null || value === undefined) return undefined
@@ -108,11 +220,18 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       visibility: 'user-or-llm',
       description: 'Order sizing mode (quantity or notional) for Alpaca.',
     },
+    orderClass: {
+      type: 'string',
+      required: false,
+      visibility: 'user-or-llm',
+      description: 'Order class for providers that support it (e.g., equity, option, multileg).',
+    },
     orderType: {
       type: 'string',
       required: false,
       visibility: 'user-or-llm',
-      description: 'Order type (market, limit, stop, stop_limit).',
+      description:
+        'Order type (provider-specific, e.g., market, limit, stop, stop_limit, trailing_stop, debit, credit, even).',
     },
     timeInForce: {
       type: 'string',
@@ -131,6 +250,18 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       required: false,
       visibility: 'user-or-llm',
       description: 'Stop price (required for stop/stop_limit orders).',
+    },
+    trailPrice: {
+      type: 'number',
+      required: false,
+      visibility: 'user-or-llm',
+      description: 'Trailing stop price offset (Alpaca trailing_stop).',
+    },
+    trailPercent: {
+      type: 'number',
+      required: false,
+      visibility: 'user-or-llm',
+      description: 'Trailing stop percent offset (Alpaca trailing_stop).',
     },
     environment: {
       type: 'string',
@@ -205,6 +336,78 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
     method: (params) => resolveOrderRequest(params).method,
     headers: (params) => resolveOrderRequest(params).headers,
     body: (params) => resolveOrderRequest(params).body,
+  },
+
+  postProcess: async (result, params) => {
+    try {
+      const normalizedOrder =
+        result.output && typeof result.output === 'object'
+          ? (result.output as any).order
+          : undefined
+      const rawOrder =
+        normalizedOrder && typeof normalizedOrder === 'object' && 'raw' in normalizedOrder
+          ? (normalizedOrder as any).raw
+          : normalizedOrder
+
+      const listingIdentity = toListingValueObject(params.listing)
+      const listingKey = resolveListingKey(params.listing)
+      const listingId =
+        params.listing &&
+        typeof params.listing === 'object' &&
+        'id' in params.listing &&
+        (params.listing as any).id
+          ? String((params.listing as any).id)
+          : undefined
+
+      const errorPayload = result.success
+        ? undefined
+        : {
+            error: result.error,
+            output: result.output,
+          }
+      const responsePayload = buildOrderSubmitResponse(
+        normalizedOrder as Record<string, any> | undefined,
+        (rawOrder as Record<string, any> | undefined) ?? (errorPayload as any),
+        result.success,
+        result.success ? undefined : result.error
+      )
+
+      const context = (params as any)._context as
+        | { workflowId?: string; executionId?: string }
+        | undefined
+
+      const orderSubmit: OrderSubmit = {
+        provider: params.provider,
+        environment: params.environment,
+        recordedAt: new Date().toISOString(),
+        workflowId: context?.workflowId ?? (params as any)._workflowId,
+        workflowExecutionId: context?.executionId,
+        listingId,
+        listingKey,
+        listingType: listingIdentity?.listing_type,
+        listingIdentity,
+        request: buildOrderSubmitRequest(params),
+        response: responsePayload,
+        normalizedOrder: normalizedOrder as Record<string, any> | undefined,
+      }
+
+      const baseUrl = getBaseUrl()
+      const recordUrl = new URL('/api/tools/trading/order-history', baseUrl).toString()
+
+      await fetch(recordUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderSubmit),
+      })
+    } catch (error: any) {
+      logger.warn('Failed to record order history entry', {
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+
+    return result
   },
 
   transformResponse: async (response, params) => {

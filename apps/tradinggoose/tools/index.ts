@@ -157,6 +157,18 @@ export async function executeTool(
 
     // Ensure context is preserved if it exists
     const contextParams = { ...params }
+    if (executionContext) {
+      const existingContext = (contextParams as any)._context || {}
+      const mergedContext = {
+        ...existingContext,
+        workflowId: existingContext.workflowId ?? executionContext.workflowId,
+        workspaceId: existingContext.workspaceId ?? executionContext.workspaceId,
+        executionId: existingContext.executionId ?? executionContext.executionId,
+      }
+      if (mergedContext.workflowId || mergedContext.workspaceId || mergedContext.executionId) {
+        ;(contextParams as any)._context = mergedContext
+      }
+    }
 
     // Validate the tool and its parameters
     validateRequiredParametersAfterMerge(toolId, tool, contextParams)
@@ -279,7 +291,7 @@ export async function executeTool(
 
       // Apply post-processing if available and not skipped
       let finalResult = result
-      if (tool.postProcess && result.success && !skipPostProcess) {
+      if (tool.postProcess && !skipPostProcess && (result.success || toolId === 'trading_place_order')) {
         try {
           finalResult = await tool.postProcess(result, contextParams, executeTool)
         } catch (error) {
@@ -312,7 +324,7 @@ export async function executeTool(
 
     // Apply post-processing if available and not skipped
     let finalResult = result
-    if (tool.postProcess && result.success && !skipPostProcess) {
+    if (tool.postProcess && !skipPostProcess && (result.success || toolId === 'trading_place_order')) {
       try {
         finalResult = await tool.postProcess(result, contextParams, executeTool)
       } catch (error) {

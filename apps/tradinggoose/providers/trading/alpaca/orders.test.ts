@@ -94,4 +94,41 @@ describe('buildAlpacaOrderRequest', () => {
       })
     ).toThrow('time_in_force=day')
   })
+
+  it('supports trailing stop orders with trail price', () => {
+    const request = buildAlpacaOrderRequest({
+      ...baseParams,
+      quantity: 1,
+      orderType: 'trailing_stop',
+      trailPrice: 1.5,
+    })
+
+    expect(request.body).toMatchObject({
+      qty: '1',
+      side: 'buy',
+      type: 'trailing_stop',
+      time_in_force: 'day',
+      trail_price: 1.5,
+    })
+  })
+
+  it('requires a single trailing stop offset', () => {
+    expect(() =>
+      buildAlpacaOrderRequest({
+        ...baseParams,
+        quantity: 1,
+        orderType: 'trailing_stop',
+      })
+    ).toThrow('trailPrice or trailPercent')
+
+    expect(() =>
+      buildAlpacaOrderRequest({
+        ...baseParams,
+        quantity: 1,
+        orderType: 'trailing_stop',
+        trailPrice: 1,
+        trailPercent: 2,
+      })
+    ).toThrow('trailPrice or trailPercent')
+  })
 })

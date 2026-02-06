@@ -31,7 +31,7 @@ export interface TradingProviderAvailability {
 }
 
 export interface TradingOrderInputCapabilities {
-  orderTypes?: string[]
+  orderTypes?: TradingOrderTypeDefinition[]
   timeInForce?: string[]
   supportsLimit?: boolean
   supportsStop?: boolean
@@ -103,6 +103,20 @@ export interface TradingProviderParamDefinition {
   dependsOn?: string[]
   condition?: TradingProviderParamCondition
   displayOrder?: number
+}
+
+export type TradingOrderTypeRequirement =
+  | 'limitPrice'
+  | 'stopPrice'
+  | 'trailPrice'
+  | 'trailPercent'
+
+export interface TradingOrderTypeDefinition {
+  id: string
+  label: string
+  assetClasses?: AssetClass[]
+  orderClasses?: string[]
+  requires?: TradingOrderTypeRequirement[]
 }
 
 export interface TradingProviderParamConfig {
