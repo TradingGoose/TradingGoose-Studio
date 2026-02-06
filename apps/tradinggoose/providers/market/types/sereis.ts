@@ -51,6 +51,7 @@ export interface MarketSeries {
   listingBase?: string
   listingQuote?: string
   primaryMicCode?: string
+  marketCode?: string
   listing?: ListingIdentity | null
   start?: string
   end?: string

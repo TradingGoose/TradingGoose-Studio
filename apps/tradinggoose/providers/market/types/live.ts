@@ -12,6 +12,7 @@ export interface MarketLiveSnapshot {
   listingBase?: string
   listingQuote?: string
   primaryMicCode?: string
+  marketCode?: string
   listing?: ListingIdentity | null
   interval?: string
   timezone?: string

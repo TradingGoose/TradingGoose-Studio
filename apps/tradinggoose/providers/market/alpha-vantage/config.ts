@@ -38,8 +38,8 @@ const params: MarketProviderConfig['params'] = {
 
 const exchangeCodesList: MarketProviderConfig['exchangeCodes'] = []
 
-const exchangeCodeToMicMap: MarketProviderConfig['exchangeCodeToMic'] = {}
-const micToExchangeCodeMap: MarketProviderConfig['micToExchangeCode'] = {}
+const exchangeCodeToMarketMap: MarketProviderConfig['exchangeCodeToMarket'] = {}
+const marketToExchangeCodeMap: MarketProviderConfig['marketToExchangeCode'] = {}
 
 export const alphaVantageProviderConfig: MarketProviderConfig = {
   id: 'alpha-vantage',
@@ -69,17 +69,17 @@ export const alphaVantageProviderConfig: MarketProviderConfig = {
     },
   },
   rulePrecedence: {
-    default: ['mic', 'currency', 'assetClass', 'country', 'city', 'listing'],
-    stock: ['mic', 'currency', 'country', 'city', 'listing'],
-    etf: ['mic', 'currency', 'country', 'city', 'listing'],
-    indice: ['mic', 'currency', 'country', 'city', 'listing'],
-    mutualfund: ['mic', 'currency', 'country', 'city', 'listing'],
-    future: ['mic', 'currency', 'country', 'city', 'listing'],
-    crypto: ['currency', 'mic', 'country', 'city', 'listing'],
-    currency: ['currency', 'mic', 'country', 'city', 'listing'],
+    default: ['market', 'currency', 'assetClass', 'country', 'city', 'listing'],
+    stock: ['market', 'currency', 'country', 'city', 'listing'],
+    etf: ['market', 'currency', 'country', 'city', 'listing'],
+    indice: ['market', 'currency', 'country', 'city', 'listing'],
+    mutualfund: ['market', 'currency', 'country', 'city', 'listing'],
+    future: ['market', 'currency', 'country', 'city', 'listing'],
+    crypto: ['currency', 'market', 'country', 'city', 'listing'],
+    currency: ['currency', 'market', 'country', 'city', 'listing'],
   },
-  exchangeCodeToMic: exchangeCodeToMicMap,
-  micToExchangeCode: micToExchangeCodeMap,
+  exchangeCodeToMarket: exchangeCodeToMarketMap,
+  marketToExchangeCode: marketToExchangeCodeMap,
   exchangeCodes: exchangeCodesList,
   rules: alphaVantageSymbolRules,
 }

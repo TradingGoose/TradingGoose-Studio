@@ -57,6 +57,7 @@ export function useMarketListingSearch({
     const { queryParams, requestKey } = buildMarketSearchRequest({
       rawQuery,
       providerId,
+      providerType,
       providerConfig,
     })
     requestKeyRef.current = requestKey

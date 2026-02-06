@@ -13,9 +13,10 @@ export type MarketListingSearchRequest = {
 export function buildMarketSearchRequest(args: {
   rawQuery: string
   providerId?: string
+  providerType?: 'market' | 'trading'
   providerConfig: ProviderSearchConfig
 }): MarketListingSearchRequest {
-  const { rawQuery, providerId, providerConfig } = args
+  const { rawQuery, providerId, providerType = 'market', providerConfig } = args
   const trimmed = rawQuery.trim()
 
   const queryParams: Record<string, string> = {}
@@ -42,9 +43,16 @@ export function buildMarketSearchRequest(args: {
     normalizedAssetClasses.length === 0 ||
     normalizedAssetClasses.some((value) => value !== 'crypto' && value !== 'currency')
 
+  const resolvedMarketCodes = providerConfig.marketCodes.length ? providerConfig.marketCodes : []
   const resolvedMicCodes = providerConfig.micCodes.length ? providerConfig.micCodes : []
-  if (resolvedMicCodes.length && includeListings) {
-    filtersPayload.mic = resolvedMicCodes
+
+  if (includeListings) {
+    if (providerType === 'market' && resolvedMarketCodes.length) {
+      filtersPayload.market = resolvedMarketCodes
+    }
+    if (providerType === 'trading' && resolvedMicCodes.length) {
+      filtersPayload.mic = resolvedMicCodes
+    }
   }
 
   if (includeListings && providerConfig.listingQuoteCodes.length) {
@@ -71,7 +79,9 @@ export function buildMarketSearchRequest(args: {
     trimmed,
     rawQuery,
     providerId,
+    providerType,
     assetClasses: resolvedAssetClasses,
+    marketCodes: resolvedMarketCodes,
     micCodes: resolvedMicCodes,
     listingQuoteCodes: providerConfig.listingQuoteCodes,
     cryptoQuoteCodes: providerConfig.cryptoQuoteCodes,

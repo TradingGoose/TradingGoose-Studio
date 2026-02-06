@@ -12,27 +12,17 @@ export const finnhubSymbolRules: MarketSymbolRule[] = [
     active: true,
   },
   {
-    mic: 'XNYS',
+    market: 'NYSE',
     template: '{base}',
     active: true,
   },
   {
-    mic: 'XNAS',
+    market: 'NASDAQ',
     template: '{base}',
     active: true,
   },
   {
-    mic: 'XASE',
-    template: '{base}',
-    active: true,
-  },
-  {
-    mic: 'ARCX',
-    template: '{base}',
-    active: true,
-  },
-  {
-    mic: 'BATS',
+    market: 'CBOE',
     template: '{base}',
     active: true,
   },

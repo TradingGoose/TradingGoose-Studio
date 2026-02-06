@@ -71,7 +71,7 @@ export async function resolveListingContext(listing: ListingInputValue): Promise
     quote: resolved.quote ?? undefined,
     assetClass,
     primaryMicCode: resolved.primaryMicCode ?? undefined,
-    micCode: resolved.primaryMicCode ?? undefined,
+    marketCode: resolved.marketCode ?? undefined,
     countryCode: resolved.countryCode ?? undefined,
     cityName: resolved.cityName ?? undefined,
     timeZoneName: resolved.timeZoneName ?? undefined,
@@ -82,10 +82,14 @@ export function resolveProviderSymbol(
   config: MarketProviderConfig,
   context: ListingContext
 ): string {
-  const exchangeCode = context.micCode ? config.micToExchangeCode[context.micCode] : undefined
+  const marketCode = context.marketCode?.trim().toUpperCase()
+  const exchangeCode = marketCode
+    ? config.marketToExchangeCode[marketCode]
+    : undefined
   const exchangeSuffix = exchangeCode ? `.${exchangeCode}` : ''
   const enrichedContext: ListingContext = {
     ...context,
+    marketCode,
     exchangeCode,
     exchangeSuffix,
   }
@@ -116,7 +120,7 @@ export function resolveProviderSymbol(
 function matchesRule(rule: MarketSymbolRule, context: ListingContext): boolean {
   if (rule.assetClass && rule.assetClass !== context.assetClass) return false
   if (rule.listingKey && rule.listingKey !== context.listingKey) return false
-  if (rule.mic && rule.mic !== context.micCode) return false
+  if (rule.market && rule.market !== context.marketCode) return false
   if (rule.country && rule.country !== context.countryCode) return false
   if (rule.city && rule.city !== context.cityName) return false
   if (rule.currency && rule.currency !== context.quote) return false
@@ -138,7 +142,7 @@ function matchesRule(rule: MarketSymbolRule, context: ListingContext): boolean {
 function scoreRule(rule: MarketSymbolRule, precedence: RuleScopeKey[]): number {
   const fieldWeights: Record<RuleScopeKey, number> = {
     listing: 0,
-    mic: 0,
+    market: 0,
     currency: 0,
     assetClass: 0,
     country: 0,
@@ -152,7 +156,7 @@ function scoreRule(rule: MarketSymbolRule, precedence: RuleScopeKey[]): number {
 
   let score = 0
   if (rule.listingKey) score += fieldWeights.listing || 0
-  if (rule.mic) score += fieldWeights.mic || 0
+  if (rule.market) score += fieldWeights.market || 0
   if (rule.currency) score += fieldWeights.currency || 0
   if (rule.assetClass) score += fieldWeights.assetClass || 0
   if (rule.country) score += fieldWeights.country || 0
@@ -181,8 +185,6 @@ function renderTemplate(template: string, context: ListingContext): string {
         return context.base
       case 'quote':
         return context.quote || ''
-      case 'mic':
-        return context.micCode || ''
       case 'exchangeCode':
         return context.exchangeCode || ''
       case 'exchangeSuffix':
@@ -191,6 +193,8 @@ function renderTemplate(template: string, context: ListingContext): string {
         return context.countryCode || ''
       case 'city':
         return context.cityName || ''
+      case 'market':
+        return context.marketCode || ''
       case 'assetClass':
         return context.assetClass || ''
       case 'listing':
