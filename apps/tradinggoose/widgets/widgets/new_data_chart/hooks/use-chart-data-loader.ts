@@ -3,26 +3,16 @@
 import { type MutableRefObject, useEffect, useMemo, useRef, useState } from 'react'
 import type { IChartApi, ISeriesApi } from 'lightweight-charts'
 import type { Socket } from 'socket.io-client'
-import { resolveListingKey, type ListingIdentity } from '@/lib/listing/identity'
+import { type ListingIdentity, resolveListingKey } from '@/lib/listing/identity'
+import { getMarketSeriesCapabilities } from '@/providers/market/providers'
 import type {
   MarketInterval,
   MarketSeries,
   MarketSeriesRequest,
   MarketSessionWindow,
 } from '@/providers/market/types'
-import { getMarketSeriesCapabilities } from '@/providers/market/providers'
-import { resolveProviderErrorMessage } from '@/widgets/widgets/new_data_chart/utils/chart-errors'
-import {
-  assertMarketSeries,
-  resolveExpectedBars,
-  resolveForwardSpanMs,
-  resolveSeriesSpanMs,
-} from '@/widgets/widgets/new_data_chart/utils/series-loader'
-import {
-  coerceProviderParams,
-  sanitizeNormalizationMode,
-} from '@/widgets/widgets/new_data_chart/series-window'
-import type { NewDataChartDataContext, NewDataChartWidgetParams } from '@/widgets/widgets/new_data_chart/types'
+import { useChartRescale } from '@/widgets/widgets/new_data_chart/hooks/use-chart-rescale'
+import { useLiveBars } from '@/widgets/widgets/new_data_chart/hooks/use-live-bars'
 import {
   buildIndexMaps,
   DEFAULT_BAR_COUNT,
@@ -30,9 +20,24 @@ import {
   mapBarsMsToSeriesData,
   mapMarketSeriesToBarsMs,
   mergeBarsMs,
+  sanitizeSeriesData,
+  sanitizeBarsMs,
 } from '@/widgets/widgets/new_data_chart/series-data'
-import { useChartRescale } from '@/widgets/widgets/new_data_chart/hooks/use-chart-rescale'
-import { useLiveBars } from '@/widgets/widgets/new_data_chart/hooks/use-live-bars'
+import {
+  coerceProviderParams,
+  sanitizeNormalizationMode,
+} from '@/widgets/widgets/new_data_chart/series-window'
+import type {
+  NewDataChartDataContext,
+  NewDataChartWidgetParams,
+} from '@/widgets/widgets/new_data_chart/types'
+import { resolveProviderErrorMessage } from '@/widgets/widgets/new_data_chart/utils/chart-errors'
+import {
+  assertMarketSeries,
+  resolveExpectedBars,
+  resolveForwardSpanMs,
+  resolveSeriesSpanMs,
+} from '@/widgets/widgets/new_data_chart/utils/series-loader'
 
 type SeriesWindow = ReturnType<
   typeof import('@/widgets/widgets/new_data_chart/series-window').resolveSeriesWindow
@@ -40,6 +45,7 @@ type SeriesWindow = ReturnType<
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const PREFETCH_THRESHOLD = 126
+const EMPTY_BARS_ERROR = 'No bar data returned'
 
 const mergeMarketSessions = (
   current: MarketSessionWindow[],
@@ -77,10 +83,7 @@ type UseChartDataLoaderArgs = {
   onDataBackfill?: () => void
 }
 
-const resolveRetentionRule = (
-  providerId: string | null | undefined,
-  interval?: string | null
-) => {
+const resolveRetentionRule = (providerId: string | null | undefined, interval?: string | null) => {
   if (!providerId) return undefined
   const capabilities = getMarketSeriesCapabilities(providerId)
   const retention = capabilities?.retention
@@ -108,6 +111,7 @@ export const useChartDataLoader = ({
   onDataBackfill,
 }: UseChartDataLoaderArgs) => {
   const [chartError, setChartError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
   const [seriesTimezone, setSeriesTimezone] = useState<string | null>(null)
   const lastProviderRef = useRef<string | null>(null)
   const lastListingKeyRef = useRef<string | null>(null)
@@ -136,33 +140,27 @@ export const useChartDataLoader = ({
     () => `${listingKey ?? 'none'}|${seriesWindow.interval ?? ''}|${rangeKey}`,
     [listingKey, rangeKey, seriesWindow.interval]
   )
-  const providerParams = useMemo(
-    () => {
-      if (!providerId) return undefined
-      const rawParams = { ...(dataParams.data?.providerParams ?? {}) } as Record<string, unknown>
-      delete rawParams.apiKey
-      delete rawParams.apiSecret
-      const marketSession = dataParams.view?.marketSession
-      if (marketSession) {
-        rawParams.marketSession = marketSession
-      }
-      return coerceProviderParams(providerId, rawParams)
-    },
-    [dataParams.data?.providerParams, dataParams.view?.marketSession, providerId]
-  )
+  const providerParams = useMemo(() => {
+    if (!providerId) return undefined
+    const rawParams = { ...(dataParams.data?.providerParams ?? {}) } as Record<string, unknown>
+    rawParams.apiKey = undefined
+    rawParams.apiSecret = undefined
+    const marketSession = dataParams.view?.marketSession
+    if (marketSession) {
+      rawParams.marketSession = marketSession
+    }
+    return coerceProviderParams(providerId, rawParams)
+  }, [dataParams.data?.providerParams, dataParams.view?.marketSession, providerId])
   const authParams = dataParams.data?.auth
-  const normalizationMode = useMemo(
-    () => {
-      if (!providerId) return undefined
-      const rawMode = providerParams?.normalization_mode
-      const trimmedMode = typeof rawMode === 'string' ? rawMode.trim() : ''
-      const capabilities = getMarketSeriesCapabilities(providerId)
-      const fallbackMode = capabilities?.normalizationModes?.[0] ?? 'raw'
-      const resolvedMode = trimmedMode || fallbackMode
-      return sanitizeNormalizationMode(providerId, resolvedMode)
-    },
-    [providerId, providerParams]
-  )
+  const normalizationMode = useMemo(() => {
+    if (!providerId) return undefined
+    const rawMode = providerParams?.normalization_mode
+    const trimmedMode = typeof rawMode === 'string' ? rawMode.trim() : ''
+    const capabilities = getMarketSeriesCapabilities(providerId)
+    const fallbackMode = capabilities?.normalizationModes?.[0] ?? 'raw'
+    const resolvedMode = trimmedMode || fallbackMode
+    return sanitizeNormalizationMode(providerId, resolvedMode)
+  }, [providerId, providerParams])
 
   const liveEnabled = dataParams.data?.live?.enabled !== false
   const liveInterval = dataParams.data?.live?.interval ?? seriesWindow.interval ?? requestInterval
@@ -182,18 +180,27 @@ export const useChartDataLoader = ({
     onDataUpdated,
   })
 
-  const resetSeriesData = () => {
-    dataContext.barsMsRef.current = []
-    dataContext.indexByOpenTimeMsRef.current = new Map()
-    dataContext.openTimeMsByIndexRef.current = []
-    dataContext.marketSessionsRef.current = []
-    if (mainSeriesRef.current) {
-      mainSeriesRef.current.setData([] as never)
-    }
+  const resetHistoryState = () => {
     hasMoreHistoricalDataRef.current = true
     isLoadingOlderDataRef.current = false
     historicalCursorRef.current = null
   }
+
+  const isEmptyBarsError = (error: unknown) =>
+    error instanceof Error && error.message.toLowerCase().includes(EMPTY_BARS_ERROR.toLowerCase())
+
+  const retryIfEmptyBars = async <T,>(fetcher: () => Promise<T>): Promise<T> => {
+    try {
+      return await fetcher()
+    } catch (error) {
+      if (!isEmptyBarsError(error)) {
+        throw error
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250))
+      return await fetcher()
+    }
+  }
+
 
   useEffect(() => {
     const chart = chartRef.current
@@ -228,14 +235,14 @@ export const useChartDataLoader = ({
       lastWindowSpanRef.current = null
       setChartError(null)
       setSeriesTimezone(null)
-      resetSeriesData()
+      resetHistoryState()
     }
 
     if (listingChanged && lastListingKeyRef.current) {
       lastWindowSpanRef.current = null
       setChartError(null)
       setSeriesTimezone(null)
-      resetSeriesData()
+      resetHistoryState()
     }
 
     lastProviderRef.current = nextProvider
@@ -245,7 +252,10 @@ export const useChartDataLoader = ({
   useEffect(() => {
     const chart = chartRef.current
     if (!chart) return
-    if (!providerId || !listing) return
+    if (!providerId || !listing) {
+      setIsLoading(false)
+      return
+    }
 
     const refreshAt =
       typeof dataParams.runtime?.refreshAt === 'number' ? dataParams.runtime.refreshAt : null
@@ -258,7 +268,7 @@ export const useChartDataLoader = ({
       lastWindowSpanRef.current = null
       setChartError(null)
       setSeriesTimezone(null)
-      resetSeriesData()
+      resetHistoryState()
     }
 
     const windowChanged = rescaleKeyRef.current !== rescaleKey
@@ -271,7 +281,7 @@ export const useChartDataLoader = ({
         primaryWindow?.mode === 'bars'
           ? resolveExpectedBars(primaryWindow, seriesWindow.interval ?? requestInterval)
           : null
-      resetSeriesData()
+      resetHistoryState()
     }
 
     loaderVersionRef.current += 1
@@ -405,25 +415,31 @@ export const useChartDataLoader = ({
       return merged
     }
 
+    const primaryWindow = seriesWindow.windows?.[0]
+
     const loadSeries = async () => {
+      setIsLoading(true)
       try {
         const pendingRange = pendingRangeRef.current
+        const useExplicitRange = Boolean(pendingRange)
         if (pendingRange) {
           pendingRangeRef.current = null
           expectedBarsRef.current = null
         }
         dataContext.marketSessionsRef.current = []
-        const useExplicitRange = Boolean(pendingRange)
-        const seriesResponse = useExplicitRange
-          ? await fetchSeriesRange(pendingRange.startMs, pendingRange.endMs)
-          : await fetchSeries()
+        const seriesResponse = await retryIfEmptyBars(() =>
+          useExplicitRange && pendingRange
+            ? fetchSeriesRange(pendingRange.startMs, pendingRange.endMs)
+            : fetchSeries()
+        )
         if (loaderVersion !== loaderVersionRef.current) return
         updateMarketSessions(seriesResponse.marketSessions)
         let barsMs = mapMarketSeriesToBarsMs(seriesResponse, dataContext.intervalMs)
-        if (!useExplicitRange) {
+        if (!useExplicitRange && primaryWindow?.mode !== 'range') {
           barsMs = await ensureMinimumBars(barsMs)
           if (loaderVersion !== loaderVersionRef.current) return
         }
+        barsMs = sanitizeBarsMs(barsMs)
         dataContext.barsMsRef.current = barsMs
         const { indexByOpenTimeMs, openTimeMsByIndex } = buildIndexMaps(barsMs)
         dataContext.indexByOpenTimeMsRef.current = indexByOpenTimeMs
@@ -433,7 +449,10 @@ export const useChartDataLoader = ({
         if (chartSeries) {
           const seriesType = chartSeries.seriesType()
           const isLineSeries = seriesType === 'Area' || seriesType === 'Line'
-          const seriesData = mapBarsMsToSeriesData(barsMs, isLineSeries ? 'area' : null)
+          const seriesData = sanitizeSeriesData(
+            mapBarsMsToSeriesData(barsMs, isLineSeries ? 'area' : null),
+            isLineSeries ? 'area' : null
+          )
           chartSeries.setData(seriesData as never)
         }
 
@@ -446,7 +465,11 @@ export const useChartDataLoader = ({
         hasMoreHistoricalDataRef.current = canLoadMore
 
         onDataLoaded?.()
-        scheduleRescale(expectedBarsRef.current, barsMs.length)
+        const expectedBars =
+          primaryWindow?.mode === 'range' && typeof expectedBarsRef.current === 'number'
+            ? Math.min(expectedBarsRef.current, barsMs.length)
+            : expectedBarsRef.current
+        scheduleRescale(expectedBars, barsMs.length)
         const resolvedSpan = resolveSeriesSpanMs({
           series: seriesResponse,
           interval: seriesWindow.interval ?? requestInterval,
@@ -469,6 +492,8 @@ export const useChartDataLoader = ({
       } catch (error) {
         console.error('Failed to load chart data', error)
         setChartError(error instanceof Error ? error.message : 'Failed to load data')
+      } finally {
+        setIsLoading(false)
       }
     }
 
@@ -479,6 +504,7 @@ export const useChartDataLoader = ({
     const handleVisibleRangeChange = async (range: { from: number; to: number } | null) => {
       if (!range) return
       if (loaderVersion !== loaderVersionRef.current) return
+      if (primaryWindow?.mode === 'range' && range.from >= 0) return
       if (isLoadingOlderDataRef.current || !hasMoreHistoricalDataRef.current) return
 
       const needsMore = (visibleRange: { from: number; to: number }) =>
@@ -535,15 +561,16 @@ export const useChartDataLoader = ({
             const incomingBars = mapMarketSeriesToBarsMs(seriesResponse, dataContext.intervalMs)
             if (incomingBars.length === 0) {
               historicalCursorRef.current = startMs
-              const canLoadMore =
-                retentionStartMs === null ? true : startMs > retentionStartMs
+              const canLoadMore = retentionStartMs === null ? true : startMs > retentionStartMs
               hasMoreHistoricalDataRef.current = canLoadMore
               activeRange = timeScale.getVisibleLogicalRange()
               continue
             }
 
             const previousRange = timeScale.getVisibleLogicalRange()
-            let merged = mergeBarsMs(currentBars, incomingBars, dataContext.intervalMs)
+            let merged = sanitizeBarsMs(
+              mergeBarsMs(currentBars, incomingBars, dataContext.intervalMs)
+            )
             if (
               retentionRule?.maxBars &&
               retentionRule.maxBars > 0 &&
@@ -562,13 +589,16 @@ export const useChartDataLoader = ({
               const series = mainSeriesRef.current
               const seriesType = series.seriesType()
               const isLineSeries = seriesType === 'Area' || seriesType === 'Line'
-              series.setData(mapBarsMsToSeriesData(merged, isLineSeries ? 'area' : null) as never)
+              const seriesData = sanitizeSeriesData(
+                mapBarsMsToSeriesData(merged, isLineSeries ? 'area' : null),
+                isLineSeries ? 'area' : null
+              )
+              series.setData(seriesData as never)
             }
 
             if (addedBars <= 0) {
               historicalCursorRef.current = startMs
-              const canLoadMore =
-                retentionStartMs === null ? true : startMs > retentionStartMs
+              const canLoadMore = retentionStartMs === null ? true : startMs > retentionStartMs
               hasMoreHistoricalDataRef.current = canLoadMore
               activeRange = timeScale.getVisibleLogicalRange()
               continue
@@ -616,6 +646,7 @@ export const useChartDataLoader = ({
     chartRef,
     chartContainerRef,
     mainSeriesRef,
+    dataContext,
     dataParams.runtime?.refreshAt,
     listing,
     workspaceId,
@@ -634,5 +665,5 @@ export const useChartDataLoader = ({
     stopLiveSubscription,
   ])
 
-  return { chartError, seriesTimezone }
+  return { chartError, seriesTimezone, isLoading }
 }

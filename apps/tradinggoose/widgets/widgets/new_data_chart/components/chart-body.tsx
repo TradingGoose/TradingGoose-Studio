@@ -5,7 +5,6 @@ import type { IPaneApi } from 'lightweight-charts'
 import { X } from 'lucide-react'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
-import { resolveListingKey } from '@/lib/listing/identity'
 import { DEFAULT_PINE_INDICATOR_MAP } from '@/lib/new_indicators/default'
 import { buildInputsMapFromMeta } from '@/lib/new_indicators/input-meta'
 import type { InputMetaMap } from '@/lib/new_indicators/types'
@@ -61,32 +60,6 @@ export const NewDataChartWidgetBody = ({
   const workspaceId = context?.workspaceId ?? null
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const pairContext = usePairColorContext(resolvedPairColor)
-  const { chartRef, chartContainerRef, mainSeriesRef, chartReady } = useChartInstance()
-  const { socket } = useSocket()
-  const [dataVersion, setDataVersion] = useState(0)
-  const lastLiveRefreshRef = useRef(0)
-  const barsMsRef = useRef<BarMs[]>([])
-  const indexByOpenTimeMsRef = useRef<Map<number, number>>(new Map())
-  const openTimeMsByIndexRef = useRef<number[]>([])
-  const marketSessionsRef = useRef<MarketSessionWindow[]>([])
-  const dataContextRef = useRef<NewDataChartDataContext>({
-    barsMsRef,
-    indexByOpenTimeMsRef,
-    openTimeMsByIndexRef,
-    marketSessionsRef,
-    intervalMs: null,
-    dataVersion: 0,
-  })
-  const indicatorRuntimeRef = useRef<Map<string, IndicatorRuntimeEntry>>(new Map())
-  const [indicatorRuntimeVersion, setIndicatorRuntimeVersion] = useState(0)
-  const [hiddenIndicators, setHiddenIndicators] = useState<Set<string>>(new Set())
-  const [paneSnapshot, setPaneSnapshot] = useState<IPaneApi<any>[]>([])
-  const [paneLayout, setPaneLayout] = useState<Array<{ top: number; height: number }>>([])
-  const [settingsIndicatorId, setSettingsIndicatorId] = useState<string | null>(null)
-  const [settingsDraft, setSettingsDraft] = useState<Record<string, unknown>>({})
-  const legendContainerRef = useRef<HTMLDivElement | null>(null)
-  const [legendOffset, setLegendOffset] = useState(0)
-
   useDataChartParamsPersistence({ onWidgetParamsChange, panelId, widget, params })
 
   const dataParams = useMemo(() => {
@@ -109,11 +82,10 @@ export const NewDataChartWidgetBody = ({
   )
 
   const intervalLabel = seriesWindow.interval ?? ''
-  const { listing, resolvedListing, isResolving } = useListingState({
+  const { listing, listingKey, resolvedListing, isResolving } = useListingState({
     listingValue,
     intervalLabel,
   })
-  const listingKey = useMemo(() => (listing ? resolveListingKey(listing) : null), [listing])
   const listingLabel = useMemo(() => {
     if (resolvedListing) {
       const symbol = getListingSymbol(resolvedListing)
@@ -128,6 +100,49 @@ export const NewDataChartWidgetBody = ({
     return null
   }, [resolvedListing])
 
+  const refreshAt =
+    typeof dataParams.runtime?.refreshAt === 'number' ? dataParams.runtime.refreshAt : null
+  const chartResetKey = useMemo(
+    () =>
+      [
+        providerId ?? 'none',
+        listingKey ?? 'none',
+        seriesWindow.windowKey ?? 'none',
+        seriesWindow.interval ?? '',
+        refreshAt ? String(refreshAt) : '0',
+      ].join('|'),
+    [listingKey, providerId, refreshAt, seriesWindow.interval, seriesWindow.windowKey]
+  )
+
+  const { chartRef, chartContainerRef, mainSeriesRef, chartReady } =
+    useChartInstance(chartResetKey)
+  const { socket } = useSocket()
+  const [dataVersion, setDataVersion] = useState(0)
+  const lastLiveRefreshRef = useRef(0)
+  const dataContext = useMemo<NewDataChartDataContext>(
+    () => ({
+      barsMsRef: { current: [] as BarMs[] },
+      indexByOpenTimeMsRef: { current: new Map<number, number>() },
+      openTimeMsByIndexRef: { current: [] as number[] },
+      marketSessionsRef: { current: [] as MarketSessionWindow[] },
+      intervalMs: null,
+      dataVersion: 0,
+    }),
+    [chartResetKey]
+  )
+  const indicatorRuntimeRef = useMemo(
+    () => ({ current: new Map<string, IndicatorRuntimeEntry>() }),
+    [chartResetKey]
+  )
+  const [indicatorRuntimeVersion, setIndicatorRuntimeVersion] = useState(0)
+  const [hiddenIndicators, setHiddenIndicators] = useState<Set<string>>(new Set())
+  const [paneSnapshot, setPaneSnapshot] = useState<IPaneApi<any>[]>([])
+  const [paneLayout, setPaneLayout] = useState<Array<{ top: number; height: number }>>([])
+  const [settingsIndicatorId, setSettingsIndicatorId] = useState<string | null>(null)
+  const [settingsDraft, setSettingsDraft] = useState<Record<string, unknown>>({})
+  const legendContainerRef = useRef<HTMLDivElement | null>(null)
+  const [legendOffset, setLegendOffset] = useState(0)
+
   useChartDefaults({
     dataParams: dataParams as DataChartWidgetParams,
     providerId,
@@ -137,9 +152,8 @@ export const NewDataChartWidgetBody = ({
   })
 
   const intervalMs = intervalToMs(seriesWindow.interval ?? seriesWindow.requestInterval ?? null)
-  dataContextRef.current.intervalMs = intervalMs
-  dataContextRef.current.dataVersion = dataVersion
-  const dataContext = dataContextRef.current
+  dataContext.intervalMs = intervalMs
+  dataContext.dataVersion = dataVersion
 
   const themeVersion = useThemeVersion()
   const handleDataLoaded = useCallback(() => {
@@ -158,7 +172,7 @@ export const NewDataChartWidgetBody = ({
     setIndicatorRuntimeVersion((prev) => prev + 1)
   }, [])
 
-  const { seriesTimezone, chartError } = useChartDataLoader({
+  const { seriesTimezone, chartError, isLoading } = useChartDataLoader({
     chartRef,
     chartContainerRef,
     mainSeriesRef,
@@ -173,6 +187,7 @@ export const NewDataChartWidgetBody = ({
     onDataUpdated: handleDataUpdated,
     onDataBackfill: handleDataBackfill,
   })
+
 
   const { data: pineIndicators = [] } = useNewIndicators(workspaceId ?? '')
   const pineIndicatorIds = useMemo(
@@ -233,16 +248,15 @@ export const NewDataChartWidgetBody = ({
     chartRef,
     mainSeriesRef,
     dataContext,
+    chartReady,
     seriesTimezone,
     view: dataParams.view,
-    dataVersion,
   })
   const indicatorLegend = useIndicatorLegend({
     chartRef,
     indicatorRuntimeRef,
     view: dataParams.view,
-    dataVersion,
-    indicatorRuntimeVersion,
+    chartReady,
   })
 
   const chartSettings = useMemo(() => {
@@ -277,6 +291,11 @@ export const NewDataChartWidgetBody = ({
     dataVersion,
     chartReady,
   })
+
+  useEffect(() => {
+    setPaneSnapshot([])
+    setPaneLayout([])
+  }, [chartResetKey])
 
   const refreshPaneSnapshot = useCallback(() => {
     if (!chartRef.current) return
@@ -354,7 +373,7 @@ export const NewDataChartWidgetBody = ({
       const isHidden = hiddenIndicators.has(indicatorId)
       entry.plots.forEach((plot) => {
         if (typeof (plot.series as { applyOptions?: unknown }).applyOptions === 'function') {
-          ; (plot.series as { applyOptions: (options: { visible: boolean }) => void }).applyOptions({
+          ;(plot.series as { applyOptions: (options: { visible: boolean }) => void }).applyOptions({
             visible: !isHidden,
           })
         }
@@ -514,6 +533,7 @@ export const NewDataChartWidgetBody = ({
       const meta = indicatorMetaById.get(id)
       if (!meta) return
       const runtimeEntry = indicatorRuntimeRef.current.get(id)
+      if (!runtimeEntry) return
       const paneIndex = runtimeEntry?.pane ? runtimeEntry.pane.paneIndex() : mainPaneIndex
       const list = grouped.get(paneIndex) ?? []
       list.push({
@@ -537,7 +557,10 @@ export const NewDataChartWidgetBody = ({
     indicatorRuntimeVersion,
     indicatorRefsById,
     paneSnapshot,
+    chartResetKey,
   ])
+
+  const hasIndicatorRuntime = indicatorRuntimeRef.current.size > 0
 
   const settingsMeta = useMemo(() => {
     if (!settingsIndicatorId) return null
@@ -559,7 +582,7 @@ export const NewDataChartWidgetBody = ({
   const hasProvider = Boolean(providerId)
   const hasListing = Boolean(listing)
   const showEmptyState = !hasProvider || !hasListing
-  const showErrorState = !showEmptyState && Boolean(chartError)
+  const showErrorState = !showEmptyState && Boolean(chartError) && !isLoading
 
   if (!workspaceId) {
     return (
@@ -589,8 +612,9 @@ export const NewDataChartWidgetBody = ({
         <div
           ref={chartContainerRef}
           aria-hidden={showErrorState}
-          className={`relative z-0 h-full w-full bg-background text-foreground${showErrorState ? ' pointer-events-none opacity-0' : ''
-            }`}
+          className={`relative z-0 h-full w-full bg-background text-foreground${
+            showErrorState ? ' pointer-events-none opacity-0' : ''
+          }`}
         />
         {!showEmptyState && !showErrorState && (
           <div className='pointer-events-none absolute inset-0 z-10'>
@@ -607,7 +631,7 @@ export const NewDataChartWidgetBody = ({
                 return (
                   <div
                     key={`pane-overlay-${paneIndex}`}
-                    className='absolute left-0 right-0'
+                    className='absolute right-0 left-0'
                     style={{ top: `${layout.top}px`, height: `${layout.height}px` }}
                   >
                     <div className='relative h-full w-full'>
@@ -621,38 +645,41 @@ export const NewDataChartWidgetBody = ({
                           containerRef={legendContainerRef}
                         />
                       )}
-                      {indicatorItems.length > 0 && (
+                      {hasIndicatorRuntime && indicatorItems.length > 0 && (
                         <div
-                          className='pointer-events-auto absolute left-[3px] right-0 mr-24 pr-20'
+                          className='pointer-events-none absolute left-[3px] mr-24 pr-20'
                           style={{ top: `${topOffset}px` }}
                         >
-                          <div className='flex flex-col items-start gap-1'>
+                          <div className='inline-flex flex-col items-start gap-1'>
                             {indicatorItems.map((item) => (
-                              <IndicatorControl
-                                key={item.id}
-                                indicatorId={item.id}
-                                name={item.name}
-                                inputMeta={item.inputMeta}
-                                indicatorInputs={item.inputs}
-                                plotValues={item.values}
-                                isHidden={item.isHidden}
-                                errorMessage={item.errorMessage}
-                                onToggleHidden={handleToggleHidden}
-                                onRemove={handleRemoveIndicator}
-                                onOpenSettings={handleOpenSettings}
-                              />
+                              <div key={item.id} className='pointer-events-auto'>
+                                <IndicatorControl
+                                  indicatorId={item.id}
+                                  name={item.name}
+                                  inputMeta={item.inputMeta}
+                                  indicatorInputs={item.inputs}
+                                  plotValues={item.values}
+                                  isHidden={item.isHidden}
+                                  errorMessage={item.errorMessage}
+                                  onToggleHidden={handleToggleHidden}
+                                  onRemove={handleRemoveIndicator}
+                                  onOpenSettings={handleOpenSettings}
+                                />
+                              </div>
                             ))}
                           </div>
                         </div>
                       )}
-                      <div className='pointer-events-auto absolute top-[3px] right-[4px] pr-14'>
-                        <PaneControl
-                          paneIndex={paneIndex}
-                          paneCount={paneSnapshot.length}
-                          onMoveUp={() => handleMovePaneUp(pane)}
-                          onMoveDown={() => handleMovePaneDown(pane)}
-                        />
-                      </div>
+                      {hasIndicatorRuntime && (
+                        <div className='pointer-events-auto absolute top-[3px] right-[4px] pr-14'>
+                          <PaneControl
+                            paneIndex={paneIndex}
+                            paneCount={paneSnapshot.length}
+                            onMoveUp={() => handleMovePaneUp(pane)}
+                            onMoveDown={() => handleMovePaneDown(pane)}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 )
@@ -683,7 +710,7 @@ export const NewDataChartWidgetBody = ({
       </div>
       {settingsMeta && (
         <div
-          className='absolute inset-0 z-40 flex items-center justify-center backdrop-blur-sm bg-secondary/40 p-4'
+          className='absolute inset-0 z-40 flex items-center justify-center bg-secondary/40 p-4 backdrop-blur-sm'
           onClick={(event) => {
             if (event.target === event.currentTarget) {
               handleCloseSettings()

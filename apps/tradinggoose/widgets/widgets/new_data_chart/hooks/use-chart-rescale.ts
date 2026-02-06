@@ -33,6 +33,11 @@ export const useChartRescale = ({ chartRef, chartContainerRef }: UseChartRescale
   const resetRescale = useCallback(() => {
     shouldRescaleRef.current = true
     rescaleAttemptsRef.current = 0
+    lastArgsRef.current = null
+    if (rescaleRafRef.current !== null) {
+      window.cancelAnimationFrame(rescaleRafRef.current)
+      rescaleRafRef.current = null
+    }
   }, [])
 
   const scheduleRescale = useCallback(

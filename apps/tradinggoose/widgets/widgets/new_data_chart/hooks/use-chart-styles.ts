@@ -13,7 +13,7 @@ import {
   resolvePriceScaleMode,
   sanitizeStyleOverrides,
 } from '@/widgets/widgets/new_data_chart/utils/chart-styles'
-import { mapBarsMsToSeriesData } from '@/widgets/widgets/new_data_chart/series-data'
+import { mapBarsMsToSeriesData, sanitizeSeriesData } from '@/widgets/widgets/new_data_chart/series-data'
 import type { NewDataChartDataContext } from '@/widgets/widgets/new_data_chart/types'
 
 type UseChartStylesArgs = {
@@ -168,7 +168,10 @@ export const useChartStyles = ({
         | ISeriesApi<'Bar'>
         | ISeriesApi<'Area'>
 
-      const seriesData = mapBarsMsToSeriesData(dataContext.barsMsRef.current, candleType)
+      const seriesData = sanitizeSeriesData(
+        mapBarsMsToSeriesData(dataContext.barsMsRef.current, candleType),
+        candleType
+      )
       if (seriesData.length > 0) {
         mainSeriesRef.current.setData(seriesData as never)
       } else {
@@ -200,8 +203,8 @@ export const useChartStyles = ({
     if (!series) return
     const seriesType = series.seriesType()
     const isAreaSeries = seriesType === 'Area'
-    const seriesData = mapBarsMsToSeriesData(
-      dataContext.barsMsRef.current,
+    const seriesData = sanitizeSeriesData(
+      mapBarsMsToSeriesData(dataContext.barsMsRef.current, isAreaSeries ? 'area' : null),
       isAreaSeries ? 'area' : null
     )
     series.setData(seriesData as never)

@@ -23,8 +23,7 @@ type UseIndicatorLegendArgs = {
   chartRef: MutableRefObject<IChartApi | null>
   indicatorRuntimeRef: MutableRefObject<Map<string, IndicatorRuntimeEntry>>
   view?: DataChartViewParams
-  dataVersion: number
-  indicatorRuntimeVersion: number
+  chartReady: number
 }
 
 const resolvePrecision = (value?: number | null) => {
@@ -68,8 +67,7 @@ export const useIndicatorLegend = ({
   chartRef,
   indicatorRuntimeRef,
   view,
-  dataVersion,
-  indicatorRuntimeVersion,
+  chartReady,
 }: UseIndicatorLegendArgs) => {
   const [legendMap, setLegendMap] = useState<Map<string, IndicatorPlotValue[]>>(new Map())
   const lastSignatureRef = useRef<string>('')
@@ -78,6 +76,13 @@ export const useIndicatorLegend = ({
 
   const updateLegend = useCallback(
     (param?: MouseEventParams | null) => {
+      if (!param?.time) {
+        if (legendMap.size !== 0) {
+          lastSignatureRef.current = ''
+          setLegendMap(new Map())
+        }
+        return
+      }
       const runtimeEntries = indicatorRuntimeRef.current
       if (!runtimeEntries || runtimeEntries.size === 0) {
         if (legendMap.size !== 0) {
@@ -116,10 +121,6 @@ export const useIndicatorLegend = ({
   )
 
   useEffect(() => {
-    updateLegend(null)
-  }, [dataVersion, indicatorRuntimeVersion, updateLegend])
-
-  useEffect(() => {
     const chart = chartRef.current
     if (!chart) return
 
@@ -129,7 +130,7 @@ export const useIndicatorLegend = ({
 
     chart.subscribeCrosshairMove(handleCrosshairMove)
     return () => chart.unsubscribeCrosshairMove(handleCrosshairMove)
-  }, [chartRef, updateLegend])
+  }, [chartRef, updateLegend, chartReady])
 
   return legendMap
 }

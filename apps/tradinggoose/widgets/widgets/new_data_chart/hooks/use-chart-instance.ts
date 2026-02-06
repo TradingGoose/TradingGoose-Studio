@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createChart, type IChartApi, type ISeriesApi } from 'lightweight-charts'
 import { DEFAULT_RIGHT_OFFSET } from '@/widgets/widgets/new_data_chart/utils/chart-styles'
 
-export const useChartInstance = () => {
+export const useChartInstance = (resetKey?: string | number) => {
   const chartContainerRef = useRef<HTMLDivElement | null>(null)
   const chartRef = useRef<IChartApi | null>(null)
   type MainSeries =
@@ -15,10 +15,8 @@ export const useChartInstance = () => {
   const [chartReady, setChartReady] = useState(0)
 
   useEffect(() => {
-    if (!chartContainerRef.current) return
-    if (chartRef.current) return
-
     const container = chartContainerRef.current
+    if (!container) return
     const computedStyles = window.getComputedStyle(container)
     const fontFamily = computedStyles.fontFamily?.trim() ?? ''
     const textColor = computedStyles.color?.trim() ?? ''
@@ -75,7 +73,7 @@ export const useChartInstance = () => {
       chartRef.current = null
       mainSeriesRef.current = null
     }
-  }, [])
+  }, [resetKey])
 
   return { chartRef, chartContainerRef, mainSeriesRef, chartReady }
 }
