@@ -6,7 +6,6 @@ import { buildQueryParams, limitMax500, optionalString } from '@/app/api/market/
 export const dynamic = 'force-dynamic'
 
 const CurrenciesSearchSchema = z.object({
-  currency_id: optionalString,
   currency_name: optionalString,
   currency_code: optionalString,
   currency_query: optionalString,
@@ -14,13 +13,22 @@ const CurrenciesSearchSchema = z.object({
 })
 
 const CurrenciesSearchKeys = [
-  'currency_id',
   'currency_name',
   'currency_code',
   'currency_query',
 ] as const
 
 export async function GET(request: NextRequest) {
+  const currencyId = request.nextUrl.searchParams.get('currency_id')?.trim()
+  if (currencyId) {
+    return NextResponse.json(
+      {
+        error: 'currency_id is not supported on /search/currencies. Use /get/currency instead.',
+      },
+      { status: 400 }
+    )
+  }
+
   const params = buildQueryParams(request, [...CurrenciesSearchKeys, 'limit'])
   const parsed = CurrenciesSearchSchema.safeParse(params)
 

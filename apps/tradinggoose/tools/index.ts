@@ -96,7 +96,7 @@ const hasResolvedListingDetails = (record: Record<string, unknown>): boolean => 
   if (!listingType) return false
   const base = typeof record.base === 'string' ? record.base.trim() : ''
   if (!base) return false
-  if (listingType === 'equity') return true
+  if (listingType === 'default') return true
   const quote = typeof record.quote === 'string' ? record.quote.trim() : ''
   return Boolean(quote)
 }

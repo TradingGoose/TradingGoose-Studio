@@ -30,7 +30,7 @@ export type MarketRangeUnit = 'day' | 'week' | 'month' | 'year'
 
 export type MarketDataAvailability = {
   assetClass: AssetClass[]
-  availableEquityQuote?: string[]
+  availableListingQuote?: string[]
   availableCurrencyBase?: string[]
   availableCurrencyQuote?: string[]
   availableCryptoBase?: string[]

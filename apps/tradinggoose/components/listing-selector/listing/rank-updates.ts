@@ -1,13 +1,13 @@
 import type { ListingInputValue } from '@/lib/listing/identity'
 
-export function triggerEquityRankUpdate(listing: ListingInputValue) {
-  const equityId =
-    listing && typeof listing === 'object' && 'equity_id' in listing
-      ? (listing as { equity_id?: string | null }).equity_id ?? null
+export function triggerListingRankUpdate(listing: ListingInputValue) {
+  const listingId =
+    listing && typeof listing === 'object' && 'listing_id' in listing
+      ? (listing as { listing_id?: string | null }).listing_id ?? null
       : null
-  if (!equityId) return
-  const query = new URLSearchParams({ equity_id: equityId })
-  void fetch(`/api/market/update/equity-rank?${query.toString()}`, {
+  if (!listingId) return
+  const query = new URLSearchParams({ listing_id: listingId })
+  void fetch(`/api/market/update/listing-rank?${query.toString()}`, {
     method: 'POST',
   }).catch(() => {
     // Best-effort update; ignore failures to avoid blocking selection.

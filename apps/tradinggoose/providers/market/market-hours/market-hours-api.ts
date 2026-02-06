@@ -44,7 +44,7 @@ export const resolveMarketHours = async (
   }
 
   const params = new URLSearchParams({
-    listingId,
+    listing_id: listingId,
     listingType,
     date: dateKey,
     version: MARKET_API_VERSION,
@@ -72,7 +72,7 @@ export const resolveMarketHoursRange = async (
   endDate: Date
 ): Promise<Map<string, MarketHoursResponse> | null> => {
   const params = new URLSearchParams({
-    listingId,
+    listing_id: listingId,
     listingType,
     startDate: toDateKey(startDate),
     endDate: toDateKey(endDate),

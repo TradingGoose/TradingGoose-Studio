@@ -16,8 +16,15 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const searchParams = new URLSearchParams(request.nextUrl.searchParams)
-  searchParams.delete('currencyId')
+  const searchParams = new URLSearchParams()
+  for (const id of currencyIds) {
+    searchParams.append('currency_id', id)
+  }
+
+  const version = request.nextUrl.searchParams.get('version')?.trim()
+  if (version) {
+    searchParams.set('version', version)
+  }
 
   return proxyMarketRequest(request, ['get', 'currency'], searchParams)
 }

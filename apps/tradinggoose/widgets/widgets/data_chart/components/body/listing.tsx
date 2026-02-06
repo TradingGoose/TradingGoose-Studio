@@ -47,7 +47,7 @@ const hasResolvedListingDetails = (listing?: ListingOption | null): boolean => {
   if (!listing) return false
   const base = listing.base?.trim()
   if (!base) return false
-  if (listing.listing_type === 'equity') return true
+  if (listing.listing_type === 'default') return true
   const quote = listing.quote?.trim()
   return Boolean(quote)
 }
@@ -168,7 +168,7 @@ export const useListingState = ({
     [displayListing]
   )
   const flagData = useMemo(
-    () => (listingType === 'equity' ? getFlagData(displayListing?.countryCode) : null),
+    () => (listingType === 'default' ? getFlagData(displayListing?.countryCode) : null),
     [displayListing?.countryCode, listingType]
   )
   const overlayLabel = useMemo(() => {
@@ -179,7 +179,7 @@ export const useListingState = ({
     return text
   }, [listingName, listingSymbolText])
   const tooltipLabel = useMemo(() => {
-    if (listingType === 'equity' && flagData?.emoji) {
+    if (listingType === 'default' && flagData?.emoji) {
       return `${overlayLabel} ${flagData.emoji}`
     }
     return overlayLabel
@@ -217,7 +217,7 @@ export const ListingOverlay = ({
   const listingIconUrl = listing?.iconUrl ?? null
   const avatarFallback = listingSymbol ? getListingFallback(listingSymbol) : '??'
   const flagData = useMemo(
-    () => (listingType === 'equity' ? getFlagData(listing?.countryCode) : null),
+    () => (listingType === 'default' ? getFlagData(listing?.countryCode) : null),
     [listing?.countryCode, listingType]
   )
   const prefersFlagImage = typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent)
@@ -262,7 +262,7 @@ export const ListingOverlay = ({
           <span className='mx-2 shrink-0 text-muted-foreground'>{intervalText}</span>
         ) : null}
 
-        {listingType === 'equity' && flagData ? (
+        {listingType === 'default' && flagData ? (
           prefersFlagImage && flagImageUrl ? (
             <img
               src={flagImageUrl}

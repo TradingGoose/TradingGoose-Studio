@@ -9,7 +9,7 @@ const supportsCrypto = availableAssetClasses.includes('crypto')
 
 const availability: MarketProviderConfig['availability'] = {
   assetClass: availableAssetClasses,
-  availableEquityQuote: [],
+  availableListingQuote: [],
   availableCurrencyBase: supportsCurrency ? [] : [],
   availableCurrencyQuote: supportsCurrency ? [] : [],
   availableCryptoBase: supportsCrypto ? [] : [],

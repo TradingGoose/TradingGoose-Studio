@@ -13,7 +13,7 @@ import { ListingSelectorDropdown } from '@/components/listing-selector/selector/
 import {
   triggerCryptoRankUpdate,
   triggerCurrencyRankUpdate,
-  triggerEquityRankUpdate,
+  triggerListingRankUpdate,
 } from '@/components/listing-selector/listing/rank-updates'
 import {
   resolveListingKey,
@@ -43,7 +43,7 @@ const hasListingDetails = (listing?: ListingOption | null): boolean => {
   if (!listing) return false
   const base = listing.base?.trim()
   if (!base) return false
-  if (listing.listing_type === 'equity') return true
+  if (listing.listing_type === 'default') return true
   const quote = listing.quote?.trim()
   return Boolean(quote)
 }
@@ -161,8 +161,10 @@ export function StockSelector({
     setHighlightedIndex(-1)
     setShowTags(false)
     setVariableCommitted(false)
-    triggerEquityRankUpdate(listing)
     const listingType = listing.listing_type
+    if (listingType === 'default') {
+      triggerListingRankUpdate(listing)
+    }
     if (listingType === 'crypto' && listing.base_id) {
       triggerCryptoRankUpdate(listing.base_id)
     }

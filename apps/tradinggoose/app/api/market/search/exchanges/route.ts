@@ -5,19 +5,19 @@ import { buildQueryParams, limitMax500, optionalString } from '@/app/api/market/
 
 export const dynamic = 'force-dynamic'
 
-const MicsSearchSchema = z.object({
-  mic_id: optionalString,
+const ExchangesSearchSchema = z.object({
+  exch_id: optionalString,
   mic_name: optionalString,
   mic_code: optionalString,
   country_id: optionalString,
   limit: limitMax500,
 })
 
-const MicsSearchKeys = ['mic_id', 'mic_name', 'mic_code', 'country_id'] as const
+const ExchangesSearchKeys = ['exch_id', 'mic_name', 'mic_code', 'country_id'] as const
 
 export async function GET(request: NextRequest) {
-  const params = buildQueryParams(request, [...MicsSearchKeys, 'limit'])
-  const parsed = MicsSearchSchema.safeParse(params)
+  const params = buildQueryParams(request, [...ExchangesSearchKeys, 'limit'])
+  const parsed = ExchangesSearchSchema.safeParse(params)
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const hasSearch = MicsSearchKeys.some((key) => parsed.data[key] !== undefined)
+  const hasSearch = ExchangesSearchKeys.some((key) => parsed.data[key] !== undefined)
   if (!hasSearch) {
     return NextResponse.json(
       { error: 'At least one search parameter is required.' },
@@ -34,5 +34,5 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  return proxyMarketRequest(request, ['search', 'mics'])
+  return proxyMarketRequest(request, ['search', 'exchanges'])
 }

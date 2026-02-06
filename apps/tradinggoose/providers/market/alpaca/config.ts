@@ -5,7 +5,7 @@ import { AssetClass } from '@/providers/market/types'
 const availableAssetClasses: AssetClass[] = ['stock', 'etf', 'crypto']
 
 const supportsCrypto = availableAssetClasses.includes('crypto')
-const availableEquityQuoteCodes = ['USD']
+const availableListingQuoteCodes = ['USD']
 const availableCryptoQuoteCodes = ['USD', 'USDC', 'USDT', 'BTC']
 const availableCryptoBaseCodes = [
   'AAVE',
@@ -32,7 +32,7 @@ const availableCryptoBaseCodes = [
 ]
 const availability: MarketProviderConfig['availability'] = {
   assetClass: availableAssetClasses,
-  availableEquityQuote: availableEquityQuoteCodes,
+  availableListingQuote: availableListingQuoteCodes,
   availableCurrencyBase: [],
   availableCurrencyQuote: [],
   availableCryptoBase: supportsCrypto ? availableCryptoBaseCodes : [],

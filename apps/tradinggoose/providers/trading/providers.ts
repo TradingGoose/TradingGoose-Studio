@@ -23,7 +23,7 @@ export interface TradingProviderAvailability {
   assetClass: AssetClass[]
   order: boolean
   holdings: boolean
-  availableEquityQuote?: string[]
+  availableListingQuote?: string[]
   availableCurrencyBase?: string[]
   availableCurrencyQuote?: string[]
   availableCryptoBase?: string[]
