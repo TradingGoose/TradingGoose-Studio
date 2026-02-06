@@ -7,32 +7,17 @@ export const alpacaSymbolRules: MarketSymbolRule[] = [
     active: true,
   },
   {
-    mic: 'XNYS',
+    market: 'NYSE',
     template: '{base}',
     active: true,
   },
   {
-    mic: 'XNAS',
+    market: 'NASDAQ',
     template: '{base}',
     active: true,
   },
   {
-    mic: 'XASE',
-    template: '{base}',
-    active: true,
-  },
-  {
-    mic: 'ARCX',
-    template: '{base}',
-    active: true,
-  },
-  {
-    mic: 'BATS',
-    template: '{base}',
-    active: true,
-  },
-  {
-    mic: 'IEXG',
+    market: 'CBOE',
     template: '{base}',
     active: true,
   },

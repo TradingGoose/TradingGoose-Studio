@@ -15,6 +15,7 @@ export type ListingResolved = ListingIdentity & {
   iconUrl?: string | null
   assetClass?: string | null
   primaryMicCode?: string | null
+  marketCode?: string | null
   countryCode?: string | null
   cityName?: string | null
   timeZoneName?: string | null

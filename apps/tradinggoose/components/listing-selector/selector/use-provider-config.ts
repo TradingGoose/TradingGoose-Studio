@@ -5,6 +5,7 @@ import { uniqueStrings } from '@/components/listing-selector/search-utils'
 
 export type ProviderSearchConfig = {
   assetClasses: string[]
+  marketCodes: string[]
   micCodes: string[]
   listingQuoteCodes: string[]
   cryptoQuoteCodes: string[]
@@ -37,21 +38,22 @@ export function useMarketProviderSearchConfig(providerId?: string): ProviderSear
     return uniqueStrings(availability?.availableCryptoQuote ?? [])
   }, [providerConfig])
 
-  const micCodes = useMemo(() => {
-    const map = providerConfig?.exchangeCodeToMic ?? {}
-    const codes = Object.values(map).flat()
+  const marketCodes = useMemo(() => {
+    const map = providerConfig?.exchangeCodeToMarket ?? {}
+    const codes = Object.values(map)
     return uniqueStrings(codes)
   }, [providerConfig])
 
   return useMemo(
     () => ({
       assetClasses,
-      micCodes,
+      marketCodes,
+      micCodes: [],
       listingQuoteCodes,
       cryptoQuoteCodes,
       currencyQuoteCodes,
     }),
-    [assetClasses, micCodes, listingQuoteCodes, cryptoQuoteCodes, currencyQuoteCodes]
+    [assetClasses, marketCodes, listingQuoteCodes, cryptoQuoteCodes, currencyQuoteCodes]
   )
 }
 
@@ -90,6 +92,7 @@ export function useTradingProviderSearchConfig(providerId?: string): ProviderSea
   return useMemo(
     () => ({
       assetClasses,
+      marketCodes: [],
       micCodes,
       listingQuoteCodes,
       cryptoQuoteCodes,

@@ -78,6 +78,7 @@ const mergeResolvedListing = (
   applyIfMissing('base_asset_class', resolved.base_asset_class)
   applyIfMissing('quote_asset_class', resolved.quote_asset_class)
   applyIfMissing('primaryMicCode', resolved.primaryMicCode)
+  applyIfMissing('marketCode', resolved.marketCode)
   applyIfMissing('countryCode', resolved.countryCode)
   applyIfMissing('cityName', resolved.cityName)
   applyIfMissing('timeZoneName', resolved.timeZoneName)

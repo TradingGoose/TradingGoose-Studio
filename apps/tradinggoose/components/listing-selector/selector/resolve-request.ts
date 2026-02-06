@@ -10,6 +10,7 @@ export type ResolvedListingDetails = {
   base_asset_class?: string | null
   quote_asset_class?: string | null
   primaryMicCode?: string | null
+  marketCode?: string | null
   countryCode?: string | null
   cityName?: string | null
   timeZoneName?: string | null
@@ -139,6 +140,7 @@ const resolveListingById = async (
     iconUrl: listing.iconUrl ?? null,
     assetClass: listing.assetClass ?? null,
     primaryMicCode: listing.primaryMicCode ?? null,
+    marketCode: listing.marketCode ?? null,
     countryCode: listing.countryCode ?? null,
     cityName: listing.cityName ?? null,
     timeZoneName: listing.timeZoneName ?? null,
@@ -309,6 +311,7 @@ function buildResolvedListing(
     base_asset_class: details.base_asset_class ?? null,
     quote_asset_class: details.quote_asset_class ?? null,
     primaryMicCode: details.primaryMicCode ?? null,
+    marketCode: details.marketCode ?? null,
     countryCode: details.countryCode ?? null,
     cityName: details.cityName ?? null,
     timeZoneName: details.timeZoneName ?? null,

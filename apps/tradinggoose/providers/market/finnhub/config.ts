@@ -1,6 +1,6 @@
 import type { MarketProviderConfig } from '@/providers/market/providers'
-import exchangeCodeToMic from '@/providers/market/finnhub/exchangeCodeToMic.json'
-import micToExchangeCode from '@/providers/market/finnhub/micToExchangeCode.json'
+import exchangeCodeToMarket from '@/providers/market/finnhub/exchangeCodeToMarket.json'
+import marketToExchangeCode from '@/providers/market/finnhub/marketToExchangeCode.json'
 import exchangeCodes from '@/providers/market/finnhub/exchangeCodes.json'
 import { finnhubSymbolRules } from '@/providers/market/finnhub/rules'
 import { AssetClass } from '@/providers/market/types'
@@ -50,8 +50,8 @@ const params: MarketProviderConfig['params'] = {
 
 const exchangeCodesList: MarketProviderConfig['exchangeCodes'] = exchangeCodes
 
-const exchangeCodeToMicMap: MarketProviderConfig['exchangeCodeToMic'] = exchangeCodeToMic
-const micToExchangeCodeMap: MarketProviderConfig['micToExchangeCode'] = micToExchangeCode
+const exchangeCodeToMarketMap: MarketProviderConfig['exchangeCodeToMarket'] = exchangeCodeToMarket
+const marketToExchangeCodeMap: MarketProviderConfig['marketToExchangeCode'] = marketToExchangeCode
 
 export const finnhubProviderConfig: MarketProviderConfig = {
   id: 'finnhub',
@@ -88,17 +88,17 @@ export const finnhubProviderConfig: MarketProviderConfig = {
     },
   },
   rulePrecedence: {
-    default: ['mic', 'currency', 'assetClass', 'country', 'city', 'listing'],
-    stock: ['mic', 'currency', 'country', 'city', 'listing'],
-    etf: ['mic', 'currency', 'country', 'city', 'listing'],
-    indice: ['mic', 'currency', 'country', 'city', 'listing'],
-    mutualfund: ['mic', 'currency', 'country', 'city', 'listing'],
-    future: ['mic', 'currency', 'country', 'city', 'listing'],
-    crypto: ['currency', 'mic', 'country', 'city', 'listing'],
-    currency: ['currency', 'mic', 'country', 'city', 'listing'],
+    default: ['market', 'currency', 'assetClass', 'country', 'city', 'listing'],
+    stock: ['market', 'currency', 'country', 'city', 'listing'],
+    etf: ['market', 'currency', 'country', 'city', 'listing'],
+    indice: ['market', 'currency', 'country', 'city', 'listing'],
+    mutualfund: ['market', 'currency', 'country', 'city', 'listing'],
+    future: ['market', 'currency', 'country', 'city', 'listing'],
+    crypto: ['currency', 'market', 'country', 'city', 'listing'],
+    currency: ['currency', 'market', 'country', 'city', 'listing'],
   },
-  exchangeCodeToMic: exchangeCodeToMicMap,
-  micToExchangeCode: micToExchangeCodeMap,
+  exchangeCodeToMarket: exchangeCodeToMarketMap,
+  marketToExchangeCode: marketToExchangeCodeMap,
   exchangeCodes: exchangeCodesList,
   rules: finnhubSymbolRules,
 }
