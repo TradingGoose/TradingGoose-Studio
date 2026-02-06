@@ -9,7 +9,7 @@ import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { useIndicatorEditorActions } from '@/widgets/utils/indicator-editor-actions'
 import { useNewIndicatorSelectionPersistence } from '@/widgets/utils/new-indicator-selection'
-import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
+import { WidgetStateMessage } from '@/widgets/widgets/new_editor_indicator/components/widget-state-message'
 import { PineIndicatorCodePanel } from '@/widgets/widgets/new_editor_indicator/components/pine-indicator-code-panel'
 import { getPineIndicatorIdFromParams } from '@/widgets/widgets/new_editor_indicator/utils'
 

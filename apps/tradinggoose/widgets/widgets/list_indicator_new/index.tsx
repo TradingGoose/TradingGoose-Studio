@@ -6,7 +6,7 @@ import { getRandomVibrantColor } from '@/lib/colors'
 import { useCreateNewIndicator } from '@/hooks/queries/new-indicators'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { emitNewIndicatorSelectionChange } from '@/widgets/utils/new-indicator-selection'
-import { IndicatorCreateMenu } from '@/widgets/widgets/list_indicator/components/indicator-create-menu'
+import { IndicatorCreateMenu } from '@/widgets/widgets/list_indicator_new/components/indicator-create-menu'
 import {
   NewIndicatorList,
   NewIndicatorListMessage,
@@ -109,4 +109,3 @@ export const listIndicatorNewWidget: DashboardWidgetDefinition = {
     }
   },
 }
-
