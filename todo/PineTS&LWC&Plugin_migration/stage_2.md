@@ -23,7 +23,7 @@ Introduce a parallel PineTS-based indicator system without touching the legacy i
 - **Runtime**: PineTS execution is **server-only** (no client-side PineTS execution in widgets).
 
 ## Dependencies / sequencing
-- Stage 1 (`new_data_chart`) must provide `barsMs` + `openTimeMsByIndex` (+ `indexByOpenTimeMs`) for PineTS execution and offsets.
+- Stage 1 (`new_data_chart`) must provide `barsMs` + `openTimeMsByIndex` (+ `indexByOpenTimeMs`) in the client dataContext for UI needs (anchor series, visible range); server execution recomputes index maps from the bars it receives.
 - DB migration tooling available for new table.
 - LWC is already installed in `apps/tradinggoose/package.json` (`lightweight-charts@^5.1.x`); PineTS (`pinets@^0.8.x`) is **not** yet installed and must be added in this stage.
 - Licensing check for PineTS (AGPL-3.0) is required before any public release.
@@ -135,7 +135,7 @@ Introduce a parallel PineTS-based indicator system without touching the legacy i
 4. **LWC pane API contract (addPane/removePane).**
    - **Decision:** use LWC v5.1 `chart.addPane(preserveEmptyPane?: boolean)`; do **not** pass `{ height }` (openalgo sample is not the LWC signature).
    - After creation: set height via `pane.setHeight(DEFAULT_PANE_HEIGHT_PX)` (start with 100px unless a plot requests something else).
-   - **Removal:** call `chart.removePane(pane.paneIndex())` at cleanup time; indices can shift after other removals.
+   - **Removal:** resolve the live pane index from `chart.panes().indexOf(pane)` (or equivalent) at cleanup time; guard against removing the main pane and sweep empty, unreferenced panes after indicator updates.
    - **Mitigation:** add runtime guard:
      - If `typeof chart.addPane !== 'function'`, log warning and force all plots to overlay.
 
@@ -143,7 +143,7 @@ Introduce a parallel PineTS-based indicator system without touching the legacy i
    - **Decision:** impose a hard **global per-render** marker cap (use the shared name `MAX_MARKERS_TOTAL`).
    - **Mitigation:**
      - Add `MAX_MARKERS_TOTAL` (e.g., 2000) in the new indicator sync hook.
-     - Sort + slice markers; return warning with truncated count.
+     - Sort + slice markers; log a one-time console warning when truncation happens (no UI surfacing yet).
      - Update **per series** via `createSeriesMarkers` (per‑pane strategy).
 
 6. **Selection event cross-talk (legacy list emits unscoped events).**
@@ -295,14 +295,10 @@ const PineIndicatorSchema = z.object({
 - Use `createLogger` + `generateRequestId`, and return `{ success: true, data }` on success (mirror legacy API conventions).
 - Input payload (suggested):
   - `workspaceId`, `indicatorIds[]` (server fetches code by id).
-  - `barsMs` (array of `{ openTime, closeTime, open, high, low, close, volume? }`).
-  - **Optional:** `openTimeMsByIndex` and `indexByOpenTimeMs` if client wants to avoid recompute.
-    - `openTimeMsByIndex`: `number[]` (index → openTimeMs).
-    - `indexByOpenTimeMs`: JSON-safe shape only — either `Record<string, number>` (openTimeMs → index) **or** `Array<[number, number]>` pairs. Do **not** send a `Map` (JSON drops entries).
-    - If omitted, server **must recompute using the exact same dedupe/sort/indexing logic as Stage 1 `buildIndexMaps(barsMs)`** (sort ascending by `openTime`, dedupe by `openTime`).
-    - Prefer extracting the Stage 1 `buildIndexMaps` logic into a shared util (or copy it verbatim) to avoid drift.
+  - `barsMs` (array of `{ openTime, closeTime, open, high, low, close, volume? }`), capped to `MAX_BARS` on the server with a `bars_truncated` warning when needed.
   - `inputsMapById?: Record<indicatorId, Record<title, value>>`.
   - `listingKey`, `interval`, `intervalMs`.
+  - Indicators may be custom rows or defaults from `DEFAULT_PINE_INDICATOR_MAP`.
 - Output payload:
   - Per indicator: `{ output, warnings, unsupported, executionError?, counts }`.
   - `output` aligns with `normalizeContext` result (series + markers; Stage 3 adds drawings/signals).
@@ -329,6 +325,7 @@ const PineIndicatorSchema = z.object({
   - `drawings: []` (reserved for Stage 3)
   - `signals: []` (reserved for Stage 3)
   - `unsupported: { plots: string[]; styles: string[] }`
+  - `indicator?: PineIndicatorOptions` (copy of `ctx.indicator` for format/scale/ordering hints)
 
 3.2 `normalize-indicator-code.ts`.
 - Detect function expressions (reuse logic from legacy `looksLikeFunctionExpression`).
@@ -348,12 +345,12 @@ const PineIndicatorSchema = z.object({
 - Split PineTS plots into `series` and `markers`.
 - Overlay rule: `plot.options.overlay ?? plot.options.force_overlay ?? ctx.indicator?.overlay`.
 - Style mapping (LWC):
-  - `style_histogram` / `style_columns` => Histogram series.
-  - `style_area` / `style_areabr` => Area series.
-  - `style_line` / `style_linebr` => Line series.
-  - `style_stepline*` => Line series with step option (if supported) else warn.
+  - `style_histogram` => Histogram series.
+  - `style_area` => Area series.
+  - `style_line` => Line series.
+  - `style_stepline*` => Line series with `lineType = 'withSteps'`.
   - `style_circles` => Line series + per-point marker fallback (warn).
-  - `style_cross` => fallback to circles + warning.
+  - Other/unknown styles (including `style_cross`) currently fall back to a plain Line series with no markers.
   - `bar` / `candle` (from `plotbar` / `plotcandle`) => optional v0.2 (if not supported, mark unsupported).
   - `style_bar` / `style_candle` are **not** emitted by PineTS v0.8.4 for plotbar/plotcandle; treat them as unsupported if encountered.
   - `background`, `barcolor`, `fill` => unsupported (warn + report).
@@ -367,8 +364,9 @@ const PineIndicatorSchema = z.object({
 - **Offset handling:** PineTS emits `offset` per-point in `data[i].options.offset` (see `PineTS/src/namespaces/Plots.ts`). Use **per-point offset first**, and fall back to `plot.options.offset` only when point options are missing.
 - Convert times: ms -> seconds for LWC markers/series.
 - Cap markers per render in the sync hook (not in normalize step).
-- **Index maps source:** `openTimeMsByIndex` is computed in the server execution route from `barsMs` unless provided by the client.
-  - **Must match Stage 1:** server recompute logic must mirror `buildIndexMaps(barsMs)` (sort + dedupe by `openTime`).
+- **Index maps source:** `openTimeMsByIndex` + `indexByOpenTimeMs` are computed server-side from the execution bars that are passed into `normalizeContext`.
+  - `buildIndexMaps` uses the current bar order (no extra sort/dedupe beyond the normalization/aggregation step).
+  - `new_data_chart` does not send index maps to the server today.
 
 3.5 `custom/compile.ts`.
 - Accept `{ pineCode, barsMs, inputsMap, listingKey, interval }`.
@@ -382,8 +380,11 @@ const PineIndicatorSchema = z.object({
 - Mirror legacy `resolveIndicatorColor` + `getRandomVibrantColor`.
 - Return ordered indicators (desc createdAt).
 
-3.7 `default/index.ts` (optional).
-- Register a small set of default PineTS indicators if desired.
+3.7 Default indicators (implemented).
+- Default PineTS indicators live under `apps/tradinggoose/lib/new_indicators/default/*`.
+- Expose `DEFAULT_PINE_INDICATORS`, `DEFAULT_PINE_INDICATOR_MAP`, and `DEFAULT_PINE_INDICATORS_META` for UI + runtime lookups.
+- `PineIndicatorDropdown` can include defaults (`includeDefaults`), and `useNewIndicatorSync` executes them even without DB rows.
+- Input metadata for defaults is inferred via `inferInputMetaFromPineCode` when not explicitly provided.
 
 ---
 
@@ -493,14 +494,16 @@ const PineIndicatorSchema = z.object({
 - **Do not** use `buildIndicatorRefs` or `DataChartIndicatorRef` from legacy chart utils.
 
 7.0.1 Dropdown wiring.
-- Create a **new** PineTS indicator dropdown component under `apps/tradinggoose/widgets/widgets/new_data_chart/components/` (do not reuse `IndicatorDropdown`).
-- New dropdown uses `useNewIndicators` + `useNewIndicatorsStore`.
-- Selection writes to `view.pineIndicators` only.
-- Scope selection to `new_data_chart` widget key to avoid cross-talk.
+- Use the shared `PineIndicatorDropdown` component from `apps/tradinggoose/widgets/widgets/components/pine-indicator-dropdown.tsx` (no widget‑local dropdown).
+- Dropdown uses `useNewIndicators` + `useNewIndicatorsStore`, supports search, multi‑select, and groups defaults/custom.
+- `new_data_chart` passes `includeDefaults` to show built‑in indicators.
+- Selection persists via `emitDataChartParamsChange` and writes to `view.pineIndicators` using `buildPineIndicatorRefs` to preserve existing `inputs` overrides.
+- No indicator selection events are emitted; scoping is handled by the widget params change path (`widgetKey`).
 
 7.1 Add a new indicator sync hook under `new_data_chart` (server execution).
-- Suggested file: `apps/tradinggoose/widgets/widgets/new_data_chart/hooks/use-new-indicator-sync.ts`.
-- Inputs: `chartRef`, `mainSeriesRef`, `dataContext`, `indicatorRefs`, `indicators`.
+- Implemented in `apps/tradinggoose/widgets/widgets/new_data_chart/hooks/use-new-indicator-sync.ts`.
+- Inputs: `chartRef`, `mainSeriesRef`, `dataContext`, `workspaceId`, `indicatorRefs`, `indicators`, `listingKey`, `interval`, `chartReady`.
+- Optional inputs: `indicatorRuntimeRef` + `onIndicatorRuntimeChange` (for UI overlays/legend).
 - `dataContext` **must** match the Stage‑1 handoff contract (`NewDataChartDataContext`):
   - `barsMsRef`
   - `indexByOpenTimeMsRef`
@@ -508,22 +511,27 @@ const PineIndicatorSchema = z.object({
   - `marketSessionsRef`
   - `intervalMs`
   - `dataVersion`
+- Resolve indicator definitions from either the custom store or `DEFAULT_PINE_INDICATOR_MAP`.
+- Build `inputsMap` via `buildInputsMapFromMeta(inputMeta, indicatorRef.inputs)` so view overrides win.
 
 7.2 Execution pipeline per update (server-only).
 - Build request payload for `/api/new_indicators/execute`:
-  - `workspaceId`, `indicatorIds`, `barsMs`, `inputsMapById`, `listingKey`, `interval`, `intervalMs`.
-  - Optional `openTimeMsByIndex`/`indexByOpenTimeMs` if you want to avoid server recompute.
-- Call server route, then:
-  - Apply returned `output` to series/markers.
-  - Surface `warnings` and `unsupported` per indicator.
-  - Handle `executionError` without crashing the chart.
+  - `workspaceId`, `indicatorIds`, `barsMs` (truncated to last `MAX_BARS`), `inputsMapById`, `listingKey`, `interval`, `intervalMs`.
+  - No index maps are sent from the client.
+- Use a 300ms debounce + `AbortController` to avoid overlapping calls; ignore stale responses via a run id.
+- Merge cached results with fresh results. Cache key includes `indicatorId`, `indicatorVersion` (`updatedAt`/`createdAt` or `default`), `dataVersion`, and `inputsHash`.
+- Apply results:
+  - If `output` is missing, cleanup the indicator.
+  - If `executionError.message` is present, log once and expose it via `indicatorRuntimeRef` for UI.
+  - `warnings` are logged once (console); they are not surfaced in the UI yet.
 - Do **not** run PineTS or `new Function` in the browser.
 
 7.3 Series creation and updates (render-only).
 - Maintain maps:
-  - `indicatorSeriesMap`: `{ [indicatorId]: { [plotTitle]: series } }`.
-  - `indicatorPaneMap`: `{ [indicatorId]: pane | null }`.
-  - **Add:** `indicatorPaneSeriesMap`: `{ [indicatorId]: ISeriesApi | null }` (canonical series used for pane‑level drawings).
+  - `indicatorSeriesMap`: `Map<indicatorId, Map<plotTitle, series>>`.
+  - `indicatorPaneMap`: `Map<indicatorId, pane | null>`.
+  - `indicatorPaneSeriesMap`: `Map<indicatorId, ISeriesApi | null>` (pane anchor series for drawings/markers).
+  - `indicatorSignatureRef` to detect structural changes and rebuild series when plot titles/types/overlay flags change.
 - **Pane contract for drawings (Stage 3):** `pane: 'indicator'` resolves via `indicatorPaneSeriesMap[indicatorId]` (series), not the pane itself; there is no external pane id string.
 - Guard: if `chart.addPane` is unavailable, log warning and force overlay behavior.
 - For overlay plots: create series on main chart.
@@ -532,9 +540,18 @@ const PineIndicatorSchema = z.object({
   - Apply `pane.setHeight(DEFAULT_PANE_HEIGHT_PX)` (start with 100px) so height hints are honored.
   - **Do not** copy `chart.addPane({ height })` from openalgo; that is not the LWC v5.1 signature.
   - **Canonical series rule:** set `indicatorPaneSeriesMap[indicatorId]` to the **first series created in that pane** (or to a dedicated hidden line series if you prefer a stable target).
+- Respect indicator‑level options (`output.indicator`) for formatting and ordering:
+  - Map `format`/`precision`/`scale` into `priceFormat` + `priceScaleId`.
+  - `scale: 'none'` hides the scale (overlay hides last value/price line; non‑overlay uses a hidden scale id and `priceScale().applyOptions({ visible: false })`).
+  - Apply `behind_chart` and `explicit_plot_zorder` by setting `series.setSeriesOrder`.
 - For each plot: map points to LWC series data:
   - If `value` is a number → `{ time, value }`.
   - If `value` is `null` → `{ time }` (WhitespaceData) to preserve gaps.
+- Times from `NormalizedPineOutput` are already in seconds; do not re‑convert.
+- Color handling:
+  - If plot options specify colors, use them.
+  - Otherwise assign a stable color per plot via `getStableVibrantColor`.
+  - Histograms without explicit colors use default up/down colors, with direction chosen by value trend or candle direction.
 
 7.4 Marker handling (LWC v5).
 - **Decision:** markers attach to the **series in the same pane** as their indicator (non-overlay), not always the main series.
@@ -546,21 +563,32 @@ const PineIndicatorSchema = z.object({
     - If an indicator has only shape/char markers and no numeric series, create a hidden line series in the pane to host markers.
       - **Important:** populate the anchor series with **whitespace data for every bar** (`{ time }` items aligned to `openTimeMsByIndex` **converted to seconds**) so the markers plugin can resolve `dataByIndex(...)` and render markers in that pane.
 - For each target series: `createSeriesMarkers(series, markers)` and `setMarkers(markers)`.
-- Apply `MAX_MARKERS_TOTAL` (global per-render total) before grouping (truncate with warning); optionally cap per-series if needed.
+- Apply `MAX_MARKERS_TOTAL` after collecting markers (sort by time, drop oldest to keep the most recent); log a one‑time warning on truncation.
+- `toSeriesMarker` enforces numeric `price` for `atPrice*` markers and skips invalid entries.
 
 7.5 Cleanup.
 - On indicator removal: remove series, panes, and cached markers.
   - Remove series via `chart.removeSeries(series)` (LWC pane API does not expose `removeSeries`).
   - Remove marker primitives for those series (`seriesMarkersMap.delete(series)` and detach if needed).
-  - Remove panes using `chart.removePane(pane.paneIndex())`; compute index at removal time because indices shift.
-  - Guard against removing the main pane (index 0) and against `paneIndex()` returning invalid values.
-- Reset marker primitives when indicator set changes.
+  - Remove panes using `chart.panes().indexOf(pane)` to compute the live index; guard against removing the main pane.
+  - Skip removal when the pane is not found or the pane list is already at the main‑only state.
+- Sweep unreferenced empty panes after each run (excluding the main pane).
+- Reset marker primitives per‑series (`setMarkers([])`) when a series no longer has markers.
 
 7.6 Performance safeguards.
 - Debounce **network** execution to avoid repeated runs on rapid changes.
-- Cache results by `{ indicatorId, dataVersion, inputsHash }` to skip redundant requests.
+- Cache results by `{ indicatorId, indicatorVersion, dataVersion, inputsHash }` to skip redundant requests.
 - Cap markers if counts are extreme (warn + truncate) using `MAX_MARKERS_TOTAL`.
-- Enforce a max bar window in requests (warn if truncated).
+- Enforce a max bar window in requests (`MAX_BARS = 2000`, keep the most recent bars).
+- De‑duplicate console warnings via a local `warningCacheRef`.
+
+7.7 Indicator controls + settings UI (new_data_chart overlays).
+- `chart-body` groups indicators by pane and renders `IndicatorControl` overlays, plus `PaneControl` for pane ordering.
+- `IndicatorControl` shows name, current inputs, live plot values (`useIndicatorLegend`), hide/show, settings, and remove actions.
+- Execution errors are stored as `errorMessage` in runtime entries and surfaced via an error dialog.
+- Hidden indicators are tracked locally (not persisted) and toggle series visibility via `applyOptions({ visible: false })`.
+- Settings modal renders inputs from `inputMeta` (bool/select/number/text) and persists overrides to `view.pineIndicators[].inputs`.
+- Pane ordering uses `pane.moveTo` and overlay positioning is kept in sync via pane snapshots + `ResizeObserver`.
 
 ---
 
@@ -590,4 +618,4 @@ const PineIndicatorSchema = z.object({
 ## Residual risks (post-mitigation)
 - PineTS verification uses local VM sandbox (legacy pattern) but PineTS transpiler still relies on `new Function`; public rollout requires E2B or equivalent sandbox packaging.
 - `request.security` detection uses static pre-scan (possible false positives/negatives). Consider AST-based detection later.
-- Marker truncation may hide signals in extreme cases; surface counts in UI warnings.
+- Marker truncation may hide signals in extreme cases; truncation is logged to console only (no UI warnings yet).
