@@ -266,26 +266,59 @@ export const mapBarsMsToSeriesData = (
   return mapBarsMsToOhlcSec(barsMs)
 }
 
+const getSeriesDatumError = (
+  entry: OhlcSec | LineSec,
+  isLine: boolean,
+  previousTime: number | null
+): string | null => {
+  if (!entry || typeof entry !== 'object') return 'entry'
+  if (!isFiniteNumber(entry.time)) return 'time'
+  if (previousTime !== null && entry.time <= previousTime) return 'time-order'
+  if (isLine) {
+    if (!isFiniteNumber((entry as LineSec).value)) return 'value'
+    return null
+  }
+  const ohlc = entry as OhlcSec
+  if (!isFiniteNumber(ohlc.open)) return 'open'
+  if (!isFiniteNumber(ohlc.high)) return 'high'
+  if (!isFiniteNumber(ohlc.low)) return 'low'
+  if (!isFiniteNumber(ohlc.close)) return 'close'
+  return null
+}
+
 export const sanitizeSeriesData = (
   data: Array<OhlcSec | LineSec>,
   candleType?: DataChartCandleType | string | null
 ): Array<OhlcSec | LineSec> => {
   if (!Array.isArray(data) || data.length === 0) return []
   const isLine = candleType === 'area'
-  return data.filter((entry) => {
-    if (!entry || typeof entry !== 'object') return false
-    if (!isFiniteNumber(entry.time)) return false
-    if (isLine) {
-      return isFiniteNumber((entry as LineSec).value)
-    }
-    const ohlc = entry as OhlcSec
-    return (
-      isFiniteNumber(ohlc.open) &&
-      isFiniteNumber(ohlc.high) &&
-      isFiniteNumber(ohlc.low) &&
-      isFiniteNumber(ohlc.close)
-    )
+  const next: Array<OhlcSec | LineSec> = []
+  let lastTime: number | null = null
+  data.forEach((entry) => {
+    const error = getSeriesDatumError(entry, isLine, lastTime)
+    if (error) return
+    lastTime = entry.time
+    next.push(entry)
   })
+  return next
+}
+
+export const findFirstInvalidSeriesDatum = (
+  data: Array<OhlcSec | LineSec>,
+  candleType?: DataChartCandleType | string | null
+): { entry: OhlcSec | LineSec; error: string; index: number } | null => {
+  if (!Array.isArray(data) || data.length === 0) return null
+  const isLine = candleType === 'area'
+  let lastTime: number | null = null
+  for (let index = 0; index < data.length; index += 1) {
+    const entry = data[index]
+    const error = getSeriesDatumError(entry, isLine, lastTime)
+    if (error) {
+      return entry ? { entry, error, index } : null
+    }
+    lastTime = entry.time
+  }
+  return null
 }
 
 export const sanitizeBarsMs = (barsMs: BarMs[]): BarMs[] => {

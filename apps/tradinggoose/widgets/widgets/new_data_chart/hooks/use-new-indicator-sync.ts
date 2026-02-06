@@ -16,7 +16,11 @@ import {
 import { getStableVibrantColor } from '@/lib/colors'
 import { DEFAULT_PINE_INDICATOR_MAP } from '@/lib/new_indicators/default'
 import { buildInputsMapFromMeta } from '@/lib/new_indicators/input-meta'
-import type { NormalizedPineOutput, PineIndicatorOptions } from '@/lib/new_indicators/types'
+import type {
+  NormalizedPineMarker,
+  NormalizedPineOutput,
+  PineIndicatorOptions,
+} from '@/lib/new_indicators/types'
 import type { NewIndicatorDefinition } from '@/stores/new-indicators/types'
 import type {
   IndicatorRuntimeEntry,
@@ -36,6 +40,36 @@ const EXECUTION_DEBOUNCE_MS = 300
 const DEFAULT_PINE_LINE_WIDTH = 1
 
 type MainSeries = ISeriesApi<'Candlestick'> | ISeriesApi<'Bar'> | ISeriesApi<'Area'>
+
+const isPriceMarkerPosition = (
+  position: NormalizedPineMarker['position']
+): position is 'atPriceTop' | 'atPriceBottom' | 'atPriceMiddle' =>
+  position === 'atPriceTop' || position === 'atPriceBottom' || position === 'atPriceMiddle'
+
+const toSeriesMarker = (marker: NormalizedPineMarker): SeriesMarker<number> | null => {
+  const color = marker.color ?? DEFAULT_UP_COLOR
+  if (isPriceMarkerPosition(marker.position)) {
+    if (typeof marker.price !== 'number' || !Number.isFinite(marker.price)) {
+      return null
+    }
+    return {
+      time: marker.time,
+      position: marker.position,
+      shape: marker.shape,
+      color,
+      text: marker.text,
+      price: marker.price,
+    }
+  }
+
+  return {
+    time: marker.time,
+    position: marker.position,
+    shape: marker.shape,
+    color,
+    text: marker.text,
+  }
+}
 
 const normalizeEnumValue = (value?: string) => {
   if (!value) return undefined
@@ -716,6 +750,7 @@ export const useNewIndicatorSync = ({
             series.setSeriesOrder(baseSeriesOrder + plotIndex)
           }
 
+          if (!series) return
           series.setData(
             buildSeriesData(seriesType, seriesEntry.points, {
               histogramColors,
@@ -784,7 +819,9 @@ export const useNewIndicatorSync = ({
         output.markers.forEach((marker) => {
           const targetSeries = hasNonOverlay ? paneAnchorSeries : mainSeries
           if (!targetSeries) return
-          markerEntries.push({ series: targetSeries, marker })
+          const resolvedMarker = toSeriesMarker(marker)
+          if (!resolvedMarker) return
+          markerEntries.push({ series: targetSeries, marker: resolvedMarker })
         })
 
         if (runtimePlots.length > 0) {

@@ -20,9 +20,11 @@ import {
   mapBarsMsToSeriesData,
   mapMarketSeriesToBarsMs,
   mergeBarsMs,
+  findFirstInvalidSeriesDatum,
   sanitizeSeriesData,
   sanitizeBarsMs,
 } from '@/widgets/widgets/new_data_chart/series-data'
+import { DEFAULT_RIGHT_OFFSET } from '@/widgets/widgets/new_data_chart/utils/chart-styles'
 import {
   coerceProviderParams,
   sanitizeNormalizationMode,
@@ -189,18 +191,39 @@ export const useChartDataLoader = ({
   const isEmptyBarsError = (error: unknown) =>
     error instanceof Error && error.message.toLowerCase().includes(EMPTY_BARS_ERROR.toLowerCase())
 
-  const retryIfEmptyBars = async <T,>(fetcher: () => Promise<T>): Promise<T> => {
+  const retryIfEmptyBars = async <T,>(
+    fetcher: () => Promise<T>,
+    retryFetcher?: () => Promise<T>
+  ): Promise<T> => {
     try {
       return await fetcher()
     } catch (error) {
       if (!isEmptyBarsError(error)) {
         throw error
       }
+      if (!retryFetcher) {
+        throw error
+      }
       await new Promise((resolve) => setTimeout(resolve, 250))
-      return await fetcher()
+      return await retryFetcher()
     }
   }
 
+  const clampPendingRange = (
+    startMs: number,
+    endMs: number,
+    intervalMs?: number | null
+  ): { startMs: number; endMs: number } | null => {
+    const nowMs = Date.now()
+    const futureBuffer = intervalMs ? intervalMs * DEFAULT_RIGHT_OFFSET : 0
+    const maxEndMs = nowMs + futureBuffer
+    if (startMs >= maxEndMs) return null
+    if (endMs <= maxEndMs) return { startMs, endMs }
+    const span = endMs - startMs
+    const nextEnd = maxEndMs
+    const nextStart = Math.max(0, nextEnd - span)
+    return nextStart < nextEnd ? { startMs: nextStart, endMs: nextEnd } : null
+  }
 
   useEffect(() => {
     const chart = chartRef.current
@@ -219,7 +242,8 @@ export const useChartDataLoader = ({
         Number.isFinite(end) &&
         start < end
       ) {
-        pendingRangeRef.current = { startMs: start, endMs: end }
+        const intervalMs = intervalToMs(seriesWindow.interval ?? requestInterval ?? null)
+        pendingRangeRef.current = clampPendingRange(start, end, intervalMs)
       } else {
         pendingRangeRef.current = null
       }
@@ -326,7 +350,7 @@ export const useChartDataLoader = ({
       return assertMarketSeries(payload)
     }
 
-    const fetchSeries = async (): Promise<MarketSeries> => {
+    const fetchSeries = async (allowEmpty = false): Promise<MarketSeries> => {
       const windows = seriesWindow.windows ?? []
       if (!windows.length) {
         throw new Error('Invalid time window')
@@ -336,7 +360,7 @@ export const useChartDataLoader = ({
         listing,
         interval: requestInterval,
         normalizationMode,
-        providerParams,
+        providerParams: allowEmpty ? { ...(providerParams ?? {}), allowEmpty: true } : providerParams,
         windows,
       })
     }
@@ -427,10 +451,15 @@ export const useChartDataLoader = ({
           expectedBarsRef.current = null
         }
         dataContext.marketSessionsRef.current = []
-        const seriesResponse = await retryIfEmptyBars(() =>
-          useExplicitRange && pendingRange
-            ? fetchSeriesRange(pendingRange.startMs, pendingRange.endMs)
-            : fetchSeries()
+        const seriesResponse = await retryIfEmptyBars(
+          () =>
+            useExplicitRange && pendingRange
+              ? fetchSeriesRange(pendingRange.startMs, pendingRange.endMs)
+              : fetchSeries(),
+          () =>
+            useExplicitRange && pendingRange
+              ? fetchSeriesRange(pendingRange.startMs, pendingRange.endMs, true)
+              : fetchSeries(true)
         )
         if (loaderVersion !== loaderVersionRef.current) return
         updateMarketSessions(seriesResponse.marketSessions)
@@ -448,12 +477,9 @@ export const useChartDataLoader = ({
         const chartSeries = mainSeriesRef.current
         if (chartSeries) {
           const seriesType = chartSeries.seriesType()
-          const isLineSeries = seriesType === 'Area' || seriesType === 'Line'
-          const seriesData = sanitizeSeriesData(
-            mapBarsMsToSeriesData(barsMs, isLineSeries ? 'area' : null),
-            isLineSeries ? 'area' : null
-          )
-          chartSeries.setData(seriesData as never)
+          const isLineSeries = seriesType === 'Area'
+          const seriesData = mapBarsMsToSeriesData(barsMs, isLineSeries ? 'area' : null)
+          applySeriesData(chartSeries, seriesData, isLineSeries ? 'area' : null, 'loadSeries')
         }
 
         const retentionStartMs = resolveRetentionStartMs()
@@ -500,6 +526,43 @@ export const useChartDataLoader = ({
     loadSeries()
 
     const timeScale = chart.timeScale()
+
+    const clampLogicalRange = (fromIndex: number, toIndex: number, totalBars: number) => {
+      const maxIndex = Math.max(0, totalBars - 1)
+      let from = Math.max(0, Math.min(fromIndex, maxIndex))
+      let to = Math.max(0, Math.min(toIndex, maxIndex))
+      if (from > to) {
+        const pivot = Math.min(from, to)
+        from = pivot
+        to = pivot
+      }
+      return { from, to }
+    }
+
+    const resolveAnchorFromRange = (
+      range: { from: number; to: number } | null,
+      openTimes: number[]
+    ): { fromTime: number; toTime: number } | null => {
+      if (!range || openTimes.length === 0) return null
+      const fromIndex = Math.max(0, Math.floor(range.from))
+      const toIndex = Math.min(openTimes.length - 1, Math.ceil(range.to))
+      const fromTime = openTimes[fromIndex]
+      const toTime = openTimes[toIndex]
+      if (!Number.isFinite(fromTime) || !Number.isFinite(toTime)) return null
+      return { fromTime, toTime }
+    }
+
+    const resolveAnchoredRange = (
+      anchor: { fromTime: number; toTime: number } | null,
+      indexByOpenTimeMs: Map<number, number>,
+      totalBars: number
+    ): { from: number; to: number } | null => {
+      if (!anchor || totalBars <= 0) return null
+      const fromIndex = indexByOpenTimeMs.get(anchor.fromTime)
+      const toIndex = indexByOpenTimeMs.get(anchor.toTime)
+      if (fromIndex === undefined || toIndex === undefined) return null
+      return clampLogicalRange(fromIndex, toIndex, totalBars)
+    }
 
     const handleVisibleRangeChange = async (range: { from: number; to: number } | null) => {
       if (!range) return
@@ -568,6 +631,10 @@ export const useChartDataLoader = ({
             }
 
             const previousRange = timeScale.getVisibleLogicalRange()
+            const anchorRange = resolveAnchorFromRange(
+              previousRange,
+              dataContext.openTimeMsByIndexRef.current
+            )
             let merged = sanitizeBarsMs(
               mergeBarsMs(currentBars, incomingBars, dataContext.intervalMs)
             )
@@ -588,12 +655,9 @@ export const useChartDataLoader = ({
             if (mainSeriesRef.current) {
               const series = mainSeriesRef.current
               const seriesType = series.seriesType()
-              const isLineSeries = seriesType === 'Area' || seriesType === 'Line'
-              const seriesData = sanitizeSeriesData(
-                mapBarsMsToSeriesData(merged, isLineSeries ? 'area' : null),
-                isLineSeries ? 'area' : null
-              )
-              series.setData(seriesData as never)
+              const isLineSeries = seriesType === 'Area'
+              const seriesData = mapBarsMsToSeriesData(merged, isLineSeries ? 'area' : null)
+              applySeriesData(series, seriesData, isLineSeries ? 'area' : null, 'backfill')
             }
 
             if (addedBars <= 0) {
@@ -604,13 +668,12 @@ export const useChartDataLoader = ({
               continue
             }
 
-            if (previousRange && addedBars > 0) {
-              const adjustedRange = {
-                from: previousRange.from + addedBars,
-                to: previousRange.to + addedBars,
-              }
-              timeScale.setVisibleLogicalRange(adjustedRange)
-              activeRange = adjustedRange
+            const anchoredRange = resolveAnchoredRange(anchorRange, indexByOpenTimeMs, merged.length)
+            if (anchoredRange) {
+              timeScale.setVisibleLogicalRange(anchoredRange)
+              activeRange = anchoredRange
+            } else {
+              activeRange = timeScale.getVisibleLogicalRange()
             }
 
             const earliestTimestamp = merged[0]?.openTime ?? null
@@ -666,4 +729,30 @@ export const useChartDataLoader = ({
   ])
 
   return { chartError, seriesTimezone, isLoading }
+}
+
+const applySeriesData = (
+  series: ISeriesApi<'Candlestick'> | ISeriesApi<'Bar'> | ISeriesApi<'Area'>,
+  data: ReturnType<typeof mapBarsMsToSeriesData>,
+  candleType: 'area' | null,
+  context: string
+) => {
+  const sanitized = sanitizeSeriesData(data, candleType)
+  if (sanitized.length !== data.length) {
+    const invalid = findFirstInvalidSeriesDatum(data, candleType)
+    console.warn('[new_data_chart] Dropped invalid series data', {
+      context,
+      dropped: data.length - sanitized.length,
+      sample: invalid?.entry ?? null,
+      error: invalid?.error ?? null,
+      index: invalid?.index ?? null,
+    })
+  }
+  try {
+    series.setData(sanitized as never)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.error('[new_data_chart] Failed to set series data', { context, message })
+    series.setData([] as never)
+  }
 }
