@@ -209,7 +209,16 @@ export const useLiveBars = ({
           const validUpdate =
             sanitizeSeriesData([nextDatum], isLineSeries ? 'area' : null).length === 1
           if (validUpdate) {
-            series.update(nextDatum as never)
+            try {
+              series.update(nextDatum as never)
+            } catch (error) {
+              console.error('[new_data_chart] Failed to update live series', { error })
+              const fallbackData = sanitizeSeriesData(
+                mapBarsMsToSeriesData(nextBars, isLineSeries ? 'area' : null),
+                isLineSeries ? 'area' : null
+              )
+              series.setData(fallbackData as never)
+            }
           } else {
             const fallbackData = sanitizeSeriesData(
               mapBarsMsToSeriesData(nextBars, isLineSeries ? 'area' : null),
@@ -222,7 +231,12 @@ export const useLiveBars = ({
             mapBarsMsToSeriesData(nextBars, isLineSeries ? 'area' : null),
             isLineSeries ? 'area' : null
           )
-          series.setData(seriesData as never)
+          try {
+            series.setData(seriesData as never)
+          } catch (error) {
+            console.error('[new_data_chart] Failed to set live series data', { error })
+            series.setData([] as never)
+          }
         }
       }
 

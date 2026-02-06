@@ -13,7 +13,11 @@ import {
   resolvePriceScaleMode,
   sanitizeStyleOverrides,
 } from '@/widgets/widgets/new_data_chart/utils/chart-styles'
-import { mapBarsMsToSeriesData, sanitizeSeriesData } from '@/widgets/widgets/new_data_chart/series-data'
+import {
+  findFirstInvalidSeriesDatum,
+  mapBarsMsToSeriesData,
+  sanitizeSeriesData,
+} from '@/widgets/widgets/new_data_chart/series-data'
 import type { NewDataChartDataContext } from '@/widgets/widgets/new_data_chart/types'
 
 type UseChartStylesArgs = {
@@ -80,6 +84,42 @@ export const useChartStyles = ({
   const lastPrecisionRef = useRef<number | null>(null)
   const warnedMessagesRef = useRef<Set<string>>(new Set())
 
+  const warnOnce = (message: string, payload?: Record<string, unknown>) => {
+    if (warnedMessagesRef.current.has(message)) return
+    warnedMessagesRef.current.add(message)
+    if (payload) {
+      console.warn(message, payload)
+    } else {
+      console.warn(message)
+    }
+  }
+
+  const applySeriesData = (
+    series: ISeriesApi<'Candlestick'> | ISeriesApi<'Bar'> | ISeriesApi<'Area'>,
+    data: ReturnType<typeof mapBarsMsToSeriesData>,
+    candleType: DataChartViewParams['candleType'] | null,
+    context: string
+  ) => {
+    const sanitized = sanitizeSeriesData(data, candleType)
+    if (sanitized.length !== data.length) {
+      const invalid = findFirstInvalidSeriesDatum(data, candleType)
+      warnOnce('[new_data_chart] Dropped invalid series data', {
+        context,
+        dropped: data.length - sanitized.length,
+        sample: invalid?.entry ?? null,
+        error: invalid?.error ?? null,
+        index: invalid?.index ?? null,
+      })
+    }
+    try {
+      series.setData(sanitized as never)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error('[new_data_chart] Failed to set series data', { context, message })
+      series.setData([] as never)
+    }
+  }
+
   useEffect(() => {
     const chart = chartRef.current
     if (!chart) return
@@ -105,15 +145,9 @@ export const useChartStyles = ({
       },
     })
 
-    const warnOnce = (message: string) => {
-      if (warnedMessagesRef.current.has(message)) return
-      warnedMessagesRef.current.add(message)
-      console.warn(message)
-    }
-
     const sanitizedOverrides = sanitizeStyleOverrides(
       (chartSettings?.stylesOverride as Record<string, unknown> | undefined) ?? undefined,
-      warnOnce
+      (message) => warnOnce(message)
     )
 
     const { localization: localizationOverride, timeScale: timeScaleOverride, ...chartOverrides } =
@@ -168,15 +202,8 @@ export const useChartStyles = ({
         | ISeriesApi<'Bar'>
         | ISeriesApi<'Area'>
 
-      const seriesData = sanitizeSeriesData(
-        mapBarsMsToSeriesData(dataContext.barsMsRef.current, candleType),
-        candleType
-      )
-      if (seriesData.length > 0) {
-        mainSeriesRef.current.setData(seriesData as never)
-      } else {
-        mainSeriesRef.current.setData([] as never)
-      }
+      const seriesData = mapBarsMsToSeriesData(dataContext.barsMsRef.current, candleType)
+      applySeriesData(mainSeriesRef.current, seriesData, candleType, 'initSeries')
     } else if (precisionChanged && mainSeriesRef.current) {
       const priceFormat = resolvePriceFormat(chartSettings?.pricePrecision)
       mainSeriesRef.current.applyOptions({ priceFormat: { type: 'price' as const, ...priceFormat } })
@@ -203,10 +230,10 @@ export const useChartStyles = ({
     if (!series) return
     const seriesType = series.seriesType()
     const isAreaSeries = seriesType === 'Area'
-    const seriesData = sanitizeSeriesData(
-      mapBarsMsToSeriesData(dataContext.barsMsRef.current, isAreaSeries ? 'area' : null),
+    const seriesData = mapBarsMsToSeriesData(
+      dataContext.barsMsRef.current,
       isAreaSeries ? 'area' : null
     )
-    series.setData(seriesData as never)
+    applySeriesData(series, seriesData, isAreaSeries ? 'area' : null, 'refreshSeries')
   }, [chartSettings?.candleType, dataContext, dataVersion, mainSeriesRef, chartReady])
 }
