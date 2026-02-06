@@ -110,7 +110,7 @@ export async function executeProviderRequest(
       if (
         listingId &&
         window?.mode === 'range' &&
-        normalizedRequest.listing?.listing_type === 'equity' &&
+        normalizedRequest.listing?.listing_type === 'default' &&
         (sessionPref === 'regular' || sessionPref === 'extended')
       ) {
         const latestEndMs = await resolveLatestSessionEndMs(
@@ -132,7 +132,7 @@ export async function executeProviderRequest(
       let marketSessions: MarketSessionWindow[] | null = null
       if (
         listingId &&
-        normalizedRequest.listing?.listing_type === 'equity' &&
+        normalizedRequest.listing?.listing_type === 'default' &&
         (sessionPref === 'regular' || sessionPref === 'extended')
       ) {
         const bounds = resolveSeriesBoundsMs(response)

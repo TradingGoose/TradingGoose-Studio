@@ -4,7 +4,7 @@ export const hasListingDetails = (listing?: ListingResolved | null): boolean => 
   if (!listing) return false
   const base = listing.base?.trim()
   const name = listing.name?.trim()
-  if (listing.listing_type === 'equity') {
+  if (listing.listing_type === 'default') {
     return Boolean(base || name)
   }
   const quote = listing.quote?.trim()
@@ -19,8 +19,8 @@ export const getListingSymbol = (listing: ListingResolved): string => {
   }
   const name = listing.name?.trim()
   if (name) return name
-  const equityId = listing.equity_id?.trim()
-  if (equityId) return equityId
+  const listingId = listing.listing_id?.trim()
+  if (listingId) return listingId
   return listing.id
 }
 

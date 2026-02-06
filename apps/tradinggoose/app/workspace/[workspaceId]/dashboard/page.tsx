@@ -38,11 +38,11 @@ const readText = (value: unknown): string | null => {
 
 const hasResolvedFields = (
   record: ListingRecord,
-  listingType: 'equity' | 'crypto' | 'currency'
+  listingType: 'default' | 'crypto' | 'currency'
 ): boolean => {
   const base = readText(record.base)
   if (!base) return false
-  if (listingType !== 'equity') {
+  if (listingType !== 'default') {
     const quote = readText(record.quote)
     if (!quote) return false
   }
@@ -66,7 +66,7 @@ const mergeResolvedListing = (
   }
 
   applyIfMissing('id', resolved.id)
-  applyIfMissing('equity_id', resolved.equity_id)
+  applyIfMissing('listing_id', resolved.listing_id)
   applyIfMissing('base_id', resolved.base_id)
   applyIfMissing('quote_id', resolved.quote_id)
   applyIfMissing('listing_type', resolved.listing_type)

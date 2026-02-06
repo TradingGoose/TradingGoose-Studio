@@ -6,7 +6,6 @@ import { buildQueryParams, limitMax200, optionalString } from '@/app/api/market/
 export const dynamic = 'force-dynamic'
 
 const CryptoSearchSchema = z.object({
-  crypto_id: optionalString,
   crypto_base_id: optionalString,
   crypto_quote_id: optionalString,
   crypto_base_code: optionalString,
@@ -26,7 +25,6 @@ const CryptoSearchSchema = z.object({
 })
 
 const CryptoSearchKeys = [
-  'crypto_id',
   'crypto_base_id',
   'crypto_quote_id',
   'crypto_base_code',
@@ -45,6 +43,14 @@ const CryptoSearchKeys = [
 ] as const
 
 export async function GET(request: NextRequest) {
+  const cryptoId = request.nextUrl.searchParams.get('crypto_id')?.trim()
+  if (cryptoId) {
+    return NextResponse.json(
+      { error: 'crypto_id is not supported on /search/cryptos. Use /get/crypto instead.' },
+      { status: 400 }
+    )
+  }
+
   const params = buildQueryParams(request, [...CryptoSearchKeys, 'limit'])
   const parsed = CryptoSearchSchema.safeParse(params)
 
@@ -63,21 +69,5 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const searchParams = new URLSearchParams()
-  CryptoSearchKeys.forEach((key) => {
-    const value = parsed.data[key]
-    if (value !== undefined) {
-      searchParams.set(key, value)
-    }
-  })
-  if (parsed.data.limit !== undefined) {
-    searchParams.set('limit', String(parsed.data.limit))
-  }
-
-  if (parsed.data.crypto_id && !parsed.data.crypto_base_id) {
-    searchParams.set('crypto_base_id', parsed.data.crypto_id)
-    searchParams.delete('crypto_id')
-  }
-
-  return proxyMarketRequest(request, ['search', 'crypto'], searchParams)
+  return proxyMarketRequest(request, ['search', 'cryptos'])
 }

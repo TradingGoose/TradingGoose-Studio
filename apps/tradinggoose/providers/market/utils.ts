@@ -60,7 +60,7 @@ export async function resolveListingContext(listing: ListingInputValue): Promise
 
   const assetClass =
     (resolved.assetClass ??
-      (normalizedListing.listing_type === 'equity'
+      (normalizedListing.listing_type === 'default'
         ? undefined
         : normalizedListing.listing_type)) as AssetClass | undefined
 

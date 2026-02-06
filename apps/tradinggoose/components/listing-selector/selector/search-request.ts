@@ -38,17 +38,17 @@ export function buildMarketSearchRequest(args: {
     normalizedAssetClasses.length === 0 || normalizedAssetClasses.includes('crypto')
   const includeCurrency =
     normalizedAssetClasses.length === 0 || normalizedAssetClasses.includes('currency')
-  const includeEquity =
+  const includeListings =
     normalizedAssetClasses.length === 0 ||
     normalizedAssetClasses.some((value) => value !== 'crypto' && value !== 'currency')
 
   const resolvedMicCodes = providerConfig.micCodes.length ? providerConfig.micCodes : []
-  if (resolvedMicCodes.length && includeEquity) {
+  if (resolvedMicCodes.length && includeListings) {
     filtersPayload.mic = resolvedMicCodes
   }
 
-  if (includeEquity && providerConfig.equityQuoteCodes.length) {
-    queryParams.equity_quote_code = serializeArrayParam(providerConfig.equityQuoteCodes)
+  if (includeListings && providerConfig.listingQuoteCodes.length) {
+    queryParams.listing_quote_code = serializeArrayParam(providerConfig.listingQuoteCodes)
   }
   if (includeCrypto && providerConfig.cryptoQuoteCodes.length) {
     queryParams.crypto_quote_code = serializeArrayParam(providerConfig.cryptoQuoteCodes)
@@ -73,7 +73,7 @@ export function buildMarketSearchRequest(args: {
     providerId,
     assetClasses: resolvedAssetClasses,
     micCodes: resolvedMicCodes,
-    equityQuoteCodes: providerConfig.equityQuoteCodes,
+    listingQuoteCodes: providerConfig.listingQuoteCodes,
     cryptoQuoteCodes: providerConfig.cryptoQuoteCodes,
     currencyQuoteCodes: providerConfig.currencyQuoteCodes,
     parsedQuery,

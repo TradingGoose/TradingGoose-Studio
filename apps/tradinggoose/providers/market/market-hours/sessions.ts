@@ -367,7 +367,7 @@ export const resolveLatestSessionEndMs = async (
 
 export const resolveListingId = (listing?: MarketSeries['listing'] | null) => {
   if (!listing) return null
-  if (listing.listing_type === 'equity') return listing.equity_id?.trim() || null
+  if (listing.listing_type === 'default') return listing.listing_id?.trim() || null
   return null
 }
 
@@ -377,7 +377,7 @@ export const clampToMarketSession = async (
   const session = request.providerParams?.marketSession as MarketSession | undefined
   if (session !== 'regular' && session !== 'extended') return request
   const listing = request.listing
-  if (!listing || listing.listing_type !== 'equity') return request
+  if (!listing || listing.listing_type !== 'default') return request
   const listingId = resolveListingId(listing)
   if (!listingId) return request
 

@@ -6,7 +6,7 @@ import { uniqueStrings } from '@/components/listing-selector/search-utils'
 export type ProviderSearchConfig = {
   assetClasses: string[]
   micCodes: string[]
-  equityQuoteCodes: string[]
+  listingQuoteCodes: string[]
   cryptoQuoteCodes: string[]
   currencyQuoteCodes: string[]
 }
@@ -22,9 +22,9 @@ export function useMarketProviderSearchConfig(providerId?: string): ProviderSear
     return uniqueStrings(values)
   }, [providerConfig])
 
-  const equityQuoteCodes = useMemo(() => {
+  const listingQuoteCodes = useMemo(() => {
     const availability = providerConfig?.availability
-    return uniqueStrings(availability?.availableEquityQuote ?? [])
+    return uniqueStrings(availability?.availableListingQuote ?? [])
   }, [providerConfig])
 
   const currencyQuoteCodes = useMemo(() => {
@@ -47,11 +47,11 @@ export function useMarketProviderSearchConfig(providerId?: string): ProviderSear
     () => ({
       assetClasses,
       micCodes,
-      equityQuoteCodes,
+      listingQuoteCodes,
       cryptoQuoteCodes,
       currencyQuoteCodes,
     }),
-    [assetClasses, micCodes, equityQuoteCodes, cryptoQuoteCodes, currencyQuoteCodes]
+    [assetClasses, micCodes, listingQuoteCodes, cryptoQuoteCodes, currencyQuoteCodes]
   )
 }
 
@@ -66,9 +66,9 @@ export function useTradingProviderSearchConfig(providerId?: string): ProviderSea
     return uniqueStrings(values)
   }, [providerConfig])
 
-  const equityQuoteCodes = useMemo(() => {
+  const listingQuoteCodes = useMemo(() => {
     const availability = providerConfig?.availability
-    return uniqueStrings(availability?.availableEquityQuote ?? [])
+    return uniqueStrings(availability?.availableListingQuote ?? [])
   }, [providerConfig])
 
   const currencyQuoteCodes = useMemo(() => {
@@ -91,10 +91,10 @@ export function useTradingProviderSearchConfig(providerId?: string): ProviderSea
     () => ({
       assetClasses,
       micCodes,
-      equityQuoteCodes,
+      listingQuoteCodes,
       cryptoQuoteCodes,
       currencyQuoteCodes,
     }),
-    [assetClasses, micCodes, equityQuoteCodes, cryptoQuoteCodes, currencyQuoteCodes]
+    [assetClasses, micCodes, listingQuoteCodes, cryptoQuoteCodes, currencyQuoteCodes]
   )
 }

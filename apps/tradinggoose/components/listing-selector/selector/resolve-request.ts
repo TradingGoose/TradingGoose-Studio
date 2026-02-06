@@ -126,11 +126,11 @@ const getBatchRow = async <T>(
   return records[id] ?? null
 }
 
-const resolveEquityById = async (
-  equityId: string,
+const resolveListingById = async (
+  listingId: string,
   signal?: AbortSignal
 ): Promise<ResolvedListingDetails | null> => {
-  const listing = await getBatchRow<any>('equity', 'equity_id', equityId, signal)
+  const listing = await getBatchRow<any>('listing', 'listing_id', listingId, signal)
   if (!listing || typeof listing !== 'object') return null
   return {
     base: listing.base,
@@ -245,13 +245,13 @@ export async function requestListingResolution(
   if (!listing) return null
 
   const listingType = listing.listing_type
-  const equityId = listing.equity_id?.trim()
+  const listingId = listing.listing_id?.trim()
   const baseId = listing.base_id?.trim()
   const quoteId = listing.quote_id?.trim()
 
-  if (listingType === 'equity') {
-    if (!equityId) return null
-    const details = await resolveEquityById(equityId, signal)
+  if (listingType === 'default') {
+    if (!listingId) return null
+    const details = await resolveListingById(listingId, signal)
     return details ? buildResolvedListing(listing, details) : null
   }
 
@@ -281,15 +281,15 @@ function buildResolvedListing(
   if (!base) return null
 
   const normalizedIdentity: ListingIdentity =
-    listing.listing_type === 'equity'
+    listing.listing_type === 'default'
       ? {
-        equity_id: listing.equity_id?.trim() ?? '',
+        listing_id: listing.listing_id?.trim() ?? '',
         base_id: '',
         quote_id: '',
         listing_type: listing.listing_type,
       }
       : {
-        equity_id: '',
+        listing_id: '',
         base_id: listing.base_id?.trim() ?? '',
         quote_id: listing.quote_id?.trim() ?? '',
         listing_type: listing.listing_type,

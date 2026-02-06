@@ -14,7 +14,7 @@ const availableAssetClasses: AssetClass[] = [
   'currency',
 ]
 
-const availableEquityQuoteCodes = [
+const availableListingQuoteCodes = [
   '4O',
   'AED',
   'AFN',
@@ -202,16 +202,16 @@ const availableEquityQuoteCodes = [
   'ZAR',
   'ZMW',
 ]
-const availableCurrencyBaseCodes = availableEquityQuoteCodes
-const availableCurrencyQuoteCodes = availableEquityQuoteCodes
-const availableCryptoBaseCodes = availableEquityQuoteCodes
-const availableCryptoQuoteCodes = availableEquityQuoteCodes
+const availableCurrencyBaseCodes = availableListingQuoteCodes
+const availableCurrencyQuoteCodes = availableListingQuoteCodes
+const availableCryptoBaseCodes = availableListingQuoteCodes
+const availableCryptoQuoteCodes = availableListingQuoteCodes
 const supportsCurrency = availableAssetClasses.includes('currency')
 const supportsCrypto = availableAssetClasses.includes('crypto')
 
 const availability: MarketProviderConfig['availability'] = {
   assetClass: availableAssetClasses,
-  availableEquityQuote: availableEquityQuoteCodes,
+  availableListingQuote: availableListingQuoteCodes,
   availableCurrencyBase: supportsCurrency ? availableCurrencyBaseCodes : [],
   availableCurrencyQuote: supportsCurrency ? availableCurrencyQuoteCodes : [],
   availableCryptoBase: supportsCrypto ? availableCryptoBaseCodes : [],

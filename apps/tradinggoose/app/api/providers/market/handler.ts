@@ -51,20 +51,20 @@ export async function handleMarketProviderRequest({
 
     const ListingSchema = z
       .object({
-        equity_id: z.string(),
+        listing_id: z.string(),
         base_id: z.string(),
         quote_id: z.string(),
-        listing_type: z.enum(['equity', 'crypto', 'currency']),
+        listing_type: z.enum(['default', 'crypto', 'currency']),
       })
       .passthrough()
       .superRefine((value, ctx) => {
-        if (value.listing_type === 'equity' && !value.equity_id?.trim()) {
+        if (value.listing_type === 'default' && !value.listing_id?.trim()) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: 'equity listing requires equity_id',
+            message: 'default listing requires listing_id',
           })
         }
-        if (value.listing_type !== 'equity') {
+        if (value.listing_type !== 'default') {
           if (!value.base_id?.trim() || !value.quote_id?.trim()) {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,

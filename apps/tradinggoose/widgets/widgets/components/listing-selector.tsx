@@ -19,7 +19,7 @@ import { useMarketListingSearch } from '@/components/listing-selector/selector/u
 import {
   triggerCryptoRankUpdate,
   triggerCurrencyRankUpdate,
-  triggerEquityRankUpdate,
+  triggerListingRankUpdate,
 } from '@/components/listing-selector/listing/rank-updates'
 import { widgetHeaderControlClassName } from '@/widgets/widgets/components/widget-header-control'
 
@@ -55,7 +55,7 @@ const hasListingDetails = (listing?: ListingOption | null): boolean => {
   if (!listing) return false
   const base = listing.base?.trim()
   if (!base) return false
-  if (listing.listing_type === 'equity') return true
+  if (listing.listing_type === 'default') return true
   const quote = listing.quote?.trim()
   return Boolean(quote)
 }
@@ -247,7 +247,7 @@ export function ListingSelector({
     setHighlightedIndex(-1)
     setShowTags(false)
     setVariableCommitted(false)
-    triggerEquityRankUpdate(listing)
+    triggerListingRankUpdate(listing)
     const listingType = listing.listing_type
     if (listingType === 'crypto' && listing.base_id) {
       triggerCryptoRankUpdate(listing.base_id)

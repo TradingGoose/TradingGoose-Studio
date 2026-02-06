@@ -5,18 +5,16 @@ import { buildQueryParams, optionalString } from '@/app/api/market/search/valida
 
 export const dynamic = 'force-dynamic'
 
-const MarketHourSchema = z.object({
-  listingId: optionalString,
+const MarketHoursSchema = z.object({
+  listing_id: optionalString,
   listingType: optionalString,
   date: optionalString,
   startDate: optionalString,
   endDate: optionalString,
 })
 
-const allowedListingTypes = new Set(['equity', 'crypto', 'currency'])
+const allowedListingTypes = new Set(['default', 'crypto', 'currency'])
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
-const DAY_MS = 24 * 60 * 60 * 1000
-const MAX_RANGE_DAYS = 30
 
 const parseDateYmd = (value: string): Date | null => {
   if (!DATE_RE.test(value)) return null
@@ -40,13 +38,13 @@ const parseDateYmd = (value: string): Date | null => {
 
 export async function GET(request: NextRequest) {
   const params = buildQueryParams(request, [
-    'listingId',
+    'listing_id',
     'listingType',
     'date',
     'startDate',
     'endDate',
   ])
-  const parsed = MarketHourSchema.safeParse(params)
+  const parsed = MarketHoursSchema.safeParse(params)
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -55,47 +53,23 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const listingId = parsed.data.listingId?.trim()
-  const listingTypeRaw = parsed.data.listingType?.trim().toLowerCase()
+  const listingId = parsed.data.listing_id?.trim()
+  const listingTypeRaw = parsed.data.listingType?.trim() ?? null
+  const listingType = listingTypeRaw ? listingTypeRaw.toLowerCase() : null
   const date = parsed.data.date?.trim()
   const startDate = parsed.data.startDate?.trim()
   const endDate = parsed.data.endDate?.trim()
 
   if (!listingId || !listingTypeRaw) {
     return NextResponse.json(
-      { error: 'listingId and listingType are required.' },
+      { error: 'listing_id and listingType are required.' },
       { status: 400 }
     )
   }
 
-  if (!allowedListingTypes.has(listingTypeRaw)) {
+  if (!listingType || !allowedListingTypes.has(listingType)) {
     return NextResponse.json(
-      { error: 'listingType must be equity, crypto, or currency.' },
-      { status: 400 }
-    )
-  }
-
-  const parsedDate = date ? parseDateYmd(date) : null
-  const parsedStartDate = startDate ? parseDateYmd(startDate) : null
-  const parsedEndDate = endDate ? parseDateYmd(endDate) : null
-
-  if (date && !parsedDate) {
-    return NextResponse.json(
-      { error: 'date must be in YYYY-MM-DD format.' },
-      { status: 400 }
-    )
-  }
-
-  if (startDate && !parsedStartDate) {
-    return NextResponse.json(
-      { error: 'startDate must be in YYYY-MM-DD format.' },
-      { status: 400 }
-    )
-  }
-
-  if (endDate && !parsedEndDate) {
-    return NextResponse.json(
-      { error: 'endDate must be in YYYY-MM-DD format.' },
+      { error: 'listingType must be default, crypto, or currency.' },
       { status: 400 }
     )
   }
@@ -107,33 +81,42 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  if (date && startDate && endDate) {
+  if (startDate && endDate && date) {
     return NextResponse.json(
       { error: 'Use either date or startDate/endDate, not both.' },
       { status: 400 }
     )
   }
 
-  if (parsedStartDate && parsedEndDate) {
-    if (parsedStartDate.getTime() > parsedEndDate.getTime()) {
+  if (startDate && endDate) {
+    const parsedStartDate = parseDateYmd(startDate)
+    const parsedEndDate = parseDateYmd(endDate)
+
+    if (!parsedStartDate || !parsedEndDate) {
       return NextResponse.json(
-        { error: 'startDate must be before or equal to endDate.' },
+        { error: 'startDate and endDate must be in YYYY-MM-DD format.' },
         { status: 400 }
       )
     }
-    const rangeDays =
-      Math.floor((parsedEndDate.getTime() - parsedStartDate.getTime()) / DAY_MS) + 1
-    if (rangeDays > MAX_RANGE_DAYS) {
+
+    if (parsedStartDate.getTime() > parsedEndDate.getTime()) {
       return NextResponse.json(
-        { error: `Date range must be ${MAX_RANGE_DAYS} days or fewer.` },
+        { error: 'startDate must be on or before endDate.' },
         { status: 400 }
       )
     }
   }
 
+  if (date && !parseDateYmd(date)) {
+    return NextResponse.json(
+      { error: 'date must be in YYYY-MM-DD format.' },
+      { status: 400 }
+    )
+  }
+
   const searchParams = new URLSearchParams()
-  searchParams.set('listingId', listingId)
-  searchParams.set('listingType', listingTypeRaw)
+  searchParams.set('listing_id', listingId)
+  searchParams.set('listingType', listingType)
   if (date) {
     searchParams.set('date', date)
   }

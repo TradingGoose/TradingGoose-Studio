@@ -5,20 +5,20 @@ import { parseListParam } from '@/app/api/market/search/validation'
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
-  const cryptoIds = parseListParam(request.nextUrl.searchParams, 'crypto_id')
-  if (!cryptoIds.length) {
-    return NextResponse.json({ error: 'crypto_id is required.' }, { status: 400 })
+  const listingIds = parseListParam(request.nextUrl.searchParams, 'listing_id')
+  if (!listingIds.length) {
+    return NextResponse.json({ error: 'listing_id is required.' }, { status: 400 })
   }
-  if (cryptoIds.length > 200) {
+  if (listingIds.length > 200) {
     return NextResponse.json(
-      { error: 'crypto_id supports up to 200 values.' },
+      { error: 'listing_id supports up to 200 values.' },
       { status: 400 }
     )
   }
 
   const searchParams = new URLSearchParams()
-  for (const id of cryptoIds) {
-    searchParams.append('crypto_id', id)
+  for (const id of listingIds) {
+    searchParams.append('listing_id', id)
   }
 
   const version = request.nextUrl.searchParams.get('version')?.trim()
@@ -26,5 +26,5 @@ export async function GET(request: NextRequest) {
     searchParams.set('version', version)
   }
 
-  return proxyMarketRequest(request, ['get', 'crypto'], searchParams)
+  return proxyMarketRequest(request, ['get', 'listing'], searchParams)
 }
