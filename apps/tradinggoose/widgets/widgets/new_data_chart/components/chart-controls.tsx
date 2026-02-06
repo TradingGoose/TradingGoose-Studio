@@ -55,6 +55,7 @@ export const DataChartIntervalDropdown = ({
       params: {
         data: nextData,
         view: nextView,
+        runtime: { refreshAt: Date.now() },
       },
       panelId,
       widgetKey,

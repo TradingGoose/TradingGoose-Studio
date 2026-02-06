@@ -100,6 +100,8 @@ type LineSec = {
 }
 
 const toSeconds = (ms: number) => Math.floor(ms / 1000)
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value)
 
 const coerceFiniteNumber = (value: unknown): number | null => {
   if (typeof value === 'number' && Number.isFinite(value)) return value
@@ -108,6 +110,31 @@ const coerceFiniteNumber = (value: unknown): number | null => {
     return Number.isFinite(parsed) ? parsed : null
   }
   return null
+}
+
+const clampTimestampToInterval = (timestamp: number, intervalMs?: number | null): number => {
+  if (!intervalMs || !Number.isFinite(intervalMs) || intervalMs <= 0) return timestamp
+  return Math.floor(timestamp / intervalMs) * intervalMs
+}
+
+const mergeClampedBars = (base: BarMs, incoming: BarMs): BarMs => {
+  const volume =
+    typeof base.volume === 'number' || typeof incoming.volume === 'number'
+      ? (base.volume ?? 0) + (incoming.volume ?? 0)
+      : undefined
+  const turnover =
+    typeof base.turnover === 'number' || typeof incoming.turnover === 'number'
+      ? (base.turnover ?? 0) + (incoming.turnover ?? 0)
+      : undefined
+
+  return {
+    ...base,
+    high: Math.max(base.high, incoming.high),
+    low: Math.min(base.low, incoming.low),
+    close: incoming.close,
+    volume,
+    turnover,
+  }
 }
 
 const recomputeCloseTimes = (bars: BarMs[], intervalMs?: number | null): BarMs[] => {
@@ -145,7 +172,7 @@ export const mapMarketBarToBarMs = (
   const high = highValue ?? Math.max(open, close)
   const low = lowValue ?? Math.min(open, close)
   if (![open, high, low, close].every((value) => Number.isFinite(value))) return null
-  const openTime = timestamp
+  const openTime = clampTimestampToInterval(timestamp, intervalMs)
   const closeTime = intervalMs ? openTime + intervalMs : openTime
   const volume = coerceFiniteNumber(bar.volume) ?? undefined
   const turnover = coerceFiniteNumber(bar.turnover) ?? undefined
@@ -171,7 +198,8 @@ export const mapMarketSeriesToBarsMs = (
   series.bars.forEach((bar) => {
     const mapped = mapMarketBarToBarMs(bar, intervalMs)
     if (!mapped) return
-    map.set(mapped.openTime, mapped)
+    const existing = map.get(mapped.openTime)
+    map.set(mapped.openTime, existing ? mergeClampedBars(existing, mapped) : mapped)
   })
 
   const merged = Array.from(map.values()).sort((a, b) => a.openTime - b.openTime)
@@ -236,6 +264,42 @@ export const mapBarsMsToSeriesData = (
 ): Array<OhlcSec | LineSec> => {
   if (candleType === 'area') return mapBarsMsToLineSec(barsMs)
   return mapBarsMsToOhlcSec(barsMs)
+}
+
+export const sanitizeSeriesData = (
+  data: Array<OhlcSec | LineSec>,
+  candleType?: DataChartCandleType | string | null
+): Array<OhlcSec | LineSec> => {
+  if (!Array.isArray(data) || data.length === 0) return []
+  const isLine = candleType === 'area'
+  return data.filter((entry) => {
+    if (!entry || typeof entry !== 'object') return false
+    if (!isFiniteNumber(entry.time)) return false
+    if (isLine) {
+      return isFiniteNumber((entry as LineSec).value)
+    }
+    const ohlc = entry as OhlcSec
+    return (
+      isFiniteNumber(ohlc.open) &&
+      isFiniteNumber(ohlc.high) &&
+      isFiniteNumber(ohlc.low) &&
+      isFiniteNumber(ohlc.close)
+    )
+  })
+}
+
+export const sanitizeBarsMs = (barsMs: BarMs[]): BarMs[] => {
+  if (!Array.isArray(barsMs) || barsMs.length === 0) return []
+  return barsMs.filter(
+    (bar) =>
+      bar &&
+      isFiniteNumber(bar.openTime) &&
+      isFiniteNumber(bar.closeTime) &&
+      isFiniteNumber(bar.open) &&
+      isFiniteNumber(bar.high) &&
+      isFiniteNumber(bar.low) &&
+      isFiniteNumber(bar.close)
+  )
 }
 
 export const mergeBarsMs = (

@@ -12,6 +12,8 @@ import {
   mapBarsMsToSeriesData,
   mapMarketBarToBarMs,
   mergeBarsMs,
+  sanitizeSeriesData,
+  sanitizeBarsMs,
 } from '@/widgets/widgets/new_data_chart/series-data'
 import type { NewDataChartDataContext } from '@/widgets/widgets/new_data_chart/types'
 import type { ISeriesApi } from 'lightweight-charts'
@@ -188,7 +190,9 @@ export const useLiveBars = ({
 
       const previousBars = dataContext.barsMsRef.current
       const previousLastOpenTime = previousBars[previousBars.length - 1]?.openTime
-      const nextBars = mergeBarsMs(previousBars, [aggregated], resolvedIntervalMs)
+      const nextBars = sanitizeBarsMs(
+        mergeBarsMs(previousBars, [aggregated], resolvedIntervalMs)
+      )
       dataContext.barsMsRef.current = nextBars
       const { indexByOpenTimeMs, openTimeMsByIndex } = buildIndexMaps(nextBars)
       dataContext.indexByOpenTimeMsRef.current = indexByOpenTimeMs
@@ -201,9 +205,24 @@ export const useLiveBars = ({
         const shouldUpdateLatest =
           typeof previousLastOpenTime === 'number' && aggregated.openTime >= previousLastOpenTime
         if (shouldUpdateLatest) {
-          series.update(mapBarMsToSeriesDatum(aggregated, isLineSeries ? 'area' : null) as never)
+          const nextDatum = mapBarMsToSeriesDatum(aggregated, isLineSeries ? 'area' : null)
+          const validUpdate =
+            sanitizeSeriesData([nextDatum], isLineSeries ? 'area' : null).length === 1
+          if (validUpdate) {
+            series.update(nextDatum as never)
+          } else {
+            const fallbackData = sanitizeSeriesData(
+              mapBarsMsToSeriesData(nextBars, isLineSeries ? 'area' : null),
+              isLineSeries ? 'area' : null
+            )
+            series.setData(fallbackData as never)
+          }
         } else {
-          series.setData(mapBarsMsToSeriesData(nextBars, isLineSeries ? 'area' : null) as never)
+          const seriesData = sanitizeSeriesData(
+            mapBarsMsToSeriesData(nextBars, isLineSeries ? 'area' : null),
+            isLineSeries ? 'area' : null
+          )
+          series.setData(seriesData as never)
         }
       }
 

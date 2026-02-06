@@ -39,7 +39,7 @@ type UseChartLegendArgs = {
   dataContext: NewDataChartDataContext
   seriesTimezone: string | null
   view?: DataChartViewParams
-  dataVersion: number
+  chartReady: number
 }
 
 const resolvePrecision = (value?: number | null) => {
@@ -143,7 +143,7 @@ export const useChartLegend = ({
   dataContext,
   seriesTimezone,
   view,
-  dataVersion,
+  chartReady,
 }: UseChartLegendArgs): LegendData | null => {
   const [legendData, setLegendData] = useState<LegendData | null>(null)
   const lastKeyRef = useRef<string | null>(null)
@@ -191,30 +191,19 @@ export const useChartLegend = ({
     [dataContext, locale, precision, timezone]
   )
 
-  const updateFromLastBar = useCallback(() => {
+  const resolveLatestLegend = useCallback(() => {
     const series = mainSeriesRef.current
-    if (!series) {
-      setLegendIfChanged(null)
-      return
-    }
-    const data = series.dataByIndex(Number.MAX_SAFE_INTEGER, -1) as
+    if (!series) return null
+    const latestData = series.dataByIndex(Number.MAX_SAFE_INTEGER, -1) as
       | CandlestickData<Time>
       | BarData<Time>
       | LineData<Time>
       | WhitespaceData<Time>
       | null
-    if (!data) {
-      setLegendIfChanged(null)
-      return
-    }
-    const lastIndex = dataContext.barsMsRef.current.length - 1
-    const nextLegend = resolveLegendFromData(data, 'time' in data ? data.time : null, lastIndex)
-    setLegendIfChanged(nextLegend)
-  }, [dataContext, resolveLegendFromData, setLegendIfChanged])
-
-  useEffect(() => {
-    updateFromLastBar()
-  }, [dataVersion, updateFromLastBar])
+    if (!latestData) return null
+    const fallbackIndex = dataContext.barsMsRef.current.length - 1
+    return resolveLegendFromData(latestData, 'time' in latestData ? latestData.time : null, fallbackIndex)
+  }, [dataContext, mainSeriesRef, resolveLegendFromData])
 
   useEffect(() => {
     const chart = chartRef.current
@@ -222,9 +211,8 @@ export const useChartLegend = ({
 
     const handleCrosshairMove = (param: MouseEventParams) => {
       const series = mainSeriesRef.current
-      if (!series) return
-      if (!param || !param.time) {
-        updateFromLastBar()
+      if (!series || !param?.time) {
+        setLegendIfChanged(resolveLatestLegend())
         return
       }
       const seriesData = param.seriesData.get(series) as
@@ -234,7 +222,7 @@ export const useChartLegend = ({
         | WhitespaceData<Time>
         | undefined
       if (!seriesData) {
-        setLegendIfChanged(null)
+        setLegendIfChanged(resolveLatestLegend())
         return
       }
       const logicalIndex = resolveLogicalIndex(param)
@@ -244,7 +232,18 @@ export const useChartLegend = ({
 
     chart.subscribeCrosshairMove(handleCrosshairMove)
     return () => chart.unsubscribeCrosshairMove(handleCrosshairMove)
-  }, [chartRef, mainSeriesRef, resolveLegendFromData, setLegendIfChanged, updateFromLastBar])
+  }, [
+    chartRef,
+    mainSeriesRef,
+    resolveLatestLegend,
+    resolveLegendFromData,
+    setLegendIfChanged,
+    chartReady,
+  ])
+
+  useEffect(() => {
+    setLegendIfChanged(resolveLatestLegend())
+  }, [dataContext.dataVersion, resolveLatestLegend, setLegendIfChanged])
 
   return legendData
 }

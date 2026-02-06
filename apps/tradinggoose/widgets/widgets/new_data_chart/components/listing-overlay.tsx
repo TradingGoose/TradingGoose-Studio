@@ -27,7 +27,7 @@ export const ListingOverlay = ({
   const listingIconUrl = listing?.iconUrl ?? null
   const avatarFallback = listingSymbol ? getListingFallback(listingSymbol) : '??'
   const flagData = useMemo(
-    () => (listingType === 'equity' ? getFlagData(listing?.countryCode) : null),
+    () => (listingType === 'default' ? getFlagData(listing?.countryCode) : null),
     [listing?.countryCode, listingType]
   )
   const prefersFlagImage = typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent)
@@ -36,8 +36,7 @@ export const ListingOverlay = ({
     : null
   const intervalText = intervalLabel ?? ''
 
-  const wrapperClass =
-    'flex items-center gap-2 text-sm font-semibold text-foreground'
+  const wrapperClass = 'flex items-center gap-2 text-sm font-semibold text-foreground'
 
   if (isResolving) {
     return (
@@ -75,7 +74,7 @@ export const ListingOverlay = ({
           <span className='mx-2 shrink-0 text-muted-foreground'>{intervalText}</span>
         ) : null}
 
-        {listingType === 'equity' && flagData ? (
+        {listingType === 'default' && flagData ? (
           prefersFlagImage && flagImageUrl ? (
             <img
               src={flagImageUrl}

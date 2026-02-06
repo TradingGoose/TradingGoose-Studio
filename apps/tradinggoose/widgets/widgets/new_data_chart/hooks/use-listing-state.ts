@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import {
   type ListingIdentity,
   type ListingInputValue,
@@ -8,8 +9,10 @@ import {
   resolveListingKey,
   toListingValueObject,
 } from '@/lib/listing/identity'
-import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
-import { buildListingDisplay, getFlagData } from '@/widgets/widgets/new_data_chart/utils/listing-utils'
+import {
+  buildListingDisplay,
+  getFlagData,
+} from '@/widgets/widgets/new_data_chart/utils/listing-utils'
 
 type UseListingStateArgs = {
   listingValue: ListingInputValue
@@ -19,7 +22,6 @@ type UseListingStateArgs = {
 export type ListingState = {
   listing: ListingIdentity | null
   listingKey: string | null
-  listingIdentity: ListingIdentity | null
   resolvedListing: ListingOption | null
   isResolving: boolean
   tooltipTitle: string
@@ -36,7 +38,7 @@ const hasResolvedListingDetails = (listing?: ListingOption | null): boolean => {
   if (!listing) return false
   const base = listing.base?.trim()
   if (!base) return false
-  if (listing.listing_type === 'equity') return true
+  if (listing.listing_type === 'default') return true
   const quote = listing.quote?.trim()
   return Boolean(quote)
 }
@@ -49,13 +51,15 @@ export const useListingState = ({
   const [isResolving, setIsResolving] = useState(false)
   const listingResolveRef = useRef(0)
   const hydratedKeyRef = useRef<string | null>(null)
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const listingIdentityRef = useRef<ListingIdentity | null>(null)
 
   const listingIdentity = useMemo(() => {
     if (!listingValue || typeof listingValue !== 'object') return null
     return toListingValueObject(listingValue)
   }, [listingValue])
 
-  const listingKey = listingIdentity ? resolveListingKey(listingIdentity) ?? null : null
+  const listingKey = resolveListingKey(listingValue) ?? null
   const listing = listingKey ? listingIdentity : null
 
   const listingDetailsFromValue = useMemo(
@@ -64,10 +68,24 @@ export const useListingState = ({
   )
 
   useEffect(() => {
-    if (!listingIdentity || !listingKey) {
+    if (listingIdentity && listingKey) {
+      const currentKey = listingIdentityRef.current
+        ? (resolveListingKey(listingIdentityRef.current) ?? null)
+        : null
+      if (currentKey !== listingKey) {
+        listingIdentityRef.current = listingIdentity
+      }
+    }
+
+    const activeIdentity = listingIdentityRef.current
+    if (!activeIdentity || !listingKey) {
       setResolvedListing(null)
       setIsResolving(false)
       hydratedKeyRef.current = null
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current)
+        retryTimeoutRef.current = null
+      }
       return
     }
 
@@ -75,40 +93,69 @@ export const useListingState = ({
       setResolvedListing(listingDetailsFromValue)
       setIsResolving(false)
       hydratedKeyRef.current = listingKey
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current)
+        retryTimeoutRef.current = null
+      }
       return
     }
 
     setResolvedListing(null)
-    setIsResolving(true)
 
-    if (hydratedKeyRef.current === listingKey) {
-      setIsResolving(false)
-      return
+    let cancelled = false
+    const retryDelayMs = 1000
+
+    const scheduleRetry = () => {
+      if (cancelled) return
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current)
+      }
+      retryTimeoutRef.current = setTimeout(() => {
+        runResolve()
+      }, retryDelayMs)
     }
 
-    hydratedKeyRef.current = listingKey
-    const requestId = ++listingResolveRef.current
-    let cancelled = false
+    const runResolve = () => {
+      if (cancelled) return
+      setIsResolving(true)
+      const requestId = ++listingResolveRef.current
+      requestListingResolution(activeIdentity)
+        .then((resolved) => {
+          if (cancelled || listingResolveRef.current !== requestId) return
+          if (resolved) {
+            setResolvedListing(resolved)
+            setIsResolving(false)
+            if (retryTimeoutRef.current) {
+              clearTimeout(retryTimeoutRef.current)
+              retryTimeoutRef.current = null
+            }
+            return
+          }
+          scheduleRetry()
+        })
+        .catch(() => {
+          if (cancelled || listingResolveRef.current !== requestId) return
+          scheduleRetry()
+        })
+    }
 
-    requestListingResolution(listingIdentity)
-      .then((resolved) => {
-        if (cancelled || listingResolveRef.current !== requestId) return
-        if (!resolved) {
-          setIsResolving(false)
-          return
-        }
-        setResolvedListing(resolved)
-        setIsResolving(false)
-      })
-      .catch(() => {
-        if (cancelled || listingResolveRef.current !== requestId) return
-        setIsResolving(false)
-      })
+    if (hydratedKeyRef.current !== listingKey) {
+      hydratedKeyRef.current = listingKey
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current)
+        retryTimeoutRef.current = null
+      }
+      runResolve()
+    }
 
     return () => {
       cancelled = true
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current)
+        retryTimeoutRef.current = null
+      }
     }
-  }, [listingDetailsFromValue, listingIdentity, listingKey])
+  }, [listingDetailsFromValue, listingKey, Boolean(listingIdentity)])
 
   const resolvedListingKey = useMemo(() => {
     if (!resolvedListingState) return null
@@ -127,7 +174,7 @@ export const useListingState = ({
     [displayListing]
   )
   const flagData = useMemo(
-    () => (listingType === 'equity' ? getFlagData(displayListing?.countryCode) : null),
+    () => (listingType === 'default' ? getFlagData(displayListing?.countryCode) : null),
     [displayListing?.countryCode, listingType]
   )
   const overlayLabel = useMemo(() => {
@@ -138,7 +185,7 @@ export const useListingState = ({
     return text
   }, [listingName, listingSymbolText])
   const tooltipLabel = useMemo(() => {
-    if (listingType === 'equity' && flagData?.emoji) {
+    if (listingType === 'default' && flagData?.emoji) {
       return `${overlayLabel} ${flagData.emoji}`
     }
     return overlayLabel
@@ -152,7 +199,6 @@ export const useListingState = ({
   return {
     listing,
     listingKey,
-    listingIdentity,
     resolvedListing: displayListing,
     isResolving,
     tooltipTitle,
