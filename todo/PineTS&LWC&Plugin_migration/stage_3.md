@@ -18,7 +18,7 @@ Add PineTS draw/signal APIs to the **new** LWC/PineTS system, map draw instructi
 ## System standards alignment (must stay true)
 - **AGENTS.md**: no migration edits; no legacy support; minimal, readable changes.
 - **overview.md**: new widgets are parallel; no dual-run inside legacy; timezone rules unchanged.
-- **Stage 1/2**: use `barsMs` + `openTimeMsByIndex` for offsets; PineTS runs on ms; LWC uses seconds.
+- **Stage 1/2**: client dataContext keeps `barsMs` + `openTimeMsByIndex` for UI needs (anchor series, visible range). Server execution recomputes index maps from the execution bars; PineTS runs on ms; LWC uses seconds.
 
 ## Dependencies / sequencing
 - Stage 1 (`new_data_chart`) provides `barsMs`, `openTimeMsByIndex`, and LWC series/marker plumbing.
@@ -84,8 +84,8 @@ Add PineTS draw/signal APIs to the **new** LWC/PineTS system, map draw instructi
 
 7) **Marker strategy is fixed**
 - Markers attach to the **series in the same pane** as their indicator (non-overlay) per Stage 2.
-- Use visible-range filtering + a **global per-render** cap; do not set more than `MAX_MARKERS_TOTAL` across all panes/series.
-- When exceeded, keep most-recent markers (by time) and emit a warning.
+- Stage 2 already applies a **global per-render** cap after collecting markers (keep most recent by time, log once to console).
+- Stage 3 adds visible‑range filtering **before** truncation to preserve in‑view markers when possible.
 
 8) **PineTS execution is server-only and sandboxed (decision locked)**
 - **Decision:** E2B sandbox for production; Node `vm` allowlist only for local/dev fallback.
@@ -149,6 +149,7 @@ export type SignalEvent = {
 - `drawings`: **normalized** `DrawInstruction[]` with points resolved to logical indices (server-side) and ready for UI conversion into tool classes.
 - `signals`: **preserve raw `SignalEvent[]`** for alert/automation hooks.
 - `markers`: **render-only** `SeriesMarker<UTCTimestamp>[]` derived from signals (and plots) for LWC rendering.
+  - `NormalizedPineOutput` already contains `drawings` + `signals` arrays (empty in Stage 2); Stage 3 populates them.
 
 ### Tool option mapping (line-tools expectations)
 Map `draw.options` directly to line-tool option names to avoid translation bugs:
@@ -226,7 +227,7 @@ Map `draw.options` directly to line-tool option names to avoid translation bugs:
 4.2 Add `normalize-drawings.ts` (or extend `normalize-context.ts`) **on the server**.
 - Resolve points to **logical indices** using:
   - `barIndex` directly, or
-  - `timeMs` -> `indexByOpenTimeMs` map from Stage 1.
+  - `timeMs` -> `indexByOpenTimeMs` map computed **server‑side** from the execution bars.
 - Drop points that resolve to `undefined` indices.
 - Output **normalized drawings** still in `DrawInstruction` shape, but with points converted to logical index form:\n  - `DrawPointXY` keeps `xType: 'bar_index'` and `x = logicalIndex`.\n  - `DrawPointX` keeps `xType: 'bar_index'` and `x = logicalIndex`.\n  - `DrawPointY` unchanged.\n  - Keep `options`, `locked`, `visible`, `pane`.\n+- **Normalize options to line-tools**:
   - `draw.ray` -> `TrendLine` with `extendRight: true`.
@@ -240,20 +241,22 @@ Map `draw.options` directly to line-tool option names to avoid translation bugs:
 
 4.3 Add `normalize-signals.ts`.
 - Convert `SignalEvent` -> `SeriesMarker` **without discarding the original signals**:
-  - `time`: seconds (`Math.floor(timeMs / 1000)`) or derive from `openTimeMsByIndex[barIndex]`.
+  - `time`: seconds (`Math.floor(timeMs / 1000)`) or derive from `openTimeMsByIndex[barIndex]` computed from execution bars.
   - `position`/`shape` validated against LWC marker types.
   - `price` required for `atPrice*` positions.
 - Sort markers by time; **do not cap here**. Capping is applied during visible‑range rendering (Step 6.1.a) to avoid dropping in‑view markers.
 
 ### 5) Wire drawings + signals into `new_data_chart`
-5.0 Hook location (align with Stage 1 structure)
-- Implement drawing/signal wiring in `apps/tradinggoose/widgets/widgets/new_data_chart/hooks/` (e.g., extend `use-new-indicator-sync` or add `use-drawings-sync`).
+5.0 Hook location (align with Stage 1/2 structure)
+- Prefer extending `use-new-indicator-sync` to handle drawings + signals alongside the existing series/marker pipeline.
+- If a separate hook is used, it must share access to indicator pane anchor series (currently internal to `use-new-indicator-sync`).
 - Invoke from `components/chart-body.tsx` alongside existing chart hooks.
 5.1 Line-tools adapter (difurious plugin per series/pane)
 - Add a new adapter under `apps/tradinggoose/widgets/widgets/new_data_chart/drawings/`.
 - Create **one difurious line-tools-core plugin instance per target series/pane**:
   - Main price series.
   - Each indicator pane anchor series (from `indicatorPaneSeriesMap[indicatorId]` in Stage 2).
+- **Required alignment with current code:** `indicatorPaneSeriesMap` is internal today. Expose the anchor series (e.g., extend `indicatorRuntimeRef` or add a new ref) so drawings can attach to the correct pane.
 - Maintain a map `{ series -> pluginInstance }` and `{ indicatorId -> toolRefs[] }`.
 - On indicator removal: detach/destroy that indicator’s tools; if a series has no remaining tools, dispose its plugin instance.
 - Plugin attaches to **chart + series**; always choose the series that represents the target pane.
@@ -290,7 +293,7 @@ Map `draw.options` directly to line-tool option names to avoid translation bugs:
 5.3 Signal markers (per‑series, per‑pane)
 - **Decision:** markers attach to the **series in the same pane** as their indicator (non‑overlay), not always the main series (align with Stage 2).
 - Maintain a `seriesMarkersMap` keyed by series (e.g., `Map<ISeriesApi, SeriesMarkersPrimitive>`).
-- Build marker groups per target series:
+- Build marker groups per target series (merge signal markers with existing plot markers before capping):
   - Overlay indicators → attach markers to `mainSeries`.
   - Non‑overlay indicators → attach markers to that indicator’s **pane anchor series** (see Stage 2: `indicatorPaneSeriesMap`).
   - If an indicator has only shape/char markers and no numeric series, create a hidden line series in the pane to host markers.
@@ -298,7 +301,7 @@ Map `draw.options` directly to line-tool option names to avoid translation bugs:
 - For each target series: `createSeriesMarkers(series, markers)` and `setMarkers(markers)`.
 - Clear markers on listing/provider changes.
 - When total markers exceed `MAX_MARKERS_TOTAL` (global per-render total):
-  - Keep most recent by time (global cap) and log a warning.
+  - Keep most recent by time (global cap) and log a one‑time console warning (match Stage 2).
   - Prefer range-based filtering (see Step 6.1) before truncation.
 
 5.4 Alert/automation hooks
@@ -310,10 +313,12 @@ Map `draw.options` directly to line-tool option names to avoid translation bugs:
 - Add caps:
   - `MAX_DRAWINGS_PER_INDICATOR` (e.g., 200)
   - `MAX_MARKERS_TOTAL` (e.g., 2000; global per-render total across all panes/series)
-- Warn + truncate with `createLogger` when caps hit.
+- Warn + truncate when caps hit:
+  - Client: console warning (use the Stage 2 warn‑once pattern).
+  - Server: `createLogger` where applicable.
 
 6.1.a Marker density control (LWC)
-- Maintain **full marker list** in memory but **render only visible range**:
+- Maintain **full marker list** in memory but **render only visible range** (new in Stage 3):
   - Use `chart.timeScale().subscribeVisibleLogicalRangeChange`.
   - Translate logical range -> time range via `openTimeMsByIndex` **converted to seconds**.
   - Filter markers by time **per target series** (marker times are in seconds), then call `seriesMarkersMap.get(series).setMarkers(visibleMarkers)` for each series.
