@@ -652,6 +652,14 @@ export const useChartDataLoader = ({
             dataContext.indexByOpenTimeMsRef.current = indexByOpenTimeMs
             dataContext.openTimeMsByIndexRef.current = openTimeMsByIndex
 
+            const safeRange = previousRange
+              ? clampLogicalRange(previousRange.from, previousRange.to, merged.length)
+              : null
+            if (safeRange) {
+              timeScale.setVisibleLogicalRange(safeRange)
+            }
+            chart.clearCrosshairPosition()
+
             if (mainSeriesRef.current) {
               const series = mainSeriesRef.current
               const seriesType = series.seriesType()
@@ -672,6 +680,8 @@ export const useChartDataLoader = ({
             if (anchoredRange) {
               timeScale.setVisibleLogicalRange(anchoredRange)
               activeRange = anchoredRange
+            } else if (safeRange) {
+              activeRange = safeRange
             } else {
               activeRange = timeScale.getVisibleLogicalRange()
             }
