@@ -99,6 +99,7 @@ export const resolveMarketSessionsForRange = async (
     new Date(startMs - MARKET_DAY_MS),
     new Date(endMs + MARKET_DAY_MS)
   )
+  if (rangeMap && rangeMap.size === 0) return []
 
   const dateKeys = rangeMap ? Array.from(rangeMap.keys()).sort() : []
 
@@ -315,6 +316,7 @@ export const resolveLatestSessionEndMs = async (
     startDate,
     endDate
   )
+  if (rangeMap && rangeMap.size === 0) return null
   const candidateKeys = rangeMap ? Array.from(rangeMap.keys()).sort().reverse() : []
 
   const resolveEndFromHours = (
@@ -398,6 +400,7 @@ export const clampToMarketSession = async (
       rangeStart,
       rangeEnd
     )
+    if (rangeMap && rangeMap.size === 0) return
     const candidateKeys = rangeMap ? Array.from(rangeMap.keys()).sort() : []
     for (let i = 0; i < MAX_SESSION_LOOKAHEAD_DAYS; i += 1) {
       const dateKey = candidateKeys[i]
@@ -447,6 +450,7 @@ export const clampToMarketSession = async (
       rangeStart,
       rangeEnd
     )
+    if (rangeMap && rangeMap.size === 0) return
     const candidateKeys = rangeMap ? Array.from(rangeMap.keys()).sort().reverse() : []
     for (let i = 0; i < MAX_SESSION_LOOKAHEAD_DAYS; i += 1) {
       const dateKey = candidateKeys[i]
