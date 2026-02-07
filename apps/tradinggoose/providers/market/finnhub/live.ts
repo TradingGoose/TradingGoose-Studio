@@ -110,7 +110,6 @@ export async function fetchFinnhubLiveSnapshot(
     listing: series.listing,
     listingBase: series.listingBase,
     listingQuote: series.listingQuote,
-    primaryMicCode: series.primaryMicCode,
     marketCode: series.marketCode,
     interval: seriesRequest.interval,
     timezone: series.timezone,

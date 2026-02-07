@@ -60,7 +60,6 @@ interface MarketSubscriptionRecord extends MarketSubscriptionInfo {
   socket: AuthenticatedSocket
   listingBase?: string
   listingQuote?: string
-  primaryMicCode?: string
 }
 
 type MarketStream = {
@@ -203,7 +202,6 @@ export class MarketStreamManager {
       interval: payload.interval,
       listingBase: context.base,
       listingQuote: context.quote,
-      primaryMicCode: context.primaryMicCode,
     }
 
     this.addSubscription(streamState, record)
@@ -283,7 +281,6 @@ export class MarketStreamManager {
       interval: payload.interval,
       listingBase: context.base,
       listingQuote: context.quote,
-      primaryMicCode: context.primaryMicCode,
     }
 
     this.addSubscription(streamState, record)
@@ -407,7 +404,6 @@ export class MarketStreamManager {
         listing: record.listing,
         listingBase: record.listingBase,
         listingQuote: record.listingQuote,
-        primaryMicCode: record.primaryMicCode,
         symbol: record.symbol,
         interval: record.interval,
         bar,
@@ -434,7 +430,6 @@ export class MarketStreamManager {
         listing: record.listing,
         listingBase: record.listingBase,
         listingQuote: record.listingQuote,
-        primaryMicCode: record.primaryMicCode,
         symbol: record.symbol,
         interval: record.interval,
         trade,
@@ -461,7 +456,6 @@ export class MarketStreamManager {
         listing: record.listing,
         listingBase: record.listingBase,
         listingQuote: record.listingQuote,
-        primaryMicCode: record.primaryMicCode,
         symbol: record.symbol,
         interval: record.interval,
         quote,

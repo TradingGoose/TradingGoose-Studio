@@ -179,7 +179,6 @@ export async function fetchYahooFinanceSeries(
     listing: context.listing,
     listingBase: context.base,
     listingQuote: context.quote,
-    primaryMicCode: context.primaryMicCode,
     marketCode: context.marketCode,
     start,
     end,

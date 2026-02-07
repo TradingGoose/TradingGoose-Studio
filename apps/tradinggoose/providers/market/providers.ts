@@ -163,7 +163,6 @@ export interface ListingContext {
   base: string
   quote?: string
   assetClass?: AssetClass
-  primaryMicCode?: string
   marketCode?: string
   exchangeCode?: string
   exchangeSuffix?: string

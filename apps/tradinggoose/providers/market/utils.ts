@@ -70,7 +70,6 @@ export async function resolveListingContext(listing: ListingInputValue): Promise
     base: resolved.base,
     quote: resolved.quote ?? undefined,
     assetClass,
-    primaryMicCode: resolved.primaryMicCode ?? undefined,
     marketCode: resolved.marketCode ?? undefined,
     countryCode: resolved.countryCode ?? undefined,
     cityName: resolved.cityName ?? undefined,
