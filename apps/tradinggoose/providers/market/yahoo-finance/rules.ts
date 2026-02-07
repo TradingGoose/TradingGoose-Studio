@@ -24,6 +24,12 @@ export const yfinanceSymbolRules: MarketSymbolRule[] = [
     active: true,
   },
   {
+    assetClass: 'etf',
+    country: 'DE',
+    template: '{base}.DE',
+    active: true,
+  },
+  {
     assetClass: 'crypto',
     template: '{base}-{quote}',
     active: true,
