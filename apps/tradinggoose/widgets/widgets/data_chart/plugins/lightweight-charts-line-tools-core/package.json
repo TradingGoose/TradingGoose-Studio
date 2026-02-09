@@ -1,0 +1,48 @@
+{
+  "name": "lightweight-charts-line-tools-core",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Core plugin for converting line tools V3.8 build to Lightweight Charts v5+ plugin",
+  "main": "dist/lightweight-charts-line-tools-core.umd.js",
+  "module": "dist/lightweight-charts-line-tools-core.js",
+  "types": "dist/types/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "lightweight-charts",
+    "line tools",
+    "interactive tools",
+    "plugin",
+    "v5",
+    "orchestrator",
+    "drawing engine",
+    "coordinate interpolation",
+    "interaction manager",
+    "axis label stacking",
+    "performance culling",
+    "typescript"
+  ],
+  "scripts": {
+    "build": "rollup -c && typedoc",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "npm run build"
+  },
+  "author": "difurious",
+  "license": "MPL-2.0",
+  "peerDependencies": {
+    "lightweight-charts": "^5.0.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^12.1.4",
+    "lightweight-charts": "^5.0.9",
+    "rollup": "^4.50.2",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "tslib": "^2.8.1",
+    "typedoc": "^0.28.15"
+  }
+}
