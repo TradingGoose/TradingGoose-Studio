@@ -64,6 +64,13 @@
       "when": 1770405457490,
       "tag": "0008_talented_shockwave",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1770601113750,
+      "tag": "0009_panoramic_moonstone",
+      "breakpoints": true
     }
   ]
 }

@@ -607,7 +607,7 @@ export const customTools = pgTable(
 )
 
 export const pineIndicators = pgTable(
-  'pine_indicators',
+  'custom_indicators',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     workspaceId: text('workspace_id')
@@ -622,7 +622,7 @@ export const pineIndicators = pgTable(
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (table) => ({
-    workspaceIdIdx: index('pine_indicators_workspace_id_idx').on(table.workspaceId),
+    workspaceIdIdx: index('custom_indicators_workspace_id_idx').on(table.workspaceId),
   })
 )
 
