@@ -12,7 +12,7 @@ export const SpotifyBlock: BlockConfig<ToolResponse> = {
     'Integrate Spotify into your workflow. Search for tracks, albums, artists, and playlists. Manage playlists, access your library, control playback, browse podcasts and audiobooks.',
   docsLink: 'https://docs.sim.ai/tools/spotify',
   category: 'tools',
-  bgColor: '#000000',
+  bgColor: '#1ed760',
   icon: SpotifyIcon,
   subBlocks: [
     {

@@ -11,7 +11,7 @@ export const SttBlock: BlockConfig<SttBlockResponse> = {
     'Transcribe audio and video files to text using leading AI providers. Supports multiple languages, timestamps, and speaker diarization.',
   docsLink: 'https://docs.sim.ai/tools/stt',
   category: 'tools',
-  bgColor: '#181C1E',
+  bgColor: undefined,
   icon: STTIcon,
 
   subBlocks: [

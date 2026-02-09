@@ -10,7 +10,7 @@ export const ServiceNowBlock: BlockConfig<ServiceNowResponse> = {
     'Integrate ServiceNow into your workflow. Create, read, update, and delete records in any ServiceNow table including incidents, tasks, change requests, users, and more.',
   docsLink: 'https://docs.sim.ai/tools/servicenow',
   category: 'tools',
-  bgColor: '#032D42',
+  bgColor: '#62D84E',
   icon: ServiceNowIcon,
   subBlocks: [
     // Operation selector

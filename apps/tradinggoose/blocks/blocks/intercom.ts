@@ -11,7 +11,7 @@ export const IntercomBlock: BlockConfig = {
   docsLink: 'https://docs.sim.ai/tools/intercom',
   authMode: AuthMode.ApiKey,
   category: 'tools',
-  bgColor: '#E0E0E0',
+  bgColor: '#0057FF',
   icon: IntercomIcon,
   subBlocks: [
     {

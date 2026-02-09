@@ -10,7 +10,7 @@ export const DynamoDBBlock: BlockConfig<DynamoDBResponse> = {
     'Integrate Amazon DynamoDB into workflows. Supports Get, Put, Query, Scan, Update, and Delete operations on DynamoDB tables.',
   docsLink: 'https://docs.sim.ai/tools/dynamodb',
   category: 'tools',
-  bgColor: 'linear-gradient(45deg, #2E27AD 0%, #527FFF 100%)',
+  bgColor: '#527FFF',
   icon: DynamoDBIcon,
   subBlocks: [
     {
