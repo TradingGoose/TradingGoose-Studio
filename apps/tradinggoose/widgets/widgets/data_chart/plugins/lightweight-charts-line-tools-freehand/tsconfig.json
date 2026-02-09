@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    // UPDATED: Modern enough for optional chaining (?.), supported by 96% of browsers
+    "target": "ES2020", 
+    "module": "ESNext", 
+    "moduleResolution": "node",
+    "strict": true,
+    
+    // --- The Clean-Up Crew ---
+    "declaration": true,
+    "declarationDir": "./dist/types", // Puts types in their own folder
+    "outDir": "./dist",
+    
+    "lib": ["ES2020", "DOM"], // Explicitly include DOM for Canvas/Event types
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
+}
