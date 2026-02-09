@@ -5,12 +5,12 @@ import type {
 } from '@/widgets/types'
 import { workflowEditorWidget } from '@/widgets/widgets/editor_workflow'
 import { emptyWidget } from '@/widgets/widgets/empty'
-import { newDataChartWidget } from '@/widgets/widgets/new_data_chart'
+import { dataChartWidget } from '@/widgets/widgets/data_chart'
 import { chatWidget } from '@/widgets/widgets/workflow_chat'
 import { workflowConsoleWidget } from '@/widgets/widgets/workflow_console'
 import { workflowCopilotWidget } from '@/widgets/widgets/workflow_copilot'
-import { listIndicatorNewWidget } from '@/widgets/widgets/list_indicator_new'
-import { newEditorIndicatorWidget } from '@/widgets/widgets/new_editor_indicator'
+import { listIndicatorWidget } from '@/widgets/widgets/list_indicator'
+import { editorIndicatorWidget } from '@/widgets/widgets/editor_indicator'
 import { workflowListWidget } from '@/widgets/widgets/list_workflow'
 import { workflowVariablesWidget } from '@/widgets/widgets/workflow_variables'
 
@@ -31,13 +31,13 @@ const widgetCategoryConfig: WidgetCategoryDefinition[] = [
 
 const widgetRegistry: Record<string, DashboardWidgetDefinition> = {
   empty: emptyWidget,
-  new_data_chart: newDataChartWidget,
+  data_chart: dataChartWidget,
   editor_workflow: workflowEditorWidget,
   workflow_chat: chatWidget,
   workflow_console: workflowConsoleWidget,
   workflow_copilot: workflowCopilotWidget,
-  list_indicator_new: listIndicatorNewWidget,
-  new_editor_indicator: newEditorIndicatorWidget,
+  list_indicator: listIndicatorWidget,
+  editor_indicator: editorIndicatorWidget,
   workflow_list: workflowListWidget,
   workflow_variables: workflowVariablesWidget,
 }

@@ -18,7 +18,7 @@ const OUTPUT_FILE = path.join(
   'tradinggoose',
   'widgets',
   'widgets',
-  'new_editor_indicator',
+  'editor_indicator',
   'components',
   'pine-cheat-sheet-members.ts'
 )
@@ -28,7 +28,7 @@ const OUTPUT_TYPES_FILE = path.join(
   'tradinggoose',
   'widgets',
   'widgets',
-  'new_editor_indicator',
+  'editor_indicator',
   'components',
   'pine-cheat-sheet-typings.ts'
 )
