@@ -203,7 +203,7 @@ export function SlackChannelSelector({
                     onSelect={() => handleSelectChannel(channel)}
                     className='cursor-pointer'
                   >
-                    <div className='flex items-center gap-2 overflow-hidden'>
+                    <div className='flex items-center gap-1 overflow-hidden'>
                       <SlackIcon className='h-4 w-4 text-[#611f69]' />
                       {getChannelIcon(channel)}
                       <span className='truncate font-normal'>{formatChannelName(channel)}</span>

@@ -46,7 +46,7 @@ export function CheckpointPanel() {
   if (checkpointError) {
     return (
       <div className='p-4'>
-        <div className='mb-3 flex items-center gap-2 text-red-600'>
+        <div className='mb-3 flex items-center gap-1 text-red-600'>
           <AlertCircle className='h-4 w-4' />
           <span className='font-medium text-sm'>Error loading checkpoints</span>
         </div>
@@ -90,7 +90,7 @@ export function CheckpointPanel() {
   return (
     <div className='flex h-full flex-col'>
       <div className='border-b p-4'>
-        <div className='flex items-center gap-2'>
+        <div className='flex items-center gap-1'>
           <History className='h-4 w-4' />
           <h3 className='font-medium text-sm'>Workflow Checkpoints</h3>
         </div>
@@ -106,7 +106,7 @@ export function CheckpointPanel() {
               <div className='rounded-lg border bg-card p-3 transition-colors hover:bg-card'>
                 <div className='flex items-start justify-between gap-2'>
                   <div className='min-w-0 flex-1'>
-                    <div className='mb-1 flex items-center gap-2'>
+                    <div className='mb-1 flex items-center gap-1'>
                       <div className='h-2 w-2 rounded-full bg-amber-500' />
                       <span className='font-medium text-muted-foreground text-xs'>
                         Checkpoint {checkpoints.length - index}
@@ -143,7 +143,7 @@ export function CheckpointPanel() {
 
       {isRevertingCheckpoint && (
         <div className='border-t bg-muted/30 p-3'>
-          <div className='flex items-center gap-2 text-muted-foreground text-sm'>
+          <div className='flex items-center gap-1 text-muted-foreground text-sm'>
             <div className='h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600' />
             Reverting workflow...
           </div>

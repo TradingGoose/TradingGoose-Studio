@@ -337,7 +337,7 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                     : 'Publish Template'}
               </DialogTitle>
               {existingTemplate && (
-                <div className='flex items-center gap-2'>
+                <div className='flex items-center gap-1'>
                   {existingTemplate.stars > 0 && (
                     <div className='flex items-center gap-1 rounded-full bg-yellow-50 px-2 py-1 dark:bg-yellow-900/20'>
                       <Star className='h-3 w-3 fill-yellow-400 text-yellow-400' />
@@ -456,7 +456,7 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                                           'flex h-8 w-8 items-center justify-center rounded-md border border-border/40 transition-all duration-200',
                                           'hover:scale-105 hover:border-border hover:bg-card/50 active:scale-95',
                                           field.value === icon.value &&
-                                            'border-primary/30 bg-[var(--primary)]/10 text-primary'
+                                          'border-primary/30 bg-[var(--primary)]/10 text-primary'
                                         )}
                                       >
                                         <IconComponent className='h-4 w-4' />

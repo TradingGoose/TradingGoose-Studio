@@ -320,17 +320,17 @@ export function WealthboxFileSelector({
               disabled={disabled}
             >
               {selectedItem ? (
-                <div className='flex items-center gap-2 overflow-hidden'>
+                <div className='flex items-center gap-1 overflow-hidden'>
                   <WealthboxIcon className='h-4 w-4' />
                   <span className='truncate font-normal'>{selectedItem.name}</span>
                 </div>
               ) : selectedItemId && isLoadingSelectedItem && selectedCredentialId ? (
-                <div className='flex items-center gap-2'>
+                <div className='flex items-center gap-1'>
                   <RefreshCw className='h-4 w-4 animate-spin' />
                   <span className='text-muted-foreground'>Loading...</span>
                 </div>
               ) : (
-                <div className='flex items-center gap-2'>
+                <div className='flex items-center gap-1'>
                   <WealthboxIcon className='h-4 w-4' />
                   <span className='text-muted-foreground'>{label}</span>
                 </div>
@@ -364,7 +364,7 @@ export function WealthboxFileSelector({
                         value={`account-${cred.id}`}
                         onSelect={() => setSelectedCredentialId(cred.id)}
                       >
-                        <div className='flex items-center gap-2'>
+                        <div className='flex items-center gap-1'>
                           <WealthboxIcon className='h-4 w-4' />
                           <span className='font-normal'>{cred.name}</span>
                         </div>
@@ -385,7 +385,7 @@ export function WealthboxFileSelector({
                         value={`item-${item.id}-${item.name}`}
                         onSelect={() => handleItemSelect(item)}
                       >
-                        <div className='flex items-center gap-2 overflow-hidden'>
+                        <div className='flex items-center gap-1 overflow-hidden'>
                           <WealthboxIcon className='h-4 w-4' />
                           <div className='min-w-0 flex-1'>
                             <span className='truncate font-normal'>{item.name}</span>
@@ -405,7 +405,7 @@ export function WealthboxFileSelector({
                 {credentials.length === 0 && (
                   <CommandGroup>
                     <CommandItem onSelect={handleAddCredential}>
-                      <div className='flex items-center gap-2 text-foreground'>
+                      <div className='flex items-center gap-1 text-foreground'>
                         <WealthboxIcon className='h-4 w-4' />
                         <span>Connect Wealthbox account</span>
                       </div>
@@ -434,7 +434,7 @@ export function WealthboxFileSelector({
                 <WealthboxIcon className='h-4 w-4' />
               </div>
               <div className='min-w-0 flex-1 overflow-hidden'>
-                <div className='flex items-center gap-2'>
+                <div className='flex items-center gap-1'>
                   <h4 className='truncate font-medium text-xs'>{selectedItem.name}</h4>
                   {selectedItem.updatedAt && (
                     <span className='whitespace-nowrap text-muted-foreground text-xs'>

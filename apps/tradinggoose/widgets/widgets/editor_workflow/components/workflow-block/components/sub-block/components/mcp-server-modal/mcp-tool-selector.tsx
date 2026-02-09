@@ -160,7 +160,7 @@ export function McpToolSelector({
                     onSelect={() => handleSelect(tool.id)}
                     className='cursor-pointer'
                   >
-                    <div className='flex items-center gap-2 overflow-hidden'>
+                    <div className='flex items-center gap-1 overflow-hidden'>
                       <span className='truncate font-normal'>{tool.name}</span>
                     </div>
                     {tool.id === selectedToolId && <Check className='ml-auto h-4 w-4' />}

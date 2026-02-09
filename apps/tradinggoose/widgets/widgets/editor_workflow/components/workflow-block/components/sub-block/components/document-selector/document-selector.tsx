@@ -237,7 +237,7 @@ export function DocumentSelector({
                       onSelect={() => handleSelectDocument(document)}
                       className='cursor-pointer'
                     >
-                      <div className='flex items-center gap-2 overflow-hidden'>
+                      <div className='flex items-center gap-1 overflow-hidden'>
                         <FileText className='h-4 w-4 text-muted-foreground' />
                         <div className='min-w-0 flex-1 overflow-hidden'>
                           <div className='truncate font-normal'>{formatDocumentName(document)}</div>

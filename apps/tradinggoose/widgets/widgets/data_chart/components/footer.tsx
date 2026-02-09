@@ -572,7 +572,7 @@ export const DataChartFooter = ({
         className='flex w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
         aria-label='Widget footer'
       >
-        <div className='flex w-full flex-nowrap items-center gap-4 py-1 text-sm font-medium text-accent-foreground'>
+        <div className='flex w-full flex-nowrap items-center gap-4 py-0.5 text-sm font-medium text-accent-foreground'>
           <div className='flex h-8 flex-grow basis-0 items-center justify-start gap-2 whitespace-nowrap text-left pl-1'>
             <div className='w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'>
               <Tabs
@@ -580,12 +580,12 @@ export const DataChartFooter = ({
                 onValueChange={handleRangeSelect}
                 className='w-max'
               >
-                <TabsList className='h-7 w-max justify-start gap-1 bg-muted/60 p-1'>
+                <TabsList className='h-7 w-max justify-start gap-1 bg-muted p-1 rounded-sm'>
                   {availablePresets.map((preset) => (
                     <TabsTrigger
                       key={preset.id}
                       value={preset.id}
-                      className='px-2 py-1 text-xs font-medium transition-colors data-[state=active]:shadow-sm'
+                      className='px-2 py-1 text-xs rounded-sm font-medium transition-colors data-[state=active]:shadow-sm'
                     >
                       <Tooltip>
                         <TooltipTrigger asChild>

@@ -8,7 +8,7 @@ interface DeployStatusProps {
 
 export function DeployStatus({ needsRedeployment }: DeployStatusProps) {
   return (
-    <div className='flex items-center gap-2'>
+    <div className='flex items-center gap-1'>
       <span className='font-medium text-muted-foreground text-xs'>Status:</span>
       <div className='flex items-center gap-1.5'>
         <div className='relative flex items-center justify-center'>

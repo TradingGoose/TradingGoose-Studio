@@ -13,6 +13,7 @@ import type { MarketInterval } from '@/providers/market/types'
 import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
 import { IndicatorDropdown } from '@/widgets/widgets/components/pine-indicator-dropdown'
 import {
+  widgetHeaderButtonGroupClassName,
   widgetHeaderIconButtonClassName,
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuItemClassName,
@@ -215,7 +216,7 @@ export const DataChartChartControls = ({
   const selectedIndicatorIds = (params.view?.pineIndicators ?? []).map((indicator) => indicator.id)
 
   return (
-    <div className='flex items-center gap-2'>
+    <div className={widgetHeaderButtonGroupClassName()}>
       <DataChartIntervalDropdown
         params={params}
         interval={interval}

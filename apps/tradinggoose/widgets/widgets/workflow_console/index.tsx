@@ -7,7 +7,10 @@ import WorkflowConsoleApp from './components/workflow-console-app'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
-import { widgetHeaderIconButtonClassName } from '@/widgets/widgets/components/widget-header-control'
+import {
+  widgetHeaderButtonGroupClassName,
+  widgetHeaderIconButtonClassName,
+} from '@/widgets/widgets/components/widget-header-control'
 import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
 import {
   emitWorkflowSelectionChange,
@@ -204,7 +207,7 @@ const WorkflowConsoleHeaderControls = ({
   }, [clearConsole, resolvedWorkflowId])
 
   return (
-    <div className='flex items-center gap-1'>
+    <div className={widgetHeaderButtonGroupClassName()}>
       <FilterPopover
         open={filtersOpen}
         onOpenChange={setFiltersOpen}

@@ -20,7 +20,7 @@ export function WebhookUrlField({
 }: WebhookUrlFieldProps) {
   return (
     <div className='mb-4 space-y-1'>
-      <div className='flex items-center gap-2'>
+      <div className='flex items-center gap-1'>
         <Label htmlFor='webhook-url' className='font-medium text-sm'>
           Webhook URL
         </Label>

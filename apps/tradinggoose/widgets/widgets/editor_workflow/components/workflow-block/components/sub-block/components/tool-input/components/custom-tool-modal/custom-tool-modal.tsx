@@ -1005,7 +1005,7 @@ try {
             )}
           >
             <div className='flex min-h-6 mb-2 items-center justify-between'>
-              <div className='flex items-center gap-2'>
+              <div className='flex items-center gap-1'>
                 <FileJson className='h-4 w-4' />
                 <Label htmlFor='json-schema' className='font-medium'>
                   JSON Schema
@@ -1073,7 +1073,7 @@ try {
             )}
           >
             <div className='mb-1 flex min-h-6 items-center justify-between'>
-              <div className='flex items-center gap-2'>
+              <div className='flex items-center gap-1'>
                 <Code className='h-4 w-4' />
                 <Label htmlFor='function-code' className='font-medium'>
                   Code (optional)

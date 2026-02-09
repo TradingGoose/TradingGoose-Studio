@@ -12,6 +12,7 @@ import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-stat
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import {
+  widgetHeaderButtonGroupClassName,
   widgetHeaderControlClassName,
   widgetHeaderIconButtonClassName,
 } from '@/widgets/widgets/components/widget-header-control'
@@ -282,12 +283,12 @@ export const chatWidget: DashboardWidgetDefinition = {
 
     return {
       left: (
-        <div className='flex items-center gap-2'>
+        <div className={widgetHeaderButtonGroupClassName()}>
           <ChatOutputsHeader
             channelId={channelId}
             fallbackWorkflowId={workflowIdParam}
             triggerClassName={widgetHeaderControlClassName(
-              'flex items-center gap-2 min-w-[240px]'
+              'flex items-center gap-1 min-w-[240px]'
             )}
           />
         </div>

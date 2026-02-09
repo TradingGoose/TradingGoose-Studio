@@ -386,12 +386,12 @@ export function FolderSelector({
               disabled={disabled || isForeignCredential}
             >
               {selectedFolder ? (
-                <div className='flex items-center gap-2 overflow-hidden'>
+                <div className='flex items-center gap-1 overflow-hidden'>
                   {getFolderIcon('sm')}
                   <span className='truncate font-normal'>{selectedFolder.name}</span>
                 </div>
               ) : (
-                <div className='flex items-center gap-2'>
+                <div className='flex items-center gap-1'>
                   {getFolderIcon('sm')}
                   <span className='text-muted-foreground'>{label}</span>
                 </div>
@@ -404,7 +404,7 @@ export function FolderSelector({
               {/* Current account indicator */}
               {selectedCredentialId && credentials.length > 0 && (
                 <div className='flex items-center justify-between border-b px-3 py-2'>
-                  <div className='flex items-center gap-2'>
+                  <div className='flex items-center gap-1'>
                     <span className='text-muted-foreground text-xs'>
                       {credentials.find((cred) => cred.id === selectedCredentialId)?.name ||
                         'Unknown'}
@@ -464,7 +464,7 @@ export function FolderSelector({
                           value={`account-${cred.id}`}
                           onSelect={() => setSelectedCredentialId(cred.id)}
                         >
-                          <div className='flex items-center gap-2'>
+                          <div className='flex items-center gap-1'>
                             <span className='font-normal'>{cred.name}</span>
                           </div>
                           {cred.id === selectedCredentialId && (
@@ -503,7 +503,7 @@ export function FolderSelector({
                   {credentials.length === 0 && (
                     <CommandGroup>
                       <CommandItem onSelect={handleAddCredential}>
-                        <div className='flex items-center gap-2 text-foreground'>
+                        <div className='flex items-center gap-1 text-foreground'>
                           <span>Connect {getProviderName()} account</span>
                         </div>
                       </CommandItem>

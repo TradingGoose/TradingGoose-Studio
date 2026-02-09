@@ -249,7 +249,7 @@ export function CopilotHeader({ channelId }: { channelId: string }) {
           <button
             type='button'
             className={widgetHeaderControlClassName(
-              'flex items-center gap-2 min-w-[240px] justify-between'
+              'flex items-center gap-1 min-w-[240px] justify-between'
             )}
             aria-label='Open chat history'
           >

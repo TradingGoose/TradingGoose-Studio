@@ -795,7 +795,7 @@ export function MicrosoftFileSelector({
               {/* Current account indicator */}
               {selectedCredentialId && credentials.length > 0 && (
                 <div className='flex items-center justify-between border-b px-3 py-2'>
-                  <div className='flex items-center gap-2'>
+                  <div className='flex items-center gap-1'>
                     {getProviderIcon(provider)}
                     <span className='text-muted-foreground text-xs'>
                       {credentials.find((cred) => cred.id === selectedCredentialId)?.name ||
@@ -860,7 +860,7 @@ export function MicrosoftFileSelector({
                           value={`account-${cred.id}`}
                           onSelect={() => setSelectedCredentialId(cred.id)}
                         >
-                          <div className='flex items-center gap-2'>
+                          <div className='flex items-center gap-1'>
                             {getProviderIcon(cred.provider)}
                             <span className='font-normal'>{cred.name}</span>
                           </div>
@@ -899,7 +899,7 @@ export function MicrosoftFileSelector({
                                 : handleFileSelect(fileInfo)
                             }
                           >
-                            <div className='flex items-center gap-2 overflow-hidden'>
+                            <div className='flex items-center gap-1 overflow-hidden'>
                               {getFileIcon(
                                 isPlannerTask
                                   ? {
@@ -931,7 +931,7 @@ export function MicrosoftFileSelector({
                   {credentials.length === 0 && (
                     <CommandGroup>
                       <CommandItem onSelect={handleAddCredential}>
-                        <div className='flex items-center gap-2 text-foreground'>
+                        <div className='flex items-center gap-1 text-foreground'>
                           {getProviderIcon(provider)}
                           <span>Connect {getProviderName(provider)} account</span>
                         </div>
@@ -962,7 +962,7 @@ export function MicrosoftFileSelector({
                 {getFileIcon(selectedFile, 'sm')}
               </div>
               <div className='min-w-0 flex-1 overflow-hidden'>
-                <div className='flex items-center gap-2'>
+                <div className='flex items-center gap-1'>
                   <h4 className='truncate font-medium text-xs'>{selectedFile.name}</h4>
                   {selectedFile.modifiedTime && (
                     <span className='whitespace-nowrap text-muted-foreground text-xs'>

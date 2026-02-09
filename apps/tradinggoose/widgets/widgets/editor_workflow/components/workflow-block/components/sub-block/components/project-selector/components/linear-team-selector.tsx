@@ -111,12 +111,12 @@ export function LinearTeamSelector({
           disabled={disabled || !credential}
         >
           {selectedTeam ? (
-            <div className='flex items-center gap-2 overflow-hidden'>
+            <div className='flex items-center gap-1 overflow-hidden'>
               <LinearIcon className='h-4 w-4' />
               <span className='truncate font-normal'>{selectedTeam.name}</span>
             </div>
           ) : (
-            <div className='flex items-center gap-2'>
+            <div className='flex items-center gap-1'>
               <LinearIcon className='h-4 w-4' />
               <span className='text-muted-foreground'>{label}</span>
             </div>
@@ -165,7 +165,7 @@ export function LinearTeamSelector({
                     onSelect={() => handleSelectTeam(team)}
                     className='cursor-pointer'
                   >
-                    <div className='flex items-center gap-2 overflow-hidden'>
+                    <div className='flex items-center gap-1 overflow-hidden'>
                       <LinearIcon className='h-4 w-4' />
                       <span className='truncate font-normal'>{team.name}</span>
                     </div>

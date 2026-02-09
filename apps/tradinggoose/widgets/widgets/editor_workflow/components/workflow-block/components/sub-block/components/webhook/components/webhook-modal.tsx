@@ -464,9 +464,9 @@ export function WebhookModal({
         // Parse the allowed IPs into an array
         const parsedIps = allowedIps
           ? allowedIps
-              .split(',')
-              .map((ip) => ip.trim())
-              .filter((ip) => ip)
+            .split(',')
+            .map((ip) => ip.trim())
+            .filter((ip) => ip)
           : []
 
         return {
@@ -858,7 +858,7 @@ export function WebhookModal({
             {webhookId && (
               <div className='mb-4 space-y-1'>
                 <div className='flex items-center justify-between'>
-                  <div className='flex items-center gap-2'>
+                  <div className='flex items-center gap-1'>
                     <span className='font-medium text-sm'>Test Webhook URL</span>
                   </div>
                   <Button
@@ -871,7 +871,7 @@ export function WebhookModal({
                   </Button>
                 </div>
                 {testUrl ? (
-                  <div className='flex items-center gap-2'>
+                  <div className='flex items-center gap-1'>
                     <input
                       readOnly
                       value={testUrl}

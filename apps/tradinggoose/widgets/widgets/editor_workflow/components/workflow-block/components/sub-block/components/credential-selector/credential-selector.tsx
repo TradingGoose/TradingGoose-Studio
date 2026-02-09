@@ -131,30 +131,30 @@ export function CredentialSelector({
   // When the selectedId changes (e.g., collaborator saved a credential), determine if it's foreign
   useEffect(() => {
     let aborted = false
-    ;(async () => {
-      try {
-        if (!selectedId) {
-          setHasForeignMeta(false)
-          return
+      ; (async () => {
+        try {
+          if (!selectedId) {
+            setHasForeignMeta(false)
+            return
+          }
+          // If the selected credential exists in viewer's list, it's not foreign
+          if ((credentials || []).some((cred) => cred.id === selectedId)) {
+            setHasForeignMeta(false)
+            return
+          }
+          if (!activeWorkflowId) return
+          const metaResp = await fetch(
+            `/api/auth/oauth/credentials?credentialId=${selectedId}&workflowId=${activeWorkflowId}`
+          )
+          if (aborted) return
+          if (metaResp.ok) {
+            const meta = await metaResp.json()
+            setHasForeignMeta(!!meta.credentials?.length)
+          }
+        } catch {
+          // ignore
         }
-        // If the selected credential exists in viewer's list, it's not foreign
-        if ((credentials || []).some((cred) => cred.id === selectedId)) {
-          setHasForeignMeta(false)
-          return
-        }
-        if (!activeWorkflowId) return
-        const metaResp = await fetch(
-          `/api/auth/oauth/credentials?credentialId=${selectedId}&workflowId=${activeWorkflowId}`
-        )
-        if (aborted) return
-        if (metaResp.ok) {
-          const meta = await metaResp.json()
-          setHasForeignMeta(!!meta.credentials?.length)
-        }
-      } catch {
-        // ignore
-      }
-    })()
+      })()
     return () => {
       aborted = true
     }
@@ -307,7 +307,7 @@ export function CredentialSelector({
                       value={cred.id}
                       onSelect={() => handleSelect(cred.id)}
                     >
-                      <div className='flex items-center gap-2'>
+                      <div className='flex items-center gap-1'>
                         {getProviderIcon(cred.provider)}
                         <span className='font-normal'>{cred.name}</span>
                       </div>
@@ -319,7 +319,7 @@ export function CredentialSelector({
               {credentials.length === 0 && (
                 <CommandGroup>
                   <CommandItem onSelect={handleAddCredential}>
-                    <div className='flex items-center gap-2 text-foreground'>
+                    <div className='flex items-center gap-1 text-foreground'>
                       {getProviderIcon(provider)}
                       <span>Connect {getProviderName(provider)} account</span>
                     </div>

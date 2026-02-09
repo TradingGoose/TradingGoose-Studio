@@ -68,7 +68,7 @@ function WidgetSelectorComponent({
       disabled={triggerDisabled}
       className={widgetHeaderControlClassName('font-semibold')}
     >
-      <span className='flex items-center gap-2 text-muted-foreground hover:text-foreground'>
+      <span className='flex items-center gap-1 text-muted-foreground hover:text-foreground'>
         <span className=' '>
           {CurrentIcon ? <CurrentIcon className='h-4 w-4 ' aria-hidden='true' /> : null}
         </span>

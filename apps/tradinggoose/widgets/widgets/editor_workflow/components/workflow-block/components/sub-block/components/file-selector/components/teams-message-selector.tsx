@@ -417,7 +417,7 @@ export function TeamsMessageSelector({
               value={`team-${team.id}-${team.displayName}`}
               onSelect={() => handleSelectTeam(team)}
             >
-              <div className='flex items-center gap-2 overflow-hidden'>
+              <div className='flex items-center gap-1 overflow-hidden'>
                 <MicrosoftTeamsIcon className='h-4 w-4' />
                 <span className='truncate font-normal'>{team.displayName}</span>
               </div>
@@ -438,7 +438,7 @@ export function TeamsMessageSelector({
               value={`channel-${channel.id}-${channel.displayName}`}
               onSelect={() => handleSelectChannel(channel)}
             >
-              <div className='flex items-center gap-2 overflow-hidden'>
+              <div className='flex items-center gap-1 overflow-hidden'>
                 <MicrosoftTeamsIcon className='h-4 w-4' />
                 <span className='truncate font-normal'>{channel.displayName}</span>
               </div>
@@ -459,7 +459,7 @@ export function TeamsMessageSelector({
               value={`chat-${chat.id}-${chat.displayName}`}
               onSelect={() => handleSelectChat(chat)}
             >
-              <div className='flex items-center gap-2 overflow-hidden'>
+              <div className='flex items-center gap-1 overflow-hidden'>
                 <MicrosoftTeamsIcon className='h-4 w-4' />
                 <span className='truncate font-normal'>{chat.displayName}</span>
               </div>
@@ -726,7 +726,7 @@ export function TeamsMessageSelector({
               {/* Current account indicator */}
               {selectedCredentialId && credentials.length > 0 && (
                 <div className='flex items-center justify-between border-b px-3 py-2'>
-                  <div className='flex items-center gap-2'>
+                  <div className='flex items-center gap-1'>
                     <MicrosoftTeamsIcon className='h-4 w-4' />
                     <span className='text-muted-foreground text-xs'>
                       {credentials.find((cred) => cred.id === selectedCredentialId)?.name ||
@@ -809,7 +809,7 @@ export function TeamsMessageSelector({
                             setOpen(false)
                           }}
                         >
-                          <div className='flex items-center gap-2'>
+                          <div className='flex items-center gap-1'>
                             <MicrosoftTeamsIcon className='h-4 w-4' />
                             <span className='font-normal'>{cred.name}</span>
                           </div>
@@ -828,7 +828,7 @@ export function TeamsMessageSelector({
                   {credentials.length === 0 && (
                     <CommandGroup>
                       <CommandItem onSelect={handleAddCredential}>
-                        <div className='flex items-center gap-2 text-foreground'>
+                        <div className='flex items-center gap-1 text-foreground'>
                           <MicrosoftTeamsIcon className='h-4 w-4' />
                           <span>Connect Microsoft Teams account</span>
                         </div>
@@ -859,7 +859,7 @@ export function TeamsMessageSelector({
                 <MicrosoftTeamsIcon className='h-4 w-4' />
               </div>
               <div className='min-w-0 flex-1 overflow-hidden'>
-                <div className='flex items-center gap-2'>
+                <div className='flex items-center gap-1'>
                   <h4 className='truncate font-medium text-xs'>{selectedMessage.displayName}</h4>
                   <span className='whitespace-nowrap text-muted-foreground text-xs'>
                     {selectedMessage.type}

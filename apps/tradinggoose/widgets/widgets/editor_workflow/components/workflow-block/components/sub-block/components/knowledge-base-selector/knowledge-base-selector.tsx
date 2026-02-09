@@ -304,7 +304,7 @@ export function KnowledgeBaseSelector({
                         }}
                         className='cursor-pointer'
                       >
-                        <div className='flex items-center gap-2 overflow-hidden'>
+                        <div className='flex items-center gap-1 overflow-hidden'>
                           <PackageSearchIcon className='h-4 w-4 text-[#00B0B0]' />
                           <div className='min-w-0 flex-1 overflow-hidden'>
                             <div className='truncate font-normal'>

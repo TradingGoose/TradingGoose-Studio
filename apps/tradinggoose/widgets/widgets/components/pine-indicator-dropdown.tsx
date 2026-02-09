@@ -306,7 +306,7 @@ export function IndicatorDropdown({
       >
         <div className='flex h-full max-h-[inherit] flex-col'>
           <div className='border-border/70 border-b p-2'>
-            <div className='flex items-center gap-2 rounded-md border bg-background px-2 py-1.5 text-muted-foreground text-sm'>
+            <div className='flex items-center gap-1 rounded-md border bg-background px-2 py-1.5 text-muted-foreground text-sm'>
               <Search className='h-3.5 w-3.5 shrink-0' />
               <Input
                 value={searchQuery}
@@ -364,7 +364,7 @@ export function IndicatorDropdown({
                 const shouldShowLoadingState = (isLoading || isFetching) && !hasIndicators
                 if (shouldShowLoadingState) {
                   return (
-                    <div className='flex items-center gap-2 px-3 py-2 text-muted-foreground text-xs'>
+                    <div className='flex items-center gap-1 px-3 py-2 text-muted-foreground text-xs'>
                       <Loader2 className='h-3.5 w-3.5 animate-spin' />
                       Loading indicators...
                     </div>

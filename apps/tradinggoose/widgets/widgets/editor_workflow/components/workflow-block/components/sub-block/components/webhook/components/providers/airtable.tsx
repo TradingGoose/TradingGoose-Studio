@@ -100,7 +100,7 @@ export function AirtableConfig({
         </ConfigField>
 
         <div className='flex items-center justify-between rounded-lg border border-border bg-background p-3 shadow-sm'>
-          <div className='flex items-center gap-2'>
+          <div className='flex items-center gap-1'>
             <Label htmlFor='include-cell-values' className='font-normal'>
               Include Full Record Data
             </Label>

@@ -283,7 +283,7 @@ export function IterationBadges({ nodeId, data, iterationType }: IterationBadges
 
               {isCountMode ? (
                 // Number input for count-based mode
-                <div className='flex items-center gap-2'>
+                <div className='flex items-center gap-1'>
                   <Input
                     type='text'
                     value={inputValue}

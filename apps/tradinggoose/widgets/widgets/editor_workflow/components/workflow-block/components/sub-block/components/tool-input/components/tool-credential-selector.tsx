@@ -225,7 +225,7 @@ export function ToolCredentialSelector({
                       value={credential.id}
                       onSelect={() => handleSelect(credential.id)}
                     >
-                      <div className='flex items-center gap-2'>
+                      <div className='flex items-center gap-1'>
                         {getProviderIcon(credential.provider)}
                         <span className='font-normal'>{credential.name}</span>
                       </div>
@@ -237,7 +237,7 @@ export function ToolCredentialSelector({
 
               <CommandGroup>
                 <CommandItem onSelect={() => setShowOAuthModal(true)}>
-                  <div className='flex items-center gap-2'>
+                  <div className='flex items-center gap-1'>
                     <Plus className='h-4 w-4' />
                     <span className='font-normal'>Connect {getProviderName(provider)} account</span>
                   </div>

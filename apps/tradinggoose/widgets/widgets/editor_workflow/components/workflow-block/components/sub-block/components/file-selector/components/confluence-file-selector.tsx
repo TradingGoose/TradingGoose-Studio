@@ -441,7 +441,7 @@ export function ConfluenceFileSelector({
               {/* Current account indicator */}
               {selectedCredentialId && credentials.length > 0 && (
                 <div className='flex items-center justify-between border-b px-3 py-2'>
-                  <div className='flex items-center gap-2'>
+                  <div className='flex items-center gap-1'>
                     <ConfluenceIcon className='h-4 w-4' />
                     <span className='text-muted-foreground text-xs'>
                       {credentials.find((cred) => cred.id === selectedCredentialId)?.name ||
@@ -503,7 +503,7 @@ export function ConfluenceFileSelector({
                           value={`account-${cred.id}`}
                           onSelect={() => setSelectedCredentialId(cred.id)}
                         >
-                          <div className='flex items-center gap-2'>
+                          <div className='flex items-center gap-1'>
                             <ConfluenceIcon className='h-4 w-4' />
                             <span className='font-normal'>{cred.name}</span>
                           </div>
@@ -527,7 +527,7 @@ export function ConfluenceFileSelector({
                           value={`file-${file.id}-${file.name}`}
                           onSelect={() => handleSelectFile(file)}
                         >
-                          <div className='flex items-center gap-2 overflow-hidden'>
+                          <div className='flex items-center gap-1 overflow-hidden'>
                             <ConfluenceIcon className='h-4 w-4' />
                             <span className='truncate font-normal'>{file.name}</span>
                           </div>
@@ -541,7 +541,7 @@ export function ConfluenceFileSelector({
                   {credentials.length === 0 && (
                     <CommandGroup>
                       <CommandItem onSelect={handleAddCredential}>
-                        <div className='flex items-center gap-2 text-foreground'>
+                        <div className='flex items-center gap-1 text-foreground'>
                           <ConfluenceIcon className='h-4 w-4' />
                           <span>Connect Confluence account</span>
                         </div>
@@ -572,7 +572,7 @@ export function ConfluenceFileSelector({
                 <ConfluenceIcon className='h-4 w-4' />
               </div>
               <div className='min-w-0 flex-1 overflow-hidden'>
-                <div className='flex items-center gap-2'>
+                <div className='flex items-center gap-1'>
                   <h4 className='truncate font-medium text-xs'>{selectedFile.name}</h4>
                   {selectedFile.modifiedTime && (
                     <span className='whitespace-nowrap text-muted-foreground text-xs'>

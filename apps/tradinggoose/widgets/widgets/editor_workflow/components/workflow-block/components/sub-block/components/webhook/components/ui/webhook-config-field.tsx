@@ -47,7 +47,7 @@ export function WebhookConfigField({
 
   return (
     <div className={cn('mb-4 space-y-1', className)}>
-      <div className='flex items-center gap-2'>
+      <div className='flex items-center gap-1'>
         <Label htmlFor={id} className='font-medium text-sm'>
           {label}
         </Label>

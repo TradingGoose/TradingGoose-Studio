@@ -121,7 +121,7 @@ export function McpServerSelector({
                     onSelect={() => handleSelect(server.id)}
                     className='cursor-pointer'
                   >
-                    <div className='flex items-center gap-2 overflow-hidden'>
+                    <div className='flex items-center gap-1 overflow-hidden'>
                       <span className='truncate font-normal'>{server.name}</span>
                     </div>
                     {server.id === selectedServerId && <Check className='ml-auto h-4 w-4' />}

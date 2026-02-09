@@ -115,12 +115,12 @@ export function LinearProjectSelector({
           disabled={disabled || !credential || !teamId}
         >
           {selectedProject ? (
-            <div className='flex items-center gap-2 overflow-hidden'>
+            <div className='flex items-center gap-1 overflow-hidden'>
               <LinearIcon className='h-4 w-4' />
               <span className='truncate font-normal'>{selectedProject.name}</span>
             </div>
           ) : (
-            <div className='flex items-center gap-2'>
+            <div className='flex items-center gap-1'>
               <LinearIcon className='h-4 w-4' />
               <span className='text-muted-foreground'>{label}</span>
             </div>
@@ -171,7 +171,7 @@ export function LinearProjectSelector({
                     onSelect={() => handleSelectProject(project)}
                     className='cursor-pointer'
                   >
-                    <div className='flex items-center gap-2 overflow-hidden'>
+                    <div className='flex items-center gap-1 overflow-hidden'>
                       <LinearIcon className='h-4 w-4' />
                       <span className='truncate font-normal'>{project.name}</span>
                     </div>

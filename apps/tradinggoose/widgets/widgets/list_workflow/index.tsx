@@ -12,6 +12,7 @@ import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
 import { DashboardWorkflowCreateMenu } from '@/widgets/widgets/list_workflow/components/workflow-create-menu'
+import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 
@@ -332,7 +333,7 @@ const WorkflowListHeaderRight = ({ workspaceId }: { workspaceId?: string }) => {
 
   return (
     <WorkspacePermissionsProvider workspaceId={workspaceId}>
-      <div className='flex items-center gap-2'>
+      <div className={widgetHeaderButtonGroupClassName()}>
         <DashboardWorkflowCreateMenu
           workspaceId={workspaceId}
           onWorkflowCreated={handleWorkflowCreated}

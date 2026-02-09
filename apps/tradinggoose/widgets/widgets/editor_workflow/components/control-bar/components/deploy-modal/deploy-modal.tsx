@@ -617,7 +617,7 @@ export function DeployModal({
         >
           <DialogHeader className='flex-shrink-0 border-b px-6 py-4'>
             <div className='flex items-center justify-between'>
-              <div className='flex items-center gap-2'>
+              <div className='flex items-center gap-1'>
                 <DialogTitle className='font-medium text-lg'>Deploy Workflow</DialogTitle>
                 {needsRedeployment && versions.length > 0 && versionToActivate === null && (
                   <span className='inline-flex items-center rounded-md bg-amber-500/10 px-2 py-1 font-medium text-amber-600 text-xs dark:text-amber-400'>

@@ -198,7 +198,7 @@ export function TriggerList({ onSelect, className }: TriggerListProps) {
           }}
           className={cn(
             'pointer-events-auto',
-            'flex items-center gap-2',
+            'flex items-center gap-1',
             'px-4 py-2',
             'rounded-lg border border-muted-foreground/50 border-dashed',
             'bg-background/95 backdrop-blur-sm',
