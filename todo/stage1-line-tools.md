@@ -68,11 +68,13 @@ Make lightweight-charts line-tools **self-contained** in this repo and provide a
    - If a single “types” entrypoint is needed, re-export from the local vendored core path (for example `apps/tradinggoose/widgets/widgets/data_chart/plugins/core/types`) rather than any vendored package-name import.
    - **Do not** add these names to `transpilePackages` unless we formalize them as real packages (with `package.json` and workspace inclusion). Otherwise Next module resolution may fail.
 
-3. **Upstream source + pin (line-tools v1.0.0)**
-   - Source repos (difurious), pinned to a Stage 1 snapshot with this portability rule:
-     - Primary Stage 1 source-of-truth is the tracked vendored tree in `apps/tradinggoose/widgets/widgets/data_chart/plugins/**`.
-     - If `../lightweight-charts-tools/*` exists, use it only as a local verification mirror for snapshot parity checks.
+3. **Upstream source + snapshot policy (line-tools v1.0.0)**
+   - Source repos (difurious) use this locked Stage 1 snapshot policy (no SHA pin required):
+     - Reproducibility anchor is the committed vendored tree in `apps/tradinggoose/widgets/widgets/data_chart/plugins/**` on the current branch.
+     - Upstream URLs and optional `../lightweight-charts-tools/*` are provenance/verification inputs only, not runtime dependencies.
+     - If `../lightweight-charts-tools/*` exists, use it only as a local mirror for parity checks.
      - If `../lightweight-charts-tools/*` is absent, continue from the tracked vendored tree and the repo URLs below; do not block Stage 1 on sibling-repo availability.
+     - If a re-copy is required by allowlist rules, commit the resulting vendored snapshot before continuing Stage 1 work.
      - Do not pull/update during Stage 1.
      - `https://github.com/difurious/lightweight-charts-line-tools-core` -> `plugins/core`
      - `https://github.com/difurious/lightweight-charts-line-tools-lines` -> `plugins/lines`
@@ -378,7 +380,7 @@ Make lightweight-charts line-tools **self-contained** in this repo and provide a
     - `cd apps/tradinggoose && NODE_OPTIONS='--max-old-space-size=8192' bun run type-check -- --pretty false > /tmp/stage1_typecheck_baseline.txt 2>&1`
   - Run the same memory-safe command after Stage 1 changes and compare diagnostics to pre-change output:
     - `cd apps/tradinggoose && NODE_OPTIONS='--max-old-space-size=8192' bun run type-check -- --pretty false > /tmp/stage1_typecheck_after.txt 2>&1`
-  - Current branch-local reference baseline is `658` TS diagnostics in `/tmp/stage1_typecheck_baseline.txt`; re-measure when branch contents change.
+  - Treat baseline diagnostic count as branch-local and time-varying: read it from `/tmp/stage1_typecheck_baseline.txt` after capture; do not hardcode a fixed number in acceptance criteria.
   - Record current touched-path baseline examples alongside the full baseline snapshot for delta checks (for example existing `TS1205` re-export diagnostics in `apps/tradinggoose/widgets/widgets/data_chart/plugins/core/index.ts` around lines 156/160/162).
   - Path-model rule for diagnostics:
     - Current checks use renamed paths under `plugins/*` (core: `plugins/core`).
@@ -438,7 +440,7 @@ Make lightweight-charts line-tools **self-contained** in this repo and provide a
 - `apps/tradinggoose/widgets/widgets/data_chart/drawings/` must be created and wired during Stage 1.
 - `apps/tradinggoose/widgets/widgets/data_chart/types.ts` does not yet define `drawTools` in `DataChartViewParams`.
 - Vendored folder normalization is already applied in the working tree: Stage 1 uses prefixless plugin folders (`plugins/core`, `plugins/lines`, `plugins/freehand`, etc.) per Decision #1.
-- Current branch baseline is in a normalization transition state in git metadata (`D plugins/lightweight-charts-line-tools-*` plus `?? plugins/*`), so the reproducibility gate is currently **not** satisfied until normalized vendored files are tracked and old prefixed paths are fully removed.
+- Current branch baseline is reproducible: normalized vendored folders are tracked and there is no residual prefixed-path churn for `plugins/lightweight-charts-line-tools-*`; re-check this on each branch after vendoring updates.
 - Left draw-tools sidebar UI (`draw-tools-sidebar.tsx`) and its adapter wiring in `chart-body.tsx` are not yet implemented.
 - `draw-control.tsx` (selected manual drawing hide/remove UI) is not yet implemented.
 - `draw-tool-icon-registry.ts` (icon-only sidebar/action mapping) is not yet implemented.
