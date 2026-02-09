@@ -1,14 +1,12 @@
+import { buildAlpacaAuthHeaders } from '@/providers/trading/alpaca/auth'
+import { normalizeAlpacaListingSymbol } from '@/providers/trading/alpaca/listing'
 import type {
   TradingOrder,
   TradingOrderInput,
   TradingRequestConfig,
 } from '@/providers/trading/types'
-import { buildAlpacaAuthHeaders } from '@/providers/trading/alpaca/auth'
-import { normalizeAlpacaListingSymbol } from '@/providers/trading/alpaca/listing'
 
-export const buildAlpacaOrderRequest = (
-  params: TradingOrderInput
-): TradingRequestConfig => {
+export const buildAlpacaOrderRequest = (params: TradingOrderInput): TradingRequestConfig => {
   const authHeaders = buildAlpacaAuthHeaders(params)
 
   const baseUrl =
@@ -21,7 +19,7 @@ export const buildAlpacaOrderRequest = (
     base: params.base,
     quote: params.quote,
     assetClass: params.assetClass,
-    micCode: params.micCode,
+    marketCode: params.marketCode,
     countryCode: params.countryCode,
     cityName: params.cityName,
     timeZoneName: params.timeZoneName,
@@ -100,7 +98,9 @@ export const buildAlpacaOrderRequest = (
 
   if (isTrailingStop) {
     if (params.limitPrice !== undefined || params.stopPrice !== undefined) {
-      throw new Error('Trailing stop orders use trail_price or trail_percent, not limit/stop price.')
+      throw new Error(
+        'Trailing stop orders use trail_price or trail_percent, not limit/stop price.'
+      )
     }
     const trailPrice =
       typeof params.trailPrice === 'number' && Number.isFinite(params.trailPrice)

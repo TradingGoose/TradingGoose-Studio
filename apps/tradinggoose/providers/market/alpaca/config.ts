@@ -5,7 +5,7 @@ import { AssetClass } from '@/providers/market/types'
 const availableAssetClasses: AssetClass[] = ['stock', 'etf', 'crypto']
 
 const supportsCrypto = availableAssetClasses.includes('crypto')
-const availableEquityQuoteCodes = ['USD']
+const availableListingQuoteCodes = ['USD']
 const availableCryptoQuoteCodes = ['USD', 'USDC', 'USDT', 'BTC']
 const availableCryptoBaseCodes = [
   'AAVE',
@@ -32,7 +32,7 @@ const availableCryptoBaseCodes = [
 ]
 const availability: MarketProviderConfig['availability'] = {
   assetClass: availableAssetClasses,
-  availableEquityQuote: availableEquityQuoteCodes,
+  availableListingQuote: availableListingQuoteCodes,
   availableCurrencyBase: [],
   availableCurrencyQuote: [],
   availableCryptoBase: supportsCrypto ? availableCryptoBaseCodes : [],
@@ -127,50 +127,26 @@ const exchangeCodesList: MarketProviderConfig['exchangeCodes'] = [
   'Z',
 ]
 
-const exchangeCodeToMicMap: MarketProviderConfig['exchangeCodeToMic'] = {
-  A: ['XASE'],
-  B: ['XBOS'],
-  C: ['XCIS'],
-  D: ['FINR'],
-  G: ['24EQ'],
-  H: ['MRPL'],
-  I: ['XISE'],
-  J: ['EDGA'],
-  K: ['EDGX'],
-  L: ['LTSE'],
-  M: ['XCHI'],
-  N: ['XNYS'],
-  P: ['ARCX'],
-  Q: ['XNAS'],
-  U: ['MEMX'],
-  V: ['IEXG'],
-  W: ['CBSX'],
-  X: ['XPSX'],
-  Y: ['BATY'],
-  Z: ['BATS'],
+const exchangeCodeToMarketMap: MarketProviderConfig['exchangeCodeToMarket'] = {
+  A: 'NYSE',
+  B: 'NASDAQ',
+  C: 'NYSE',
+  J: 'CBOE',
+  K: 'CBOE',
+  M: 'NYSE',
+  N: 'NYSE',
+  P: 'NYSE',
+  Q: 'NASDAQ',
+  W: 'CBOE',
+  X: 'NASDAQ',
+  Y: 'CBOE',
+  Z: 'CBOE',
 }
 
-const micToExchangeCodeMap: MarketProviderConfig['micToExchangeCode'] = {
-  XASE: 'A',
-  XBOS: 'B',
-  XCIS: 'C',
-  FINR: 'D',
-  '24EQ': 'G',
-  MRPL: 'H',
-  XISE: 'I',
-  EDGA: 'J',
-  EDGX: 'K',
-  LTSE: 'L',
-  XCHI: 'M',
-  XNYS: 'N',
-  ARCX: 'P',
-  XNAS: 'Q',
-  MEMX: 'U',
-  IEXG: 'V',
-  CBSX: 'W',
-  XPSX: 'X',
-  BATY: 'Y',
-  BATS: 'Z',
+const marketToExchangeCodeMap: MarketProviderConfig['marketToExchangeCode'] = {
+  NASDAQ: 'Q',
+  NYSE: 'N',
+  CBOE: 'J',
 }
 
 export const alpacaProviderConfig: MarketProviderConfig = {
@@ -203,6 +179,7 @@ export const alpacaProviderConfig: MarketProviderConfig = {
       ],
       windowModes: ['range', 'bars', 'absolute'],
       normalizationModes: ['raw', 'adjusted', 'split_adjusted'],
+      marketSessions: ['regular', 'extended'],
       retention: {
         default: { maxBars: 10000 },
       },
@@ -214,17 +191,17 @@ export const alpacaProviderConfig: MarketProviderConfig = {
     },
   },
   rulePrecedence: {
-    default: ['mic', 'currency', 'assetClass', 'country', 'city', 'listing'],
-    stock: ['mic', 'currency', 'country', 'city', 'listing'],
-    etf: ['mic', 'currency', 'country', 'city', 'listing'],
-    indice: ['mic', 'currency', 'country', 'city', 'listing'],
-    mutualfund: ['mic', 'currency', 'country', 'city', 'listing'],
-    future: ['mic', 'currency', 'country', 'city', 'listing'],
-    crypto: ['currency', 'mic', 'country', 'city', 'listing'],
-    currency: ['currency', 'mic', 'country', 'city', 'listing'],
+    default: ['market', 'currency', 'assetClass', 'country', 'city', 'listing'],
+    stock: ['market', 'currency', 'country', 'city', 'listing'],
+    etf: ['market', 'currency', 'country', 'city', 'listing'],
+    indice: ['market', 'currency', 'country', 'city', 'listing'],
+    mutualfund: ['market', 'currency', 'country', 'city', 'listing'],
+    future: ['market', 'currency', 'country', 'city', 'listing'],
+    crypto: ['currency', 'market', 'country', 'city', 'listing'],
+    currency: ['currency', 'market', 'country', 'city', 'listing'],
   },
-  exchangeCodeToMic: exchangeCodeToMicMap,
-  micToExchangeCode: micToExchangeCodeMap,
+  exchangeCodeToMarket: exchangeCodeToMarketMap,
+  marketToExchangeCode: marketToExchangeCodeMap,
   exchangeCodes: exchangeCodesList,
   rules: alpacaSymbolRules,
 }

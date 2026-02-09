@@ -66,7 +66,6 @@ export class GenericBlockHandler implements BlockHandler {
             workspaceId: context.workspaceId,
           },
         },
-        false, // skipProxy
         false, // skipPostProcess
         context // execution context for file processing
       )

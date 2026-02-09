@@ -13,7 +13,7 @@ import { ListingSelectorDropdown } from '@/components/listing-selector/selector/
 import {
   triggerCryptoRankUpdate,
   triggerCurrencyRankUpdate,
-  triggerEquityRankUpdate,
+  triggerListingRankUpdate,
 } from '@/components/listing-selector/listing/rank-updates'
 import {
   resolveListingKey,
@@ -21,7 +21,7 @@ import {
   toListingValueObject,
   type ListingOption,
 } from '@/lib/listing/identity'
-import { resolveListingIdentity } from '@/lib/listing/resolve'
+import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import {
   createEmptyListingSelectorInstance,
   useListingSelectorStore,
@@ -43,7 +43,7 @@ const hasListingDetails = (listing?: ListingOption | null): boolean => {
   if (!listing) return false
   const base = listing.base?.trim()
   if (!base) return false
-  if (listing.listing_type === 'equity') return true
+  if (listing.listing_type === 'default') return true
   const quote = listing.quote?.trim()
   return Boolean(quote)
 }
@@ -161,8 +161,10 @@ export function StockSelector({
     setHighlightedIndex(-1)
     setShowTags(false)
     setVariableCommitted(false)
-    triggerEquityRankUpdate(listing)
     const listingType = listing.listing_type
+    if (listingType === 'default') {
+      triggerListingRankUpdate(listing)
+    }
     if (listingType === 'crypto' && listing.base_id) {
       triggerCryptoRankUpdate(listing.base_id)
     }
@@ -222,7 +224,7 @@ export function StockSelector({
     const requestId = ++hydrateRequestRef.current
     let cancelled = false
 
-    resolveListingIdentity(identity)
+    requestListingResolution(identity)
       .then((resolved) => {
         if (cancelled || hydrateRequestRef.current !== requestId) return
         if (!resolved) return
@@ -231,7 +233,7 @@ export function StockSelector({
           selectedListingValue: identity,
         })
       })
-      .catch(() => {})
+      .catch(() => { })
 
     return () => {
       cancelled = true
@@ -376,7 +378,7 @@ export function StockSelector({
             }
           }}
           disabled={disabled}
-          autoComplete='off'
+          type='text'
         />
         {showRichOverlay ? (
           <div className='pointer-events-none absolute inset-y-0 left-0 flex items-center px-1 w-full'>

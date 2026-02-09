@@ -606,7 +606,7 @@ export const customTools = pgTable(
   })
 )
 
-export const customIndicators = pgTable(
+export const pineIndicators = pgTable(
   'custom_indicators',
   {
     id: uuid('id').primaryKey().defaultRandom(),
@@ -616,7 +616,8 @@ export const customIndicators = pgTable(
     userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
     name: text('name').notNull().default('New Indicator'),
     color: text('color').notNull().default('#3972F6'),
-    calcCode: text('calc_code').notNull().default(''),
+    pineCode: text('pine_code').notNull().default(''),
+    inputMeta: json('input_meta'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
@@ -923,6 +924,35 @@ export const memory = pgTable(
       ),
     }
   }
+)
+
+export const orderHistoryTable = pgTable(
+  'orderHistoryTable',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    provider: text('provider').notNull(),
+    environment: text('environment'),
+    recordedAt: timestamp('recorded_at').notNull().defaultNow(),
+    workflowId: text('workflow_id').references(() => workflow.id, { onDelete: 'set null' }),
+    workflowExecutionId: text('workflow_execution_id'),
+    listingId: text('listing_id'),
+    listingKey: text('listing_key'),
+    listingType: text('listing_type'),
+    listingIdentity: jsonb('listing_identity'),
+    request: jsonb('request').notNull(),
+    response: jsonb('response').notNull(),
+    normalizedOrder: jsonb('normalized_order'),
+  },
+  (table) => ({
+    providerIdx: index('order_history_provider_idx').on(table.provider),
+    workflowIdx: index('order_history_workflow_idx').on(table.workflowId),
+    workflowExecutionIdx: index('order_history_execution_idx').on(table.workflowExecutionId),
+    recordedAtIdx: index('order_history_recorded_at_idx').on(table.recordedAt),
+    workflowRecordedIdx: index('order_history_workflow_recorded_idx').on(
+      table.workflowId,
+      table.recordedAt
+    ),
+  })
 )
 
 export const knowledgeBase = pgTable(

@@ -1,7 +1,7 @@
-export type ListingType = 'equity' | 'crypto' | 'currency'
+export type ListingType = 'default' | 'crypto' | 'currency'
 
 export type ListingIdentity = {
-  equity_id: string
+  listing_id: string
   base_id: string
   quote_id: string
   listing_type: ListingType
@@ -15,6 +15,7 @@ export type ListingResolved = ListingIdentity & {
   iconUrl?: string | null
   assetClass?: string | null
   primaryMicCode?: string | null
+  marketCode?: string | null
   countryCode?: string | null
   cityName?: string | null
   timeZoneName?: string | null
@@ -40,7 +41,7 @@ const readListingField = (record: Record<string, unknown>, key: string): string 
 }
 
 const isListingType = (value?: string | null): value is ListingType =>
-  value === 'equity' || value === 'crypto' || value === 'currency'
+  value === 'default' || value === 'crypto' || value === 'currency'
 
 const readListingType = (record: Record<string, unknown>): ListingType | undefined => {
   const raw = readListingField(record, 'listing_type')
@@ -54,12 +55,12 @@ export const resolveListingKey = (value: ListingInputValue): string | undefined 
   const record = value as Record<string, unknown>
   const listingType = readListingType(record)
   if (!listingType) return undefined
-  const equityId = readListingField(record, 'equity_id')
+  const listingId = readListingField(record, 'listing_id')
   const baseId = readListingField(record, 'base_id')
   const quoteId = readListingField(record, 'quote_id')
 
-  if (listingType === 'equity') {
-    return equityId
+  if (listingType === 'default') {
+    return listingId
   }
 
   if (baseId && quoteId) {
@@ -90,14 +91,14 @@ const normalizeListingIdentity = (
   const listingType = readListingType(record)
   if (!listingType) return null
 
-  const equityId = readListingField(record, 'equity_id') ?? ''
+  const listingId = readListingField(record, 'listing_id') ?? ''
   const baseId = readListingField(record, 'base_id') ?? ''
   const quoteId = readListingField(record, 'quote_id') ?? ''
 
-  if (listingType === 'equity') {
-    if (!equityId) return null
+  if (listingType === 'default') {
+    if (!listingId) return null
     return {
-      equity_id: equityId,
+      listing_id: listingId,
       base_id: '',
       quote_id: '',
       listing_type: listingType,
@@ -107,7 +108,7 @@ const normalizeListingIdentity = (
   if (!baseId || !quoteId) return null
 
   return {
-    equity_id: '',
+    listing_id: '',
     base_id: baseId,
     quote_id: quoteId,
     listing_type: listingType,

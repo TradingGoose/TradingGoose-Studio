@@ -755,9 +755,9 @@ export function DashboardClient({
                             const docColor = sanitizeHexColor(doc.bgColor) ?? undefined
                             return (
                               <div
-                                className='flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-secondary/60 text-foreground'
+                                className='flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-secondary text-foreground'
                                 style={{
-                                  backgroundColor: docColor ? `${docColor}30` : undefined,
+                                  backgroundColor: docColor ? `${docColor}20` : undefined,
                                   color: docColor || undefined,
                                 }}
                               >
@@ -1025,8 +1025,16 @@ function applyPairDataToWidget(
   const workflowId = pairData.workflowId ?? null
   const listing = pairData.listing ?? null
   const copilotChatId = pairData.copilotChatId ?? null
+  const indicatorId = pairData.indicatorId ?? null
+  const pineIndicatorId = pairData.pineIndicatorId ?? null
 
-  if (workflowId == null && listing == null && copilotChatId == null) {
+  if (
+    workflowId == null &&
+    listing == null &&
+    copilotChatId == null &&
+    indicatorId == null &&
+    pineIndicatorId == null
+  ) {
     return widget
   }
 
@@ -1035,6 +1043,8 @@ function applyPairDataToWidget(
   if (copilotChatId) {
     baseParams.copilotChatId = copilotChatId
   }
+  baseParams.indicatorId = indicatorId
+  baseParams.pineIndicatorId = pineIndicatorId
 
   if (areWidgetParamsEqual(widget.params ?? null, baseParams)) {
     return widget
@@ -1062,6 +1072,7 @@ function hydratePairStoreFromColorPairs(colorPairs: PersistedColorPairsState) {
       listing: pair.listing ?? undefined,
       copilotChatId: pair.copilotChatId ?? undefined,
       indicatorId: pair.indicatorId ?? undefined,
+      pineIndicatorId: pair.pineIndicatorId ?? undefined,
     })
   }
 
@@ -1094,6 +1105,10 @@ function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState 
       typeof context?.indicatorId === 'string' && context.indicatorId.trim().length > 0
         ? context.indicatorId
         : null
+    const pineIndicatorId =
+      typeof context?.pineIndicatorId === 'string' && context.pineIndicatorId.trim().length > 0
+        ? context.pineIndicatorId
+        : null
 
     pairs.push({
       color,
@@ -1101,6 +1116,7 @@ function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState 
       listing,
       copilotChatId,
       indicatorId,
+      pineIndicatorId,
     })
   })
 
@@ -1116,7 +1132,8 @@ function hasLinkedColorPairs(colorPairs?: PersistedColorPairsState): boolean {
       (pair.workflowId ||
         pair.copilotChatId ||
         Boolean(getListingIdentity(pair.listing)) ||
-        pair.indicatorId)
+        pair.indicatorId ||
+        pair.pineIndicatorId)
   )
 }
 
@@ -1367,9 +1384,9 @@ function DropdownSection({
             >
               {ItemIcon && (
                 <div
-                  className='flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-secondary/60 text-foreground'
+                  className='flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-secondary text-foreground'
                   style={{
-                    backgroundColor: iconColor ? `${iconColor}30` : undefined,
+                    backgroundColor: iconColor ? `${iconColor}20` : undefined,
                     color: iconColor || undefined,
                   }}
                 >

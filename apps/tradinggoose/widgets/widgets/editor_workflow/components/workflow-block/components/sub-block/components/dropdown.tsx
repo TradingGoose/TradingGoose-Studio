@@ -419,7 +419,7 @@ export function Dropdown({
     }
 
     if (option.observesDst === false) {
-      return buildStatusIcon('bg-muted-foreground/40')
+      return buildStatusIcon('bg-transparent')
     }
 
     if (option.dstOn === true) {

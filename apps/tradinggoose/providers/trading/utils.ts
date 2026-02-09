@@ -1,5 +1,5 @@
+import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
 import { resolveListingKey, toListingValueObject } from '@/lib/listing/identity'
-import type { ListingInputValue, ListingIdentity } from '@/lib/listing/identity'
 import type { AssetClass } from '@/providers/market/types'
 import type {
   TradingProviderConfig,
@@ -25,8 +25,7 @@ export interface TradingListingContext {
   base: string
   quote?: string
   assetClass?: AssetClass
-  primaryMicCode?: string
-  micCode?: string
+  marketCode?: string
   exchangeCode?: string
   exchangeSuffix?: string
   countryCode?: string
@@ -34,9 +33,7 @@ export interface TradingListingContext {
   timeZoneName?: string
 }
 
-export function resolveTradingListingContext(
-  input: TradingSymbolInput
-): TradingListingContext {
+export function resolveTradingListingContext(input: TradingSymbolInput): TradingListingContext {
   const listingValue = input.listing as ListingInputValue | undefined
   const record = (listingValue || {}) as Record<string, unknown>
 
@@ -56,24 +53,17 @@ export function resolveTradingListingContext(
   const quote =
     input.quote ||
     readListingField(record, 'quote') ||
-    (listingKeyFromListing?.includes(':')
-      ? listingKeyFromListing.split(':')[1]
-      : undefined)
+    (listingKeyFromListing?.includes(':') ? listingKeyFromListing.split(':')[1] : undefined)
 
-  const listingKey =
-    listingKeyFromListing || (quote ? `${base}:${quote}` : base)
+  const listingKey = listingKeyFromListing || (quote ? `${base}:${quote}` : base)
 
   const assetClass =
-    input.assetClass ||
-    (readListingField(record, 'assetClass') as AssetClass | undefined)
+    input.assetClass || (readListingField(record, 'assetClass') as AssetClass | undefined)
 
-  const primaryMicCode =
-    readListingField(record, 'primaryMicCode') || input.micCode
-  const micCode = readListingField(record, 'micCode') || primaryMicCode
+  const marketCode = readListingField(record, 'marketCode') || input.marketCode
   const countryCode = readListingField(record, 'countryCode') || input.countryCode
   const cityName = readListingField(record, 'cityName') || input.cityName
-  const timeZoneName =
-    readListingField(record, 'timeZoneName') || input.timeZoneName
+  const timeZoneName = readListingField(record, 'timeZoneName') || input.timeZoneName
 
   return {
     listingKey,
@@ -81,8 +71,7 @@ export function resolveTradingListingContext(
     base,
     quote: quote ?? undefined,
     assetClass: assetClass ?? undefined,
-    primaryMicCode: primaryMicCode ?? micCode ?? undefined,
-    micCode,
+    marketCode: marketCode ?? undefined,
     countryCode: countryCode ?? undefined,
     cityName: cityName ?? undefined,
     timeZoneName: timeZoneName ?? undefined,
@@ -101,20 +90,18 @@ export function resolveTradingProviderSymbol(
   config: TradingProviderConfig,
   context: TradingListingContext
 ): string {
-  const exchangeCode = context.micCode
-    ? config.micToExchangeCode[context.micCode]
-    : undefined
+  const marketCode = context.marketCode?.trim().toUpperCase()
+  const exchangeCode = marketCode ? config.marketToExchangeCode[marketCode] : undefined
   const exchangeSuffix = exchangeCode ? `.${exchangeCode}` : ''
   const enrichedContext: TradingListingContext = {
     ...context,
+    marketCode,
     exchangeCode,
     exchangeSuffix,
   }
 
   const precedence =
-    config.rulePrecedence[context.assetClass ?? 'default'] ||
-    config.rulePrecedence.default ||
-    []
+    config.rulePrecedence[context.assetClass ?? 'default'] || config.rulePrecedence.default || []
 
   const activeRules = config.rules.filter((rule) => rule.active !== false)
   const matchedRules = activeRules.filter((rule) => matchesRule(rule, enrichedContext))
@@ -139,7 +126,7 @@ export function resolveTradingProviderSymbol(
 function matchesRule(rule: TradingSymbolRule, context: TradingListingContext): boolean {
   if (rule.assetClass && rule.assetClass !== context.assetClass) return false
   if (rule.listingKey && rule.listingKey !== context.listingKey) return false
-  if (rule.mic && rule.mic !== context.micCode) return false
+  if (rule.market && rule.market !== context.marketCode) return false
   if (rule.country && rule.country !== context.countryCode) return false
   if (rule.city && rule.city !== context.cityName) return false
   if (rule.currency && rule.currency !== context.quote) return false
@@ -160,7 +147,7 @@ function matchesRule(rule: TradingSymbolRule, context: TradingListingContext): b
 function scoreRule(rule: TradingSymbolRule, precedence: TradingRuleScopeKey[]): number {
   const fieldWeights: Record<TradingRuleScopeKey, number> = {
     listing: 0,
-    mic: 0,
+    market: 0,
     currency: 0,
     assetClass: 0,
     country: 0,
@@ -174,7 +161,7 @@ function scoreRule(rule: TradingSymbolRule, precedence: TradingRuleScopeKey[]): 
 
   let score = 0
   if (rule.listingKey) score += fieldWeights.listing || 0
-  if (rule.mic) score += fieldWeights.mic || 0
+  if (rule.market) score += fieldWeights.market || 0
   if (rule.currency) score += fieldWeights.currency || 0
   if (rule.assetClass) score += fieldWeights.assetClass || 0
   if (rule.country) score += fieldWeights.country || 0
@@ -202,8 +189,8 @@ function renderTemplate(template: string, context: TradingListingContext): strin
         return context.base
       case 'quote':
         return context.quote || ''
-      case 'mic':
-        return context.micCode || ''
+      case 'market':
+        return context.marketCode || ''
       case 'exchangeCode':
         return context.exchangeCode || ''
       case 'exchangeSuffix':

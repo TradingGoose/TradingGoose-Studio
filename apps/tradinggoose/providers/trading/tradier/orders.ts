@@ -1,10 +1,10 @@
+import { buildTradierAuthHeaders, resolveTradierBaseUrl } from '@/providers/trading/tradier/client'
+import { normalizeTradierListingSymbol } from '@/providers/trading/tradier/listing'
 import type {
   TradingOrder,
   TradingOrderInput,
   TradingRequestConfig,
 } from '@/providers/trading/types'
-import { buildTradierAuthHeaders, resolveTradierBaseUrl } from '@/providers/trading/tradier/client'
-import { normalizeTradierListingSymbol } from '@/providers/trading/tradier/listing'
 
 const normalizeTradierOrderType = (value?: string) => {
   if (typeof value !== 'string' || !value.trim()) return 'market'
@@ -25,9 +25,7 @@ const appendParamIfDefined = (params: URLSearchParams, key: string, value?: unkn
   params.append(key, String(value))
 }
 
-export const buildTradierOrderRequest = (
-  params: TradingOrderInput
-): TradingRequestConfig => {
+export const buildTradierOrderRequest = (params: TradingOrderInput): TradingRequestConfig => {
   if (!params.accountId) {
     throw new Error('Tradier account ID is required')
   }
@@ -43,7 +41,7 @@ export const buildTradierOrderRequest = (
     base: params.base,
     quote: params.quote,
     assetClass: params.assetClass,
-    micCode: params.micCode,
+    marketCode: params.marketCode,
     countryCode: params.countryCode,
     cityName: params.cityName,
     timeZoneName: params.timeZoneName,
@@ -107,8 +105,7 @@ export const normalizeTradierOrder = (data: any): TradingOrder => {
   return {
     id: order?.id || order?.order?.id,
     status: order?.status,
-    submittedAt:
-      order?.create_date || order?.transaction_date || order?.date || order?.created_at,
+    submittedAt: order?.create_date || order?.transaction_date || order?.date || order?.created_at,
     filledQty: order?.exec_quantity ? Number(order.exec_quantity) : undefined,
     symbol: order?.symbol,
     side: order?.side,

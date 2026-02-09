@@ -2,14 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MutableRefObject } from 'react'
 import { Wand2 } from 'lucide-react'
 import { MonacoEditor } from '@/components/monaco-editor'
-import type { MonacoDecoration, MonacoEditorHandle } from '@/components/monaco-editor'
+import type { MonacoDecoration, MonacoEditorHandle, MonacoEditorProps } from '@/components/monaco-editor'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 interface CodeEditorProps {
   value: string
   onChange: (value: string) => void
-  language: 'javascript' | 'json' | 'typescript'
+  language: 'javascript' | 'json' | 'typescript' | 'sql' | 'html' | 'plaintext'
   placeholder?: string
   className?: string
   minHeight?: string
@@ -39,6 +39,7 @@ interface CodeEditorProps {
   wandButtonDisabled?: boolean
   autoHeight?: boolean
   extraLibs?: Array<{ content: string; filePath?: string }>
+  editorOptions?: MonacoEditorProps['options']
 }
 
 export function CodeEditor({
@@ -64,6 +65,7 @@ export function CodeEditor({
   wandButtonDisabled = false,
   autoHeight,
   extraLibs,
+  editorOptions,
 }: CodeEditorProps) {
   const [code, setCode] = useState(value)
   const [isCollapsed, setIsCollapsed] = useState(false)
@@ -275,6 +277,15 @@ export function CodeEditor({
     onKeyDown?.(event)
   }
 
+  const mergedEditorOptions = useMemo(
+    () => ({
+      lineNumbers: 'on',
+      padding: { top: 8, bottom: 8 },
+      ...editorOptions,
+    }),
+    [editorOptions]
+  )
+
   return (
     <div
       className={cn(
@@ -333,10 +344,7 @@ export function CodeEditor({
           className={cn('h-full focus:outline-none', isCollapsed && 'pointer-events-none select-none')}
           readOnly={disabled || isCollapsed}
           extraLibs={extraLibs}
-          options={{
-            lineNumbers: 'on',
-            padding: { top: 8, bottom: 8 },
-          }}
+          options={mergedEditorOptions}
         />
       </div>
     </div>

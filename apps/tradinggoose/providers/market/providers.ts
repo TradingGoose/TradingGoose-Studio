@@ -18,6 +18,7 @@ import type {
   MarketSeriesRequest,
   MarketSeries,
   NormalizationMode,
+  MarketSessionMode,
 } from '@/providers/market/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
 import { AlphaVantageIcon, YahooIcon, FinnhubIcon, AlpacaIcon } from '@/components/icons/provider-icons'
@@ -36,6 +37,7 @@ export interface MarketSeriesInputCapabilities {
   windowModes?: MarketSeriesWindowMode[]
   normalizationModes?: NormalizationMode[]
   retention?: MarketSeriesRetentionPolicy
+  marketSessions?: MarketSessionMode[]
 }
 
 export interface MarketSeriesRetentionRule {
@@ -117,12 +119,12 @@ export interface MarketProviderParamConfig {
 
 export type MarketProviderSeriesEndpointMap = Partial<Record<AssetClass | 'default', string>>
 
-export type RuleScopeKey = 'listing' | 'mic' | 'currency' | 'assetClass' | 'country' | 'city'
+export type RuleScopeKey = 'listing' | 'market' | 'currency' | 'assetClass' | 'country' | 'city'
 
 export interface MarketSymbolRule {
   assetClass?: AssetClass
   listingKey?: string
-  mic?: string
+  market?: string
   country?: string
   city?: string
   currency?: string
@@ -141,8 +143,8 @@ export interface MarketProviderConfig {
   params?: MarketProviderParamConfig
   api_endpoints?: MarketProviderSeriesEndpointMap
   rulePrecedence: Record<string, RuleScopeKey[]>
-  exchangeCodeToMic: Record<string, string[]>
-  micToExchangeCode: Record<string, string>
+  exchangeCodeToMarket: Record<string, string>
+  marketToExchangeCode: Record<string, string>
   exchangeCodes: string[]
   rules: MarketSymbolRule[]
 }
@@ -161,8 +163,7 @@ export interface ListingContext {
   base: string
   quote?: string
   assetClass?: AssetClass
-  primaryMicCode?: string
-  micCode?: string
+  marketCode?: string
   exchangeCode?: string
   exchangeSuffix?: string
   countryCode?: string

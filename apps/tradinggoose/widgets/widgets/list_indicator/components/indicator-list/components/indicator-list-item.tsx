@@ -14,10 +14,10 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import type { CustomIndicatorDefinition } from '@/stores/custom-indicators/types'
+import type { IndicatorDefinition } from '@/stores/indicators/types'
 
 interface IndicatorListItemProps {
-  indicator: CustomIndicatorDefinition
+  indicator: IndicatorDefinition
   isSelected: boolean
   onSelect: (indicatorId: string) => void
   onDelete: (indicatorId: string) => Promise<void>
@@ -176,11 +176,15 @@ export function IndicatorListItem({
           <span
             className='h-5 w-5 p-0.5 rounded-xs items-center justify-center flex'
             style={{
-              backgroundColor: indicator.color + '50',
+              backgroundColor: (indicator.color ?? '#3972F6') + '20',
             }}
             aria-hidden='true'
           >
-            <FunctionSquare className='h-full' aria-hidden='true' style={{ color: indicator.color }} />
+            <FunctionSquare
+              className='h-full'
+              aria-hidden='true'
+              style={{ color: indicator.color ?? '#3972F6' }}
+            />
           </span>
           {interactiveChildren}
         </button>
@@ -238,9 +242,10 @@ export function IndicatorListItem({
                 handleConfirmDelete()
               }}
               disabled={isDeleting}
-              className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+              variant='destructive'
+              className='h-9 w-full rounded-sm'
             >
-              {isDeleting ? 'Deleting...' : 'Delete'}
+              Delete
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -248,3 +253,4 @@ export function IndicatorListItem({
     </div>
   )
 }
+

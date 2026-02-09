@@ -1,6 +1,6 @@
-import type { TradingProviderConfig } from '@/providers/trading/providers'
-import { alpacaTradingSymbolRules } from '@/providers/trading/alpaca/rules'
 import type { AssetClass } from '@/providers/market/types'
+import { alpacaTradingSymbolRules } from '@/providers/trading/alpaca/rules'
+import type { TradingProviderConfig } from '@/providers/trading/providers'
 
 const availableAssetClasses: AssetClass[] = ['stock']
 const supportsCrypto = availableAssetClasses.includes('crypto')
@@ -52,52 +52,27 @@ const exchangeCodesList: TradingProviderConfig['exchangeCodes'] = [
   'Z',
 ]
 
-const exchangeCodeToMicMap: TradingProviderConfig['exchangeCodeToMic'] = {
-  A: ['XASE'],
-  B: ['XBOS'],
-  C: ['XCIS'],
-  D: ['FINR'],
-  G: ['24EQ'],
-  H: ['MRPL'],
-  I: ['XISE'],
-  J: ['EDGA'],
-  K: ['EDGX'],
-  L: ['LTSE'],
-  M: ['XCHI'],
-  N: ['XNYS'],
-  P: ['ARCX'],
-  Q: ['XNAS'],
-  U: ['MEMX'],
-  V: ['IEXG'],
-  W: ['CBSX'],
-  X: ['XPSX'],
-  Y: ['BATY'],
-  Z: ['BATS'],
+const exchangeCodeToMarketMap: TradingProviderConfig['exchangeCodeToMarket'] = {
+  A: 'NYSE',
+  B: 'NASDAQ',
+  C: 'NYSE',
+  J: 'CBOE',
+  K: 'CBOE',
+  M: 'NYSE',
+  N: 'NYSE',
+  P: 'NYSE',
+  Q: 'NASDAQ',
+  W: 'CBOE',
+  X: 'NASDAQ',
+  Y: 'CBOE',
+  Z: 'CBOE',
 }
 
-const micToExchangeCodeMap: TradingProviderConfig['micToExchangeCode'] = {
-  XASE: 'A',
-  XBOS: 'B',
-  XCIS: 'C',
-  FINR: 'D',
-  '24EQ': 'G',
-  MRPL: 'H',
-  XISE: 'I',
-  EDGA: 'J',
-  EDGX: 'K',
-  LTSE: 'L',
-  XCHI: 'M',
-  XNYS: 'N',
-  ARCX: 'P',
-  XNAS: 'Q',
-  MEMX: 'U',
-  IEXG: 'V',
-  CBSX: 'W',
-  XPSX: 'X',
-  BATY: 'Y',
-  BATS: 'Z',
+const marketToExchangeCodeMap: TradingProviderConfig['marketToExchangeCode'] = {
+  NASDAQ: 'Q',
+  NYSE: 'N',
+  CBOE: 'J',
 }
-
 
 const availability: TradingProviderConfig['availability'] = {
   assetClass: availableAssetClasses,
@@ -186,7 +161,6 @@ const params: TradingProviderConfig['params'] = {
   ],
 }
 
-
 export const alpacaTradingProviderConfig: TradingProviderConfig = {
   id: 'alpaca',
   name: 'Alpaca',
@@ -239,17 +213,17 @@ export const alpacaTradingProviderConfig: TradingProviderConfig = {
     },
   },
   rulePrecedence: {
-    default: ['mic', 'currency', 'assetClass', 'country', 'city', 'listing'],
-    stock: ['mic', 'currency', 'country', 'city', 'listing'],
-    etf: ['mic', 'currency', 'country', 'city', 'listing'],
-    indice: ['mic', 'currency', 'country', 'city', 'listing'],
-    mutualfund: ['mic', 'currency', 'country', 'city', 'listing'],
-    future: ['mic', 'currency', 'country', 'city', 'listing'],
-    crypto: ['currency', 'mic', 'country', 'city', 'listing'],
-    currency: ['currency', 'mic', 'country', 'city', 'listing'],
+    default: ['market', 'currency', 'assetClass', 'country', 'city', 'listing'],
+    stock: ['market', 'currency', 'country', 'city', 'listing'],
+    etf: ['market', 'currency', 'country', 'city', 'listing'],
+    indice: ['market', 'currency', 'country', 'city', 'listing'],
+    mutualfund: ['market', 'currency', 'country', 'city', 'listing'],
+    future: ['market', 'currency', 'country', 'city', 'listing'],
+    crypto: ['currency', 'market', 'country', 'city', 'listing'],
+    currency: ['currency', 'market', 'country', 'city', 'listing'],
   },
-  exchangeCodeToMic: exchangeCodeToMicMap,
-  micToExchangeCode: micToExchangeCodeMap,
+  exchangeCodeToMarket: exchangeCodeToMarketMap,
+  marketToExchangeCode: marketToExchangeCodeMap,
   exchangeCodes: exchangeCodesList,
   rules: alpacaTradingSymbolRules,
 }

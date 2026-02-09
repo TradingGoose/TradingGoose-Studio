@@ -85,6 +85,7 @@ function buildChartUrl(symbol: string, request: MarketSeriesRequest): string {
   const period2 = toUnixSeconds(request.end)
   const isIntraday = /m$/i.test(interval) || /h$/i.test(interval)
   const rangeOverride = request.providerParams?.range as string | undefined
+  const marketSession = String(request.providerParams?.marketSession ?? '').toLowerCase()
 
   if (period1 && period2) {
     params.set('period1', String(period1))
@@ -96,6 +97,9 @@ function buildChartUrl(symbol: string, request: MarketSeriesRequest): string {
   }
 
   params.set('events', 'div,split')
+  if (marketSession === 'extended') {
+    params.set('includePrePost', 'true')
+  }
 
   const baseUrl = YahooFinanceProviderConfig.api_endpoints?.default
   if (!baseUrl) {
@@ -175,7 +179,7 @@ export async function fetchYahooFinanceSeries(
     listing: context.listing,
     listingBase: context.base,
     listingQuote: context.quote,
-    primaryMicCode: context.micCode ?? context.primaryMicCode,
+    marketCode: context.marketCode,
     start,
     end,
     timezone: context.timeZoneName,

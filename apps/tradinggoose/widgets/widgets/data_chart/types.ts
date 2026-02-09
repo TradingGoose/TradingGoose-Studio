@@ -1,28 +1,36 @@
+import type { MutableRefObject } from 'react'
+import type { IPaneApi, ISeriesApi } from 'lightweight-charts'
 import type { ListingIdentity } from '@/lib/listing/identity'
-import type { MarketInterval, MarketSeriesWindow } from '@/providers/market/types'
-import {
-  AreaChartIcon,
-  BarDownHollow,
-  BarHollow,
-  BarSolid,
-  BarStroke,
-  BarUpHollow,
-} from '@/components/icons/icons'
+import type { MarketInterval, MarketSessionWindow } from '@/providers/market/types'
+import type { BarMs } from '@/widgets/widgets/data_chart/series-data'
 
-export const CANDLE_TYPE_OPTIONS = [
-  { id: 'candle_solid', label: 'Solid', icon: BarSolid },
-  { id: 'candle_stroke', label: 'Hollow', icon: BarHollow },
-  { id: 'candle_up_stroke', label: 'Up Hollow', icon: BarUpHollow },
-  { id: 'candle_down_stroke', label: 'Down Hollow', icon: BarDownHollow },
-  { id: 'ohlc', label: 'Bar Stroke', icon: BarStroke },
-  { id: 'area', label: 'Area', icon: AreaChartIcon },
-] as const
+export type DataChartCandleType =
+  | 'candle_solid'
+  | 'candle_stroke'
+  | 'candle_up_stroke'
+  | 'candle_down_stroke'
+  | 'ohlc'
+  | 'area'
 
-export type DataChartCandleType = (typeof CANDLE_TYPE_OPTIONS)[number]['id']
-
-export type DataChartIndicatorRef = {
+export type IndicatorRef = {
   id: string
-  isCustom: boolean
+  inputs?: Record<string, unknown>
+  visible?: boolean
+}
+
+export type IndicatorRuntimePlot = {
+  key: string
+  title: string
+  color?: string
+  series: ISeriesApi<any>
+}
+
+export type IndicatorRuntimeEntry = {
+  id: string
+  pane: IPaneApi<any> | null
+  paneIndex: number
+  plots: IndicatorRuntimePlot[]
+  errorMessage?: string
 }
 
 export type DataChartAuthParams = {
@@ -36,8 +44,6 @@ export type DataChartDataParams = {
   providerParams?: Record<string, unknown>
   auth?: DataChartAuthParams
   interval?: MarketInterval | string
-  window?: MarketSeriesWindow
-  fallbackWindow?: MarketSeriesWindow
   live?: {
     enabled?: boolean
     interval?: MarketInterval | string
@@ -47,11 +53,16 @@ export type DataChartDataParams = {
 export type DataChartViewParams = {
   locale?: string
   timezone?: string
+  start?: number
+  end?: number
+  interval?: MarketInterval | string
+  marketSession?: 'regular' | 'extended'
   pricePrecision?: number
   volumePrecision?: number
   candleType?: DataChartCandleType
   priceAxisType?: 'normal' | 'percentage' | 'log'
-  indicators?: DataChartIndicatorRef[]
+  pineIndicators?: IndicatorRef[]
+  rangePresetId?: string
   stylesOverride?: Record<string, unknown>
 }
 
@@ -63,4 +74,15 @@ export type DataChartWidgetParams = {
   runtime?: {
     refreshAt?: number
   }
+}
+
+export type dataChartWidgetParams = DataChartWidgetParams
+
+export type DataChartDataContext = {
+  barsMsRef: MutableRefObject<BarMs[]>
+  indexByOpenTimeMsRef: MutableRefObject<Map<number, number>>
+  openTimeMsByIndexRef: MutableRefObject<number[]>
+  marketSessionsRef: MutableRefObject<MarketSessionWindow[]>
+  intervalMs: number | null
+  dataVersion: number
 }

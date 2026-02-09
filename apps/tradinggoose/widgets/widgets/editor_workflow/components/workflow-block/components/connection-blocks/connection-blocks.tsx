@@ -86,10 +86,10 @@ export function ConnectionBlocks({
     if (!blockConfig) {
       if (connection.type === 'loop') {
         Icon = RepeatIcon as typeof Icon
-        bgColor = '#2FB3FF' // Blue color for loop blocks
+        bgColor = '#00ccff' // Blue color for loop blocks
       } else if (connection.type === 'parallel') {
         Icon = SplitIcon as typeof Icon
-        bgColor = '#FEE12B' // Yellow color for parallel blocks
+        bgColor = '#ffdd00' // Yellow color for parallel blocks
       }
     }
 
@@ -109,9 +109,9 @@ export function ConnectionBlocks({
         {/* Block icon with color */}
         {Icon && (
           <div
-            className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-sm bg-secondary/60 text-foreground'
+            className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-xs bg-secondary text-foreground'
             style={{
-              backgroundColor: bgColor ? `${bgColor}30` : undefined,
+              backgroundColor: bgColor ? `${bgColor}20` : undefined,
               color: bgColor || undefined,
             }}
           >

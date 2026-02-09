@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { redactApiKeys } from '@/lib/utils'
+import { cn, redactApiKeys } from '@/lib/utils'
 
 interface JSONViewProps {
   data: any
+  wrapText?: boolean
 }
 
 const MAX_STRING_LENGTH = 150
@@ -149,7 +150,7 @@ const copyToClipboard = (data: any) => {
   navigator.clipboard.writeText(stringified)
 }
 
-export const JSONView = ({ data }: JSONViewProps) => {
+export const JSONView = ({ data, wrapText = true }: JSONViewProps) => {
   const [contextMenuPosition, setContextMenuPosition] = useState<{
     x: number
     y: number
@@ -180,7 +181,10 @@ export const JSONView = ({ data }: JSONViewProps) => {
     return (
       <span
         onContextMenu={handleContextMenu}
-        className='relative max-w-full overflow-hidden break-all font-[380] font-mono text-muted-foreground leading-normal'
+        className={cn(
+          'relative max-w-full font-[380] font-mono text-muted-foreground leading-normal',
+          wrapText ? 'overflow-hidden break-all' : 'overflow-x-auto whitespace-pre'
+        )}
       >
         {typeof redactedData === 'string' ? (
           <TruncatedValue value={stringValue} />
@@ -209,7 +213,12 @@ export const JSONView = ({ data }: JSONViewProps) => {
   // Default case: show JSON as formatted text with collapsible functionality
   return (
     <div onContextMenu={handleContextMenu}>
-      <pre className='max-w-full overflow-hidden whitespace-pre-wrap break-all font-mono'>
+      <pre
+        className={cn(
+          'max-w-full font-mono',
+          wrapText ? 'overflow-hidden whitespace-pre-wrap break-all' : 'overflow-x-auto whitespace-pre'
+        )}
+      >
         <CollapsibleJSON data={redactedData} />
       </pre>
       {contextMenuPosition && (

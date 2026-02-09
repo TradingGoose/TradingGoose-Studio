@@ -1,12 +1,13 @@
 'use client'
 
-import { Button } from '@/components/ui/button'
 import { Check, Save } from 'lucide-react'
-import { usePairColorContext } from '@/stores/dashboard/pair-store'
+import { Button } from '@/components/ui/button'
+import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
+import { useIndicatorsStore } from '@/stores/indicators/store'
 import type { PairColor } from '@/widgets/pair-colors'
-import { IndicatorDropdown } from '@/widgets/widgets/components/indicator-dropdown'
 import { emitIndicatorEditorAction } from '@/widgets/utils/indicator-editor-actions'
 import { emitIndicatorSelectionChange } from '@/widgets/utils/indicator-selection'
+import { IndicatorDropdown } from '@/widgets/widgets/components/pine-indicator-dropdown'
 
 interface IndicatorEditorSelectorProps {
   workspaceId?: string
@@ -26,14 +27,29 @@ export function IndicatorEditorSelector({
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
+  const setPairContext = useSetPairColorContext()
+
+  const fallbackIndicatorId = pairContext?.pineIndicatorId
+    ? null
+    : (pairContext?.indicatorId ?? null)
+  const fallbackIndicator = useIndicatorsStore((state) =>
+    fallbackIndicatorId
+      ? state.getIndicator(fallbackIndicatorId, workspaceId ?? undefined)
+      : undefined
+  )
 
   const resolvedIndicatorId = isLinkedToColorPair
-    ? pairContext?.indicatorId ?? null
-    : indicatorId ?? null
+    ? (pairContext?.pineIndicatorId ?? (fallbackIndicator ? fallbackIndicatorId : null))
+    : (indicatorId ?? null)
 
   const handleIndicatorChange = (ids: string[]) => {
     const nextId = ids[0] ?? null
-    if (isLinkedToColorPair) return
+    if (isLinkedToColorPair) {
+      if (pairContext?.pineIndicatorId === nextId) return
+      setPairContext(resolvedPairColor, { pineIndicatorId: nextId })
+      return
+    }
+    if (!widgetKey) return
 
     emitIndicatorSelectionChange({
       indicatorId: nextId,
@@ -45,14 +61,11 @@ export function IndicatorEditorSelector({
   return (
     <IndicatorDropdown
       workspaceId={workspaceId}
-      widgetKey={widgetKey}
-      pairColor={resolvedPairColor}
       value={resolvedIndicatorId ? [resolvedIndicatorId] : []}
       onChange={handleIndicatorChange}
-      selectionMode='single'
       placeholder='Select indicator'
+      selectionMode='single'
       triggerClassName='min-w-[220px]'
-      allowDrafts
     />
   )
 }
@@ -76,6 +89,15 @@ export function IndicatorEditorSaveButton({
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
 
+  const fallbackIndicatorId = pairContext?.pineIndicatorId
+    ? null
+    : (pairContext?.indicatorId ?? null)
+  const fallbackIndicator = useIndicatorsStore((state) =>
+    fallbackIndicatorId
+      ? state.getIndicator(fallbackIndicatorId, workspaceId ?? undefined)
+      : undefined
+  )
+
   const handleSave = () => {
     emitIndicatorEditorAction({
       action: 'save',
@@ -85,8 +107,8 @@ export function IndicatorEditorSaveButton({
   }
 
   const resolvedIndicatorId = isLinkedToColorPair
-    ? pairContext?.indicatorId ?? null
-    : indicatorId ?? null
+    ? (pairContext?.pineIndicatorId ?? (fallbackIndicator ? fallbackIndicatorId : null))
+    : (indicatorId ?? null)
   const saveDisabled = !workspaceId || !resolvedIndicatorId
 
   return (
@@ -94,7 +116,7 @@ export function IndicatorEditorSaveButton({
       type='button'
       variant='default'
       size='sm'
-      className='h-7 w-7  text-xs'
+      className='h-7 w-7 text-xs'
       onClick={handleSave}
       disabled={saveDisabled}
     >
@@ -122,6 +144,15 @@ export function IndicatorEditorVerifyButton({
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
 
+  const fallbackIndicatorId = pairContext?.pineIndicatorId
+    ? null
+    : (pairContext?.indicatorId ?? null)
+  const fallbackIndicator = useIndicatorsStore((state) =>
+    fallbackIndicatorId
+      ? state.getIndicator(fallbackIndicatorId, workspaceId ?? undefined)
+      : undefined
+  )
+
   const handleVerify = () => {
     emitIndicatorEditorAction({
       action: 'verify',
@@ -131,8 +162,8 @@ export function IndicatorEditorVerifyButton({
   }
 
   const resolvedIndicatorId = isLinkedToColorPair
-    ? pairContext?.indicatorId ?? null
-    : indicatorId ?? null
+    ? (pairContext?.pineIndicatorId ?? (fallbackIndicator ? fallbackIndicatorId : null))
+    : (indicatorId ?? null)
   const verifyDisabled = !workspaceId || !resolvedIndicatorId
 
   return (

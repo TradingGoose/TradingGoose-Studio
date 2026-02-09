@@ -103,7 +103,7 @@ export function useWorkflowExecution() {
     state.getActiveWorkflowId(channelId)
   )
   const activeWorkflowId = routeWorkflowId ?? registryWorkflowId
-  const { toggleConsole } = useConsoleStore()
+  const { toggleConsole, cancelRunningEntries } = useConsoleStore()
   const { getAllVariables, loadWorkspaceEnvironment } = useEnvironmentStore()
   const { getVariablesByWorkflowId, variables } = useVariablesStore()
   const {
@@ -577,18 +577,34 @@ export function useWorkflowExecution() {
                 if (result.logs) {
                   result.logs.forEach((log: BlockLog) => {
                     if (streamedContent.has(log.blockId)) {
-                      // For console display, show the actual structured block output instead of formatted streaming content
-                      // This ensures console logs match the block state structure
-                      // Use replaceOutput to completely replace the output instead of merging
-                      // Use the executionId from this execution context
-                      useConsoleStore.getState().updateConsole(
-                        log.blockId,
-                        {
+                      const { entries, updateConsole, updateConsoleEntry } =
+                        useConsoleStore.getState()
+                      const matchingEntry = entries.find(
+                        (entry) =>
+                          entry.blockId === log.blockId &&
+                          entry.executionId === executionId &&
+                          entry.startedAt === log.startedAt
+                      )
+
+                      if (matchingEntry) {
+                        updateConsoleEntry(matchingEntry.id, {
                           replaceOutput: log.output,
                           success: true,
-                        },
-                        executionId
-                      )
+                          isRunning: false,
+                          isCanceled: false,
+                          endedAt: log.endedAt,
+                          durationMs: log.durationMs,
+                        })
+                      } else {
+                        updateConsole(
+                          log.blockId,
+                          {
+                            replaceOutput: log.output,
+                            success: true,
+                          },
+                          executionId
+                        )
+                      }
                     }
                   })
 
@@ -1241,6 +1257,10 @@ export function useWorkflowExecution() {
       executor.cancel()
     }
 
+    if (activeWorkflowId) {
+      cancelRunningEntries(activeWorkflowId)
+    }
+
     // Reset execution state
     setIsExecuting(false)
     setIsDebugging(false)
@@ -1250,7 +1270,16 @@ export function useWorkflowExecution() {
     if (isDebugging) {
       resetDebugState()
     }
-  }, [executor, isDebugging, resetDebugState, setIsExecuting, setIsDebugging, setActiveBlocks])
+  }, [
+    executor,
+    isDebugging,
+    resetDebugState,
+    setIsExecuting,
+    setIsDebugging,
+    setActiveBlocks,
+    activeWorkflowId,
+    cancelRunningEntries,
+  ])
 
   return {
     isExecuting,

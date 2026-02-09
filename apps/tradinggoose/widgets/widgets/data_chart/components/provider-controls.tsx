@@ -14,9 +14,13 @@ import { MarketProviderSelector } from '@/widgets/widgets/components/market-prov
 import { widgetHeaderIconButtonClassName } from '@/widgets/widgets/components/widget-header-control'
 import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
 import { ShortInput } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/short-input'
-import { providerOptions } from '@/widgets/widgets/data_chart/constants'
-import type { DataChartAuthParams, DataChartDataParams, DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
-import { coerceProviderParams } from '@/widgets/widgets/data_chart/utils'
+import { providerOptions } from '@/widgets/widgets/data_chart/options'
+import type {
+  DataChartAuthParams,
+  DataChartDataParams,
+  DataChartWidgetParams,
+} from '@/widgets/widgets/data_chart/types'
+import { coerceProviderParams } from '@/widgets/widgets/data_chart/series-window'
 
 type DataChartProviderControlsProps = {
   widgetKey?: string
@@ -252,6 +256,7 @@ export const DataChartProviderSettingsButton = ({
 type ProviderSelectorProps = {
   providerId?: string
   dataParams?: DataChartDataParams
+  viewParams?: DataChartWidgetParams['view']
   panelId?: string
   widgetKey?: string
 }
@@ -259,21 +264,25 @@ type ProviderSelectorProps = {
 export const DataChartProviderSelector = ({
   providerId,
   dataParams,
+  viewParams,
   panelId,
   widgetKey,
 }: ProviderSelectorProps) => {
   const handleProviderChange = (nextProvider: string) => {
     if (!nextProvider || nextProvider === providerId) return
 
+    const nextData = { ...(dataParams ?? {}) } as Record<string, unknown>
+    delete nextData.window
+    delete nextData.fallbackWindow
+    nextData.provider = nextProvider
+
+    const nextView = { ...(viewParams ?? {}) } as Record<string, unknown>
+    delete nextView.rangePresetId
+
     emitDataChartParamsChange({
       params: {
-        data: {
-          ...(dataParams ?? {}),
-          provider: nextProvider,
-          interval: undefined,
-          window: undefined,
-          fallbackWindow: undefined,
-        },
+        data: nextData,
+        view: nextView,
       },
       panelId,
       widgetKey,
@@ -345,6 +354,7 @@ export const DataChartProviderControls = ({
       <DataChartProviderSelector
         providerId={providerId}
         dataParams={params.data}
+        viewParams={params.view}
         panelId={panelId}
         widgetKey={widgetKey}
       />

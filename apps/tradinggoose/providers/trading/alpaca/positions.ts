@@ -1,12 +1,12 @@
+import { buildAlpacaAuthHeaders } from '@/providers/trading/alpaca/auth'
 import type {
   TradingHoldingsInput,
-  TradingRequestConfig,
   TradingHoldingsNormalizationContext,
+  TradingRequestConfig,
   UnifiedTradingAccountSnapshot,
   UnifiedTradingPosition,
   UnifiedTradingSymbol,
 } from '@/providers/trading/types'
-import { buildAlpacaAuthHeaders } from '@/providers/trading/alpaca/auth'
 
 const DEFAULT_BASE_CURRENCY = 'USD'
 
@@ -16,7 +16,7 @@ const toNumber = (value: unknown): number | undefined => {
 }
 
 const sumNumbers = (values: Array<number | undefined>): number =>
-  values.reduce((total, value) => (typeof value === 'number' ? total + value : total), 0)
+  values.reduce<number>((total, value) => (typeof value === 'number' ? total + value : total), 0)
 
 const mapSide = (value: unknown): UnifiedTradingPosition['side'] => {
   if (typeof value !== 'string') return 'unknown'
@@ -78,9 +78,7 @@ const getCurrencySymbol = (currency?: string) => {
   }
 }
 
-export const buildAlpacaHoldingsRequest = (
-  params: TradingHoldingsInput
-): TradingRequestConfig => {
+export const buildAlpacaHoldingsRequest = (params: TradingHoldingsInput): TradingRequestConfig => {
   const authHeaders = buildAlpacaAuthHeaders(params)
 
   const baseUrl =
@@ -118,8 +116,6 @@ export const normalizeAlpacaHoldings = (
         base,
         quote,
         name: null,
-        primaryMicId: null,
-        secondaryMicIds: [],
         assetClass,
         active: true,
         rank: 0,
@@ -139,9 +135,7 @@ export const normalizeAlpacaHoldings = (
     }
   })
 
-  const totalHoldingsValue = sumNumbers(
-    normalizedPositions.map((position) => position.marketValue)
-  )
+  const totalHoldingsValue = sumNumbers(normalizedPositions.map((position) => position.marketValue))
   const totalUnrealizedPnl = sumNumbers(
     normalizedPositions.map((position) => position.unrealizedPnl)
   )

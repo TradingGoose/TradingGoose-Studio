@@ -59,6 +59,7 @@ export const ApiBlock: BlockConfig<RequestResponse> = {
       title: 'Body',
       type: 'code',
       layout: 'full',
+      language: 'json',
       placeholder: 'Enter JSON...',
       wandConfig: {
         enabled: true,

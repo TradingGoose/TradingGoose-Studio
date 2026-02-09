@@ -252,12 +252,12 @@ export function OutputSelect({
     const filteredOutputs = !normalizedQuery
       ? workflowOutputs
       : workflowOutputs.filter((output) => {
-          return (
-            output.label.toLowerCase().includes(normalizedQuery) ||
-            output.blockName.toLowerCase().includes(normalizedQuery) ||
-            output.path.toLowerCase().includes(normalizedQuery)
-          )
-        })
+        return (
+          output.label.toLowerCase().includes(normalizedQuery) ||
+          output.blockName.toLowerCase().includes(normalizedQuery) ||
+          output.path.toLowerCase().includes(normalizedQuery)
+        )
+      })
 
     const groups: Record<string, typeof workflowOutputs> = {}
     const blockDistances: Record<string, number> = {}
@@ -368,17 +368,17 @@ export function OutputSelect({
   const triggerButtonClassName = triggerClassName
     ? cn(triggerClassName, 'justify-between')
     : cn(
-        'flex h-9 w-full items-center justify-between rounded-sm px-3 py-1.5 font-normal text-sm shadow-xs transition-colors',
-        isOutputDropdownOpen
-          ? 'bg-background text-muted-foreground'
-          : 'bg-background text-muted-foreground hover:text-muted-foreground'
-      )
+      'flex h-9 w-full items-center justify-between rounded-sm px-3 py-1.5 font-normal text-sm shadow-xs transition-colors',
+      isOutputDropdownOpen
+        ? 'bg-background text-muted-foreground'
+        : 'bg-background text-muted-foreground hover:text-muted-foreground'
+    )
 
   const colorBadge = selectedOutputInfo ? (
     <div
       className='h-5 w-5 p-0.5 rounded-xs'
       style={{
-        backgroundColor: selectedOutputColor ? `${selectedOutputColor}50` : undefined,
+        backgroundColor: selectedOutputColor ? `${selectedOutputColor}20` : undefined,
       }}
       aria-hidden='true'
     >
@@ -571,7 +571,7 @@ export function OutputSelect({
                                   <div
                                     className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-xs'
                                     style={{
-                                      backgroundColor: outputColor ? `${outputColor}30` : undefined,
+                                      backgroundColor: outputColor ? `${outputColor}20` : undefined,
                                       color: outputColor || undefined,
                                     }}
                                   >

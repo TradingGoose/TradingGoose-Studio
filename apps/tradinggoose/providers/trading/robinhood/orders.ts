@@ -1,13 +1,11 @@
+import { normalizeRobinhoodListingSymbol } from '@/providers/trading/robinhood/listing'
 import type {
   TradingOrder,
   TradingOrderInput,
   TradingRequestConfig,
 } from '@/providers/trading/types'
-import { normalizeRobinhoodListingSymbol } from '@/providers/trading/robinhood/listing'
 
-export const buildRobinhoodOrderRequest = (
-  params: TradingOrderInput
-): TradingRequestConfig => {
+export const buildRobinhoodOrderRequest = (params: TradingOrderInput): TradingRequestConfig => {
   if (!params.accessToken) {
     throw new Error('Robinhood access token is required')
   }
@@ -23,7 +21,7 @@ export const buildRobinhoodOrderRequest = (
     base: params.base,
     quote: params.quote,
     assetClass: params.assetClass,
-    micCode: params.micCode,
+    marketCode: params.marketCode,
     countryCode: params.countryCode,
     cityName: params.cityName,
     timeZoneName: params.timeZoneName,
@@ -42,7 +40,7 @@ export const buildRobinhoodOrderRequest = (
   }
 
   if (body.type === 'market') {
-    delete body.price
+    body.price = undefined
   }
 
   return {

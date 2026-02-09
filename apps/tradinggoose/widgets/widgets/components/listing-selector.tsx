@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import type { ListingOption } from '@/lib/listing/identity'
 import { resolveListingKey, toListingValue, toListingValueObject } from '@/lib/listing/identity'
-import { resolveListingIdentity } from '@/lib/listing/resolve'
+import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import {
   createEmptyListingSelectorInstance,
   useListingSelectorStore,
@@ -19,7 +19,7 @@ import { useMarketListingSearch } from '@/components/listing-selector/selector/u
 import {
   triggerCryptoRankUpdate,
   triggerCurrencyRankUpdate,
-  triggerEquityRankUpdate,
+  triggerListingRankUpdate,
 } from '@/components/listing-selector/listing/rank-updates'
 import { widgetHeaderControlClassName } from '@/widgets/widgets/components/widget-header-control'
 
@@ -55,7 +55,7 @@ const hasListingDetails = (listing?: ListingOption | null): boolean => {
   if (!listing) return false
   const base = listing.base?.trim()
   if (!base) return false
-  if (listing.listing_type === 'equity') return true
+  if (listing.listing_type === 'default') return true
   const quote = listing.quote?.trim()
   return Boolean(quote)
 }
@@ -93,7 +93,7 @@ const ListingSelectorRow = ({ listing }: { listing?: ListingOption | null }) => 
 
   return (
     <div className='flex min-w-0 flex-1 items-center gap-2 flex items-center'>
-      <Avatar className='h-4 w-4 rounded-xs bg-secondary/60'>
+      <Avatar className='h-4 w-4 rounded-xs bg-secondary'>
         {listing?.iconUrl ? <AvatarImage src={listing.iconUrl} alt={symbol} /> : null}
         <AvatarFallback className='text-xs text-accent-foreground'>
           {listing ? getListingFallback(listing) : '??'}
@@ -113,7 +113,7 @@ const ListingSelectorRow = ({ listing }: { listing?: ListingOption | null }) => 
         <span className='ml-1 text-xs'>{flagData.emoji}</span>
       ) : null}
       {assetClassLabel && listing ? (
-        <span className='ml-auto text-xs font-semibold text-muted-foreground'>
+        <span className='ml-auto p-1 text-xs font-semibold text-muted-foreground'>
           {assetClassLabel}
         </span>
       ) : null}
@@ -247,7 +247,7 @@ export function ListingSelector({
     setHighlightedIndex(-1)
     setShowTags(false)
     setVariableCommitted(false)
-    triggerEquityRankUpdate(listing)
+    triggerListingRankUpdate(listing)
     const listingType = listing.listing_type
     if (listingType === 'crypto' && listing.base_id) {
       triggerCryptoRankUpdate(listing.base_id)
@@ -308,7 +308,7 @@ export function ListingSelector({
     const requestId = ++hydrateRequestRef.current
     let cancelled = false
 
-    resolveListingIdentity(identity)
+    requestListingResolution(identity)
       .then((resolved) => {
         if (cancelled || hydrateRequestRef.current !== requestId) return
         if (!resolved) return
@@ -550,17 +550,17 @@ export function ListingSelector({
           disabled={disabled}
         />
         {showRichOverlay ? (
-          <div className='pointer-events-none absolute inset-y-0 left-0 flex items-center px-2 w-full'>
+          <div className='pointer-events-none absolute inset-y-0 left-0 flex items-center px-1 w-full'>
             <ListingSelectorRow listing={selectedListing} />
           </div>
         ) : null}
         {showPlaceholderOverlay ? (
-          <div className='pointer-events-none absolute inset-y-0 left-0 flex items-center px-2 w-full'>
+          <div className='pointer-events-none absolute inset-y-0 left-0 flex items-center px-1 w-full'>
             <ListingSelectorRow listing={null} />
           </div>
         ) : null}
         {showTagOverlay ? (
-          <div className='pointer-events-none absolute inset-y-0 left-0 flex items-center px-2 w-full'>
+          <div className='pointer-events-none absolute inset-y-0 left-0 flex items-center px-1 w-full'>
             <div className='w-full truncate text-sm'>
               {formatDisplayText(query, {
                 accessiblePrefixes,

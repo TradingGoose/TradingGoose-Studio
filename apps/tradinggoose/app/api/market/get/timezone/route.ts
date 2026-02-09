@@ -4,17 +4,15 @@ import { proxyMarketRequest } from '@/app/api/market/proxy'
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
-  const params = new URLSearchParams(request.nextUrl.searchParams)
-  const timezoneName =
-    params.get('timezone_name')?.trim() ||
-    params.get('timezone')?.trim() ||
-    params.get('name')?.trim() ||
-    null
-
+  const params = new URLSearchParams()
+  const timezoneName = request.nextUrl.searchParams.get('timezone_name')?.trim() || null
   if (timezoneName) {
     params.set('timezone_name', timezoneName)
-    params.delete('timezone')
-    params.delete('name')
+  }
+
+  const version = request.nextUrl.searchParams.get('version')?.trim()
+  if (version) {
+    params.set('version', version)
   }
 
   return proxyMarketRequest(request, ['get', 'timezone'], params)

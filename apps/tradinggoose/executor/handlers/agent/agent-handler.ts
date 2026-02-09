@@ -20,7 +20,7 @@ import { getTool, getToolAsync } from '@/tools/utils'
 const logger = createLogger('AgentBlockHandler')
 
 const DEFAULT_MODEL = 'gpt-4o'
-const DEFAULT_FUNCTION_TIMEOUT = 5000
+const DEFAULT_FUNCTION_TIMEOUT = 600000
 const REQUEST_TIMEOUT = 120000
 const CUSTOM_TOOL_PREFIX = 'custom_'
 
@@ -225,7 +225,6 @@ export class AgentBlockHandler implements BlockHandler {
               workspaceId: context.workspaceId,
             },
           },
-          false, // skipProxy
           false, // skipPostProcess
           context // execution context for file processing
         )
@@ -926,6 +925,7 @@ export class AgentBlockHandler implements BlockHandler {
   private createResponseMetadata(result: any) {
     return {
       tokens: result.tokens || { prompt: 0, completion: 0, total: 0 },
+      toolResults: Array.isArray(result.toolResults) ? result.toolResults : [],
       toolCalls: {
         list: result.toolCalls ? result.toolCalls.map(this.formatToolCall.bind(this)) : [],
         count: result.toolCalls?.length || 0,

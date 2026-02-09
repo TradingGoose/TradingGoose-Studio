@@ -207,6 +207,7 @@ export const RouterBlock: BlockConfig<RouterResponse> = {
       title: 'System Prompt',
       type: 'code',
       layout: 'full',
+      language: 'plaintext',
       hidden: true,
       value: (params: Record<string, any>) => {
         return generateRouterPrompt(params.prompt || '')

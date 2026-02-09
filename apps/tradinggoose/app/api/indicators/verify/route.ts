@@ -1,110 +1,31 @@
-import { Script, createContext } from 'vm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
-import {
-  compileIndicatorOutput,
-  looksLikeFunctionExpression,
-  type IndicatorExecutor,
-  type IndicatorExecutionError,
-} from '@/lib/indicators/custom/compile'
 import { createLogger } from '@/lib/logs/console/logger'
-import { generateMockMarketSeries, marketSeriesToKLineData } from '@/lib/market/mock-series'
+import { generateMockMarketSeries } from '@/lib/market/mock-series'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
-import type { CustomIndicatorDefinition } from '@/stores/custom-indicators/types'
+import { compileIndicator } from '@/lib/indicators/custom/compile'
+import { mapMarketSeriesToBarsMs } from '@/lib/indicators/series-data'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+export const maxDuration = 30
 
 const logger = createLogger('IndicatorVerifyAPI')
+const VERIFY_EXECUTION_TIMEOUT_MS = 8000
+const MAX_BARS = 500
 
-const VerifyIndicatorSchema = z.object({
+const VerifySchema = z.object({
   workspaceId: z.string().min(1, 'workspaceId is required'),
-  code: z.string().min(1, 'code is required'),
+  pineCode: z.string().min(1, 'pineCode is required'),
+  inputs: z.record(z.any()).optional(),
 })
 
 const resolveErrorCode = (message: string) => {
   if (message.includes('typescript')) return 'ts_error'
-  if (message.includes('empty code') || message.includes('Draft indicator')) {
-    return 'empty_code'
-  }
+  if (message.includes('empty code')) return 'empty_code'
   return 'runtime_error'
-}
-
-const parseExecutionError = (
-  error: unknown,
-  lineOffset: number
-): IndicatorExecutionError => {
-  const message = error instanceof Error ? error.message : String(error)
-  const stack = error instanceof Error ? error.stack : undefined
-  let line: number | undefined
-  let column: number | undefined
-
-  if (stack) {
-    const match = stack.match(/indicator-code\.js:(\d+):(\d+)/)
-    if (match) {
-      const parsedLine = Number.parseInt(match[1] ?? '', 10)
-      const parsedColumn = Number.parseInt(match[2] ?? '', 10)
-      if (Number.isFinite(parsedLine)) {
-        const adjustedLine = parsedLine - lineOffset
-        if (adjustedLine > 0) {
-          line = adjustedLine
-          column = Number.isFinite(parsedColumn) ? parsedColumn : undefined
-        }
-      }
-    }
-  }
-
-  return { message, line, column, stack }
-}
-
-const executeIndicatorInVm: IndicatorExecutor = ({ code, context }) => {
-  const trimmed = code.trim()
-  if (!trimmed) {
-    return { error: { message: 'empty code' } }
-  }
-
-  const sandbox = {
-    dataList: context.dataList,
-    indicator: context.indicator,
-    Math,
-    Date,
-    console: {
-      log: () => {},
-      warn: () => {},
-      error: () => {},
-    },
-  }
-
-  const vmContext = createContext(sandbox)
-
-  if (looksLikeFunctionExpression(trimmed)) {
-    try {
-      const script = new Script(`(${trimmed})`, { filename: 'indicator-code.js' })
-      const fn = script.runInContext(vmContext)
-      if (typeof fn !== 'function') {
-        return { error: { message: 'Expected a function expression' } }
-      }
-      return { result: fn(context.dataList, context.indicator) }
-    } catch (error) {
-      return { error: parseExecutionError(error, 0) }
-    }
-  }
-
-  try {
-    const wrapped = ['(function(dataList, indicator) {', '"use strict";', code, '})'].join(
-      '\n'
-    )
-    const script = new Script(wrapped, { filename: 'indicator-code.js' })
-    const fn = script.runInContext(vmContext)
-    if (typeof fn !== 'function') {
-      return { error: { message: 'Failed to compile indicator function' } }
-    }
-    return { result: fn(context.dataList, context.indicator) }
-  } catch (error) {
-    return { error: parseExecutionError(error, 2) }
-  }
 }
 
 const hasAnyNumericValue = (values: Array<number | null>) =>
@@ -121,13 +42,13 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}))
-    const parsed = VerifyIndicatorSchema.safeParse(body)
+    const parsed = VerifySchema.safeParse(body)
     if (!parsed.success) {
       const message = parsed.error.errors[0]?.message ?? 'Invalid request'
       return NextResponse.json({ success: false, error: message }, { status: 400 })
     }
 
-    const { workspaceId, code } = parsed.data
+    const { workspaceId, pineCode, inputs } = parsed.data
 
     const permission = await getUserEntityPermissions(authResult.userId, 'workspace', workspaceId)
     if (!permission) {
@@ -142,47 +63,82 @@ export async function POST(request: NextRequest) {
     }
 
     const series = generateMockMarketSeries()
-    const dataList = marketSeriesToKLineData(series)
+    const barsMs = mapMarketSeriesToBarsMs(series).slice(0, MAX_BARS)
 
-    const indicator: CustomIndicatorDefinition = {
-      id: `verify-${requestId}`,
-      workspaceId,
-      userId: authResult.userId,
-      name: 'Verification Indicator',
-      color: undefined,
-      calcCode: code,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+    const compilePromise = compileIndicator({
+      pineCode,
+      barsMs,
+      inputsMap: inputs ?? {},
+      listingKey: 'mock',
+      interval: '1d',
+      intervalMs: 86_400_000,
+    })
+
+    const compiled = await Promise.race([
+      compilePromise,
+      new Promise<null>((_resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          clearTimeout(timeoutId)
+          reject(new Error('Execution timed out'))
+        }, VERIFY_EXECUTION_TIMEOUT_MS)
+      }),
+    ])
+
+    if (!compiled) {
+      return NextResponse.json(
+        { success: false, error: 'Failed to verify indicator', code: 'runtime_error' },
+        { status: 400 }
+      )
     }
 
-    const compiled = compileIndicatorOutput(indicator, dataList, executeIndicatorInVm)
-
-    if (!compiled.output) {
-      const errorMessage = compiled.errors[0] ?? 'Failed to compile indicator'
-      const errorPayload = {
-        success: false,
-        error: errorMessage,
-        code: resolveErrorCode(errorMessage),
-        debug: compiled.executionError,
-      }
-      return NextResponse.json(errorPayload, { status: 400 })
-    }
-
-    if (compiled.output.plots.length === 0 && compiled.output.signals.length === 0) {
+    if (compiled.unsupportedFeatures && compiled.unsupportedFeatures.length > 0) {
       return NextResponse.json(
         {
           success: false,
-          error: 'No plots or signals returned. Did you forget to return an object?',
+          error: `${compiled.unsupportedFeatures[0]} is not supported`,
+          code: 'unsupported_feature',
+          unsupported: { features: compiled.unsupportedFeatures },
+        },
+        { status: 400 }
+      )
+    }
+
+    if (!compiled.output) {
+      const message = compiled.executionError?.message ?? 'Failed to compile indicator'
+      const errorPayload = {
+        success: false,
+        error: message,
+        code: resolveErrorCode(message),
+      }
+      logger.warn(`[${requestId}] Indicator verify failed`, {
+        executionError: compiled.executionError,
+      })
+      return NextResponse.json(errorPayload, { status: 400 })
+    }
+
+    const output = compiled.output
+    const plotsCount = output.series.length
+    const markersCount = output.markers.length
+    const drawingsCount = output.drawings.length
+    const signalsCount = output.signals.length
+
+    if (plotsCount === 0 && markersCount === 0 && signalsCount === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'No plots or markers returned. Did you forget to plot?',
           code: 'invalid_output',
         },
         { status: 400 }
       )
     }
 
-    const warnings: Array<{ code: string; message: string }> = []
+    const warnings = [...compiled.warnings]
 
-    if (compiled.output.plots.length > 0) {
-      const hasPlotValues = compiled.output.plots.some((plot) => hasAnyNumericValue(plot.data))
+    if (plotsCount > 0) {
+      const hasPlotValues = output.series.some((plot) =>
+        hasAnyNumericValue(plot.points.map((point) => point.value))
+      )
       if (!hasPlotValues) {
         warnings.push({
           code: 'all_plots_null',
@@ -191,14 +147,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (compiled.output.signals.length > 0) {
-      const hasSignalValues = compiled.output.signals.some((signal) =>
-        hasAnyNumericValue(signal.data)
+    if (markersCount > 0) {
+      const hasMarkerValues = output.markers.some(
+        (marker) => typeof marker.time === 'number' && Number.isFinite(marker.time)
       )
-      if (!hasSignalValues) {
+      if (!hasMarkerValues) {
         warnings.push({
-          code: 'all_signals_null',
-          message: 'All signal values are null. Ensure signals emit price levels.',
+          code: 'all_markers_null',
+          message: 'All markers are null. Ensure plots emit valid values.',
         })
       }
     }
@@ -206,21 +162,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        plotsCount: compiled.output.plots.length,
-        signalsCount: compiled.output.signals.length,
+        plotsCount,
+        markersCount,
+        drawingsCount,
+        signalsCount,
         warnings,
-        outputPreview: {
-          name: compiled.output.name,
-          plots: compiled.output.plots.map((plot) => ({
-            key: plot.key,
-            title: plot.title,
-            overlay: plot.overlay,
-          })),
-          signals: compiled.output.signals.map((signal) => ({ type: signal.type })),
-        },
+        unsupported: output.unsupported,
       },
     })
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (message.toLowerCase().includes('timed out')) {
+      return NextResponse.json(
+        { success: false, error: 'Verification timed out', code: 'runtime_error' },
+        { status: 408 }
+      )
+    }
     logger.error(`[${requestId}] Indicator verify failed`, { error })
     return NextResponse.json(
       { success: false, error: 'Failed to verify indicator' },

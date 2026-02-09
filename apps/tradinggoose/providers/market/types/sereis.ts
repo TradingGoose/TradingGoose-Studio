@@ -14,7 +14,7 @@ export type MarketSeriesWindow =
   | { mode: 'absolute'; start: string | number; end?: string | number }
 
 export interface MarketBar {
-  timeStamp: string // ISO timestamp (or date string)
+  timeStamp: string // ISO timestamp
   open?: number
   high?: number
   low?: number
@@ -35,15 +35,28 @@ export const NORMALIZATION_MODES = [
 ] as const
 export type NormalizationMode = (typeof NORMALIZATION_MODES)[number]
 
+export type MarketSessionType = 'premarket' | 'market' | 'postmarket'
+export type MarketSessionMode = 'regular' | 'extended'
+
+export interface MarketSessionWindow {
+  date: string // YYYY-MM-DD (market local date)
+  type: MarketSessionType
+  start: string // ISO timestamp (UTC)
+  end: string // ISO timestamp (UTC)
+  timezone?: string
+  utcOffset?: string
+}
+
 export interface MarketSeries {
   listingBase?: string
   listingQuote?: string
-  primaryMicCode?: string
+  marketCode?: string
   listing?: ListingIdentity | null
   start?: string
   end?: string
   timezone?: string // IANA tz, e.g. "America/New_York"
   normalizationMode?: NormalizationMode
+  marketSessions?: MarketSessionWindow[]
   bars: MarketBar[]
 }
 

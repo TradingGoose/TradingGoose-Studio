@@ -382,7 +382,7 @@ export async function fetchAlphaVantageSeries(
     listing: context.listing,
     listingBase: context.base,
     listingQuote: context.quote,
-    primaryMicCode: context.micCode ?? context.primaryMicCode,
+    marketCode: context.marketCode,
     start: filteredBars[0]?.timeStamp,
     end: filteredBars[filteredBars.length - 1]?.timeStamp,
     timezone: context.timeZoneName,

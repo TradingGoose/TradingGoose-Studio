@@ -40,6 +40,7 @@ interface AgentResponse extends ToolResponse {
       completion?: number
       total?: number
     }
+    toolResults?: any[]
     toolCalls?: {
       list: Array<{
         name: string
@@ -532,5 +533,6 @@ Example 3 (Array Input):
     model: { type: 'string', description: 'Model used for generation' },
     tokens: { type: 'any', description: 'Token usage statistics' },
     toolCalls: { type: 'any', description: 'Tool calls made' },
+    toolResults: { type: 'any', description: 'Tool results returned by the provider' },
   },
 }

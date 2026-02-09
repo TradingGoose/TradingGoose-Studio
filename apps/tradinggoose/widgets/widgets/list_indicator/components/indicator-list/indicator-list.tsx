@@ -2,21 +2,21 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
+import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import {
-  useCustomIndicators,
-  useDeleteCustomIndicator,
-  useUpdateCustomIndicator,
-} from '@/hooks/queries/custom-indicators'
-import { useCustomIndicatorsStore } from '@/stores/custom-indicators/store'
-import type { CustomIndicatorDefinition } from '@/stores/custom-indicators/types'
+  useDeleteIndicator,
+  useIndicators,
+  useUpdateIndicator,
+} from '@/hooks/queries/indicators'
+import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
+import { useIndicatorsStore } from '@/stores/indicators/store'
+import type { IndicatorDefinition } from '@/stores/indicators/types'
+import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
 import {
   emitIndicatorSelectionChange,
   useIndicatorSelectionPersistence,
 } from '@/widgets/utils/indicator-selection'
-import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import type { PairColor } from '@/widgets/pair-colors'
 import { IndicatorListItem } from './components/indicator-list-item'
 
 export const IndicatorListMessage = ({ message }: { message: string }) => (
@@ -29,16 +29,15 @@ export function IndicatorList({
   context,
   params,
   onWidgetParamsChange,
-  widget,
   panelId,
   pairColor = 'gray',
 }: WidgetComponentProps) {
   const workspaceId = context?.workspaceId ?? null
   const permissions = useUserPermissionsContext()
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
-  const { data: indicators = [], isLoading, error } = useCustomIndicators(workspaceId ?? '')
-  const deleteMutation = useDeleteCustomIndicator()
-  const updateMutation = useUpdateCustomIndicator()
+  const { data: indicators = [], isLoading, error } = useIndicators(workspaceId ?? '')
+  const deleteMutation = useDeleteIndicator()
+  const updateMutation = useUpdateIndicator()
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -47,17 +46,16 @@ export function IndicatorList({
   useIndicatorSelectionPersistence({
     onWidgetParamsChange,
     panelId,
-    widget,
     params,
     pairColor: resolvedPairColor,
     onIndicatorSelect: (indicatorId) => {
       if (!isLinkedToColorPair) return
-      if (pairContext?.indicatorId === indicatorId) return
-      setPairContext(resolvedPairColor, { indicatorId })
+      if (pairContext?.pineIndicatorId === indicatorId) return
+      setPairContext(resolvedPairColor, { pineIndicatorId: indicatorId })
     },
   })
 
-  const storedIndicators = useCustomIndicatorsStore((state) =>
+  const storedIndicators = useIndicatorsStore((state) =>
     state.getAllIndicators(workspaceId ?? undefined)
   )
 
@@ -65,18 +63,18 @@ export function IndicatorList({
 
   const selectedIndicatorId = useMemo(() => {
     if (isLinkedToColorPair) {
-      return pairContext?.indicatorId ?? null
+      return pairContext?.pineIndicatorId ?? null
     }
     if (!params || typeof params !== 'object') return null
-    const value = (params as Record<string, unknown>).indicatorId
+    const value = (params as Record<string, unknown>).pineIndicatorId
     return typeof value === 'string' && value.trim().length > 0 ? value : null
-  }, [isLinkedToColorPair, pairContext?.indicatorId, params])
+  }, [isLinkedToColorPair, pairContext?.pineIndicatorId, params])
 
   const handleSelect = useCallback(
     (indicatorId: string | null) => {
       if (isLinkedToColorPair) {
-        if (pairContext?.indicatorId !== indicatorId) {
-          setPairContext(resolvedPairColor, { indicatorId })
+        if (pairContext?.pineIndicatorId !== indicatorId) {
+          setPairContext(resolvedPairColor, { pineIndicatorId: indicatorId })
         }
         return
       }
@@ -86,18 +84,19 @@ export function IndicatorList({
           params && typeof params === 'object' ? (params as Record<string, unknown>) : {}
         onWidgetParamsChange({
           ...currentParams,
-          indicatorId,
+          pineIndicatorId: indicatorId,
         })
       }
 
       emitIndicatorSelectionChange({
         indicatorId,
         panelId,
+        widgetKey: 'editor_indicator',
       })
     },
     [
       isLinkedToColorPair,
-      pairContext?.indicatorId,
+      pairContext?.pineIndicatorId,
       resolvedPairColor,
       setPairContext,
       onWidgetParamsChange,
@@ -162,7 +161,7 @@ export function IndicatorList({
         <IndicatorListMessage message='No indicators yet.' />
       ) : (
         <div className='h-full space-y-1 overflow-auto'>
-          {listIndicators.map((indicator: CustomIndicatorDefinition) => (
+          {listIndicators.map((indicator: IndicatorDefinition) => (
             <IndicatorListItem
               key={indicator.id}
               indicator={indicator}

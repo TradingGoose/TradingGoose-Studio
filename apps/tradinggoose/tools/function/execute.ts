@@ -7,7 +7,7 @@ export const functionExecuteTool: ToolConfig<CodeExecutionInput, CodeExecutionOu
   id: 'function_execute',
   name: 'Function Execute',
   description:
-    'Execute JavaScript code in a secure, sandboxed environment with proper isolation and resource limits.',
+    'Execute JavaScript code. fetch() is available. Code runs in async IIFE wrapper automatically. CRITICAL: Write plain statements with await/return, NOT wrapped in functions. Example for API call: const res = await fetch(url); const data = await res.json(); return data;',
   version: '1.0.0',
 
   params: {
@@ -15,7 +15,8 @@ export const functionExecuteTool: ToolConfig<CodeExecutionInput, CodeExecutionOu
       type: 'string',
       required: true,
       visibility: 'user-or-llm',
-      description: 'The code to execute',
+      description:
+        'Raw JavaScript statements (NOT a function). Code is auto-wrapped in async context. MUST use fetch() for HTTP (NOT xhr/axios/request libs). Write like: await fetch(url) then return result. NO import/require statements.',
     },
     language: {
       type: 'string',
@@ -24,46 +25,45 @@ export const functionExecuteTool: ToolConfig<CodeExecutionInput, CodeExecutionOu
       description: 'Language to execute (javascript or python)',
       default: DEFAULT_CODE_LANGUAGE,
     },
-    useLocalVM: {
-      type: 'boolean',
-      required: false,
-      visibility: 'user-only',
-      description:
-        'If true, execute JavaScript in local VM for faster execution. If false, use remote E2B execution.',
-      default: false,
-    },
     timeout: {
       type: 'number',
       required: false,
-      visibility: 'user-only',
+      visibility: 'hidden',
       description: 'Execution timeout in milliseconds',
       default: DEFAULT_EXECUTION_TIMEOUT_MS,
     },
     envVars: {
       type: 'object',
       required: false,
-      visibility: 'user-only',
+      visibility: 'hidden',
       description: 'Environment variables to make available during execution',
       default: {},
     },
     blockData: {
       type: 'object',
       required: false,
-      visibility: 'user-only',
+      visibility: 'hidden',
       description: 'Block output data for variable resolution',
       default: {},
     },
     blockNameMapping: {
       type: 'object',
       required: false,
-      visibility: 'user-only',
+      visibility: 'hidden',
       description: 'Mapping of block names to block IDs',
+      default: {},
+    },
+    blockOutputSchemas: {
+      type: 'object',
+      required: false,
+      visibility: 'hidden',
+      description: 'Mapping of block IDs to their output schemas for validation',
       default: {},
     },
     workflowVariables: {
       type: 'object',
       required: false,
-      visibility: 'user-only',
+      visibility: 'hidden',
       description: 'Workflow variables for <variable.name> resolution',
       default: {},
     },
@@ -83,13 +83,14 @@ export const functionExecuteTool: ToolConfig<CodeExecutionInput, CodeExecutionOu
       return {
         code: codeContent,
         language: params.language || DEFAULT_CODE_LANGUAGE,
-        useLocalVM: params.useLocalVM || false,
         timeout: params.timeout || DEFAULT_EXECUTION_TIMEOUT_MS,
         envVars: params.envVars || {},
         workflowVariables: params.workflowVariables || {},
         blockData: params.blockData || {},
         blockNameMapping: params.blockNameMapping || {},
+        blockOutputSchemas: params.blockOutputSchemas || {},
         workflowId: params._context?.workflowId,
+        userId: params._context?.userId,
         isCustomTool: params.isCustomTool || false,
       }
     },
@@ -97,6 +98,17 @@ export const functionExecuteTool: ToolConfig<CodeExecutionInput, CodeExecutionOu
 
   transformResponse: async (response: Response): Promise<CodeExecutionOutput> => {
     const result = await response.json()
+
+    if (!result.success) {
+      return {
+        success: false,
+        output: {
+          result: null,
+          stdout: result.output?.stdout || '',
+        },
+        error: result.error,
+      }
+    }
 
     return {
       success: true,

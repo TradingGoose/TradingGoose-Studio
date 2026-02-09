@@ -1,12 +1,12 @@
 import { useMemo } from 'react'
+import { uniqueStrings } from '@/components/listing-selector/search-utils'
 import { getMarketProviderConfig } from '@/providers/market/providers'
 import { getTradingProviderConfig } from '@/providers/trading/providers'
-import { uniqueStrings } from '@/components/listing-selector/search-utils'
 
 export type ProviderSearchConfig = {
   assetClasses: string[]
-  micCodes: string[]
-  equityQuoteCodes: string[]
+  marketCodes: string[]
+  listingQuoteCodes: string[]
   cryptoQuoteCodes: string[]
   currencyQuoteCodes: string[]
 }
@@ -22,9 +22,9 @@ export function useMarketProviderSearchConfig(providerId?: string): ProviderSear
     return uniqueStrings(values)
   }, [providerConfig])
 
-  const equityQuoteCodes = useMemo(() => {
+  const listingQuoteCodes = useMemo(() => {
     const availability = providerConfig?.availability
-    return uniqueStrings(availability?.availableEquityQuote ?? [])
+    return uniqueStrings(availability?.availableListingQuote ?? [])
   }, [providerConfig])
 
   const currencyQuoteCodes = useMemo(() => {
@@ -37,21 +37,21 @@ export function useMarketProviderSearchConfig(providerId?: string): ProviderSear
     return uniqueStrings(availability?.availableCryptoQuote ?? [])
   }, [providerConfig])
 
-  const micCodes = useMemo(() => {
-    const map = providerConfig?.exchangeCodeToMic ?? {}
-    const codes = Object.values(map).flat()
+  const marketCodes = useMemo(() => {
+    const map = providerConfig?.exchangeCodeToMarket ?? {}
+    const codes = Object.values(map)
     return uniqueStrings(codes)
   }, [providerConfig])
 
   return useMemo(
     () => ({
       assetClasses,
-      micCodes,
-      equityQuoteCodes,
+      marketCodes,
+      listingQuoteCodes,
       cryptoQuoteCodes,
       currencyQuoteCodes,
     }),
-    [assetClasses, micCodes, equityQuoteCodes, cryptoQuoteCodes, currencyQuoteCodes]
+    [assetClasses, marketCodes, listingQuoteCodes, cryptoQuoteCodes, currencyQuoteCodes]
   )
 }
 
@@ -66,9 +66,9 @@ export function useTradingProviderSearchConfig(providerId?: string): ProviderSea
     return uniqueStrings(values)
   }, [providerConfig])
 
-  const equityQuoteCodes = useMemo(() => {
+  const listingQuoteCodes = useMemo(() => {
     const availability = providerConfig?.availability
-    return uniqueStrings(availability?.availableEquityQuote ?? [])
+    return uniqueStrings(availability?.availableListingQuote ?? [])
   }, [providerConfig])
 
   const currencyQuoteCodes = useMemo(() => {
@@ -81,20 +81,20 @@ export function useTradingProviderSearchConfig(providerId?: string): ProviderSea
     return uniqueStrings(availability?.availableCryptoQuote ?? [])
   }, [providerConfig])
 
-  const micCodes = useMemo(() => {
-    const map = providerConfig?.exchangeCodeToMic ?? {}
-    const codes = Object.values(map).flat()
+  const marketCodes = useMemo(() => {
+    const map = providerConfig?.exchangeCodeToMarket ?? {}
+    const codes = Object.values(map)
     return uniqueStrings(codes)
   }, [providerConfig])
 
   return useMemo(
     () => ({
       assetClasses,
-      micCodes,
-      equityQuoteCodes,
+      marketCodes,
+      listingQuoteCodes,
       cryptoQuoteCodes,
       currencyQuoteCodes,
     }),
-    [assetClasses, micCodes, equityQuoteCodes, cryptoQuoteCodes, currencyQuoteCodes]
+    [assetClasses, marketCodes, listingQuoteCodes, cryptoQuoteCodes, currencyQuoteCodes]
   )
 }

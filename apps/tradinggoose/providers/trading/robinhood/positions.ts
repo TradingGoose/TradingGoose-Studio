@@ -1,7 +1,7 @@
 import type {
   TradingHoldingsInput,
-  TradingRequestConfig,
   TradingHoldingsNormalizationContext,
+  TradingRequestConfig,
   UnifiedTradingAccountSnapshot,
   UnifiedTradingPosition,
   UnifiedTradingSymbol,
@@ -15,7 +15,7 @@ const toNumber = (value: unknown): number | undefined => {
 }
 
 const sumNumbers = (values: Array<number | undefined>): number =>
-  values.reduce((total, value) => (typeof value === 'number' ? total + value : total), 0)
+  values.reduce<number>((total, value) => (typeof value === 'number' ? total + value : total), 0)
 
 const getCurrencySymbol = (currency?: string) => {
   switch (currency) {
@@ -36,8 +36,6 @@ const buildSymbol = (symbol?: string): UnifiedTradingSymbol => ({
   base: symbol || 'UNKNOWN',
   quote: DEFAULT_BASE_CURRENCY,
   name: null,
-  primaryMicId: null,
-  secondaryMicIds: [],
   assetClass: 'stock',
   active: true,
   rank: 0,
@@ -86,9 +84,7 @@ export const normalizeRobinhoodHoldings = (
     }
   })
 
-  const totalHoldingsValue = sumNumbers(
-    normalizedPositions.map((position) => position.marketValue)
-  )
+  const totalHoldingsValue = sumNumbers(normalizedPositions.map((position) => position.marketValue))
   const totalUnrealizedPnl = sumNumbers(
     normalizedPositions.map((position) => position.unrealizedPnl)
   )

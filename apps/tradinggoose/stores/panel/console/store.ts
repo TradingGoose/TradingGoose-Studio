@@ -99,6 +99,79 @@ const processSafeStorage = (obj: any): any => {
   return result
 }
 
+const applyConsoleUpdate = (
+  entry: ConsoleEntry,
+  update: string | import('@/stores/panel/console/types').ConsoleUpdate
+): ConsoleEntry => {
+  if (typeof update === 'string') {
+    const newOutput = updateBlockOutput(entry.output, update)
+    return { ...entry, output: newOutput }
+  }
+
+  const updatedEntry = { ...entry }
+
+  if (update.content !== undefined) {
+    const newOutput = updateBlockOutput(entry.output, update.content)
+    updatedEntry.output = newOutput
+  }
+
+  if (update.replaceOutput !== undefined) {
+    updatedEntry.output = update.replaceOutput
+  } else if (update.output !== undefined) {
+    const existingOutput = entry.output || {}
+    updatedEntry.output = {
+      ...existingOutput,
+      ...update.output,
+    }
+  }
+
+  if (update.error !== undefined) {
+    updatedEntry.error = update.error
+  }
+
+  if (update.warning !== undefined) {
+    updatedEntry.warning = update.warning
+  }
+
+  if (update.success !== undefined) {
+    updatedEntry.success = update.success
+  }
+
+  if (update.endedAt !== undefined) {
+    updatedEntry.endedAt = update.endedAt
+  }
+
+  if (update.durationMs !== undefined) {
+    updatedEntry.durationMs = update.durationMs
+  }
+
+  if (update.input !== undefined) {
+    updatedEntry.input = update.input
+  }
+
+  if (update.isRunning !== undefined) {
+    updatedEntry.isRunning = update.isRunning
+  }
+
+  if (update.isCanceled !== undefined) {
+    updatedEntry.isCanceled = update.isCanceled
+  }
+
+  if (update.iterationCurrent !== undefined) {
+    updatedEntry.iterationCurrent = update.iterationCurrent
+  }
+
+  if (update.iterationTotal !== undefined) {
+    updatedEntry.iterationTotal = update.iterationTotal
+  }
+
+  if (update.iterationType !== undefined) {
+    updatedEntry.iterationType = update.iterationType
+  }
+
+  return updatedEntry
+}
+
 export const useConsoleStore = create<ConsoleStore>()(
   devtools(
     persist(
@@ -107,6 +180,20 @@ export const useConsoleStore = create<ConsoleStore>()(
         isOpen: false,
 
         addConsole: (entry: Omit<ConsoleEntry, 'id' | 'timestamp'>) => {
+          const existingEntry = get().entries.find(
+            (existing) =>
+              existing.workflowId === entry.workflowId &&
+              existing.blockId === entry.blockId &&
+              existing.executionId === entry.executionId &&
+              existing.iterationType === entry.iterationType &&
+              existing.iterationCurrent === entry.iterationCurrent &&
+              existing.isRunning
+          )
+
+          if (existingEntry) {
+            return existingEntry
+          }
+
           set((state) => {
             // Determine early if this entry represents a streaming output
             const isStreamingOutput =
@@ -289,59 +376,44 @@ export const useConsoleStore = create<ConsoleStore>()(
           executionId?: string
         ) => {
           set((state) => {
+            const targetIndex = state.entries.findIndex(
+              (entry) => entry.blockId === blockId && entry.executionId === executionId
+            )
+            if (targetIndex === -1) {
+              return state
+            }
+
+            const updatedEntries = [...state.entries]
+            updatedEntries[targetIndex] = applyConsoleUpdate(updatedEntries[targetIndex], update)
+            return { ...state, entries: updatedEntries }
+          })
+        },
+
+        updateConsoleEntry: (entryId: string, update: string | import('@/stores/panel/console/types').ConsoleUpdate) => {
+          set((state) => {
             const updatedEntries = state.entries.map((entry) => {
-              // Only update if both blockId and executionId match
-              const isMatch = entry.blockId === blockId && entry.executionId === executionId
-              if (isMatch) {
-                if (typeof update === 'string') {
-                  // Simple content update for backward compatibility
-                  const newOutput = updateBlockOutput(entry.output, update)
-                  return { ...entry, output: newOutput }
-                }
-                // Complex update with multiple fields
-                const updatedEntry = { ...entry }
+              if (entry.id !== entryId) return entry
+              return applyConsoleUpdate(entry, update)
+            })
+            return { ...state, entries: updatedEntries }
+          })
+        },
 
-                if (update.content !== undefined) {
-                  const newOutput = updateBlockOutput(entry.output, update.content)
-                  updatedEntry.output = newOutput
+        cancelRunningEntries: (workflowId: string) => {
+          set((state) => {
+            const now = new Date().toISOString()
+            const updatedEntries = state.entries.map((entry) => {
+              if (entry.workflowId === workflowId && entry.isRunning) {
+                const startedAtMs = entry.startedAt ? new Date(entry.startedAt).getTime() : null
+                const durationMs =
+                  startedAtMs != null ? Math.max(0, Date.now() - startedAtMs) : entry.durationMs
+                return {
+                  ...entry,
+                  isRunning: false,
+                  isCanceled: true,
+                  endedAt: entry.endedAt || now,
+                  durationMs,
                 }
-
-                if (update.replaceOutput !== undefined) {
-                  // Complete replacement of output
-                  updatedEntry.output = update.replaceOutput
-                } else if (update.output !== undefined) {
-                  const existingOutput = entry.output || {}
-                  updatedEntry.output = {
-                    ...existingOutput,
-                    ...update.output,
-                  }
-                }
-
-                if (update.error !== undefined) {
-                  updatedEntry.error = update.error
-                }
-
-                if (update.warning !== undefined) {
-                  updatedEntry.warning = update.warning
-                }
-
-                if (update.success !== undefined) {
-                  updatedEntry.success = update.success
-                }
-
-                if (update.endedAt !== undefined) {
-                  updatedEntry.endedAt = update.endedAt
-                }
-
-                if (update.durationMs !== undefined) {
-                  updatedEntry.durationMs = update.durationMs
-                }
-
-                if (update.input !== undefined) {
-                  updatedEntry.input = update.input
-                }
-
-                return updatedEntry
               }
               return entry
             })

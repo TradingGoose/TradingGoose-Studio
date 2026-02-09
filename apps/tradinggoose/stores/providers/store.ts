@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getBaseUrl } from '@/lib/urls/utils'
 import { updateOllamaProviderModels, updateOpenRouterProviderModels } from '@/providers/ai/utils'
 import type { ProviderConfig, ProviderName, ProvidersStore } from './types'
 
@@ -22,15 +23,34 @@ const PROVIDER_CONFIGS: Record<ProviderName, ProviderConfig> = {
   },
 }
 
+const resolveApiEndpoint = (endpoint: string): string => {
+  if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+    return endpoint
+  }
+
+  const baseUrl =
+    typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : getBaseUrl()
+
+  try {
+    return new URL(endpoint, baseUrl).toString()
+  } catch (_error) {
+    return endpoint
+  }
+}
+
 const fetchProviderModels = async (provider: ProviderName): Promise<string[]> => {
   try {
     const config = PROVIDER_CONFIGS[provider]
-    const response = await fetch(config.apiEndpoint)
+    const apiEndpoint = resolveApiEndpoint(config.apiEndpoint)
+    const response = await fetch(apiEndpoint)
 
     if (!response.ok) {
       logger.warn(`Failed to fetch ${provider} models from API`, {
         status: response.status,
         statusText: response.statusText,
+        apiEndpoint,
       })
       return []
     }
@@ -38,7 +58,7 @@ const fetchProviderModels = async (provider: ProviderName): Promise<string[]> =>
     const data = await response.json()
     return data.models || []
   } catch (error) {
-    logger.error(`Error fetching ${provider} models`, {
+    logger.warn(`Error fetching ${provider} models`, {
       error: error instanceof Error ? error.message : 'Unknown error',
     })
     return []
@@ -67,7 +87,11 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
       },
     }))
 
-    config.updateFunction(models)
+    void Promise.resolve(config.updateFunction(models)).catch((error) => {
+      logger.warn(`Failed to update ${provider} provider models`, {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+    })
   },
 
   fetchModels: async (provider) => {

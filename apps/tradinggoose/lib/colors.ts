@@ -1,5 +1,4 @@
 const VIBRANT_SATURATION = 100
-const VIBRANT_LIGHTNESS = 60
 
 const supportsCrypto =
   typeof globalThis !== 'undefined' &&
@@ -35,5 +34,16 @@ function hslToHex(h: number, s: number, l: number): string {
 // Generates a random vibrant color using HSL with a fixed saturation/lightness for consistency
 export function getRandomVibrantColor(): string {
   const hue = getRandomHue()
-  return hslToHex(hue, VIBRANT_SATURATION, VIBRANT_LIGHTNESS)
+  return hslToHex(hue, VIBRANT_SATURATION, 50)
+}
+
+export function getStableVibrantColor(seed: string): string {
+  const safeSeed = typeof seed === 'string' ? seed : String(seed)
+  let hash = 2166136261
+  for (let i = 0; i < safeSeed.length; i += 1) {
+    hash ^= safeSeed.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  const hue = (hash >>> 0) % 360
+  return hslToHex(hue, VIBRANT_SATURATION, 35)
 }

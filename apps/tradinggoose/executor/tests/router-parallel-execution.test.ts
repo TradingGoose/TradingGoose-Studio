@@ -237,7 +237,7 @@ describe('Router and Condition Block Path Selection in Complex Workflows', () =>
           blockType: BlockType.FUNCTION,
           blockTitle: 'Function 2',
         },
-        selectedConditionId: '0494cf56-2520-4e29-98ad-313ea55cf142-if',
+        selectedOption: '0494cf56-2520-4e29-98ad-313ea55cf142-if',
       },
       executed: true,
       executionTime: 0,

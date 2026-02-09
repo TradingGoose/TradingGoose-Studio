@@ -302,12 +302,12 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
       type: 'object',
       description: 'Structured listing identifier payload',
       properties: {
-        equity_id: { type: 'string', description: 'Equity listing id', optional: true },
+        listing_id: { type: 'string', description: 'Listing id', optional: true },
         base_id: { type: 'string', description: 'Base asset id', optional: true },
         quote_id: { type: 'string', description: 'Quote asset id', optional: true },
         listing_type: {
           type: 'string',
-          description: 'Listing type (equity, crypto, or currency)',
+          description: 'Listing type (default, crypto, or currency)',
           optional: true,
         },
       },

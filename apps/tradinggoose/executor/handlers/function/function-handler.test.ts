@@ -92,7 +92,6 @@ describe('FunctionBlockHandler', () => {
     expect(mockExecuteTool).toHaveBeenCalledWith(
       'function_execute',
       expectedToolParams,
-      false, // skipProxy
       false, // skipPostProcess
       mockContext // execution context
     )
@@ -126,7 +125,6 @@ describe('FunctionBlockHandler', () => {
     expect(mockExecuteTool).toHaveBeenCalledWith(
       'function_execute',
       expectedToolParams,
-      false, // skipProxy
       false, // skipPostProcess
       mockContext // execution context
     )
@@ -152,7 +150,6 @@ describe('FunctionBlockHandler', () => {
     expect(mockExecuteTool).toHaveBeenCalledWith(
       'function_execute',
       expectedToolParams,
-      false, // skipProxy
       false, // skipPostProcess
       mockContext // execution context
     )

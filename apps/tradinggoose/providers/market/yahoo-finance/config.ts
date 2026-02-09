@@ -1,6 +1,6 @@
 import type { MarketProviderConfig } from '@/providers/market/providers'
-import exchangeCodeToMic from '@/providers/market/yahoo-finance/exchangeCodeToMic.json'
-import micToExchangeCode from '@/providers/market/yahoo-finance/micToExchangeCode.json'
+import exchangeCodeToMarket from '@/providers/market/yahoo-finance/exchangeCodeToMarket.json'
+import marketToExchangeCode from '@/providers/market/yahoo-finance/marketToExchangeCode.json'
 import { yfinanceSymbolRules } from '@/providers/market/yahoo-finance/rules'
 import { AssetClass } from '@/providers/market/types'
 
@@ -14,7 +14,7 @@ const availableAssetClasses: AssetClass[] = [
   'currency',
 ]
 
-const availableEquityQuoteCodes = [
+const availableListingQuoteCodes = [
   '4O',
   'AED',
   'AFN',
@@ -202,16 +202,16 @@ const availableEquityQuoteCodes = [
   'ZAR',
   'ZMW',
 ]
-const availableCurrencyBaseCodes = availableEquityQuoteCodes
-const availableCurrencyQuoteCodes = availableEquityQuoteCodes
-const availableCryptoBaseCodes = availableEquityQuoteCodes
-const availableCryptoQuoteCodes = availableEquityQuoteCodes
+const availableCurrencyBaseCodes = availableListingQuoteCodes
+const availableCurrencyQuoteCodes = availableListingQuoteCodes
+const availableCryptoBaseCodes = availableListingQuoteCodes
+const availableCryptoQuoteCodes = availableListingQuoteCodes
 const supportsCurrency = availableAssetClasses.includes('currency')
 const supportsCrypto = availableAssetClasses.includes('crypto')
 
 const availability: MarketProviderConfig['availability'] = {
   assetClass: availableAssetClasses,
-  availableEquityQuote: availableEquityQuoteCodes,
+  availableListingQuote: availableListingQuoteCodes,
   availableCurrencyBase: supportsCurrency ? availableCurrencyBaseCodes : [],
   availableCurrencyQuote: supportsCurrency ? availableCurrencyQuoteCodes : [],
   availableCryptoBase: supportsCrypto ? availableCryptoBaseCodes : [],
@@ -334,8 +334,8 @@ const exchangeCodes: MarketProviderConfig['exchangeCodes'] = [
   'ZRH',
 ]
 
-const exchangeCodeToMicMap: MarketProviderConfig['exchangeCodeToMic'] = exchangeCodeToMic
-const micToExchangeCodeMap: MarketProviderConfig['micToExchangeCode'] = micToExchangeCode
+const exchangeCodeToMarketMap: MarketProviderConfig['exchangeCodeToMarket'] = exchangeCodeToMarket
+const marketToExchangeCodeMap: MarketProviderConfig['marketToExchangeCode'] = marketToExchangeCode
 
 export const YahooFinanceProviderConfig: MarketProviderConfig = {
   id: 'yahoo-finance',
@@ -362,6 +362,7 @@ export const YahooFinanceProviderConfig: MarketProviderConfig = {
       ],
       windowModes: ['range', 'bars', 'absolute'],
       normalizationModes: ['raw', 'adjusted'],
+      marketSessions: ['regular', 'extended'],
       retention: {
         byInterval: {
           '1m': { maxRangeDays: 7 },
@@ -375,17 +376,17 @@ export const YahooFinanceProviderConfig: MarketProviderConfig = {
     },
   },
   rulePrecedence: {
-    default: ['mic', 'currency', 'assetClass', 'country', 'city', 'listing'],
-    stock: ['mic', 'currency', 'country', 'city', 'listing'],
-    etf: ['mic', 'currency', 'country', 'city', 'listing'],
-    indice: ['mic', 'currency', 'country', 'city', 'listing'],
-    mutualfund: ['mic', 'currency', 'country', 'city', 'listing'],
-    future: ['mic', 'currency', 'country', 'city', 'listing'],
-    crypto: ['currency', 'mic', 'country', 'city', 'listing'],
-    currency: ['currency', 'mic', 'country', 'city', 'listing'],
+    default: ['market', 'currency', 'assetClass', 'country', 'city', 'listing'],
+    stock: ['market', 'currency', 'country', 'city', 'listing'],
+    etf: ['market', 'currency', 'country', 'city', 'listing'],
+    indice: ['market', 'currency', 'country', 'city', 'listing'],
+    mutualfund: ['market', 'currency', 'country', 'city', 'listing'],
+    future: ['market', 'currency', 'country', 'city', 'listing'],
+    crypto: ['currency', 'market', 'country', 'city', 'listing'],
+    currency: ['currency', 'market', 'country', 'city', 'listing'],
   },
-  exchangeCodeToMic: exchangeCodeToMicMap,
-  micToExchangeCode: micToExchangeCodeMap,
+  exchangeCodeToMarket: exchangeCodeToMarketMap,
+  marketToExchangeCode: marketToExchangeCodeMap,
   exchangeCodes,
   rules: yfinanceSymbolRules,
 }

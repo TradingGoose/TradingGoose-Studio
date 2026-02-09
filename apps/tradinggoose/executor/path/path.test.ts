@@ -201,7 +201,7 @@ describe('PathTracker', () => {
     describe('condition blocks', () => {
       it('should update condition decision and activate selected connection', () => {
         const blockState: BlockState = {
-          output: { selectedConditionId: 'if' },
+          output: { selectedOption: 'if' },
           executed: true,
           executionTime: 100,
         }
@@ -215,7 +215,7 @@ describe('PathTracker', () => {
 
       it('should not activate if no matching connection', () => {
         const blockState: BlockState = {
-          output: { selectedConditionId: 'unknown' },
+          output: { selectedOption: 'unknown' },
           executed: true,
           executionTime: 100,
         }
@@ -689,7 +689,7 @@ describe('PathTracker', () => {
       // Mock condition output selecting knowledge1 (if path)
       mockContext.blockStates.set('condition1', {
         output: {
-          selectedConditionId: 'if-id',
+          selectedOption: 'if-id',
         },
         executed: true,
         executionTime: 100,
@@ -713,7 +713,7 @@ describe('PathTracker', () => {
       // Mock condition output selecting knowledge2 (else-if path)
       mockContext.blockStates.set('condition1', {
         output: {
-          selectedConditionId: 'else-if-id',
+          selectedOption: 'else-if-id',
         },
         executed: true,
         executionTime: 100,
@@ -736,7 +736,7 @@ describe('PathTracker', () => {
       // Mock condition output selecting agent1 directly (else path)
       mockContext.blockStates.set('condition1', {
         output: {
-          selectedConditionId: 'else-id',
+          selectedOption: 'else-id',
         },
         executed: true,
         executionTime: 100,
@@ -773,7 +773,7 @@ describe('PathTracker', () => {
       // Mock condition output selecting knowledge1
       mockContext.blockStates.set('condition1', {
         output: {
-          selectedConditionId: 'if-id',
+          selectedOption: 'if-id',
         },
         executed: true,
         executionTime: 100,
@@ -814,7 +814,7 @@ describe('PathTracker', () => {
       // Mock condition output selecting condition2 (routing block)
       mockContext.blockStates.set('condition1', {
         output: {
-          selectedConditionId: 'nested-id',
+          selectedOption: 'nested-id',
         },
         executed: true,
         executionTime: 100,
@@ -855,7 +855,7 @@ describe('PathTracker', () => {
       // Mock condition output selecting parallel1 (flow control block)
       mockContext.blockStates.set('condition1', {
         output: {
-          selectedConditionId: 'parallel-id',
+          selectedOption: 'parallel-id',
         },
         executed: true,
         executionTime: 100,
@@ -879,7 +879,7 @@ describe('PathTracker', () => {
 
       mockContext.blockStates.set('condition1', {
         output: {
-          selectedConditionId: 'if-id',
+          selectedOption: 'if-id',
         },
         executed: true,
         executionTime: 100,
@@ -1025,7 +1025,7 @@ describe('PathTracker', () => {
 
       // Test routing block (condition)
       const conditionState: BlockState = {
-        output: { selectedConditionId: 'if' },
+        output: { selectedOption: 'if' },
         executed: true,
         executionTime: 100,
       }

@@ -251,17 +251,17 @@ export class PathTracker {
     // Read block state using the correct ID (virtual ID if in parallel execution, otherwise original ID)
     const blockStateKey = context.currentVirtualBlockId || block.id
     const conditionOutput = context.blockStates.get(blockStateKey)?.output
-    const selectedConditionId = conditionOutput?.selectedConditionId
+    const selectedOption = conditionOutput?.selectedOption
 
-    if (!selectedConditionId) return
+    if (!selectedOption) return
 
     const decisionKey = context.currentVirtualBlockId || block.id
     if (!context.decisions.condition.has(decisionKey)) {
-      context.decisions.condition.set(decisionKey, selectedConditionId)
+      context.decisions.condition.set(decisionKey, selectedOption)
     }
 
     const targetConnections = this.workflow.connections.filter(
-      (conn) => conn.source === block.id && conn.sourceHandle === `condition-${selectedConditionId}`
+      (conn) => conn.source === block.id && conn.sourceHandle === `condition-${selectedOption}`
     )
 
     for (const conn of targetConnections) {

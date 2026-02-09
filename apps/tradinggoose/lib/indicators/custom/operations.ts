@@ -1,18 +1,19 @@
 import { db } from '@tradinggoose/db'
-import { customIndicators } from '@tradinggoose/db/schema'
+import { pineIndicators } from '@tradinggoose/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
 import { getRandomVibrantColor } from '@/lib/colors'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 
-const logger = createLogger('CustomIndicatorsOperations')
+const logger = createLogger('IndicatorsOperations')
 
-interface UpsertCustomIndicatorsParams {
+interface UpsertIndicatorsParams {
   indicators: Array<{
     id?: string
     name: string
     color?: string
-    calcCode: string
+    pineCode: string
+    inputMeta?: Record<string, unknown>
   }>
   workspaceId: string
   userId: string
@@ -32,15 +33,12 @@ const resolveIndicatorColor = (
   return getRandomVibrantColor()
 }
 
-/**
- * Create or update custom indicators scoped to a workspace.
- */
-export async function upsertCustomIndicators({
+export async function upsertIndicators({
   indicators,
   workspaceId,
   userId,
   requestId = generateRequestId(),
-}: UpsertCustomIndicatorsParams) {
+}: UpsertIndicatorsParams) {
   return await db.transaction(async (tx) => {
     for (const indicator of indicators) {
       const nowTime = new Date()
@@ -48,10 +46,8 @@ export async function upsertCustomIndicators({
       if (indicator.id) {
         const existing = await tx
           .select()
-          .from(customIndicators)
-          .where(
-            and(eq(customIndicators.id, indicator.id), eq(customIndicators.workspaceId, workspaceId))
-          )
+          .from(pineIndicators)
+          .where(and(eq(pineIndicators.id, indicator.id), eq(pineIndicators.workspaceId, workspaceId)))
           .limit(1)
 
         if (existing.length > 0) {
@@ -59,40 +55,43 @@ export async function upsertCustomIndicators({
           const nextColor = resolveIndicatorColor(indicator.color, existingColor)
 
           await tx
-            .update(customIndicators)
+            .update(pineIndicators)
             .set({
               name: indicator.name,
               color: nextColor,
-              calcCode: indicator.calcCode,
+              pineCode: indicator.pineCode,
+              inputMeta: indicator.inputMeta ?? null,
               updatedAt: nowTime,
             })
-            .where(eq(customIndicators.id, indicator.id))
+            .where(eq(pineIndicators.id, indicator.id))
 
-          logger.info(`[${requestId}] Updated custom indicator ${indicator.id}`)
+          logger.info(`[${requestId}] Updated Indicator ${indicator.id}`)
           continue
         }
       }
 
       const nextColor = resolveIndicatorColor(indicator.color)
 
-      await tx.insert(customIndicators).values({
+      await tx.insert(pineIndicators).values({
         ...(indicator.id ? { id: indicator.id } : null),
         workspaceId,
         userId,
         name: indicator.name,
         color: nextColor,
-        calcCode: indicator.calcCode,
+        pineCode: indicator.pineCode,
+        inputMeta: indicator.inputMeta ?? null,
         createdAt: nowTime,
         updatedAt: nowTime,
       })
 
-      logger.info(`[${requestId}] Created custom indicator ${indicator.name}`)
+      logger.info(`[${requestId}] Created Indicator ${indicator.name}`)
     }
 
     return await tx
       .select()
-      .from(customIndicators)
-      .where(eq(customIndicators.workspaceId, workspaceId))
-      .orderBy(desc(customIndicators.createdAt))
+      .from(pineIndicators)
+      .where(eq(pineIndicators.workspaceId, workspaceId))
+      .orderBy(desc(pineIndicators.createdAt))
   })
 }
+

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/index.ts"],
+  "out": "docs",
+  "name": "Price Range Line Tool Plugin",
+  "includeVersion": true,
+  "readme": "none",
+  "theme": "default",
+  "excludeInternal": true,
+  "excludePrivate": true,
+  "externalSymbolLinkMappings": {
+    "lightweight-charts": {
+      "*": "https://tradingview.github.io/lightweight-charts/docs/api/"
+    },
+    "lightweight-charts-line-tools-core": {
+      "*": "#"
+    }
+  },
+  "validation": {
+    "invalidLink": false
+  }
+}

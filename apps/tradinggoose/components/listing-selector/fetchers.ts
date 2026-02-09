@@ -7,7 +7,7 @@ export async function fetchListings(
 ): Promise<ListingOption[]> {
   const query = new URLSearchParams(params)
   query.set('version', MARKET_API_VERSION)
-  const response = await fetch(`/api/market/search/listings?${query.toString()}`, { signal })
+  const response = await fetch(`/api/market/search?${query.toString()}`, { signal })
   if (!response.ok) {
     const payload = await response.json().catch(() => null)
     const message = payload?.error || `Request failed with ${response.status}`
@@ -30,21 +30,20 @@ function normalizeListingOption(option: ListingOption): ListingOption {
     throw new Error('listing_type is required for listing results')
   }
 
-  const equityId = option.equity_id ?? null
+  const listingId = option.listing_id ?? null
   const baseId = option.base_id ?? null
   const quoteId = option.quote_id ?? null
   const baseAssetClass = option.base_asset_class ?? null
   const quoteAssetClass = option.quote_asset_class ?? null
-  const base = option.base
 
-  if (listingType === 'equity') {
-    if (!equityId) {
-      throw new Error('equity listing results require equity_id')
+  if (listingType === 'default') {
+    if (!listingId) {
+      throw new Error('default listing results require listing_id')
     }
     return {
       ...option,
-      id: equityId,
-      equity_id: equityId,
+      id: listingId,
+      listing_id: listingId,
       base_id: '',
       quote_id: '',
       listing_type: listingType,
@@ -60,7 +59,7 @@ function normalizeListingOption(option: ListingOption): ListingOption {
   return {
     ...option,
     id: `${baseId}:${quoteId}`,
-    equity_id: '',
+    listing_id: '',
     base_id: baseId,
     quote_id: quoteId,
     listing_type: listingType,

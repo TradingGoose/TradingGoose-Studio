@@ -3,7 +3,7 @@
 import { useCallback } from 'react'
 import { ListChecks } from 'lucide-react'
 import { getRandomVibrantColor } from '@/lib/colors'
-import { useCreateCustomIndicator } from '@/hooks/queries/custom-indicators'
+import { useCreateIndicator } from '@/hooks/queries/indicators'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { emitIndicatorSelectionChange } from '@/widgets/utils/indicator-selection'
 import { IndicatorCreateMenu } from '@/widgets/widgets/list_indicator/components/indicator-create-menu'
@@ -16,21 +16,19 @@ import {
   useUserPermissionsContext,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 
-const DEFAULT_NEW_INDICATOR = {
+const DEFAULT_INDICATOR = {
   name: 'New Indicator',
-  calcCode: '',
+  pineCode: '',
 }
 
 const IndicatorListHeaderRight = ({
   workspaceId,
   panelId,
-  widgetKey,
 }: {
   workspaceId?: string | null
   panelId?: string
-  widgetKey?: string
 }) => {
-  const createMutation = useCreateCustomIndicator()
+  const createMutation = useCreateIndicator()
   const permissions = useUserPermissionsContext()
 
   const handleCreateIndicator = useCallback(async () => {
@@ -40,7 +38,7 @@ const IndicatorListHeaderRight = ({
       const response = await createMutation.mutateAsync({
         workspaceId,
         indicator: {
-          ...DEFAULT_NEW_INDICATOR,
+          ...DEFAULT_INDICATOR,
           color: getRandomVibrantColor(),
         },
       })
@@ -50,16 +48,12 @@ const IndicatorListHeaderRight = ({
       emitIndicatorSelectionChange({
         indicatorId: created.id,
         panelId,
-        widgetKey,
-      })
-      emitIndicatorSelectionChange({
-        indicatorId: created.id,
-        panelId,
+        widgetKey: 'editor_indicator',
       })
     } catch (error) {
       console.error('Failed to create indicator', error)
     }
-  }, [createMutation, panelId, permissions.canEdit, widgetKey, workspaceId])
+  }, [createMutation, panelId, permissions.canEdit, workspaceId])
 
   return (
     <IndicatorCreateMenu
@@ -72,11 +66,9 @@ const IndicatorListHeaderRight = ({
 const ListIndicatorHeaderRight = ({
   workspaceId,
   panelId,
-  widgetKey,
 }: {
   workspaceId?: string | null
   panelId?: string
-  widgetKey?: string
 }) => {
   if (!workspaceId) {
     return <span className='text-muted-foreground text-xs'>Explorer</span>
@@ -85,11 +77,7 @@ const ListIndicatorHeaderRight = ({
   return (
     <WorkspacePermissionsProvider workspaceId={workspaceId}>
       <div className='flex items-center gap-2'>
-        <IndicatorListHeaderRight
-          workspaceId={workspaceId}
-          panelId={panelId}
-          widgetKey={widgetKey}
-        />
+        <IndicatorListHeaderRight workspaceId={workspaceId} panelId={panelId} />
       </div>
     </WorkspacePermissionsProvider>
   )
@@ -115,15 +103,9 @@ export const listIndicatorWidget: DashboardWidgetDefinition = {
   category: 'list',
   description: 'Browse and manage custom indicators for the workspace.',
   component: (props) => <ListIndicatorWidgetBody {...props} />,
-  renderHeader: ({ widget, context, panelId }) => {
+  renderHeader: ({ context, panelId }) => {
     return {
-      right: (
-        <ListIndicatorHeaderRight
-          workspaceId={context?.workspaceId}
-          panelId={panelId}
-          widgetKey={widget?.key}
-        />
-      ),
+      right: <ListIndicatorHeaderRight workspaceId={context?.workspaceId} panelId={panelId} />,
     }
   },
 }

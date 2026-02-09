@@ -12,7 +12,7 @@ export const yfinanceSymbolRules: MarketSymbolRule[] = [
   },
   {
     assetClass: 'stock',
-    mic: 'XHKG',
+    market: 'HKEX',
     template: '{base}.HK',
     active: true,
   },
@@ -21,6 +21,12 @@ export const yfinanceSymbolRules: MarketSymbolRule[] = [
     country: 'HK',
     template: '{base}.HK',
     regex: '^{base}/{quote}$',
+    active: true,
+  },
+  {
+    assetClass: 'etf',
+    country: 'DE',
+    template: '{base}.DE',
     active: true,
   },
   {
@@ -35,7 +41,7 @@ export const yfinanceSymbolRules: MarketSymbolRule[] = [
   },
   {
     assetClass: 'stock',
-    mic: 'XTSE',
+    market: 'TO',
     template: '{base}.TO',
     active: true,
   },

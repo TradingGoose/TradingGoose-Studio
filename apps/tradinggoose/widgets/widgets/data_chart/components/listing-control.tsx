@@ -14,7 +14,7 @@ import {
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import { ListingSelector } from '@/widgets/widgets/components/listing-selector'
-import { hasListingDetails } from '@/widgets/widgets/data_chart/components/listing-utils'
+import { hasListingDetails } from '@/widgets/widgets/data_chart/utils/listing-utils'
 import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
 import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
 
@@ -118,12 +118,7 @@ export const DataChartListingControl = ({
     }
 
     previousProviderRef.current = normalizedProvider
-  }, [
-    providerId,
-    safeInstance.providerId,
-    instanceId,
-    updateInstance,
-  ])
+  }, [providerId, safeInstance.providerId, instanceId, updateInstance])
 
   useEffect(() => {
     const currentListingKey = listingIdentity ? resolveListingKey(listingIdentity) : null
@@ -145,13 +140,7 @@ export const DataChartListingControl = ({
         query: '',
       })
     }
-  }, [
-    listingIdentity,
-    displayListing,
-    safeInstance.selectedListingValue,
-    instanceId,
-    updateInstance,
-  ])
+  }, [listingIdentity, displayListing, safeInstance.selectedListingValue, instanceId, updateInstance])
 
   const handleListingChange = (selected: ListingOption | null) => {
     const normalized = toListingValue(selected)

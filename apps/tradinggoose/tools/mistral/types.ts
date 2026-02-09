@@ -40,7 +40,7 @@ export interface MistralOcrUsageInfo {
   pagesProcessed: number
 
   /** Size of the document in bytes */
-  docSizeBytes: number
+  docSizeBytes: number | null
 }
 
 /**
@@ -95,4 +95,44 @@ export interface MistralParserOutputData {
 export interface MistralParserOutput extends ToolResponse {
   /** The output data containing content and metadata */
   output: MistralParserOutputData
+}
+
+export interface MistralOcrImage {
+  id: string
+  top_left_x: number
+  top_left_y: number
+  bottom_right_x: number
+  bottom_right_y: number
+  image_base64?: string
+}
+
+export interface MistralOcrDimensions {
+  dpi: number
+  height: number
+  width: number
+}
+
+export interface MistralOcrPage {
+  index: number
+  markdown: string
+  images: MistralOcrImage[]
+  dimensions: MistralOcrDimensions
+  tables: unknown[]
+  hyperlinks: unknown[]
+  header: string | null
+  footer: string | null
+}
+
+export interface MistralOcrUsageInfoRaw {
+  pages_processed: number
+  doc_size_bytes: number | null
+}
+
+export interface MistralParserV2Output extends ToolResponse {
+  output: {
+    pages: MistralOcrPage[]
+    model: string
+    usage_info: MistralOcrUsageInfoRaw
+    document_annotation: string | null
+  }
 }

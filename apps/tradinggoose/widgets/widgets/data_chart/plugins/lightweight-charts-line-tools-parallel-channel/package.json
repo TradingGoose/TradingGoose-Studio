@@ -1,0 +1,47 @@
+{
+  "name": "lightweight-charts-line-tools-parallel-channel",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Parallel Channel line tool plugin for Lightweight Charts, built on top of lightweight-charts-line-tools-core.",
+  "main": "dist/lightweight-charts-line-tools-parallel-channel.umd.js",
+  "module": "dist/lightweight-charts-line-tools-parallel-channel.js",
+  "types": "dist/types/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "lightweight-charts",
+    "line tools",
+    "interactive tools",
+    "plugin",
+    "v5",
+    "parallel channel",
+    "trend channel",
+    "equidistant channel",
+    "regression channel",
+    "technical analysis"
+  ],  
+  "scripts": {
+    "build": "rollup -c && typedoc",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "npm run build"
+  },
+  "author": "difurious",
+  "license": "MPL-2.0",
+  "peerDependencies": {
+    "lightweight-charts": "^5.0.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^12.1.4",
+    "lightweight-charts": "^5.0.9",
+    "rollup": "^4.50.2",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "lightweight-charts-line-tools-core": "github:difurious/lightweight-charts-line-tools-core",
+    "tslib": "^2.8.1",
+    "typedoc": "^0.28.15"
+  }
+}

@@ -2,15 +2,15 @@
 
 import { useCallback, useMemo, useRef } from 'react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import { useCustomIndicators } from '@/hooks/queries/custom-indicators'
-import { useCustomIndicatorsStore } from '@/stores/custom-indicators/store'
+import { useIndicators } from '@/hooks/queries/indicators'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
+import { useIndicatorsStore } from '@/stores/indicators/store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { useIndicatorEditorActions } from '@/widgets/utils/indicator-editor-actions'
 import { useIndicatorSelectionPersistence } from '@/widgets/utils/indicator-selection'
-import { IndicatorCodePanel } from '@/widgets/widgets/editor_indicator/components/indicator-code-panel'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
+import { IndicatorCodePanel } from '@/widgets/widgets/editor_indicator/components/pine-indicator-code-panel'
 import { getIndicatorIdFromParams } from '@/widgets/widgets/editor_indicator/utils'
 
 type EditorIndicatorWidgetBodyProps = WidgetComponentProps
@@ -24,33 +24,42 @@ export function EditorIndicatorWidgetBody({
   onWidgetParamsChange,
 }: EditorIndicatorWidgetBodyProps) {
   const workspaceId = context?.workspaceId ?? null
-  const { data: indicators = [], isLoading, error } = useCustomIndicators(workspaceId ?? '')
+  const { data: indicators = [], isLoading, error } = useIndicators(workspaceId ?? '')
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
 
   const paramsIndicatorId = useMemo(() => getIndicatorIdFromParams(params), [params])
-  const indicatorId = isLinkedToColorPair ? pairContext?.indicatorId ?? null : paramsIndicatorId
+  const fallbackIndicatorId = useMemo(() => {
+    if (pairContext?.pineIndicatorId) return null
+    return pairContext?.indicatorId ?? null
+  }, [pairContext?.indicatorId, pairContext?.pineIndicatorId])
+  const fallbackIndicator = useIndicatorsStore((state) =>
+    fallbackIndicatorId ? state.getIndicator(fallbackIndicatorId, workspaceId ?? undefined) : undefined
+  )
+  const resolvedPairIndicatorId =
+    pairContext?.pineIndicatorId ?? (fallbackIndicator ? fallbackIndicatorId : null)
+  const indicatorId = isLinkedToColorPair ? resolvedPairIndicatorId : paramsIndicatorId
 
-  const indicator = useCustomIndicatorsStore((state) =>
+  const indicator = useIndicatorsStore((state) =>
     indicatorId ? state.getIndicator(indicatorId, workspaceId ?? undefined) : undefined
   )
 
   useIndicatorSelectionPersistence({
     onWidgetParamsChange,
     panelId,
-    widget,
     params,
     pairColor: resolvedPairColor,
     onIndicatorSelect: (nextId) => {
       if (!isLinkedToColorPair) return
-      if (pairContext?.indicatorId === nextId) return
-      setPairContext(resolvedPairColor, { indicatorId: nextId })
+      if (pairContext?.pineIndicatorId === nextId) return
+      setPairContext(resolvedPairColor, { pineIndicatorId: nextId })
     },
   })
-  const codeSaveRef = useRef<() => void>(() => {})
-  const codeVerifyRef = useRef<() => void>(() => {})
+
+  const codeSaveRef = useRef<() => void>(() => { })
+  const codeVerifyRef = useRef<() => void>(() => { })
 
   const handleSave = useCallback(() => {
     codeSaveRef.current()

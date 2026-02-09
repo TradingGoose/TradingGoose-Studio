@@ -67,8 +67,8 @@ export const checkTagTrigger = (text: string, cursorPosition: number): { show: b
 const BLOCK_COLORS = {
   VARIABLE: '#2F8BFF',
   DEFAULT: '#2F55FF',
-  LOOP: '#2FB3FF',
-  PARALLEL: '#FEE12B',
+  LOOP: '#00ccff',
+  PARALLEL: '#ffdd00',
 } as const
 
 const TAG_PREFIXES = {
@@ -413,7 +413,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
             (metric: { name: string }) => `${normalizedBlockName}.${metric.name.toLowerCase()}`
           )
         } else {
-          const outputPaths = generateOutputPaths(blockConfig.outputs)
+          const outputPaths = getBlockOutputPaths(sourceBlock.type, mergedSubBlocks)
           blockTags = outputPaths.map((path) => `${normalizedBlockName}.${path}`)
         }
       } else if (sourceBlock.type === 'variables') {
@@ -463,7 +463,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
           if (dynamicOutputs.length > 0) {
             blockTags = dynamicOutputs.map((path) => `${normalizedBlockName}.${path}`)
           } else {
-            const outputPaths = generateOutputPaths(blockConfig.outputs || {})
+            const outputPaths = getBlockOutputPaths(sourceBlock.type, mergedSubBlocks, true)
             blockTags = outputPaths.map((path) => `${normalizedBlockName}.${path}`)
           }
         } else {
@@ -478,7 +478,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
           if (toolOutputPaths.length > 0) {
             blockTags = toolOutputPaths.map((path) => `${normalizedBlockName}.${path}`)
           } else {
-            const outputPaths = generateOutputPaths(blockConfig.outputs || {})
+            const outputPaths = getBlockOutputPaths(sourceBlock.type, mergedSubBlocks, false)
             blockTags = outputPaths.map((path) => `${normalizedBlockName}.${path}`)
           }
         }
@@ -731,7 +731,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
             (metric: { name: string }) => `${normalizedBlockName}.${metric.name.toLowerCase()}`
           )
         } else {
-          const outputPaths = generateOutputPaths(blockConfig.outputs)
+          const outputPaths = getBlockOutputPaths(accessibleBlock.type, mergedSubBlocks)
           blockTags = outputPaths.map((path) => `${normalizedBlockName}.${path}`)
         }
       } else if (accessibleBlock.type === 'variables') {
@@ -758,7 +758,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
           if (dynamicOutputs.length > 0) {
             blockTags = dynamicOutputs.map((path) => `${normalizedBlockName}.${path}`)
           } else {
-            const outputPaths = generateOutputPaths(blockConfig.outputs || {})
+            const outputPaths = getBlockOutputPaths(accessibleBlock.type, mergedSubBlocks, true)
             blockTags = outputPaths.map((path) => `${normalizedBlockName}.${path}`)
           }
         } else {
@@ -773,7 +773,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
           if (toolOutputPaths.length > 0) {
             blockTags = toolOutputPaths.map((path) => `${normalizedBlockName}.${path}`)
           } else {
-            const outputPaths = generateOutputPaths(blockConfig.outputs || {})
+            const outputPaths = getBlockOutputPaths(accessibleBlock.type, mergedSubBlocks, false)
             blockTags = outputPaths.map((path) => `${normalizedBlockName}.${path}`)
           }
         }
@@ -1424,7 +1424,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                     blockColor = BLOCK_COLORS.PARALLEL
                   }
 
-                  const blockBackground = blockColor ? `${blockColor}30` : undefined
+                  const blockBackground = blockColor ? `${blockColor}20` : undefined
 
                   return (
                     <div key={group.blockId} className='relative'>

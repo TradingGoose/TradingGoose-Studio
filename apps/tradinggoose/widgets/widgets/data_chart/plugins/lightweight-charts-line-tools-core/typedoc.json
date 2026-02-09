@@ -1,0 +1,11 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/index.ts"],
+  "out": "docs",
+  "name": "Core Line Tool Plugin",
+  "includeVersion": true,
+  "readme": "none",
+  "theme": "default",
+  "excludeInternal": true,
+  "excludePrivate": true
+}

@@ -1,19 +1,20 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertCircle, Info, Loader2, Map as MapIcon, RefreshCw } from 'lucide-react'
+import { Loader2, Map as MapIcon, RefreshCw } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { parseQuery, queryToApiParams } from '@/lib/logs/query-parser'
 import { cn } from '@/lib/utils'
-import Timeline from '@/app/workspace/[workspaceId]/logs/components/filters/components/timeline'
-import { AutocompleteSearch } from '@/app/workspace/[workspaceId]/logs/components/search'
-import { Sidebar } from '@/app/workspace/[workspaceId]/logs/components/sidebar/sidebar'
-import Dashboard from '@/app/workspace/[workspaceId]/logs/dashboard'
-import { formatDate } from '@/app/workspace/[workspaceId]/logs/utils'
-import { GlobalNavbarHeader } from '@/global-navbar'
+import { Dashboard } from '@/app/workspace/[workspaceId]/logs/components/dashboard'
+import { LogDetails } from '@/app/workspace/[workspaceId]/logs/components/log-details/log-details'
+import { LogsList } from '@/app/workspace/[workspaceId]/logs/components/logs-list'
+import {
+  AutocompleteSearch,
+  LogsToolbar,
+} from '@/app/workspace/[workspaceId]/logs/components/logs-toolbar'
 import { useFolders } from '@/hooks/queries/folders'
 import { useLogDetail, useLogsList } from '@/hooks/queries/logs'
 import { useDebounce } from '@/hooks/use-debounce'
@@ -22,25 +23,6 @@ import { useFilterStore } from '@/stores/logs/filters/store'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 
 const LOGS_PER_PAGE = 50
-
-const getTriggerColor = (trigger: string | null | undefined): string => {
-  if (!trigger) return '#9ca3af'
-
-  switch (trigger.toLowerCase()) {
-    case 'manual':
-      return '#9ca3af' // gray-400 (matches secondary styling better)
-    case 'schedule':
-      return '#10b981' // green (emerald-500)
-    case 'webhook':
-      return '#f97316' // orange (orange-500)
-    case 'chat':
-      return '#8b5cf6' // purple (violet-500)
-    case 'api':
-      return '#3b82f6' // blue (blue-500)
-    default:
-      return '#9ca3af' // gray-400
-  }
-}
 
 const selectedRowAnimation = `
   @keyframes borderPulse {
@@ -407,7 +389,7 @@ export default function Logs() {
 
   const headerCenterContent = isDashboardView ? null : (
     <div className='flex flex-wrap items-center justify-center gap-3'>
-      <div className='inline-flex h-9 items-center rounded-md border bg-muted p-1 gap-1 shadow-sm'>
+      <div className='inline-flex h-9 items-center gap-1 rounded-md border bg-muted p-1 shadow-sm'>
         <Button
           variant='ghost'
           size='sm'
@@ -424,7 +406,7 @@ export default function Logs() {
         </Button>
       </div>
 
-      <div className='inline-flex h-9 items-center rounded-md border bg-muted p-1 gap-1 shadow-sm'>
+      <div className='inline-flex h-9 items-center gap-1 rounded-md border bg-muted p-1 shadow-sm'>
         <Button
           variant='ghost'
           size='sm'
@@ -509,200 +491,18 @@ export default function Logs() {
   )
 
   const tableContent = (
-    <div className='flex h-full max-h-full min-h-0 min-w-0 flex-1 overflow-hidden p-1'>
-      <div className='flex h-full max-h-full min-h-0 flex-1 flex-col overflow-hidden'>
-        <div className=' sm:hidden'>
-          <TooltipProvider>
-            <Timeline />
-          </TooltipProvider>
-        </div>
-
-        <div className='flex h-full max-h-full min-h-0 flex-1 flex-col overflow-hidden'>
-          <div className='h-full max-h-full min-h-0 w-full overflow-x-auto'>
-            <div className='h-full max-h-full min-h-0 min-w-0'>
-              <div className='flex h-full max-h-full min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border'>
-                <div className='shrink-0 border-b bg-card/40'>
-                  <table className='w-full table-fixed'>
-                    <colgroup>
-                      <col className='w-[28%]' />
-                      <col className='w-[12%]' />
-                      <col className='w-[30%]' />
-                      <col className='w-[15%]' />
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th className='px-4 pt-2 pb-3 text-left font-medium'>
-                          <span className='text-muted-foreground text-xs leading-none'>Time</span>
-                        </th>
-                        <th className='px-4 pt-2 pb-3 text-left font-medium'>
-                          <span className='text-muted-foreground text-xs leading-none'>Status</span>
-                        </th>
-                        <th className='px-4 pt-2 pb-3 text-left font-medium'>
-                          <span className='text-muted-foreground text-xs leading-none'>
-                            Workflow
-                          </span>
-                        </th>
-                        <th className='px-4 pt-2 pb-3 text-left font-medium'>
-                          <span className='text-muted-foreground text-xs leading-none'>Cost</span>
-                        </th>
-                        <th className='hidden px-4 pt-2 pb-3 text-left font-medium xl:table-cell'>
-                          <span className='text-muted-foreground text-xs leading-none'>
-                            Trigger
-                          </span>
-                        </th>
-                        <th className='hidden px-4 pt-2 pb-3 text-left font-medium xl:table-cell'>
-                          <span className='text-muted-foreground text-xs leading-none'>
-                            Duration
-                          </span>
-                        </th>
-                      </tr>
-                    </thead>
-                  </table>
-                </div>
-
-                <div
-                  className='h-full max-h-full min-h-0 flex-1 overflow-auto'
-                  ref={scrollContainerRef}
-                  style={{ scrollbarGutter: 'stable' }}
-                >
-                  {loading ? (
-                    <div className='flex h-full items-center justify-center p-5'>
-                      <div className='flex items-center gap-2 text-muted-foreground'>
-                        <Loader2 className='h-5 w-5 animate-spin' />
-                        <span className='text-sm'>Loading logs...</span>
-                      </div>
-                    </div>
-                  ) : error ? (
-                    <div className='flex h-full items-center justify-center'>
-                      <div className='flex items-center gap-2 text-destructive'>
-                        <AlertCircle className='h-5 w-5' />
-                        <span className='text-sm'>Error: {error}</span>
-                      </div>
-                    </div>
-                  ) : logs.length === 0 ? (
-                    <div className='flex h-full items-center justify-center'>
-                      <div className='flex items-center gap-2 text-muted-foreground'>
-                        <Info className='h-5 w-5' />
-                        <span className='text-sm'>No logs found</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <table className='w-full table-fixed'>
-                      <colgroup>
-                        <col className='w-[28%]' />
-                        <col className='w-[12%]' />
-                        <col className='w-[30%]' />
-                        <col className='w-[15%]' />
-                      </colgroup>
-                      <tbody>
-                        {logs.map((log) => {
-                          const formattedDate = formatDate(log.createdAt)
-                          const isSelected = selectedLog?.id === log.id
-
-                          return (
-                            <tr
-                              key={log.id}
-                              ref={isSelected ? selectedRowRef : null}
-                              className={cn(
-                                'cursor-pointer border-b transition-colors hover:bg-card/30',
-                                isSelected && 'selected-row bg-accent/40'
-                              )}
-                              onClick={() => handleLogClick(log)}
-                            >
-                              <td className='px-4 py-3'>
-                                <div className='text-[13px]'>
-                                  <span className='font-sm text-muted-foreground'>
-                                    {formattedDate.compactDate}
-                                  </span>
-                                  <span
-                                    className='hidden font-medium sm:inline'
-                                    style={{ marginLeft: '8px' }}
-                                  >
-                                    {formattedDate.compactTime}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className='px-4 py-3'>
-                                <div
-                                  className={cn(
-                                    'inline-flex items-center rounded-sm px-[6px] py-[2px] font-medium text-xs transition-all duration-200 lg:px-[8px]',
-                                    log.level === 'error'
-                                      ? 'bg-red-500 text-white'
-                                      : 'bg-secondary text-card-foreground'
-                                  )}
-                                >
-                                  {log.level}
-                                </div>
-                              </td>
-                              <td className='px-4 py-3'>
-                                <div className='truncate font-medium text-[13px]'>
-                                  {log.workflow?.name || 'Unknown Workflow'}
-                                </div>
-                              </td>
-                              <td className='px-4 py-3'>
-                                <div className='font-medium text-muted-foreground text-xs'>
-                                  {typeof (log as any)?.cost?.total === 'number'
-                                    ? `$${((log as any).cost.total as number).toFixed(4)}`
-                                    : '—'}
-                                </div>
-                              </td>
-                              <td className='hidden px-4 py-3 xl:table-cell'>
-                                {log.trigger ? (
-                                  <div
-                                    className={cn(
-                                      'inline-flex items-center rounded-sm px-[6px] py-[2px] font-medium text-xs transition-all duration-200 lg:px-[8px]',
-                                      log.trigger.toLowerCase() === 'manual'
-                                        ? 'bg-secondary text-card-foreground'
-                                        : 'text-white'
-                                    )}
-                                    style={
-                                      log.trigger.toLowerCase() === 'manual'
-                                        ? undefined
-                                        : { backgroundColor: getTriggerColor(log.trigger) }
-                                    }
-                                  >
-                                    {log.trigger}
-                                  </div>
-                                ) : (
-                                  <div className='text-muted-foreground text-xs'>—</div>
-                                )}
-                              </td>
-                              <td className='hidden px-4 py-3 text-muted-foreground text-xs xl:table-cell'>
-                                {log.duration || '—'}
-                              </td>
-                            </tr>
-                          )
-                        })}
-
-                        {hasMore && (
-                          <tr>
-                            <td colSpan={6} className='px-4 py-4'>
-                              <div
-                                ref={loaderRef}
-                                className='flex items-center justify-center gap-2 text-muted-foreground'
-                              >
-                                {isFetchingMore ? (
-                                  <>
-                                    <Loader2 className='h-4 w-4 animate-spin' />
-                                    <span className='text-sm'>Loading more...</span>
-                                  </>
-                                ) : (
-                                  <span className='text-sm'>Scroll to load more</span>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <LogsList
+      logs={logs}
+      selectedLogId={selectedLog?.id ?? null}
+      onLogClick={handleLogClick}
+      loading={loading}
+      error={error}
+      hasMore={hasMore}
+      isFetchingMore={isFetchingMore}
+      loaderRef={loaderRef}
+      scrollContainerRef={scrollContainerRef}
+      selectedRowRef={selectedRowRef}
+    />
   )
 
   const showDetailsPanel = isSidebarOpen && !!selectedLog
@@ -735,7 +535,7 @@ export default function Logs() {
             minSize={20}
             className='min-h-0 min-w-0 overflow-auto'
           >
-            <Sidebar
+            <LogDetails
               log={detailedSelectedLog}
               isOpen={isSidebarOpen}
               onClose={handleCloseSidebar}
@@ -753,11 +553,7 @@ export default function Logs() {
   )
 
   const header = (
-    <GlobalNavbarHeader
-      left={headerLeftContent}
-      center={headerCenterContent}
-      right={headerRightContent}
-    />
+    <LogsToolbar left={headerLeftContent} center={headerCenterContent} right={headerRightContent} />
   )
 
   if (isDashboardView) {

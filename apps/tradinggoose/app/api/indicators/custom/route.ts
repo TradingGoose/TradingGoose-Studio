@@ -1,29 +1,29 @@
 import { db } from '@tradinggoose/db'
-import { customIndicators, workflow } from '@tradinggoose/db/schema'
+import { pineIndicators, workflow } from '@tradinggoose/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
-import { upsertCustomIndicators } from '@/lib/indicators/custom/operations'
+import { upsertIndicators } from '@/lib/indicators/custom/operations'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 
-const logger = createLogger('CustomIndicatorsAPI')
+const logger = createLogger('IndicatorsAPI')
 
-const CustomIndicatorSchema = z.object({
+const IndicatorSchema = z.object({
   workspaceId: z.string().min(1, 'workspaceId is required'),
   indicators: z.array(
     z.object({
       id: z.string().optional(),
       name: z.string().min(1, 'Indicator name is required'),
       color: z.string().optional(),
-      calcCode: z.string().default(''),
+      pineCode: z.string().default(''),
+      inputMeta: z.record(z.any()).optional(),
     })
   ),
 })
 
-// GET - Fetch all custom indicators for a workspace
 export async function GET(request: NextRequest) {
   const requestId = generateRequestId()
   const searchParams = request.nextUrl.searchParams
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
   try {
     const authResult = await checkHybridAuth(request, { requireWorkflowId: false })
     if (!authResult.success || !authResult.userId) {
-      logger.warn(`[${requestId}] Unauthorized custom indicators access attempt`)
+      logger.warn(`[${requestId}] Unauthorized indicators access attempt`)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!resolvedWorkspaceId) {
-      logger.warn(`[${requestId}] Missing workspaceId for custom indicators fetch`)
+      logger.warn(`[${requestId}] Missing workspaceId for indicators fetch`)
       return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 })
     }
 
@@ -72,32 +72,31 @@ export async function GET(request: NextRequest) {
 
     const result = await db
       .select()
-      .from(customIndicators)
-      .where(eq(customIndicators.workspaceId, resolvedWorkspaceId))
-      .orderBy(desc(customIndicators.createdAt))
+      .from(pineIndicators)
+      .where(eq(pineIndicators.workspaceId, resolvedWorkspaceId))
+      .orderBy(desc(pineIndicators.createdAt))
 
     return NextResponse.json({ data: result }, { status: 200 })
   } catch (error) {
-    logger.error(`[${requestId}] Error fetching custom indicators:`, error)
-    return NextResponse.json({ error: 'Failed to fetch custom indicators' }, { status: 500 })
+    logger.error(`[${requestId}] Error fetching indicators:`, error)
+    return NextResponse.json({ error: 'Failed to fetch indicators' }, { status: 500 })
   }
 }
 
-// POST - Create or update custom indicators
 export async function POST(request: NextRequest) {
   const requestId = generateRequestId()
 
   try {
     const authResult = await checkHybridAuth(request, { requireWorkflowId: false })
     if (!authResult.success || !authResult.userId) {
-      logger.warn(`[${requestId}] Unauthorized custom indicators update attempt`)
+      logger.warn(`[${requestId}] Unauthorized indicators update attempt`)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const body = await request.json()
 
     try {
-      const { indicators, workspaceId } = CustomIndicatorSchema.parse(body)
+      const { indicators, workspaceId } = IndicatorSchema.parse(body)
 
       const permission = await getUserEntityPermissions(authResult.userId, 'workspace', workspaceId)
       if (!permission) {
@@ -114,7 +113,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Write permission required' }, { status: 403 })
       }
 
-      const resultIndicators = await upsertCustomIndicators({
+      const resultIndicators = await upsertIndicators({
         indicators,
         workspaceId,
         userId: authResult.userId,
@@ -124,7 +123,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, data: resultIndicators })
     } catch (validationError) {
       if (validationError instanceof z.ZodError) {
-        logger.warn(`[${requestId}] Invalid custom indicators data`, {
+        logger.warn(`[${requestId}] Invalid indicators data`, {
           errors: validationError.errors,
         })
 
@@ -143,12 +142,11 @@ export async function POST(request: NextRequest) {
       throw validationError
     }
   } catch (error) {
-    logger.error(`[${requestId}] Error updating custom indicators`, error)
-    return NextResponse.json({ error: 'Failed to update custom indicators' }, { status: 500 })
+    logger.error(`[${requestId}] Error updating indicators`, error)
+    return NextResponse.json({ error: 'Failed to update indicators' }, { status: 500 })
   }
 }
 
-// DELETE - Delete a custom indicator by ID
 export async function DELETE(request: NextRequest) {
   const requestId = generateRequestId()
   const searchParams = request.nextUrl.searchParams
@@ -167,7 +165,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const authResult = await checkHybridAuth(request, { requireWorkflowId: false })
     if (!authResult.success || !authResult.userId) {
-      logger.warn(`[${requestId}] Unauthorized custom indicator deletion attempt`)
+      logger.warn(`[${requestId}] Unauthorized indicator deletion attempt`)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -187,13 +185,14 @@ export async function DELETE(request: NextRequest) {
     }
 
     await db
-      .delete(customIndicators)
-      .where(and(eq(customIndicators.id, indicatorId), eq(customIndicators.workspaceId, workspaceId)))
+      .delete(pineIndicators)
+      .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
 
-    logger.info(`[${requestId}] Deleted custom indicator ${indicatorId}`)
+    logger.info(`[${requestId}] Deleted indicator ${indicatorId}`)
     return NextResponse.json({ success: true }, { status: 200 })
   } catch (error) {
-    logger.error(`[${requestId}] Error deleting custom indicator`, error)
-    return NextResponse.json({ error: 'Failed to delete custom indicator' }, { status: 500 })
+    logger.error(`[${requestId}] Error deleting indicator`, error)
+    return NextResponse.json({ error: 'Failed to delete indicator' }, { status: 500 })
   }
 }
+

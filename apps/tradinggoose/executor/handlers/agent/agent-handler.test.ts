@@ -365,7 +365,6 @@ describe('AgentBlockHandler', () => {
           code: 'return { result: "auto tool executed", input }',
           input: 'test input',
         }),
-        false, // skipProxy
         false, // skipPostProcess
         expect.any(Object) // execution context
       )
@@ -378,7 +377,6 @@ describe('AgentBlockHandler', () => {
           code: 'return { result: "force tool executed", input }',
           input: 'another test',
         }),
-        false, // skipProxy
         false, // skipPostProcess
         expect.any(Object) // execution context
       )
@@ -1382,7 +1380,7 @@ describe('AgentBlockHandler', () => {
     })
 
     it('should handle MCP tools in agent execution', async () => {
-      mockExecuteTool.mockImplementation((toolId, params, skipProxy, skipPostProcess, context) => {
+      mockExecuteTool.mockImplementation((toolId, params, skipPostProcess, context) => {
         if (toolId.startsWith('mcp-')) {
           return Promise.resolve({
             success: true,
@@ -1657,7 +1655,7 @@ describe('AgentBlockHandler', () => {
 
     it('should provide workspaceId context for MCP tool execution', async () => {
       let capturedContext: any
-      mockExecuteTool.mockImplementation((toolId, params, skipProxy, skipPostProcess, context) => {
+      mockExecuteTool.mockImplementation((toolId, params, skipPostProcess, context) => {
         capturedContext = context
         if (toolId.startsWith('mcp-')) {
           return Promise.resolve({

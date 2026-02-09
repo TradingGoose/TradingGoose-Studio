@@ -43,6 +43,34 @@
       "when": 1769101222043,
       "tag": "0005_perpetual_leech",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1770059761088,
+      "tag": "0006_quick_falcon",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1770397605102,
+      "tag": "0007_tough_william_stryker",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1770405457490,
+      "tag": "0008_talented_shockwave",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1770601113750,
+      "tag": "0009_panoramic_moonstone",
+      "breakpoints": true
     }
   ]
 }

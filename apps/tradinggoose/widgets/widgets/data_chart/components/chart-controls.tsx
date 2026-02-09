@@ -1,6 +1,5 @@
 'use client'
 
-import { useMemo } from 'react'
 import { CandlestickChart, Clock } from 'lucide-react'
 import {
   DropdownMenu,
@@ -10,29 +9,18 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import { IndicatorDropdown } from '@/widgets/widgets/components/indicator-dropdown'
+import type { MarketInterval } from '@/providers/market/types'
+import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
+import { IndicatorDropdown } from '@/widgets/widgets/components/pine-indicator-dropdown'
 import {
   widgetHeaderIconButtonClassName,
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuItemClassName,
 } from '@/widgets/widgets/components/widget-header-control'
-import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
-import { useCustomIndicatorsStore } from '@/stores/custom-indicators/store'
-import { buildIndicatorRefs } from '@/widgets/widgets/data_chart/utils'
+import { CANDLE_TYPE_OPTIONS } from '@/widgets/widgets/data_chart/options'
+import { formatIntervalLabel } from '@/widgets/widgets/data_chart/series-data'
 import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
-import { CANDLE_TYPE_OPTIONS } from '@/widgets/widgets/data_chart/types'
-import { DEFAULT_RANGE_PRESETS, formatIntervalLabel } from '@/widgets/widgets/data_chart/remapping'
-import type { MarketInterval } from '@/providers/market/types'
-
-type DataChartChartControlsProps = {
-  workspaceId?: string | null
-  widgetKey?: string
-  panelId?: string
-  params: DataChartWidgetParams
-  interval?: MarketInterval | string
-  allowedIntervals: MarketInterval[]
-  supportsInterval: boolean
-}
+import { buildIndicatorRefs } from '@/widgets/widgets/data_chart/utils/indicator-refs'
 
 type DataChartIntervalDropdownProps = {
   params: DataChartWidgetParams
@@ -52,15 +40,22 @@ export const DataChartIntervalDropdown = ({
   widgetKey,
 }: DataChartIntervalDropdownProps) => {
   const handleIntervalSelect = (nextInterval: string) => {
-    const fallbackRange = DEFAULT_RANGE_PRESETS[0]?.range
+    const nextData = { ...(params.data ?? {}) } as Record<string, unknown>
+    nextData.window = undefined
+    nextData.fallbackWindow = undefined
+    nextData.interval = nextInterval
+
+    const nextView = { ...(params.view ?? {}) } as Record<string, unknown>
+    nextView.rangePresetId = undefined
+    nextView.start = undefined
+    nextView.end = undefined
+    nextView.interval = nextInterval
+
     emitDataChartParamsChange({
       params: {
-        data: {
-          ...(params.data ?? {}),
-          interval: nextInterval,
-          window: fallbackRange ? { mode: 'range', range: fallbackRange } : undefined,
-          fallbackWindow: undefined,
-        },
+        data: nextData,
+        view: nextView,
+        runtime: { refreshAt: Date.now() },
       },
       panelId,
       widgetKey,
@@ -86,7 +81,7 @@ export const DataChartIntervalDropdown = ({
       </Tooltip>
       <DropdownMenuContent className={cn(widgetHeaderMenuContentClassName, 'w-44')}>
         {allowedIntervals.length === 0 ? (
-          <div className='px-2 py-2 text-xs text-muted-foreground'>No intervals</div>
+          <div className='px-2 py-2 text-muted-foreground text-xs'>No intervals</div>
         ) : (
           allowedIntervals.map((option) => (
             <DropdownMenuItem
@@ -179,26 +174,26 @@ export const DataChartCandleTypeDropdown = ({
   )
 }
 
-type DataChartIndicatorsDropdownProps = {
+type DataChartChartControlsProps = {
   workspaceId?: string | null
   params: DataChartWidgetParams
+  interval?: MarketInterval | string
+  allowedIntervals: MarketInterval[]
+  supportsInterval: boolean
   panelId?: string
   widgetKey?: string
 }
 
-export const DataChartIndicatorsDropdown = ({
+export const DataChartChartControls = ({
   workspaceId,
   params,
+  interval,
+  allowedIntervals,
+  supportsInterval,
   panelId,
   widgetKey,
-}: DataChartIndicatorsDropdownProps) => {
-  const customIndicators = useCustomIndicatorsStore((state) =>
-    workspaceId ? state.getAllIndicators(workspaceId) : []
-  )
-  const customIndicatorIdSet = useMemo(
-    () => new Set(customIndicators.map((indicator) => indicator.id)),
-    [customIndicators]
-  )
+}: DataChartChartControlsProps) => {
+  const candleType = params.view?.candleType
 
   const handleIndicatorChange = (nextIds: string[]) => {
     const restView = { ...(params.view ?? {}) } as Record<string, unknown>
@@ -206,7 +201,10 @@ export const DataChartIndicatorsDropdown = ({
       params: {
         view: {
           ...restView,
-          indicators: buildIndicatorRefs(nextIds, customIndicatorIdSet),
+          pineIndicators: buildIndicatorRefs(
+            nextIds,
+            Array.isArray(params.view?.pineIndicators) ? params.view?.pineIndicators : []
+          ),
         },
       },
       panelId,
@@ -214,29 +212,7 @@ export const DataChartIndicatorsDropdown = ({
     })
   }
 
-  const selectedIndicatorIds = (params.view?.indicators ?? []).map((indicator) => indicator.id)
-
-  return (
-    <IndicatorDropdown
-      workspaceId={workspaceId}
-      value={selectedIndicatorIds}
-      onChange={handleIndicatorChange}
-      align='end'
-      widgetKey={widgetKey}
-    />
-  )
-}
-
-export const DataChartChartControls = ({
-  workspaceId,
-  widgetKey,
-  panelId,
-  params,
-  interval,
-  allowedIntervals,
-  supportsInterval,
-}: DataChartChartControlsProps) => {
-  const candleType = params.view?.candleType
+  const selectedIndicatorIds = (params.view?.pineIndicators ?? []).map((indicator) => indicator.id)
 
   return (
     <div className='flex items-center gap-2'>
@@ -254,11 +230,13 @@ export const DataChartChartControls = ({
         panelId={panelId}
         widgetKey={widgetKey}
       />
-      <DataChartIndicatorsDropdown
+      <IndicatorDropdown
         workspaceId={workspaceId}
-        params={params}
-        panelId={panelId}
-        widgetKey={widgetKey}
+        value={selectedIndicatorIds}
+        onChange={handleIndicatorChange}
+        align='end'
+        selectionMode='multiple'
+        includeDefaults
       />
     </div>
   )

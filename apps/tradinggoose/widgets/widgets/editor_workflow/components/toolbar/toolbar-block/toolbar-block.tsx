@@ -68,9 +68,9 @@ export function ToolbarBlock({
       )}
     >
       <div
-        className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-secondary/60 text-foreground'
+        className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-secondary text-foreground'
         style={{
-          backgroundColor: config.bgColor ? `${config.bgColor}30` : undefined,
+          backgroundColor: config.bgColor ? `${config.bgColor}20` : undefined,
           color: config.bgColor || undefined,
         }}
       >

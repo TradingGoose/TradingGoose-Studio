@@ -15,7 +15,7 @@ export const editorIndicatorWidget: DashboardWidgetDefinition = {
   title: 'Indicator Editor',
   icon: SquareFunction,
   category: 'editor',
-  description: 'Edit custom indicator scripts in one workspace.',
+  description: 'Edit PineTS indicators in one workspace.',
   component: (props) => <EditorIndicatorWidgetBody {...props} />,
   renderHeader: ({ widget, context, panelId }) => {
     const indicatorId = getIndicatorIdFromParams(
@@ -55,3 +55,4 @@ export const editorIndicatorWidget: DashboardWidgetDefinition = {
     }
   },
 }
+

@@ -16,6 +16,7 @@ export type PersistedColorPair = {
   listing?: ListingIdentity | null
   copilotChatId?: string | null
   indicatorId?: string | null
+  pineIndicatorId?: string | null
 }
 
 export type PersistedColorPairsState = {
@@ -130,6 +131,11 @@ export function normalizeColorPairsState(state?: unknown): PersistedColorPairsSt
       ((raw as { indicatorId?: unknown }).indicatorId as string).trim().length > 0
         ? ((raw as { indicatorId?: unknown }).indicatorId as string)
         : null
+    const pineIndicatorId =
+      typeof (raw as { pineIndicatorId?: unknown }).pineIndicatorId === 'string' &&
+      ((raw as { pineIndicatorId?: unknown }).pineIndicatorId as string).trim().length > 0
+        ? ((raw as { pineIndicatorId?: unknown }).pineIndicatorId as string)
+        : null
 
     normalized.push({
       color: rawColor,
@@ -137,6 +143,7 @@ export function normalizeColorPairsState(state?: unknown): PersistedColorPairsSt
       listing,
       copilotChatId,
       indicatorId,
+      pineIndicatorId,
     })
     seen.add(rawColor)
   }

@@ -1,7 +1,7 @@
 import {
+  type ParsedMarketQuery,
   parseCategorizedSearchQuery,
   serializeArrayParam,
-  type ParsedMarketQuery,
 } from '@/components/listing-selector/search-utils'
 import type { ProviderSearchConfig } from '@/components/listing-selector/selector/use-provider-config'
 
@@ -13,9 +13,10 @@ export type MarketListingSearchRequest = {
 export function buildMarketSearchRequest(args: {
   rawQuery: string
   providerId?: string
+  providerType?: 'market' | 'trading'
   providerConfig: ProviderSearchConfig
 }): MarketListingSearchRequest {
-  const { rawQuery, providerId, providerConfig } = args
+  const { rawQuery, providerId, providerType = 'market', providerConfig } = args
   const trimmed = rawQuery.trim()
 
   const queryParams: Record<string, string> = {}
@@ -38,17 +39,20 @@ export function buildMarketSearchRequest(args: {
     normalizedAssetClasses.length === 0 || normalizedAssetClasses.includes('crypto')
   const includeCurrency =
     normalizedAssetClasses.length === 0 || normalizedAssetClasses.includes('currency')
-  const includeEquity =
+  const includeListings =
     normalizedAssetClasses.length === 0 ||
     normalizedAssetClasses.some((value) => value !== 'crypto' && value !== 'currency')
 
-  const resolvedMicCodes = providerConfig.micCodes.length ? providerConfig.micCodes : []
-  if (resolvedMicCodes.length && includeEquity) {
-    filtersPayload.mic = resolvedMicCodes
+  const resolvedMarketCodes = providerConfig.marketCodes.length ? providerConfig.marketCodes : []
+
+  if (includeListings) {
+    if (resolvedMarketCodes.length) {
+      filtersPayload.market = resolvedMarketCodes
+    }
   }
 
-  if (includeEquity && providerConfig.equityQuoteCodes.length) {
-    queryParams.equity_quote_code = serializeArrayParam(providerConfig.equityQuoteCodes)
+  if (includeListings && providerConfig.listingQuoteCodes.length) {
+    queryParams.listing_quote_code = serializeArrayParam(providerConfig.listingQuoteCodes)
   }
   if (includeCrypto && providerConfig.cryptoQuoteCodes.length) {
     queryParams.crypto_quote_code = serializeArrayParam(providerConfig.cryptoQuoteCodes)
@@ -71,9 +75,10 @@ export function buildMarketSearchRequest(args: {
     trimmed,
     rawQuery,
     providerId,
+    providerType,
     assetClasses: resolvedAssetClasses,
-    micCodes: resolvedMicCodes,
-    equityQuoteCodes: providerConfig.equityQuoteCodes,
+    marketCodes: resolvedMarketCodes,
+    listingQuoteCodes: providerConfig.listingQuoteCodes,
     cryptoQuoteCodes: providerConfig.cryptoQuoteCodes,
     currencyQuoteCodes: providerConfig.currencyQuoteCodes,
     parsedQuery,

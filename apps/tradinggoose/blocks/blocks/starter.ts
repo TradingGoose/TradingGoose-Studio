@@ -7,7 +7,7 @@ export const StarterBlock: BlockConfig = {
   description: 'Start workflow',
   longDescription: 'Initiate your workflow manually with optional structured input.',
   category: 'blocks',
-  bgColor: '#2FB3FF',
+  bgColor: '#00ccff',
   icon: StartIcon,
   hideFromToolbar: true,
   subBlocks: [
