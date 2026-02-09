@@ -1,5 +1,9 @@
+import {
+  type ListingIdentity,
+  type ListingResolved,
+  resolveListingKey,
+} from '@/lib/listing/identity'
 import { MARKET_API_VERSION } from '@/lib/market/client/constants'
-import { resolveListingKey, type ListingIdentity, type ListingResolved } from '@/lib/listing/identity'
 
 export type ResolvedListingDetails = {
   base?: string
@@ -9,7 +13,6 @@ export type ResolvedListingDetails = {
   assetClass?: string | null
   base_asset_class?: string | null
   quote_asset_class?: string | null
-  primaryMicCode?: string | null
   marketCode?: string | null
   countryCode?: string | null
   cityName?: string | null
@@ -106,7 +109,7 @@ const fetchMarketBatch = async <T>(
   const record = data as Record<string, unknown>
   uniqueIds.forEach((id) => {
     const value = record[id]
-    result[id] = value && typeof value === 'object' ? (value as T) : (value ?? null)
+    result[id] = value && typeof value === 'object' ? (value as T) : null
   })
   return result
 }
@@ -139,7 +142,6 @@ const resolveListingById = async (
     name: listing.name ?? null,
     iconUrl: listing.iconUrl ?? null,
     assetClass: listing.assetClass ?? null,
-    primaryMicCode: listing.primaryMicCode ?? null,
     marketCode: listing.marketCode ?? null,
     countryCode: listing.countryCode ?? null,
     cityName: listing.cityName ?? null,
@@ -166,12 +168,7 @@ const resolveCurrencyPair = async (
   quoteId: string,
   signal?: AbortSignal
 ): Promise<ResolvedListingDetails | null> => {
-  const records = await fetchMarketBatch<any>(
-    'currency',
-    'currency_id',
-    [baseId, quoteId],
-    signal
-  )
+  const records = await fetchMarketBatch<any>('currency', 'currency_id', [baseId, quoteId], signal)
   const baseRow = toCodeRow(records[baseId])
   const quoteRow = toCodeRow(records[quoteId])
   if (!baseRow?.code || !quoteRow?.code) return null
@@ -193,12 +190,7 @@ const resolveCryptoPair = async (
   quoteId: string,
   signal?: AbortSignal
 ): Promise<ResolvedListingDetails | null> => {
-  const records = await fetchMarketBatch<any>(
-    'crypto',
-    'crypto_id',
-    [baseId, quoteId],
-    signal
-  )
+  const records = await fetchMarketBatch<any>('crypto', 'crypto_id', [baseId, quoteId], signal)
   const baseRow = toCodeRow(records[baseId])
   const quoteRow = toCodeRow(records[quoteId])
   if (!baseRow?.code || !quoteRow?.code) return null
@@ -285,17 +277,17 @@ function buildResolvedListing(
   const normalizedIdentity: ListingIdentity =
     listing.listing_type === 'default'
       ? {
-        listing_id: listing.listing_id?.trim() ?? '',
-        base_id: '',
-        quote_id: '',
-        listing_type: listing.listing_type,
-      }
+          listing_id: listing.listing_id?.trim() ?? '',
+          base_id: '',
+          quote_id: '',
+          listing_type: listing.listing_type,
+        }
       : {
-        listing_id: '',
-        base_id: listing.base_id?.trim() ?? '',
-        quote_id: listing.quote_id?.trim() ?? '',
-        listing_type: listing.listing_type,
-      }
+          listing_id: '',
+          base_id: listing.base_id?.trim() ?? '',
+          quote_id: listing.quote_id?.trim() ?? '',
+          listing_type: listing.listing_type,
+        }
 
   const listingKey = resolveListingKey(normalizedIdentity)
   if (!listingKey) return null
@@ -310,7 +302,6 @@ function buildResolvedListing(
     assetClass: details.assetClass ?? null,
     base_asset_class: details.base_asset_class ?? null,
     quote_asset_class: details.quote_asset_class ?? null,
-    primaryMicCode: details.primaryMicCode ?? null,
     marketCode: details.marketCode ?? null,
     countryCode: details.countryCode ?? null,
     cityName: details.cityName ?? null,

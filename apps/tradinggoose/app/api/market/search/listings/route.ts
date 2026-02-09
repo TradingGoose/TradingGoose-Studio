@@ -20,10 +20,10 @@ const ListingsSearchSchema = z.object({
   listing_name: optionalString,
   listing_base: optionalString,
   listing_quote: optionalString,
-  mic: optionalString,
-  mic_name: optionalString,
-  mic_code: optionalString,
-  exch_id: optionalString,
+  market: optionalString,
+  market_name: optionalString,
+  market_code: optionalString,
+  market_id: optionalString,
   limit: limitMax200,
 })
 
@@ -42,10 +42,10 @@ const ListingsSearchKeys = [
   'listing_name',
   'listing_base',
   'listing_quote',
-  'mic',
-  'mic_name',
-  'mic_code',
-  'exch_id',
+  'market',
+  'market_name',
+  'market_code',
+  'market_id',
 ] as const
 
 export async function GET(request: NextRequest) {

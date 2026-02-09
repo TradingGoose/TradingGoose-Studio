@@ -1,7 +1,7 @@
 import {
+  type ParsedMarketQuery,
   parseCategorizedSearchQuery,
   serializeArrayParam,
-  type ParsedMarketQuery,
 } from '@/components/listing-selector/search-utils'
 import type { ProviderSearchConfig } from '@/components/listing-selector/selector/use-provider-config'
 
@@ -44,14 +44,10 @@ export function buildMarketSearchRequest(args: {
     normalizedAssetClasses.some((value) => value !== 'crypto' && value !== 'currency')
 
   const resolvedMarketCodes = providerConfig.marketCodes.length ? providerConfig.marketCodes : []
-  const resolvedMicCodes = providerConfig.micCodes.length ? providerConfig.micCodes : []
 
   if (includeListings) {
-    if (providerType === 'market' && resolvedMarketCodes.length) {
+    if (resolvedMarketCodes.length) {
       filtersPayload.market = resolvedMarketCodes
-    }
-    if (providerType === 'trading' && resolvedMicCodes.length) {
-      filtersPayload.mic = resolvedMicCodes
     }
   }
 
@@ -82,7 +78,6 @@ export function buildMarketSearchRequest(args: {
     providerType,
     assetClasses: resolvedAssetClasses,
     marketCodes: resolvedMarketCodes,
-    micCodes: resolvedMicCodes,
     listingQuoteCodes: providerConfig.listingQuoteCodes,
     cryptoQuoteCodes: providerConfig.cryptoQuoteCodes,
     currencyQuoteCodes: providerConfig.currencyQuoteCodes,

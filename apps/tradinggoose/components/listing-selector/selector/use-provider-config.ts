@@ -1,12 +1,11 @@
 import { useMemo } from 'react'
+import { uniqueStrings } from '@/components/listing-selector/search-utils'
 import { getMarketProviderConfig } from '@/providers/market/providers'
 import { getTradingProviderConfig } from '@/providers/trading/providers'
-import { uniqueStrings } from '@/components/listing-selector/search-utils'
 
 export type ProviderSearchConfig = {
   assetClasses: string[]
   marketCodes: string[]
-  micCodes: string[]
   listingQuoteCodes: string[]
   cryptoQuoteCodes: string[]
   currencyQuoteCodes: string[]
@@ -48,7 +47,6 @@ export function useMarketProviderSearchConfig(providerId?: string): ProviderSear
     () => ({
       assetClasses,
       marketCodes,
-      micCodes: [],
       listingQuoteCodes,
       cryptoQuoteCodes,
       currencyQuoteCodes,
@@ -83,21 +81,20 @@ export function useTradingProviderSearchConfig(providerId?: string): ProviderSea
     return uniqueStrings(availability?.availableCryptoQuote ?? [])
   }, [providerConfig])
 
-  const micCodes = useMemo(() => {
-    const map = providerConfig?.exchangeCodeToMic ?? {}
-    const codes = Object.values(map).flat()
+  const marketCodes = useMemo(() => {
+    const map = providerConfig?.exchangeCodeToMarket ?? {}
+    const codes = Object.values(map)
     return uniqueStrings(codes)
   }, [providerConfig])
 
   return useMemo(
     () => ({
       assetClasses,
-      marketCodes: [],
-      micCodes,
+      marketCodes,
       listingQuoteCodes,
       cryptoQuoteCodes,
       currencyQuoteCodes,
     }),
-    [assetClasses, micCodes, listingQuoteCodes, cryptoQuoteCodes, currencyQuoteCodes]
+    [assetClasses, marketCodes, listingQuoteCodes, cryptoQuoteCodes, currencyQuoteCodes]
   )
 }

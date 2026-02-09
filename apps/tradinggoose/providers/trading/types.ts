@@ -43,7 +43,7 @@ export interface TradingSymbolInput {
   base?: string
   quote?: string
   assetClass?: AssetClass
-  micCode?: string
+  marketCode?: string
   countryCode?: string
   cityName?: string
   timeZoneName?: string
@@ -106,18 +106,9 @@ export interface TradingProviderParams {
 
 export type UnifiedTradingEnvironment = 'live' | 'paper' | 'demo' | 'unknown'
 
-export type UnifiedTradingAccountType =
-  | 'cash'
-  | 'margin'
-  | 'portfolio'
-  | 'paper'
-  | 'unknown'
+export type UnifiedTradingAccountType = 'cash' | 'margin' | 'portfolio' | 'paper' | 'unknown'
 
-export type UnifiedTradingAccountStatus =
-  | 'active'
-  | 'restricted'
-  | 'closed'
-  | 'unknown'
+export type UnifiedTradingAccountStatus = 'active' | 'restricted' | 'closed' | 'unknown'
 
 export interface UnifiedTradingProviderMetadata {
   name?: string
@@ -153,8 +144,6 @@ export interface UnifiedTradingSymbol {
   base: string
   quote: string
   name?: string | null
-  primaryMicId?: string | null
-  secondaryMicIds: string[]
   assetClass: UnifiedTradingSymbolAssetClass
   active: boolean
   rank: number

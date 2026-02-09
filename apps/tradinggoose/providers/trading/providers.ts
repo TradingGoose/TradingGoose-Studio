@@ -1,21 +1,21 @@
 import type React from 'react'
 import type { AssetClass } from '@/providers/market/types'
+import { alpacaTradingProviderConfig } from '@/providers/trading/alpaca/config'
+import { robinhoodTradingProviderConfig } from '@/providers/trading/robinhood/config'
+import { tradierTradingProviderConfig } from '@/providers/trading/tradier/config'
 import type {
   TradingAuthType,
   TradingFieldDefinition,
   TradingHoldingsInput,
+  TradingHoldingsNormalizationContext,
   TradingOperationKind,
   TradingOrder,
   TradingOrderInput,
   TradingProviderId,
   TradingProviderOAuthConfig,
   TradingRequestConfig,
-  TradingHoldingsNormalizationContext,
   UnifiedTradingAccountSnapshot,
 } from '@/providers/trading/types'
-import { alpacaTradingProviderConfig } from '@/providers/trading/alpaca/config'
-import { robinhoodTradingProviderConfig } from '@/providers/trading/robinhood/config'
-import { tradierTradingProviderConfig } from '@/providers/trading/tradier/config'
 
 export type TradingProviderResponse = TradingOrder | UnifiedTradingAccountSnapshot
 
@@ -49,11 +49,7 @@ export interface TradingProviderCapabilities {
 
 export type TradingProviderParamType = 'string' | 'number' | 'boolean' | 'json' | 'array'
 
-export type TradingProviderParamVisibility =
-  | 'user-or-llm'
-  | 'user-only'
-  | 'llm-only'
-  | 'hidden'
+export type TradingProviderParamVisibility = 'user-or-llm' | 'user-only' | 'llm-only' | 'hidden'
 
 export type TradingProviderParamInputType =
   | 'short-input'
@@ -105,11 +101,7 @@ export interface TradingProviderParamDefinition {
   displayOrder?: number
 }
 
-export type TradingOrderTypeRequirement =
-  | 'limitPrice'
-  | 'stopPrice'
-  | 'trailPrice'
-  | 'trailPercent'
+export type TradingOrderTypeRequirement = 'limitPrice' | 'stopPrice' | 'trailPrice' | 'trailPercent'
 
 export interface TradingOrderTypeDefinition {
   id: string
@@ -129,7 +121,7 @@ export type TradingProviderEndpointMap = Partial<Record<TradingOperationKind | '
 
 export type TradingRuleScopeKey =
   | 'listing'
-  | 'mic'
+  | 'market'
   | 'currency'
   | 'assetClass'
   | 'country'
@@ -138,7 +130,7 @@ export type TradingRuleScopeKey =
 export interface TradingSymbolRule {
   assetClass?: AssetClass
   listingKey?: string
-  mic?: string
+  market?: string
   country?: string
   city?: string
   currency?: string
@@ -155,8 +147,8 @@ export interface TradingProviderConfig {
   params?: TradingProviderParamConfig
   api_endpoints?: TradingProviderEndpointMap
   rulePrecedence: Record<string, TradingRuleScopeKey[]>
-  exchangeCodeToMic: Record<string, string[]>
-  micToExchangeCode: Record<string, string>
+  exchangeCodeToMarket: Record<string, string>
+  marketToExchangeCode: Record<string, string>
   exchangeCodes: string[]
   rules: TradingSymbolRule[]
 }
@@ -199,10 +191,7 @@ export interface TradingProviderDefinition {
   icon?: React.ComponentType<{ className?: string }>
 }
 
-export const TRADING_PROVIDER_DEFINITIONS: Record<
-  string,
-  TradingProviderDefinition
-> = {
+export const TRADING_PROVIDER_DEFINITIONS: Record<string, TradingProviderDefinition> = {
   alpaca: {
     id: 'alpaca',
     name: 'Alpaca',
@@ -340,9 +329,7 @@ export function getTradingProviderOptions(): Array<{ id: string; name: string }>
   }))
 }
 
-export function getTradingProvidersByKind(
-  kind: TradingOperationKind
-): TradingProviderDefinition[] {
+export function getTradingProvidersByKind(kind: TradingOperationKind): TradingProviderDefinition[] {
   return Object.values(TRADING_PROVIDER_DEFINITIONS).filter((provider) => {
     const availability = provider.config.availability
     if (kind === 'order') return availability.order
@@ -544,9 +531,7 @@ export function getProviderFields(
   if (!provider) return []
 
   if (provider.fields?.length) {
-    return provider.fields.filter(
-      (field) => field.for === forOperation || field.for === 'both'
-    )
+    return provider.fields.filter((field) => field.for === forOperation || field.for === 'both')
   }
 
   const definitions = getTradingProviderParamDefinitions(providerId, forOperation)
