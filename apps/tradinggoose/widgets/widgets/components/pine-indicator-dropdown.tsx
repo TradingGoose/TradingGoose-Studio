@@ -11,10 +11,10 @@ import {
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { DEFAULT_PINE_INDICATORS_META } from '@/lib/new_indicators/default'
+import { DEFAULT_INDICATORS_META } from '@/lib/indicators/default'
 import { cn } from '@/lib/utils'
-import { useNewIndicators } from '@/hooks/queries/new-indicators'
-import { useNewIndicatorsStore } from '@/stores/new-indicators/store'
+import { useIndicators } from '@/hooks/queries/indicators'
+import { useIndicatorsStore } from '@/stores/indicators/store'
 import {
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
@@ -43,7 +43,7 @@ const resolveIndicatorColor = (indicator?: IndicatorOption | null): string => {
   return FALLBACK_COLOR
 }
 
-interface PineIndicatorDropdownProps {
+interface IndicatorDropdownProps {
   workspaceId?: string | null
   value?: string[]
   onChange?: (ids: string[]) => void
@@ -56,7 +56,7 @@ interface PineIndicatorDropdownProps {
   includeDefaults?: boolean
 }
 
-export function PineIndicatorDropdown({
+export function IndicatorDropdown({
   workspaceId,
   value,
   onChange,
@@ -67,7 +67,7 @@ export function PineIndicatorDropdown({
   menuClassName,
   selectionMode = 'multiple',
   includeDefaults = false,
-}: PineIndicatorDropdownProps) {
+}: IndicatorDropdownProps) {
   const [open, setOpen] = useState(false)
   const [internalValue, setInternalValue] = useState<string[]>([])
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -80,9 +80,9 @@ export function PineIndicatorDropdown({
     error: queryError,
     refetch,
     isFetching,
-  } = useNewIndicators(workspaceId ?? '')
+  } = useIndicators(workspaceId ?? '')
 
-  const indicators = useNewIndicatorsStore((state) =>
+  const indicators = useIndicatorsStore((state) =>
     workspaceId ? state.getAllIndicators(workspaceId) : []
   )
 
@@ -99,10 +99,10 @@ export function PineIndicatorDropdown({
   const defaultIndicatorOptions = useMemo<IndicatorOption[]>(
     () =>
       includeDefaults
-        ? DEFAULT_PINE_INDICATORS_META.map((indicator) => ({
-            id: indicator.id,
-            name: indicator.name,
-          }))
+        ? DEFAULT_INDICATORS_META.map((indicator) => ({
+          id: indicator.id,
+          name: indicator.name,
+        }))
         : [],
     [includeDefaults]
   )
@@ -204,7 +204,7 @@ export function PineIndicatorDropdown({
     if (!workspaceId) return
     setLoadError(null)
     refetch().catch((error) => {
-      console.error('Failed to load indicators for pine indicator dropdown', error)
+      console.error('Failed to load indicators for indicator dropdown', error)
       setLoadError('Failed to load indicators')
     })
   }
