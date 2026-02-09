@@ -32,13 +32,13 @@ const widgetCategoryConfig: WidgetCategoryDefinition[] = [
 const widgetRegistry: Record<string, DashboardWidgetDefinition> = {
   empty: emptyWidget,
   data_chart: dataChartWidget,
+  workflow_list: workflowListWidget,
   editor_workflow: workflowEditorWidget,
   workflow_chat: chatWidget,
   workflow_console: workflowConsoleWidget,
   workflow_copilot: workflowCopilotWidget,
   list_indicator: listIndicatorWidget,
   editor_indicator: editorIndicatorWidget,
-  workflow_list: workflowListWidget,
   workflow_variables: workflowVariablesWidget,
 }
 
