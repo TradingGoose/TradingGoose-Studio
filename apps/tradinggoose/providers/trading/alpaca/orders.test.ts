@@ -4,8 +4,8 @@ import { buildAlpacaOrderRequest } from '@/providers/trading/alpaca/orders'
 const baseParams = {
   listing: 'AAPL',
   side: 'buy' as const,
-  orderType: 'market',
-  timeInForce: 'day',
+  orderType: 'market' as const,
+  timeInForce: 'day' as const,
   environment: 'paper' as const,
   accessToken: 'test-token',
 }
