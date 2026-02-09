@@ -11,7 +11,7 @@ This document now serves as an index to the staged implementation docs under `to
   - `todo/stage3-signals.md`
 
 ## Hard rules reminder
-- Line‑tools must be **copied** into `apps/tradinggoose/widgets/widgets/new_data_chart/plugins/`.
+- Line‑tools must be **copied** into `apps/tradinggoose/widgets/widgets/data_chart/plugins/`.
 - Do **not** import any files outside this project.
 - Do not edit any `*/migration/*` or `*/migrations/*` files.
 - Do not add legacy support or extra project complexity.

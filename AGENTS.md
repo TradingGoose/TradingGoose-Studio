@@ -4,6 +4,8 @@
 - Do not use the pacakge "server-only" in the project
 - Do not edit any `*/migration/*` files; they are auto-generated.
 - Do not add legacy support; updates should be clean and avoid extra project complexity.
+- Ignore all license related issues
+- Project uses `Bun` pacakge manager with turborepo
 
 ## Planning
 - Start with a detailed, concrete plan before changes.
