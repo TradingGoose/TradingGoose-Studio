@@ -4,7 +4,7 @@
 Enable PineTS indicators to emit signals via `signal.*`, normalize them on the server, and render LWC markers per indicator pane. Add caps, visible‑range filtering, and telemetry.
 
 ## Scope
-- Add a signal recorder in `apps/tradinggoose/lib/new_indicators`.
+- Add a signal recorder in `apps/tradinggoose/lib/indicators`.
 - Inject `signal` as a **global** in user code.
 - Normalize signals server-side (time/index resolution + edge/cooldown).
 - Render signal markers client-side (after `applyIndicatorLimits`).
@@ -44,13 +44,13 @@ export type SignalEvent = {
 - `signal.value({...})` defaults: `shape: 'circle'`, `position: 'inBar'`.
 
 ## Affected files/areas
-- `apps/tradinggoose/lib/new_indicators/signal.ts` (new)
-- `apps/tradinggoose/lib/new_indicators/types.ts`
-- `apps/tradinggoose/lib/new_indicators/normalize-signals.ts` (new)
-- `apps/tradinggoose/lib/new_indicators/normalize-indicator-code.ts`
-- `apps/tradinggoose/lib/new_indicators/custom/compile.ts`
-- `apps/tradinggoose/widgets/widgets/new_data_chart/hooks/use-new-indicator-sync.ts`
-- `apps/tradinggoose/widgets/widgets/new_editor_indicator/components/pine-indicator-code-panel.tsx`
+- `apps/tradinggoose/lib/indicators/signal.ts` (new)
+- `apps/tradinggoose/lib/indicators/types.ts`
+- `apps/tradinggoose/lib/indicators/normalize-signals.ts` (new)
+- `apps/tradinggoose/lib/indicators/normalize-indicator-code.ts`
+- `apps/tradinggoose/lib/indicators/custom/compile.ts`
+- `apps/tradinggoose/widgets/widgets/data_chart/hooks/use-indicator-sync.ts`
+- `apps/tradinggoose/widgets/widgets/editor_indicator/components/pine-indicator-code-panel.tsx`
 - `scripts/generate-pine-cheat-sheet.cjs` (for typings update)
 
 ## Detailed steps
