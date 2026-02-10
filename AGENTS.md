@@ -6,6 +6,7 @@
 - Do not add legacy support; updates should be clean and avoid extra project complexity.
 - Ignore all license related issues
 - Project uses `Bun` pacakge manager with turborepo
+- Prefer removing lines of code over adding more lines of code to reduce complexity
 
 ## Planning
 - Start with a detailed, concrete plan before changes.
