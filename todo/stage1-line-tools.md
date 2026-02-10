@@ -246,6 +246,11 @@ Make lightweight-charts line-tools **self-contained** in this repo and provide a
    - Adapter must be client-only: add `use client` at the module top.
    - Provide functions to create a core plugin instance via `createLineToolsPlugin(chart, series)` from the vendored core.
    - Register all tool classes by calling `plugin.registerLineTool(type, ToolClass)` for each vendored tool (Lines: `TrendLine`, `Ray`, `Arrow`, `ExtendedLine`, `HorizontalLine`, `HorizontalRay`, `VerticalLine`, `CrossLine`, `Callout`; Freehand: `Brush`, `Highlighter`; plus `Rectangle`, `Circle`, `Path`, `ParallelChannel`, `FibRetracement`, `PriceRange`, `LongShortPosition`, `Text`, `MarketDepth`).
+   - Reference load-order contract (locked, mirror `../lightweight-charts-line-tools-plugin-test-app/src/Components/LightweightCandlestickChart.js` and `../lightweight-charts-line-tools-plugin-test-app/src/Components/LineToolTestPanel.js` behavior):
+     - Create chart + target series first, then call `createLineToolsPlugin(chart, series)` for that target.
+     - Register the full Stage 1 tool set immediately after plugin creation, before exposing manual draw actions.
+     - Mark the target adapter/plugin context as ready only after registration completes; sidebar tool actions must be disabled or no-op until ready (equivalent to reference-app `chartReady` gating).
+     - Keep plugin instances in the adapter registry keyed by `seriesAttachmentKey` (reference-app analogue: `lineToolsPluginRef`, but Stage 1 remains adapter-scoped and owner-aware).
    - Maintain a single chart-widget-scoped plugin-instance registry keyed by `seriesAttachmentKey`:
      - `pluginsBySeriesAttachmentKey` -> plugin instance (uniqueness across domains within one chart widget instance).
      - Registry storage is adapter-instance local (no module-level singleton shared across widgets).
@@ -279,7 +284,10 @@ Make lightweight-charts line-tools **self-contained** in this repo and provide a
        - If owner has no target binding and target resolves: `attach` and import pending snapshot if present.
        - If owner is bound and `seriesAttachmentKey` changes: export current tools snapshot, `detach`, `attach` to new series attachment, import snapshot, then refresh selection snapshot.
        - If owner is bound and `seriesAttachmentKey` is unchanged: keep binding and only refresh selection snapshot.
-   - On `detach`, remove owner-owned tool IDs via `removeLineToolsById(ownerIds)`, clear owner snapshots, and only run series-attachment-level unsubscribe + `plugin.destroy()` when series-attachment refcount reaches zero.
+   - On `detach`, remove owner-owned tool IDs via `removeLineToolsById(ownerIds)`, clear owner snapshots, and only run series-attachment-level final teardown when series-attachment refcount reaches zero, in this order:
+     - `removeAllLineTools()` as a final safety sweep for that series-attachment plugin instance.
+     - Remove series-attachment subscriptions/listeners.
+     - `plugin.destroy()`.
    - Add owner-targeted manual interaction APIs:
      - `startManualTool(type, drawToolsOwnerId)` -> calls `addLineTool(type, [])` for interactive point placement on the active owner instance.
      - `removeSelected(drawToolsOwnerId)` -> remove only selected IDs that belong to the active owner via `removeLineToolsById(ownerSelectedIds)`.
@@ -397,6 +405,7 @@ Make lightweight-charts line-tools **self-contained** in this repo and provide a
 - Load `data_chart` and verify manual drawing flow:
   - Left sidebar is visible inside chart body and anchored on the left side.
   - Exactly one draw-tools sidebar is rendered per chart widget (not duplicated per pane); changing active owner updates sidebar action target.
+  - Before the per-target plugin context is ready, sidebar/manual actions are disabled or no-op; after registration completes, actions become active (reference-app `chartReady`-style gating behavior).
   - Left sidebar does not overlap pane left overlays: indicator-control stack starts at `LEFT_OVERLAY_INSET_PX` and remains fully visible.
   - Main-pane legend/listing overlay also starts at `LEFT_OVERLAY_INSET_PX` and does not overlap the sidebar.
   - Every registered tool has a sidebar entry (direct button or dropdown item), and sidebar buttons are icon-only.
@@ -426,6 +435,7 @@ Make lightweight-charts line-tools **self-contained** in this repo and provide a
 - Verify lifecycle cleanup:
   - With multiple owners targeting the same pane/series, confirm they share one series-attachment plugin instance and do not duplicate chart/window interaction callbacks.
   - With two `data_chart` widgets mounted at once, confirm plugin registries are isolated per widget (no cross-widget attach, selection, or callback leakage even if pane/series identities match).
+  - On final series-attachment teardown (refcount reaches zero), confirm cleanup order is `removeAllLineTools()` then listener unsubscription then `destroy()`.
   - Repeat attach/detach for the same owner and confirm no duplicate edit/double-click callbacks.
   - Remount chart and confirm stale handlers from prior plugin instances do not fire.
   - Force indicator anchor replacement (`indicatorRuntimeVersion` change) for an owner targeting `pane === 'indicator'` and confirm the adapter performs export -> detach -> attach -> import on new target with no stale instance left bound to old series.
