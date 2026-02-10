@@ -376,6 +376,7 @@ export class LineToolFibRetracementPaneView<HorzScaleItem> extends LineToolPaneV
 			levelRendererSet.label.setData({
 				points: [P_TextLeftAnchor, P_TextRightAnchor],
 				text: finalTextOptions,
+				useThemeForegroundColor: false,
 				hitTestBackground: true,
 			});
 

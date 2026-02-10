@@ -1203,6 +1203,7 @@ export interface CircleRendererData {
 export interface TextRendererData {
 	text: TextOptions;
 	points: Point[];
+	useThemeForegroundColor?: boolean;
 	hitTestBackground?: boolean;
 	toolDefaultHoverCursor?: PaneCursorType;
 	toolDefaultDragCursor?: PaneCursorType;

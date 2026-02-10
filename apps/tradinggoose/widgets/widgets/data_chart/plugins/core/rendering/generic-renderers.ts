@@ -48,6 +48,7 @@ import {
 	cacheCanvas,
 	createCacheCanvas,
 } from '../utils/text-helpers'; 
+import { resolveForegroundColorFromTheme, resolveSystemFontFamily } from '../utils/theme-text-style';
 
 
 // Common interaction tolerance for hit-testing lines and borders
@@ -977,7 +978,10 @@ export class TextRenderer<HorzScaleItem> implements IPaneRenderer {
             }
 
 			// Draw text
-			ctx.fillStyle = textData.font?.color;
+			const useThemeForegroundColor = data.useThemeForegroundColor ?? true;
+			ctx.fillStyle = useThemeForegroundColor
+				? resolveForegroundColorFromTheme()
+				: (textData.font?.color || resolveForegroundColorFromTheme());
 			ctx.font = this._getFontInfo().fontStyle; // Use cached font string
 			
 			// FIX: Robustly map the stored string enum value to the correct Canvas literal string.
@@ -1401,7 +1405,13 @@ export class TextRenderer<HorzScaleItem> implements IPaneRenderer {
 		if (this._fontInfo === null) {
 			const data = ensureNotNull(this._data);
 			const fontSize = getScaledFontSize(data);
-			const fontStyle = (data.text?.font?.bold ? 'bold ' : '') + (data.text?.font?.italic ? 'italic ' : '') + fontSize + 'px ' + ensureDefined(data.text?.font?.family);
+			const fontFamily = resolveSystemFontFamily(data.text?.font?.family);
+			const fontStyle =
+				(data.text?.font?.bold ? 'bold ' : '') +
+				(data.text?.font?.italic ? 'italic ' : '') +
+				fontSize +
+				'px ' +
+				fontFamily;
 			this._fontInfo = { fontStyle: fontStyle, fontSize: fontSize };
 		}
 		return this._fontInfo;

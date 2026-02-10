@@ -25,6 +25,7 @@ import {
 	IPriceScaleApi,
 	LineStyle,
 } from 'lightweight-charts';
+import { resolveSystemFontFamily } from '../../core/utils/theme-text-style';
 
 // Assuming drawSolidLine is exported from the core's canvas-helpers.ts utility
 function drawSolidLine(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number): void {
@@ -116,7 +117,7 @@ export class MarketDepthRenderer<HorzScaleItem> implements IPaneRenderer {
 
 			// 3. Setup Text Properties
 			const fontSize = textOptions.font?.size || 12;
-			const fontFamily = textOptions.font?.family || 'sans-serif';
+			const fontFamily = resolveSystemFontFamily(textOptions.font?.family);
 			ctx.font = `${fontSize}px ${fontFamily}`; 
 			
 			// 4. Calculate Fixed Horizontal Offsets
@@ -151,7 +152,15 @@ export class MarketDepthRenderer<HorzScaleItem> implements IPaneRenderer {
 			ctx.fillStyle = options.lineBidColor;
 			const bidMaxScale = options.totalBidAskCalcMethod === 'combined' ? highestCombinedTotalSize : highestBidTotalSize;
 
-			this._drawLevels(ctx, Bids, lineXStart, options.lineLength, bidMaxScale, seriesApi, textRightEdgeX, fontSize);
+			this._drawLevels(
+				ctx,
+				Bids,
+				lineXStart,
+				options.lineLength,
+				bidMaxScale,
+				seriesApi,
+				textRightEdgeX
+			);
 
 			// 6. Draw Asks
 			/**
@@ -164,7 +173,15 @@ export class MarketDepthRenderer<HorzScaleItem> implements IPaneRenderer {
 			ctx.fillStyle = options.lineAskColor;
 			const askMaxScale = options.totalBidAskCalcMethod === 'combined' ? highestCombinedTotalSize : highestAskTotalSize;
 
-			this._drawLevels(ctx, Asks, lineXStart, options.lineLength, askMaxScale, seriesApi, textRightEdgeX, fontSize);
+			this._drawLevels(
+				ctx,
+				Asks,
+				lineXStart,
+				options.lineLength,
+				askMaxScale,
+				seriesApi,
+				textRightEdgeX
+			);
 		});
 	}
 
@@ -221,7 +238,6 @@ export class MarketDepthRenderer<HorzScaleItem> implements IPaneRenderer {
 	 * @param maxScaleSize - The volume value representing 100% scale.
 	 * @param seriesApi - Access to coordinate conversion.
 	 * @param textXEnd - The screen X-coordinate where text labels align.
-	 * @param fontSize - The font size for labels.
 	 * @private
 	 */
 	private _drawLevels(
@@ -231,8 +247,7 @@ export class MarketDepthRenderer<HorzScaleItem> implements IPaneRenderer {
 		maxLineLength: number,
 		maxScaleSize: number,
 		seriesApi: ISeriesApi<SeriesType, any>, 
-		textXEnd: number, // Use this as the position where the right-aligned text ends
-		fontSize: number
+		textXEnd: number // Use this as the position where the right-aligned text ends
 	): void {
 
 		if (maxScaleSize === 0) return;
