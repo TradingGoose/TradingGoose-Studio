@@ -1,6 +1,6 @@
 // /src/core-plugin.ts
 
-import { IChartApiBase, ISeriesApi, SeriesType, IHorzScaleBehavior, IPaneApi, Coordinate, Time, BusinessDay, UTCTimestamp } from 'lightweight-charts';
+import { IChartApiBase, ISeriesApi, SeriesType, IHorzScaleBehavior, IPaneApi, Coordinate } from 'lightweight-charts';
 import {
 	ILineToolsApi,
 	LineToolExport,
@@ -46,6 +46,7 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
 
 	// Throttled Stacking Update
 	private _stackingUpdateScheduled: boolean = false;
+	private _isDestroyed: boolean = false;
 
 	public constructor(
 		chart: IChartApiBase<HorzScaleItem>,
@@ -75,7 +76,7 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
 	public requestUpdate(): void {
 		// Applying empty options is a lightweight way to tell the chart
 		// that something has changed and it needs to re-render.
-		this._chart.applyOptions({});
+		this._applyChartUpdate('requestUpdate');
 
 		// Centralized control now relies on the BaseLineTool to call the
 		// Stacking Manager at the right time. The Core Plugin should no longer manage
@@ -195,7 +196,7 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
 			}
 		});
 		if (needsUpdate) {
-			this._chart.applyOptions({}); // Trigger a chart update
+			this._applyChartUpdate('removeLineToolsById');
 		}
 	}
 
@@ -257,6 +258,29 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
 			this.removeLineToolsById(allIds);
 		}
 		console.log(`[CorePlugin] All tools removed. Final total tool count: ${this._tools.size}`);
+	}
+
+	/**
+	 * Destroys the core plugin instance and releases all event subscriptions/resources.
+	 *
+	 * This lifecycle hook is required for deterministic cleanup when a chart/widget unmounts
+	 * and a plugin instance should no longer receive interactions.
+	 *
+	 * @returns void
+	 */
+	public destroy(): void {
+		if (this._isDestroyed) {
+			return;
+		}
+		this._isDestroyed = true;
+
+		this.removeAllLineTools();
+		this._interactionManager.destroy();
+		this._doubleClickDelegate.destroy();
+		this._afterEditDelegate.destroy();
+		this._tools.clear();
+
+		console.log('Line Tools Core Plugin destroyed.');
 	}
 
 	/**
@@ -357,7 +381,7 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
 			tool.setPoints(toolData.points);
 		}
  
-		this._chart.applyOptions({}); // Trigger update
+		this._applyChartUpdate('applyLineToolOptions');
 		return true;
 	}
 
@@ -624,9 +648,21 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
 			this._interactionManager.setCurrentToolCreating(newTool); // Set THIS tool as the target for interactive drawing
 		}
 
-		this._chart.applyOptions({}); // Trigger a chart update to render the new tool
+		this._applyChartUpdate('_createAndAddTool');
 		console.log(`Created or updated line tool: ${type} with ID: ${newTool.id()}`);
 		return newTool;
+	}
+
+	private _applyChartUpdate(_context: string): void {
+		if (this._isDestroyed) {
+			return;
+		}
+
+		try {
+			this._chart.applyOptions({});
+		} catch {
+			// Ignore disposal races while plugin/chart are tearing down.
+		}
 	}
 
 	/**

@@ -1,6 +1,15 @@
 // /src/utils/geometry.ts
 
-import { Coordinate, ISeriesApi, SeriesType, Time, UTCTimestamp, IChartApiBase, Logical, BarPrice } from 'lightweight-charts';
+import {
+	Coordinate,
+	ISeriesApi,
+	SeriesType,
+	Time,
+	UTCTimestamp,
+	IChartApiBase,
+	Logical,
+	BarPrice,
+} from 'lightweight-charts';
 import { BaseLineTool } from '../model/base-line-tool';
 
 
@@ -837,6 +846,145 @@ export function convertUTCTimestampToDateString(timestamp: UTCTimestamp): string
 	return date.toISOString().split('T')[0];
 }
 
+type BusinessDayLike = {
+	year: number;
+	month: number;
+	day: number;
+};
+
+type SeriesTimeSample = {
+	rawTime: unknown;
+	numericTime: number;
+	logicalIndex: number;
+};
+
+const MISMATCH_NEAREST_LEFT = -1;
+const MISMATCH_NEAREST_RIGHT = 1;
+
+function isBusinessDayLike(value: unknown): value is BusinessDayLike {
+	if (!value || typeof value !== 'object') {
+		return false;
+	}
+
+	const candidate = value as Partial<BusinessDayLike>;
+	return (
+		typeof candidate.year === 'number' &&
+		typeof candidate.month === 'number' &&
+		typeof candidate.day === 'number'
+	);
+}
+
+function timeToNumeric(time: unknown): number | null {
+	if (typeof time === 'number') {
+		return Number.isFinite(time) ? time : null;
+	}
+
+	if (typeof time === 'string') {
+		return Number(convertDateStringToUTCTimestamp(time));
+	}
+
+	if (isBusinessDayLike(time)) {
+		const date = new Date(Date.UTC(time.year, time.month - 1, time.day, 0, 0, 0, 0));
+		const seconds = Math.floor(date.getTime() / 1000);
+		return Number.isFinite(seconds) ? seconds : null;
+	}
+
+	return null;
+}
+
+function numericToTemplateTime(value: number, template: unknown): Time {
+	if (typeof template === 'string') {
+		return convertUTCTimestampToDateString(Math.round(value) as UTCTimestamp);
+	}
+
+	if (isBusinessDayLike(template)) {
+		const date = new Date(Math.round(value) * 1000);
+		return {
+			year: date.getUTCFullYear(),
+			month: date.getUTCMonth() + 1,
+			day: date.getUTCDate(),
+		};
+	}
+
+	return value as UTCTimestamp;
+}
+
+function sampleFromSeriesData<HorzScaleItem>(
+	chart: IChartApiBase<HorzScaleItem>,
+	data: { time: unknown } | null
+): SeriesTimeSample | null {
+	if (!data) {
+		return null;
+	}
+
+	const numericTime = timeToNumeric(data.time);
+	if (numericTime === null) {
+		return null;
+	}
+
+	const logicalIndexRaw = chart.timeScale().timeToIndex(
+		data.time as unknown as HorzScaleItem,
+		false
+	);
+	if (logicalIndexRaw === null) {
+		return null;
+	}
+
+	return {
+		rawTime: data.time,
+		numericTime,
+		logicalIndex: Number(logicalIndexRaw),
+	};
+}
+
+function sampleAtIndex<HorzScaleItem>(
+	chart: IChartApiBase<HorzScaleItem>,
+	series: ISeriesApi<SeriesType, HorzScaleItem>,
+	index: number,
+	mismatchDirection: number
+): SeriesTimeSample | null {
+	const data = series.dataByIndex(index, mismatchDirection as any) as { time: unknown } | null;
+	return sampleFromSeriesData(chart, data);
+}
+
+function boundarySample<HorzScaleItem>(
+	chart: IChartApiBase<HorzScaleItem>,
+	series: ISeriesApi<SeriesType, HorzScaleItem>,
+	side: 'left' | 'right'
+): SeriesTimeSample | null {
+	const indexProbe = side === 'left' ? Number.MIN_SAFE_INTEGER : Number.MAX_SAFE_INTEGER;
+	const mismatch = side === 'left' ? MISMATCH_NEAREST_RIGHT : MISMATCH_NEAREST_LEFT;
+	return sampleAtIndex(chart, series, indexProbe, mismatch);
+}
+
+function interpolateLogicalFromSamples(
+	targetTime: number,
+	leftSample: SeriesTimeSample,
+	rightSample: SeriesTimeSample
+): number {
+	const timeDelta = rightSample.numericTime - leftSample.numericTime;
+	if (!Number.isFinite(timeDelta) || timeDelta === 0) {
+		return leftSample.logicalIndex;
+	}
+
+	const ratio = (targetTime - leftSample.numericTime) / timeDelta;
+	return leftSample.logicalIndex + ratio * (rightSample.logicalIndex - leftSample.logicalIndex);
+}
+
+function interpolateTimeFromSamples(
+	targetLogical: number,
+	leftSample: SeriesTimeSample,
+	rightSample: SeriesTimeSample
+): number {
+	const logicalDelta = rightSample.logicalIndex - leftSample.logicalIndex;
+	if (!Number.isFinite(logicalDelta) || logicalDelta === 0) {
+		return leftSample.numericTime;
+	}
+
+	const ratio = (targetLogical - leftSample.logicalIndex) / logicalDelta;
+	return leftSample.numericTime + ratio * (rightSample.numericTime - leftSample.numericTime);
+}
+
 /**
  * **Critical Core Utility: Time Extrapolation**
  * 
@@ -849,8 +997,8 @@ export function convertUTCTimestampToDateString(timestamp: UTCTimestamp): string
  * or Fibonacci Retracements) often need to project strictly into this future space.
  * 
  * ### How it Works
- * 1. It samples the first two data points of the series to calculate the exact time interval (e.g., 1 day, 1 minute) between bars.
- * 2. It applies a linear extrapolation formula: `TargetTime = StartTime + (TargetLogicalIndex * TimeInterval)`.
+ * 1. It resolves the nearest real data neighbors around the requested logical index via Lightweight Charts index APIs.
+ * 2. It interpolates between those local neighbors, or extrapolates at true left/right data edges.
  * 
  * ### Interplay & Importance
  * * **Interaction:** This is the engine behind `InteractionManager`. When you move your mouse into the empty space, 
@@ -864,70 +1012,82 @@ export function convertUTCTimestampToDateString(timestamp: UTCTimestamp): string
  * @returns The extrapolated `Time`, or `null` if the series has insufficient data ( < 2 bars) to determine an interval.
  */
 export function interpolateTimeFromLogicalIndex<HorzScaleItem>(
-	chart: IChartApiBase<HorzScaleItem>, // NEW: Now accepts chart instance
-	series: ISeriesApi<SeriesType, HorzScaleItem>, // Keep series for data access
+	chart: IChartApiBase<HorzScaleItem>,
+	series: ISeriesApi<SeriesType, HorzScaleItem>,
 	logicalIndex: number
 ): Time | null {
-	if (!chart || !series) { // Also check if chart is defined
+	if (!chart || !series || !Number.isFinite(logicalIndex)) {
 		console.warn("[interpolateTimeFromLogicalIndex] chart or series is not defined.");
 		return null;
 	}
 
-	const timeScale = chart.timeScale(); // Access timeScale directly from chart
+	const firstSample = boundarySample(chart, series, 'left');
+	const lastSample = boundarySample(chart, series, 'right');
 
-	// Retrieve data for the first two points in the series to calculate the time interval.
-	// This assumes that there are at least two data points to establish a reliable interval.
-	// If the chart starts empty, this will need a fallback (e.g., using default bar spacing).
-	const dataAtIndex0 = series.dataByIndex(0, 0);
-	const dataAtIndex1 = series.dataByIndex(1, 0);
-
-	if (!dataAtIndex0 || !dataAtIndex1) {
-		// Fallback for very few data points: try to use visible logical range or timeScale options
-		const visibleLogicalRange = timeScale.getVisibleLogicalRange();
-
-		if (visibleLogicalRange && visibleLogicalRange.to - visibleLogicalRange.from > 0) {
-			const logicalSpan = visibleLogicalRange.to - visibleLogicalRange.from;
-			// Use coordinateToTime on the chart's time scale directly
-			const timeFrom = timeScale.coordinateToTime(timeScale.logicalToCoordinate(visibleLogicalRange.from) as Coordinate) as number;
-			const timeTo = timeScale.coordinateToTime(timeScale.logicalToCoordinate(visibleLogicalRange.to) as Coordinate) as number;
-
-
-			if (timeFrom !== null && timeTo !== null && logicalSpan > 0) {
-				const timeSpan = timeTo - timeFrom;
-				const timePerLogicalUnit = timeSpan / logicalSpan;
-				const logicalOffset = logicalIndex - visibleLogicalRange.from;
-				return (timeFrom + logicalOffset * timePerLogicalUnit) as UTCTimestamp;
-			}
-		}
-
-		console.warn("[interpolateTimeFromLogicalIndex] Not enough data points or visible range for interpolation. Cannot determine time.");
-		// If we can't get a reliable interval, return null.
+	if (!firstSample || !lastSample) {
+		console.warn("[interpolateTimeFromLogicalIndex] Not enough data points to determine time.");
 		return null;
 	}
 
-	const startTime = typeof dataAtIndex0.time === 'string'
-		? convertDateStringToUTCTimestamp(dataAtIndex0.time)
-		: dataAtIndex0.time;
-	const endTime = typeof dataAtIndex1.time === 'string'
-		? convertDateStringToUTCTimestamp(dataAtIndex1.time)
-		: dataAtIndex1.time;
-
-	// Calculate the time interval between the two data points (e.g., 86400 for daily bars).
-	const interval = (Number(endTime) - Number(startTime));
-
-	// Calculate the difference in logical units from the first data point.
-	// We assume that `logicalIndex` relates linearly to `time`.
-	const logicalDelta = logicalIndex - 0; // Assuming the first data point (index 0) corresponds to logical 0.
-
-	// Interpolate the time for the given logical index.
-	const interpolatedTime = Number(startTime) + logicalDelta * interval;
-
-	// Return the interpolated time in the correct format (UTCTimestamp or string).
-	if (typeof dataAtIndex0.time === 'string') {
-		return convertUTCTimestampToDateString(interpolatedTime as UTCTimestamp) as string;
-	} else {
-		return interpolatedTime as UTCTimestamp;
+	if (logicalIndex <= firstSample.logicalIndex) {
+		const nextSample = sampleAtIndex(
+			chart,
+			series,
+			Math.ceil(firstSample.logicalIndex) + 1,
+			MISMATCH_NEAREST_RIGHT
+		);
+		const extrapolatedTime = nextSample
+			? interpolateTimeFromSamples(logicalIndex, firstSample, nextSample)
+			: firstSample.numericTime;
+		return numericToTemplateTime(extrapolatedTime, firstSample.rawTime);
 	}
+
+	if (logicalIndex >= lastSample.logicalIndex) {
+		const previousSample = sampleAtIndex(
+			chart,
+			series,
+			Math.floor(lastSample.logicalIndex) - 1,
+			MISMATCH_NEAREST_LEFT
+		);
+		const extrapolatedTime = previousSample
+			? interpolateTimeFromSamples(logicalIndex, lastSample, previousSample)
+			: lastSample.numericTime;
+		return numericToTemplateTime(extrapolatedTime, lastSample.rawTime);
+	}
+
+	const leftSample = sampleAtIndex(
+		chart,
+		series,
+		Math.floor(logicalIndex),
+		MISMATCH_NEAREST_LEFT
+	);
+	const rightSample = sampleAtIndex(
+		chart,
+		series,
+		Math.ceil(logicalIndex),
+		MISMATCH_NEAREST_RIGHT
+	);
+
+	if (!leftSample && !rightSample) {
+		return null;
+	}
+
+	if (!leftSample) {
+		return rightSample!.rawTime as Time;
+	}
+
+	if (!rightSample) {
+		return leftSample.rawTime as Time;
+	}
+
+	const interpolatedTime = interpolateTimeFromSamples(logicalIndex, leftSample, rightSample);
+	const templateTime =
+		Math.abs(logicalIndex - leftSample.logicalIndex) <=
+		Math.abs(rightSample.logicalIndex - logicalIndex)
+			? leftSample.rawTime
+			: rightSample.rawTime;
+
+	return numericToTemplateTime(interpolatedTime, templateTime);
 }
 
 /**
@@ -987,14 +1147,14 @@ export function getExtendedVisiblePriceRange<HorzScaleItem>(tool: BaseLineTool<H
  * The standard `timeScale.timeToCoordinate()` may fail or return `null` for these future dates.
  * 
  * ### How it Works
- * It calculates the series' time interval (delta between bars) and determines how many "steps" (logical indices) 
- * the target timestamp is away from a known anchor point (the first bar).
+ * It resolves local neighboring bars around the target timestamp using Lightweight Charts index lookup,
+ * then interpolates or extrapolates using those neighboring points.
  * 
  * ### Interplay & Importance
  * * **Rendering:** This is the backbone of `BaseLineTool.pointToScreenPoint()`. It allows the renderers to figure out 
  *   exactly where on the X-axis (in pixels) a saved future timestamp should be drawn.
- * * **Accuracy:** By using the calculated interval, it ensures that tools drawn in the future align perfectly 
- *   with the grid, preserving the visual continuity of the time scale.
+ * * **Accuracy:** By using local neighbors instead of a global fixed interval, it remains stable when
+ *   historical bars are prepended during backfill.
  * 
  * @typeParam HorzScaleItem - The type of the horizontal scale item.
  * @param chart - The chart API instance.
@@ -1003,51 +1163,91 @@ export function getExtendedVisiblePriceRange<HorzScaleItem>(tool: BaseLineTool<H
  * @returns The calculated `Logical` index, or `null` if the series has insufficient data.
  */
 export function interpolateLogicalIndexFromTime<HorzScaleItem>(
-	chart: IChartApiBase<HorzScaleItem>, // Chart is passed but mainly for context/consistency, not used here directly after removing timeToLogical
+	chart: IChartApiBase<HorzScaleItem>,
 	series: ISeriesApi<SeriesType, HorzScaleItem>,
 	timestamp: Time
 ): Logical | null {
-	if (!series) {
+	if (!chart || !series) {
 		console.warn("[interpolateLogicalIndexFromTime] series is not defined.");
 		return null;
 	}
 
-	// Retrieve data for the first two points in the series to calculate the time interval.
-	// This approach avoids reliance on `timeScale.timeToLogical`.
-	const dataAtIndex0 = series.dataByIndex(0, 0);
-	const dataAtIndex1 = series.dataByIndex(1, 0);
+	const targetTime = timeToNumeric(timestamp);
+	if (targetTime === null) {
+		return null;
+	}
 
-	if (!dataAtIndex0 || !dataAtIndex1) {
+	const timeScale = chart.timeScale();
+	const exactLogicalIndex = timeScale.timeToIndex(
+		timestamp as unknown as HorzScaleItem,
+		false
+	);
+	if (exactLogicalIndex !== null) {
+		return Number(exactLogicalIndex) as Logical;
+	}
+
+	const firstSample = boundarySample(chart, series, 'left');
+	const lastSample = boundarySample(chart, series, 'right');
+
+	if (!firstSample || !lastSample) {
 		console.warn("[interpolateLogicalIndexFromTime] Not enough data points to reliably interpolate logical index.");
-		return null; // Cannot interpolate without at least two data points
+		return null;
 	}
 
-	const time0 = typeof dataAtIndex0.time === 'string'
-		? convertDateStringToUTCTimestamp(dataAtIndex0.time)
-		: dataAtIndex0.time;
-	const time1 = typeof dataAtIndex1.time === 'string'
-		? convertDateStringToUTCTimestamp(dataAtIndex1.time)
-		: dataAtIndex1.time;
+	if (targetTime <= firstSample.numericTime) {
+		const nextSample = sampleAtIndex(
+			chart,
+			series,
+			Math.ceil(firstSample.logicalIndex) + 1,
+			MISMATCH_NEAREST_RIGHT
+		);
+		if (!nextSample) {
+			return firstSample.logicalIndex as Logical;
+		}
 
-	const interval = (Number(time1) - Number(time0));
-	if (interval === 0) {
-		console.warn("[interpolateLogicalIndexFromTime] Series data points have zero time interval, cannot interpolate logical index.");
-		return null; // Avoid division by zero
+		return interpolateLogicalFromSamples(targetTime, firstSample, nextSample) as Logical;
 	}
 
-	// Convert the given timestamp to a number (UTCTimestamp) for calculations
-	const givenTimeNum = typeof timestamp === 'string'
-		? convertDateStringToUTCTimestamp(timestamp)
-		: Number(timestamp);
+	if (targetTime >= lastSample.numericTime) {
+		const previousSample = sampleAtIndex(
+			chart,
+			series,
+			Math.floor(lastSample.logicalIndex) - 1,
+			MISMATCH_NEAREST_LEFT
+		);
+		if (!previousSample) {
+			return lastSample.logicalIndex as Logical;
+		}
 
-	// Calculate the difference in time from the given timestamp to the starting point
-	const timeDiff = givenTimeNum - Number(time0);
+		return interpolateLogicalFromSamples(targetTime, lastSample, previousSample) as Logical;
+	}
 
-	// Calculate the logical index based on the time difference and interval
-	// Assuming logical index 0 corresponds to dataAtIndex0
-	const logicalIndex = timeDiff / interval;
+	const rightIndexRaw = timeScale.timeToIndex(timestamp as unknown as HorzScaleItem, true);
+	if (rightIndexRaw === null) {
+		return null;
+	}
 
-	return logicalIndex as Logical;
+	const rightIndex = Number(rightIndexRaw);
+	const leftSample =
+		sampleAtIndex(chart, series, rightIndex - 1, MISMATCH_NEAREST_LEFT) ??
+		sampleAtIndex(chart, series, rightIndex, MISMATCH_NEAREST_LEFT);
+	const rightSample =
+		sampleAtIndex(chart, series, rightIndex, MISMATCH_NEAREST_RIGHT) ??
+		sampleAtIndex(chart, series, rightIndex + 1, MISMATCH_NEAREST_RIGHT);
+
+	if (!leftSample && !rightSample) {
+		return null;
+	}
+
+	if (!leftSample) {
+		return rightSample!.logicalIndex as Logical;
+	}
+
+	if (!rightSample) {
+		return leftSample.logicalIndex as Logical;
+	}
+
+	return interpolateLogicalFromSamples(targetTime, leftSample, rightSample) as Logical;
 }
 
 

@@ -136,6 +136,7 @@ function createDummyPluginApi(): ILineToolsPlugin {
 		unsubscribeLineToolsAfterEdit: dummyFn,
 		setCrossHairXY: dummyFn,
 		clearCrossHair: dummyFn,
+		destroy: dummyFn,
 	};
 }
 
@@ -179,8 +180,6 @@ export { PriceAxisLabelStackingManager } from './model/price-axis-label-stacking
 export { LineToolsCorePlugin } from './core-plugin';
 export { InteractionManager } from './interaction/interaction-manager';
 export { ToolRegistry } from './model/tool-registry';
-
-
 
 
 

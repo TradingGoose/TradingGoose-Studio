@@ -309,7 +309,7 @@ export interface ILineToolsApi {
 	 * @param visible - Controls visibility. If `false`, the crosshair is cleared regardless of `x` and `y`.
 	 * @returns void
 	 */
-    setCrossHairXY(x: number, y: number, visible: boolean): void;
+	setCrossHairXY(x: number, y: number, visible: boolean): void;
 
 	/**
 	 * Clears the crosshair position, making it invisible.
@@ -318,7 +318,17 @@ export interface ILineToolsApi {
 	 *
 	 * @returns void
 	 */
-    clearCrossHair(): void;
+	clearCrossHair(): void;
+
+	/**
+	 * Destroys the plugin instance and releases all listeners/resources.
+	 *
+	 * This must be called by consumers when a chart/widget detaches to ensure
+	 * there are no dangling DOM/window/chart subscriptions.
+	 *
+	 * @returns void
+	 */
+	destroy(): void;
 
 }
 

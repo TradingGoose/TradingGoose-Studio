@@ -1,18 +1,22 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createChart, type IChartApi, type ISeriesApi } from 'lightweight-charts'
 import { DEFAULT_RIGHT_OFFSET } from '@/widgets/widgets/data_chart/utils/chart-styles'
 
 export const useChartInstance = (resetKey?: string | number) => {
   const chartContainerRef = useRef<HTMLDivElement | null>(null)
   const chartRef = useRef<IChartApi | null>(null)
+  const beforeDestroyRef = useRef<(() => void) | null>(null)
   type MainSeries =
     | ISeriesApi<'Candlestick'>
     | ISeriesApi<'Bar'>
     | ISeriesApi<'Area'>
   const mainSeriesRef = useRef<MainSeries | null>(null)
   const [chartReady, setChartReady] = useState(0)
+  const registerBeforeDestroy = useCallback((callback: (() => void) | null) => {
+    beforeDestroyRef.current = callback
+  }, [])
 
   useEffect(() => {
     const container = chartContainerRef.current
@@ -68,6 +72,12 @@ export const useChartInstance = (resetKey?: string | number) => {
     resizeObserver.observe(container)
 
     return () => {
+      try {
+        beforeDestroyRef.current?.()
+      } catch (error) {
+        console.error('[useChartInstance] Error in before-destroy callback:', error)
+      }
+      beforeDestroyRef.current = null
       resizeObserver.disconnect()
       chart.remove()
       chartRef.current = null
@@ -75,5 +85,5 @@ export const useChartInstance = (resetKey?: string | number) => {
     }
   }, [resetKey])
 
-  return { chartRef, chartContainerRef, mainSeriesRef, chartReady }
+  return { chartRef, chartContainerRef, mainSeriesRef, chartReady, registerBeforeDestroy }
 }

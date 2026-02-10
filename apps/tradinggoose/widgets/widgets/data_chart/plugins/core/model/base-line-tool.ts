@@ -820,6 +820,10 @@ export abstract class BaseLineTool<HorzScaleItem> extends PriceDataSource<HorzSc
 	 * @returns void
 	 */
 	public updateAllViews(): void {
+		if (this._isDestroying) {
+			return;
+		}
+
 		// Update the main pane view(s) for the tool's body (the line, rectangle, etc.)
 		this._paneViews.forEach(view => view.update());
 
@@ -1044,7 +1048,11 @@ export abstract class BaseLineTool<HorzScaleItem> extends PriceDataSource<HorzSc
 			}
 		});
 		// Trigger a stacking update to re-flow remaining labels after this tool's labels are removed
-		this._priceAxisLabelStackingManager.updateStacking();
+		try {
+			this._priceAxisLabelStackingManager.updateStacking();
+		} catch {
+			// Ignore disposal races during teardown.
+		}
 
 		// Clear references to views and internal data
 		this._paneViews.forEach(paneView => {
@@ -1085,7 +1093,11 @@ export abstract class BaseLineTool<HorzScaleItem> extends PriceDataSource<HorzSc
 	 */
 	public _triggerChartUpdate(): void {
 		if (this._requestUpdate) { // Use the existing _requestUpdate property
-			this._requestUpdate();
+			try {
+				this._requestUpdate();
+			} catch {
+				// Ignore disposal races during teardown.
+			}
 			//console.log(`[BaseLineTool] Triggering chart update for tool ${this.id()}.`);
 		} else {
 			console.warn(`[BaseLineTool] Attempted to trigger chart update for tool ${this.id()} but _requestUpdate is not set.`);

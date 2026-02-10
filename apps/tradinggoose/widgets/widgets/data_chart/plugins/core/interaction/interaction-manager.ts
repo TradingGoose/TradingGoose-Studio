@@ -14,7 +14,7 @@ import { LineToolsCorePlugin } from '../core-plugin';
 import { BaseLineTool } from '../model/base-line-tool';
 import { ToolRegistry } from '../model/tool-registry';
 import { LineToolPartialOptionsMap, LineToolType, InteractionPhase, HitTestType, HitTestResult, SnapAxis, FinalizationMethod, PaneCursorType } from '../types';
-import { Point, interpolateTimeFromLogicalIndex } from '../utils/geometry';
+import { Point, interpolateLogicalIndexFromTime, interpolateTimeFromLogicalIndex } from '../utils/geometry';
 import { LineToolPoint } from '../api/public-api';
 import { ensureNotNull } from '../utils/helpers';
 
@@ -53,6 +53,10 @@ export class InteractionManager<HorzScaleItem> {
 	private _draggedTool: BaseLineTool<HorzScaleItem> | null = null;
 	private _draggedPointIndex: number | null = null;
 	private _originalDragPoints: LineToolPoint[] | null = null;
+	private _originalTranslationPoints: LineToolPoint[] | null = null;
+	private _originalTranslationLogicalIndices: number[] | null = null;
+	private _originalTranslationScreenPoints: Point[] | null = null;
+	private _dragStartPrice: number | null = null;
 	private _dragStartPoint: Point | null = null;
 	// Store the cursor that started the interaction
     private _activeDragCursor: PaneCursorType | null = null;
@@ -64,6 +68,16 @@ export class InteractionManager<HorzScaleItem> {
 	private _mouseDownTime: number = 0;
 	private _isDrag: boolean = false;
 	private _isShiftKeyDown: boolean = false;
+	private _isDestroyed: boolean = false;
+
+	// Stable bound handlers so we can unsubscribe/remove listeners on destroy.
+	private readonly _boundHandleMouseDown = (event: MouseEvent): void => this._handleMouseDown(event);
+	private readonly _boundHandleMouseMove = (event: MouseEvent): void => this._handleMouseMove(event);
+	private readonly _boundHandleMouseUp = (event: MouseEvent): void => this._handleMouseUp(event);
+	private readonly _boundHandleDblClick = (params: MouseEventParams<HorzScaleItem>): void => this._handleDblClick(params);
+	private readonly _boundHandleCrosshairMove = (params: MouseEventParams<HorzScaleItem>): void => this._handleCrosshairMove(params);
+	private readonly _boundHandleKeyDown = (event: KeyboardEvent): void => this._handleKey(event);
+	private readonly _boundHandleKeyUp = (event: KeyboardEvent): void => this._handleKey(event);
 
 	/**
 	 * Initializes the Interaction Manager, setting up all internal references and subscribing
@@ -111,9 +125,8 @@ export class InteractionManager<HorzScaleItem> {
 	public screenPointToLineToolPoint(screenPoint: Point): LineToolPoint | null {
 		const timeScale = this._chart.timeScale();
 		const price = this._series.coordinateToPrice(screenPoint.y as Coordinate);
-
 		const logical = timeScale.coordinateToLogical(screenPoint.x as Coordinate);
-	 
+
 		if (logical === null) {
 			return null;
 		}
@@ -169,17 +182,48 @@ export class InteractionManager<HorzScaleItem> {
 		const chartElement = this._chart.chartElement();
 		
 		// 1. Raw DOM Events for Drag/Click Detection and Editing
-		chartElement.addEventListener('mousedown', this._handleMouseDown.bind(this));
-		chartElement.addEventListener('mousemove', this._handleMouseMove.bind(this));
-		window.addEventListener('mouseup', this._handleMouseUp.bind(this)); 
+		chartElement.addEventListener('mousedown', this._boundHandleMouseDown);
+		chartElement.addEventListener('mousemove', this._boundHandleMouseMove);
+		window.addEventListener('mouseup', this._boundHandleMouseUp); 
 		
 		// 2. LWC API Events for Ghosting/Hover/DBLClick
-		this._chart.subscribeDblClick(this._handleDblClick.bind(this)); 
-		this._chart.subscribeCrosshairMove(this._handleCrosshairMove.bind(this));
+		this._chart.subscribeDblClick(this._boundHandleDblClick); 
+		this._chart.subscribeCrosshairMove(this._boundHandleCrosshairMove);
 
 		// Global Listeners for Persistent Key State **
-		window.addEventListener('keydown', this._handleKey.bind(this));
-		window.addEventListener('keyup', this._handleKey.bind(this));
+		window.addEventListener('keydown', this._boundHandleKeyDown);
+		window.addEventListener('keyup', this._boundHandleKeyUp);
+	}
+
+	/**
+	 * Releases all chart/window/DOM listeners owned by this interaction manager.
+	 *
+	 * This should be called exactly once when the parent core plugin is destroyed.
+	 *
+	 * @returns void
+	 */
+	public destroy(): void {
+		if (this._isDestroyed) {
+			return;
+		}
+		this._isDestroyed = true;
+
+		const chartElement = this._chart.chartElement();
+		chartElement.removeEventListener('mousedown', this._boundHandleMouseDown);
+		chartElement.removeEventListener('mousemove', this._boundHandleMouseMove);
+		window.removeEventListener('mouseup', this._boundHandleMouseUp);
+
+		this._chart.unsubscribeDblClick(this._boundHandleDblClick);
+		this._chart.unsubscribeCrosshairMove(this._boundHandleCrosshairMove);
+
+		window.removeEventListener('keydown', this._boundHandleKeyDown);
+		window.removeEventListener('keyup', this._boundHandleKeyUp);
+
+		this._resetCreationGestureStateOnly();
+		this._resetEditingGestureStateOnly();
+		this._hoveredTool = null;
+		this._selectedTool = null;
+		this._currentToolCreating = null;
 	}
 
 	/**
@@ -222,10 +266,11 @@ export class InteractionManager<HorzScaleItem> {
 	public detachTool(tool: BaseLineTool<HorzScaleItem>): void {
 		// 1. Remove from Lightweight Charts rendering pipeline (from its associated pane)
 		try {
-			tool.getPane().detachPrimitive(tool); 
+			const pane = tool.getPane();
+			pane.detachPrimitive(tool);
 			console.log(`[InteractionManager] Detached primitive for tool: ${tool.id()} from pane.`);
-		} catch (e: any) {
-			console.error(`[InteractionManager] Error detaching primitive for tool ${tool.id()}:`, e.message);
+		} catch {
+			// Teardown is idempotent; pane/chart may already be detached/disposed.
 		}
 
 		// 2. Clear internal references if this tool was the one being tracked
@@ -251,11 +296,15 @@ export class InteractionManager<HorzScaleItem> {
 			this._isDrag = false;
 
 			// Re-enable chart's handleScroll if it was disabled for dragging
-			this._chart.applyOptions({
-				handleScroll: {
-					pressedMouseMove: true,
-				},
-			});
+			try {
+				this._chart.applyOptions({
+					handleScroll: {
+						pressedMouseMove: true,
+					},
+				});
+			} catch {
+				// Ignore disposal races while tearing down.
+			}
 		}
 	}
 
@@ -410,6 +459,42 @@ export class InteractionManager<HorzScaleItem> {
 			
 			// Store the collected points for drag comparison
 			this._originalDragPoints = allOriginalPoints;
+
+			const translationPointCount =
+				this._draggedTool.pointsCount === -1
+					? allOriginalPoints.length
+					: Math.max(0, Math.min(this._draggedTool.pointsCount, allOriginalPoints.length));
+			this._originalTranslationPoints = allOriginalPoints.slice(0, translationPointCount);
+
+			const translationScreenPoints = this._originalTranslationPoints.map(originalPoint =>
+				this._draggedTool?.pointToScreenPoint(originalPoint) ?? null
+			);
+			this._originalTranslationScreenPoints = translationScreenPoints.every(pointOnScreen => pointOnScreen !== null)
+				? (translationScreenPoints as Point[])
+				: null;
+
+			// Prefer screen-derived logical indices to match what is actually rendered at drag start.
+			if (this._originalTranslationScreenPoints) {
+				const logicalIndicesFromScreen = this._originalTranslationScreenPoints.map(pointOnScreen =>
+					this._chart.timeScale().coordinateToLogical(pointOnScreen.x as Coordinate)
+				);
+				this._originalTranslationLogicalIndices = logicalIndicesFromScreen.every(logical => logical !== null)
+					? (logicalIndicesFromScreen.map(logical => Number(logical)) as number[])
+					: null;
+			} else {
+				const logicalIndicesFromTime = this._originalTranslationPoints.map(originalPoint =>
+					interpolateLogicalIndexFromTime(
+						this._chart,
+						this._series,
+						originalPoint.timestamp as any
+					)
+				);
+				this._originalTranslationLogicalIndices = logicalIndicesFromTime.every(logical => logical !== null)
+					? (logicalIndicesFromTime.map(logical => Number(logical)) as number[])
+					: null;
+			}
+			const dragStartPriceRaw = this._series.coordinateToPrice(point.y as Coordinate);
+			this._dragStartPrice = dragStartPriceRaw !== null ? Number(dragStartPriceRaw) : null;
 			// highlight-end
 			this._dragStartPoint = point; 
 
@@ -591,64 +676,102 @@ export class InteractionManager<HorzScaleItem> {
 						tool.setPoint(anchorIndex, targetLogicalPoint);
 					}
 
-				} else {
-					// --- Tool Translate Logic (Move Phase) ---
-					
-					if (!this._originalDragPoints || this._originalDragPoints.length === 0) return;
- 
-					// Calculate new screen points based on delta
-					const delta = point.subtract(this._dragStartPoint);
-					
-					// highlight-start
-					// --- FIX for Stable Logical Translation Vector ---
-					
-					const tool = this._draggedTool;
-
-					// 1. Get the Initial Logical P0 and Initial Screen Point
-					// We must use the point at which the drag initiated to calculate the vector
-					const initialLogicalP0 = this._originalDragPoints[0]; // The logical P0 at the moment of click
-					const initialScreenP0 = tool.pointToScreenPoint(initialLogicalP0); // The screen P0 at the moment of click
-
-					// If we cannot resolve the starting screen point, something is wrong.
-					if (!initialScreenP0) return;
-
-					// 2. Calculate the intended New Screen Point for P0
-					// This is simply the initial P0 screen position + the cumulative pixel delta
-					const newScreenP0 = initialScreenP0.add(delta);
-					
-					// 3. Convert the intended new Screen Point back to a Logical Point
-					const newLogicalP0 = tool.screenPointToPoint(newScreenP0);
-					
-					if (!newLogicalP0) {
-						console.warn(`[InteractionManager] Failed to determine new logical P0.`);
-						return;
-					}
-					
-					// 4. Calculate the Stable Translation Vector in Logical Space (Time and Price)
-					// This vector is the difference between the intended P0 and the original P0.
-					const timeTranslationVector = newLogicalP0.timestamp - initialLogicalP0.timestamp;
-					const priceTranslationVector = newLogicalP0.price - initialLogicalP0.price;
-
-					const newLogicalPoints: LineToolPoint[] = [];
-
-					// 5. Apply the Stable Translation Vector to all original points.
-					for (const originalLogicalPoint of this._originalDragPoints) {
+					} else {
+						// --- Tool Translate Logic (Move Phase) ---
 						
-						const translatedLogicalPoint: LineToolPoint = {
-							// Apply the stable logical vectors
-							timestamp: originalLogicalPoint.timestamp + timeTranslationVector,
-							price: originalLogicalPoint.price + priceTranslationVector,
-						};
+						if (!this._originalTranslationPoints || this._originalTranslationPoints.length === 0) return;
+	 
+						// Calculate new screen points based on delta
+						const delta = point.subtract(this._dragStartPoint);
+						
+						const tool = this._draggedTool;
+						let translatedPoints: LineToolPoint[] | null = null;
+						const currentPriceRaw = this._series.coordinateToPrice(point.y as Coordinate);
+						const currentPrice = currentPriceRaw !== null ? Number(currentPriceRaw) : null;
 
-						newLogicalPoints.push(translatedLogicalPoint);
+						// Derive X movement in logical-index space from the dragged P0 screen position.
+						// This keeps geometry stable in bar regions and still works in right blank space.
+						const initialLogicalP0 = this._originalTranslationPoints[0];
+						const initialScreenP0 =
+							this._originalTranslationScreenPoints && this._originalTranslationScreenPoints.length > 0
+								? this._originalTranslationScreenPoints[0]
+								: tool.pointToScreenPoint(initialLogicalP0);
+						const newScreenP0 = initialScreenP0 ? initialScreenP0.add(delta) : null;
+						const newLogicalP0 = newScreenP0 ? tool.screenPointToPoint(newScreenP0) : null;
+						const newLogicalP0IndexRaw = newScreenP0
+							? this._chart.timeScale().coordinateToLogical(newScreenP0.x as Coordinate)
+							: null;
+						const newLogicalP0Index = newLogicalP0IndexRaw !== null ? Number(newLogicalP0IndexRaw) : null;
+
+						if (
+							tool.pointsCount !== -1 &&
+							this._originalTranslationLogicalIndices &&
+							this._originalTranslationLogicalIndices.length === this._originalTranslationPoints.length &&
+							newLogicalP0Index !== null
+						) {
+							const logicalDelta = Number(newLogicalP0Index) - this._originalTranslationLogicalIndices[0];
+							const movedPoints: LineToolPoint[] = [];
+
+							for (let i = 0; i < this._originalTranslationPoints.length; i++) {
+								const translatedLogicalIndex = this._originalTranslationLogicalIndices[i] + logicalDelta;
+								const translatedTime = interpolateTimeFromLogicalIndex(
+									this._chart,
+									this._series,
+									translatedLogicalIndex
+								);
+								if (translatedTime === null) {
+									movedPoints.length = 0;
+									break;
+								}
+
+								let translatedPrice: number | null = null;
+								if (
+									this._originalTranslationScreenPoints &&
+									this._originalTranslationScreenPoints.length === this._originalTranslationPoints.length
+								) {
+									const translatedScreenY = this._originalTranslationScreenPoints[i].y + delta.y;
+									const translatedPriceRaw = this._series.coordinateToPrice(translatedScreenY as Coordinate);
+									translatedPrice = translatedPriceRaw !== null ? Number(translatedPriceRaw) : null;
+								}
+
+								if (translatedPrice === null && this._dragStartPrice !== null && currentPrice !== null) {
+									const priceDelta = currentPrice - this._dragStartPrice;
+									translatedPrice = this._originalTranslationPoints[i].price + priceDelta;
+								}
+
+								if (translatedPrice === null) {
+									movedPoints.length = 0;
+									break;
+								}
+
+								movedPoints.push({
+									timestamp: this._horzScaleBehavior.key(translatedTime as HorzScaleItem) as number,
+									price: translatedPrice,
+								});
+							}
+
+							if (movedPoints.length === this._originalTranslationPoints.length) {
+								translatedPoints = movedPoints;
+							}
+						}
+
+						if (!translatedPoints) {
+							if (!initialScreenP0) return;
+							if (!newLogicalP0) {
+								console.warn(`[InteractionManager] Failed to determine new logical P0.`);
+								return;
+							}
+
+							const timeTranslationVector = newLogicalP0.timestamp - initialLogicalP0.timestamp;
+							const priceTranslationVector = newLogicalP0.price - initialLogicalP0.price;
+							translatedPoints = this._originalTranslationPoints.map(originalLogicalPoint => ({
+								timestamp: originalLogicalPoint.timestamp + timeTranslationVector,
+								price: originalLogicalPoint.price + priceTranslationVector,
+							}));
+						}
+
+						tool.setPoints(translatedPoints);
 					}
-					
-					// 6. Update the tool with the full array of new translated points
-					tool.setPoints(newLogicalPoints);
-
-
-
-				}
 
 				this._draggedTool.updateAllViews();
 				this._plugin.requestUpdate();
@@ -1020,6 +1143,10 @@ export class InteractionManager<HorzScaleItem> {
 		this._draggedPointIndex = null;
 		this._dragStartPoint = null;
 		this._originalDragPoints = null;
+		this._originalTranslationPoints = null;
+		this._originalTranslationLogicalIndices = null;
+		this._originalTranslationScreenPoints = null;
+		this._dragStartPrice = null;
 		this._chart.applyOptions({ handleScroll: { pressedMouseMove: true } });
 	}
 

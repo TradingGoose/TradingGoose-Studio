@@ -18,6 +18,13 @@ export type IndicatorRef = {
   visible?: boolean
 }
 
+export type DrawToolsRef = {
+  id: string
+  pane: 'price' | 'indicator'
+  indicatorId?: string
+  snapshot?: string
+}
+
 export type IndicatorRuntimePlot = {
   key: string
   title: string
@@ -30,6 +37,8 @@ export type IndicatorRuntimeEntry = {
   pane: IPaneApi<any> | null
   paneIndex: number
   plots: IndicatorRuntimePlot[]
+  paneAnchorSeries?: ISeriesApi<any> | null
+  paneAnchorIdentity?: string | null
   errorMessage?: string
 }
 
@@ -62,6 +71,7 @@ export type DataChartViewParams = {
   candleType?: DataChartCandleType
   priceAxisType?: 'normal' | 'percentage' | 'log'
   pineIndicators?: IndicatorRef[]
+  drawTools?: DrawToolsRef[]
   rangePresetId?: string
   stylesOverride?: Record<string, unknown>
 }

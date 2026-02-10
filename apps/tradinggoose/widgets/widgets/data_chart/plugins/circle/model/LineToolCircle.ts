@@ -231,6 +231,8 @@ export class LineToolCircle<HorzScaleItem> extends BaseLineTool<HorzScaleItem> {
 			priceAxisLabelStackingManager
 		);
 
+		this._enforceVerticalRadiusInvariant();
+
 		// A PaneView is responsible for rendering the tool on the chart.
 		this._setPaneViews([new LineToolCirclePaneView(this, this._chart, this._series)]);
 
@@ -248,7 +250,49 @@ export class LineToolCircle<HorzScaleItem> extends BaseLineTool<HorzScaleItem> {
 	 * @override
 	 */
 	public normalize(): void {
-		// No strict sorting needed (unlike Rectangle's TL/BR), but we ensure they are not identical.
+		// No strict sorting needed (unlike Rectangle's TL/BR).
+		// Keep radius anchor vertically aligned with center for stable sizing.
+		this._enforceVerticalRadiusInvariant();
+	}
+
+	/**
+	 * Adds a point while preserving the circle invariant:
+	 * P1 always shares the center (P0) timestamp.
+	 *
+	 * @override
+	 */
+	public override addPoint(point: LineToolPoint): void {
+		if (this._points.length === 1) {
+			super.addPoint(this._toVerticalRadiusPoint(this._points[0], point));
+			return;
+		}
+
+		super.addPoint(point);
+		this._enforceVerticalRadiusInvariant();
+	}
+
+	/**
+	 * Replaces all points and re-applies the vertical radius invariant.
+	 *
+	 * @override
+	 */
+	public override setPoints(points: LineToolPoint[]): void {
+		super.setPoints(points);
+		this._enforceVerticalRadiusInvariant();
+	}
+
+	/**
+	 * Keeps ghost P1 vertically aligned to P0 during creation preview.
+	 *
+	 * @override
+	 */
+	public override setLastPoint(point: LineToolPoint | null): void {
+		if (point !== null && this._points.length === 1) {
+			super.setLastPoint(this._toVerticalRadiusPoint(this._points[0], point));
+			return;
+		}
+
+		super.setLastPoint(point);
 	}
 
 	/**
@@ -329,44 +373,17 @@ export class LineToolCircle<HorzScaleItem> extends BaseLineTool<HorzScaleItem> {
 				price: point.price - center.price,
 			};
 			this._points[0] = point;
-			this._points[1] = {
+			const translatedRadiusPoint = {
 				timestamp: radiusPoint.timestamp + delta.timestamp,
 				price: radiusPoint.price + delta.price,
 			};
+			this._points[1] = this._toVerticalRadiusPoint(point, translatedRadiusPoint);
 		} else if (index === 1) {
 			// Anchor 1 (Radius Point): Only the Radius Point moves, Center is fixed.
-			this._points[1] = point;
+			this._points[1] = this._toVerticalRadiusPoint(center, point);
 		} else if (index >= 2 && index <= 7) {
-			// Virtual Anchors (2-7): Change the radius, Center is fixed.
-			// 1. Calculate the new radius (distance from the Center P0 to the new anchor point)
-			const newRadiusLogical = Math.sqrt(
-				Math.pow(point.timestamp - center.timestamp, 2) +
-				Math.pow(point.price - center.price, 2)
-			);
-
-			// 2. Calculate the original vector from Center to Radius Point (C -> R)
-			const originalVector = {
-				timestamp: radiusPoint.timestamp - center.timestamp,
-				price: radiusPoint.price - center.price,
-			};
-			const originalRadius = Math.sqrt(
-				Math.pow(originalVector.timestamp, 2) +
-				Math.pow(originalVector.price, 2)
-			);
-
-			if (originalRadius > 1e-6) {
-				// 3. Normalize the vector and scale it by the new radius
-				const scaleFactor = newRadiusLogical / originalRadius;
-
-				// 4. Update the Radius Point P1 (R')
-				this._points[1] = {
-					timestamp: center.timestamp + originalVector.timestamp * scaleFactor,
-					price: center.price + originalVector.price * scaleFactor,
-				};
-			} else {
-				// Edge case: Original radius was 0 (P0=P1). Move P1 in the direction of the drag.
-				this._points[1] = point;
-			}
+			// Virtual Anchors (2-7): Radius changes vertically only.
+			this._points[1] = this._toVerticalRadiusPoint(center, point);
 		}
 	}
 
@@ -388,11 +405,8 @@ export class LineToolCircle<HorzScaleItem> extends BaseLineTool<HorzScaleItem> {
 
 		const [center, radiusPoint] = this._points;
 
-		// Calculate the radius (distance C-R)
-		const radius = Math.sqrt(
-			Math.pow(radiusPoint.timestamp - center.timestamp, 2) +
-			Math.pow(radiusPoint.price - center.price, 2)
-		);
+		// Radius is defined by vertical distance only.
+		const radius = Math.abs(radiusPoint.price - center.price);
 
 		// Calculate the min/max time/price bounds of the square bounding box
 		const minPrice = center.price - radius;
@@ -414,6 +428,27 @@ export class LineToolCircle<HorzScaleItem> extends BaseLineTool<HorzScaleItem> {
 
 			default: return null;
 		}
+	}
+
+	/**
+	 * Forces the radius anchor (P1) to stay on the same timestamp as center (P0).
+	 */
+	private _toVerticalRadiusPoint(center: LineToolPoint, radiusCandidate: LineToolPoint): LineToolPoint {
+		return {
+			timestamp: center.timestamp,
+			price: radiusCandidate.price,
+		};
+	}
+
+	/**
+	 * Re-applies the vertical radius invariant to the current point set.
+	 */
+	private _enforceVerticalRadiusInvariant(): void {
+		if (this._points.length < 2) {
+			return;
+		}
+
+		this._points[1] = this._toVerticalRadiusPoint(this._points[0], this._points[1]);
 	}
 
 	/**

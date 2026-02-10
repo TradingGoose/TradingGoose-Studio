@@ -74,9 +74,17 @@ export class PriceAxisLabelStackingManager<HorzScaleItem> {
 	 */
     private _coordinateToPrice(coordinate: Coordinate): number | null {
         if (this._currentPriceScale) {
-            return this._series.coordinateToPrice(coordinate);
+            try {
+                return this._series.coordinateToPrice(coordinate);
+            } catch {
+                return null;
+            }
         }
         return null;
+    }
+
+    private _clearFixedCoordinates(): void {
+        this._labels.forEach(label => label.setFixedCoordinate(undefined));
     }
 
 	/**
@@ -143,14 +151,24 @@ export class PriceAxisLabelStackingManager<HorzScaleItem> {
 	public updateStacking(): void {
 		if (!this._priceAxisRendererOptions) {
 			console.warn('[PALSManager] Cannot update stacking: PriceAxisViewRendererOptions not set. Skipping stacking adjustment.');
-			this._labels.forEach(label => label.setFixedCoordinate(undefined));
+			this._clearFixedCoordinates();
 			return;
 		}
 
-		const priceScale = this._series.priceScale();
+		let priceScale: IPriceScaleApi | null = null;
+		try {
+			priceScale = this._series.priceScale();
+		} catch {
+			// Series can already be disposed during chart teardown.
+			this._currentPriceScale = null;
+			this._clearFixedCoordinates();
+			return;
+		}
+
 		if (!priceScale) {
 			console.warn('[PALSManager] No price scale available. Skipping stacking adjustment.');
-			this._labels.forEach(label => label.setFixedCoordinate(undefined));
+			this._currentPriceScale = null;
+			this._clearFixedCoordinates();
 			return;
 		}
 		this._currentPriceScale = priceScale;
