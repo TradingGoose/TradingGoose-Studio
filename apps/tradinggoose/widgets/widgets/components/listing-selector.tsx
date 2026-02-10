@@ -201,7 +201,6 @@ export function ListingSelector({
     })
     setVariableCommitted(false)
     onListingValueChange?.(null)
-    onListingChange?.(null)
   }
 
   useMarketListingSearch({
@@ -451,8 +450,17 @@ export function ListingSelector({
             setShowTags(Boolean(blockId) && tagTrigger.show)
 
             if (!nextValue.trim()) {
-              clearVariableValue()
               setShowTags(false)
+              if (selectedListing || safeInstance.selectedListingValue) {
+                updateInstance(instanceId, {
+                  query: '',
+                  results: [],
+                  isLoading: false,
+                  error: undefined,
+                })
+                return
+              }
+              clearVariableValue()
               return
             }
 
@@ -467,13 +475,7 @@ export function ListingSelector({
               return
             }
 
-            const patch: Partial<typeof safeInstance> = { query: nextValue }
-            if (selectedListing && selectedLabel && nextValue.trim() !== selectedLabel) {
-              patch.selectedListingValue = null
-              patch.selectedListing = null
-              onListingChange?.(null)
-            }
-            updateInstance(instanceId, patch)
+            updateInstance(instanceId, { query: nextValue })
           }}
           onFocus={() => {
             if (disabled) return
