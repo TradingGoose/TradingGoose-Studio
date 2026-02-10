@@ -12,7 +12,7 @@ export const PineconeBlock: BlockConfig<PineconeResponse> = {
     'Integrate Pinecone into the workflow. Can generate embeddings, upsert text, search with text, fetch vectors, and search with vectors.',
   docsLink: 'https://docs.sim.ai/tools/pinecone',
   category: 'tools',
-  bgColor: '',
+  bgColor: '#1C17FF',
   icon: PineconeIcon,
 
   subBlocks: [

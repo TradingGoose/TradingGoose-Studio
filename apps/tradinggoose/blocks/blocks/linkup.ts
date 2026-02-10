@@ -10,7 +10,7 @@ export const LinkupBlock: BlockConfig<LinkupSearchToolResponse> = {
   longDescription: 'Integrate Linkup into the workflow. Can search the web.',
   docsLink: 'https://docs.sim.ai/tools/linkup',
   category: 'tools',
-  bgColor: undefined,
+  bgColor: '#0084ff',
   icon: LinkupIcon,
 
   subBlocks: [
