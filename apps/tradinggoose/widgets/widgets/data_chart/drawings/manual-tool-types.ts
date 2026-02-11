@@ -9,27 +9,27 @@ export const LINES_FAMILY_TOOL_TYPES = [
   'HorizontalRay',
   'VerticalLine',
   'CrossLine',
-  'Callout',
 ] as const
 
-export const FREEHAND_FAMILY_TOOL_TYPES = ['Brush', 'Highlighter'] as const
+export const NOTES_FAMILY_TOOL_TYPES = ['Callout', 'Text'] as const
+
+export const FREEHAND_FAMILY_TOOL_TYPES = ['Brush', 'Highlighter', 'Path'] as const
+
+export const SHAPES_FAMILY_TOOL_TYPES = ['Rectangle', 'Circle', 'Triangle'] as const
 
 export const SINGLE_TOOL_TYPES = [
-  'Rectangle',
-  'Circle',
-  'Triangle',
-  'Path',
   'ParallelChannel',
   'FibRetracement',
   'PriceRange',
   'LongShortPosition',
-  'Text',
   'MarketDepth',
 ] as const
 
 export const MANUAL_TOOL_TYPES = [
   ...LINES_FAMILY_TOOL_TYPES,
+  ...NOTES_FAMILY_TOOL_TYPES,
   ...FREEHAND_FAMILY_TOOL_TYPES,
+  ...SHAPES_FAMILY_TOOL_TYPES,
   ...SINGLE_TOOL_TYPES,
 ] as const
 

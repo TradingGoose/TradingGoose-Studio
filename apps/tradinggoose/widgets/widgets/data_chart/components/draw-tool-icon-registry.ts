@@ -3,10 +3,9 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   ArrowLeftRight,
-  ArrowUpDown,
   Brush,
   Circle,
-  Columns3,
+  Rows2,
   Crosshair,
   Eraser,
   Eye,
@@ -17,20 +16,22 @@ import {
   MoveHorizontal,
   MoveRight,
   MoveVertical,
-  PencilLine,
+  PanelTopDashed,
   Ruler,
-  Sigma,
+  LoaderPinwheel,
   Square,
-  Triangle,
   Trash2,
   TrendingUp,
+  Triangle,
   Type,
 } from 'lucide-react'
 import {
   FREEHAND_FAMILY_TOOL_TYPES,
   LINES_FAMILY_TOOL_TYPES,
-  SINGLE_TOOL_TYPES,
   type ManualToolType,
+  NOTES_FAMILY_TOOL_TYPES,
+  SHAPES_FAMILY_TOOL_TYPES,
+  SINGLE_TOOL_TYPES,
 } from '@/widgets/widgets/data_chart/drawings/manual-tool-types'
 
 export type DrawToolActionType =
@@ -87,11 +88,11 @@ export const DRAW_TOOL_ICONS: Record<ManualToolType, LucideIcon> = {
   Rectangle: Square,
   Circle,
   Triangle,
-  Path: PencilLine,
-  ParallelChannel: Columns3,
-  FibRetracement: Sigma,
+  Path: TrendingUp,
+  ParallelChannel: Rows2,
+  FibRetracement: LoaderPinwheel,
   PriceRange: Ruler,
-  LongShortPosition: ArrowUpDown,
+  LongShortPosition: PanelTopDashed,
   Text: Type,
   MarketDepth: ArrowLeftRight,
 }
@@ -106,6 +107,8 @@ export const DRAW_ACTION_ICONS: Record<DrawToolActionType, LucideIcon> = {
 
 export const DRAW_TOOL_FAMILY_GROUPS = {
   lines: [...LINES_FAMILY_TOOL_TYPES],
+  notes: [...NOTES_FAMILY_TOOL_TYPES],
   freehand: [...FREEHAND_FAMILY_TOOL_TYPES],
+  shapes: [...SHAPES_FAMILY_TOOL_TYPES],
   singles: [...SINGLE_TOOL_TYPES],
 } as const

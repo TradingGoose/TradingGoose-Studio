@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { PenTool, Shapes, TextCursorInput } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,16 +12,16 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import {
   DRAW_ACTION_ICONS,
   DRAW_ACTION_LABELS,
-  type DrawToolActionType,
   DRAW_TOOL_FAMILY_GROUPS,
   DRAW_TOOL_ICONS,
   DRAW_TOOL_LABELS,
+  type DrawToolActionType,
 } from '@/widgets/widgets/data_chart/components/draw-tool-icon-registry'
+import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/manual-tool-types'
 import type {
   OwnerVisibilityMode,
   ToolCreateCapability,
 } from '@/widgets/widgets/data_chart/drawings/use-manual-line-tools-adapter'
-import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/manual-tool-types'
 
 type DrawToolsSidebarProps = {
   activeOwnerId: string | null
@@ -51,10 +52,11 @@ export const DrawToolsSidebar = ({
   onToggleAllVisibility,
   onClearAll,
 }: DrawToolsSidebarProps) => {
-  const [openGroup, setOpenGroup] = useState<'lines' | 'freehand' | null>(null)
+  const [openGroup, setOpenGroup] = useState<'lines' | 'notes' | 'freehand' | 'shapes' | null>(null)
   const canInteract = Boolean(activeOwnerId)
   const canToggleAllVisibility = canInteract && hasOwnerTools
-  const allVisibilityAction: DrawToolActionType = allVisibilityMode === 'show' ? 'showAll' : 'hideAll'
+  const allVisibilityAction: DrawToolActionType =
+    allVisibilityMode === 'show' ? 'showAll' : 'hideAll'
   const ToggleAllVisibilityIcon = DRAW_ACTION_ICONS[allVisibilityAction]
   const toggleAllVisibilityLabel = DRAW_ACTION_LABELS[allVisibilityAction]
   const ClearAllIcon = DRAW_ACTION_ICONS.clearAll
@@ -82,27 +84,56 @@ export const DrawToolsSidebar = ({
             open={openGroup === 'lines'}
             onOpenChange={(nextOpen) => setOpenGroup(nextOpen ? 'lines' : null)}
           >
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type='button'
-                    className={groupButtonClass}
-                    disabled={!canInteract}
-                  >
-                    {(() => {
-                      const LinesIcon = DRAW_TOOL_ICONS.TrendLine
-                      return <LinesIcon className='h-4 w-4' />
-                    })()}
-                    <span className='sr-only'>Lines tools</span>
-                  </button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent side='right'>Lines</TooltipContent>
-            </Tooltip>
+            <DropdownMenuTrigger asChild>
+              <button type='button' className={groupButtonClass} disabled={!canInteract}>
+                {(() => {
+                  const LinesIcon = DRAW_TOOL_ICONS.TrendLine
+                  return <LinesIcon className='h-4 w-4' />
+                })()}
+                <span className='sr-only'>Lines tools</span>
+              </button>
+            </DropdownMenuTrigger>
 
             <DropdownMenuContent side='right' align='start' className='w-44 p-1'>
               {DRAW_TOOL_FAMILY_GROUPS.lines.map((toolType) => {
+                const ToolIcon = DRAW_TOOL_ICONS[toolType]
+                const capability = getToolCapability(toolType)
+                const unavailable = capability === 'unsupported'
+                const isActive = isNonSelectableToolActive(toolType)
+                return (
+                  <DropdownMenuItem
+                    key={toolType}
+                    disabled={!canInteract || unavailable}
+                    className={`gap-2 ${isActive ? 'bg-muted text-foreground' : ''}`}
+                    onClick={() => onSelectTool(toolType)}
+                  >
+                    <ToolIcon className='h-4 w-4' />
+                    <span>{DRAW_TOOL_LABELS[toolType]}</span>
+                  </DropdownMenuItem>
+                )
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        <div
+          className='flex flex-col items-center gap-1'
+          onMouseEnter={() => setOpenGroup('notes')}
+          onMouseLeave={() => setOpenGroup(null)}
+        >
+          <DropdownMenu
+            open={openGroup === 'notes'}
+            onOpenChange={(nextOpen) => setOpenGroup(nextOpen ? 'notes' : null)}
+          >
+            <DropdownMenuTrigger asChild>
+              <button type='button' className={groupButtonClass} disabled={!canInteract}>
+                <TextCursorInput className='h-4 w-4' />
+                <span className='sr-only'>Notes tools</span>
+              </button>
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent side='right' align='start' className='w-44 p-1'>
+              {DRAW_TOOL_FAMILY_GROUPS.notes.map((toolType) => {
                 const ToolIcon = DRAW_TOOL_ICONS[toolType]
                 const capability = getToolCapability(toolType)
                 const unavailable = capability === 'unsupported'
@@ -132,27 +163,53 @@ export const DrawToolsSidebar = ({
             open={openGroup === 'freehand'}
             onOpenChange={(nextOpen) => setOpenGroup(nextOpen ? 'freehand' : null)}
           >
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type='button'
-                    className={groupButtonClass}
-                    disabled={!canInteract}
-                  >
-                    {(() => {
-                      const FreehandIcon = DRAW_TOOL_ICONS.Brush
-                      return <FreehandIcon className='h-4 w-4' />
-                    })()}
-                    <span className='sr-only'>Freehand tools</span>
-                  </button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent side='right'>Freehand</TooltipContent>
-            </Tooltip>
+            <DropdownMenuTrigger asChild>
+              <button type='button' className={groupButtonClass} disabled={!canInteract}>
+                <PenTool className='h-4 w-4' />
+                <span className='sr-only'>Freehand tools</span>
+              </button>
+            </DropdownMenuTrigger>
 
             <DropdownMenuContent side='right' align='start' className='w-44 p-1'>
               {DRAW_TOOL_FAMILY_GROUPS.freehand.map((toolType) => {
+                const ToolIcon = DRAW_TOOL_ICONS[toolType]
+                const capability = getToolCapability(toolType)
+                const unavailable = capability === 'unsupported'
+                const isActive = isNonSelectableToolActive(toolType)
+                return (
+                  <DropdownMenuItem
+                    key={toolType}
+                    disabled={!canInteract || unavailable}
+                    className={`gap-2 ${isActive ? 'bg-muted text-foreground' : ''}`}
+                    onClick={() => onSelectTool(toolType)}
+                  >
+                    <ToolIcon className='h-4 w-4' />
+                    <span>{DRAW_TOOL_LABELS[toolType]}</span>
+                  </DropdownMenuItem>
+                )
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        <div
+          className='flex flex-col items-center gap-1'
+          onMouseEnter={() => setOpenGroup('shapes')}
+          onMouseLeave={() => setOpenGroup(null)}
+        >
+          <DropdownMenu
+            open={openGroup === 'shapes'}
+            onOpenChange={(nextOpen) => setOpenGroup(nextOpen ? 'shapes' : null)}
+          >
+            <DropdownMenuTrigger asChild>
+              <button type='button' className={groupButtonClass} disabled={!canInteract}>
+                <Shapes className='h-4 w-4' />
+                <span className='sr-only'>Shapes tools</span>
+              </button>
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent side='right' align='start' className='w-44 p-1'>
+              {DRAW_TOOL_FAMILY_GROUPS.shapes.map((toolType) => {
                 const ToolIcon = DRAW_TOOL_ICONS[toolType]
                 const capability = getToolCapability(toolType)
                 const unavailable = capability === 'unsupported'
