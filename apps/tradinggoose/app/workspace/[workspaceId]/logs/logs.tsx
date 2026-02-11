@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Loader2, Map as MapIcon, RefreshCw } from 'lucide-react'
+import { Loader2, Scroll, RefreshCw } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
@@ -366,7 +366,7 @@ export default function Logs() {
   const headerLeftContent = isDashboardView ? null : (
     <div className='flex w-full flex-1 items-center gap-3'>
       <div className='hidden items-center gap-2 sm:flex'>
-        <MapIcon className='h-[18px] w-[18px] text-muted-foreground' />
+        <Scroll className='h-[18px] w-[18px] text-muted-foreground' />
         <span className='font-medium text-sm'>Logs</span>
       </div>
       <div className='flex w-full flex-1'>
