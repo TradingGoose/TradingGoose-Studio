@@ -220,7 +220,7 @@ export function IndicatorListItem({
         open={showDeleteDialog}
         onOpenChange={(open) => {
           if (!isDeleting) {
-            setShowDeleteDialog(open)
+            setShowDeleteDialog((prev) => (prev === open ? prev : open))
           }
         }}
       >
@@ -253,4 +253,3 @@ export function IndicatorListItem({
     </div>
   )
 }
-

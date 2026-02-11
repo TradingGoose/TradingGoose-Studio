@@ -645,7 +645,7 @@ export function FileUpload({
             <Popover
               open={addMoreOpen}
               onOpenChange={(open) => {
-                setAddMoreOpen(open)
+                setAddMoreOpen((prev) => (prev === open ? prev : open))
                 if (open) void loadWorkspaceFiles()
               }}
             >
@@ -719,7 +719,7 @@ export function FileUpload({
           <Popover
             open={pickerOpen}
             onOpenChange={(open) => {
-              setPickerOpen(open)
+              setPickerOpen((prev) => (prev === open ? prev : open))
               if (open) void loadWorkspaceFiles()
             }}
           >

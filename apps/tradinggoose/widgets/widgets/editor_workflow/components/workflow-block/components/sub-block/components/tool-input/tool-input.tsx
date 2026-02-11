@@ -1878,7 +1878,7 @@ export function ToolInput({
       <CustomToolModal
         open={customToolModalOpen}
         onOpenChange={(open) => {
-          setCustomToolModalOpen(open)
+          setCustomToolModalOpen((prev) => (prev === open ? prev : open))
           if (!open) setEditingToolIndex(null)
         }}
         onSave={editingToolIndex !== null ? handleSaveCustomTool : handleAddCustomTool}
