@@ -112,7 +112,7 @@ export function KnowledgeBaseSelector({
   const handleOpenChange = (isOpen: boolean) => {
     if (isPreview) return
 
-    setOpen(isOpen)
+    setOpen((prev) => (prev === isOpen ? prev : isOpen))
 
     // Always fetch fresh knowledge bases when opening the dropdown
     if (isOpen) {

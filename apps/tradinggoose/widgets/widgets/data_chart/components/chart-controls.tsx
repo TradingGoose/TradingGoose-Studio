@@ -67,16 +67,18 @@ export const DataChartIntervalDropdown = ({
     <DropdownMenu>
       <Tooltip>
         <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <button
-              type='button'
-              className={widgetHeaderIconButtonClassName()}
-              disabled={!supportsInterval || allowedIntervals.length === 0}
-            >
-              <Clock className='h-3.5 w-3.5' />
-              <span className='sr-only'>Select interval</span>
-            </button>
-          </DropdownMenuTrigger>
+          <span className='inline-flex'>
+            <DropdownMenuTrigger asChild>
+              <button
+                type='button'
+                className={widgetHeaderIconButtonClassName()}
+                disabled={!supportsInterval || allowedIntervals.length === 0}
+              >
+                <Clock className='h-3.5 w-3.5' />
+                <span className='sr-only'>Select interval</span>
+              </button>
+            </DropdownMenuTrigger>
+          </span>
         </TooltipTrigger>
         <TooltipContent side='top'>Interval</TooltipContent>
       </Tooltip>
@@ -139,16 +141,18 @@ export const DataChartCandleTypeDropdown = ({
     <DropdownMenu>
       <Tooltip>
         <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <button type='button' className={widgetHeaderIconButtonClassName()}>
-              {SelectedIcon ? (
-                <SelectedIcon className='h-3.5 w-3.5' />
-              ) : (
-                <CandlestickChart className='h-3.5 w-3.5' />
-              )}
-              <span className='sr-only'>Candle style</span>
-            </button>
-          </DropdownMenuTrigger>
+          <span className='inline-flex'>
+            <DropdownMenuTrigger asChild>
+              <button type='button' className={widgetHeaderIconButtonClassName()}>
+                {SelectedIcon ? (
+                  <SelectedIcon className='h-3.5 w-3.5' />
+                ) : (
+                  <CandlestickChart className='h-3.5 w-3.5' />
+                )}
+                <span className='sr-only'>Candle style</span>
+              </button>
+            </DropdownMenuTrigger>
+          </span>
         </TooltipTrigger>
         <TooltipContent side='top'>Candle style</TooltipContent>
       </Tooltip>

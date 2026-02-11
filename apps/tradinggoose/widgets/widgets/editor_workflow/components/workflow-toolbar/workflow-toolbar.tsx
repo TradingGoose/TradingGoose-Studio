@@ -20,26 +20,26 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import {
-  getBlocksForSidebar,
-  getTriggersForSidebar,
-  hasTriggerCapability,
-} from '@/lib/workflows/trigger-utils'
-import {
   getProviderIdsForBlocks,
   isBlockAvailable,
   type ProviderAvailability,
 } from '@/lib/workflows/block-availability'
+import {
+  getBlocksForSidebar,
+  getTriggersForSidebar,
+  hasTriggerCapability,
+} from '@/lib/workflows/trigger-utils'
 import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import type { BlockConfig } from '@/blocks/types'
-import { ToolbarBlock } from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-block'
-import LoopToolbarItem from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-loop-block'
-import ParallelToolbarItem from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-parallel-block'
 import {
   widgetHeaderButtonGroupClassName,
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuTextClassName,
 } from '@/widgets/widgets/components/widget-header-control'
+import { ToolbarBlock } from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-block'
+import LoopToolbarItem from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-loop-block'
+import ParallelToolbarItem from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-parallel-block'
 
 interface WorkflowToolbarProps {
   workspaceId?: string
@@ -60,7 +60,6 @@ const DEFAULT_PROVIDER_AVAILABILITY: ProviderAvailability = {}
 const FALLBACK_TEXT = 'Select a workspace to browse blocks'
 const DROPDOWN_MAX_HEIGHT = '20rem'
 const DROPDOWN_VIEWPORT_HEIGHT = '14.0rem'
-
 
 function useToolbarList(
   searchQuery: string,
@@ -87,20 +86,20 @@ function useToolbarList(
 
     const regularBlocks = isBlocksMode
       ? filtered
-        .filter((block) => block.category === 'blocks')
-        .sort((a, b) => a.name.localeCompare(b.name))
+          .filter((block) => block.category === 'blocks')
+          .sort((a, b) => a.name.localeCompare(b.name))
       : []
 
     const toolBlocks = isToolsMode
       ? filtered
-        .filter((block) => block.category === 'tools')
-        .sort((a, b) => a.name.localeCompare(b.name))
+          .filter((block) => block.category === 'tools')
+          .sort((a, b) => a.name.localeCompare(b.name))
       : []
 
     const triggerBlocks = isTriggerMode
       ? filtered
-        .filter((block) => block.category === 'triggers' || hasTriggerCapability(block))
-        .sort((a, b) => a.name.localeCompare(b.name))
+          .filter((block) => block.category === 'triggers' || hasTriggerCapability(block))
+          .sort((a, b) => a.name.localeCompare(b.name))
       : []
 
     return {
@@ -155,10 +154,7 @@ export function WorkflowToolbar({ workspaceId, channelId }: WorkflowToolbarProps
   return (
     <TooltipProvider>
       <WorkspacePermissionsProvider workspaceId={workspaceId}>
-        <ToolbarDropdownGroup
-          channelId={channelId}
-          providerAvailability={providerAvailability}
-        />
+        <ToolbarDropdownGroup channelId={channelId} providerAvailability={providerAvailability} />
       </WorkspacePermissionsProvider>
     </TooltipProvider>
   )
@@ -174,9 +170,6 @@ function ToolbarDropdownGroup({
   const [blockSearch, setBlockSearch] = useState('')
   const [toolSearch, setToolSearch] = useState('')
   const [triggerSearch, setTriggerSearch] = useState('')
-  const [isBlocksOpen, setBlocksOpen] = useState(false)
-  const [isToolsOpen, setToolsOpen] = useState(false)
-  const [isTriggersOpen, setTriggersOpen] = useState(false)
 
   const blockData = useToolbarList(blockSearch, 'blocks', providerAvailability)
   const toolData = useToolbarList(toolSearch, 'tools', providerAvailability)
@@ -184,47 +177,18 @@ function ToolbarDropdownGroup({
 
   return (
     <div className={widgetHeaderButtonGroupClassName()}>
-      <ToolbarDropdown
-        label='Blocks'
-        searchValue={blockSearch}
-        onSearchChange={setBlockSearch}
-        open={isBlocksOpen}
-        onOpenChange={setBlocksOpen}
-      >
-        <ToolbarDropdownContent
-          data={blockData}
-          mode='blocks'
-          closePopover={() => setBlocksOpen(false)}
-          channelId={channelId}
-        />
+      <ToolbarDropdown label='Blocks' searchValue={blockSearch} onSearchChange={setBlockSearch}>
+        <ToolbarDropdownContent data={blockData} mode='blocks' channelId={channelId} />
       </ToolbarDropdown>
-      <ToolbarDropdown
-        label='Tools'
-        searchValue={toolSearch}
-        onSearchChange={setToolSearch}
-        open={isToolsOpen}
-        onOpenChange={setToolsOpen}
-      >
-        <ToolbarDropdownContent
-          data={toolData}
-          mode='tools'
-          closePopover={() => setToolsOpen(false)}
-          channelId={channelId}
-        />
+      <ToolbarDropdown label='Tools' searchValue={toolSearch} onSearchChange={setToolSearch}>
+        <ToolbarDropdownContent data={toolData} mode='tools' channelId={channelId} />
       </ToolbarDropdown>
       <ToolbarDropdown
         label='Triggers'
         searchValue={triggerSearch}
         onSearchChange={setTriggerSearch}
-        open={isTriggersOpen}
-        onOpenChange={setTriggersOpen}
       >
-        <ToolbarDropdownContent
-          data={triggerData}
-          mode='triggers'
-          closePopover={() => setTriggersOpen(false)}
-          channelId={channelId}
-        />
+        <ToolbarDropdownContent data={triggerData} mode='triggers' channelId={channelId} />
       </ToolbarDropdown>
     </div>
   )
@@ -234,19 +198,10 @@ interface ToolbarDropdownProps {
   label: string
   searchValue: string
   onSearchChange: (value: string) => void
-  open: boolean
-  onOpenChange: (open: boolean) => void
   children: ReactNode
 }
 
-function ToolbarDropdown({
-  label,
-  searchValue,
-  onSearchChange,
-  open,
-  onOpenChange,
-  children,
-}: ToolbarDropdownProps) {
+function ToolbarDropdown({ label, searchValue, onSearchChange, children }: ToolbarDropdownProps) {
   const handleSearchInputKeyDown = useCallback((event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Escape') return
 
@@ -258,22 +213,24 @@ function ToolbarDropdown({
   const tooltipText = `Browse ${label.toLowerCase()}`
 
   return (
-    <DropdownMenu open={open} onOpenChange={onOpenChange} modal={false}>
+    <DropdownMenu modal={false}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <button
-              className={widgetHeaderControlClassName(
-                'font-semibold text-muted-foreground hover:text-foreground'
-              )}
-              type='button'
-            >
-              <span className='flex items-center gap-1'>
-                <span className='text-xs'>{label}</span>
-                <ChevronDown className='h-3.5 w-3.5' />
-              </span>
-            </button>
-          </DropdownMenuTrigger>
+          <span className='inline-flex'>
+            <DropdownMenuTrigger asChild>
+              <button
+                className={widgetHeaderControlClassName(
+                  'group font-semibold text-muted-foreground hover:text-foreground'
+                )}
+                type='button'
+              >
+                <span className='flex items-center gap-1'>
+                  <span className='text-xs'>{label}</span>
+                  <ChevronDown className='h-3.5 w-3.5 transition-transform group-data-[state=open]:rotate-180' />
+                </span>
+              </button>
+            </DropdownMenuTrigger>
+          </span>
         </TooltipTrigger>
         <TooltipContent side='top'>{tooltipText}</TooltipContent>
       </Tooltip>
@@ -313,12 +270,10 @@ function ToolbarDropdown({
 function ToolbarDropdownContent({
   data,
   mode,
-  closePopover,
   channelId,
 }: {
   data: ToolbarListData
   mode: ToolbarMode
-  closePopover: () => void
   channelId?: string
 }) {
   const { regularBlocks, toolBlocks, triggerBlocks, includeSpecialBlocks } = data
@@ -343,14 +298,7 @@ function ToolbarDropdownContent({
         <div className='space-y-1 pb-2'>
           <SectionLabel title='Blocks' />
           {regularBlocks.map((block) => (
-            <DropdownMenuItem
-              key={block.type}
-              className='p-0 focus:bg-transparent'
-              onSelect={(event) => {
-                event.preventDefault()
-                closePopover()
-              }}
-            >
+            <DropdownMenuItem key={block.type} className='p-0 focus:bg-transparent'>
               <ToolbarBlock config={block} channelId={channelId} />
             </DropdownMenuItem>
           ))}
@@ -360,22 +308,10 @@ function ToolbarDropdownContent({
       {mode === 'blocks' && includeSpecialBlocks && (
         <div className='space-y-1 pb-2'>
           <SectionLabel title='Special' />
-          <DropdownMenuItem
-            className='p-0 focus:bg-transparent'
-            onSelect={(event) => {
-              event.preventDefault()
-              closePopover()
-            }}
-          >
+          <DropdownMenuItem className='p-0 focus:bg-transparent'>
             <LoopToolbarItem channelId={channelId} />
           </DropdownMenuItem>
-          <DropdownMenuItem
-            className='p-0 focus:bg-transparent'
-            onSelect={(event) => {
-              event.preventDefault()
-              closePopover()
-            }}
-          >
+          <DropdownMenuItem className='p-0 focus:bg-transparent'>
             <ParallelToolbarItem channelId={channelId} />
           </DropdownMenuItem>
         </div>
@@ -385,14 +321,7 @@ function ToolbarDropdownContent({
         <div className='space-y-1 pb-2'>
           <SectionLabel title='Tools' />
           {toolBlocks.map((block) => (
-            <DropdownMenuItem
-              key={block.type}
-              className='p-0 focus:bg-transparent'
-              onSelect={(event) => {
-                event.preventDefault()
-                closePopover()
-              }}
-            >
+            <DropdownMenuItem key={block.type} className='p-0 focus:bg-transparent'>
               <ToolbarBlock config={block} channelId={channelId} />
             </DropdownMenuItem>
           ))}
@@ -403,14 +332,7 @@ function ToolbarDropdownContent({
         <div className='space-y-1 pb-2'>
           <SectionLabel title='Triggers' />
           {triggerBlocks.map((block) => (
-            <DropdownMenuItem
-              key={block.type}
-              className='p-0 focus:bg-transparent'
-              onSelect={(event) => {
-                event.preventDefault()
-                closePopover()
-              }}
-            >
+            <DropdownMenuItem key={block.type} className='p-0 focus:bg-transparent'>
               <ToolbarBlock
                 config={block}
                 enableTriggerMode={hasTriggerCapability(block)}

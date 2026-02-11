@@ -1,7 +1,8 @@
 'use client'
 
-import { type WheelEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type WheelEvent } from 'react'
 import { ChartNetwork, Check, Clock, ClockFading, ClockPlus } from 'lucide-react'
+import { fetchTimeZoneOptions, formatTimezoneLabel } from '@/components/timezone-selector/fetchers'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,19 +12,11 @@ import {
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { fetchTimeZoneOptions, formatTimezoneLabel } from '@/components/timezone-selector/fetchers'
 import { isUtcOffset, normalizeUtcOffset } from '@/lib/time-format'
 import { cn } from '@/lib/utils'
 import { getMarketSeriesCapabilities } from '@/providers/market/providers'
 import type { MarketInterval, MarketRangeUnit } from '@/providers/market/types'
 import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
-import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
-import {
-  DEFAULT_RANGE_PRESETS,
-  addRangeToDate,
-  formatIntervalLabel,
-} from '@/widgets/widgets/data_chart/series-data'
-import { chooseIntervalForRange } from '@/widgets/widgets/data_chart/series-window'
 import {
   widgetHeaderControlClassName,
   widgetHeaderIconButtonClassName,
@@ -31,6 +24,13 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/widgets/widgets/components/widget-header-control'
+import {
+  addRangeToDate,
+  DEFAULT_RANGE_PRESETS,
+  formatIntervalLabel,
+} from '@/widgets/widgets/data_chart/series-data'
+import { chooseIntervalForRange } from '@/widgets/widgets/data_chart/series-window'
+import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
 
 type TimeZoneOption = Awaited<ReturnType<typeof fetchTimeZoneOptions>>[number]
 
@@ -47,7 +47,6 @@ const DataChartTimezoneDropdown = ({
   panelId,
   widgetKey,
 }: DataChartTimezoneDropdownProps) => {
-  const [open, setOpen] = useState(false)
   const [options, setOptions] = useState<TimeZoneOption[]>([])
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
@@ -88,7 +87,7 @@ const DataChartTimezoneDropdown = ({
     }
   }, [exchangeTimezone, formatUtcOffsetLabel, options])
   const selectedLabel = selectedTimezone
-    ? selectedOption?.label ?? formatTimezoneLabel(selectedTimezone)
+    ? (selectedOption?.label ?? formatTimezoneLabel(selectedTimezone))
     : 'Exchange'
   const tooltipLabel = selectedTimezone ? `Timezone: ${selectedLabel}` : 'Exchange timezone'
 
@@ -118,25 +117,19 @@ const DataChartTimezoneDropdown = ({
     loadTimezones()
   }, [loadTimezones])
 
-  useEffect(() => {
-    if (!open) return
-    if (options.length === 0) {
-      loadTimezones()
-    }
-  }, [open, options.length, loadTimezones])
+  const handleTimezoneMenuOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (nextOpen) {
+        if (options.length === 0) {
+          loadTimezones()
+        }
+        return
+      }
 
-  useEffect(() => {
-    if (open) return
-    setSearch('')
-  }, [open])
-
-  useEffect(() => {
-    if (!open) return
-    const timer = setTimeout(() => {
-      searchInputRef.current?.focus()
-    }, 0)
-    return () => clearTimeout(timer)
-  }, [open])
+      setSearch('')
+    },
+    [options.length, loadTimezones]
+  )
 
   const filteredOptions = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -174,31 +167,36 @@ const DataChartTimezoneDropdown = ({
       panelId,
       widgetKey,
     })
-    setOpen(false)
   }
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
+    <DropdownMenu onOpenChange={handleTimezoneMenuOpenChange} modal={false}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <button
-              type='button'
-              className={widgetHeaderControlClassName('gap-1')}
-              aria-haspopup='listbox'
-            >
-              <ClockFading className='h-3.5 w-3.5 bg-background text-muted-foreground' />
-              <span className='max-w-[120px] truncate text-xs font-medium'>
-                {selectedLabel || 'Exchange'}
-              </span>
-            </button>
-          </DropdownMenuTrigger>
+          <span className='inline-flex'>
+            <DropdownMenuTrigger asChild>
+              <button
+                type='button'
+                className={widgetHeaderControlClassName('gap-1')}
+                aria-haspopup='listbox'
+              >
+                <ClockFading className='h-3.5 w-3.5 bg-background text-muted-foreground' />
+                <span className='max-w-[120px] truncate text-xs font-medium'>
+                  {selectedLabel || 'Exchange'}
+                </span>
+              </button>
+            </DropdownMenuTrigger>
+          </span>
         </TooltipTrigger>
         <TooltipContent side='top'>{tooltipLabel}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent
         align='end'
         className={cn(widgetHeaderMenuContentClassName, 'w-[260px] p-0')}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault()
+          searchInputRef.current?.focus()
+        }}
       >
         <div className='border-b border-border p-2'>
           <Input
@@ -209,7 +207,10 @@ const DataChartTimezoneDropdown = ({
             className='h-8'
           />
         </div>
-        <div className='allow-scroll max-h-72 overflow-y-auto p-1' style={{ scrollbarWidth: 'thin' }}>
+        <div
+          className='allow-scroll max-h-72 overflow-y-auto p-1'
+          style={{ scrollbarWidth: 'thin' }}
+        >
           {loading ? (
             <DropdownMenuItem disabled className='justify-center text-muted-foreground'>
               Loading timezones...
@@ -217,10 +218,7 @@ const DataChartTimezoneDropdown = ({
           ) : (
             <>
               <DropdownMenuItem
-                onSelect={(event) => {
-                  event.preventDefault()
-                  handleTimezoneSelect(null)
-                }}
+                onSelect={() => handleTimezoneSelect(null)}
                 className={cn(widgetHeaderMenuItemClassName, 'cursor-pointer')}
               >
                 <span
@@ -247,17 +245,11 @@ const DataChartTimezoneDropdown = ({
                   return (
                     <DropdownMenuItem
                       key={option.id}
-                      onSelect={(event) => {
-                        event.preventDefault()
-                        handleTimezoneSelect(option.name)
-                      }}
+                      onSelect={() => handleTimezoneSelect(option.name)}
                       className={cn(widgetHeaderMenuItemClassName, 'cursor-pointer')}
                     >
                       <span
-                        className={cn(
-                          'mr-2 h-2.5 w-2.5 rounded-full',
-                          buildStatusDotClass(option)
-                        )}
+                        className={cn('mr-2 h-2.5 w-2.5 rounded-full', buildStatusDotClass(option))}
                       />
                       <span className={cn(widgetHeaderMenuTextClassName, 'truncate')}>
                         {option.label}
@@ -314,8 +306,7 @@ const DataChartMarketSessionDropdown = ({
   panelId,
   widgetKey,
 }: DataChartMarketSessionDropdownProps) => {
-  const selectedSession =
-    params.view?.marketSession === 'extended' ? 'extended' : 'regular'
+  const selectedSession = params.view?.marketSession === 'extended' ? 'extended' : 'regular'
   const sessionLabel = selectedSession === 'extended' ? 'Extended' : 'Regular'
   const sessionIcon = selectedSession === 'extended' ? ClockPlus : Clock
   const tooltipLabel = `${sessionLabel}`
@@ -338,19 +329,18 @@ const DataChartMarketSessionDropdown = ({
     <DropdownMenu>
       <Tooltip>
         <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <button type='button' className={widgetHeaderIconButtonClassName()}>
-              <SessionIcon className='h-3.5 w-3.5' />
-              <span className='sr-only'>Market session</span>
-            </button>
-          </DropdownMenuTrigger>
+          <span className='inline-flex'>
+            <DropdownMenuTrigger asChild>
+              <button type='button' className={widgetHeaderIconButtonClassName()}>
+                <SessionIcon className='h-3.5 w-3.5' />
+                <span className='sr-only'>Market session</span>
+              </button>
+            </DropdownMenuTrigger>
+          </span>
         </TooltipTrigger>
         <TooltipContent side='top'>{tooltipLabel}</TooltipContent>
       </Tooltip>
-      <DropdownMenuContent
-        align='end'
-        className={cn(widgetHeaderMenuContentClassName, 'w-44')}
-      >
+      <DropdownMenuContent align='end' className={cn(widgetHeaderMenuContentClassName, 'w-44')}>
         {(['regular', 'extended'] as const).map((mode) => {
           const label = mode === 'extended' ? 'Extended session' : 'Regular session'
           const isSelected = mode === selectedSession
@@ -445,27 +435,24 @@ const DataChartNormalizationDropdown = ({
     <DropdownMenu>
       <Tooltip>
         <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <button
-              type='button'
-              className={widgetHeaderIconButtonClassName()}
-              disabled={isDisabled}
-            >
-              <ChartNetwork className='h-3.5 w-3.5' />
-              <span className='sr-only'>Normalization</span>
-            </button>
-          </DropdownMenuTrigger>
+          <span className='inline-flex'>
+            <DropdownMenuTrigger asChild>
+              <button
+                type='button'
+                className={widgetHeaderIconButtonClassName()}
+                disabled={isDisabled}
+              >
+                <ChartNetwork className='h-3.5 w-3.5' />
+                <span className='sr-only'>Normalization</span>
+              </button>
+            </DropdownMenuTrigger>
+          </span>
         </TooltipTrigger>
         <TooltipContent side='top'>{tooltipLabel}</TooltipContent>
       </Tooltip>
-      <DropdownMenuContent
-        align='end'
-        className={cn(widgetHeaderMenuContentClassName, 'w-52')}
-      >
+      <DropdownMenuContent align='end' className={cn(widgetHeaderMenuContentClassName, 'w-52')}>
         {supportedModes.length === 0 ? (
-          <div className='px-2 py-2 text-xs text-muted-foreground'>
-            No normalization options.
-          </div>
+          <div className='px-2 py-2 text-xs text-muted-foreground'>No normalization options.</div>
         ) : (
           <>
             {supportedModes.map((mode) => {
@@ -482,13 +469,10 @@ const DataChartNormalizationDropdown = ({
                   <span className={cn(widgetHeaderMenuTextClassName, 'truncate')}>
                     {formatNormalizationLabel(mode)}
                   </span>
-                  {isSelected ? (
-                    <Check className='ml-auto h-3.5 w-3.5 text-primary' />
-                  ) : null}
+                  {isSelected ? <Check className='ml-auto h-3.5 w-3.5 text-primary' /> : null}
                 </DropdownMenuItem>
               )
-            }
-            )}
+            })}
           </>
         )}
       </DropdownMenuContent>
@@ -515,7 +499,7 @@ export const DataChartFooter = ({
   const storedRangeId =
     typeof params.view?.rangePresetId === 'string' ? params.view.rangePresetId.trim() : ''
   const selectedRangeId = storedRangeId
-    ? availablePresets.find((preset) => preset.id === storedRangeId)?.id ?? null
+    ? (availablePresets.find((preset) => preset.id === storedRangeId)?.id ?? null)
     : null
 
   const handleRangeSelect = (presetId: string) => {

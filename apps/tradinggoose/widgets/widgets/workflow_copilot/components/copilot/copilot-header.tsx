@@ -1,22 +1,6 @@
 'use client'
-
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, useSyncExternalStore } from 'react'
 import { ChevronDown, Clock3, Plus, Trash2 } from 'lucide-react'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { cn } from '@/lib/utils'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { getCopilotStore } from '@/stores/copilot/store'
-import type { CopilotChat } from '@/stores/copilot/types'
-import { useSyncExternalStore } from 'react'
-import {
-  widgetHeaderControlClassName,
-  widgetHeaderIconButtonClassName,
-} from '@/widgets/widgets/components/widget-header-control'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +11,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { cn } from '@/lib/utils'
+import { getCopilotStore } from '@/stores/copilot/store'
+import type { CopilotChat } from '@/stores/copilot/types'
+import {
+  widgetHeaderControlClassName,
+  widgetHeaderIconButtonClassName,
+} from '@/widgets/widgets/components/widget-header-control'
 
 const formatRelativeTime = (value: Date | string | undefined) => {
   if (!value) return ''
@@ -123,7 +121,9 @@ function ChatHistoryItem({
         <p className='min-w-0 whitespace-normal break-words text-foreground'>
           {chat.title || 'New Chat'}
         </p>
-        <p className='text-xs text-muted-foreground'>Updated {formatRelativeTime(chat.updatedAt)}</p>
+        <p className='text-xs text-muted-foreground'>
+          Updated {formatRelativeTime(chat.updatedAt)}
+        </p>
       </div>
       <button
         type='button'
@@ -141,7 +141,7 @@ function ChatHistoryItem({
       >
         <Trash2 className='h-3.5 w-3.5' />
       </button>
-    </DropdownMenuItem >
+    </DropdownMenuItem>
   )
 }
 
@@ -158,9 +158,7 @@ function ChatHistoryGroup({
 
   return (
     <div className='space-y-1.5'>
-      <p className='text-xs font-normal text-muted-foreground'>
-        {label}
-      </p>
+      <p className='text-xs font-normal text-muted-foreground'>{label}</p>
       <div className='space-y-1'>
         {chats.map((chat) => (
           <ChatHistoryItem
@@ -180,7 +178,6 @@ function ChatHistoryGroup({
 
 export function CopilotHeader({ channelId }: { channelId: string }) {
   const store = useMemo(() => getCopilotStore(channelId), [channelId])
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [hoveredChatId, setHoveredChatId] = useState<string | null>(null)
   const [deleteChatId, setDeleteChatId] = useState<string | null>(null)
 
@@ -195,7 +192,7 @@ export function CopilotHeader({ channelId }: { channelId: string }) {
     if (currentChat?.id === chat.id) return
     try {
       await store.getState().selectChat(chat)
-    } catch { }
+    } catch {}
   }
 
   const handleDeleteChat = async (chatId: string) => {
@@ -241,7 +238,6 @@ export function CopilotHeader({ channelId }: { channelId: string }) {
     <div className='flex w-full min-w-0 items-center gap-2'>
       <DropdownMenu
         onOpenChange={(open) => {
-          setIsMenuOpen(open)
           if (open) void handleRefresh()
         }}
       >
@@ -249,20 +245,18 @@ export function CopilotHeader({ channelId }: { channelId: string }) {
           <button
             type='button'
             className={widgetHeaderControlClassName(
-              'flex items-center gap-1 min-w-[240px] justify-between'
+              'group flex min-w-[240px] items-center justify-between gap-1'
             )}
             aria-label='Open chat history'
           >
             <div className='p-1 bg-muted rounded-xs'>
               <Clock3 className='h-3 w-3 text-muted-foreground' />
             </div>
-            <span className='min-w-0 flex-1 truncate text-left text-sm font-medium'>
-              {title}
-            </span>
+            <span className='min-w-0 flex-1 truncate text-left text-sm font-medium'>{title}</span>
             <ChevronDown
               className={cn(
                 'h-4 w-4 text-muted-foreground transition-transform',
-                isMenuOpen ? 'rotate-180' : ''
+                'group-data-[state=open]:rotate-180'
               )}
             />
           </button>
@@ -287,8 +281,9 @@ export function CopilotHeader({ channelId }: { channelId: string }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete chat</AlertDialogTitle>
             <AlertDialogDescription>
-              This action will permanently delete <strong>{deleteChat?.title || 'this chat'}</strong>{' '}
-              and all associated data. This cannot be undone.
+              This action will permanently delete{' '}
+              <strong>{deleteChat?.title || 'this chat'}</strong> and all associated data. This
+              cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -299,7 +294,7 @@ export function CopilotHeader({ channelId }: { channelId: string }) {
                 if (!deleteChatId) return
                 try {
                   await store.getState().deleteChat(deleteChatId)
-                } catch { }
+                } catch {}
                 setDeleteChatId(null)
               }}
             >
@@ -308,7 +303,6 @@ export function CopilotHeader({ channelId }: { channelId: string }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
     </div>
   )
 }

@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,38 +24,31 @@ interface PairColorDropdownProps {
 export function PairColorDropdown({ color, onChange }: PairColorDropdownProps) {
   const meta = PAIR_COLOR_META[color]
   const disabled = !onChange
-  const [open, setOpen] = useState(false)
-  const closeMenu = () => setOpen(false)
 
   const tooltipText = disabled ? 'Color selection unavailable' : 'Select widget color'
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <button
-              type='button'
-              disabled={disabled}
-              className={widgetHeaderControlClassName('mx-2 bg-transparent hover:bg-transparent hover:opacity-70 border-transparent p-0')}
-              onClick={() => {
-                if (!disabled) {
-                  setOpen((prev) => !prev)
-                }
-              }}
-            >
-              <span className='flex items-center'>
-                <span
-                  className='h-2.5 w-2.5 rounded-xxs '
-                  style={{ backgroundColor: meta.hex, boxShadow: `0 0 0 4px ${meta.hex}50` }}
-                  aria-hidden
-                />
-              </span>
-            </button>
-          </DropdownMenuTrigger>
-        </TooltipTrigger>
-        <TooltipContent side='top'>{tooltipText}</TooltipContent>
-      </Tooltip>
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger
+        type='button'
+        disabled={disabled}
+        className={widgetHeaderControlClassName(
+          'mx-2 border-transparent bg-transparent p-0 hover:bg-transparent hover:opacity-70'
+        )}
+      >
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className='flex items-center'>
+              <span
+                className='h-2.5 w-2.5 rounded-xxs '
+                style={{ backgroundColor: meta.hex, boxShadow: `0 0 0 4px ${meta.hex}50` }}
+                aria-hidden
+              />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side='top'>{tooltipText}</TooltipContent>
+        </Tooltip>
+      </DropdownMenuTrigger>
       <DropdownMenuContent
         sideOffset={6}
         avoidCollisions
@@ -68,11 +60,9 @@ export function PairColorDropdown({ color, onChange }: PairColorDropdownProps) {
             key={option.value}
             className={widgetHeaderMenuItemClassName}
             disabled={!onChange || option.value === color}
-            onSelect={(event) => {
-              event.preventDefault()
+            onSelect={() => {
               if (!onChange || option.value === color) return
               onChange(option.value)
-              closeMenu()
             }}
           >
             <span className='flex items-center gap-3'>

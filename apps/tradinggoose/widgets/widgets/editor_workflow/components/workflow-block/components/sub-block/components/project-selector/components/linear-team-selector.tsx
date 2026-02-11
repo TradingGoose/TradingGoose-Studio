@@ -97,7 +97,7 @@ export function LinearTeamSelector({
   }
 
   const handleOpenChange = (isOpen: boolean) => {
-    setOpen(isOpen)
+    setOpen((prev) => (prev === isOpen ? prev : isOpen))
   }
 
   return (

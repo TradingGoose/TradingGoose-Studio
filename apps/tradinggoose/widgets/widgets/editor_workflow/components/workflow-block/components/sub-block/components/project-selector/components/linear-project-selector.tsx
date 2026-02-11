@@ -101,7 +101,7 @@ export function LinearProjectSelector({
   }
 
   const handleOpenChange = (isOpen: boolean) => {
-    setOpen(isOpen)
+    setOpen((prev) => (prev === isOpen ? prev : isOpen))
   }
 
   return (

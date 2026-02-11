@@ -385,7 +385,7 @@ export function JiraIssueSelector({
       setOpen(false)
       return
     }
-    setOpen(isOpen)
+    setOpen((prev) => (prev === isOpen ? prev : isOpen))
 
     // Only fetch recent/default issues when opening the dropdown
     if (isOpen && selectedCredentialId && domain && domain.includes('.')) {

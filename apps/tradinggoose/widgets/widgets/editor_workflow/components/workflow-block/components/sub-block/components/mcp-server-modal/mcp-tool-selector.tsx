@@ -73,7 +73,7 @@ export function McpToolSelector({
   }, [serverValue, availableTools, storeValue, setStoreValue, isPreview, disabled])
 
   const handleOpenChange = (isOpen: boolean) => {
-    setOpen(isOpen)
+    setOpen((prev) => (prev === isOpen ? prev : isOpen))
     if (isOpen && serverValue) {
       refreshTools()
     }

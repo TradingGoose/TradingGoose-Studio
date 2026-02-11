@@ -109,7 +109,7 @@ export function DocumentSelector({
     if (isPreview) return
     if (isDisabled) return
 
-    setOpen(isOpen)
+    setOpen((prev) => (prev === isOpen ? prev : isOpen))
 
     // Fetch fresh documents when opening the dropdown
     if (isOpen) {

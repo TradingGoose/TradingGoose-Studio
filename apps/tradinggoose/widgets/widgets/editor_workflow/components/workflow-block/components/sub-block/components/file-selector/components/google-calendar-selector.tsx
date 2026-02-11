@@ -108,7 +108,7 @@ export function GoogleCalendarSelector({
   }, [fetchCalendarsFromAPI, selectedCalendarId, onCalendarInfoChange])
 
   const handleOpenChange = (isOpen: boolean) => {
-    setOpen(isOpen)
+    setOpen((prev) => (prev === isOpen ? prev : isOpen))
 
     if (isOpen && credentialId && (!initialFetchDone || calendars.length === 0)) {
       fetchCalendars()

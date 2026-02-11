@@ -135,7 +135,6 @@ export function Dropdown({
   const [isLoadingOptions, setIsLoadingOptions] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [hasFetchedOptions, setHasFetchedOptions] = useState(false)
-  const [open, setOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
 
@@ -476,23 +475,15 @@ export function Dropdown({
     return { groupOrder, grouped }
   }, [filteredOptions])
 
-  useEffect(() => {
-    if (!open) {
+  const handleDropdownMenuOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (nextOpen) {
+        return
+      }
       setSearchTerm('')
-      return
-    }
-    if (enableSearch) {
-      const timer = setTimeout(() => {
-        searchInputRef.current?.focus()
-      }, 0)
-      return () => clearTimeout(timer)
-    }
-  }, [open, enableSearch])
-
-  const handleOpenChange = (nextOpen: boolean) => {
-    if (finalDisabled) return
-    setOpen(nextOpen)
-  }
+    },
+    []
+  )
 
   const hasOptions = filteredOptions.length > 0
   const emptyMessage = fetchError || (shouldFilter ? 'No matching options.' : 'No options available.')
@@ -500,7 +491,7 @@ export function Dropdown({
   const triggerRightLabel = selectedOption?.rightLabel
 
   return (
-    <DropdownMenu open={open} onOpenChange={handleOpenChange}>
+    <DropdownMenu onOpenChange={handleDropdownMenuOpenChange}>
       <DropdownMenuTrigger asChild>
         <button
           type='button'
@@ -535,6 +526,11 @@ export function Dropdown({
         portalled={false}
         align='start'
         className='w-[var(--radix-popper-anchor-width)] p-0'
+        onOpenAutoFocus={(event) => {
+          if (!enableSearch) return
+          event.preventDefault()
+          searchInputRef.current?.focus()
+        }}
       >
         {enableSearch && (
           <div className='border-b border-border p-2'>
@@ -573,11 +569,9 @@ export function Dropdown({
                         key={option.id}
                         disabled={option.disabled}
                         className='flex items-center'
-                        onSelect={(event) => {
-                          event.preventDefault()
+                        onSelect={() => {
                           if (option.disabled) return
                           handleSelect(option.id)
-                          setOpen(false)
                         }}
                       >
                         {option.icon ? <option.icon className='mr-2 h-3 w-3' /> : null}

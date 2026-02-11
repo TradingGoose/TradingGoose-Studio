@@ -1,6 +1,6 @@
 'use client'
 
-import { Filter, Check } from 'lucide-react'
+import { Check, Filter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -16,8 +16,6 @@ import type { BlockInfo, TerminalFilters } from '../types'
 import { getBlockIcon } from '../utils'
 
 interface FilterPopoverProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
   filters: TerminalFilters
   toggleStatus: (status: 'error' | 'info') => void
   toggleBlock: (blockId: string) => void
@@ -28,8 +26,6 @@ interface FilterPopoverProps {
 }
 
 export function FilterPopover({
-  open,
-  onOpenChange,
   filters,
   toggleStatus,
   toggleBlock,
@@ -39,7 +35,7 @@ export function FilterPopover({
   disabled = false,
 }: FilterPopoverProps) {
   return (
-    <DropdownMenu open={open} onOpenChange={onOpenChange}>
+    <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
           variant='ghost'
@@ -71,9 +67,7 @@ export function FilterPopover({
             >
               <div className='h-2 w-2 rounded-sm bg-destructive' />
               <span className='flex-1 text-left'>Error</span>
-              {filters.statuses.has('error') && (
-                <Check className='h-3 w-3 text-muted-foreground' />
-              )}
+              {filters.statuses.has('error') && <Check className='h-3 w-3 text-muted-foreground' />}
             </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={(event) => {
@@ -84,9 +78,7 @@ export function FilterPopover({
             >
               <div className='h-2 w-2 rounded-sm bg-emerald-500' />
               <span className='flex-1 text-left'>Info</span>
-              {filters.statuses.has('info') && (
-                <Check className='h-3 w-3 text-muted-foreground' />
-              )}
+              {filters.statuses.has('info') && <Check className='h-3 w-3 text-muted-foreground' />}
             </DropdownMenuItem>
           </div>
 

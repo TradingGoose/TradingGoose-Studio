@@ -1,26 +1,34 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Activity, ArrowDown, ArrowDownToLine, ArrowUp, Braces, Trash2, WrapText } from 'lucide-react'
+import {
+  Activity,
+  ArrowDown,
+  ArrowDownToLine,
+  ArrowUp,
+  Braces,
+  Trash2,
+  WrapText,
+} from 'lucide-react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { cn } from '@/lib/utils'
 import { useConsoleStore } from '@/stores/panel/console/store'
-import WorkflowConsoleApp from './components/workflow-console-app'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
+import {
+  emitWorkflowSelectionChange,
+  useWorkflowSelectionPersistence,
+} from '@/widgets/utils/workflow-selection'
 import {
   widgetHeaderButtonGroupClassName,
   widgetHeaderIconButtonClassName,
 } from '@/widgets/widgets/components/widget-header-control'
 import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
-import {
-  emitWorkflowSelectionChange,
-  useWorkflowSelectionPersistence,
-} from '@/widgets/utils/workflow-selection'
 import { FilterPopover } from './components/terminal/components/filter-popover'
-import type { BlockInfo } from './components/terminal/types'
 import { useWorkflowConsoleUiState } from './components/terminal/terminal-ui-store'
+import type { BlockInfo } from './components/terminal/types'
 import { filterEntries } from './components/terminal/utils'
-import { cn } from '@/lib/utils'
+import WorkflowConsoleApp from './components/workflow-console-app'
 
 const WorkflowConsoleWidgetBody = ({
   params,
@@ -102,10 +110,7 @@ const WorkflowConsoleWidgetBody = ({
   }
 
   return (
-    <div
-      ref={containerRef}
-      className='flex h-full w-full overflow-hidden p-1'
-    >
+    <div ref={containerRef} className='flex h-full w-full overflow-hidden p-1'>
       <WorkflowConsoleApp
         workspaceId={workspaceId}
         workflowId={resolvedWorkflowId}
@@ -150,7 +155,10 @@ const WorkflowConsoleHeaderControls = ({
   const clearConsole = useConsoleStore((state) => state.clearConsole)
 
   const uiKey =
-    panelId ?? (workspaceId && resolvedWorkflowId ? `${workspaceId}-${resolvedWorkflowId}` : 'workflow-console')
+    panelId ??
+    (workspaceId && resolvedWorkflowId
+      ? `${workspaceId}-${resolvedWorkflowId}`
+      : 'workflow-console')
 
   const {
     filters,
@@ -191,8 +199,6 @@ const WorkflowConsoleHeaderControls = ({
     }))
   }, [workflowEntries])
 
-  const [filtersOpen, setFiltersOpen] = useState(false)
-
   const isDisabled = !resolvedWorkflowId
   const hasEntries = filteredEntries.length > 0
 
@@ -209,8 +215,6 @@ const WorkflowConsoleHeaderControls = ({
   return (
     <div className={widgetHeaderButtonGroupClassName()}>
       <FilterPopover
-        open={filtersOpen}
-        onOpenChange={setFiltersOpen}
         filters={filters}
         toggleStatus={toggleStatus}
         toggleBlock={toggleBlock}
@@ -262,10 +266,7 @@ const WorkflowConsoleHeaderControls = ({
         <TooltipTrigger asChild>
           <button
             type='button'
-            className={cn(
-              widgetHeaderIconButtonClassName(),
-              detailView.wrapText && 'text-primary'
-            )}
+            className={cn(widgetHeaderIconButtonClassName(), detailView.wrapText && 'text-primary')}
             onClick={toggleWrapText}
             aria-label='Toggle wrap text'
             aria-pressed={detailView.wrapText}

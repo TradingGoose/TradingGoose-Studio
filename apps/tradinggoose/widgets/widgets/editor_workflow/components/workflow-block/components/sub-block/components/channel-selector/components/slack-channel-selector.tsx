@@ -89,7 +89,7 @@ export function SlackChannelSelector({
 
   // Handle dropdown open/close - fetch channels when opening
   const handleOpenChange = (isOpen: boolean) => {
-    setOpen(isOpen)
+    setOpen((prev) => (prev === isOpen ? prev : isOpen))
 
     // Only fetch channels when opening the dropdown and if we have valid credential
     if (isOpen && credential && (!initialFetchDone || channels.length === 0)) {

@@ -52,7 +52,7 @@ export function McpServerSelector({
   }, [fetchServers, workspaceId])
 
   const handleOpenChange = (isOpen: boolean) => {
-    setOpen(isOpen)
+    setOpen((prev) => (prev === isOpen ? prev : isOpen))
     if (isOpen) {
       fetchServers(workspaceId)
     }

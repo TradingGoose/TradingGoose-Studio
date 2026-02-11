@@ -753,7 +753,7 @@ export function MicrosoftFileSelector({
         <Popover
           open={open}
           onOpenChange={(isOpen) => {
-            setOpen(isOpen)
+            setOpen((prev) => (prev === isOpen ? prev : isOpen))
             if (!isOpen) {
               setSearchQuery('')
             }

@@ -346,7 +346,7 @@ export function ConfluenceFileSelector({
 
   // Only fetch files when the dropdown is opened, not on credential selection
   const handleOpenChange = (isOpen: boolean) => {
-    setOpen(isOpen)
+    setOpen((prev) => (prev === isOpen ? prev : isOpen))
 
     // Only fetch files when opening the dropdown and if we have valid credentials and domain
     if (isOpen && !isForeignCredential && selectedCredentialId && domain && domain.includes('.')) {

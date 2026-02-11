@@ -156,7 +156,7 @@ export function ToolCredentialSelector({
 
   // Handle popover open to fetch fresh credentials
   const handleOpenChange = (isOpen: boolean) => {
-    setOpen(isOpen)
+    setOpen((prev) => (prev === isOpen ? prev : isOpen))
     if (isOpen) {
       // Fetch fresh credentials when opening the dropdown
       fetchCredentials()

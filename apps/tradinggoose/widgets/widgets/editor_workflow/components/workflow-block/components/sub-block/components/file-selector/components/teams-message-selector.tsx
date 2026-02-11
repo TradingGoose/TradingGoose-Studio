@@ -330,7 +330,7 @@ export function TeamsMessageSelector({
       setOpen(false)
       return
     }
-    setOpen(isOpen)
+    setOpen((prev) => (prev === isOpen ? prev : isOpen))
     // Only fetch data when opening the dropdown
     if (isOpen && selectedCredentialId) {
       if (selectionStage === 'team') {
