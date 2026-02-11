@@ -75,9 +75,9 @@ const CalloutSpecificOverrides = {
 				},
 			},
 			border: {
-				color: '#888',
+				color: '',
 				width: 1,
-				radius: 20,
+				radius: Infinity,
 				highlight: false,
 				style: LineStyle.Solid,
 			},
@@ -89,8 +89,8 @@ const CalloutSpecificOverrides = {
 				},
 			},
 			padding: { x: 0, y: 0 },
-			scale: 5,
-			angle: 10,
+			scale: 1,
+			angle: 0,
 			alignment: { vertical: 'middle', horizontal: 'left' },
 			maxHeight: Infinity,
 		}

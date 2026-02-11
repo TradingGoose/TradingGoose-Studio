@@ -108,6 +108,11 @@ export class LineToolCalloutPaneView<HorzScaleItem> extends LineToolPaneView<Hor
 		// Text Renderer logic needs the text pivot, which is P1 in screen space
 		const textPivot = point1;
 		const textOptions = deepCopy(options.text);
+		const calloutLineColor = options.line?.color?.trim();
+		const calloutBorderColor = textOptions.box?.border?.color?.trim();
+		if (!calloutBorderColor && calloutLineColor && textOptions.box?.border) {
+			textOptions.box.border.color = calloutLineColor;
+		}
 
 		/**
 		 * 2. TEXT RENDERER SETUP (MEASUREMENT)
