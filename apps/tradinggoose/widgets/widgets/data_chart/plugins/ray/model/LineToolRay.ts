@@ -8,19 +8,17 @@ import {
 } from 'lightweight-charts';
 
 import {
-	BaseLineTool,
 	LineToolPoint,
 	LineToolOptionsInternal,
 	LineToolType,
 	DeepPartial,
 	LineToolsCorePlugin,
-	merge,
-	deepCopy,
 	PriceAxisLabelStackingManager
 } from '../../core';
 
 // Import the base class model and its default options structure
 import { LineToolTrendLine, TrendLineOptionDefaults } from '../../shared/lines/model/LineToolTrendLine';
+import { buildLineToolOptions } from '../../shared/lines/model/line-tool-options';
 import { LineToolRayPaneView } from '../views/LineToolRayPaneView';
 
 
@@ -96,17 +94,11 @@ export class LineToolRay<HorzScaleItem> extends LineToolTrendLine<HorzScaleItem>
 		points: LineToolPoint[] = [],
 		priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
 	) {
-		// 1. Start with a deep copy of the base TrendLine defaults.
-		const finalOptions = deepCopy(TrendLineOptionDefaults) as LineToolOptionsInternal<'Ray'>;
- 
-		// 2. Merge the RaySpecificOverrides over the base defaults.
-		//    This sets the default behavior to extend right.
-		merge(finalOptions, deepCopy(RaySpecificOverrides));
-
-		// 3. Merge the user's provided options last (User wins).
-		//    This ensures user options can override the default extensions if desired.
-		merge(finalOptions, options as DeepPartial<LineToolOptionsInternal<'Ray'>>);
-
+		const finalOptions = buildLineToolOptions<'Ray', 'TrendLine'>(
+			TrendLineOptionDefaults,
+			options,
+			RaySpecificOverrides
+		);
 
 		// 4. Call the parent (LineToolTrendLine) constructor.
 		super(
@@ -122,7 +114,6 @@ export class LineToolRay<HorzScaleItem> extends LineToolTrendLine<HorzScaleItem>
 		// 5. Set the specific PaneView for this tool.
 		this._setPaneViews([new LineToolRayPaneView(this, this._chart, this._series)]);
 
-		console.log(`Ray Tool created with ID: ${this.id()}`);
 	}
 
 	// NOTE: All core logic (hitTest, shift constraints, normalize) is inherited from LineToolTrendLine.

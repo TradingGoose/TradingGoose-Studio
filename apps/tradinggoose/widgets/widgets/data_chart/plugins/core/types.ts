@@ -251,6 +251,10 @@ export interface BackgroundOptions {
 	inflation: IPoint;
 }
 
+export type LineToolFillBackgroundOptions = Omit<BackgroundOptions, 'inflation'>;
+export type LineToolRoundedBorderStyleOptions = Omit<BorderOptions, 'highlight'>;
+export type LineToolSharpBorderStyleOptions = Omit<BorderOptions, 'radius' | 'highlight'>;
+
 /**
  * Grouping interface for defining both vertical and horizontal alignment of a box.
  */
@@ -316,8 +320,8 @@ export interface LineOptions {
  * Configuration specific to rectangle shapes, defining background fill, borders, and horizontal extension.
  */
 export interface RectangleOptions {
-	background: Omit<BackgroundOptions, 'inflation'>;
-	border: Omit<BorderOptions, 'highlight'>;
+	background: LineToolFillBackgroundOptions;
+	border: LineToolRoundedBorderStyleOptions;
 	extend: ExtendOptions;
 }
 
@@ -325,16 +329,16 @@ export interface RectangleOptions {
  * Configuration specific to circle shapes, defining background fill and borders.
  */
 export interface CircleOptions {
-	background: Omit<BackgroundOptions, 'inflation'>;
-	border: Omit<BorderOptions, 'radius' | 'highlight'>;
+	background: LineToolFillBackgroundOptions;
+	border: LineToolSharpBorderStyleOptions;
 }
 
 /**
  * Configuration specific to triangle shapes, defining background fill and borders.
  */
 export interface TriangleOptions {
-	background: Omit<BackgroundOptions, 'inflation'>;
-	border: Omit<BorderOptions, 'radius' | 'highlight'>;
+	background: LineToolFillBackgroundOptions;
+	border: LineToolSharpBorderStyleOptions;
 }
 
 // #endregion Shared Option Structures
@@ -362,8 +366,8 @@ export interface LongShortPositionOptions {
  */
 export interface PriceRangeOptions {
 	rectangle: RectangleOptions;
-	verticalLine: LineOptions;
-	horizontalLine: LineOptions;
+	verticalLine: LineToolBasicLineStyleOptions;
+	horizontalLine: LineToolBasicLineStyleOptions;
 	showCenterHorizontalLine: boolean;
 	showCenterVerticalLine: boolean;
 	showTopPrice: boolean;
@@ -480,33 +484,46 @@ export interface LineToolOptionsCommon {
 }
 
 /**
+ * Shared line style shape used by line-family tools.
+ */
+export type LineToolBasicLineStyleOptions = Omit<LineOptions, 'cap' | 'join'>;
+
+/**
+ * Shared settings model for tools that combine a styled line with a text label.
+ */
+export interface LineToolTextAndLineOptions {
+	text: TextOptions;
+	line: LineToolBasicLineStyleOptions;
+}
+
+/**
  * Specific options for Trend Line tools, combining standard text settings with line styling.
  */
-export interface LineToolTrendLineOptions { text: TextOptions; line: Omit<LineOptions, 'join' | 'cap'>; }
+export type LineToolTrendLineOptions = LineToolTextAndLineOptions;
 
 /**
  * Specific options for the Callout tool.
  * Configures the text label and the pointer line connecting it to a specific point.
  */
-export interface LineToolCalloutOptions { text: TextOptions; line: Omit<LineOptions, 'join' | 'cap'>; }
+export type LineToolCalloutOptions = LineToolTextAndLineOptions;
 
 /**
  * Specific options for the Horizontal Line tool.
  * Configures the infinite horizontal line and its optional text label.
  */
-export interface LineToolHorizontalLineOptions { text: TextOptions; line: Omit<LineOptions, 'cap' | 'join'>; }
+export type LineToolHorizontalLineOptions = LineToolTextAndLineOptions;
 
 /**
  * Specific options for the Vertical Line tool.
  * Configures the infinite vertical line and its optional text label.
  */
-export interface LineToolVerticalLineOptions { text: TextOptions; line: Omit<LineOptions, 'cap' | 'join' >; }
+export type LineToolVerticalLineOptions = LineToolTextAndLineOptions;
 
 /**
  * Specific options for the Cross Line tool.
  * Configures the visual style of the intersecting horizontal and vertical lines.
  */
-export interface LineToolCrossLineOptions { line: Omit<LineOptions, 'cap' | 'join'>; }
+export interface LineToolCrossLineOptions { line: LineToolBasicLineStyleOptions; }
 
 /**
  * Specific options for the Rectangle tool.
@@ -544,40 +561,45 @@ export interface LineToolTriangleOptions { triangle: TriangleOptions; }
  */
 export interface LineToolTextOptions { text: TextOptions; }
 
+export type LineToolBrushLikeLineStyleOptions = Omit<LineOptions, 'end' | 'extend'>;
+export type LineToolPathLineStyleOptions = Omit<LineOptions, 'cap' | 'extend' | 'join'>;
+export type LineToolFibLineStyleOptions = Omit<LineOptions, 'extend' | 'join' | 'color' | 'cap' | 'end'>;
+export type LineToolParallelChannelLineStyleOptions = Omit<LineOptions, 'cap' | 'extend' | 'join' | 'end'>;
+
 /**
  * Specific options for the Brush tool.
  * Configures the freehand line style and optional background fill.
  */
-export interface LineToolBrushOptions { line: Omit<LineOptions, 'end' | 'extend'>; background?: Omit<BackgroundOptions, 'inflation'>; }
+export interface LineToolBrushOptions { line: LineToolBrushLikeLineStyleOptions; background?: LineToolFillBackgroundOptions; }
 
 /**
  * Specific options for the Highlighter tool.
  * Similar to the Brush tool but typically defaults to translucent colors for highlighting.
  */
-export interface LineToolHighlighterOptions { line: Omit<LineOptions, 'end' | 'extend'>; background?: Omit<BackgroundOptions, 'inflation'>; }
+export interface LineToolHighlighterOptions { line: LineToolBrushLikeLineStyleOptions; background?: LineToolFillBackgroundOptions; }
 
 /**
  * Specific options for the Path (Polyline) tool.
  * Configures the line style connecting the sequence of points.
  */
-export interface LineToolPathOptions { line: Omit<LineOptions, 'cap' | 'extend' | 'join'>; }
+export interface LineToolPathOptions { line: LineToolPathLineStyleOptions; }
 
 /**
  * Specific options for the Fibonacci Retracement tool.
  * Configures the trend line, the retracement levels (coefficients/colors), and optional trading strategy displays.
  */
-export interface LineToolFibRetracementOptions { line: Omit<LineOptions, 'extend' | 'join' | 'color' | 'cap' | 'end'>; extend: ExtendOptions; levels: FibRetracementLevel[]; tradeStrategy: FibRetracementTradeStrategy; }
+export interface LineToolFibRetracementOptions { line: LineToolFibLineStyleOptions; extend: ExtendOptions; levels: FibRetracementLevel[]; tradeStrategy: FibRetracementTradeStrategy; }
 
 /**
  * Specific options for the Parallel Channel tool.
  * Configures the styling for the channel borders, the middle line, and the channel background.
  */
 export interface LineToolParallelChannelOptions { 
-	channelLine: Omit<LineOptions, 'cap' | 'extend' | 'join' | 'end'>;
-	middleLine: Omit<LineOptions, 'cap' | 'extend' | 'join' | 'end'>;
+	channelLine: LineToolParallelChannelLineStyleOptions;
+	middleLine: LineToolParallelChannelLineStyleOptions;
 	showMiddleLine: boolean;
 	extend: ExtendOptions;
-	background?: Omit<BackgroundOptions, 'inflation'>;
+	background?: LineToolFillBackgroundOptions;
 }
 
 
@@ -679,6 +701,26 @@ export type ParallelChannelToolOptions = LineToolOptions<LineToolParallelChannel
  */
 export type FibRetracementToolOptions = LineToolOptions<LineToolFibRetracementOptions>;
 
+/**
+ * Alias for the complete options structure of a Ray tool.
+ */
+export type RayToolOptions = TrendLineToolOptions;
+
+/**
+ * Alias for the complete options structure of an Arrow tool.
+ */
+export type ArrowToolOptions = TrendLineToolOptions;
+
+/**
+ * Alias for the complete options structure of an Extended Line tool.
+ */
+export type ExtendedLineToolOptions = TrendLineToolOptions;
+
+/**
+ * Alias for the complete options structure of a Horizontal Ray tool.
+ */
+export type HorizontalRayToolOptions = HorizontalLineToolOptions;
+
 
 
 // #endregion Specific Tool Option Structures
@@ -711,10 +753,10 @@ export interface LineToolOptionsMap {
 	Brush: BrushToolOptions;
 	Path: PathToolOptions;
 	Text: TextToolOptions;
-	Ray: TrendLineToolOptions;
-	Arrow: TrendLineToolOptions;
-	ExtendedLine: TrendLineToolOptions;
-	HorizontalRay: HorizontalLineToolOptions;
+	Ray: RayToolOptions;
+	Arrow: ArrowToolOptions;
+	ExtendedLine: ExtendedLineToolOptions;
+	HorizontalRay: HorizontalRayToolOptions;
 	MarketDepth: MarketDepthToolOptions;
 }
 
@@ -1204,6 +1246,7 @@ export interface TextRendererData {
 	text: TextOptions;
 	points: Point[];
 	useThemeForegroundColor?: boolean;
+	useThemeBackgroundColor?: boolean;
 	hitTestBackground?: boolean;
 	toolDefaultHoverCursor?: PaneCursorType;
 	toolDefaultDragCursor?: PaneCursorType;

@@ -157,7 +157,6 @@ export class InteractionManager<HorzScaleItem> {
 	public setCurrentToolCreating(tool: BaseLineTool<HorzScaleItem> | null): void {
 		this._currentToolCreating = tool;
 
-		//console.log(`[InteractionManager] Set _currentToolCreating to ${tool?.id() || 'null'}`);
 	}
 
 	/**
@@ -268,7 +267,6 @@ export class InteractionManager<HorzScaleItem> {
 		try {
 			const pane = tool.getPane();
 			pane.detachPrimitive(tool);
-			console.log(`[InteractionManager] Detached primitive for tool: ${tool.id()} from pane.`);
 		} catch {
 			// Teardown is idempotent; pane/chart may already be detached/disposed.
 		}
@@ -333,7 +331,6 @@ export class InteractionManager<HorzScaleItem> {
 		const toolWithNormalize = tool as BaseLineTool<HorzScaleItem> & { normalize?: () => void };
 		if (toolWithNormalize.normalize) {
 			toolWithNormalize.normalize();
-			console.log(`[InteractionManager] Normalized tool after creation: ${tool.id()}`);
 		}
 		// --- END NEW FIX ---
 
@@ -347,7 +344,6 @@ export class InteractionManager<HorzScaleItem> {
 		this._chart.applyOptions({ handleScroll: { pressedMouseMove: true } });
 		
 		this._plugin.requestUpdate();
-		console.log(`[InteractionManager] Tool creation finalized: ${tool.id()}`);
 	}
 
 	/**
@@ -377,7 +373,6 @@ export class InteractionManager<HorzScaleItem> {
 			
 			// Immediately disable chart scroll as we've captured the gesture
 			this._chart.applyOptions({ handleScroll: { pressedMouseMove: false } });
-			console.log(`[InteractionManager] Creation gesture started for ${this._creationTool.id()}`);
 
 			// Since the logic for 1-point tools is now in MouseUp, we just return here.
 			return;
@@ -405,7 +400,6 @@ export class InteractionManager<HorzScaleItem> {
 			let capturedCursor = hitResult.suggestedCursor || PaneCursorType.Default;
 
 			// LOG 1: What did the hit test suggest initially?
-            //console.log('[Debug] Hit Suggested:', capturedCursor);
 
 			// 2. "Smart Upgrade": If the renderer says "Pointer" (generic hover) or "Default", 
 			//    but we are initiating a drag on a tool, upgrade it to the tool's Drag Cursor (Grabbing).
@@ -413,7 +407,6 @@ export class InteractionManager<HorzScaleItem> {
 			if (capturedCursor === PaneCursorType.Pointer || capturedCursor === PaneCursorType.Default) {
                 const toolDragCursor = hitResult.tool.options().defaultDragCursor;
                 // LOG 2: What is the tool's configured drag cursor?
-                //console.log('[Debug] Tool Default Drag:', toolDragCursor);
                 
 				capturedCursor = toolDragCursor || PaneCursorType.Grabbing;
 			}
@@ -500,7 +493,6 @@ export class InteractionManager<HorzScaleItem> {
 
 			this._chart.applyOptions({ handleScroll: { pressedMouseMove: false } });
 
-			console.log(`[InteractionManager] Mouse Down: Starting gesture on tool ${hitResult.tool.id()}`);
 		}
 	}	
 
@@ -830,7 +822,6 @@ export class InteractionManager<HorzScaleItem> {
 
 
 			let isDiscreteClick = timeDelta < CLICK_TIMEOUT && distanceMoved <= DRAG_THRESHOLD && !this._isDrag;
-			//console.log('isDiscreteClick', isDiscreteClick)
 
 			// --- 1-POINT TOOLS ---
 			if (tool.pointsCount === 1) {
@@ -873,7 +864,6 @@ export class InteractionManager<HorzScaleItem> {
 					// We override the drag state to false. This forces the upcoming check for 
 					// "isDiscreteClick" to evaluate as true, effectively treating the quick drag as a point click.
 					isDiscreteClick = true; 
-					console.log(`[InteractionManager] Downgrade: Drag treated as discrete click to add point ${permanentPointsCount + 1}.`);
 				}
 			}			
 
@@ -953,7 +943,6 @@ export class InteractionManager<HorzScaleItem> {
                 // --- START SYNCHRONOUS LOGICAL SNAP FIX ---
 				// 1. Convert the (potentially) constrained screen point into a logical point
 				let finalLogicalPoint: LineToolPoint | null = this.screenPointToLineToolPoint(finalScreenPoint);
-				console.log('finalLogicalPoint after let', JSON.parse(JSON.stringify(finalLogicalPoint)))
 
                 // Check if we are placing P1 (point index 1) which is where the constraint applies
                 const isP1Click = tool.getPermanentPointsCount() === 1; 
@@ -995,7 +984,6 @@ export class InteractionManager<HorzScaleItem> {
 				//GOTCHA i suspect that since the ghost creation of a tool for point1 (then 2nd point) actually modifies _points.
 				//meaning the ghost does inject the ghost point into _points index 1 (2nd entry), so if we then tool.addPoint, then the constrained point
 				// would be actually index 2 (3rd entry) in _points which is not what we want.
-				console.log('finalLogicalPoint before if statement', JSON.parse(JSON.stringify(finalLogicalPoint)))
 				if (finalLogicalPoint) {
 					tool.addPoint(finalLogicalPoint);
 				} else {
@@ -1010,7 +998,6 @@ export class InteractionManager<HorzScaleItem> {
 					// --- FIX: Return immediately after finalization ---
 					return;
 				} else {
-					console.log(`[InteractionManager] Click-Click: Placed Point ${tool.points().length}. Waiting for next point.`);
 				}
 
 			} else if (this._isDrag) {
@@ -1047,13 +1034,11 @@ export class InteractionManager<HorzScaleItem> {
 		// --- 2. Finalize Editing Click/Drag ---
 		if (this._draggedTool && this._dragStartPoint) {
 			if (this._isEditing) { // It was an EDITING DRAG
-				console.log(`[InteractionManager] Mouse Up after edit drag: Finalizing for tool ${this._draggedTool.id()}`);
 				this._plugin.fireAfterEditEvent(this._draggedTool, 'lineToolEdited');
 
 				const tool = this._draggedTool as BaseLineTool<HorzScaleItem> & { normalize?: () => void };
 				if (tool.normalize) { tool.normalize(); }
 			} else { // It was a discrete CLICK ON AN EXISTING TOOL (selection)
-				console.log(`[InteractionManager] Mouse Up: Discrete click on existing tool ${this._draggedTool.id()}. Attempting selection.`);
 				this._handleStandaloneClick(this._dragStartPoint); 
 			}
 
@@ -1397,9 +1382,7 @@ export class InteractionManager<HorzScaleItem> {
 	 * @returns void
 	 */
 	public deselectAllTools(): void { // MODIFIED: Made public with a clear name
-		//console.log('inside deselectAll for CorePlugin call')
 		if (this._selectedTool) {
-			//console.log('inside selectedTool')
 			this._selectedTool.setSelected(false);
 			this._selectedTool = null;
 			this._plugin.requestUpdate();

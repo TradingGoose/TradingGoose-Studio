@@ -169,7 +169,6 @@ export class LineToolLongShortPositionPaneView<HorzScaleItem> extends LineToolPa
 
 			// Total Cull: If neither part is visible, stop here.
 			if (!isRiskVisible && !isRewardVisible) {
-				//console.log('position tool culled')
 				return;
 			}
 		}

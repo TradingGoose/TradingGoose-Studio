@@ -30,7 +30,6 @@ export function registerLongShortPositionPlugin<HorzScaleItem>(
 	// We pass the specific name and the class constructor.
 	corePlugin.registerLineTool(LONG_SHORT_POSITION_TOOL_NAME, LineToolLongShortPosition);
 
-	console.log(`Registered Line Tool: ${LONG_SHORT_POSITION_TOOL_NAME}`);
 }
 
 // Export the class itself for direct use/type referencing if necessary

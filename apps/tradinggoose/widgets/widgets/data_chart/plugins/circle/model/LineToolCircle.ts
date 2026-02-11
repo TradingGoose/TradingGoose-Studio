@@ -20,16 +20,14 @@ import {
 	LineToolType,
 	LineToolOptionsInternal,
 	Point,
-	merge,
+	buildToolOptions,
 	DeepPartial,
-	LineToolPartialOptionsMap,
 	TextAlignment,
 	BoxVerticalAlignment,
 	BoxHorizontalAlignment,
 	LineToolHitTestData,
 	PaneCursorType,
 	LineToolsCorePlugin,
-	deepCopy,
 	InteractionPhase,
 	PriceAxisLabelStackingManager,
 	ensureNotNull,
@@ -216,8 +214,7 @@ export class LineToolCircle<HorzScaleItem> extends BaseLineTool<HorzScaleItem> {
 		points: LineToolPoint[] = [],
 		priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
 	) {
-		const finalOptions = deepCopy(CircleOptionDefaults) as LineToolOptionsInternal<'Circle'>;
-		merge(finalOptions, options as LineToolPartialOptionsMap['Circle']);
+		const finalOptions = buildToolOptions(CircleOptionDefaults, options);
 
 		super(
 			coreApi,
@@ -236,7 +233,6 @@ export class LineToolCircle<HorzScaleItem> extends BaseLineTool<HorzScaleItem> {
 		// A PaneView is responsible for rendering the tool on the chart.
 		this._setPaneViews([new LineToolCirclePaneView(this, this._chart, this._series)]);
 
-		console.log(`LineToolCircle initialized with ID: ${this.id()}`);
 	}
 
 	/**

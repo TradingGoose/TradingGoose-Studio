@@ -1,6 +1,6 @@
 // /src/views/line-tool-pane-view.ts
 
-import { IUpdatablePaneView, IPaneRenderer, LineToolHitTestData, PaneCursorType, HitTestType, LineAnchorCreationData } from '../types';
+import { IUpdatablePaneView, IPaneRenderer, LineToolHitTestData, PaneCursorType, HitTestType, LineAnchorCreationData, PrimitivePaneViewZOrder } from '../types';
 import { AnchorPoint } from '../rendering/line-anchor-renderer';
 import { Point,  } from '../utils/geometry';
 import { CompositeRenderer } from '../rendering/composite-renderer';
@@ -145,6 +145,10 @@ export abstract class LineToolPaneView<HorzScaleItem> implements IUpdatablePaneV
             this._invalidated = false;
         }
         return this._renderer;
+    }
+
+    public zOrder(): PrimitivePaneViewZOrder {
+        return 'top';
     }
 
     /**

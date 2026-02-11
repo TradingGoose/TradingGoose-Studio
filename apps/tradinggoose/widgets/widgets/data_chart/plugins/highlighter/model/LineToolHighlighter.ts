@@ -17,8 +17,7 @@ import {
 	LineToolsCorePlugin,
 	LineEnd,
 	LineJoin,
-	deepCopy,
-	merge,
+	buildToolOptions,
 	DeepPartial,
 	PaneCursorType,
 	FinalizationMethod,
@@ -175,8 +174,7 @@ export class LineToolHighlighter<HorzScaleItem> extends BaseLineTool<HorzScaleIt
 		points: LineToolPoint[] = [],
 		priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
 	) {
-		const finalOptions = deepCopy(HighlighterOptionDefaults) as LineToolOptionsInternal<'Highlighter'>;
-		merge(finalOptions, options as DeepPartial<LineToolOptionsInternal<'Highlighter'>>);
+		const finalOptions = buildToolOptions(HighlighterOptionDefaults, options);
 
 		super(
 			coreApi,

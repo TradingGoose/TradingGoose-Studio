@@ -85,24 +85,20 @@ export class CompositeRenderer<HorzScaleItem> implements IPaneRenderer {
 	 * @returns The {@link HitTestResult} of the topmost hit renderer, or `null` if nothing is hit.
 	 */
 	public hitTest(x: Coordinate, y: Coordinate): HitTestResult<LineToolHitTestData> | null {
-		//console.log(`[CompositeRenderer] hitTest called at X:${x}, Y:${y}`);
 
 		// Iterate in reverse order to simulate Z-order hit testing (topmost element first)
 		for (let i = this._renderers.length - 1; i >= 0; i--) {
 			const renderer = this._renderers[i];
-			//console.log(`[CompositeRenderer]   Testing renderer: ${renderer.constructor.name}`);
 
 			if (renderer.hitTest) { // Check if the renderer implements hitTest
 				const hitResult = renderer.hitTest(x, y);
 				if (hitResult !== null) {
-					//console.log(`[CompositeRenderer] --- HIT FOUND by ${renderer.constructor.name}! Cursor: ${hitResult.data()?.suggestedCursor || 'undefined'}`);
 
 					// We found a hit, return it immediately
 					return hitResult;
 				}
 			}
 		}
-		//console.log(`[CompositeRenderer] No renderer hit. Returning null.`);
 
 		return null; // No hit found
 	}

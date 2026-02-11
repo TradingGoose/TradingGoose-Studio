@@ -41,7 +41,6 @@ export class PriceAxisLabelStackingManager<HorzScaleItem> {
 	) {
 		this._chart = chart;
 		this._series = series;
-		console.log('[PriceAxisLabelStackingManager] Initializing...');
 
         // NEW: Initialize _priceAxisRendererOptions in the constructor
         const chartOptions = this._chart.options();
@@ -62,7 +61,6 @@ export class PriceAxisLabelStackingManager<HorzScaleItem> {
             paddingTop: 2,    
             tickLength: priceScaleOptions.ticksVisible ? 4 : 0,
         };
-        console.log('[PriceAxisLabelStackingManager] Initial PriceAxisViewRendererOptions set from chart/series defaults.');
 	}
 
 	/**
@@ -99,7 +97,6 @@ export class PriceAxisLabelStackingManager<HorzScaleItem> {
 	public registerLabel(labelData: LabelDataForStacking): void {
         const isNew = !this._labels.has(labelData.id);
 		this._labels.set(labelData.id, labelData);
-        // console.log(`[PALSManager Debug] Label ${isNew ? 'registered' : 'updated'}: ${labelData.id} (Tool: ${labelData.toolId})`);
 	}
 
 	/**
@@ -116,7 +113,6 @@ export class PriceAxisLabelStackingManager<HorzScaleItem> {
 		if (label) {
 			label.setFixedCoordinate(undefined);
 			this._labels.delete(id);
-            // console.log(`[PALSManager Debug] Label unregistered: ${id}`);
 		}
 	}
 
@@ -132,7 +128,6 @@ export class PriceAxisLabelStackingManager<HorzScaleItem> {
         // Only update if options are significantly different, or if there's no options yet.
         // Deep comparison is complex, a shallow check or just always overwriting is simpler for now.
 		this._priceAxisRendererOptions = options;
-        // console.log('[PALSManager Debug] PriceAxisViewRendererOptions updated.');
 	}
 
 	/**
@@ -183,7 +178,6 @@ export class PriceAxisLabelStackingManager<HorzScaleItem> {
 			}
 		});
 
-		//console.log(`--- [PALS DEBUG] Starting Stacking Update for ${activeLabels.length} Active Labels ---`);
 
 		if (activeLabels.length < 2) {
 			// For 0 or 1 labels, ensure it has no fixed coordinate so it draws at its original location.
@@ -207,30 +201,22 @@ export class PriceAxisLabelStackingManager<HorzScaleItem> {
 			const currentLabelTop = (currentLabel.originalCoordinate - currentLabelHalfHeight) as Coordinate;
 
 			// *** START DEBUG LOGGING ***
-			//console.log(`[PALS LOG] --- Label ${currentLabel.id} [${i}] ---`);
-			//console.log(`[PALS LOG] Original Coord (Center Y): ${currentLabel.originalCoordinate.toFixed(2)} | Height: ${currentLabel.height.toFixed(2)}`);
-			//console.log(`[PALS LOG] Current Label Top Y: ${currentLabelTop.toFixed(2)}`);
-			//console.log(`[PALS LOG] Last Occupied Bottom Y: ${lastOccupiedBottomCoord ? lastOccupiedBottomCoord.toFixed(2) : 'None'}`);
 			// *** END DEBUG LOGGING ***
 
 
 			if (lastOccupiedBottomCoord !== undefined) {
 				const collisionThreshold = (lastOccupiedBottomCoord + LABEL_MARGIN_PX) as Coordinate;
 
-				//console.log(`[PALS LOG] Collision Threshold Y: ${collisionThreshold.toFixed(2)}`);
 
 				if (currentLabelTop < collisionThreshold) {
 					// *** COLLISION DETECTED ***
-					//console.log(`[PALS LOG] *** COLLISION: ${currentLabelTop.toFixed(2)} < ${collisionThreshold.toFixed(2)} ***`);
 
 					const newTop = collisionThreshold;
 					newFixedCoord = (newTop + currentLabelHalfHeight) as Coordinate;
 
 					// Log the shift
-					//console.log(`[PALS LOG] SHIFTED: New Center Y: ${newFixedCoord.toFixed(2)}`);
 				} else {
 					// Log no shift
-					//console.log(`[PALS LOG] NO COLLISION: ${currentLabelTop.toFixed(2)} >= ${collisionThreshold.toFixed(2)}`);
 				}
 			}
 
@@ -250,8 +236,6 @@ export class PriceAxisLabelStackingManager<HorzScaleItem> {
 			// 3. Update the space reserved for the next label
 			lastOccupiedBottomCoord = (finalCenterY + currentLabelHalfHeight) as Coordinate;
 
-			//console.log(`[PALS LOG] FINAL lastOccupiedBottomCoord: ${lastOccupiedBottomCoord.toFixed(2)}`);
 		}
-		//console.log(`--- [PALS DEBUG] Finished Stacking Update ---`);
 	}
 }

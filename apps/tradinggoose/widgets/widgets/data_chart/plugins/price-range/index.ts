@@ -28,7 +28,6 @@ export function registerPriceRangePlugin<HorzScaleItem>(corePlugin: ILineToolsPl
 	// We pass the specific name and the class constructor.
 	corePlugin.registerLineTool(PRICE_RANGE_LINE_NAME, LineToolPriceRange);
 
-	console.log(`Registered Line Tool: ${PRICE_RANGE_LINE_NAME}`);
 }
 
 // Export the class itself for direct use/type referencing if necessary

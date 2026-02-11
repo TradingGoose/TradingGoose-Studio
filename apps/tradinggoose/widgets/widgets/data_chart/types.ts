@@ -2,6 +2,7 @@ import type { MutableRefObject } from 'react'
 import type { IPaneApi, ISeriesApi } from 'lightweight-charts'
 import type { ListingIdentity } from '@/lib/listing/identity'
 import type { MarketInterval, MarketSessionWindow } from '@/providers/market/types'
+import type { ManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/manual-line-tools-snapshot'
 import type { BarMs } from '@/widgets/widgets/data_chart/series-data'
 
 export type DataChartCandleType =
@@ -22,7 +23,7 @@ export type DrawToolsRef = {
   id: string
   pane: 'price' | 'indicator'
   indicatorId?: string
-  snapshot?: string
+  snapshot?: ManualOwnerSnapshot
 }
 
 export type IndicatorRuntimePlot = {

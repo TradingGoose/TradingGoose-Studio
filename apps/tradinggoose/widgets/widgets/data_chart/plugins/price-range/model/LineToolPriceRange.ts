@@ -16,20 +16,15 @@ import {
 	LineToolType,
 	LineToolOptionsInternal,
 	Point,
-	LineToolOptionsMap,
-	LineToolPartialOptionsMap,
-	merge,
+	buildToolOptions,
 	DeepPartial,
 	LineToolsCorePlugin,
-	deepCopy,
 	PriceAxisLabelStackingManager,
 	LineEnd,
 	TextAlignment,
 	BoxVerticalAlignment,
 	BoxHorizontalAlignment,
 	TextOptions,
-	LineOptions,
-	RectangleOptions,
 	PaneCursorType,
 	InteractionPhase,
 	ConstraintResult,
@@ -106,21 +101,17 @@ export const PriceRangeOptionDefaults: LineToolOptionsInternal<'PriceRange'> = {
 			width: 1,
 			color: '#9c27b0',
 			style: LineStyle.Solid,
-			join: 'miter',
-			cap: 'butt',
 			end: { left: LineEnd.Normal, right: LineEnd.Normal },
 			extend: { left: false, right: false },
-		} as LineOptions, // Casting is necessary
+		},
 
 		horizontalLine: {
 			width: 1,
 			color: '#9c27b0',
 			style: LineStyle.Dashed,
-			join: 'miter',
-			cap: 'butt',
 			end: { left: LineEnd.Normal, right: LineEnd.Normal },
 			extend: { left: false, right: false },
-		} as LineOptions,
+		},
 
 		showCenterHorizontalLine: true,
 		showCenterVerticalLine: true,
@@ -203,8 +194,7 @@ export class LineToolPriceRange<HorzScaleItem> extends BaseLineTool<HorzScaleIte
 		points: LineToolPoint[] = [],
 		priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
 	) {
-		const finalOptions = deepCopy(PriceRangeOptionDefaults) as LineToolOptionsInternal<'PriceRange'>;
-		merge(finalOptions, options as LineToolPartialOptionsMap['PriceRange']);
+		const finalOptions = buildToolOptions(PriceRangeOptionDefaults, options);
 
 		super(
 			coreApi,

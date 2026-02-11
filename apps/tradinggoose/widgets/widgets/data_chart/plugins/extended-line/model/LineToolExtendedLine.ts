@@ -8,21 +8,18 @@ import {
 } from 'lightweight-charts';
 
 import {
-	BaseLineTool,
 	LineToolPoint,
 	LineToolOptionsInternal,
 	LineToolType,
 	DeepPartial,
 	LineToolsCorePlugin,
-	merge,
-	deepCopy,
-	PaneCursorType,
 	PriceAxisLabelStackingManager
 } from '../../core';
 
 // Import the base class model and its default options structure
 // NOTE: Assuming LineToolTrendLine.ts will be modified to export TrendLineOptionDefaults
 import { LineToolTrendLine, TrendLineOptionDefaults } from '../../shared/lines/model/LineToolTrendLine';
+import { buildLineToolOptions } from '../../shared/lines/model/line-tool-options';
 import { LineToolExtendedLinePaneView } from '../views/LineToolExtendedLinePaneView';
 
 
@@ -101,16 +98,11 @@ export class LineToolExtendedLine<HorzScaleItem> extends LineToolTrendLine<HorzS
 		points: LineToolPoint[] = [],
 		priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
 	) {
-		// 1. Start with a deep copy of the base TrendLine defaults.
-		const finalOptions = deepCopy(TrendLineOptionDefaults) as LineToolOptionsInternal<'ExtendedLine'>;
-		
-		// 2. Merge the ExtendedLineSpecificOverrides over the base defaults.
-		//    This sets the default behavior to extend both ways.
-		merge(finalOptions, deepCopy(ExtendedLineSpecificOverrides));
-
-		// 3. Merge the user's provided options last (User wins).
-		merge(finalOptions, options as DeepPartial<LineToolOptionsInternal<'ExtendedLine'>>);
-
+		const finalOptions = buildLineToolOptions<'ExtendedLine', 'TrendLine'>(
+			TrendLineOptionDefaults,
+			options,
+			ExtendedLineSpecificOverrides
+		);
 
 		// 4. Call the parent (LineToolTrendLine) constructor with the customized options.
 		// The parent constructor is effectively the BaseLineTool constructor.
@@ -128,7 +120,6 @@ export class LineToolExtendedLine<HorzScaleItem> extends LineToolTrendLine<HorzS
 		// NOTE: LineToolExtendedLinePaneView must be created next, inheriting from the TrendLine view.
 		this._setPaneViews([new LineToolExtendedLinePaneView(this, this._chart, this._series)]);
 
-		console.log(`ExtendedLine Tool created with ID: ${this.id()}`);
 	}
 
 	// NOTE: All core logic (hitTest, shift constraints, normalize) is inherited from LineToolTrendLine.

@@ -28,7 +28,6 @@ export function registerFibRetracementPlugin<HorzScaleItem>(corePlugin: ILineToo
 	// Register the LineToolFibRetracement Class
 	corePlugin.registerLineTool(FIB_RETRACEMENT_NAME, LineToolFibRetracement);
 
-	console.log(`Registered Line Tool: ${FIB_RETRACEMENT_NAME}`);
 }
 
 // Export the class itself for direct use/type referencing if necessary

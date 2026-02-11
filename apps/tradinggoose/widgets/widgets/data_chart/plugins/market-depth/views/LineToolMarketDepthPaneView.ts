@@ -118,7 +118,6 @@ export class LineToolMarketDepthPaneView<HorzScaleItem> extends LineToolPaneView
 		const cullingState = getToolCullingState(points, this._tool as BaseLineTool<HorzScaleItem>);
  
 		if (cullingState !== OffScreenState.Visible) {
-			//console.log('market depth culled')
 			return; // Exit if culled
 		}
 		// --- CULLING IMPLEMENTATION END ---

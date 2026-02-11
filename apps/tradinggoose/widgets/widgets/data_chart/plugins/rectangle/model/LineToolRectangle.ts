@@ -21,17 +21,14 @@ import {
 	LineToolType,
 	LineToolOptionsInternal,
 	Point,
-	RectangleToolOptions, // RectangleToolOptions from core plugin
-	merge,
+	buildToolOptions,
 	DeepPartial,
-	LineToolPartialOptionsMap,
 	TextAlignment,
 	BoxVerticalAlignment,
 	BoxHorizontalAlignment,
 	LineToolHitTestData,
 	PaneCursorType,
 	LineToolsCorePlugin,
-	deepCopy,
 	InteractionPhase,
 	PriceAxisLabelStackingManager,
 	ConstraintResult,
@@ -238,63 +235,31 @@ export class LineToolRectangle<HorzScaleItem> extends BaseLineTool<HorzScaleItem
 	}
 
 	/**
-     * Initializes the Rectangle Tool instance.
-     * 
-     * **Tutorial Note - The "Options Dance":**
-     * One of the most critical steps in a custom tool's constructor is handling configuration options correctly.
-     * 
-     * 1. **Deep Copy Defaults:** We use `deepCopy(RectangleOptionDefaults)` instead of using the constant directly.
-     *    *Why?* In JavaScript, objects are passed by reference. If we didn't copy, changing the color of 
-     *    *this* rectangle would change the default color for *all future* rectangles.
-     * 
-     * 2. **Merge User Options:** We apply `merge()` to overlay the user's specific settings (passed in `options`)
-     *    onto our fresh copy of the defaults.
-     * 
-     * 3. **Super Call:** We pass the finalized options to `super()`. The Base class stores them and handles 
-     *    standard interactions (like selection state).
-     * 
-     * 4. **Set Pane Views:** Finally, we instantiate `LineToolRectanglePaneView`. This links the "Model" (this class)
-     *    to the "View" (the renderer), telling the Core how to visually represent this data on the chart.
-     * 
-     * @param coreApi - Reference to the plugin core.
-     * @param chart - The Lightweight Charts instance.
-     * @param series - The series this tool is attached to.
-     * @param horzScaleBehavior - Utilities for time scale conversion.
-     * @param options - Partial configuration provided by the user.
-     * @param points - Initial data points (if restoring from state).
-     * @param priceAxisLabelStackingManager - Core utility for managing label overlap.
+     * Initializes the Rectangle tool with defaults merged with user options.
      */
 	public constructor(
-		coreApi: LineToolsCorePlugin<HorzScaleItem>, // Core API reference with generic type
-		chart: IChartApiBase<HorzScaleItem>, // Lightweight Charts chart API instance with generic type
-		series: ISeriesApi<SeriesType, HorzScaleItem>, // Primary series API instance with generic type
-		horzScaleBehavior: IHorzScaleBehavior<HorzScaleItem>, // Horizontal scale behavior with generic type
-		// This parameter remains as it is the user input
+		coreApi: LineToolsCorePlugin<HorzScaleItem>,
+		chart: IChartApiBase<HorzScaleItem>,
+		series: ISeriesApi<SeriesType, HorzScaleItem>,
+		horzScaleBehavior: IHorzScaleBehavior<HorzScaleItem>,
 		options: DeepPartial<LineToolOptionsInternal<'Rectangle'>> = {},
 		points: LineToolPoint[] = [],
 		priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
 	) {		
-		// 1. Create a deep copy of the canonical default options.
-		// We use deepCopy to ensure nested objects (like rectangle, text, box) are unique.
-		const finalOptions = deepCopy(RectangleOptionDefaults) as LineToolOptionsInternal<'Rectangle'>;
+		const finalOptions = buildToolOptions(RectangleOptionDefaults, options);
 
-		// 2. Merge the user-provided 'options' into this unique deep-copied base.
-		merge(finalOptions, options as LineToolPartialOptionsMap['Rectangle']);
-
-		// 3. Call the BaseLineTool constructor with the final, unique options object.
 		super(
 			coreApi,
 			chart,
 			series,
 			horzScaleBehavior,
-			finalOptions, // <-- Pass the final merged and deep-copied options
+			finalOptions,
 			points,
 			'Rectangle', 
 			2,
 			priceAxisLabelStackingManager
 		);
 
-		// A PaneView is responsible for rendering the tool on the chart.
 		this._setPaneViews([new LineToolRectanglePaneView(this, this._chart, this._series)]);
 	}	
 

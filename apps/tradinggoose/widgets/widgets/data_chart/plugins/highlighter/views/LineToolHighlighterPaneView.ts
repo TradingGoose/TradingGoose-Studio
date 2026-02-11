@@ -161,7 +161,6 @@ export class LineToolHighlighterPaneView<HorzScaleItem> extends LineToolPaneView
 
 				if (cullingState !== OffScreenState.Visible) {
 					// Clear the renderer and exit the update function
-					//console.log('highlighter culled')
 					this._renderer.clear();
 					return;
 				}

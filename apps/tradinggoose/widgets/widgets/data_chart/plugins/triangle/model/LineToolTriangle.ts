@@ -15,8 +15,7 @@ import {
 	LineToolOptionsInternal,
 	LineToolType,
 	LineToolsCorePlugin,
-	deepCopy,
-	merge,
+	buildToolOptions,
 	DeepPartial,
 	PaneCursorType,
 	FinalizationMethod,
@@ -177,9 +176,7 @@ export class LineToolTriangle<HorzScaleItem> extends BaseLineTool<HorzScaleItem>
 		points: LineToolPoint[] = [],
 		priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
 	) {
-		// Merge user options with defaults
-		const finalOptions = deepCopy(TriangleOptionDefaults) as LineToolOptionsInternal<'Triangle'>;
-		merge(finalOptions, options as DeepPartial<LineToolOptionsInternal<'Triangle'>>);
+		const finalOptions = buildToolOptions(TriangleOptionDefaults, options);
 
 		// Call the BaseLineTool constructor
 		super(
@@ -242,7 +239,6 @@ export class LineToolTriangle<HorzScaleItem> extends BaseLineTool<HorzScaleItem>
 		const hitResult = compositeRenderer.hitTest(x, y);
 
 		// Console log for debugging hit test (optional)
-		// if (hitResult) { console.log(`\tTriangle Tool ${this.id()} Hit: Type ${hitResult.type()}, Index ${hitResult.data()?.pointIndex}`); }
 
 		return hitResult;
 	}

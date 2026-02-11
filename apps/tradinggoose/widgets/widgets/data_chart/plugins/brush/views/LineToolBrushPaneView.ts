@@ -164,7 +164,6 @@ export class LineToolBrushPaneView<HorzScaleItem> extends LineToolPaneView<HorzS
 
 				if (cullingState !== OffScreenState.Visible) {
 					// Clear the renderer and exit the update function
-					//console.log('brush culled')
 					this._renderer.clear();
 					return;
 				}

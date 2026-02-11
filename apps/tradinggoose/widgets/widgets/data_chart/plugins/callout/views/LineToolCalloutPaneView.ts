@@ -40,7 +40,7 @@ import { LineToolCallout } from '../model/LineToolCallout';
  * This view manages the coordination of these two renderers.
  */
 export class LineToolCalloutPaneView<HorzScaleItem> extends LineToolPaneView<HorzScaleItem> {
-	
+
 	protected _segmentRenderer: SegmentRenderer<HorzScaleItem> = new SegmentRenderer();
 	protected _textRenderer: TextRenderer<HorzScaleItem> = new TextRenderer();
 
@@ -72,7 +72,7 @@ export class LineToolCalloutPaneView<HorzScaleItem> extends LineToolPaneView<Hor
 		this._renderer.clear();
 
 		const options = this._tool.options() as LineToolOptionsInternal<'Callout'>;
- 
+
 		if (!options.visible) {
 			return;
 		}
@@ -80,20 +80,19 @@ export class LineToolCalloutPaneView<HorzScaleItem> extends LineToolPaneView<Hor
 		if (this._tool.points().length < 2) {
 			return;
 		}
-		
+
 		// 1. CULLING: Callout is a segment, so we rely on the core geometric culling.
 		const points = this._tool.points();
 
 		/**
-         * 1. CULLING & VISIBILITY CHECK
-         *
-         * Even though the Callout is complex, we treat the Stem (segment P0-P1) as the
-         * primary object for culling. We use the core geometric culler to check visibility.
-         */
+		 * 1. CULLING & VISIBILITY CHECK
+		 *
+		 * Even though the Callout is complex, we treat the Stem (segment P0-P1) as the
+		 * primary object for culling. We use the core geometric culler to check visibility.
+		 */
 		const cullingState = getToolCullingState(points, this._tool as BaseLineTool<HorzScaleItem>, options.line.extend);
-		
+
 		if (cullingState !== OffScreenState.Visible) {
-			//console.log('callout culled')
 			return; // Exit if culled
 		}
 
@@ -104,25 +103,27 @@ export class LineToolCalloutPaneView<HorzScaleItem> extends LineToolPaneView<Hor
 		}
 
 		const [point0, point1] = this._points; // Screen coordinates P0 (Stem Start) and P1 (Text Box Anchor)
-		
-	
+
+
 		// Text Renderer logic needs the text pivot, which is P1 in screen space
 		const textPivot = point1;
 		const textOptions = deepCopy(options.text);
-		
+
 		/**
-         * 2. TEXT RENDERER SETUP (MEASUREMENT)
-         *
-         * We calculate the text box data first. P1 serves as the "Pivot" or anchor for the text box.
-         * We configure the `TextRendererData` with P1 and the text options.
-         *
-         * `measure()` can be called here if we need to know the box dimensions to adjust the stem
-         * endpoint (e.g., to stop at the box border instead of the center), though in this
-         * simplified implementation, the stem runs directly to the pivot P1.
-         */
+		 * 2. TEXT RENDERER SETUP (MEASUREMENT)
+		 *
+		 * We calculate the text box data first. P1 serves as the "Pivot" or anchor for the text box.
+		 * We configure the `TextRendererData` with P1 and the text options.
+		 *
+		 * `measure()` can be called here if we need to know the box dimensions to adjust the stem
+		 * endpoint (e.g., to stop at the box border instead of the center), though in this
+		 * simplified implementation, the stem runs directly to the pivot P1.
+		 */
 		const textRendererData: TextRendererData = {
-			points: [textPivot], 
-			text: textOptions, 
+			points: [textPivot],
+			text: textOptions,
+			useThemeForegroundColor: true,
+			useThemeBackgroundColor: true,
 			hitTestBackground: true,
 			toolDefaultHoverCursor: options.defaultHoverCursor,
 			toolDefaultDragCursor: options.defaultDragCursor,
@@ -132,14 +133,14 @@ export class LineToolCalloutPaneView<HorzScaleItem> extends LineToolPaneView<Hor
 		// NOTE: This must happen *before* we calculate the final line end point.
 		this._textRenderer.setData(textRendererData);
 		const boxDimensions = this._textRenderer.measure(); // { width: boxWidth, height: boxHeight }
-		
-		
+
+
 		/**
-         * 3. SEGMENT RENDERER SETUP (THE STEM)
-         *
-         * We configure the `SegmentRenderer` to draw the line connecting the Target (P0)
-         * to the Text Box (P1).
-         */
+		 * 3. SEGMENT RENDERER SETUP (THE STEM)
+		 *
+		 * We configure the `SegmentRenderer` to draw the line connecting the Target (P0)
+		 * to the Text Box (P1).
+		 */
 		const lineOptions = deepCopy(options.line) as any;
 		lineOptions.join = lineOptions.join || LineJoin.Miter;
 		lineOptions.cap = lineOptions.cap || LineCap.Butt;
@@ -150,15 +151,15 @@ export class LineToolCalloutPaneView<HorzScaleItem> extends LineToolPaneView<Hor
 			toolDefaultHoverCursor: options.defaultHoverCursor,
 			toolDefaultDragCursor: options.defaultDragCursor,
 		});
-		
+
 		// --- 4. Final Assembly ---
-		
+
 		this._renderer.clear();
 		const compositeRenderer = new CompositeRenderer<HorzScaleItem>();
 
 		// Render the Line Stem first
 		compositeRenderer.append(this._segmentRenderer);
-		
+
 		// Render the Text Box second
 		compositeRenderer.append(this._textRenderer);
 
@@ -169,7 +170,7 @@ export class LineToolCalloutPaneView<HorzScaleItem> extends LineToolPaneView<Hor
 
 		this._renderer = compositeRenderer;
 	}
-	
+
 	/**
 	 * Adds the two interactive anchor points.
 	 *
@@ -184,13 +185,13 @@ export class LineToolCalloutPaneView<HorzScaleItem> extends LineToolPaneView<Hor
 		if (this._points.length < 2) return;
 
 		const [point0, point1] = this._points;
- 
+
 		// The two anchor points (P0 and P1)
 		const anchorData = {
 			points: [point0, point1],
 			pointsCursorType: [PaneCursorType.Pointer, PaneCursorType.Pointer],
 		};
- 
+
 		renderer.append(this.createLineAnchor(anchorData, 0));
 	}
 }

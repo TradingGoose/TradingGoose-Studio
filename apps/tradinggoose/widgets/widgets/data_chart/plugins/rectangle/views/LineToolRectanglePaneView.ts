@@ -112,19 +112,15 @@ export class LineToolRectanglePaneView<HorzScaleItem> extends LineToolPaneView<H
 	protected override _updateImpl(height: number, width: number): void {
 		this._invalidated = false;
 		this._renderer.clear();
-		//console.log(`[RectanglePaneView] Update triggered. Pane dimensions: ${width}x${height}`);
 
 		const options = this._tool.options() as LineToolOptionsInternal<'Rectangle'>;
 		if (!options.visible) {
-			console.log('[RectanglePaneView] Update stopped: Tool is not visible.');
 			return;
 		}
 
 		const hasUpdatedPoints = this._updatePoints();
-		//console.log(`[RectanglePaneView] _updatePoints() returned: ${hasUpdatedPoints}`);
 
 		if (!hasUpdatedPoints) {
-			console.log('[RectanglePaneView] Update stopped: Point conversion failed.');
 			return;
 		}
 
@@ -234,28 +230,23 @@ export class LineToolRectanglePaneView<HorzScaleItem> extends LineToolPaneView<H
 				// Stop rendering logic immediately and clear the renderer for efficiency.
 				
 				(this._renderer as CompositeRenderer<any>).clear();
-				//console.log('rectangle culled')
 				return;
 			}
 		}
 		// --- CULLING IMPLEMENTATION END ---
 
-		//console.log(`[RectanglePaneView] Points available for drawing: ${this._points.length}`);
 		if (this._points.length > 0) {
-			//console.log('[RectanglePaneView] Point details:', JSON.parse(JSON.stringify(this._points)));
 		}
 
 		// During creation (ghost mode), we will have 2 points (1 real, 1 ghost).
 		// When finished, we will have 2 real points.
 		if (this._points.length !== this._tool.pointsCount) {
-			//console.log(`[RectanglePaneView] Update stopped: Not enough points to draw rectangle. Have ${this._points.length}, need ${this._tool.pointsCount}.`);
 			return;
 		}
 
 		const rectanglePoints: [AnchorPoint, AnchorPoint] = [this._points[0], this._points[1]];
 
 		// --- 1. Prepare and add the Rectangle Renderer ---
-		//console.log('[RectanglePaneView] Preparing and appending RectangleRenderer...');
 
 		// --- Data Construction ---
 
@@ -281,11 +272,9 @@ export class LineToolRectanglePaneView<HorzScaleItem> extends LineToolPaneView<H
 		this._rectangleRenderer.setData(rectangleRendererData);
 
 		(this._renderer as CompositeRenderer<any>).append(this._rectangleRenderer);
-		//console.log('[RectanglePaneView] RectangleRenderer appended.');
 
 		// --- 2. Prepare and add the Text Renderer (if applicable) ---
 		if (options.text.value) {
-			//console.log('[RectanglePaneView] Preparing and appending TextRenderer...');
 
 			/**
 			 * **Tutorial Note - The Text Layer:**
@@ -309,14 +298,11 @@ export class LineToolRectanglePaneView<HorzScaleItem> extends LineToolPaneView<H
 			this._labelRenderer.setData(textRendererData);
 			(this._renderer as CompositeRenderer<any>).append(this._labelRenderer);
 
-			//console.log('[RectanglePaneView] TextRenderer appended.');
 		}
 
 		// --- 3. Prepare and add the Anchor Points for resizing ---
 		//if (this.areAnchorsVisible()) {
-			//console.log('[RectanglePaneView] Preparing and appending anchors...');
 			//this._addAnchors(this._renderer as CompositeRenderer<any>);
-			//console.log('[RectanglePaneView] Anchors appended.');
 		//}
 		
 		this._addAnchors(this._renderer as CompositeRenderer<any>);

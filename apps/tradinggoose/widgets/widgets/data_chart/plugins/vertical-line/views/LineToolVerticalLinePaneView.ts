@@ -114,7 +114,6 @@ export class LineToolVerticalLinePaneView<HorzScaleItem> extends LineToolPaneVie
 		 */
 		const cullingState = getToolCullingState(points, this._tool as BaseLineTool<HorzScaleItem>, options.line.extend, { horizontal: false, vertical: true });
 		if (cullingState !== OffScreenState.Visible) {
-			//console.log('vertical line culled')
 			return; // Exit if culled
 		}
 		// --- CULLING IMPLEMENTATION END ---
@@ -193,7 +192,6 @@ export class LineToolVerticalLinePaneView<HorzScaleItem> extends LineToolPaneVie
 			};
 			this._textRenderer.setData(tempTextRendererData);
 			const boxDimensions = this._textRenderer.measure(); // { width: unscaled, height: unscaled }
-			//console.log('boxDimensions', boxDimensions)
 
 			// --- Text Attachment Point (Pivot) Calculation ---
 			

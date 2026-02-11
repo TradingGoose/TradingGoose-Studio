@@ -24,8 +24,6 @@ import {
 	BoxHorizontalAlignment,
 	LineToolsCorePlugin,
 	LineEnd,
-	deepCopy,
-	merge,
 	DeepPartial,
 	PaneCursorType,
 	HitTestResult,
@@ -38,6 +36,7 @@ import {
 } from '../../../core';
 
 import { LineToolTrendLinePaneView } from '../views/LineToolTrendLinePaneView';
+import { buildLineToolOptions } from './line-tool-options';
 
 /**
  * Defines the default configuration options for the Trend Line tool.
@@ -215,8 +214,7 @@ export class LineToolTrendLine<HorzScaleItem> extends BaseLineTool<HorzScaleItem
 		points: LineToolPoint[] = [],
 		priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
 	) {
-		const finalOptions = deepCopy(TrendLineOptionDefaults) as LineToolOptionsInternal<'TrendLine'>;
-		merge(finalOptions, options as DeepPartial<LineToolOptionsInternal<'TrendLine'>>);
+		const finalOptions = buildLineToolOptions<'TrendLine'>(TrendLineOptionDefaults, options);
 
 		super(
 			coreApi,

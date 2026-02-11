@@ -25,7 +25,6 @@ export function registerParallelChannelPlugin<HorzScaleItem>(corePlugin: ILineTo
 	// 1. Register the ParallelChannel Tool
 	corePlugin.registerLineTool(PARALLEL_CHANNEL_NAME, LineToolParallelChannel);
 
-	console.log(`Registered Line Tool: ${PARALLEL_CHANNEL_NAME}`);
 }
 
 // Export the LineToolParallelChannel class for direct use/type referencing if necessary

@@ -48,7 +48,11 @@ import {
 	cacheCanvas,
 	createCacheCanvas,
 } from '../utils/text-helpers'; 
-import { resolveForegroundColorFromTheme, resolveSystemFontFamily } from '../utils/theme-text-style';
+import {
+	resolveBackgroundColorFromTheme,
+	resolveForegroundColorFromTheme,
+	resolveSystemFontFamily,
+} from '../utils/theme-text-style';
 
 
 // Common interaction tolerance for hit-testing lines and borders
@@ -521,7 +525,6 @@ export class RectangleRenderer<HorzScaleItem> implements IPaneRenderer {
 	 */	
 	public hitTest(x: Coordinate, y: Coordinate): HitTestResult<LineToolHitTestData> | null {
 
-		//console.log(`[RectangleRenderer] hitTest called at X:${x}, Y:${y}`);
 
 		// FIX: Corrected initial null/data/point length check
 		if (!this._data || this._data.points.length < 2 || !this._mediaSize.width || !this._mediaSize.height) {
@@ -558,7 +561,6 @@ export class RectangleRenderer<HorzScaleItem> implements IPaneRenderer {
 		const htTopLeft = new Point(extend?.left ? 0 as Coordinate : minX, minY);
 		const htTopRight = new Point(extend?.right ? this._mediaSize.width as Coordinate : maxX, minY);
 		if (distanceToSegment(htTopLeft, htTopRight, clickedPoint).distance <= lineTolerance) {
-			//console.log(`[RectangleRenderer] *** HIT DETECTED on top border! Suggesting cursor: ${suggestedHoverCursor}`);
 			return new HitTestResult(HitTestType.MovePoint, { pointIndex: null, suggestedCursor: suggestedHoverCursor });
 		}
 
@@ -566,19 +568,16 @@ export class RectangleRenderer<HorzScaleItem> implements IPaneRenderer {
 		const htBottomLeft = new Point(extend?.left ? 0 as Coordinate : minX, maxY);
 		const htBottomRight = new Point(extend?.right ? this._mediaSize.width as Coordinate : maxX, maxY);
 		if (distanceToSegment(htBottomLeft, htBottomRight, clickedPoint).distance <= lineTolerance) {
-			//console.log(`[RectangleRenderer] *** HIT DETECTED on bottom border! Suggesting cursor: ${suggestedHoverCursor}`);
 			return new HitTestResult(HitTestType.MovePoint, { pointIndex: null, suggestedCursor: suggestedHoverCursor });
 		}
 
 		// Left line: check between (minX, minY) and (minX, maxY) (no horizontal extension here for vertical lines)
 		if (distanceToSegment(topLeft, bottomLeft, clickedPoint).distance <= lineTolerance) {
-			//console.log(`[RectangleRenderer] *** HIT DETECTED on left border! Suggesting cursor: ${suggestedHoverCursor}`);
 			return new HitTestResult(HitTestType.MovePoint, { pointIndex: null, suggestedCursor: suggestedHoverCursor });
 		}
 
 		// Right line: check between (maxX, minY) and (maxX, maxY) (no horizontal extension here for vertical lines)
 		if (distanceToSegment(topRight, bottomRight, clickedPoint).distance <= lineTolerance) {
-			//console.log(`[RectangleRenderer] *** HIT DETECTED on right border! Suggesting cursor: ${suggestedHoverCursor}`);
 			return new HitTestResult(HitTestType.MovePoint, { pointIndex: null, suggestedCursor: suggestedHoverCursor });
 		}
 
@@ -586,7 +585,6 @@ export class RectangleRenderer<HorzScaleItem> implements IPaneRenderer {
 		// FIX: Corrected Box constructor call to pass two Point objects
 		if (hitTestBackground && pointInBox(clickedPoint, new Box(topLeft, bottomRight))) {
 			const suggestedDragCursor = toolDefaultDragCursor || PaneCursorType.Grabbing;
-			//console.log(`[RectangleRenderer] *** HIT DETECTED on background! Suggesting cursor: ${suggestedDragCursor}`);
 			return new HitTestResult(HitTestType.MovePointBackground, { pointIndex: null, suggestedCursor: suggestedDragCursor });
 		}
 
@@ -954,11 +952,33 @@ export class TextRenderer<HorzScaleItem> implements IPaneRenderer {
 			}
 
 			// 2. Draw box background (this will cast the shadow)
-			if (textData.box?.background?.color && !isFullyTransparent(textData.box.background.color)) {
-                ctx.fillStyle = textData.box.background.color;
-                drawRoundRect(ctx, scaledBoxLeft, scaledBoxTop, scaledBoxWidth, scaledBoxHeight, borderRadius, boxBorderStyle);
-                ctx.fill();
-            }
+			const useThemeBackgroundColor = data.useThemeBackgroundColor ?? false;
+			const configuredBackgroundColor = textData.box?.background?.color ?? '';
+			if (useThemeBackgroundColor) {
+				ctx.fillStyle = resolveBackgroundColorFromTheme();
+				drawRoundRect(
+					ctx,
+					scaledBoxLeft,
+					scaledBoxTop,
+					scaledBoxWidth,
+					scaledBoxHeight,
+					borderRadius,
+					boxBorderStyle
+				);
+				ctx.fill();
+			} else if (configuredBackgroundColor && !isFullyTransparent(configuredBackgroundColor)) {
+				ctx.fillStyle = configuredBackgroundColor;
+				drawRoundRect(
+					ctx,
+					scaledBoxLeft,
+					scaledBoxTop,
+					scaledBoxWidth,
+					scaledBoxHeight,
+					borderRadius,
+					boxBorderStyle
+				);
+				ctx.fill();
+			}
 
 			// 3. Reset shadow properties BEFORE drawing the border, so the border itself doesn't cast a shadow
 			// and so the shadow only appears from the filled background.
@@ -1049,7 +1069,6 @@ export class TextRenderer<HorzScaleItem> implements IPaneRenderer {
 
 		// Ensure we have at least one point, which is now expected to be the rectangle's top-left in the pane view context
 		// However, for the new logic, we expect two points (rectangle's corners) to calculate parent bounds.
-		//console.log('data.points', data.points)
 
 		if (!data.points || data.points.length < 2 || isDegenerate) {
 			// Fallback: Treat the first point as the anchor/reference for positioning.
@@ -1110,53 +1129,37 @@ export class TextRenderer<HorzScaleItem> implements IPaneRenderer {
 			textBoxFinalX += (data.text?.box?.offset?.x || 0);
 			textBoxFinalY += (data.text?.box?.offset?.y || 0);
 
-			// --- Mirror Step 4: Internal text alignment/textStart (your existing switch) ---
-			const rawAlignment = (ensureDefined(data.text?.alignment) || 'start').toLowerCase().trim();
-			let textStart: number = inflationPaddingX; // Safe init
-			let textAlign: TextAlignment = TextAlignment.Start;
+				// --- Mirror Step 4: Internal text alignment/textStart from box horizontal alignment ---
+				const boxHorizontalAlignment = `${ensureDefined(data.text?.box?.alignment?.horizontal)}`
+					.toLowerCase()
+					.trim();
+				let textStart: number;
+				let textAlign: TextAlignment;
 
-			switch (rawAlignment) {
-				case TextAlignment.Start:
-				case TextAlignment.Left: {
-					// FIX: Always assign TextAlignment.Start to maintain clean enum value.
+				if (boxHorizontalAlignment === BoxHorizontalAlignment.Left) {
 					textAlign = TextAlignment.Start;
 					textStart = inflationPaddingX;
-					if (isRtl()) {
-						if (data.text?.forceTextAlign) {
-							// FIX: Ensure clean enum. Since it's forcing LTR start in RTL, use Start.
-							textAlign = TextAlignment.Start; 
-						} else {
-							textStart = boxWidth - inflationPaddingX;
-							// FIX: Use clean enum for RTL end.
-							textAlign = TextAlignment.End; 
-						}
-					}
-					break;
-				}
-				case TextAlignment.Center: {
-					// FIX: Always assign TextAlignment.Center.
+				} else if (boxHorizontalAlignment === BoxHorizontalAlignment.Center) {
 					textAlign = TextAlignment.Center;
 					textStart = boxWidth / 2;
-					break;
-				}
-				case TextAlignment.End:
-				case TextAlignment.Right: {
-					// FIX: Always assign TextAlignment.End.
+				} else if (boxHorizontalAlignment === BoxHorizontalAlignment.Right) {
 					textAlign = TextAlignment.End;
 					textStart = boxWidth - inflationPaddingX;
-					if (isRtl() && data.text?.forceTextAlign) {
-						// FIX: Ensure clean enum. Since it's forcing LTR end in RTL, use End.
-						textAlign = TextAlignment.End; 
+				} else {
+					throw new Error(
+						`[TextRenderer] Unsupported box horizontal alignment: ${boxHorizontalAlignment}`
+					);
+				}
+
+				if (isRtl() && !data.text?.forceTextAlign && textAlign !== TextAlignment.Center) {
+					if (textAlign === TextAlignment.Start) {
+						textAlign = TextAlignment.End;
+						textStart = boxWidth - inflationPaddingX;
+					} else {
+						textAlign = TextAlignment.Start;
+						textStart = inflationPaddingX;
 					}
-					break;
 				}
-				default: {
-					console.warn(`[TextRenderer] Unknown text alignment "${data.text?.alignment}" in fallback; defaulting to Start.`);
-					textStart = inflationPaddingX;
-					// FIX: Explicitly set default to clean enum.
-					textAlign = TextAlignment.Start; 
-				}
-			}
 
 			// Text Y (unchanged)
 			const textTop = inflationPaddingY + getScaledFontSize(data) / 2;
@@ -1262,49 +1265,37 @@ export class TextRenderer<HorzScaleItem> implements IPaneRenderer {
 		//let textX = 0; // X position for text rendering relative to textbox left
 		//let textAlign = TextAlignment.Start;
 
-		// --- Step 4: Determine internal text alignment within the textbox ---
-		const rawAlignment = (ensureDefined(data.text?.alignment) || 'start').toLowerCase().trim(); // Normalize + fallback to 'start' + trim whitespace
-		let textX: number = inflationPaddingX; // Safe init: padded left (better than 0)
-		let textAlign: TextAlignment = TextAlignment.Start;
+			// --- Step 4: Determine internal text alignment within the textbox from box alignment ---
+			const boxHorizontalAlignment = `${ensureDefined(data.text?.box?.alignment?.horizontal)}`
+				.toLowerCase()
+				.trim();
+			let textX: number;
+			let textAlign: TextAlignment;
 
-		switch (rawAlignment) {
-			case 'start':
-			case 'left': {
+			if (boxHorizontalAlignment === BoxHorizontalAlignment.Left) {
 				textAlign = TextAlignment.Start;
 				textX = inflationPaddingX;
-
-				if (isRtl()) {
-					if (data.text?.forceTextAlign) {
-						textAlign = TextAlignment.Start;
-					} else {
-						textX = boxWidth - inflationPaddingX;
-						textAlign = TextAlignment.End;
-					}
-				}
-				break;
-			}
-			case 'center': {
+			} else if (boxHorizontalAlignment === BoxHorizontalAlignment.Center) {
 				textAlign = TextAlignment.Center;
 				textX = boxWidth / 2;
-				break;
-			}
-			case 'end':
-			case 'right': {
+			} else if (boxHorizontalAlignment === BoxHorizontalAlignment.Right) {
 				textAlign = TextAlignment.End;
 				textX = boxWidth - inflationPaddingX;
+			} else {
+				throw new Error(
+					`[TextRenderer] Unsupported box horizontal alignment: ${boxHorizontalAlignment}`
+				);
+			}
 
-				if (isRtl() && data.text?.forceTextAlign) {
+			if (isRtl() && !data.text?.forceTextAlign && textAlign !== TextAlignment.Center) {
+				if (textAlign === TextAlignment.Start) {
 					textAlign = TextAlignment.End;
+					textX = boxWidth - inflationPaddingX;
+				} else {
+					textAlign = TextAlignment.Start;
+					textX = inflationPaddingX;
 				}
-				break;
 			}
-			default: {
-				// Fallback + log for debugging
-				console.warn(`[TextRenderer] Unknown text alignment "${data.text?.alignment}"; defaulting to Start (padded left).`);
-				textX = inflationPaddingX;
-				// Optionally force center for unknown: textAlign = TextAlignment.Center; textX = boxWidth / 2;
-			}
-		}
 
 		// Calculate text start Y relative to box top. textBaseline is 'middle'
 		const textY = inflationPaddingY + getScaledFontSize(data) / 2;
@@ -1327,7 +1318,8 @@ export class TextRenderer<HorzScaleItem> implements IPaneRenderer {
 	/**
 	 * Calculates the maximum pixel width among all wrapped lines of text.
 	 *
-	 * If word wrap is configured, this uses the fixed `wordWrapWidth` instead of measuring.
+	 * If word wrap is configured, this behaves as a max-width cap while still shrinking
+	 * to the measured content width when text is shorter.
 	 *
 	 * @param lines - The array of wrapped text strings.
 	 * @returns The maximum width in pixels.
@@ -1341,14 +1333,17 @@ export class TextRenderer<HorzScaleItem> implements IPaneRenderer {
 		const ctx = ensureNotNull(cacheCanvas);
 		ctx.font = this.fontStyle(); // Set font for accurate measurement
 
-		if (data.text?.wordWrapWidth && !data.text?.forceCalculateMaxLineWidth) {
-			return data.text.wordWrapWidth * getFontAwareScale(data);
-		}
-
 		let maxWidth = 0;
 		for (const line of lines) {
 			maxWidth = Math.max(maxWidth, ctx.measureText(line).width);
 		}
+
+		const wrapWidth = Number(data.text?.wordWrapWidth);
+		if (Number.isFinite(wrapWidth) && wrapWidth > 0 && !data.text?.forceCalculateMaxLineWidth) {
+			const maxAllowedWidth = wrapWidth * getFontAwareScale(data);
+			return Math.min(maxWidth, maxAllowedWidth);
+		}
+
 		return maxWidth;
 	}
 
@@ -1361,10 +1356,15 @@ export class TextRenderer<HorzScaleItem> implements IPaneRenderer {
 	 * @returns The cached {@link LinesInfo} object.
 	 * @private
 	 */	
-	private _getLinesInfo(): LinesInfo {
-		if (null === this._linesInfo) {
-			const data = ensureNotNull(this._data);
-			let lines = textWrap(ensureDefined(data.text?.value), this.fontStyle(), data.text?.wordWrapWidth);
+		private _getLinesInfo(): LinesInfo {
+			if (null === this._linesInfo) {
+				const data = ensureNotNull(this._data);
+				const wrapWidth = Number(data.text?.wordWrapWidth);
+				const scaledWrapWidth =
+					Number.isFinite(wrapWidth) && wrapWidth > 0
+						? wrapWidth * getFontAwareScale(data)
+						: data.text?.wordWrapWidth;
+				let lines = textWrap(ensureDefined(data.text?.value), this.fontStyle(), scaledWrapWidth);
 
 			if (data.text?.box?.maxHeight !== undefined && data.text.box.maxHeight > 0) {
 				const maxHeight = ensureDefined(data.text?.box?.maxHeight);
@@ -1524,7 +1524,6 @@ export class CircleRenderer<HorzScaleItem> implements IPaneRenderer {
 	 */	
 	public constructor(hitTest?: HitTestResult<LineToolHitTestData>) {
 		this._hitTest = hitTest || new HitTestResult(HitTestType.MovePoint);
-		// console.log("CircleRenderer constructor called");
 	}
 
 	/**
@@ -1535,7 +1534,6 @@ export class CircleRenderer<HorzScaleItem> implements IPaneRenderer {
 	 */
 	public setData(data: CircleRendererData): void {
 		this._data = data;
-		// console.log("CircleRenderer setData", data);
 	}
 
 	/**

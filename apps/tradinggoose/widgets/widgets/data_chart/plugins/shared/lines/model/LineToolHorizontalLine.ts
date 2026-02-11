@@ -16,8 +16,6 @@ import {
 	LineToolType,
 	DeepPartial,
 	LineToolsCorePlugin,
-	merge,
-	deepCopy,
 	PaneCursorType,
 	PriceAxisLabelStackingManager,
 	LineEnd,
@@ -30,6 +28,7 @@ import {
 
 import { LineToolHorizontalLinePaneView } from '../views/LineToolHorizontalLinePaneView';
 import { TrendLineOptionDefaults } from './LineToolTrendLine'; // Reuse the TrendLine base options structure
+import { buildLineToolOptions } from './line-tool-options';
 
 
 
@@ -113,15 +112,11 @@ export class LineToolHorizontalLine<HorzScaleItem> extends BaseLineTool<HorzScal
 		points: LineToolPoint[] = [],
 		priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
 	) {
-		// 1. Start with a deep copy of the base TrendLine defaults (for common options like text, box, etc.)
-		//    We must use the full TrendLine defaults to get all the text/font/color options.
-		const finalOptions = deepCopy(TrendLineOptionDefaults) as LineToolOptionsInternal<'HorizontalLine'>;
- 
-		// 2. Merge the HorizontalLineSpecificOverrides over the base defaults.
-		merge(finalOptions, deepCopy(HorizontalLineSpecificOverrides));
-
-		// 3. Merge the user's provided options last (User wins).
-		merge(finalOptions, options as DeepPartial<LineToolOptionsInternal<'HorizontalLine'>>);
+		const finalOptions = buildLineToolOptions<'HorizontalLine', 'TrendLine'>(
+			TrendLineOptionDefaults,
+			options,
+			HorizontalLineSpecificOverrides
+		);
 
 		// 4. Call the parent (BaseLineTool) constructor.
 		super(
@@ -139,7 +134,6 @@ export class LineToolHorizontalLine<HorzScaleItem> extends BaseLineTool<HorzScal
 		// 5. Set the specific PaneView for this tool.
 		this._setPaneViews([new LineToolHorizontalLinePaneView(this, this._chart, this._series)]);
 
-		console.log(`HorizontalLine Tool created with ID: ${this.id()}`);
 	}
 
 	/**

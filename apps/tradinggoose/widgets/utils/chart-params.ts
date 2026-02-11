@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { WidgetInstance } from '@/widgets/layout'
+import type { ManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/manual-line-tools-snapshot'
+import { normalizeManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/manual-line-tools-snapshot'
 import {
   DATA_CHART_WIDGET_UPDATE_PARAMS_EVENT,
   type DataChartWidgetUpdateEventDetail,
@@ -15,18 +17,15 @@ interface UseDataChartParamsPersistenceOptions {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-const normalizeDrawToolsSnapshotById = (raw: unknown): Map<string, string> => {
+const normalizeDrawToolsSnapshotById = (raw: unknown): Map<string, ManualOwnerSnapshot> => {
   if (!Array.isArray(raw)) return new Map()
 
-  const snapshotById = new Map<string, string>()
+  const snapshotById = new Map<string, ManualOwnerSnapshot>()
   raw.forEach((entry) => {
     if (!isRecord(entry)) return
     const id = typeof entry.id === 'string' ? entry.id.trim() : ''
     if (!id) return
-    const snapshot =
-      typeof entry.snapshot === 'string' && entry.snapshot.trim().length > 0
-        ? entry.snapshot.trim()
-        : ''
+    const snapshot = normalizeManualOwnerSnapshot(entry.snapshot)
     if (!snapshot) return
     snapshotById.set(id, snapshot)
   })
@@ -55,12 +54,11 @@ const mergeDrawToolsSnapshots = (
       return entry
     }
 
-    const hasSnapshot =
-      typeof entry.snapshot === 'string' && entry.snapshot.trim().length > 0
+    const hasSnapshot = normalizeManualOwnerSnapshot(entry.snapshot) !== null
     if (hasSnapshot) return entry
 
     const snapshot = snapshotById.get(id)
-    if (!snapshot) return entry
+    if (snapshot === undefined) return entry
 
     changed = true
     return { ...entry, snapshot }

@@ -4,26 +4,19 @@ import {
 	IChartApiBase,
 	ISeriesApi,
 	SeriesType,
-	Coordinate
 } from 'lightweight-charts';
 
 import {
 	BaseLineTool,
 	LineToolPaneView,
 	CompositeRenderer,
-	AnchorPoint,
 	OffScreenState,
 	getToolCullingState,
 	LineToolOptionsInternal,
 	TextRenderer,
-	HitTestType,
 	TextRendererData,
-	BoxVerticalAlignment,
-	BoxHorizontalAlignment,
 	PaneCursorType,
-	TextAlignment,
 	deepCopy,
-	ensureNotNull
 } from '../../core';
 
 import { LineToolText } from '../model/LineToolText';
@@ -33,14 +26,10 @@ import { LineToolText } from '../model/LineToolText';
  * Pane View for the Text tool.
  *
  * **Tutorial Note on Logic:**
- * This view implements complex alignment logic. Unlike simple shapes, a Text Box's size depends
- * on its content, font, and word wrapping.
+ * This view delegates text box placement to {@link TextRenderer}.
  *
- * This view performs a 3-step process:
- * 1. **Measure:** Pre-renders the text internally to determine its pixel width/height.
- * 2. **Align:** Calculates an "Adjusted Pivot" point based on the user's alignment settings
- *    (e.g., if aligned "Right", the box is shifted left so its right edge touches the anchor).
- * 3. **Render:** configure the final renderer with this adjusted position.
+ * The tool contributes only the anchor point and text options. The renderer then applies
+ * box alignment, padding, inflation, offsets, and rotation consistently with other tools.
  */
 export class LineToolTextPaneView<HorzScaleItem> extends LineToolPaneView<HorzScaleItem> {
 	
@@ -75,8 +64,7 @@ export class LineToolTextPaneView<HorzScaleItem> extends LineToolPaneView<HorzSc
 	/**
 	 * The core update logic.
 	 *
-	 * It handles the "Measure -> Calculate Offset -> Render" pipeline to ensure the text box
-	 * appears exactly where the user expects relative to the anchor point.
+	 * It builds renderer data from the tool's single anchor point and current text options.
 	 *
 	 * @param height - The height of the pane.
 	 * @param width - The width of the pane.
@@ -112,7 +100,6 @@ export class LineToolTextPaneView<HorzScaleItem> extends LineToolPaneView<HorzSc
 		const cullingState = getToolCullingState(points, this._tool as BaseLineTool<HorzScaleItem>);
 		
 		if (cullingState !== OffScreenState.Visible) {
-			//console.log('text culled')
 			return; // Exit if culled
 		}
 		// --- CULLING IMPLEMENTATION END ---
@@ -125,108 +112,14 @@ export class LineToolTextPaneView<HorzScaleItem> extends LineToolPaneView<HorzSc
 		}
 
 		const [anchorPoint] = this._points; // Screen coordinates of the single anchor P0
-		const rawPivot = anchorPoint; // The raw anchor point is the starting reference for the pivot.
 
-
-		// --- 2. Text Renderer Setup (Text Box Size and Pivot Offset Calculation) ---
-
-		// --- 2a. Temporarily set data to measure the box size (must happen BEFORE pivot calculation) ---
-
-		/**
-		 * TEXT MEASUREMENT (PRE-CALCULATION)
-		 *
-		 * Before we can determine where to draw the box, we need to know how big it is.
-		 * We configure the TextRenderer with the content and font options and call `measure()`.
-		 * This returns the calculated pixel width and height of the final box.
-		 */
+		// --- 2. Text Renderer Setup ---
 		const textOptions = deepCopy(options.text);
-		const temporaryTextRendererData: TextRendererData = {
-			points: [rawPivot], 
-			text: textOptions,
-			hitTestBackground: true,
-		};
-		this._textRenderer.setData(temporaryTextRendererData);
-		const boxDimensions = this._textRenderer.measure(); // { width: boxWidth, height: boxHeight }
-		//console.log('boxDimensions', boxDimensions)
-
-		// --- 2b. Calculate Adjusted Pivot (textPivot) ---
-
-		/**
-		 * PIVOT ADJUSTMENT (ALIGNMENT LOGIC)
-		 *
-		 * The `TextRenderer` draws starting from a specific point. However, the user might want
-		 * that point to represent the "Bottom Right" of the box, not the "Top Left".
-		 *
-		 * We calculate offsets based on the `boxDimensions` found in the previous step.
-		 * - **Horizontal:** If aligned Right, we shift the x-pivot left by the box width.
-		 * - **Vertical:** If aligned Bottom, we shift the y-pivot up by the box height.
-		 */
-		let adjustedPivotX = rawPivot.x;
-		let adjustedPivotY = rawPivot.y;
-		
-		// Adjust X based on box width and box.alignment.horizontal
-		const horizontalAlignment = options.text.box?.alignment?.horizontal;
-		//console.log('horizontalAlignment', horizontalAlignment)
-		
-		// Note: The TextRenderer draws the box *starting* at the pivot X and Y.
-		// To achieve the desired alignment, we must offset the pivot based on the box's size.
-		switch (horizontalAlignment) {
-			case BoxHorizontalAlignment.Right:
-				// Goal: The right edge of the text box should touch the anchor point.
-				// Action: Offset the pivot LEFT by the full box width.
-				adjustedPivotX = (rawPivot.x + (boxDimensions.width)) as Coordinate;
-				break;
-			case BoxHorizontalAlignment.Center:
-				// Goal: The center of the text box should align with the anchor point.
-				// Action: Offset the pivot LEFT by half the box width.
-				adjustedPivotX = (rawPivot.x) as Coordinate;
-				break;
-			case BoxHorizontalAlignment.Left:
-				// Goal: The left edge of the text box should touch the anchor point.
-				// Action: No horizontal offset needed (pivot is already at the left edge).
-				adjustedPivotX = (rawPivot.x  - (boxDimensions.width)) as Coordinate;
-				break;
-		}
-
-		// Adjust Y based on box height and box.alignment.vertical
-		const verticalAlignment = options.text.box?.alignment?.vertical;
-		//console.log('verticalAlignment', verticalAlignment)
-		
-		switch (verticalAlignment) {
-			case BoxVerticalAlignment.Bottom:
-				// Goal: The bottom edge of the text box should touch the anchor point.
-				// Action: Offset the pivot UP by the full box height.
-				adjustedPivotY = (rawPivot.y + (boxDimensions.height / 2)) as Coordinate;
-				break;
-			case BoxVerticalAlignment.Middle:
-				// Goal: The center of the text box should align with the anchor point.
-				// Action: Offset the pivot UP by half the box height.
-				adjustedPivotY = (rawPivot.y) as Coordinate;
-				break;
-			case BoxVerticalAlignment.Top:
-				// Goal: The top edge of the text box should touch the anchor point.
-				// Action: No vertical offset needed.
-				adjustedPivotY = (rawPivot.y - (boxDimensions.height / 2)) as Coordinate;
-				break;
-		}
-		
-		// Create the new adjusted pivot point
-		const adjustedPivot = new AnchorPoint(adjustedPivotX, adjustedPivotY, rawPivot.data);
-
-
-		// --- 2c. Final Renderer Data Setup ---
-
-		/**
-		 * FINAL RENDERER DATA SETUP
-		 *
-		 * We configure the `TextRenderer` with the **Adjusted Pivot**.
-		 * This ensures that when the renderer draws the box at (x,y), it visually aligns
-		 * correctly with the user's original anchor point.
-		 */
 		const textRendererData: TextRendererData = {
-			// The calculated pivot point is now passed as the attachment point
-			points: [adjustedPivot], 
-			text: textOptions, 
+			points: [anchorPoint],
+			text: textOptions,
+			useThemeForegroundColor: false,
+			useThemeBackgroundColor: true,
 			hitTestBackground: true, // Allow clicking inside the box to select/drag
 			toolDefaultHoverCursor: options.defaultHoverCursor,
 			toolDefaultDragCursor: options.defaultDragCursor,

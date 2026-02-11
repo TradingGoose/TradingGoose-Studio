@@ -26,7 +26,6 @@ const TRIANGLE_NAME = 'Triangle';
 export function registerTrianglePlugin<HorzScaleItem>(corePlugin: ILineToolsPlugin & { registerLineTool: <H>(type: string, toolClass: new (...args: any[]) => any) => void }): void {
 	// 1. Register the Triangle Tool
 	corePlugin.registerLineTool(TRIANGLE_NAME, LineToolTriangle);
-	console.log(`Registered Line Tool: ${TRIANGLE_NAME}`);
 }
 
 // Export the class itself for direct use/type referencing if necessary

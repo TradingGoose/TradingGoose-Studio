@@ -16,12 +16,9 @@ import {
 	LineToolType,
 	DeepPartial,
 	LineToolsCorePlugin,
-	merge,
-	deepCopy,
+	buildToolOptions,
 	PriceAxisLabelStackingManager,
 	LineEnd,
-	OmitRecursively,
-	LineOptions,
 	PaneCursorType,
 	CompositeRenderer,
 	HitTestResult
@@ -29,16 +26,6 @@ import {
 
 import { LineToolCrossLinePaneView } from '../views/LineToolCrossLinePaneView';
 
-
-/**
- * Define the simplified options structure for the CrossLine tool.
- * Since the goal is simplicity, we only define the line options and common properties.
- * NOTE: The interface in core/types.ts is assumed to be simplified to:
- * interface LineToolCrossLineOptions { line: Omit<LineOptions, 'cap' | 'join'>; }
- */
-interface CrossLineOptionsWithoutText {
-	line: Omit<LineOptions, 'cap' | 'join'>;
-}
 
 /**
  * Defines the default configuration for the Cross Line tool.
@@ -131,11 +118,7 @@ export class LineToolCrossLine<HorzScaleItem> extends BaseLineTool<HorzScaleItem
 		points: LineToolPoint[] = [],
 		priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
 	) {
-		// 1. Start with a deep copy of the base defaults.
-		const finalOptions = deepCopy(CrossLineDefaultOptions) as LineToolOptionsInternal<'CrossLine'>;
- 
-		// 2. Merge the user's provided options last (User wins).
-		merge(finalOptions, options as DeepPartial<LineToolOptionsInternal<'CrossLine'>>);
+		const finalOptions = buildToolOptions(CrossLineDefaultOptions, options);
 
 		// 3. Call the parent (BaseLineTool) constructor.
 		super(
@@ -153,7 +136,6 @@ export class LineToolCrossLine<HorzScaleItem> extends BaseLineTool<HorzScaleItem
 		// 4. Set the specific PaneView for this tool.
 		this._setPaneViews([new LineToolCrossLinePaneView(this, this._chart, this._series)]);
 
-		console.log(`CrossLine Tool created with ID: ${this.id()}`);
 	}
 
 	/**

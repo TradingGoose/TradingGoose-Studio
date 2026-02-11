@@ -106,7 +106,6 @@ export class LineToolCrossLinePaneView<HorzScaleItem> extends LineToolPaneView<H
 		// but since it's infinite in both directions, it's only culled if the point's X is outside
 		// the X-range AND the Y is outside the Y-range (i.e., fully off-screen X and Y).
 		if (cullingState !== OffScreenState.Visible) {
-			//console.log('cross line tool culled')
 			return; // Exit if culled
 		}
 		// --- CULLING IMPLEMENTATION END ---

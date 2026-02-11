@@ -345,6 +345,20 @@ export function merge(dst: Record<string, any>, ...sources: Record<string, any>[
 	return dst;
 }
 
+export function buildToolOptions<T extends Record<string, any>>(
+	defaults: T,
+	...sources: Array<DeepPartial<T> | undefined>
+): T {
+	const finalOptions = deepCopy(defaults);
+	for (const source of sources) {
+		if (!source) {
+			continue;
+		}
+		merge(finalOptions, source as Record<string, any>);
+	}
+	return finalOptions;
+}
+
 // #endregion
 
 // #region Unique ID Generation

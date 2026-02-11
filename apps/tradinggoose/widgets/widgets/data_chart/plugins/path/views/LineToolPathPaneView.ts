@@ -123,7 +123,6 @@ export class LineToolPathPaneView<HorzScaleItem> extends LineToolPaneView<HorzSc
 				const cullingState = getToolCullingState(boundingPointsLogical, this._tool);
 
 				if (cullingState !== OffScreenState.Visible) {
-					//console.log('path culled')
 					this._renderer.clear();
 					return;
 				}

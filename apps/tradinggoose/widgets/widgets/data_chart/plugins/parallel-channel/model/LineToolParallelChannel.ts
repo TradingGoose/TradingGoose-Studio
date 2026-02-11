@@ -17,8 +17,7 @@ import {
 	LineToolType,
 	DeepPartial,
 	LineToolsCorePlugin,
-	merge,
-	deepCopy,
+	buildToolOptions,
 	PriceAxisLabelStackingManager,
 	LineEnd,
 	Point,
@@ -138,9 +137,7 @@ export class LineToolParallelChannel<HorzScaleItem> extends BaseLineTool<HorzSca
 		points: LineToolPoint[] = [],
 		priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
 	) {
-		// 1. Create final options object
-		const finalOptions = deepCopy(ParallelChannelOptionDefaults) as LineToolOptionsInternal<'ParallelChannel'>;
-		merge(finalOptions, options as DeepPartial<LineToolOptionsInternal<'ParallelChannel'>>);
+		const finalOptions = buildToolOptions(ParallelChannelOptionDefaults, options);
 
 		// 2. Call the BaseLineTool constructor
 		super(
@@ -158,7 +155,6 @@ export class LineToolParallelChannel<HorzScaleItem> extends BaseLineTool<HorzSca
 		// 3. Set the specific PaneView for this tool.
 		this._setPaneViews([new LineToolParallelChannelPaneView(this, this._chart, this._series)]);
 
-		console.log(`ParallelChannel Tool created with ID: ${this.id()}`);
 	}
 
 	/**

@@ -157,7 +157,6 @@ export class LineToolCirclePaneView<HorzScaleItem> extends LineToolPaneView<Horz
 					const cullingState = getToolCullingState(BoundingPointsLogical, this._tool);
 
 					if (cullingState !== OffScreenState.Visible) {
-						console.log('circle culled')
 						return;
 					}
 				}

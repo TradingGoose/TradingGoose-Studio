@@ -16,8 +16,7 @@ import {
 	LineToolType,
 	DeepPartial,
 	LineToolsCorePlugin,
-	merge,
-	deepCopy,
+	buildToolOptions,
 	PriceAxisLabelStackingManager,
 	LineEnd,
 	FibRetracementLevel,
@@ -189,11 +188,7 @@ export class LineToolFibRetracement<HorzScaleItem> extends BaseLineTool<HorzScal
 		points: LineToolPoint[] = [],
 		priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
 	) {
-		// 1. Create a deep copy of the canonical default options.
-		const finalOptions = deepCopy(FibRetracementOptionDefaults) as LineToolOptionsInternal<'FibRetracement'>;
-
-		// 2. Merge the user-provided 'options' into this unique deep-copied base.
-		merge(finalOptions, options as DeepPartial<LineToolOptionsInternal<'FibRetracement'>>);
+		const finalOptions = buildToolOptions(FibRetracementOptionDefaults, options);
 
 		// 3. Call the BaseLineTool constructor.
 		super(

@@ -103,12 +103,10 @@ export function getViewportBounds<HorzScaleItem>(
 
 	const logicalRange = timeScale.getVisibleLogicalRange();
 	if (!logicalRange) {
-        //console.log("Logical Range is null. Exiting.");
         //console.groupEnd();
 		return null;
 	}
 
-    //console.log(`Initial Logical Range: [${logicalRange.from.toFixed(2)}, ${logicalRange.to.toFixed(2)}]`);
 
 
 	// BUFFER: Widen by 1 logical unit each side for anti-edge-cull buffer
@@ -117,7 +115,6 @@ export function getViewportBounds<HorzScaleItem>(
 	const leftLogical = (logicalRange.from - BUFFER) as Logical;
 	const rightLogical = (logicalRange.to + BUFFER) as Logical;
 
-    //console.log(`Buffered Logical Range (Target Indices): [${leftLogical.toFixed(2)}, ${rightLogical.toFixed(2)}]`);
 
 
     // --- Time Bounds Calculation: FORCED INTERPOLATION FIX ---
@@ -126,11 +123,9 @@ export function getViewportBounds<HorzScaleItem>(
     const rawMinTime = interpolateTimeFromLogicalIndex(chart, series, leftLogical);
     const rawMaxTime = interpolateTimeFromLogicalIndex(chart, series, rightLogical);
 
-    //console.log(`%cInterpolation Raw Results: MinTime=${rawMinTime} | MaxTime=${rawMaxTime}`, 'color: #FF8C00; font-weight: bold;');
 
 
     if (rawMinTime === null || rawMaxTime === null) {
-        //console.log("Interpolation returned null for one or both sides. Exiting.");
         //console.groupEnd();
         return null;
     }
@@ -142,12 +137,10 @@ export function getViewportBounds<HorzScaleItem>(
     let minTime = Math.ceil(minTimeNum);
     let maxTime = Math.floor(maxTimeNum);
     
-    //console.log(`Initial Final Time (Rounded): [${minTime}, ${maxTime}]`);
 
 
     // Degeneracy Check (Ensure a valid time range of at least 1 unit)
     if (minTime >= maxTime) {
-        //console.log(`%cDegeneracy Detected (minTime >= maxTime). Adjusting maxTime.`, 'color: #FF4500;');
         maxTime = minTime + 1;
     }
 
@@ -163,7 +156,6 @@ export function getViewportBounds<HorzScaleItem>(
 		maxPrice: maxPriceRaw as number,
 	};
 
-    //console.log(`%cFINAL VIEWPORT BOUNDS: MinTime=${viewportBounds.minTime}, MaxTime=${viewportBounds.maxTime}`, 'color: #3CB371; font-weight: bold;');
     //console.groupEnd();
 	return viewportBounds;
 }

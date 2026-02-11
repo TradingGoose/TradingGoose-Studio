@@ -369,8 +369,22 @@ function drawPathRoundRect(ctx: CanvasRenderingContext2D, x: number, y: number, 
 	ctx.closePath();
 }
 
+function clampRoundRectRadii(
+	width: number,
+	height: number,
+	radii: [number, number, number, number]
+): [number, number, number, number] {
+	const maxRadius = Math.max(0, Math.min(Math.abs(width), Math.abs(height)) / 2);
+	return [
+		Math.max(0, Math.min(radii[0], maxRadius)),
+		Math.max(0, Math.min(radii[1], maxRadius)),
+		Math.max(0, Math.min(radii[2], maxRadius)),
+		Math.max(0, Math.min(radii[3], maxRadius)),
+	];
+}
+
 /**
- * Draws the outline (stroke) of a rectangle with rounded corners.
+ * Builds the rounded-rectangle path and applies line style to the context.
  *
  * This function supports flexible corner radius definitions. You can provide a single number for uniform
  * corners, or an array to specify distinct radii for the top-left, top-right, bottom-right, and bottom-left corners.
@@ -381,7 +395,7 @@ function drawPathRoundRect(ctx: CanvasRenderingContext2D, x: number, y: number, 
  * @param width - The width of the rectangle.
  * @param height - The height of the rectangle.
  * @param radius - The border radius. Can be a number (all corners) or an array `[TL, TR, BR, BL]`.
- * @param borderStyle - The `LineStyle` to use for the border stroke.
+ * @param borderStyle - The `LineStyle` to use when the caller later strokes the path.
  */
 export function drawRoundRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number | number[], borderStyle: LineStyle): void {
 	let r: [number, number, number, number];
@@ -402,10 +416,11 @@ export function drawRoundRect(ctx: CanvasRenderingContext2D, x: number, y: numbe
 	} else {
 		r = [radius, radius, radius, radius];
 	}
-	
+
+	r = clampRoundRectRadii(width, height, r);
+
 	drawPathRoundRect(ctx, x, y, width, height, r);
 	setLineStyle(ctx, borderStyle);
-	ctx.stroke();
 }
 
 /**

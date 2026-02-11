@@ -5,26 +5,24 @@ import {
 	ISeriesApi,
 	IHorzScaleBehavior,
 	SeriesType,
+	LineStyle,
 } from 'lightweight-charts';
 
 import {
-	BaseLineTool,
 	LineToolPoint,
 	LineToolOptionsInternal,
 	LineToolType,
 	DeepPartial,
 	LineToolsCorePlugin,
-	merge,
-	deepCopy,
 	PriceAxisLabelStackingManager,
 	LineEnd,
 	TextOptions,
-	BackgroundOptions,
 	PaneCursorType
 } from '../../core';
 
 // Import the base class model and its default options structure
 import { LineToolTrendLine, TrendLineOptionDefaults } from '../../shared/lines/model/LineToolTrendLine';
+import { buildLineToolOptions } from '../../shared/lines/model/line-tool-options';
 import { LineToolCalloutPaneView } from '../views/LineToolCalloutPaneView';
 
 /**
@@ -39,6 +37,8 @@ import { LineToolCalloutPaneView } from '../views/LineToolCalloutPaneView';
  *    to ensure the text is readable and "pop-out" style by default.
  * 4. **Disable Extensions:** Ensures the line is strictly a segment between the pointer and text.
  */
+
+
 const CalloutSpecificOverrides = {
 
 	defaultHoverCursor: PaneCursorType.Pointer,
@@ -60,12 +60,11 @@ const CalloutSpecificOverrides = {
 		padding: 0,
 		wordWrapWidth: 150,
 		font: {
-			color: 'rgba(255,255,255,1)',
+			color: '',
 			size: 14,
 			bold: false,
 			italic: false,
 		},
-		// Default to a visible text box background for clarity/design
 		box: {
 			shadow: {
 				blur: 0,
@@ -76,22 +75,24 @@ const CalloutSpecificOverrides = {
 				},
 			},
 			border: {
-				color: 'rgba(74,144,226,1)',
+				color: '#888',
 				width: 1,
 				radius: 20,
 				highlight: false,
-				style: 0,
+				style: LineStyle.Solid,
 			},
 			background: {
-				color: 'rgba(19,73,133,1)',
+				color: '',
 				inflation: {
-					x: 10,
-					y: 10,
+					x: 0,
+					y: 3,
 				},
 			},
-			padding: { x: 5, y: 5 },
-			alignment: { vertical: 'middle', horizontal: 'center' },
-			maxHeight: 500,
+			padding: { x: 0, y: 0 },
+			scale: 5,
+			angle: 10,
+			alignment: { vertical: 'middle', horizontal: 'left' },
+			maxHeight: Infinity,
 		}
 	}
 };
@@ -116,7 +117,7 @@ export class LineToolCallout<HorzScaleItem> extends LineToolTrendLine<HorzScaleI
 	 * @override
 	 */
 	public override readonly toolType: LineToolType = 'Callout';
-	
+
 	/**
 	 * Defines the number of anchor points required to draw this tool.
 	 *
@@ -155,14 +156,11 @@ export class LineToolCallout<HorzScaleItem> extends LineToolTrendLine<HorzScaleI
 		points: LineToolPoint[] = [],
 		priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
 	) {
-		// 1. Start with a deep copy of the base TrendLine defaults.
-		const finalOptions = deepCopy(TrendLineOptionDefaults) as LineToolOptionsInternal<'Callout'>;
-		
-		// 2. Deep-copy the overrides before merging them.
-		merge(finalOptions, deepCopy(CalloutSpecificOverrides));
-
-		// 3. Merge the user's provided options last (User wins).
-		merge(finalOptions, options as DeepPartial<LineToolOptionsInternal<'Callout'>>);
+		const finalOptions = buildLineToolOptions<'Callout', 'TrendLine'>(
+			TrendLineOptionDefaults,
+			options,
+			CalloutSpecificOverrides
+		);
 
 		// 4. Call the parent (LineToolTrendLine) constructor.
 		super(
@@ -178,7 +176,6 @@ export class LineToolCallout<HorzScaleItem> extends LineToolTrendLine<HorzScaleI
 		// 5. Set the specific PaneView for this tool.
 		this._setPaneViews([new LineToolCalloutPaneView(this, this._chart, this._series)]);
 
-		console.log(`Callout Tool created with ID: ${this.id()}`);
 	}
 
 	/**

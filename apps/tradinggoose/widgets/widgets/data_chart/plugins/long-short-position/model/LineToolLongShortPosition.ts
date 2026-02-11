@@ -14,9 +14,8 @@ import {
 	LineToolType,
 	LineToolOptionsInternal,
 	TextOptions,
-	merge,
+	buildToolOptions,
 	DeepPartial,
-	LineToolPartialOptionsMap,
 	TextAlignment,
 	BoxVerticalAlignment,
 	BoxHorizontalAlignment,
@@ -247,8 +246,7 @@ export class LineToolLongShortPosition<HorzScaleItem> extends BaseLineTool<HorzS
 		points: LineToolPoint[] = [],
 		priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
 	) {
-		const finalOptions = deepCopy(LongShortPositionOptionDefaults) as LineToolOptionsInternal<'LongShortPosition'>;
-		merge(finalOptions, options as LineToolPartialOptionsMap['LongShortPosition']);
+		const finalOptions = buildToolOptions(LongShortPositionOptionDefaults, options);
 
 		super(
 			coreApi,

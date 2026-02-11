@@ -24,7 +24,6 @@ export function registerTextPlugin<HorzScaleItem>(corePlugin: ILineToolsPlugin &
 	// We pass the specific name and the class constructor.
 	corePlugin.registerLineTool(TEXT_LINE_NAME, LineToolText);
 
-	console.log(`Registered Line Tool: ${TEXT_LINE_NAME}`);
 }
 
 // Export the class itself for direct use/type referencing if necessary

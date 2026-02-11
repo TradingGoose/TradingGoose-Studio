@@ -118,7 +118,6 @@ export class LineToolTrianglePaneView<HorzScaleItem> extends LineToolPaneView<Ho
 				const cullingState = getToolCullingState(boundingPointsLogical, this._tool);
 
 				if (cullingState !== OffScreenState.Visible) {
-					//console.log('triangle culled')
 					return;
 				}
 			}

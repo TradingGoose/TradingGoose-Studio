@@ -24,6 +24,11 @@ import { DrawToolsSidebar } from '@/widgets/widgets/data_chart/components/draw-t
 import { DataChartFooter } from '@/widgets/widgets/data_chart/components/footer'
 import { IndicatorControl } from '@/widgets/widgets/data_chart/components/indicator-control'
 import { PaneControl } from '@/widgets/widgets/data_chart/components/pane-control'
+import {
+  createEmptyManualOwnerSnapshot,
+  normalizeManualOwnerSnapshot,
+  serializeManualOwnerSnapshot,
+} from '@/widgets/widgets/data_chart/drawings/manual-line-tools-snapshot'
 import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/manual-tool-types'
 import { useManualLineToolsAdapter } from '@/widgets/widgets/data_chart/drawings/use-manual-line-tools-adapter'
 import { useChartDataLoader } from '@/widgets/widgets/data_chart/hooks/use-chart-data-loader'
@@ -77,10 +82,7 @@ const normalizeDrawToolsRefs = (raw: unknown): DrawToolsRef[] => {
       pane === 'indicator' && typeof record?.indicatorId === 'string' && record.indicatorId.trim().length > 0
         ? record.indicatorId.trim()
         : undefined
-    const snapshot =
-      typeof record?.snapshot === 'string' && record.snapshot.trim().length > 0
-        ? record.snapshot.trim()
-        : undefined
+    const snapshot = normalizeManualOwnerSnapshot(record?.snapshot)
 
     const normalized: DrawToolsRef = {
       id: normalizedId,
@@ -382,12 +384,15 @@ export const DataChartWidgetBody = ({
     let changed = false
     const nextDrawTools = normalized.map((entry) => {
       const snapshot = getOwnerSnapshot(toManualOwnerId(entry.id))
-      const nextSnapshot = snapshot.trim().length > 0 ? snapshot : undefined
-      const currentSnapshot = typeof entry.snapshot === 'string' ? entry.snapshot : undefined
+      const nextSnapshot = snapshot && snapshot.tools.length > 0 ? snapshot : undefined
+      const currentSnapshot = normalizeManualOwnerSnapshot(entry.snapshot) ?? undefined
       if (!nextSnapshot && currentSnapshot && manualLineToolsRevision === 0) {
         return entry
       }
-      if (currentSnapshot === nextSnapshot) {
+      if (
+        serializeManualOwnerSnapshot(currentSnapshot) ===
+        serializeManualOwnerSnapshot(nextSnapshot)
+      ) {
         return entry
       }
 
@@ -403,7 +408,7 @@ export const DataChartWidgetBody = ({
         nextEntry.snapshot = nextSnapshot
       } else if (currentSnapshot) {
         // Keep an explicit clear marker so stale events cannot resurrect old snapshots.
-        nextEntry.snapshot = ''
+        nextEntry.snapshot = createEmptyManualOwnerSnapshot()
       }
       return nextEntry
     })

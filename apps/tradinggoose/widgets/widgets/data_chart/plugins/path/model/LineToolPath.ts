@@ -18,8 +18,7 @@ import {
 	LineEnd,
 	LineJoin,
 	LineCap,
-	deepCopy,
-	merge,
+	buildToolOptions,
 	DeepPartial,
 	PaneCursorType,
 	FinalizationMethod,
@@ -183,9 +182,7 @@ export class LineToolPath<HorzScaleItem> extends BaseLineTool<HorzScaleItem> {
 		points: LineToolPoint[] = [],
 		priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
 	) {
-		// Merge user options with defaults
-		const finalOptions = deepCopy(PathOptionDefaults) as LineToolOptionsInternal<'Path'>;
-		merge(finalOptions, options as DeepPartial<LineToolOptionsInternal<'Path'>>);
+		const finalOptions = buildToolOptions(PathOptionDefaults, options);
 
 		// Call the BaseLineTool constructor
 		super(
@@ -248,7 +245,6 @@ export class LineToolPath<HorzScaleItem> extends BaseLineTool<HorzScaleItem> {
 
 		// Add logging for important hit test events
 		if (hitResult) {
-			//console.log(`\tPath Tool ${this.id()} Hit: Type ${hitResult.type()}, Index ${hitResult.data()?.pointIndex}`);
 		}
 
 		return hitResult;

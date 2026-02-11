@@ -152,7 +152,6 @@ export class LineToolParallelChannelPaneView<HorzScaleItem> extends LineToolPane
             );
             
             if (cullingState !== OffScreenState.Visible) {
-				//console.log('parallel channel culled')
                 this._renderer.clear();
                 return; // Exit if culled
             }

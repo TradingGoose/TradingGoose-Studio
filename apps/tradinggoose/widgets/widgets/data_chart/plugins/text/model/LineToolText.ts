@@ -6,6 +6,7 @@ import {
 	IHorzScaleBehavior,
 	SeriesType,
 	Coordinate,
+	LineStyle,
 } from 'lightweight-charts';
 
 import {
@@ -15,8 +16,7 @@ import {
 	LineToolType,
 	DeepPartial,
 	LineToolsCorePlugin,
-	merge,
-	deepCopy,
+	buildToolOptions,
 	PriceAxisLabelStackingManager,
 	HitTestResult,
 	HitTestType,
@@ -24,9 +24,6 @@ import {
 	LineToolHitTestData,
 	LineToolTextOptions,
 	LineEnd,
-	TextAlignment,
-	BoxVerticalAlignment,
-	BoxHorizontalAlignment,
 	TextOptions,
 	PaneCursorType,
 	CompositeRenderer,
@@ -60,29 +57,47 @@ const TextToolDefaultOptions: LineToolOptionsInternal<'Text'> = {
 	showTimeAxisLabels: false,
 	priceAxisLabelAlwaysVisible: false,
 	timeAxisLabelAlwaysVisible: false,
-	
 	// Specific Options for TextTool (Inherits from core's TextToolOptions)
 	text: {
 		value: 'Text', // Default value
 		padding: 0,
-		wordWrapWidth: 0,
+		wordWrapWidth: 150,
 		forceTextAlign: false,
 		forceCalculateMaxLineWidth: false,
-		alignment: TextAlignment.Center, 
-
 		font: {
-			color: '#2962ff',
-			size: 12,
+			color: '',
+			size: 14,
 			bold: false,
 			italic: false,
-			family: 'sans-serif',
 		},
-
 		box: {
+			shadow: {
+				blur: 0,
+				color: '',
+				offset: {
+					x: 0,
+					y: 0,
+				},
+			},
+			border: {
+				color: '#888',
+				width: 1,
+				radius: 20,
+				highlight: false,
+				style: LineStyle.Solid,
+			},
+			background: {
+				color: '',
+				inflation: {
+					x: 0,
+					y: 3,
+				},
+			},
+			padding: { x: 0, y: 0 },
 			scale: 1,
-			angle: 0,
-			alignment: { vertical: BoxVerticalAlignment.Top, horizontal: BoxHorizontalAlignment.Center },
-			// Default box is empty/transparent.
+			angle: 10,
+			alignment: { vertical: 'bottom', horizontal: 'center' },
+			maxHeight: Infinity,
 		},
 	} as TextOptions,
 };
@@ -141,11 +156,7 @@ export class LineToolText<HorzScaleItem> extends BaseLineTool<HorzScaleItem> {
 		points: LineToolPoint[] = [],
 		priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
 	) {
-		// 1. Start with a deep copy of the base defaults.
-		const finalOptions = deepCopy(TextToolDefaultOptions) as LineToolOptionsInternal<'Text'>;
-		
-		// 2. Merge the user's provided options last (User wins).
-		merge(finalOptions, options as DeepPartial<LineToolOptionsInternal<'Text'>>);
+		const finalOptions = buildToolOptions(TextToolDefaultOptions, options);
 
 		// 3. Call the parent (BaseLineTool) constructor.
 		super(
@@ -163,7 +174,6 @@ export class LineToolText<HorzScaleItem> extends BaseLineTool<HorzScaleItem> {
 		// 4. Set the specific PaneView for this tool.
 		this._setPaneViews([new LineToolTextPaneView(this, this._chart, this._series)]);
 
-		console.log(`Text Tool created with ID: ${this.id()}`);
 	}
 
 	/**
@@ -197,7 +207,7 @@ export class LineToolText<HorzScaleItem> extends BaseLineTool<HorzScaleItem> {
 
 		return compositeRenderer.hitTest(x, y);
 	}
-	
+
 	/**
 	 * Updates the coordinates of the single anchor point.
 	 *
@@ -223,7 +233,7 @@ export class LineToolText<HorzScaleItem> extends BaseLineTool<HorzScaleItem> {
 	public override maxAnchorIndex(): number {
 		return 0;
 	}
-	
+
 	/**
 	 * Checks if the tool creation is complete.
 	 *

@@ -169,7 +169,6 @@ export abstract class BaseLineTool<HorzScaleItem> extends PriceDataSource<HorzSc
 	 */
 	public hitTest(x: number, y: number): PrimitiveHoveredItem | null {
 
-		//console.log(`[BaseLineTool] Public hitTest called at X:${x}, Y:${y}`);
 
 		// Check for override first
 		// If an override is set (e.g., during dragging), return it immediately
@@ -192,7 +191,6 @@ export abstract class BaseLineTool<HorzScaleItem> extends PriceDataSource<HorzSc
 			const internalResult = this._internalHitTest(ourX, ourY);
 
 			if (internalResult !== null) {
-				//console.log(`[BaseLineTool] Tool is not editable. Forcing cursor to 'not-allowed'.`);
 				return {
 					externalId: this.id(),
 					zOrder: 'normal',
@@ -209,18 +207,15 @@ export abstract class BaseLineTool<HorzScaleItem> extends PriceDataSource<HorzSc
 		const internalResult = this._internalHitTest(ourX, ourY);
 
 		if (internalResult === null) {
-			//console.log(`[BaseLineTool] Internal hitTest returned NULL.`);
 			return null;
 		}
 
 		// Adapt our internal HitTestResult to ISeriesPrimitive's expected PrimitiveHoveredItem
-		//console.log(`[BaseLineTool] Internal hitTest returned: Type=${internalResult.type()}, Data=${JSON.stringify(internalResult.data())}`); 
 
 		const hitData = internalResult.data();
 		let cursorStyle: PaneCursorType = PaneCursorType.Default; 
 		if (hitData?.suggestedCursor) {
 			cursorStyle = hitData.suggestedCursor; // Use the specific cursor suggested by the hit
-			//console.log(`[BaseLineTool] Using suggestedCursor from hitData: ${cursorStyle}`);
 		} else {
 			// Fallback to tool options or generic defaults if no specific suggestedCursor is provided by hitData
 			const options = this.options();
@@ -228,28 +223,23 @@ export abstract class BaseLineTool<HorzScaleItem> extends PriceDataSource<HorzSc
 				case HitTestType.MovePointBackground:
 					// Use tool's defaultDragCursor or a generic 'grabbing'
 					cursorStyle = options.defaultDragCursor || PaneCursorType.Grabbing;
-					//console.log(`[BaseLineTool] Using defaultDragCursor: ${cursorStyle}`);
 					break;
 				case HitTestType.MovePoint:
 				case HitTestType.Regular:
 					// Use tool's defaultHoverCursor or a generic 'pointer'
 					cursorStyle = options.defaultHoverCursor || PaneCursorType.Pointer;
-					//console.log(`[BaseLineTool] Using defaultHoverCursor: ${cursorStyle}`);
 					break;
 				case HitTestType.ChangePoint:
 					// For anchor points, a generic resize cursor if not specifically set elsewhere
 					cursorStyle = PaneCursorType.DiagonalNwSeResize; // Example, can be refined.
-					//console.log(`[BaseLineTool] Using generic DiagonalNwSeResize for ChangePoint.`);
 					break;
 				default:
 					cursorStyle = PaneCursorType.Default;
-					//console.log(`[BaseLineTool] Using PaneCursorType.Default as fallback.`);
 					break;
 			}
 		}
 
 		// Return the PrimitiveHoveredItem.
-		//console.log(`[BaseLineTool] Final cursor selected for PrimitiveHoveredItem: ${cursorStyle}`);
 		return {
 			externalId: this.id(), // Return the unique ID of the tool
 			zOrder: 'normal', // Default zOrder for line tools
@@ -370,7 +360,6 @@ export abstract class BaseLineTool<HorzScaleItem> extends PriceDataSource<HorzSc
 			console.warn(`[BaseLineTool] Tool ${this.id()} attached to a series not found in any pane. This primitive relies on IPaneApi access.`);
 		}
 
-		console.log(`Tool ${this.toolType} with ID ${this.id()} attached to series.`);
 	}
 
 	/**
@@ -432,7 +421,6 @@ export abstract class BaseLineTool<HorzScaleItem> extends PriceDataSource<HorzSc
 	 * @returns void
 	 */
 	public detached(): void {
-		console.log(`[BaseLineTool] Tool ${this.id()} detached from series.`);
 
 		// Nullify references to LWCharts APIs to prevent memory leaks / stale closures.
 		// This is important because chart/series APIs might hold references back to the primitive.
@@ -1032,7 +1020,6 @@ export abstract class BaseLineTool<HorzScaleItem> extends PriceDataSource<HorzSc
 	 * @returns void
 	 */
 	public destroy(): void {
-		console.log(`[BaseLineTool] Destroying tool with ID: ${this.id()}`);
 
 		this._isDestroying = true;
 
@@ -1098,7 +1085,6 @@ export abstract class BaseLineTool<HorzScaleItem> extends PriceDataSource<HorzSc
 			} catch {
 				// Ignore disposal races during teardown.
 			}
-			//console.log(`[BaseLineTool] Triggering chart update for tool ${this.id()}.`);
 		} else {
 			console.warn(`[BaseLineTool] Attempted to trigger chart update for tool ${this.id()} but _requestUpdate is not set.`);
 		}

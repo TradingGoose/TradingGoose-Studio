@@ -13,14 +13,13 @@ import {
 	LineToolType,
 	DeepPartial,
 	LineToolsCorePlugin,
-	merge,
-	deepCopy,
 	PriceAxisLabelStackingManager,
 } from '../../core';
 
 // Import the base class model and its default options structure
 import { LineToolHorizontalLine } from '../../shared/lines/model/LineToolHorizontalLine';
 import { TrendLineOptionDefaults } from '../../shared/lines/model/LineToolTrendLine'; // Reuse the TrendLine base defaults for structure
+import { buildLineToolOptions } from '../../shared/lines/model/line-tool-options';
 import { LineToolHorizontalRayPaneView } from '../views/LineToolHorizontalRayPaneView';
 
 
@@ -34,7 +33,7 @@ import { LineToolHorizontalRayPaneView } from '../views/LineToolHorizontalRayPan
  * This override:
  * 1. Sets `extend: { left: false, right: true }`.
  * 2. Maintains the visibility of Price Axis labels (critical for horizontal levels).
- * 3. Hides Time Axis labels, as a horizontal line has no specific "time" other than its start anchor.
+ * 3. Keeps Time Axis labels enabled so the anchor time remains inspectable.
  */
 const HorizontalRaySpecificOverrides = {
 	line: {
@@ -43,7 +42,7 @@ const HorizontalRaySpecificOverrides = {
 	// Ensure the base tool's price and time axis label visibility is maintained
 	showPriceAxisLabels: true,
 	priceAxisLabelAlwaysVisible: false,
-	showTimeAxisLabels: true, // Time axis label is redundant for horizontal lines/rays
+	showTimeAxisLabels: true,
 };
 
 
@@ -102,18 +101,15 @@ export class LineToolHorizontalRay<HorzScaleItem> extends LineToolHorizontalLine
 		chart: IChartApiBase<HorzScaleItem>,
 		series: ISeriesApi<SeriesType, HorzScaleItem>,
 		horzScaleBehavior: IHorzScaleBehavior<HorzScaleItem>,
-		options: DeepPartial<LineToolOptionsInternal<'HorizontalLine'>> = {},
+		options: DeepPartial<LineToolOptionsInternal<'HorizontalRay'>> = {},
 		points: LineToolPoint[] = [],
 		priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
 	) {
-		// 1. Start with a deep copy of the base TrendLine defaults (for common options structure)
-		const finalOptions = deepCopy(TrendLineOptionDefaults) as LineToolOptionsInternal<'HorizontalLine'>;
- 
-		// 2. Merge the Horizontal Ray specific overrides (line extension is the key).
-		merge(finalOptions, deepCopy(HorizontalRaySpecificOverrides));
-
-		// 3. Merge the user's provided options last (User wins).
-		merge(finalOptions, options as DeepPartial<LineToolOptionsInternal<'HorizontalLine'>>);
+		const finalOptions = buildLineToolOptions<'HorizontalRay', 'TrendLine'>(
+			TrendLineOptionDefaults,
+			options,
+			HorizontalRaySpecificOverrides
+		);
 
 		// 4. Call the parent (LineToolHorizontalLine) constructor.
 		super(
@@ -129,7 +125,6 @@ export class LineToolHorizontalRay<HorzScaleItem> extends LineToolHorizontalLine
 		// 5. Override the pane view with the specific Ray view.
 		this._setPaneViews([new LineToolHorizontalRayPaneView(this, this._chart, this._series)]);
 
-		console.log(`HorizontalRay Tool created with ID: ${this.id()}`);
 	}
 
 	// NOTE: All core logic is inherited from LineToolHorizontalLine.

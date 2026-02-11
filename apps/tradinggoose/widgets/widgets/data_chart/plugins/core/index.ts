@@ -85,7 +85,6 @@ export function createLineToolsPlugin<HorzScaleItem>(
 			throw new Error('A valid Lightweight Charts series instance must be provided.');
 		}
 
-		console.log('Initializing Line Tools Core Plugin...');
 		const horzScaleBehavior = chart.horzBehaviour();
 
 		const plugin = new LineToolsCorePlugin<HorzScaleItem>(chart, series, horzScaleBehavior);
@@ -154,22 +153,25 @@ export * from './utils/culling-helpers';
 // Re-export the base class for those who will be creating their own individual line tool plugins.
 export { BaseLineTool } from './model/base-line-tool';
 
-export { AnchorPoint, LineAnchorRenderer, LineAnchorRendererData  } from './rendering/line-anchor-renderer';
+export { AnchorPoint, LineAnchorRenderer } from './rendering/line-anchor-renderer';
+export type { LineAnchorRendererData } from './rendering/line-anchor-renderer';
 
 export {
-    SegmentRenderer,
-    SegmentRendererData,
-    PolygonRenderer,
-    PolygonRendererData,
-    RectangleRenderer,
-    RectangleRendererData,
-    TextRenderer,
-    CircleRenderer,
-    CircleRendererData,
+	SegmentRenderer,
+	PolygonRenderer,
+	RectangleRenderer,
+	TextRenderer,
+	CircleRenderer,
+} from './rendering/generic-renderers';
+export type {
+	SegmentRendererData,
+	PolygonRendererData,
+	RectangleRendererData,
+	CircleRendererData,
 	BoxSize,
-	LinesInfo,   
-    FontInfo,
-    InternalData,
+	LinesInfo,
+	FontInfo,
+	InternalData,
 } from './rendering/generic-renderers';
 
 export { CompositeRenderer } from './rendering/composite-renderer';
@@ -180,6 +182,4 @@ export { PriceAxisLabelStackingManager } from './model/price-axis-label-stacking
 export { LineToolsCorePlugin } from './core-plugin';
 export { InteractionManager } from './interaction/interaction-manager';
 export { ToolRegistry } from './model/tool-registry';
-
-
 

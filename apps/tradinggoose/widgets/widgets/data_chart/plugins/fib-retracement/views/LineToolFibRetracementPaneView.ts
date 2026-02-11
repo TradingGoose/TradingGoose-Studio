@@ -299,7 +299,6 @@ export class LineToolFibRetracementPaneView<HorzScaleItem> extends LineToolPaneV
 		);
 
 		if (cullingState !== OffScreenState.Visible) {
-			//console.log('fib retracement culled')
 			return;
 		}
 		// --- CULLING END ---

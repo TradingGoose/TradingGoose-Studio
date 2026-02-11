@@ -5,7 +5,6 @@ import {
 	ISeriesApi,
 	IHorzScaleBehavior,
 	SeriesType,
-	LineStyle,
 	Coordinate,
 } from 'lightweight-charts';
 
@@ -16,14 +15,12 @@ import {
 	LineToolType,
 	DeepPartial,
 	LineToolsCorePlugin,
-	merge,
-	deepCopy,
 	PriceAxisLabelStackingManager,
-	LineEnd,
 	HitTestResult,
 	CompositeRenderer
 } from '../../core';
 import { TrendLineOptionDefaults } from '../../shared/lines/model/LineToolTrendLine';
+import { buildLineToolOptions } from '../../shared/lines/model/line-tool-options';
 
 import { LineToolVerticalLinePaneView } from '../views/LineToolVerticalLinePaneView';
 
@@ -107,14 +104,11 @@ export class LineToolVerticalLine<HorzScaleItem> extends BaseLineTool<HorzScaleI
 		points: LineToolPoint[] = [],
 		priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
 	) {
-		// 1. Start with a deep copy of the base TrendLine defaults (for common options structure)
-		const finalOptions = deepCopy(TrendLineOptionDefaults) as LineToolOptionsInternal<'VerticalLine'>;
- 
-		// 2. Merge the VerticalLineSpecificOverrides over the base defaults.
-		merge(finalOptions, deepCopy(VerticalLineSpecificOverrides));
-
-		// 3. Merge the user's provided options last (User wins).
-		merge(finalOptions, options as DeepPartial<LineToolOptionsInternal<'VerticalLine'>>);
+		const finalOptions = buildLineToolOptions<'VerticalLine', 'TrendLine'>(
+			TrendLineOptionDefaults,
+			options,
+			VerticalLineSpecificOverrides
+		);
 
 		// 4. Call the parent (BaseLineTool) constructor.
 		super(
@@ -132,7 +126,6 @@ export class LineToolVerticalLine<HorzScaleItem> extends BaseLineTool<HorzScaleI
 		// 5. Set the specific PaneView for this tool.
 		this._setPaneViews([new LineToolVerticalLinePaneView(this, this._chart, this._series)]);
 
-		console.log(`VerticalLine Tool created with ID: ${this.id()}`);
 	}
 
 	/**

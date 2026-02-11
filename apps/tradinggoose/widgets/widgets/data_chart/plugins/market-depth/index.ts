@@ -27,7 +27,6 @@ export function registerMarketDepthPlugin<HorzScaleItem>(corePlugin: ILineToolsP
 	// Register the MarketDepth Tool
 	corePlugin.registerLineTool(MARKET_DEPTH_NAME, LineToolMarketDepth);
 
-	console.log(`Registered Line Tool: ${MARKET_DEPTH_NAME}`);
 }
 
 // Export the class itself for direct use/type referencing if necessary

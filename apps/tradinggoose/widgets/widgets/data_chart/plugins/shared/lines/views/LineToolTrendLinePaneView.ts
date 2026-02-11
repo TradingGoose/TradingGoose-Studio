@@ -167,7 +167,6 @@ export class LineToolTrendLinePaneView<HorzScaleItem> extends LineToolPaneView<H
 		}
 
 		if (shouldCull) {
-			//console.log('trend line culled');
 			return; // Exit early if culled
 		}
         // --- CULLING IMPLEMENTATION END ---

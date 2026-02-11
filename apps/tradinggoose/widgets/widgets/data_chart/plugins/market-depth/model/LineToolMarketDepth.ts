@@ -6,6 +6,7 @@ import {
 	IHorzScaleBehavior,
 	SeriesType,
 	Coordinate,
+	LineStyle,
 } from 'lightweight-charts';
 
 import {
@@ -15,8 +16,7 @@ import {
 	LineToolType,
 	DeepPartial,
 	LineToolsCorePlugin,
-	merge,
-	deepCopy,
+	buildToolOptions,
 	PriceAxisLabelStackingManager,
 	HitTestResult,
 	TextAlignment,
@@ -80,7 +80,7 @@ const MarketDepthToolDefaultOptions: LineToolOptionsInternal<'MarketDepth'> = {
 
 	marketDepth: {
 		lineWidth: 1,
-		lineStyle: 0, // LineStyle.Solid (0)
+		lineStyle: LineStyle.Solid,
 		lineOffset: 30,
 		lineLength: 300,
 		lineBidColor: 'rgba(42, 122, 129, 1)', // #2a7a81
@@ -152,9 +152,7 @@ export class LineToolMarketDepth<HorzScaleItem> extends BaseLineTool<HorzScaleIt
 		points: LineToolPoint[] = [],
 		priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
 	) {
-		// 1. Create final options object
-		const finalOptions = deepCopy(MarketDepthToolDefaultOptions) as LineToolOptionsInternal<'MarketDepth'>;
-		merge(finalOptions, options as DeepPartial<LineToolOptionsInternal<'MarketDepth'>>);
+		const finalOptions = buildToolOptions(MarketDepthToolDefaultOptions, options);
 
 		// 2. Call the BaseLineTool constructor
 		super(
@@ -172,7 +170,6 @@ export class LineToolMarketDepth<HorzScaleItem> extends BaseLineTool<HorzScaleIt
 		// 3. Set the specific PaneView for this tool.
 		this._setPaneViews([new LineToolMarketDepthPaneView(this, this._chart, this._series)]);
 
-		console.log(`MarketDepth Tool created with ID: ${this.id()}`);
 	}
 
 	/**

@@ -60,7 +60,6 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
 		this._interactionManager = new InteractionManager<HorzScaleItem>(this, this._chart, this._series, this._tools, this._toolRegistry);
 		this._priceAxisLabelStackingManager = new PriceAxisLabelStackingManager<HorzScaleItem>(this._chart, this._series);
 
-		console.log('Line Tools Core Plugin initialized.');
 	}
 
 	/**
@@ -100,7 +99,6 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
 	 */
 	public registerLineTool(type: LineToolType, toolClass: new (...args: any[]) => BaseLineTool<HorzScaleItem>): void {
 		this._toolRegistry.registerTool(type, toolClass);
-		console.log(`Registered line tool: ${type}`);
 	}
 
 	// #region ILineToolsApi Implementation
@@ -162,7 +160,6 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
 			// Update existing tool
 			existingTool.setPoints(points);
 			existingTool.applyOptions(options);
-			console.log(`Updated line tool with ID: ${id}`);
 		} else {
 			// Create new tool with specified ID
 			try {
@@ -183,7 +180,6 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
 	 * plugin.removeLineToolsById(['tool-id-1', 'tool-id-2']);
 	 */
 	public removeLineToolsById(ids: string[]): void {
-		console.log(`[CorePlugin] Removing tools. Current tool count: ${this._tools.size}`);
 		let needsUpdate = false;
 		ids.forEach(id => {
 			const tool = this._tools.get(id);
@@ -192,7 +188,6 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
 				tool.destroy(); // Then call our plugin's internal cleanup
 				this._tools.delete(id); // Then remove from plugin's map
 				needsUpdate = true;
-				console.log(`Removed line tool with ID: ${id}`);
 			}
 		});
 		if (needsUpdate) {
@@ -257,7 +252,6 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
 		if (allIds.length > 0) {
 			this.removeLineToolsById(allIds);
 		}
-		console.log(`[CorePlugin] All tools removed. Final total tool count: ${this._tools.size}`);
 	}
 
 	/**
@@ -280,7 +274,6 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
 		this._afterEditDelegate.destroy();
 		this._tools.clear();
 
-		console.log('Line Tools Core Plugin destroyed.');
 	}
 
 	/**
@@ -290,7 +283,6 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
 	 *
 	 * @example
 	 * const selected = JSON.parse(plugin.getSelectedLineTools());
-	 * console.log(`User has selected ${selected.length} tools.`);
 	 */
 	public getSelectedLineTools(): string {
 		const selectedTools: LineToolExport<LineToolType>[] = [];
@@ -399,7 +391,6 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
 	 */
 	public exportLineTools(): string {
 		const allToolsData = Array.from(this._tools.values()).map(tool => tool.getExportData());
-		console.log('Exporting all line tools:', allToolsData);
 		return JSON.stringify(allToolsData);
 	}
 
@@ -428,7 +419,6 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
 				// Use createOrUpdateLineTool to handle updating existing or creating new
 				this.createOrUpdateLineTool(toolData.toolType, toolData.points, toolData.options, toolData.id);
 			});
-			console.log(`Imported ${parsedTools.length} line tools.`);
 			this.requestUpdate(); // Trigger a single update after all imports
 			return true;
 		} catch (e: any) {
@@ -472,8 +462,6 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
 	 *
 	 * @example
 	 * plugin.subscribeLineToolsAfterEdit((params) => {
-	 *   console.log('Tool edited:', params.selectedLineTool.id);
-	 *   console.log('Edit stage:', params.stage);
 	 * });
 	 */
 	public subscribeLineToolsAfterEdit(handler: LineToolsAfterEditEventHandler): void {
@@ -564,7 +552,6 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
 	 * @returns void
 	 */
 	public fireDoubleClickEvent(tool: BaseLineTool<HorzScaleItem>): void {
-		console.log(`[CorePlugin] Firing DoubleClick event for tool: ${tool.id()}`);
 		const eventParams: LineToolsDoubleClickEventParams = {
 			selectedLineTool: tool.getExportData(),
 		};
@@ -584,7 +571,6 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
 	 * @returns void
 	 */
 	public fireAfterEditEvent(tool: BaseLineTool<HorzScaleItem>, stage: 'lineToolEdited' | 'pathFinished' | 'lineToolFinished'): void {
-		console.log(`[CorePlugin] Firing AfterEdit event for tool: ${tool.id()} with stage: ${stage}`);
 		const eventParams: LineToolsAfterEditEventParams = {
 			selectedLineTool: tool.getExportData(),
 			stage: stage,
@@ -649,7 +635,6 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
 		}
 
 		this._applyChartUpdate('_createAndAddTool');
-		console.log(`Created or updated line tool: ${type} with ID: ${newTool.id()}`);
 		return newTool;
 	}
 

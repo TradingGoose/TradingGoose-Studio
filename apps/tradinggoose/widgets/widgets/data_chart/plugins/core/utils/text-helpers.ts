@@ -335,26 +335,26 @@ export function textWrap(text: string, font: string, lineWrapWidth: number | str
  */
 export function isFullyTransparent(color: string): boolean {
 	// Add defensive check for undefined/null input before operating on the string.
-    if (typeof color !== 'string') {
-        return false; // Treat non-strings (undefined/null) as non-transparent (or skip the check)
-    }
+	if (typeof color !== 'string') {
+		return false; // Treat non-strings (undefined/null) as non-transparent (or skip the check)
+	}
 
-    color = color.toLowerCase().trim();
+	color = color.toLowerCase().trim();
 
-    if (color === 'transparent') {
-        return true;
-    }
+	if (color === 'transparent') {
+		return true;
+	}
 
-    // Regex to extract the alpha value from rgba(r,g,b,a) or hsla(h,s,l,a)
-    // Matches numbers after the last comma inside rgba()/hsla()
-    const alphaRegex = /(?:rgba|hsla)\((?:\s*\d+\s*,){3}\s*(\d*\.?\d+)\s*\)/;
-    const match = color.match(alphaRegex);
+	// Regex to extract the alpha value from rgba(r,g,b,a) or hsla(h,s,l,a)
+	// Matches numbers after the last comma inside rgba()/hsla()
+	const alphaRegex = /(?:rgba|hsla)\((?:\s*\d+\s*,){3}\s*(\d*\.?\d+)\s*\)/;
+	const match = color.match(alphaRegex);
 
-    if (match && match[1]) {
-        const alpha = parseFloat(match[1]);
-        return alpha === 0;
-    }
+	if (match && match[1]) {
+		const alpha = parseFloat(match[1]);
+		return alpha === 0;
+	}
 
-    // If it's a hex, rgb, hsl, or named color without alpha, it's considered opaque (not transparent)
-    return false;
+	// If it's a hex, rgb, hsl, or named color without alpha, it's considered opaque (not transparent)
+	return false;
 }

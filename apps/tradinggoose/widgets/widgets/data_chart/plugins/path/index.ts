@@ -26,7 +26,6 @@ const PATH_NAME = 'Path';
 export function registerPathPlugin<HorzScaleItem>(corePlugin: ILineToolsPlugin & { registerLineTool: <H>(type: string, toolClass: new (...args: any[]) => any) => void }): void {
 	// 1. Register the Path Tool
 	corePlugin.registerLineTool(PATH_NAME, LineToolPath);
-	console.log(`Registered Line Tool: ${PATH_NAME}`);
 }
 
 // Export the class itself for direct use/type referencing if necessary

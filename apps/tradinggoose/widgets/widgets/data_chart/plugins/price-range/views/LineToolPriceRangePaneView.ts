@@ -219,7 +219,6 @@ export class LineToolPriceRangePaneView<HorzScaleItem> extends LineToolPaneView<
 
 			if (shouldCull) {
 				// Stop rendering logic immediately and clear the renderer for efficiency.
-				//console.log('price range culled')
 				compositeRenderer.clear();
 				return;
 			}

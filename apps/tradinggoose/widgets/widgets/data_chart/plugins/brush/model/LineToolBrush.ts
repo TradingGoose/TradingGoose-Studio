@@ -17,8 +17,7 @@ import {
 	LineToolsCorePlugin,
 	LineEnd,
 	LineJoin,
-	deepCopy,
-	merge,
+	buildToolOptions,
 	DeepPartial,
 	PaneCursorType,
 	FinalizationMethod,
@@ -195,8 +194,7 @@ export class LineToolBrush<HorzScaleItem> extends BaseLineTool<HorzScaleItem> {
 		points: LineToolPoint[] = [],
 		priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
 	) {
-		const finalOptions = deepCopy(BrushOptionDefaults) as LineToolOptionsInternal<'Brush'>;
-		merge(finalOptions, options as DeepPartial<LineToolOptionsInternal<'Brush'>>);
+		const finalOptions = buildToolOptions(BrushOptionDefaults, options);
 
 		super(
 			coreApi,
