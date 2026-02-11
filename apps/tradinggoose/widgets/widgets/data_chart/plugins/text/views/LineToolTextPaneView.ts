@@ -20,6 +20,7 @@ import {
 } from '../../core';
 
 import { LineToolText } from '../model/LineToolText';
+import { TrendLineOptionDefaults } from '../../shared/lines/model/LineToolTrendLine';
 
 
 /**
@@ -115,6 +116,17 @@ export class LineToolTextPaneView<HorzScaleItem> extends LineToolPaneView<HorzSc
 
 		// --- 2. Text Renderer Setup ---
 		const textOptions = deepCopy(options.text);
+		const textScale = Math.max(0.01, textOptions.box?.scale ?? 1);
+		const textBorderColor = textOptions.box?.border?.color?.trim();
+		if (!textBorderColor && textOptions.box?.border) {
+			textOptions.box.border.color = TrendLineOptionDefaults.line.color;
+		}
+		if (textOptions.box?.border?.radius !== undefined) {
+			const borderRadius = textOptions.box.border.radius;
+			textOptions.box.border.radius = Array.isArray(borderRadius)
+				? borderRadius.map((radiusValue) => radiusValue * textScale)
+				: borderRadius * textScale;
+		}
 		const textRendererData: TextRendererData = {
 			points: [anchorPoint],
 			text: textOptions,

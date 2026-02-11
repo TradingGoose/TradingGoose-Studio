@@ -25,6 +25,7 @@ import {
 	deepCopy,
 } from '../../core';
 
+import { TrendLineOptionDefaults } from '../../shared/lines/model/LineToolTrendLine';
 import { LineToolCallout } from '../model/LineToolCallout';
 
 
@@ -108,10 +109,20 @@ export class LineToolCalloutPaneView<HorzScaleItem> extends LineToolPaneView<Hor
 		// Text Renderer logic needs the text pivot, which is P1 in screen space
 		const textPivot = point1;
 		const textOptions = deepCopy(options.text);
-		const calloutLineColor = options.line?.color?.trim();
+		const textScale = Math.max(0.01, textOptions.box?.scale ?? 1);
+		const calloutLineColor = options.line?.color?.trim() || TrendLineOptionDefaults.line.color;
 		const calloutBorderColor = textOptions.box?.border?.color?.trim();
-		if (!calloutBorderColor && calloutLineColor && textOptions.box?.border) {
+		if (!calloutBorderColor && textOptions.box?.border) {
 			textOptions.box.border.color = calloutLineColor;
+		}
+		if (textOptions.box?.border?.width !== undefined) {
+			textOptions.box.border.width = textOptions.box.border.width * textScale;
+		}
+		if (textOptions.box?.border?.radius !== undefined) {
+			const borderRadius = textOptions.box.border.radius;
+			textOptions.box.border.radius = Array.isArray(borderRadius)
+				? borderRadius.map((radiusValue) => radiusValue * textScale)
+				: borderRadius * textScale;
 		}
 
 		/**
@@ -147,6 +158,8 @@ export class LineToolCalloutPaneView<HorzScaleItem> extends LineToolPaneView<Hor
 		 * to the Text Box (P1).
 		 */
 		const lineOptions = deepCopy(options.line) as any;
+		lineOptions.color = calloutLineColor;
+		lineOptions.width = (lineOptions.width || 1) * textScale;
 		lineOptions.join = lineOptions.join || LineJoin.Miter;
 		lineOptions.cap = lineOptions.cap || LineCap.Butt;
 

@@ -30,6 +30,7 @@ import {
 } from '../../core';
 
 import { LineToolTextPaneView } from '../views/LineToolTextPaneView';
+import { TrendLineOptionDefaults } from '../../shared/lines/model/LineToolTrendLine';
 
 // --- Default Options (Mimicking the base TrendLine structure but with specific Text defaults) ---
 
@@ -80,9 +81,9 @@ const TextToolDefaultOptions: LineToolOptionsInternal<'Text'> = {
 				},
 			},
 			border: {
-				color: '#888',
+				color: '',
 				width: 1,
-				radius: 20,
+				radius: 10,
 				highlight: false,
 				style: LineStyle.Solid,
 			},
@@ -95,8 +96,8 @@ const TextToolDefaultOptions: LineToolOptionsInternal<'Text'> = {
 			},
 			padding: { x: 0, y: 0 },
 			scale: 1,
-			angle: 10,
-			alignment: { vertical: 'bottom', horizontal: 'center' },
+			angle: 1,
+			alignment: { vertical: 'top', horizontal: 'center' },
 			maxHeight: Infinity,
 		},
 	} as TextOptions,

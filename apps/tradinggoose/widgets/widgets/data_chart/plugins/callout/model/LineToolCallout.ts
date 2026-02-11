@@ -38,7 +38,6 @@ import { LineToolCalloutPaneView } from '../views/LineToolCalloutPaneView';
  * 4. **Disable Extensions:** Ensures the line is strictly a segment between the pointer and text.
  */
 
-
 const CalloutSpecificOverrides = {
 
 	defaultHoverCursor: PaneCursorType.Pointer,
@@ -52,6 +51,7 @@ const CalloutSpecificOverrides = {
 	timeAxisLabelAlwaysVisible: false,
 
 	line: {
+		color: '',
 		end: { left: LineEnd.Normal, right: LineEnd.Normal }, // Default to Normal ends
 		extend: { left: false, right: false }, // Callout is always a segment (the stem)
 	},
@@ -77,7 +77,7 @@ const CalloutSpecificOverrides = {
 			border: {
 				color: '',
 				width: 1,
-				radius: Infinity,
+				radius: 10,
 				highlight: false,
 				style: LineStyle.Solid,
 			},
@@ -91,7 +91,7 @@ const CalloutSpecificOverrides = {
 			padding: { x: 0, y: 0 },
 			scale: 1,
 			angle: 0,
-			alignment: { vertical: 'middle', horizontal: 'left' },
+			alignment: { vertical: 'top', horizontal: 'center' },
 			maxHeight: Infinity,
 		}
 	}
@@ -161,6 +161,7 @@ export class LineToolCallout<HorzScaleItem> extends LineToolTrendLine<HorzScaleI
 			options,
 			CalloutSpecificOverrides
 		);
+		finalOptions.line.color = finalOptions.line.color?.trim() || TrendLineOptionDefaults.line.color;
 
 		// 4. Call the parent (LineToolTrendLine) constructor.
 		super(
