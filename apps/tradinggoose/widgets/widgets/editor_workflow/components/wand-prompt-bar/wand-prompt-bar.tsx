@@ -88,7 +88,7 @@ export function WandPromptBar({
         className
       )}
     >
-      <div className='flex items-center gap-2 p-2'>
+      <div className='flex items-center gap-1 p-2'>
         <div className={cn('status-indicator ml-2 self-center', isStreaming && 'streaming')} />
 
         <div className='relative flex-1'>

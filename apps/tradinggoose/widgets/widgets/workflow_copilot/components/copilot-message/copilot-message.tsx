@@ -1100,7 +1100,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
             {/* Action buttons for completed messages */}
             {!isStreaming && cleanTextContent && (
-              <div className='flex items-center gap-2'>
+              <div className='flex items-center gap-1'>
                 <button
                   onClick={handleCopyContent}
                   className='text-muted-foreground transition-colors hover:bg-card'

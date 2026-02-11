@@ -15,7 +15,7 @@ interface ConfigFieldProps {
 export function ConfigField({ id, label, description, children, className }: ConfigFieldProps) {
   return (
     <div className={`space-y-2 ${className || ''}`}>
-      <div className='flex items-center gap-2'>
+      <div className='flex items-center gap-1'>
         <Label htmlFor={id}>{label}</Label>
         {description && (
           <Tooltip>

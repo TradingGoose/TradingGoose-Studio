@@ -553,7 +553,7 @@ export function McpServerModal({
           <div className='border-t pt-4'>
             <div className='flex items-center justify-between'>
               <div className='space-y-2'>
-                <div className='flex items-center gap-2'>
+                <div className='flex items-center gap-1'>
                   <Button
                     type='button'
                     variant='outline'

@@ -14,7 +14,7 @@ export const GrainBlock: BlockConfig = {
     'Integrate Grain into your workflow. Access meeting recordings, transcripts, highlights, and AI-generated summaries. Can also trigger workflows based on Grain webhook events.',
   category: 'tools',
   icon: GrainIcon,
-  bgColor: '#F6FAF9',
+  bgColor: '#00B96C',
   subBlocks: [
     {
       id: 'operation',

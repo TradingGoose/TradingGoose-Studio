@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
 import type { ComponentType } from 'react'
+import { useMemo } from 'react'
 import { Check } from 'lucide-react'
 import {
   DropdownMenu,
@@ -45,12 +45,7 @@ export function MarketProviderSelector({
   triggerClassName,
   menuClassName,
 }: MarketProviderSelectorProps) {
-  const [open, setOpen] = useState(false)
-
-  const selected = useMemo(
-    () => options.find((option) => option.id === value),
-    [options, value]
-  )
+  const selected = useMemo(() => options.find((option) => option.id === value), [options, value])
 
   const label = selected?.name ?? placeholder
   const SelectedIcon = selected?.icon
@@ -58,35 +53,30 @@ export function MarketProviderSelector({
   const tooltipText = isDropdownDisabled ? 'Provider selection unavailable' : 'Select provider'
 
   return (
-    <DropdownMenu
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (isDropdownDisabled) return
-        setOpen(nextOpen)
-      }}
-      modal={false}
-    >
+    <DropdownMenu modal={false}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <button
-              type='button'
-              disabled={isDropdownDisabled}
-              className={widgetHeaderControlClassName(
-                cn('flex w-7 items-center justify-center px-0', triggerClassName)
-              )}
-              aria-haspopup='listbox'
-            >
-              {SelectedIcon ? (
-                <SelectedIcon className='h-4 w-4 text-muted-foreground' aria-hidden='true' />
-              ) : (
-                <span className='text-xs font-semibold text-muted-foreground'>
-                  {label.slice(0, 1)}
-                </span>
-              )}
-              <span className='sr-only'>{label}</span>
-            </button>
-          </DropdownMenuTrigger>
+          <span className='inline-flex'>
+            <DropdownMenuTrigger asChild>
+              <button
+                type='button'
+                disabled={isDropdownDisabled}
+                className={widgetHeaderControlClassName(
+                  cn('flex w-7 items-center justify-center px-0', triggerClassName)
+                )}
+                aria-haspopup='listbox'
+              >
+                {SelectedIcon ? (
+                  <SelectedIcon className='h-4 w-4 text-muted-foreground' aria-hidden='true' />
+                ) : (
+                  <span className='text-xs font-semibold text-muted-foreground'>
+                    {label.slice(0, 1)}
+                  </span>
+                )}
+                <span className='sr-only'>{label}</span>
+              </button>
+            </DropdownMenuTrigger>
+          </span>
         </TooltipTrigger>
         <TooltipContent side='top'>{tooltipText}</TooltipContent>
       </Tooltip>
@@ -104,24 +94,18 @@ export function MarketProviderSelector({
               <DropdownMenuItem
                 key={option.id}
                 className={cn(widgetHeaderMenuItemClassName, 'items-center')}
-                onSelect={(event) => {
-                  event.preventDefault()
+                onSelect={() => {
                   if (option.id === value) return
                   onChange?.(option.id)
                 }}
               >
                 {Icon ? (
                   <Icon
-                    className={cn(
-                      'h-4 w-4 text-muted-foreground',
-                      isSelected && 'text-foreground'
-                    )}
+                    className={cn('h-4 w-4 text-muted-foreground', isSelected && 'text-foreground')}
                     aria-hidden='true'
                   />
                 ) : null}
-                <span className={cn(widgetHeaderMenuTextClassName, 'truncate')}>
-                  {option.name}
-                </span>
+                <span className={cn(widgetHeaderMenuTextClassName, 'truncate')}>{option.name}</span>
                 {isSelected ? <Check className='ml-auto h-3.5 w-3.5 text-primary' /> : null}
               </DropdownMenuItem>
             )

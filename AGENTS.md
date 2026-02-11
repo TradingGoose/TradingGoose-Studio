@@ -1,11 +1,13 @@
 # AGENTS
 
 ## Ground rules
-- Do not use the pacakge "server-only" in the project
+- Do not use the pacakge "server-only" in the project.
 - Do not edit any `*/migration/*` files; they are auto-generated.
 - Do not add legacy support; updates should be clean and avoid extra project complexity.
-- Ignore all license related issues
-- Project uses `Bun` pacakge manager with turborepo
+- This project does not support any legacy methods.
+- Ignore all license related issues.
+- Project uses `Bun` pacakge manager with turborepo.
+- Prefer removing lines of code over adding more lines of code to reduce project complexity.
 
 ## Planning
 - Start with a detailed, concrete plan before changes.

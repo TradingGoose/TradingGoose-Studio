@@ -363,7 +363,7 @@ export function JiraProjectSelector({
 
   // Handle open change
   const handleOpenChange = (isOpen: boolean) => {
-    setOpen(isOpen)
+    setOpen((prev) => (prev === isOpen ? prev : isOpen))
     // Only fetch projects when a credential is present; otherwise, do nothing
     if (isOpen && selectedCredentialId && domain && domain.includes('.')) {
       fetchProjects('')
@@ -410,17 +410,17 @@ export function JiraProjectSelector({
               disabled={disabled || !domain || !selectedCredentialId || isForeignCredential}
             >
               {canShowPreview ? (
-                <div className='flex items-center gap-2 overflow-hidden'>
+                <div className='flex items-center gap-1 overflow-hidden'>
                   <JiraIcon className='h-4 w-4' />
                   <span className='truncate font-normal'>{selectedProject.name}</span>
                 </div>
               ) : selectedProjectId ? (
-                <div className='flex items-center gap-2 overflow-hidden'>
+                <div className='flex items-center gap-1 overflow-hidden'>
                   <JiraIcon className='h-4 w-4' />
                   <span className='truncate font-normal'>{selectedProjectId}</span>
                 </div>
               ) : (
-                <div className='flex items-center gap-2'>
+                <div className='flex items-center gap-1'>
                   <JiraIcon className='h-4 w-4' />
                   <span className='text-muted-foreground'>{label}</span>
                 </div>
@@ -432,7 +432,7 @@ export function JiraProjectSelector({
             <PopoverContent className='w-[300px] p-0' align='start'>
               {selectedCredentialId && credentials.length > 0 && (
                 <div className='flex items-center justify-between border-b px-3 py-2'>
-                  <div className='flex items-center gap-2'>
+                  <div className='flex items-center gap-1'>
                     <JiraIcon className='h-4 w-4' />
                     <span className='text-muted-foreground text-xs'>
                       {credentials.find((cred) => cred.id === selectedCredentialId)?.name ||
@@ -494,7 +494,7 @@ export function JiraProjectSelector({
                           value={`account-${cred.id}`}
                           onSelect={() => setSelectedCredentialId(cred.id)}
                         >
-                          <div className='flex items-center gap-2'>
+                          <div className='flex items-center gap-1'>
                             <JiraIcon className='h-4 w-4' />
                             <span className='font-normal'>{cred.name}</span>
                           </div>
@@ -518,7 +518,7 @@ export function JiraProjectSelector({
                           value={`project-${project.id}-${project.name}`}
                           onSelect={() => handleSelectProject(project)}
                         >
-                          <div className='flex items-center gap-2 overflow-hidden'>
+                          <div className='flex items-center gap-1 overflow-hidden'>
                             {project.avatarUrl ? (
                               <img
                                 src={project.avatarUrl}
@@ -542,7 +542,7 @@ export function JiraProjectSelector({
                   {credentials.length === 0 && (
                     <CommandGroup>
                       <CommandItem onSelect={handleAddCredential}>
-                        <div className='flex items-center gap-2 text-foreground'>
+                        <div className='flex items-center gap-1 text-foreground'>
                           <JiraIcon className='h-4 w-4' />
                           <span>Connect Jira account</span>
                         </div>
@@ -581,7 +581,7 @@ export function JiraProjectSelector({
                 )}
               </div>
               <div className='min-w-0 flex-1 overflow-hidden'>
-                <div className='flex items-center gap-2'>
+                <div className='flex items-center gap-1'>
                   <h4 className='truncate font-medium text-xs'>{selectedProject.name}</h4>
                   <span className='whitespace-nowrap text-muted-foreground text-xs'>
                     {selectedProject.key}

@@ -40,7 +40,7 @@ export function SidebarNav({ navItems }: SidebarNavProps) {
           <SidebarMenu>
             {workspaceItems.map((item) => (
               <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton asChild isActive={item.isActive}>
+                <SidebarMenuButton asChild isActive={item.isActive} tooltip={item.title}>
                   <Link href={item.url}>
                     <item.icon />
                     <span>{item.title}</span>
@@ -58,7 +58,7 @@ export function SidebarNav({ navItems }: SidebarNavProps) {
           <SidebarMenu>
             {moreItems.map((item) => (
               <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton asChild isActive={item.isActive}>
+                <SidebarMenuButton asChild isActive={item.isActive} tooltip={item.title}>
                   <Link href={item.url}>
                     <item.icon />
                     <span>{item.title}</span>

@@ -108,10 +108,10 @@ export function DeployedWorkflowModal({
         />
 
         <div className='mt-1 flex justify-between'>
-          <div className='flex items-center gap-2'>
+          <div className='flex items-center gap-1'>
             {onActivateVersion &&
               (isSelectedVersionActive ? (
-                <div className='inline-flex items-center gap-2 rounded-md bg-emerald-500/10 px-2.5 py-1 font-medium text-emerald-600 text-xs dark:text-emerald-400'>
+                <div className='inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2.5 py-1 font-medium text-emerald-600 text-xs dark:text-emerald-400'>
                   <span className='relative flex h-2 w-2 items-center justify-center'>
                     <span className='absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75' />
                     <span className='relative inline-flex h-2 w-2 rounded-full bg-emerald-500' />
@@ -131,7 +131,7 @@ export function DeployedWorkflowModal({
               ))}
           </div>
 
-          <div className='flex items-center gap-2'>
+          <div className='flex items-center gap-1'>
             {(needsRedeployment || selectedVersion !== undefined) && (
               <AlertDialog open={showRevertDialog} onOpenChange={setShowRevertDialog}>
                 <AlertDialogTrigger asChild>

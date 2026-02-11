@@ -55,7 +55,7 @@ export function DeployedWorkflowCard({
       >
         <div className='flex items-center justify-between'>
           <h3 className='font-medium'>Workflow Preview</h3>
-          <div className='flex items-center gap-2'>
+          <div className='flex items-center gap-1'>
             {/* Show Current only when no explicit version is selected */}
             {hasCurrent && !hasSelected && (
               <button

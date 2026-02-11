@@ -39,7 +39,10 @@ import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
-import { widgetHeaderIconButtonClassName } from '@/widgets/widgets/components/widget-header-control'
+import {
+  widgetHeaderButtonGroupClassName,
+  widgetHeaderIconButtonClassName,
+} from '@/widgets/widgets/components/widget-header-control'
 
 const logger = createLogger('ControlBar')
 
@@ -821,8 +824,8 @@ export function ControlBar({
   }
 
   const showOptionalControls = true
-  const defaultContainerClass = 'inline-flex flex-nowrap items-center'
-  const containerClass = cn('flex items-center gap-1', className ?? defaultContainerClass)
+  const defaultContainerClass = 'inline-flex flex-nowrap'
+  const containerClass = widgetHeaderButtonGroupClassName(className ?? defaultContainerClass)
 
   return (
     <div className={containerClass}>

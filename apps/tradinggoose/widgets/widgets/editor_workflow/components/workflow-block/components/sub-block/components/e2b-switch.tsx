@@ -34,7 +34,7 @@ export function E2BSwitch({
   }
 
   return (
-    <div className='flex items-center gap-2'>
+    <div className='flex items-center gap-1'>
       <UISwitch
         id={`${blockId}-${subBlockId}`}
         checked={Boolean(value)}

@@ -828,7 +828,7 @@ export function WebhookConfig({
             className='flex h-10 cursor-pointer items-center justify-center rounded border border-border bg-background px-3 py-2 transition-colors duration-200 hover:bg-card hover:text-accent-foreground'
             onClick={handleOpenModal}
           >
-            <div className='flex items-center gap-2'>
+            <div className='flex items-center gap-1'>
               <div className='flex items-center'>
                 {getProviderIcon()}
                 <span className='font-normal text-sm'>

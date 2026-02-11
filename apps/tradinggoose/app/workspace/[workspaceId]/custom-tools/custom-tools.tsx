@@ -290,7 +290,7 @@ export function CustomTools() {
       <CustomToolModal
         open={isModalOpen}
         onOpenChange={(open) => {
-          setIsModalOpen(open)
+          setIsModalOpen((prev) => (prev === open ? prev : open))
           if (!open) {
             setEditingToolId(null)
           }

@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { EllipsisVertical, SquareSplitHorizontal, SquareSplitVertical, X } from 'lucide-react'
 import {
   DropdownMenu,
@@ -50,30 +49,24 @@ export function WidgetActionMenu({
 
   const allDisabled = actions.every((action) => !action.handler) || disabled
 
-  const [open, setOpen] = useState(false)
-  const closeMenu = () => setOpen(false)
-
   const tooltipText = allDisabled ? 'Actions unavailable' : 'Widget actions'
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
+    <DropdownMenu>
       <Tooltip>
         <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <button
-              type='button'
-              disabled={allDisabled}
-              className={widgetHeaderIconButtonClassName()}
-              aria-label='Widget actions'
-              onClick={() => {
-                if (!allDisabled) {
-                  setOpen((prev) => !prev)
-                }
-              }}
-            >
-              <EllipsisVertical className='h-3.5 w-3.5' />
-            </button>
-          </DropdownMenuTrigger>
+          <span className='inline-flex'>
+            <DropdownMenuTrigger asChild>
+              <button
+                type='button'
+                disabled={allDisabled}
+                className={widgetHeaderIconButtonClassName()}
+                aria-label='Widget actions'
+              >
+                <EllipsisVertical className='h-3.5 w-3.5' />
+              </button>
+            </DropdownMenuTrigger>
+          </span>
         </TooltipTrigger>
         <TooltipContent side='top'>{tooltipText}</TooltipContent>
       </Tooltip>
@@ -86,11 +79,9 @@ export function WidgetActionMenu({
             key={label}
             className={widgetHeaderMenuItemClassName}
             disabled={!handler}
-            onSelect={(event) => {
-              event.preventDefault()
+            onSelect={() => {
               if (!handler) return
               handler()
-              closeMenu()
             }}
           >
             <Icon className={widgetHeaderMenuTextClassName} aria-hidden='true' />

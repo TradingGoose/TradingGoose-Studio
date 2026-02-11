@@ -2117,7 +2117,9 @@ const WorkflowCanvas = React.memo(
           {/* Trigger warning dialog */}
           <TriggerWarningDialog
             open={triggerWarning.open}
-            onOpenChange={(open) => setTriggerWarning({ ...triggerWarning, open })}
+            onOpenChange={(open) => {
+              setTriggerWarning((prev) => (prev.open === open ? prev : { ...prev, open }))
+            }}
             triggerName={triggerWarning.triggerName}
             type={triggerWarning.type}
           />

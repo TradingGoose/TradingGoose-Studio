@@ -89,7 +89,7 @@ export function SlackChannelSelector({
 
   // Handle dropdown open/close - fetch channels when opening
   const handleOpenChange = (isOpen: boolean) => {
-    setOpen(isOpen)
+    setOpen((prev) => (prev === isOpen ? prev : isOpen))
 
     // Only fetch channels when opening the dropdown and if we have valid credential
     if (isOpen && credential && (!initialFetchDone || channels.length === 0)) {
@@ -203,7 +203,7 @@ export function SlackChannelSelector({
                     onSelect={() => handleSelectChannel(channel)}
                     className='cursor-pointer'
                   >
-                    <div className='flex items-center gap-2 overflow-hidden'>
+                    <div className='flex items-center gap-1 overflow-hidden'>
                       <SlackIcon className='h-4 w-4 text-[#611f69]' />
                       {getChannelIcon(channel)}
                       <span className='truncate font-normal'>{formatChannelName(channel)}</span>

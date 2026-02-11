@@ -11,7 +11,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import type { SubBlockConfig } from '@/blocks/types'
 import { getMarketProviderParamDefinitions } from '@/providers/market/providers'
 import { MarketProviderSelector } from '@/widgets/widgets/components/market-provider-selector'
-import { widgetHeaderIconButtonClassName } from '@/widgets/widgets/components/widget-header-control'
+import {
+  widgetHeaderButtonGroupClassName,
+  widgetHeaderIconButtonClassName,
+} from '@/widgets/widgets/components/widget-header-control'
 import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
 import { ShortInput } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/short-input'
 import { providerOptions } from '@/widgets/widgets/data_chart/options'
@@ -341,7 +344,7 @@ export const DataChartProviderControls = ({
   const authParams = params.data?.auth
 
   return (
-    <div className='flex items-center gap-2'>
+    <div className={widgetHeaderButtonGroupClassName()}>
       <DataChartProviderSettingsButton
         providerId={providerId}
         providerParams={providerParams}

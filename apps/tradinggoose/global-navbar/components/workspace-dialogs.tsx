@@ -1166,7 +1166,14 @@ export function WorkspaceInviteModal({
         </TooltipProvider>
       </AlertDialogContent>
 
-      <AlertDialog open={!!memberToRemove} onOpenChange={() => setMemberToRemove(null)}>
+      <AlertDialog
+        open={!!memberToRemove}
+        onOpenChange={(open) => {
+          if (!open) {
+            setMemberToRemove(null)
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Member</AlertDialogTitle>
@@ -1197,7 +1204,14 @@ export function WorkspaceInviteModal({
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!invitationToRemove} onOpenChange={() => setInvitationToRemove(null)}>
+      <AlertDialog
+        open={!!invitationToRemove}
+        onOpenChange={(open) => {
+          if (!open) {
+            setInvitationToRemove(null)
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Cancel Invitation</AlertDialogTitle>

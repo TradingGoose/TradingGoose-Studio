@@ -2,6 +2,7 @@ import type { MutableRefObject } from 'react'
 import type { IPaneApi, ISeriesApi } from 'lightweight-charts'
 import type { ListingIdentity } from '@/lib/listing/identity'
 import type { MarketInterval, MarketSessionWindow } from '@/providers/market/types'
+import type { ManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/manual-line-tools-snapshot'
 import type { BarMs } from '@/widgets/widgets/data_chart/series-data'
 
 export type DataChartCandleType =
@@ -18,6 +19,13 @@ export type IndicatorRef = {
   visible?: boolean
 }
 
+export type DrawToolsRef = {
+  id: string
+  pane: 'price' | 'indicator'
+  indicatorId?: string
+  snapshot?: ManualOwnerSnapshot
+}
+
 export type IndicatorRuntimePlot = {
   key: string
   title: string
@@ -30,6 +38,8 @@ export type IndicatorRuntimeEntry = {
   pane: IPaneApi<any> | null
   paneIndex: number
   plots: IndicatorRuntimePlot[]
+  paneAnchorSeries?: ISeriesApi<any> | null
+  paneAnchorIdentity?: string | null
   errorMessage?: string
 }
 
@@ -62,6 +72,7 @@ export type DataChartViewParams = {
   candleType?: DataChartCandleType
   priceAxisType?: 'normal' | 'percentage' | 'log'
   pineIndicators?: IndicatorRef[]
+  drawTools?: DrawToolsRef[]
   rangePresetId?: string
   stylesOverride?: Record<string, unknown>
 }

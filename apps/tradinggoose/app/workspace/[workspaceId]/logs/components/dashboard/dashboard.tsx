@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Filter, Loader2, Map as MapIcon, RefreshCw, Search } from 'lucide-react'
+import { Filter, Loader2, Scroll, RefreshCw, Search } from 'lucide-react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -763,7 +763,7 @@ export function Dashboard() {
   const headerLeftContent = (
     <div className='flex w-full flex-1 items-center gap-3'>
       <div className='hidden items-center gap-2 sm:flex'>
-        <MapIcon className='h-[18px] w-[18px] text-muted-foreground' />
+        <Scroll className='h-[18px] w-[18px] text-muted-foreground' />
         <span className='font-medium text-sm'>Logs</span>
       </div>
       <div className='relative flex-1'>

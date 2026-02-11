@@ -108,7 +108,7 @@ export function GoogleCalendarSelector({
   }, [fetchCalendarsFromAPI, selectedCalendarId, onCalendarInfoChange])
 
   const handleOpenChange = (isOpen: boolean) => {
-    setOpen(isOpen)
+    setOpen((prev) => (prev === isOpen ? prev : isOpen))
 
     if (isOpen && credentialId && (!initialFetchDone || calendars.length === 0)) {
       fetchCalendars()
@@ -277,7 +277,7 @@ export function GoogleCalendarSelector({
                       onSelect={() => handleSelectCalendar(calendar)}
                       className='cursor-pointer'
                     >
-                      <div className='flex items-center gap-2 overflow-hidden'>
+                      <div className='flex items-center gap-1 overflow-hidden'>
                         <div
                           className='h-3 w-3 flex-shrink-0 rounded-full'
                           style={{

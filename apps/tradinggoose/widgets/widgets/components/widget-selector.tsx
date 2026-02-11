@@ -1,14 +1,6 @@
 'use client'
 
-import {
-  cloneElement,
-  isValidElement,
-  type MouseEvent,
-  memo,
-  type ReactElement,
-  useMemo,
-  useState,
-} from 'react'
+import { cloneElement, isValidElement, memo, type ReactElement, useMemo } from 'react'
 import { ChevronDown } from 'lucide-react'
 import {
   DropdownMenu,
@@ -41,9 +33,6 @@ interface WidgetSelectorProps {
 type TriggerElementProps = {
   disabled?: boolean
   'aria-disabled'?: boolean
-  onClick?: (event: MouseEvent) => void
-  onMouseEnter?: (event: MouseEvent) => void
-  onMouseLeave?: (event: MouseEvent) => void
 }
 
 const categories = getWidgetCategories()
@@ -68,7 +57,7 @@ function WidgetSelectorComponent({
       disabled={triggerDisabled}
       className={widgetHeaderControlClassName('font-semibold')}
     >
-      <span className='flex items-center gap-2 text-muted-foreground hover:text-foreground'>
+      <span className='flex items-center gap-1 text-muted-foreground hover:text-foreground'>
         <span className=' '>
           {CurrentIcon ? <CurrentIcon className='h-4 w-4 ' aria-hidden='true' /> : null}
         </span>
@@ -81,30 +70,23 @@ function WidgetSelectorComponent({
     ? renderTrigger({ disabled: triggerDisabled, currentDefinition })
     : null
 
-  const [open, setOpen] = useState(false)
-  const closeMenu = () => setOpen(false)
-
   const triggerContent = customTrigger ?? defaultTrigger
   const triggerElement = isValidElement<TriggerElementProps>(triggerContent)
     ? cloneElement(triggerContent, {
-      disabled: triggerDisabled || triggerContent.props.disabled,
-      'aria-disabled': triggerDisabled || triggerContent.props.disabled ? true : undefined,
-      onClick: (event: MouseEvent) => {
-        triggerContent.props.onClick?.(event)
-        if (!triggerDisabled) {
-          setOpen((prev) => !prev)
-        }
-      },
-    })
+        disabled: triggerDisabled || triggerContent.props.disabled,
+        'aria-disabled': triggerDisabled || triggerContent.props.disabled ? true : undefined,
+      })
     : triggerContent
 
   const tooltipText = triggerDisabled ? 'Widget selection unavailable' : 'Select widget'
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
+    <DropdownMenu>
       <Tooltip>
         <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>{triggerElement}</DropdownMenuTrigger>
+          <span className='inline-flex'>
+            <DropdownMenuTrigger asChild>{triggerElement}</DropdownMenuTrigger>
+          </span>
         </TooltipTrigger>
         <TooltipContent side='top'>{tooltipText}</TooltipContent>
       </Tooltip>
@@ -127,11 +109,9 @@ function WidgetSelectorComponent({
                     <DropdownMenuItem
                       key={widget.key}
                       className={cn(widgetHeaderMenuItemClassName, 'items-start items-center')}
-                      onSelect={(event) => {
-                        event.preventDefault()
+                      onSelect={() => {
                         if (!onSelect || widget.key === currentKey) return
                         onSelect(widget.key)
-                        closeMenu()
                       }}
                     >
                       <widget.icon className={widgetHeaderMenuIconClassName} aria-hidden='true' />

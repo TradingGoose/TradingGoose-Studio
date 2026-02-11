@@ -2403,7 +2403,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={chat.id}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
+                                        'flex items-center gap-1 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2450,7 +2450,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={wf.id}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
+                                        'flex items-center gap-1 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2495,7 +2495,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={kb.id}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
+                                        'flex items-center gap-1 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2535,7 +2535,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={blk.id}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
+                                        'flex items-center gap-1 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2582,7 +2582,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={blk.id}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
+                                        'flex items-center gap-1 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2629,7 +2629,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={tpl.id}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
+                                        'flex items-center gap-1 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2675,7 +2675,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                       key={log.id}
                                       data-idx={idx}
                                       className={cn(
-                                        'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
+                                        'flex items-center gap-1 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
                                         submenuActiveIndex === idx && 'bg-muted'
                                       )}
                                       role='menuitem'
@@ -2993,7 +2993,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                                     }
                                   }}
                                 >
-                                  <div className='flex items-center gap-2'>
+                                  <div className='flex items-center gap-1'>
                                     {label === 'Chats' ? (
                                       <Bot className='h-3.5 w-3.5 text-muted-foreground' />
                                     ) : label === 'Workflows' ? (

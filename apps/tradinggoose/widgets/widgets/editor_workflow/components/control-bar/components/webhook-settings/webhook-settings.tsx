@@ -397,9 +397,9 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
       newWebhook.includeRateLimits !== (originalWebhook.includeRateLimits || false) ||
       newWebhook.includeUsageData !== (originalWebhook.includeUsageData || false) ||
       JSON.stringify([...newWebhook.levelFilter].sort()) !==
-        JSON.stringify([...originalWebhook.levelFilter].sort()) ||
+      JSON.stringify([...originalWebhook.levelFilter].sort()) ||
       JSON.stringify([...newWebhook.triggerFilter].sort()) !==
-        JSON.stringify([...originalWebhook.triggerFilter].sort()) ||
+      JSON.stringify([...originalWebhook.triggerFilter].sort()) ||
       newWebhook.secret !== ''
     )
   }
@@ -543,7 +543,7 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
                               <div className='flex flex-1 items-center gap-3'>
                                 <Skeleton className='h-8 w-[250px] rounded-sm' /> {/* URL */}
                               </div>
-                              <div className='flex items-center gap-2'>
+                              <div className='flex items-center gap-1'>
                                 <Skeleton className='h-9 w-9 rounded-sm' /> {/* Test */}
                                 <Skeleton className='h-9 w-9 rounded-sm' /> {/* Edit */}
                                 <Skeleton className='h-9 w-9 rounded-sm' /> {/* Delete */}
@@ -619,14 +619,14 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
                                 {testStatus &&
                                   testStatus.webhookId === webhook.id &&
                                   testStatus.type === 'error' && (
-                                    <div className='flex items-center gap-2 text-red-600 text-xs dark:text-red-400'>
+                                    <div className='flex items-center gap-1 text-red-600 text-xs dark:text-red-400'>
                                       <AlertCircle className='h-3 w-3 flex-shrink-0' />
                                       <span>{testStatus.message}</span>
                                     </div>
                                   )}
                               </div>
 
-                              <div className='flex items-center gap-2'>
+                              <div className='flex items-center gap-1'>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Button
@@ -714,28 +714,28 @@ export function WebhookSettings({ workflowId, open, onOpenChange }: WebhookSetti
                                 webhook.includeTraceSpans ||
                                 webhook.includeRateLimits ||
                                 webhook.includeUsageData) && (
-                                <>
-                                  <span className='text-muted-foreground'>•</span>
-                                  {webhook.includeFinalOutput && (
-                                    <span className='rounded-md bg-muted px-1.5 py-0.5'>
-                                      output
-                                    </span>
-                                  )}
-                                  {webhook.includeTraceSpans && (
-                                    <span className='rounded-md bg-muted px-1.5 py-0.5'>
-                                      traces
-                                    </span>
-                                  )}
-                                  {webhook.includeRateLimits && (
-                                    <span className='rounded-md bg-muted px-1.5 py-0.5'>
-                                      limits
-                                    </span>
-                                  )}
-                                  {webhook.includeUsageData && (
-                                    <span className='rounded-md bg-muted px-1.5 py-0.5'>usage</span>
-                                  )}
-                                </>
-                              )}
+                                  <>
+                                    <span className='text-muted-foreground'>•</span>
+                                    {webhook.includeFinalOutput && (
+                                      <span className='rounded-md bg-muted px-1.5 py-0.5'>
+                                        output
+                                      </span>
+                                    )}
+                                    {webhook.includeTraceSpans && (
+                                      <span className='rounded-md bg-muted px-1.5 py-0.5'>
+                                        traces
+                                      </span>
+                                    )}
+                                    {webhook.includeRateLimits && (
+                                      <span className='rounded-md bg-muted px-1.5 py-0.5'>
+                                        limits
+                                      </span>
+                                    )}
+                                    {webhook.includeUsageData && (
+                                      <span className='rounded-md bg-muted px-1.5 py-0.5'>usage</span>
+                                    )}
+                                  </>
+                                )}
                             </div>
                           </div>
                         </div>

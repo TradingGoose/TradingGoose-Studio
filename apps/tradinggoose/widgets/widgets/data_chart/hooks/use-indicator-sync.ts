@@ -626,6 +626,8 @@ export const useIndicatorSync = ({
               pane: null,
               paneIndex: mainPaneIndex,
               plots: [],
+              paneAnchorSeries: null,
+              paneAnchorIdentity: null,
               errorMessage,
             })
           }
@@ -827,6 +829,7 @@ export const useIndicatorSync = ({
         }
 
         indicatorPaneSeriesMapRef.current.set(indicatorId, paneAnchorSeries)
+        const paneAnchorIdentity = paneAnchorSeries ? getSeriesIdentity(paneAnchorSeries) : null
 
         output.markers.forEach((marker) => {
           const targetSeries = hasNonOverlay ? paneAnchorSeries : mainSeries
@@ -842,6 +845,8 @@ export const useIndicatorSync = ({
             pane,
             paneIndex: pane ? pane.paneIndex() : 0,
             plots: runtimePlots,
+            paneAnchorSeries,
+            paneAnchorIdentity,
           })
         }
       })
@@ -881,8 +886,7 @@ export const useIndicatorSync = ({
         const signature = Array.from(runtimeEntries.values())
           .map((entry) => {
             const plotKeys = entry.plots.map((plot) => plot.key).join(',')
-            const anchorSeries = indicatorPaneSeriesMapRef.current.get(entry.id) ?? null
-            const anchorIdentity = getSeriesIdentity(anchorSeries)
+            const anchorIdentity = entry.paneAnchorIdentity ?? 'none'
             const errorTag = entry.errorMessage ? `:error:${entry.errorMessage}` : ''
             return `${entry.id}:${entry.paneIndex}:${plotKeys}:anchor:${anchorIdentity}${errorTag}`
           })

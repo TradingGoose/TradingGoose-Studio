@@ -68,7 +68,6 @@ export function IndicatorDropdown({
   selectionMode = 'multiple',
   includeDefaults = false,
 }: IndicatorDropdownProps) {
-  const [open, setOpen] = useState(false)
   const [internalValue, setInternalValue] = useState<string[]>([])
   const [loadError, setLoadError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -100,9 +99,9 @@ export function IndicatorDropdown({
     () =>
       includeDefaults
         ? DEFAULT_INDICATORS_META.map((indicator) => ({
-          id: indicator.id,
-          name: indicator.name,
-        }))
+            id: indicator.id,
+            name: indicator.name,
+          }))
         : [],
     [includeDefaults]
   )
@@ -186,8 +185,7 @@ export function IndicatorDropdown({
 
   const handleSearchInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Escape') {
-      event.preventDefault()
-      setOpen(false)
+      return
     }
   }
 
@@ -218,7 +216,6 @@ export function IndicatorDropdown({
       return
     }
     handleSelectionChange([id])
-    setOpen(false)
   }
 
   const selectionLabel = useMemo(() => {
@@ -256,40 +253,36 @@ export function IndicatorDropdown({
       </span>
     )
 
-  const chevronClassName = cn(
-    'h-4 w-4 text-muted-foreground transition-transform',
-    open && 'rotate-180'
-  )
+  const chevronClassName =
+    'h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
 
   return (
-    <DropdownMenu
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (isDropdownDisabled) return
-        setOpen(nextOpen)
-      }}
-      modal={false}
-    >
+    <DropdownMenu modal={false}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <button
-              type='button'
-              disabled={isDropdownDisabled}
-              className={widgetHeaderControlClassName(
-                cn('flex min-w-[220px] items-center justify-between gap-2', triggerClassName)
-              )}
-              aria-haspopup='listbox'
-            >
-              {isLoading ? (
-                <Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
-              ) : (
-                colorBadge
-              )}
-              {labelContent}
-              <ChevronDown className={chevronClassName} aria-hidden='true' />
-            </button>
-          </DropdownMenuTrigger>
+          <span className='inline-flex'>
+            <DropdownMenuTrigger asChild>
+              <button
+                type='button'
+                disabled={isDropdownDisabled}
+                className={widgetHeaderControlClassName(
+                  cn(
+                    'group flex min-w-[220px] items-center justify-between gap-2',
+                    triggerClassName
+                  )
+                )}
+                aria-haspopup='listbox'
+              >
+                {isLoading ? (
+                  <Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
+                ) : (
+                  colorBadge
+                )}
+                {labelContent}
+                <ChevronDown className={chevronClassName} aria-hidden='true' />
+              </button>
+            </DropdownMenuTrigger>
+          </span>
         </TooltipTrigger>
         <TooltipContent side='top'>{tooltipText}</TooltipContent>
       </Tooltip>
@@ -306,7 +299,7 @@ export function IndicatorDropdown({
       >
         <div className='flex h-full max-h-[inherit] flex-col'>
           <div className='border-border/70 border-b p-2'>
-            <div className='flex items-center gap-2 rounded-md border bg-background px-2 py-1.5 text-muted-foreground text-sm'>
+            <div className='flex items-center gap-1 rounded-md border bg-background px-2 py-1.5 text-muted-foreground text-sm'>
               <Search className='h-3.5 w-3.5 shrink-0' />
               <Input
                 value={searchQuery}
@@ -364,7 +357,7 @@ export function IndicatorDropdown({
                 const shouldShowLoadingState = (isLoading || isFetching) && !hasIndicators
                 if (shouldShowLoadingState) {
                   return (
-                    <div className='flex items-center gap-2 px-3 py-2 text-muted-foreground text-xs'>
+                    <div className='flex items-center gap-1 px-3 py-2 text-muted-foreground text-xs'>
                       <Loader2 className='h-3.5 w-3.5 animate-spin' />
                       Loading indicators...
                     </div>
@@ -428,7 +421,9 @@ export function IndicatorDropdown({
                               key={option.id}
                               className={cn(widgetHeaderMenuItemClassName, 'items-center gap-2')}
                               onSelect={(event) => {
-                                event.preventDefault()
+                                if (isMultiSelect) {
+                                  event.preventDefault()
+                                }
                                 handleToggleIndicator(option.id)
                               }}
                             >

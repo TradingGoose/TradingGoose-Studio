@@ -15,7 +15,7 @@ export const FirefliesBlock: BlockConfig<FirefliesResponse> = {
   docsLink: 'https://docs.fireflies.ai',
   category: 'tools',
   icon: FirefliesIcon,
-  bgColor: '#100730',
+  bgColor: undefined,
   subBlocks: [
     {
       id: 'operation',

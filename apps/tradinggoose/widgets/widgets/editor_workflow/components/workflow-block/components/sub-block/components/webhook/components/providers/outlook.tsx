@@ -202,7 +202,7 @@ export function OutlookConfig({
   return (
     <div className='space-y-6'>
       <ConfigSection>
-        <div className='mb-3 flex items-center gap-2'>
+        <div className='mb-3 flex items-center gap-1'>
           <h3 className='font-medium text-sm'>Email Folders to Monitor</h3>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -255,8 +255,8 @@ export function OutlookConfig({
                   key={folder.id}
                   variant={isSelected ? 'default' : 'secondary'}
                   className={`cursor-pointer transition-colors ${isSelected
-                      ? 'bg-primary text-muted-foreground hover:bg-[var(--primary)]/90'
-                      : 'hover:bg-secondary/80'
+                    ? 'bg-primary text-muted-foreground hover:bg-[var(--primary)]/90'
+                    : 'hover:bg-secondary/80'
                     }`}
                   onClick={() => {
                     if (isSelected) {
@@ -273,7 +273,7 @@ export function OutlookConfig({
           </div>
 
           <div className='flex items-center gap-4'>
-            <div className='flex items-center gap-2'>
+            <div className='flex items-center gap-1'>
               <Label htmlFor='folder-filter-behavior' className='font-normal text-sm'>
                 Folder behavior:
               </Label>
@@ -371,7 +371,7 @@ export function OutlookConfig({
       </ConfigSection>
 
       <ConfigSection>
-        <div className='mb-3 flex items-center gap-2'>
+        <div className='mb-3 flex items-center gap-1'>
           <OutlookIcon className='h-4 w-4' />
           <h3 className='font-medium text-sm'>Outlook Event Payload Example</h3>
         </div>

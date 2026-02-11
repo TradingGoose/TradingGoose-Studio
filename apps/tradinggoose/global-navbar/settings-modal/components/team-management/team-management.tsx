@@ -436,13 +436,16 @@ export function TeamManagement() {
         shouldReduceSeats={removeMemberDialog.shouldReduceSeats}
         isSelfRemoval={removeMemberDialog.isSelfRemoval}
         onOpenChange={(open: boolean) => {
-          if (!open) setRemoveMemberDialog({ ...removeMemberDialog, open: false })
+          if (!open) {
+            setRemoveMemberDialog((prev) => (prev.open ? { ...prev, open: false } : prev))
+          }
         }}
         onShouldReduceSeatsChange={(shouldReduce: boolean) =>
-          setRemoveMemberDialog({
-            ...removeMemberDialog,
-            shouldReduceSeats: shouldReduce,
-          })
+          setRemoveMemberDialog((prev) =>
+            prev.shouldReduceSeats === shouldReduce
+              ? prev
+              : { ...prev, shouldReduceSeats: shouldReduce }
+          )
         }
         onConfirmRemove={confirmRemoveMember}
         onCancel={() =>

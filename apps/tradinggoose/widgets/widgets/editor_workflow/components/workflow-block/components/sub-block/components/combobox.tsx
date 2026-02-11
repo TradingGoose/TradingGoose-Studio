@@ -189,7 +189,7 @@ export function ComboBox({
     e.preventDefault()
     e.stopPropagation()
     if (!disabled) {
-      setOpen(!open)
+      setOpen((prev) => !prev)
       if (!open) {
         inputRef.current?.focus()
       }

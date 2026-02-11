@@ -131,18 +131,18 @@ export function WorkflowTextEditor({
       {/* Header with controls */}
       <div className='flex-shrink-0 border-b bg-background px-6 py-4'>
         <div className='mb-3 flex items-center justify-between'>
-          <div className='flex items-center gap-2'>
+          <div className='flex items-center gap-1'>
             <FileCode className='h-5 w-5' />
             <span className='font-semibold'>Workflow JSON Editor</span>
           </div>
-          <div className='flex items-center gap-2'>
+          <div className='flex items-center gap-1'>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   onClick={handleSave}
                   disabled={!canSave || isSaving}
                   size='sm'
-                  className='flex items-center gap-2'
+                  className='flex items-center gap-1'
                 >
                   <Save className='h-4 w-4' />
                   {isSaving ? 'Saving...' : 'Save'}
@@ -162,7 +162,7 @@ export function WorkflowTextEditor({
         </div>
 
         {/* Status indicators */}
-        <div className='flex items-center gap-2 text-sm'>
+        <div className='flex items-center gap-1 text-sm'>
           {isValid ? (
             <div className='flex items-center gap-1 text-green-600'>
               <Check className='h-4 w-4' />

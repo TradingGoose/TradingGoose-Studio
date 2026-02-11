@@ -249,7 +249,7 @@ export function Variables({ workflowId: workflowIdProp, hideAddButtons = false }
             {workflowVariables.map((variable) => (
               <div key={variable.id} className='space-y-2'>
                 {/* Header: Variable name | Variable type | Options dropdown */}
-                <div className='flex items-center gap-2'>
+                <div className='flex items-center gap-1'>
                   <Input
                     className='h-9 flex-1 rounded-lg border-none bg-secondary/50 px-3 font-normal text-sm ring-0 ring-offset-0 placeholder:text-muted-foreground focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0'
                     placeholder='Variable name'

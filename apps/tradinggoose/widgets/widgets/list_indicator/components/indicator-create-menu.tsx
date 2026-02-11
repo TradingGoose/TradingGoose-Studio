@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback } from 'react'
 import { Plus } from 'lucide-react'
 import {
   DropdownMenu,
@@ -27,42 +27,35 @@ export function IndicatorCreateMenu({
   disabled = false,
   onCreateIndicator,
 }: IndicatorCreateMenuProps) {
-  const [open, setOpen] = useState(false)
-
   const handleCreateIndicator = useCallback(() => {
     onCreateIndicator?.()
-    setOpen(false)
   }, [onCreateIndicator])
 
   const isMenuDisabled = disabled
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
+    <DropdownMenu>
       <Tooltip>
         <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <button
-              type='button'
-              disabled={isMenuDisabled}
-              className={widgetHeaderIconButtonClassName()}
-            >
-              <Plus className='h-4 w-4' />
-              <span className='sr-only'>Create indicator</span>
-            </button>
-          </DropdownMenuTrigger>
+          <span className='inline-flex'>
+            <DropdownMenuTrigger asChild>
+              <button
+                type='button'
+                disabled={isMenuDisabled}
+                className={widgetHeaderIconButtonClassName()}
+              >
+                <Plus className='h-4 w-4' />
+                <span className='sr-only'>Create indicator</span>
+              </button>
+            </DropdownMenuTrigger>
+          </span>
         </TooltipTrigger>
         <TooltipContent side='top'>Create</TooltipContent>
       </Tooltip>
-      <DropdownMenuContent
-        sideOffset={6}
-        className={cn(widgetHeaderMenuContentClassName, 'w-44')}
-      >
+      <DropdownMenuContent sideOffset={6} className={cn(widgetHeaderMenuContentClassName, 'w-44')}>
         <DropdownMenuItem
           className={widgetHeaderMenuItemClassName}
-          onSelect={(event) => {
-            event.preventDefault()
-            handleCreateIndicator()
-          }}
+          onSelect={handleCreateIndicator}
         >
           <Plus className={widgetHeaderMenuIconClassName} />
           <span className={widgetHeaderMenuTextClassName}>New indicator</span>

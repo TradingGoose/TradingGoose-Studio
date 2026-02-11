@@ -18,6 +18,7 @@ export const ChartLegend = ({
   intervalLabel,
   isResolving,
   containerRef,
+  leftInsetPx = 3,
 }: {
   legend: LegendData | null
   listingLabel?: string | null
@@ -25,6 +26,7 @@ export const ChartLegend = ({
   intervalLabel?: string | null
   isResolving?: boolean
   containerRef?: Ref<HTMLDivElement>
+  leftInsetPx?: number
 }) => {
   const showListingOverlay = Boolean(listing || isResolving)
   if (!legend && !showListingOverlay) return null
@@ -45,7 +47,8 @@ export const ChartLegend = ({
   return (
     <div
       ref={containerRef}
-      className='pointer-events-none absolute top-0 left-1 z-10 gap-2 py-1 text-sm'
+      className='pointer-events-none absolute top-0 z-10 gap-2 py-1 text-sm'
+      style={{ left: `${leftInsetPx}px` }}
     >
       {showListingOverlay ? (
         <div className='mb-1'>

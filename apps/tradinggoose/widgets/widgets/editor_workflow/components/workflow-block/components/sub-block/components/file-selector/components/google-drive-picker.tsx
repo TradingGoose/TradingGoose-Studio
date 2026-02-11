@@ -495,7 +495,7 @@ export function GoogleDrivePicker({
                 {getFileIcon(selectedFile, 'sm')}
               </div>
               <div className='min-w-0 flex-1 overflow-hidden'>
-                <div className='flex items-center gap-2'>
+                <div className='flex items-center gap-1'>
                   <h4 className='truncate font-medium text-xs'>{selectedFile.name}</h4>
                   {selectedFile.modifiedTime && (
                     <span className='whitespace-nowrap text-muted-foreground text-xs'>

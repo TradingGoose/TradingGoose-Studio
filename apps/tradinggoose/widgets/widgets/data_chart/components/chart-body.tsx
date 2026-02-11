@@ -19,9 +19,18 @@ import {
   useDataChartParamsPersistence,
 } from '@/widgets/utils/chart-params'
 import { ChartLegend } from '@/widgets/widgets/data_chart/components/chart-legend'
+import { DrawControl } from '@/widgets/widgets/data_chart/components/draw-control'
+import { DrawToolsSidebar } from '@/widgets/widgets/data_chart/components/draw-tools-sidebar'
 import { DataChartFooter } from '@/widgets/widgets/data_chart/components/footer'
 import { IndicatorControl } from '@/widgets/widgets/data_chart/components/indicator-control'
 import { PaneControl } from '@/widgets/widgets/data_chart/components/pane-control'
+import {
+  createEmptyManualOwnerSnapshot,
+  normalizeManualOwnerSnapshot,
+  serializeManualOwnerSnapshot,
+} from '@/widgets/widgets/data_chart/drawings/manual-line-tools-snapshot'
+import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/manual-tool-types'
+import { useManualLineToolsAdapter } from '@/widgets/widgets/data_chart/drawings/use-manual-line-tools-adapter'
 import { useChartDataLoader } from '@/widgets/widgets/data_chart/hooks/use-chart-data-loader'
 import { useChartDefaults } from '@/widgets/widgets/data_chart/hooks/use-chart-defaults'
 import { useChartInstance } from '@/widgets/widgets/data_chart/hooks/use-chart-instance'
@@ -42,6 +51,7 @@ import type {
   IndicatorRuntimeEntry,
   DataChartWidgetParams,
   DataChartDataContext,
+  DrawToolsRef,
   dataChartWidgetParams,
 } from '@/widgets/widgets/data_chart/types'
 import {
@@ -49,6 +59,44 @@ import {
   resolveIndicatorIds,
 } from '@/widgets/widgets/data_chart/utils/indicator-refs'
 import { getListingSymbol } from '@/widgets/widgets/data_chart/utils/listing-utils'
+
+const DRAW_TOOLS_SIDEBAR_WIDTH_PX = 40
+const LEFT_OVERLAY_GAP_PX = 3
+const LEFT_OVERLAY_INSET_PX = DRAW_TOOLS_SIDEBAR_WIDTH_PX + LEFT_OVERLAY_GAP_PX
+const DEFAULT_MANUAL_DRAW_TOOLS: DrawToolsRef[] = [{ id: 'manual-main', pane: 'price' }]
+
+const normalizeDrawToolsRefs = (raw: unknown): DrawToolsRef[] => {
+  if (!Array.isArray(raw)) return []
+  const counts = new Map<string, number>()
+
+  return raw.map((entry, index) => {
+    const record = entry as Partial<DrawToolsRef> | null
+    const candidateId = typeof record?.id === 'string' ? record.id.trim() : ''
+    const baseId = candidateId || `manual-${index + 1}`
+    const seen = counts.get(baseId) ?? 0
+    const normalizedId = seen === 0 ? baseId : `${baseId}-${seen + 1}`
+    counts.set(baseId, seen + 1)
+
+    const pane: DrawToolsRef['pane'] = record?.pane === 'indicator' ? 'indicator' : 'price'
+    const indicatorId =
+      pane === 'indicator' && typeof record?.indicatorId === 'string' && record.indicatorId.trim().length > 0
+        ? record.indicatorId.trim()
+        : undefined
+    const snapshot = normalizeManualOwnerSnapshot(record?.snapshot)
+
+    const normalized: DrawToolsRef = {
+      id: normalizedId,
+      pane,
+    }
+    if (indicatorId) {
+      normalized.indicatorId = indicatorId
+    }
+    if (snapshot) {
+      normalized.snapshot = snapshot
+    }
+    return normalized
+  })
+}
 
 export const DataChartWidgetBody = ({
   params,
@@ -101,8 +149,6 @@ export const DataChartWidgetBody = ({
     return null
   }, [resolvedListing])
 
-  const refreshAt =
-    typeof dataParams.runtime?.refreshAt === 'number' ? dataParams.runtime.refreshAt : null
   const chartResetKey = useMemo(
     () =>
       [
@@ -110,12 +156,11 @@ export const DataChartWidgetBody = ({
         listingKey ?? 'none',
         seriesWindow.windowKey ?? 'none',
         seriesWindow.interval ?? '',
-        refreshAt ? String(refreshAt) : '0',
       ].join('|'),
-    [listingKey, providerId, refreshAt, seriesWindow.interval, seriesWindow.windowKey]
+    [listingKey, providerId, seriesWindow.interval, seriesWindow.windowKey]
   )
 
-  const { chartRef, chartContainerRef, mainSeriesRef, chartReady } =
+  const { chartRef, chartContainerRef, mainSeriesRef, chartReady, registerBeforeDestroy } =
     useChartInstance(chartResetKey)
   const { socket } = useSocket()
   const [dataVersion, setDataVersion] = useState(0)
@@ -142,6 +187,9 @@ export const DataChartWidgetBody = ({
   const [settingsDraft, setSettingsDraft] = useState<Record<string, unknown>>({})
   const legendContainerRef = useRef<HTMLDivElement | null>(null)
   const [legendOffset, setLegendOffset] = useState(0)
+  const [activeDrawToolsId, setActiveDrawToolsId] = useState<string | null>(null)
+  const drawToolsBootstrapScopeRef = useRef<string | null>(null)
+  const drawToolsBootstrapDoneRef = useRef(false)
 
   useChartDefaults({
     dataParams: dataParams as DataChartWidgetParams,
@@ -188,7 +236,6 @@ export const DataChartWidgetBody = ({
     onDataBackfill: handleDataBackfill,
   })
 
-
   const { data: pineIndicators = [] } = useIndicators(workspaceId ?? '')
   const pineIndicatorIds = useMemo(
     () => resolveIndicatorIds(dataParams.view),
@@ -228,6 +275,186 @@ export const DataChartWidgetBody = ({
     })
     return metaMap
   }, [pineIndicators, pineIndicatorIds])
+
+  const drawToolsScopeKey = useMemo(
+    () => `${panelId ?? 'panel'}:${widgetKey}:${chartResetKey}`,
+    [chartResetKey, panelId, widgetKey]
+  )
+
+  const normalizedDrawTools = useMemo(
+    () => normalizeDrawToolsRefs(dataParams.view?.drawTools),
+    [dataParams.view?.drawTools]
+  )
+
+  const resolvedDrawTools = useMemo<DrawToolsRef[]>(
+    () => (normalizedDrawTools.length > 0 ? normalizedDrawTools : DEFAULT_MANUAL_DRAW_TOOLS),
+    [normalizedDrawTools]
+  )
+
+  useEffect(() => {
+    if (drawToolsBootstrapScopeRef.current === drawToolsScopeKey) return
+    drawToolsBootstrapScopeRef.current = drawToolsScopeKey
+    drawToolsBootstrapDoneRef.current = false
+  }, [drawToolsScopeKey])
+
+  useEffect(() => {
+    const view = dataParams.view ?? {}
+    const rawDrawTools = Array.isArray(view.drawTools) ? view.drawTools : []
+    const normalized = normalizeDrawToolsRefs(rawDrawTools)
+    const needsBootstrap = normalized.length === 0
+    const nextDrawTools = needsBootstrap ? DEFAULT_MANUAL_DRAW_TOOLS : normalized
+
+    const currentSerialized = JSON.stringify(rawDrawTools)
+    const nextSerialized = JSON.stringify(nextDrawTools)
+    if (currentSerialized === nextSerialized) return
+
+    if (needsBootstrap) {
+      if (drawToolsBootstrapDoneRef.current) return
+      drawToolsBootstrapDoneRef.current = true
+    }
+
+    emitDataChartParamsChange({
+      params: {
+        view: {
+          ...view,
+          drawTools: nextDrawTools,
+        },
+      },
+      panelId,
+      widgetKey,
+    })
+  }, [dataParams.view, panelId, widgetKey, drawToolsScopeKey])
+
+  useEffect(() => {
+    if (resolvedDrawTools.length === 0) {
+      if (activeDrawToolsId !== null) {
+        setActiveDrawToolsId(null)
+      }
+      return
+    }
+    if (activeDrawToolsId && resolvedDrawTools.some((entry) => entry.id === activeDrawToolsId)) {
+      return
+    }
+    setActiveDrawToolsId(resolvedDrawTools[0].id)
+  }, [resolvedDrawTools, activeDrawToolsId])
+
+  const handleActiveDrawToolsChange = useCallback((nextDrawToolsId: string) => {
+    setActiveDrawToolsId((current) => (current === nextDrawToolsId ? current : nextDrawToolsId))
+  }, [])
+
+  const {
+    revision: manualLineToolsRevision,
+    teardownAll: teardownManualLineTools,
+    toManualOwnerId,
+    startManualTool,
+    removeSelected,
+    hideSelected,
+    clearAll,
+    hasOwnerTools,
+    getOwnerSnapshot,
+    getOwnerVisibilityMode,
+    setAllVisibility,
+    getToolCapability,
+    isNonSelectableToolActive,
+    hasSelectedManualDrawingsInPane,
+    reconcileSelection,
+  } = useManualLineToolsAdapter({
+    chartRef,
+    mainSeriesRef,
+    chartReady,
+    panelId,
+    drawTools: resolvedDrawTools,
+    indicatorRuntimeRef,
+    indicatorRuntimeVersion,
+    onActiveDrawToolsIdChange: handleActiveDrawToolsChange,
+  })
+
+  useEffect(() => {
+    registerBeforeDestroy(teardownManualLineTools)
+  }, [registerBeforeDestroy, teardownManualLineTools])
+
+  useEffect(() => {
+    const view = dataParams.view ?? {}
+    const rawDrawTools = Array.isArray(view.drawTools) ? view.drawTools : []
+    if (rawDrawTools.length === 0) return
+
+    const normalized = normalizeDrawToolsRefs(rawDrawTools)
+    if (normalized.length === 0) return
+
+    let changed = false
+    const nextDrawTools = normalized.map((entry) => {
+      const snapshot = getOwnerSnapshot(toManualOwnerId(entry.id))
+      const nextSnapshot = snapshot && snapshot.tools.length > 0 ? snapshot : undefined
+      const currentSnapshot = normalizeManualOwnerSnapshot(entry.snapshot) ?? undefined
+      if (!nextSnapshot && currentSnapshot && manualLineToolsRevision === 0) {
+        return entry
+      }
+      if (
+        serializeManualOwnerSnapshot(currentSnapshot) ===
+        serializeManualOwnerSnapshot(nextSnapshot)
+      ) {
+        return entry
+      }
+
+      changed = true
+      const nextEntry: DrawToolsRef = {
+        id: entry.id,
+        pane: entry.pane,
+      }
+      if (entry.indicatorId) {
+        nextEntry.indicatorId = entry.indicatorId
+      }
+      if (nextSnapshot) {
+        nextEntry.snapshot = nextSnapshot
+      } else if (currentSnapshot) {
+        // Keep an explicit clear marker so stale events cannot resurrect old snapshots.
+        nextEntry.snapshot = createEmptyManualOwnerSnapshot()
+      }
+      return nextEntry
+    })
+
+    if (!changed) return
+
+    const currentSerialized = JSON.stringify(rawDrawTools)
+    const nextSerialized = JSON.stringify(nextDrawTools)
+    if (currentSerialized === nextSerialized) {
+      return
+    }
+
+    emitDataChartParamsChange({
+      params: {
+        view: {
+          ...view,
+          drawTools: nextDrawTools,
+        },
+      },
+      panelId,
+      widgetKey,
+    })
+  }, [
+    dataParams.view,
+    panelId,
+    widgetKey,
+    manualLineToolsRevision,
+    toManualOwnerId,
+    getOwnerSnapshot,
+  ])
+
+  const activeDrawToolsRef = useMemo(() => {
+    if (resolvedDrawTools.length === 0) return null
+    if (!activeDrawToolsId) return resolvedDrawTools[0]
+    return resolvedDrawTools.find((entry) => entry.id === activeDrawToolsId) ?? resolvedDrawTools[0]
+  }, [resolvedDrawTools, activeDrawToolsId])
+
+  const activeManualOwnerId = useMemo(
+    () => (activeDrawToolsRef ? toManualOwnerId(activeDrawToolsRef.id) : null),
+    [activeDrawToolsRef, toManualOwnerId]
+  )
+
+  useEffect(() => {
+    if (!activeManualOwnerId) return
+    reconcileSelection(activeManualOwnerId)
+  }, [activeManualOwnerId, reconcileSelection])
 
   useIndicatorSync({
     chartRef,
@@ -577,6 +804,57 @@ export const DataChartWidgetBody = ({
 
   const hasIndicatorRuntime = indicatorRuntimeRef.current.size > 0
 
+  const handleSelectManualTool = useCallback(
+    (toolType: ManualToolType) => {
+      if (!activeManualOwnerId) return
+      startManualTool(toolType, activeManualOwnerId)
+    },
+    [activeManualOwnerId, startManualTool]
+  )
+
+  const handleClearManualTools = useCallback(() => {
+    if (!activeManualOwnerId) return
+    clearAll(activeManualOwnerId)
+  }, [activeManualOwnerId, clearAll])
+
+  const hasActiveOwnerTools = activeManualOwnerId ? hasOwnerTools(activeManualOwnerId) : false
+
+  const activeOwnerVisibilityMode = activeManualOwnerId
+    ? getOwnerVisibilityMode(activeManualOwnerId)
+    : 'hide'
+
+  const handleToggleAllManualVisibility = useCallback(() => {
+    if (!activeManualOwnerId) return
+    const targetVisible = getOwnerVisibilityMode(activeManualOwnerId) === 'show'
+    setAllVisibility(activeManualOwnerId, targetVisible)
+  }, [activeManualOwnerId, getOwnerVisibilityMode, setAllVisibility])
+
+  const resolveManualToolCapability = useCallback(
+    (toolType: ManualToolType) => {
+      if (!activeManualOwnerId) return 'unknown'
+      return getToolCapability(activeManualOwnerId, toolType)
+    },
+    [activeManualOwnerId, getToolCapability]
+  )
+
+  const resolveNonSelectableToolActive = useCallback(
+    (toolType: ManualToolType) => {
+      if (!activeManualOwnerId) return false
+      return isNonSelectableToolActive(activeManualOwnerId, toolType)
+    },
+    [activeManualOwnerId, isNonSelectableToolActive]
+  )
+
+  const handleHideSelectedDrawings = useCallback(() => {
+    if (!activeManualOwnerId) return
+    hideSelected(activeManualOwnerId)
+  }, [activeManualOwnerId, hideSelected])
+
+  const handleRemoveSelectedDrawings = useCallback(() => {
+    if (!activeManualOwnerId) return
+    removeSelected(activeManualOwnerId)
+  }, [activeManualOwnerId, removeSelected])
+
   const settingsMeta = useMemo(() => {
     if (!settingsIndicatorId) return null
     return indicatorMetaById.get(settingsIndicatorId) ?? null
@@ -624,6 +902,19 @@ export const DataChartWidgetBody = ({
   return (
     <div className='relative flex h-full w-full flex-col'>
       <div className='relative flex-1 overflow-hidden'>
+        {!showEmptyState && !showErrorState && (
+          <DrawToolsSidebar
+            activeOwnerId={activeManualOwnerId}
+            sidebarWidthPx={DRAW_TOOLS_SIDEBAR_WIDTH_PX}
+            hasOwnerTools={hasActiveOwnerTools}
+            allVisibilityMode={activeOwnerVisibilityMode}
+            getToolCapability={resolveManualToolCapability}
+            isNonSelectableToolActive={resolveNonSelectableToolActive}
+            onSelectTool={handleSelectManualTool}
+            onToggleAllVisibility={handleToggleAllManualVisibility}
+            onClearAll={handleClearManualTools}
+          />
+        )}
         <div
           ref={chartContainerRef}
           aria-hidden={showErrorState}
@@ -641,6 +932,11 @@ export const DataChartWidgetBody = ({
                 const indicatorItems = indicatorControlsByPane.get(paneIndex) ?? []
                 const isMainPane = paneIndex === mainPaneIndex
                 const topOffset = isMainPane ? legendOffset - 3 : 3
+                const hasSelectedManualInPane =
+                  activeManualOwnerId !== null
+                    ? hasSelectedManualDrawingsInPane(activeManualOwnerId, paneIndex)
+                    : false
+                const showRightControls = hasIndicatorRuntime || hasSelectedManualInPane
 
                 return (
                   <div
@@ -657,12 +953,13 @@ export const DataChartWidgetBody = ({
                           intervalLabel={intervalLabel}
                           isResolving={isResolving}
                           containerRef={legendContainerRef}
+                          leftInsetPx={LEFT_OVERLAY_INSET_PX}
                         />
                       )}
                       {hasIndicatorRuntime && indicatorItems.length > 0 && (
                         <div
-                          className='pointer-events-none absolute left-[3px] mr-24 pr-20'
-                          style={{ top: `${topOffset}px` }}
+                          className='pointer-events-none absolute mr-24 pr-20'
+                          style={{ top: `${topOffset}px`, left: `${LEFT_OVERLAY_INSET_PX}px` }}
                         >
                           <div className='inline-flex flex-col items-start gap-1'>
                             {indicatorItems.map((item) => (
@@ -684,14 +981,25 @@ export const DataChartWidgetBody = ({
                           </div>
                         </div>
                       )}
-                      {hasIndicatorRuntime && (
+                      {showRightControls && (
                         <div className='pointer-events-auto absolute top-[3px] right-[4px] pr-14'>
-                          <PaneControl
-                            paneIndex={paneIndex}
-                            paneCount={paneSnapshot.length}
-                            onMoveUp={() => handleMovePaneUp(pane)}
-                            onMoveDown={() => handleMovePaneDown(pane)}
-                          />
+                          <div className='inline-flex items-start gap-1'>
+                            {hasSelectedManualInPane && (
+                              <DrawControl
+                                onHideSelected={handleHideSelectedDrawings}
+                                onRemoveSelected={handleRemoveSelectedDrawings}
+                                disabled={!activeManualOwnerId}
+                              />
+                            )}
+                            {hasIndicatorRuntime && (
+                              <PaneControl
+                                paneIndex={paneIndex}
+                                paneCount={paneSnapshot.length}
+                                onMoveUp={() => handleMovePaneUp(pane)}
+                                onMoveDown={() => handleMovePaneDown(pane)}
+                              />
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>

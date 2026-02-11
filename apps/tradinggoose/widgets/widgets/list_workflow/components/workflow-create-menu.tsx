@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { Download, Folder, Plus } from 'lucide-react'
 import {
   DropdownMenu,
@@ -27,10 +27,6 @@ import {
 
 const logger = createLogger('DashboardWorkflowCreateMenu')
 
-const TIMERS = {
-  LONG_PRESS_DELAY: 500,
-} as const
-
 export interface DashboardWorkflowCreateMenuProps {
   workspaceId?: string | null
   onWorkflowCreated?: (workflowId: string) => void
@@ -43,27 +39,13 @@ export function DashboardWorkflowCreateMenu({
   const [isCreatingFolder, setIsCreatingFolder] = useState(false)
   const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
-  const [pressTimer, setPressTimer] = useState<NodeJS.Timeout | null>(null)
   const permissions = useUserPermissionsContext()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const createFolder = useFolderStore((state) => state.createFolder)
   const createWorkflow = useWorkflowRegistry((state) => state.createWorkflow)
-  const [open, setOpen] = useState(false)
-  const closeMenu = useCallback(() => setOpen(false), [])
 
   const isWorkspaceReady = Boolean(workspaceId)
   const isMenuDisabled = !isWorkspaceReady || !permissions.canEdit
-
-  const clearPressTimer = useCallback(() => {
-    if (pressTimer) {
-      clearTimeout(pressTimer)
-      setPressTimer(null)
-    }
-  }, [pressTimer])
-
-  useEffect(() => {
-    return () => clearPressTimer()
-  }, [clearPressTimer])
 
   const handleCreateWorkflow = useCallback(async () => {
     if (!workspaceId || isCreatingWorkflow) {
@@ -198,71 +180,30 @@ export function DashboardWorkflowCreateMenu({
     [handleDirectImport]
   )
 
-  const handleButtonClick = useCallback(
-    (event: React.MouseEvent) => {
-      event.preventDefault()
-      event.stopPropagation()
-      if (isMenuDisabled) return
-      clearPressTimer()
-      setOpen((prev) => !prev)
-    },
-    [clearPressTimer, isMenuDisabled]
-  )
-
-  const handleContextMenu = useCallback(
-    (event: React.MouseEvent) => {
-      event.preventDefault()
-      event.stopPropagation()
-      if (isMenuDisabled) return
-      setOpen(true)
-    },
-    [isMenuDisabled]
-  )
-
-  const handleMouseDown = useCallback(
-    (event: React.MouseEvent) => {
-      if (event.button !== 0 || isMenuDisabled) {
-        return
-      }
-      const timer = setTimeout(() => {
-        setOpen(true)
-        setPressTimer(null)
-      }, TIMERS.LONG_PRESS_DELAY)
-      setPressTimer(timer)
-    },
-    [isMenuDisabled]
-  )
-
-  const handleMouseUp = useCallback(() => {
-    clearPressTimer()
-  }, [clearPressTimer])
-
   const createWorkflowDisabled = !isWorkspaceReady || isMenuDisabled || isCreatingWorkflow
   const createFolderDisabled = !isWorkspaceReady || isMenuDisabled || isCreatingFolder
   const importWorkflowDisabled = !isWorkspaceReady || isMenuDisabled || isImporting
   const createButtonTooltip = isWorkspaceReady
-    ? 'Create Folder or Workflow (press for more options)'
+    ? 'Create folder or workflow'
     : 'Select a workspace to create workflows'
 
   return (
     <>
-      <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenu>
         <Tooltip>
           <TooltipTrigger asChild>
-            <DropdownMenuTrigger asChild>
-              <button
-                type='button'
-                className={widgetHeaderIconButtonClassName()}
-                disabled={isMenuDisabled}
-                onClick={handleButtonClick}
-                onContextMenu={handleContextMenu}
-                onMouseDown={handleMouseDown}
-                onMouseUp={handleMouseUp}
-              >
-                <Plus className={widgetHeaderMenuIconClassName} />
-                <span className='sr-only'>Create workflow</span>
-              </button>
-            </DropdownMenuTrigger>
+            <span className='inline-flex'>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type='button'
+                  className={widgetHeaderIconButtonClassName()}
+                  disabled={isMenuDisabled}
+                >
+                  <Plus className={widgetHeaderMenuIconClassName} />
+                  <span className='sr-only'>Create workflow</span>
+                </button>
+              </DropdownMenuTrigger>
+            </span>
           </TooltipTrigger>
           <TooltipContent side='top'>{createButtonTooltip}</TooltipContent>
         </Tooltip>
@@ -274,10 +215,8 @@ export function DashboardWorkflowCreateMenu({
           <DropdownMenuItem
             className={widgetHeaderMenuItemClassName}
             disabled={createWorkflowDisabled}
-            onSelect={(event) => {
-              event.preventDefault()
+            onSelect={() => {
               if (createWorkflowDisabled) return
-              closeMenu()
               void handleCreateWorkflow()
             }}
           >
@@ -290,10 +229,8 @@ export function DashboardWorkflowCreateMenu({
           <DropdownMenuItem
             className={widgetHeaderMenuItemClassName}
             disabled={createFolderDisabled}
-            onSelect={(event) => {
-              event.preventDefault()
+            onSelect={() => {
               if (createFolderDisabled) return
-              closeMenu()
               void handleCreateFolder()
             }}
           >
@@ -306,10 +243,8 @@ export function DashboardWorkflowCreateMenu({
           <DropdownMenuItem
             className={widgetHeaderMenuItemClassName}
             disabled={importWorkflowDisabled}
-            onSelect={(event) => {
-              event.preventDefault()
+            onSelect={() => {
               if (importWorkflowDisabled) return
-              closeMenu()
               handleImportWorkflow()
             }}
           >

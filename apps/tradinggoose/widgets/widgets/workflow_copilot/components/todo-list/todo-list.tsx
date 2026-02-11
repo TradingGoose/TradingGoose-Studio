@@ -45,7 +45,7 @@ export const TodoList = memo(function TodoList({
     >
       {/* Header */}
       <div className='flex items-center justify-between border-gray-100 border-b px-3 py-2 dark:border-gray-800'>
-        <div className='flex items-center gap-2'>
+        <div className='flex items-center gap-1'>
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
             className='rounded p-0.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800'
@@ -63,7 +63,7 @@ export const TodoList = memo(function TodoList({
           </span>
         </div>
 
-        <div className='flex items-center gap-2'>
+        <div className='flex items-center gap-1'>
           {/* Progress bar */}
           <div className='h-1.5 w-24 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700'>
             <div

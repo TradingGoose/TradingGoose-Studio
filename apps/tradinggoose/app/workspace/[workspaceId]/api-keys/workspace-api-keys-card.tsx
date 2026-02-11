@@ -949,7 +949,7 @@ const WorkspaceApiKeysCardComponent = (
       <AlertDialog
         open={showNewKeyDialog}
         onOpenChange={(open) => {
-          setShowNewKeyDialog(open)
+          setShowNewKeyDialog((prev) => (prev === open ? prev : open))
           if (!open) {
             setNewKey(null)
             setCopySuccess(false)

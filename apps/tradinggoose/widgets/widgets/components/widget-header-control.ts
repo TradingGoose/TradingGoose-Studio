@@ -9,6 +9,7 @@ const ICON_BUTTON_CLASS = cn(
   BASE_CONTROL_CLASS,
   'h-7 w-7 shrink-0 justify-center shadow-xs text-muted-foreground hover:text-foreground'
 )
+const HEADER_BUTTON_GROUP_CLASS = 'flex items-center gap-1'
 
 const MENU_TIMERS = {
   CLOSE_DELAY: 600,
@@ -35,6 +36,10 @@ export function widgetHeaderControlClassName(className?: string) {
 
 export function widgetHeaderIconButtonClassName() {
   return ICON_BUTTON_CLASS
+}
+
+export function widgetHeaderButtonGroupClassName(className?: string) {
+  return cn(HEADER_BUTTON_GROUP_CLASS, className)
 }
 
 interface HoverMenuProps {

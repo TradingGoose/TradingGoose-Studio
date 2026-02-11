@@ -154,7 +154,7 @@ export function ChatFileUpload({
   return (
     <div className='space-y-2'>
       {/* File Upload Button */}
-      <div className='flex items-center gap-2'>
+      <div className='flex items-center gap-1'>
         <button
           type='button'
           onClick={() => fileInputRef.current?.click()}
@@ -194,7 +194,7 @@ export function ChatFileUpload({
           {files.map((file) => (
             <div
               key={file.id}
-              className='flex items-center gap-2 rounded-md bg-gray-50 px-2 py-1 text-sm dark:bg-gray-800'
+              className='flex items-center gap-1 rounded-md bg-gray-50 px-2 py-1 text-sm dark:bg-gray-800'
             >
               {getFileIcon(file.type)}
               <span className='flex-1 truncate dark:text-white' title={file.name}>

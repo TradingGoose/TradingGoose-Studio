@@ -6,6 +6,7 @@ import { getRandomVibrantColor } from '@/lib/colors'
 import { useCreateIndicator } from '@/hooks/queries/indicators'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { emitIndicatorSelectionChange } from '@/widgets/utils/indicator-selection'
+import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
 import { IndicatorCreateMenu } from '@/widgets/widgets/list_indicator/components/indicator-create-menu'
 import {
   IndicatorList,
@@ -76,7 +77,7 @@ const ListIndicatorHeaderRight = ({
 
   return (
     <WorkspacePermissionsProvider workspaceId={workspaceId}>
-      <div className='flex items-center gap-2'>
+      <div className={widgetHeaderButtonGroupClassName()}>
         <IndicatorListHeaderRight workspaceId={workspaceId} panelId={panelId} />
       </div>
     </WorkspacePermissionsProvider>

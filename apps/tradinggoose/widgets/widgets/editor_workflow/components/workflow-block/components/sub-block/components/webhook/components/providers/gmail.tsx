@@ -212,7 +212,7 @@ export function GmailConfig({
   return (
     <div className='space-y-6'>
       <ConfigSection>
-        <div className='mb-3 flex items-center gap-2'>
+        <div className='mb-3 flex items-center gap-1'>
           <h3 className='font-medium text-sm'>Email Labels to Monitor</h3>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -266,7 +266,7 @@ export function GmailConfig({
         )}
 
         <div className='mt-4'>
-          <div className='flex items-center gap-2'>
+          <div className='flex items-center gap-1'>
             <Label htmlFor='label-behavior' className='font-medium text-sm'>
               Label Filter Behavior
             </Label>

@@ -228,7 +228,7 @@ export function BaseOverview({
         open={isDeleteDialogOpen}
         onOpenChange={(open) => {
           if (!isDeleting) {
-            setIsDeleteDialogOpen(open)
+            setIsDeleteDialogOpen((prev) => (prev === open ? prev : open))
           }
         }}
       >

@@ -99,7 +99,7 @@ export function GroupedCheckboxList({
           className='h-10 w-full justify-between border-input bg-background px-3 font-normal text-sm hover:bg-card hover:text-accent-foreground'
           disabled={disabled}
         >
-          <span className='flex items-center gap-2 text-muted-foreground'>
+          <span className='flex items-center gap-1 text-muted-foreground'>
             <Settings2 className='h-4 w-4' />
             <span>Configure PII Types</span>
           </span>
@@ -119,7 +119,7 @@ export function GroupedCheckboxList({
 
         {/* Header with Select All and Clear */}
         <div className='flex items-center justify-between border-b pb-3'>
-          <div className='flex items-center gap-2'>
+          <div className='flex items-center gap-1'>
             <Checkbox
               id='select-all'
               checked={allSelected}
@@ -166,7 +166,7 @@ export function GroupedCheckboxList({
                 </h3>
                 <div className='space-y-3'>
                   {groupOptions.map((option) => (
-                    <div key={option.id} className='flex items-center gap-2'>
+                    <div key={option.id} className='flex items-center gap-1'>
                       <Checkbox
                         id={`${subBlockId}-${option.id}`}
                         checked={selectedValues.includes(option.id)}

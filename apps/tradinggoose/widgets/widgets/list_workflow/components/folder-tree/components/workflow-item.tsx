@@ -282,7 +282,7 @@ export function WorkflowItem({
 
   const interactiveChildren = (
 
-    <span className='flex items-center gap-2'>
+    <span className='flex items-center gap-1'>
       <span
         className='h-5 w-5 p-0.5 rounded-xs items-center justify-center flex'
         style={{

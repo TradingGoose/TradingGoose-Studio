@@ -2,6 +2,7 @@
 
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, Loader2, Search, Workflow } from 'lucide-react'
+import { shallow } from 'zustand/shallow'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,7 +13,6 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import { shallow } from 'zustand/shallow'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
@@ -53,7 +53,6 @@ export function WorkflowDropdown({
   menuClassName,
   includeMarketplace = true,
 }: WorkflowDropdownProps) {
-  const [open, setOpen] = useState(false)
   const [internalValue, setInternalValue] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [hasRequestedLoad, setHasRequestedLoad] = useState(false)
@@ -97,7 +96,7 @@ export function WorkflowDropdown({
   }, [registryWorkflows, workspaceId, includeMarketplace])
 
   const isControlled = typeof value !== 'undefined'
-  const selectedWorkflowId = isControlled ? value ?? null : internalValue
+  const selectedWorkflowId = isControlled ? (value ?? null) : internalValue
   const selectedWorkflow = workspaceWorkflows.find((workflow) => workflow.id === selectedWorkflowId)
   const isLoading = registryLoading || isLocallyLoading
   const isDropdownDisabled = disabled || !workspaceId
@@ -192,7 +191,6 @@ export function WorkflowDropdown({
     }
 
     onChange?.(workflow.id, workflow)
-    setOpen(false)
   }
 
   const handleRetry = () => {
@@ -250,7 +248,7 @@ export function WorkflowDropdown({
 
     if (shouldShowLoadingState) {
       return (
-        <div className='flex items-center gap-2 px-3 py-2 text-muted-foreground text-xs'>
+        <div className='flex items-center gap-1 px-3 py-2 text-muted-foreground text-xs'>
           <Loader2 className='h-3.5 w-3.5 animate-spin' />
           Loading workflows…
         </div>
@@ -274,8 +272,7 @@ export function WorkflowDropdown({
               key={workflow.id}
               className={cn(widgetHeaderMenuItemClassName, 'justify-between')}
               data-active={isSelected ? '' : undefined}
-              onSelect={(event) => {
-                event.preventDefault()
+              onSelect={() => {
                 if (isSelected) return
                 handleSelect(workflow)
               }}
@@ -288,7 +285,11 @@ export function WorkflowDropdown({
                   }}
                   aria-hidden='true'
                 >
-                  <Workflow className='h-full' aria-hidden='true' style={{ color: workflow.color }} />
+                  <Workflow
+                    className='h-full'
+                    aria-hidden='true'
+                    style={{ color: workflow.color }}
+                  />
                 </span>
                 <span className={cn(widgetHeaderMenuTextClassName, 'truncate')}>
                   {workflow.name || 'Untitled workflow'}
@@ -302,10 +303,8 @@ export function WorkflowDropdown({
     )
   }
 
-  const chevronClassName = cn(
-    'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
-    open && 'rotate-180'
-  )
+  const chevronClassName =
+    'h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
 
   const colorBadge = (
     <div
@@ -330,30 +329,28 @@ export function WorkflowDropdown({
   )
 
   return (
-    <DropdownMenu
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (isDropdownDisabled) return
-        setOpen(nextOpen)
-      }}
-      modal={false}
-    >
+    <DropdownMenu modal={false}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <button
-              type='button'
-              disabled={isDropdownDisabled}
-              className={widgetHeaderControlClassName(
-                cn('flex items-center gap-2 min-w-[240px] justify-between', triggerClassName)
-              )}
-              aria-haspopup='listbox'
-            >
-              {colorBadge}
-              {labelContent}
-              <ChevronDown className={chevronClassName} aria-hidden='true' />
-            </button>
-          </DropdownMenuTrigger>
+          <span className='inline-flex'>
+            <DropdownMenuTrigger asChild>
+              <button
+                type='button'
+                disabled={isDropdownDisabled}
+                className={widgetHeaderControlClassName(
+                  cn(
+                    'group flex min-w-[240px] items-center justify-between gap-1',
+                    triggerClassName
+                  )
+                )}
+                aria-haspopup='listbox'
+              >
+                {colorBadge}
+                {labelContent}
+                <ChevronDown className={chevronClassName} aria-hidden='true' />
+              </button>
+            </DropdownMenuTrigger>
+          </span>
         </TooltipTrigger>
         <TooltipContent side='top'>{tooltipText}</TooltipContent>
       </Tooltip>
@@ -370,7 +367,7 @@ export function WorkflowDropdown({
       >
         <div className='flex h-full max-h-[inherit] flex-col'>
           <div className='border-border/70 border-b p-2'>
-            <div className='flex items-center gap-2 rounded-md border bg-background px-2 py-1.5 text-muted-foreground text-sm'>
+            <div className='flex items-center gap-1 rounded-md border bg-background px-2 py-1.5 text-muted-foreground text-sm'>
               <Search className='h-3.5 w-3.5 shrink-0' />
               <Input
                 value={searchQuery}

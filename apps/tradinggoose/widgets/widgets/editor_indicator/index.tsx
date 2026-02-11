@@ -35,7 +35,7 @@ export const editorIndicatorWidget: DashboardWidgetDefinition = {
         />
       ),
       right: (
-        <div className='flex items-center gap-2'>
+        <div className='flex items-center gap-1'>
           <IndicatorEditorVerifyButton
             workspaceId={context?.workspaceId}
             indicatorId={indicatorId}
