@@ -1,13 +1,10 @@
 import type { LineToolExport, LineToolPoint } from '@/widgets/widgets/data_chart/plugins/core'
 
-type SnapshotRecord = Record<string, unknown>
-
 export type ManualOwnerSnapshotToolOptions = {
   visible?: false
   text?: {
     value: string
   }
-  line?: SnapshotRecord
 }
 
 export type ManualOwnerSnapshotTool = {
@@ -31,14 +28,6 @@ export type ManualOwnerImportTool = {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-const cloneRecord = (value: SnapshotRecord): SnapshotRecord => ({ ...value })
-
-const normalizeRecord = (value: unknown): SnapshotRecord | undefined => {
-  if (!isRecord(value)) return undefined
-  if (Object.keys(value).length === 0) return undefined
-  return cloneRecord(value)
-}
-
 const normalizePoint = (value: unknown): LineToolPoint | null => {
   if (!isRecord(value)) return null
   const timestamp = Number(value.timestamp)
@@ -52,12 +41,10 @@ const normalizeOptions = (value: unknown): ManualOwnerSnapshotToolOptions | unde
 
   const textRecord = isRecord(value.text) ? value.text : undefined
   const textValue = typeof textRecord?.value === 'string' ? textRecord.value : undefined
-  const line = normalizeRecord(value.line)
 
   const next: ManualOwnerSnapshotToolOptions = {}
   if (value.visible === false) next.visible = false
   if (textValue !== undefined) next.text = { value: textValue }
-  if (line) next.line = line
 
   return Object.keys(next).length > 0 ? next : undefined
 }
@@ -115,10 +102,6 @@ export const decodeManualOwnerSnapshot = (snapshot: unknown): ManualOwnerImportT
 
     if (typeof tool.options?.text?.value === 'string') {
       nextOptions.text = { value: tool.options.text.value }
-    }
-
-    if (tool.options?.line) {
-      nextOptions.line = cloneRecord(tool.options.line)
     }
 
     return {

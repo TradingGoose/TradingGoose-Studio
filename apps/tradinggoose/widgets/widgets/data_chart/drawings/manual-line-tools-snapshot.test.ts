@@ -51,9 +51,6 @@ describe('manual-line-tools-snapshot', () => {
             text: {
               value: 'Text',
             },
-            line: {
-              color: '#ff0000',
-            },
           },
         },
         {
@@ -65,9 +62,6 @@ describe('manual-line-tools-snapshot', () => {
           ],
           options: {
             visible: false,
-            line: {
-              color: '#00ff00',
-            },
           },
         },
       ],
@@ -137,9 +131,6 @@ describe('manual-line-tools-snapshot', () => {
         options: {
           text: {
             value: 'Center note',
-          },
-          line: {
-            color: '#112233',
           },
         },
       },
