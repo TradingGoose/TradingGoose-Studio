@@ -415,6 +415,12 @@ export const DataChartWidgetBody = ({
 
     if (!changed) return
 
+    const currentSerialized = JSON.stringify(rawDrawTools)
+    const nextSerialized = JSON.stringify(nextDrawTools)
+    if (currentSerialized === nextSerialized) {
+      return
+    }
+
     emitDataChartParamsChange({
       params: {
         view: {

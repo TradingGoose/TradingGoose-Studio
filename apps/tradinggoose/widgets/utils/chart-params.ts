@@ -17,6 +17,49 @@ interface UseDataChartParamsPersistenceOptions {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
+const isPlainRecord = (value: unknown): value is Record<string, unknown> => {
+  if (!isRecord(value)) return false
+  const prototype = Object.getPrototypeOf(value)
+  return prototype === Object.prototype || prototype === null
+}
+
+const areValuesEqual = (a: unknown, b: unknown): boolean => {
+  if (Object.is(a, b)) return true
+
+  const aIsArray = Array.isArray(a)
+  const bIsArray = Array.isArray(b)
+  if (aIsArray || bIsArray) {
+    if (!aIsArray || !bIsArray) return false
+    if (a.length !== b.length) return false
+
+    for (let index = 0; index < a.length; index += 1) {
+      if (!areValuesEqual(a[index], b[index])) {
+        return false
+      }
+    }
+    return true
+  }
+
+  const aIsRecord = isPlainRecord(a)
+  const bIsRecord = isPlainRecord(b)
+  if (aIsRecord || bIsRecord) {
+    if (!aIsRecord || !bIsRecord) return false
+
+    const aKeys = Object.keys(a)
+    const bKeys = Object.keys(b)
+    if (aKeys.length !== bKeys.length) return false
+
+    for (const key of aKeys) {
+      if (!(key in b)) return false
+      if (!areValuesEqual(a[key], b[key])) return false
+    }
+
+    return true
+  }
+
+  return false
+}
+
 const normalizeDrawToolsSnapshotById = (raw: unknown): Map<string, ManualOwnerSnapshot> => {
   if (!Array.isArray(raw)) return new Map()
 
@@ -135,6 +178,10 @@ export function useDataChartParamsPersistence({
           : {}
 
       const nextParams = mergeNestedParams(currentParams, detail.params)
+      if (areValuesEqual(currentParams, nextParams)) {
+        return
+      }
+
       latestParamsRef.current = nextParams
 
       onWidgetParamsChange(nextParams)

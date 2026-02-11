@@ -413,6 +413,10 @@ export function DashboardClient({
   const handlePairColorChange = useCallback((panelId: string, color: PairColor) => {
     setTree((prev) => {
       const previousColor = findPanelPairColor(prev, panelId)
+      if (previousColor === color) {
+        return prev
+      }
+
       const next = updatePanelPairColor(prev, panelId, color)
 
       if (next !== prev) {
@@ -822,21 +826,51 @@ function updateGroupSizes(node: LayoutNode, groupId: string, sizes: number[]): L
   }
 
   if (node.id === groupId) {
+    if (arePanelSizesEqual(node.sizes, sizes)) {
+      return node
+    }
+
     return {
       ...node,
-      sizes,
+      sizes: [...sizes],
     }
+  }
+
+  const updatedChildren = node.children.map((child) => updateGroupSizes(child, groupId, sizes))
+  const hasChanged = updatedChildren.some((child, index) => child !== node.children[index])
+
+  if (!hasChanged) {
+    return node
   }
 
   return {
     ...node,
-    children: node.children.map((child) => updateGroupSizes(child, groupId, sizes)),
+    children: updatedChildren,
   }
+}
+
+function arePanelSizesEqual(a: number[] | undefined, b: number[] | undefined): boolean {
+  if (a === b) return true
+  if (!a || !b) return !a && !b
+  if (a.length !== b.length) return false
+
+  for (let index = 0; index < a.length; index += 1) {
+    if (Math.abs(a[index] - b[index]) > 0.01) {
+      return false
+    }
+  }
+
+  return true
 }
 
 function updatePanelPairColor(node: LayoutNode, panelId: string, color: PairColor): LayoutNode {
   if (node.type === 'panel') {
     if (node.id !== panelId) {
+      return node
+    }
+
+    const currentPairColor = isPairColor(node.widget?.pairColor) ? node.widget.pairColor : 'gray'
+    if (currentPairColor === color) {
       return node
     }
 
@@ -902,18 +936,58 @@ function updatePanelWidget(node: LayoutNode, panelId: string, widgetKey: string)
   }
 }
 
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false
+  }
+  const prototype = Object.getPrototypeOf(value)
+  return prototype === Object.prototype || prototype === null
+}
+
+function areWidgetParamValuesEqual(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true
+
+  const aIsArray = Array.isArray(a)
+  const bIsArray = Array.isArray(b)
+  if (aIsArray || bIsArray) {
+    if (!aIsArray || !bIsArray) return false
+    if (a.length !== b.length) return false
+    for (let index = 0; index < a.length; index += 1) {
+      if (!areWidgetParamValuesEqual(a[index], b[index])) {
+        return false
+      }
+    }
+    return true
+  }
+
+  const aIsRecord = isPlainRecord(a)
+  const bIsRecord = isPlainRecord(b)
+  if (aIsRecord || bIsRecord) {
+    if (!aIsRecord || !bIsRecord) return false
+
+    const aKeys = Object.keys(a)
+    const bKeys = Object.keys(b)
+    if (aKeys.length !== bKeys.length) return false
+
+    for (const key of aKeys) {
+      if (!(key in b)) return false
+      if (!areWidgetParamValuesEqual(a[key], b[key])) {
+        return false
+      }
+    }
+    return true
+  }
+
+  return false
+}
+
 function areWidgetParamsEqual(
   a: Record<string, unknown> | null,
   b: Record<string, unknown> | null
 ): boolean {
   if (a === b) return true
   if (!a || !b) return !a && !b
-
-  const aKeys = Object.keys(a)
-  const bKeys = Object.keys(b)
-  if (aKeys.length !== bKeys.length) return false
-
-  return aKeys.every((key) => Object.is(a[key], b[key]))
+  return areWidgetParamValuesEqual(a, b)
 }
 
 function updatePanelWidgetParams(
