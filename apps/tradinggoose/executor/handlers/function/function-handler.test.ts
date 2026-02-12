@@ -76,8 +76,6 @@ describe('FunctionBlockHandler', () => {
     }
     const expectedToolParams = {
       code: inputs.code,
-      language: 'javascript',
-      useLocalVM: true,
       timeout: inputs.timeout,
       envVars: {},
       workflowVariables: {},
@@ -109,8 +107,6 @@ describe('FunctionBlockHandler', () => {
     const expectedCode = 'const x = 5;\nreturn x * 2;'
     const expectedToolParams = {
       code: expectedCode,
-      language: 'javascript',
-      useLocalVM: true,
       timeout: inputs.timeout,
       envVars: {},
       workflowVariables: {},
@@ -131,12 +127,25 @@ describe('FunctionBlockHandler', () => {
     expect(result).toEqual(expectedOutput)
   })
 
+  it('should not pass runtime selection flags from block inputs', async () => {
+    const inputs = {
+      code: 'return "runtime-auto";',
+      remoteExecution: false,
+      language: 'python',
+    }
+
+    await handler.execute(mockBlock, inputs, mockContext)
+
+    const toolParams = mockExecuteTool.mock.calls[0]?.[1]
+    expect(toolParams).toEqual(expect.objectContaining({ code: 'return "runtime-auto";' }))
+    expect(toolParams).not.toHaveProperty('useLocalVM')
+    expect(toolParams).not.toHaveProperty('language')
+  })
+
   it('should use default timeout if not provided', async () => {
     const inputs = { code: 'return true;' }
     const expectedToolParams = {
       code: inputs.code,
-      language: 'javascript',
-      useLocalVM: true,
       timeout: DEFAULT_EXECUTION_TIMEOUT_MS,
       envVars: {},
       workflowVariables: {},
