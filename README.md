@@ -25,17 +25,12 @@ TradingGoose Studio is an **AI workflow platform for quantitative trading**.
 
 ### Setup Steps
 
-#### 1. Start Docker (if using Colima on macOS)
-```
-colima start
-```
-
-#### 2. Install dependencies
+#### 1. Install dependencies
 ```
 bun install
 ```
 
-#### 3. Start PostgreSQL database
+#### 2. Start PostgreSQL database
 ```
 docker run --name tradinggoose-db \
   -e POSTGRES_PASSWORD=postgres \
@@ -43,19 +38,19 @@ docker run --name tradinggoose-db \
   -p 5432:5432 -d \
   pgvector/pgvector:pg17
 ```
-#### 4. Setup environment variables
+#### 3. Setup environment variables
 ```
 cd apps/tradinggoose && cp .env.example .env
 cd ../../packages/db && cp .env.example .env
 ```
 #### Edit .env files (see configuration below)
 
-#### 5. Run database migrations
+#### 4. Run database migrations
 ```
 cd packages/db
 bunx drizzle-kit migrate --config=./drizzle.config.ts
 ```
-#### 6. Start development servers
+#### 5. Start development servers
 ```
 cd ../..
 bun run dev:full
@@ -75,6 +70,9 @@ bun run dev:full
 - **Realtime**: [Socket.io](https://socket.io/)
 - **Background Jobs**: [Trigger.dev](https://trigger.dev/)
 - **Remote Code Execution**: [E2B](https://www.e2b.dev/)
+- **Charting Library**: [Lightweight Charts](https://www.tradingview.com/lightweight-charts/)
+- **Indicator Engine**: [PineTS](https://quantforgeorg.github.io/PineTS)
+- **Chart Drawing Tools**: [difurious  Line-Tools](https://github.com/difurious/lightweight-charts-line-tools-core)
 ---
 
 ## License
