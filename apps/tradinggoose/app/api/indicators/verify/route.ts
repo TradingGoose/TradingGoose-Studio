@@ -1,12 +1,18 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { checkHybridAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateMockMarketSeries } from '@/lib/market/mock-series'
-import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import { compileIndicator } from '@/lib/indicators/custom/compile'
 import { mapMarketSeriesToBarsMs } from '@/lib/indicators/series-data'
+import {
+  authenticateIndicatorRequest,
+  getWorkspaceWritePermissionError,
+  isExecutionTimeoutError,
+  parseIndicatorRequestBody,
+  resolveIndicatorRuntimeConfig,
+  runWithExecutionTimeout,
+} from '../utils'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -35,61 +41,45 @@ export async function POST(request: NextRequest) {
   const requestId = generateRequestId()
 
   try {
-    const authResult = await checkHybridAuth(request, { requireWorkflowId: false })
-    if (!authResult.success || !authResult.userId) {
-      logger.warn(`[${requestId}] Unauthorized indicator verify attempt`)
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-    }
+    const auth = await authenticateIndicatorRequest({
+      request,
+      requestId,
+      logger,
+      action: 'verify',
+    })
+    if ('response' in auth) return auth.response
 
-    const body = await request.json().catch(() => ({}))
-    const parsed = VerifySchema.safeParse(body)
-    if (!parsed.success) {
-      const message = parsed.error.errors[0]?.message ?? 'Invalid request'
-      return NextResponse.json({ success: false, error: message }, { status: 400 })
-    }
+    const parsedBody = await parseIndicatorRequestBody({ request, schema: VerifySchema })
+    if ('response' in parsedBody) return parsedBody.response
 
-    const { workspaceId, pineCode, inputs } = parsed.data
+    const { workspaceId, pineCode, inputs } = parsedBody.data
+    const { useE2B, e2bTemplate, e2bKeepWarmMs, e2bReuseKey } = resolveIndicatorRuntimeConfig(
+      auth.userId,
+      workspaceId
+    )
 
-    const permission = await getUserEntityPermissions(authResult.userId, 'workspace', workspaceId)
-    if (!permission) {
-      return NextResponse.json({ success: false, error: 'Access denied' }, { status: 403 })
-    }
-
-    if (permission !== 'admin' && permission !== 'write') {
-      return NextResponse.json(
-        { success: false, error: 'Write permission required' },
-        { status: 403 }
-      )
-    }
+    const permissionError = await getWorkspaceWritePermissionError(auth.userId, workspaceId)
+    if (permissionError) return permissionError
 
     const series = generateMockMarketSeries()
     const barsMs = mapMarketSeriesToBarsMs(series).slice(0, MAX_BARS)
 
-    const compilePromise = compileIndicator({
-      pineCode,
-      barsMs,
-      inputsMap: inputs ?? {},
-      listingKey: 'mock',
-      interval: '1d',
-      intervalMs: 86_400_000,
-    })
-
-    const compiled = await Promise.race([
-      compilePromise,
-      new Promise<null>((_resolve, reject) => {
-        const timeoutId = setTimeout(() => {
-          clearTimeout(timeoutId)
-          reject(new Error('Execution timed out'))
-        }, VERIFY_EXECUTION_TIMEOUT_MS)
+    const compiled = await runWithExecutionTimeout(
+      compileIndicator({
+        pineCode,
+        barsMs,
+        inputsMap: inputs ?? {},
+        listingKey: 'mock',
+        interval: '1d',
+        intervalMs: 86_400_000,
+        useE2B,
+        executionTimeoutMs: VERIFY_EXECUTION_TIMEOUT_MS,
+        e2bTemplate,
+        e2bReuseKey,
+        e2bKeepWarmMs,
       }),
-    ])
-
-    if (!compiled) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to verify indicator', code: 'runtime_error' },
-        { status: 400 }
-      )
-    }
+      VERIFY_EXECUTION_TIMEOUT_MS
+    )
 
     if (compiled.unsupportedFeatures && compiled.unsupportedFeatures.length > 0) {
       return NextResponse.json(
@@ -171,8 +161,7 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    if (message.toLowerCase().includes('timed out')) {
+    if (isExecutionTimeoutError(error)) {
       return NextResponse.json(
         { success: false, error: 'Verification timed out', code: 'runtime_error' },
         { status: 408 }

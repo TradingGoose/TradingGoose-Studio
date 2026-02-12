@@ -68,7 +68,7 @@ const resolveMarkerText = (plot: { title?: string; options?: Record<string, unkn
       : null
   if (optionsText) return optionsText
   const title = plot.title?.trim()
-  return title && title.length > 0 ? title : '•'
+  return title
 }
 
 const resolveSeriesStyle = (style?: string) => {
@@ -83,7 +83,7 @@ const resolveSeriesStyle = (style?: string) => {
     return { seriesType: 'Line' as const, needsMarkers: false, lineType: 'withSteps' }
   }
   if (normalized === 'style_circles') {
-    return { seriesType: 'Line' as const, needsMarkers: true }
+    return { seriesType: undefined, needsMarkers: true }
   }
   if (normalized === 'style_line') {
     return { seriesType: 'Line' as const, needsMarkers: false }
@@ -260,7 +260,9 @@ export function normalizeContext({
               : undefined,
         }
       })
-      .filter((point): point is NormalizedPineSeries['points'][number] => Boolean(point))
+      .filter(
+        (point: unknown): point is NormalizedPineSeries['points'][number] => Boolean(point)
+      )
 
     if (resolvedStyle.needsMarkers) {
       if (style === 'style_cross') {
@@ -271,11 +273,11 @@ export function normalizeContext({
       } else if (style === 'style_circles') {
         warnings.push({
           code: 'style_circles_fallback',
-          message: `${title} uses style_circles; rendering line + circle markers.`,
+          message: `${title} uses style_circles; rendering circle markers only.`,
         })
       }
 
-      points.forEach((point) => {
+      points.forEach((point: NormalizedPineSeries['points'][number]) => {
         if (typeof point.value !== 'number' || !Number.isFinite(point.value)) return
         markers.push({
           time: point.time,
@@ -288,7 +290,9 @@ export function normalizeContext({
       })
     }
 
-    series.push({ plot: plotDescriptor, points })
+    if (resolvedStyle.seriesType) {
+      series.push({ plot: plotDescriptor, points })
+    }
   })
 
   return {
@@ -302,4 +306,3 @@ export function normalizeContext({
     warnings,
   }
 }
-
