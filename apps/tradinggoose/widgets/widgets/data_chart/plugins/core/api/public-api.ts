@@ -265,6 +265,17 @@ export interface ILineToolsApi {
 	importLineTools(json: string): boolean;
 
 	/**
+	 * Forces a view recomputation for existing line tools without changing their model data.
+	 *
+	 * This is used when chart/series scale state changes (for example after range/interval data reloads)
+	 * and tools need their screen coordinates recalculated from persisted points.
+	 *
+	 * @param ids - Optional subset of tool IDs to refresh. If omitted, all tools are refreshed.
+	 * @returns void
+	 */
+	refreshLineToolViews(ids?: string[]): void;
+
+	/**
 	 * Subscribes a handler function to the event that fires when a line tool is double-clicked.
 	 *
 	 * @param handler - The callback function to execute. It receives a {@link LineToolsDoubleClickEventParams} object.

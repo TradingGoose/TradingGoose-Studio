@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react'
 import type { IChartApi } from 'lightweight-charts'
 import { createManualLineToolsAdapterActions } from '@/widgets/widgets/data_chart/drawings/manual-line-tools-adapter-actions'
 import { createManualLineToolsAttachmentController } from '@/widgets/widgets/data_chart/drawings/manual-line-tools-adapter-attachment-controller'
-import type { ManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/manual-line-tools-snapshot'
 import type {
   InlineTextEditorEntry,
   OwnerBinding,
@@ -20,6 +19,7 @@ import {
 } from '@/widgets/widgets/data_chart/drawings/manual-line-tools-adapter-utils'
 import { createInlineTextEditorController } from '@/widgets/widgets/data_chart/drawings/manual-line-tools-inline-text-editor'
 import { createOwnerStateHelpers } from '@/widgets/widgets/data_chart/drawings/manual-line-tools-owner-state'
+import type { ManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/manual-line-tools-snapshot'
 import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/manual-tool-types'
 
 export type {
@@ -33,6 +33,7 @@ export const useManualLineToolsAdapter = ({
   chartRef,
   mainSeriesRef,
   chartReady,
+  syncVersion,
   panelId,
   drawTools,
   indicatorRuntimeRef,
@@ -155,13 +156,15 @@ export const useManualLineToolsAdapter = ({
     })
   }
 
+  const chartInstance = chartRef.current
+  const mainSeriesInstance = mainSeriesRef.current
+
   useEffect(() => {
-    const chart = chartRef.current
-    if (currentChartRef.current && currentChartRef.current !== chart) {
+    if (currentChartRef.current && currentChartRef.current !== chartInstance) {
       attachmentControllerRef.current?.teardownAll()
     }
-    currentChartRef.current = chart
-  }, [chartReady, chartRef])
+    currentChartRef.current = chartInstance
+  }, [chartReady, chartInstance])
 
   useEffect(() => {
     return () => {
@@ -170,8 +173,43 @@ export const useManualLineToolsAdapter = ({
   }, [])
 
   useEffect(() => {
-    attachmentControllerRef.current?.syncOwners(drawTools)
-  }, [chartReady, drawTools, indicatorRuntimeVersion, chartRef, mainSeriesRef])
+    let rafId: number | null = null
+    let attempts = 0
+    const maxAttempts = 60
+
+    const runSync = () => {
+      const chartReadyNow = Boolean(chartRef.current)
+      const seriesReadyNow = Boolean(mainSeriesRef.current)
+      if (!chartReadyNow || !seriesReadyNow) {
+        attempts += 1
+        if (attempts >= maxAttempts) return
+        rafId = window.requestAnimationFrame(runSync)
+        return
+      }
+
+      attachmentControllerRef.current?.syncOwners(drawTools)
+      // One trailing sync after readiness helps import snapshots after style/series settle.
+      rafId = window.requestAnimationFrame(() => {
+        if (!chartRef.current || !mainSeriesRef.current) return
+        attachmentControllerRef.current?.syncOwners(drawTools)
+      })
+    }
+
+    runSync()
+
+    return () => {
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId)
+      }
+    }
+  }, [
+    chartReady,
+    drawTools,
+    indicatorRuntimeVersion,
+    syncVersion,
+    chartInstance,
+    mainSeriesInstance,
+  ])
 
   return {
     revision,
@@ -184,6 +222,7 @@ export const useManualLineToolsAdapter = ({
     clearAll: actionsControllerRef.current.clearAll,
     hasOwnerTools: actionsControllerRef.current.hasOwnerTools,
     getOwnerSnapshot: actionsControllerRef.current.getOwnerSnapshot,
+    isOwnerAttached: attachmentControllerRef.current.isOwnerAttached,
     getOwnerVisibilityMode: actionsControllerRef.current.getOwnerVisibilityMode,
     setAllVisibility: actionsControllerRef.current.setAllVisibility,
     getToolCapability: actionsControllerRef.current.getToolCapability,

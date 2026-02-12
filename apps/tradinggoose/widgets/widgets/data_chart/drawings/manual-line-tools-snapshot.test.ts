@@ -176,4 +176,31 @@ describe('manual-line-tools-snapshot', () => {
   it('returns empty data for malformed snapshot strings', () => {
     expect(decodeManualOwnerSnapshot('not-json')).toEqual([])
   })
+
+  it('normalizes millisecond timestamps to seconds', () => {
+    const snapshot = {
+      tools: [
+        {
+          id: 'trend-ms',
+          toolType: 'TrendLine',
+          points: [
+            { timestamp: 1770750300000, price: 419.08 },
+            { timestamp: 1770750360000, price: 420.01 },
+          ],
+        },
+      ],
+    }
+
+    expect(decodeManualOwnerSnapshot(snapshot)).toEqual([
+      {
+        id: 'trend-ms',
+        toolType: 'TrendLine',
+        points: [
+          { timestamp: 1770750300, price: 419.08 },
+          { timestamp: 1770750360, price: 420.01 },
+        ],
+        options: {},
+      },
+    ])
+  })
 })

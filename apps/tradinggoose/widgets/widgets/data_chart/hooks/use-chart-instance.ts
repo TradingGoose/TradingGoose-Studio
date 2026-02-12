@@ -8,12 +8,18 @@ export const useChartInstance = (resetKey?: string | number) => {
   const chartContainerRef = useRef<HTMLDivElement | null>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const beforeDestroyRef = useRef<(() => void) | null>(null)
+  const [containerVersion, setContainerVersion] = useState(0)
   type MainSeries =
     | ISeriesApi<'Candlestick'>
     | ISeriesApi<'Bar'>
     | ISeriesApi<'Area'>
   const mainSeriesRef = useRef<MainSeries | null>(null)
   const [chartReady, setChartReady] = useState(0)
+  const chartContainerCallbackRef = useCallback((container: HTMLDivElement | null) => {
+    if (chartContainerRef.current === container) return
+    chartContainerRef.current = container
+    setContainerVersion((prev) => prev + 1)
+  }, [])
   const registerBeforeDestroy = useCallback((callback: (() => void) | null) => {
     beforeDestroyRef.current = callback
   }, [])
@@ -60,30 +66,47 @@ export const useChartInstance = (resetKey?: string | number) => {
     chartRef.current = chart
     setChartReady((prev) => prev + 1)
 
+    let isDisposing = false
     const resizeObserver = new ResizeObserver(() => {
-      if (!chartContainerRef.current || !chartRef.current) return
+      if (isDisposing || !chartContainerRef.current || !chartRef.current) return
       const width = chartContainerRef.current.clientWidth
       const height = chartContainerRef.current.clientHeight
       if (width > 0 && height > 0) {
-        chartRef.current.resize(width, height)
+        try {
+          chartRef.current.resize(width, height)
+        } catch {
+          // Ignore observer races while the chart is being torn down.
+        }
       }
     })
 
     resizeObserver.observe(container)
 
     return () => {
+      isDisposing = true
       try {
         beforeDestroyRef.current?.()
       } catch (error) {
         console.error('[useChartInstance] Error in before-destroy callback:', error)
       }
       beforeDestroyRef.current = null
-      resizeObserver.disconnect()
-      chart.remove()
       chartRef.current = null
       mainSeriesRef.current = null
+      resizeObserver.disconnect()
+      try {
+        chart.remove()
+      } catch {
+        // Ignore disposal races from chart internals during reset.
+      }
     }
-  }, [resetKey])
+  }, [resetKey, containerVersion])
 
-  return { chartRef, chartContainerRef, mainSeriesRef, chartReady, registerBeforeDestroy }
+  return {
+    chartRef,
+    chartContainerRef,
+    chartContainerCallbackRef,
+    mainSeriesRef,
+    chartReady,
+    registerBeforeDestroy,
+  }
 }

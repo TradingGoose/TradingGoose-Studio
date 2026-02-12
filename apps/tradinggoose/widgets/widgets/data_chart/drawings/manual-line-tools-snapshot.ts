@@ -30,7 +30,11 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const normalizePoint = (value: unknown): LineToolPoint | null => {
   if (!isRecord(value)) return null
-  const timestamp = Number(value.timestamp)
+  const rawTimestamp = Number(value.timestamp)
+  const timestamp =
+    Number.isFinite(rawTimestamp) && Math.abs(rawTimestamp) > 1e12
+      ? rawTimestamp / 1000
+      : rawTimestamp
   const price = Number(value.price)
   if (!Number.isFinite(timestamp) || !Number.isFinite(price)) return null
   return { timestamp, price }

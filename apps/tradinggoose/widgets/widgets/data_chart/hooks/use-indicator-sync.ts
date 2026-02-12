@@ -839,16 +839,14 @@ export const useIndicatorSync = ({
           markerEntries.push({ series: targetSeries, marker: resolvedMarker })
         })
 
-        if (runtimePlots.length > 0) {
-          runtimeEntries.set(indicatorId, {
-            id: indicatorId,
-            pane,
-            paneIndex: pane ? pane.paneIndex() : 0,
-            plots: runtimePlots,
-            paneAnchorSeries,
-            paneAnchorIdentity,
-          })
-        }
+        runtimeEntries.set(indicatorId, {
+          id: indicatorId,
+          pane,
+          paneIndex: pane ? pane.paneIndex() : mainPaneIndex,
+          plots: runtimePlots,
+          paneAnchorSeries,
+          paneAnchorIdentity,
+        })
       })
 
       if (markerEntries.length > MAX_MARKERS_TOTAL) {

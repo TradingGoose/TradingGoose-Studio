@@ -25,7 +25,6 @@ import { DataChartFooter } from '@/widgets/widgets/data_chart/components/footer'
 import { IndicatorControl } from '@/widgets/widgets/data_chart/components/indicator-control'
 import { PaneControl } from '@/widgets/widgets/data_chart/components/pane-control'
 import {
-  createEmptyManualOwnerSnapshot,
   normalizeManualOwnerSnapshot,
   serializeManualOwnerSnapshot,
 } from '@/widgets/widgets/data_chart/drawings/manual-line-tools-snapshot'
@@ -122,12 +121,7 @@ export const DataChartWidgetBody = ({
     resolvedPairColor !== 'gray' ? (pairContext.listing ?? null) : (dataParams.listing ?? null)
   const seriesWindow = useMemo(
     () => resolveSeriesWindow(dataParams as DataChartWidgetParams, providerId),
-    [
-      providerId,
-      dataParams.data?.interval,
-      dataParams.view?.interval,
-      dataParams.view?.rangePresetId,
-    ]
+    [providerId, dataParams.view?.interval, dataParams.view?.rangePresetId]
   )
 
   const intervalLabel = seriesWindow.interval ?? ''
@@ -150,18 +144,18 @@ export const DataChartWidgetBody = ({
   }, [resolvedListing])
 
   const chartResetKey = useMemo(
-    () =>
-      [
-        providerId ?? 'none',
-        listingKey ?? 'none',
-        seriesWindow.windowKey ?? 'none',
-        seriesWindow.interval ?? '',
-      ].join('|'),
-    [listingKey, providerId, seriesWindow.interval, seriesWindow.windowKey]
+    () => [providerId ?? 'none', listingKey ?? 'none'].join('|'),
+    [listingKey, providerId]
   )
 
-  const { chartRef, chartContainerRef, mainSeriesRef, chartReady, registerBeforeDestroy } =
-    useChartInstance(chartResetKey)
+  const {
+    chartRef,
+    chartContainerRef,
+    chartContainerCallbackRef,
+    mainSeriesRef,
+    chartReady,
+    registerBeforeDestroy,
+  } = useChartInstance(chartResetKey)
   const { socket } = useSocket()
   const [dataVersion, setDataVersion] = useState(0)
   const lastLiveRefreshRef = useRef(0)
@@ -197,6 +191,8 @@ export const DataChartWidgetBody = ({
     seriesWindow,
     onWidgetParamsChange,
     resolvedPairColor,
+    panelId,
+    widgetKey,
   })
 
   const intervalMs = intervalToMs(seriesWindow.interval ?? seriesWindow.requestInterval ?? null)
@@ -224,6 +220,7 @@ export const DataChartWidgetBody = ({
     chartRef,
     chartContainerRef,
     mainSeriesRef,
+    chartReady,
     socket,
     workspaceId,
     providerId,
@@ -362,6 +359,7 @@ export const DataChartWidgetBody = ({
     chartRef,
     mainSeriesRef,
     chartReady,
+    syncVersion: dataVersion,
     panelId,
     drawTools: resolvedDrawTools,
     indicatorRuntimeRef,
@@ -383,12 +381,12 @@ export const DataChartWidgetBody = ({
 
     let changed = false
     const nextDrawTools = normalized.map((entry) => {
-      const snapshot = getOwnerSnapshot(toManualOwnerId(entry.id))
+      const ownerId = toManualOwnerId(entry.id)
+      const snapshot = getOwnerSnapshot(ownerId)
       const nextSnapshot = snapshot && snapshot.tools.length > 0 ? snapshot : undefined
       const currentSnapshot = normalizeManualOwnerSnapshot(entry.snapshot) ?? undefined
-      if (!nextSnapshot && currentSnapshot && manualLineToolsRevision === 0) {
-        return entry
-      }
+      if (!nextSnapshot) return entry
+
       if (
         serializeManualOwnerSnapshot(currentSnapshot) ===
         serializeManualOwnerSnapshot(nextSnapshot)
@@ -406,9 +404,6 @@ export const DataChartWidgetBody = ({
       }
       if (nextSnapshot) {
         nextEntry.snapshot = nextSnapshot
-      } else if (currentSnapshot) {
-        // Keep an explicit clear marker so stale events cannot resurrect old snapshots.
-        nextEntry.snapshot = createEmptyManualOwnerSnapshot()
       }
       return nextEntry
     })
@@ -916,7 +911,7 @@ export const DataChartWidgetBody = ({
           />
         )}
         <div
-          ref={chartContainerRef}
+          ref={chartContainerCallbackRef}
           aria-hidden={showErrorState}
           className={`relative z-0 h-full w-full bg-background text-foreground${showErrorState ? ' pointer-events-none opacity-0' : ''
             }`}

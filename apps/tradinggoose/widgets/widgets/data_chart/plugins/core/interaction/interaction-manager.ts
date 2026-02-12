@@ -14,7 +14,7 @@ import { LineToolsCorePlugin } from '../core-plugin';
 import { BaseLineTool } from '../model/base-line-tool';
 import { ToolRegistry } from '../model/tool-registry';
 import { LineToolPartialOptionsMap, LineToolType, InteractionPhase, HitTestType, HitTestResult, SnapAxis, FinalizationMethod, PaneCursorType } from '../types';
-import { Point, interpolateLogicalIndexFromTime, interpolateTimeFromLogicalIndex } from '../utils/geometry';
+import { Point, interpolateTimeFromLogicalIndex } from '../utils/geometry';
 import { LineToolPoint } from '../api/public-api';
 import { ensureNotNull } from '../utils/helpers';
 
@@ -53,10 +53,6 @@ export class InteractionManager<HorzScaleItem> {
 	private _draggedTool: BaseLineTool<HorzScaleItem> | null = null;
 	private _draggedPointIndex: number | null = null;
 	private _originalDragPoints: LineToolPoint[] | null = null;
-	private _originalTranslationPoints: LineToolPoint[] | null = null;
-	private _originalTranslationLogicalIndices: number[] | null = null;
-	private _originalTranslationScreenPoints: Point[] | null = null;
-	private _dragStartPrice: number | null = null;
 	private _dragStartPoint: Point | null = null;
 	// Store the cursor that started the interaction
     private _activeDragCursor: PaneCursorType | null = null;
@@ -70,7 +66,7 @@ export class InteractionManager<HorzScaleItem> {
 	private _isShiftKeyDown: boolean = false;
 	private _isDestroyed: boolean = false;
 
-	// Stable bound handlers so we can unsubscribe/remove listeners on destroy.
+	// Stable bound handlers ensure deterministic unsubscribe during plugin destroy.
 	private readonly _boundHandleMouseDown = (event: MouseEvent): void => this._handleMouseDown(event);
 	private readonly _boundHandleMouseMove = (event: MouseEvent): void => this._handleMouseMove(event);
 	private readonly _boundHandleMouseUp = (event: MouseEvent): void => this._handleMouseUp(event);
@@ -125,8 +121,9 @@ export class InteractionManager<HorzScaleItem> {
 	public screenPointToLineToolPoint(screenPoint: Point): LineToolPoint | null {
 		const timeScale = this._chart.timeScale();
 		const price = this._series.coordinateToPrice(screenPoint.y as Coordinate);
-		const logical = timeScale.coordinateToLogical(screenPoint.x as Coordinate);
 
+		const logical = timeScale.coordinateToLogical(screenPoint.x as Coordinate);
+	 
 		if (logical === null) {
 			return null;
 		}
@@ -195,11 +192,7 @@ export class InteractionManager<HorzScaleItem> {
 	}
 
 	/**
-	 * Releases all chart/window/DOM listeners owned by this interaction manager.
-	 *
-	 * This should be called exactly once when the parent core plugin is destroyed.
-	 *
-	 * @returns void
+	 * Releases all listeners owned by this interaction manager.
 	 */
 	public destroy(): void {
 		if (this._isDestroyed) {
@@ -381,7 +374,7 @@ export class InteractionManager<HorzScaleItem> {
 		// --- 2. GESTURE ON EXISTING TOOL START ---
 		const hitResult = this._hitTest(point);
 
-		if (hitResult && hitResult.tool) {
+		if (hitResult?.tool) {
 
 			if (!hitResult.tool.options().editable) { return; }
 
@@ -436,14 +429,14 @@ export class InteractionManager<HorzScaleItem> {
 				// --- Standard Handling for Bounded Tools ---
 				
 				// Determine the maximum anchor index to iterate up to.
-				const maxAnchorIndex = hitResult.tool.maxAnchorIndex 
-					? hitResult.tool.maxAnchorIndex() 
+				const maxAnchorIndex = hitResult.tool.maxAnchorIndex 
+					? hitResult.tool.maxAnchorIndex() 
 					: hitResult.tool.pointsCount - 1;
 
 				const originalPointsArray: (LineToolPoint | null)[] = [];
 				for (let i = 0; i <= maxAnchorIndex; i++) {
 					// Calls tool.getPoint(i), which calculates virtual points for indices > 1
-					originalPointsArray.push(hitResult.tool.getPoint(i)); 
+					originalPointsArray.push(hitResult.tool.getPoint(i)); 
 				}
 				
 				// Filter out nulls and store the collected points
@@ -452,44 +445,8 @@ export class InteractionManager<HorzScaleItem> {
 			
 			// Store the collected points for drag comparison
 			this._originalDragPoints = allOriginalPoints;
-
-			const translationPointCount =
-				this._draggedTool.pointsCount === -1
-					? allOriginalPoints.length
-					: Math.max(0, Math.min(this._draggedTool.pointsCount, allOriginalPoints.length));
-			this._originalTranslationPoints = allOriginalPoints.slice(0, translationPointCount);
-
-			const translationScreenPoints = this._originalTranslationPoints.map(originalPoint =>
-				this._draggedTool?.pointToScreenPoint(originalPoint) ?? null
-			);
-			this._originalTranslationScreenPoints = translationScreenPoints.every(pointOnScreen => pointOnScreen !== null)
-				? (translationScreenPoints as Point[])
-				: null;
-
-			// Prefer screen-derived logical indices to match what is actually rendered at drag start.
-			if (this._originalTranslationScreenPoints) {
-				const logicalIndicesFromScreen = this._originalTranslationScreenPoints.map(pointOnScreen =>
-					this._chart.timeScale().coordinateToLogical(pointOnScreen.x as Coordinate)
-				);
-				this._originalTranslationLogicalIndices = logicalIndicesFromScreen.every(logical => logical !== null)
-					? (logicalIndicesFromScreen.map(logical => Number(logical)) as number[])
-					: null;
-			} else {
-				const logicalIndicesFromTime = this._originalTranslationPoints.map(originalPoint =>
-					interpolateLogicalIndexFromTime(
-						this._chart,
-						this._series,
-						originalPoint.timestamp as any
-					)
-				);
-				this._originalTranslationLogicalIndices = logicalIndicesFromTime.every(logical => logical !== null)
-					? (logicalIndicesFromTime.map(logical => Number(logical)) as number[])
-					: null;
-			}
-			const dragStartPriceRaw = this._series.coordinateToPrice(point.y as Coordinate);
-			this._dragStartPrice = dragStartPriceRaw !== null ? Number(dragStartPriceRaw) : null;
 			// highlight-end
-			this._dragStartPoint = point; 
+			this._dragStartPoint = point; 
 
 			this._chart.applyOptions({ handleScroll: { pressedMouseMove: false } });
 
@@ -528,7 +485,7 @@ export class InteractionManager<HorzScaleItem> {
  
 			// Safety check: If not supported, rely on _handleCrosshairMove for ghosting and exit
 			if (!isDragCreationSupported && !this._isDrag) {
-				return; 
+				return; 
 			}
 
 			if (this._isDrag && isDragCreationSupported) {
@@ -668,102 +625,64 @@ export class InteractionManager<HorzScaleItem> {
 						tool.setPoint(anchorIndex, targetLogicalPoint);
 					}
 
-					} else {
-						// --- Tool Translate Logic (Move Phase) ---
-						
-						if (!this._originalTranslationPoints || this._originalTranslationPoints.length === 0) return;
-	 
-						// Calculate new screen points based on delta
-						const delta = point.subtract(this._dragStartPoint);
-						
-						const tool = this._draggedTool;
-						let translatedPoints: LineToolPoint[] | null = null;
-						const currentPriceRaw = this._series.coordinateToPrice(point.y as Coordinate);
-						const currentPrice = currentPriceRaw !== null ? Number(currentPriceRaw) : null;
+				} else {
+					// --- Tool Translate Logic (Move Phase) ---
+					
+					if (!this._originalDragPoints || this._originalDragPoints.length === 0) return;
+ 
+					// Calculate new screen points based on delta
+					const delta = point.subtract(this._dragStartPoint);
+					
+					// highlight-start
+					// --- FIX for Stable Logical Translation Vector ---
+					
+					const tool = this._draggedTool;
 
-						// Derive X movement in logical-index space from the dragged P0 screen position.
-						// This keeps geometry stable in bar regions and still works in right blank space.
-						const initialLogicalP0 = this._originalTranslationPoints[0];
-						const initialScreenP0 =
-							this._originalTranslationScreenPoints && this._originalTranslationScreenPoints.length > 0
-								? this._originalTranslationScreenPoints[0]
-								: tool.pointToScreenPoint(initialLogicalP0);
-						const newScreenP0 = initialScreenP0 ? initialScreenP0.add(delta) : null;
-						const newLogicalP0 = newScreenP0 ? tool.screenPointToPoint(newScreenP0) : null;
-						const newLogicalP0IndexRaw = newScreenP0
-							? this._chart.timeScale().coordinateToLogical(newScreenP0.x as Coordinate)
-							: null;
-						const newLogicalP0Index = newLogicalP0IndexRaw !== null ? Number(newLogicalP0IndexRaw) : null;
+					// 1. Get the Initial Logical P0 and Initial Screen Point
+					// We must use the point at which the drag initiated to calculate the vector
+					const initialLogicalP0 = this._originalDragPoints[0]; // The logical P0 at the moment of click
+					const initialScreenP0 = tool.pointToScreenPoint(initialLogicalP0); // The screen P0 at the moment of click
 
-						if (
-							tool.pointsCount !== -1 &&
-							this._originalTranslationLogicalIndices &&
-							this._originalTranslationLogicalIndices.length === this._originalTranslationPoints.length &&
-							newLogicalP0Index !== null
-						) {
-							const logicalDelta = Number(newLogicalP0Index) - this._originalTranslationLogicalIndices[0];
-							const movedPoints: LineToolPoint[] = [];
+					// If we cannot resolve the starting screen point, something is wrong.
+					if (!initialScreenP0) return;
 
-							for (let i = 0; i < this._originalTranslationPoints.length; i++) {
-								const translatedLogicalIndex = this._originalTranslationLogicalIndices[i] + logicalDelta;
-								const translatedTime = interpolateTimeFromLogicalIndex(
-									this._chart,
-									this._series,
-									translatedLogicalIndex
-								);
-								if (translatedTime === null) {
-									movedPoints.length = 0;
-									break;
-								}
-
-								let translatedPrice: number | null = null;
-								if (
-									this._originalTranslationScreenPoints &&
-									this._originalTranslationScreenPoints.length === this._originalTranslationPoints.length
-								) {
-									const translatedScreenY = this._originalTranslationScreenPoints[i].y + delta.y;
-									const translatedPriceRaw = this._series.coordinateToPrice(translatedScreenY as Coordinate);
-									translatedPrice = translatedPriceRaw !== null ? Number(translatedPriceRaw) : null;
-								}
-
-								if (translatedPrice === null && this._dragStartPrice !== null && currentPrice !== null) {
-									const priceDelta = currentPrice - this._dragStartPrice;
-									translatedPrice = this._originalTranslationPoints[i].price + priceDelta;
-								}
-
-								if (translatedPrice === null) {
-									movedPoints.length = 0;
-									break;
-								}
-
-								movedPoints.push({
-									timestamp: this._horzScaleBehavior.key(translatedTime as HorzScaleItem) as number,
-									price: translatedPrice,
-								});
-							}
-
-							if (movedPoints.length === this._originalTranslationPoints.length) {
-								translatedPoints = movedPoints;
-							}
-						}
-
-						if (!translatedPoints) {
-							if (!initialScreenP0) return;
-							if (!newLogicalP0) {
-								console.warn(`[InteractionManager] Failed to determine new logical P0.`);
-								return;
-							}
-
-							const timeTranslationVector = newLogicalP0.timestamp - initialLogicalP0.timestamp;
-							const priceTranslationVector = newLogicalP0.price - initialLogicalP0.price;
-							translatedPoints = this._originalTranslationPoints.map(originalLogicalPoint => ({
-								timestamp: originalLogicalPoint.timestamp + timeTranslationVector,
-								price: originalLogicalPoint.price + priceTranslationVector,
-							}));
-						}
-
-						tool.setPoints(translatedPoints);
+					// 2. Calculate the intended New Screen Point for P0
+					// This is simply the initial P0 screen position + the cumulative pixel delta
+					const newScreenP0 = initialScreenP0.add(delta);
+					
+					// 3. Convert the intended new Screen Point back to a Logical Point
+					const newLogicalP0 = tool.screenPointToPoint(newScreenP0);
+					
+					if (!newLogicalP0) {
+						console.warn(`[InteractionManager] Failed to determine new logical P0.`);
+						return;
 					}
+					
+					// 4. Calculate the Stable Translation Vector in Logical Space (Time and Price)
+					// This vector is the difference between the intended P0 and the original P0.
+					const timeTranslationVector = newLogicalP0.timestamp - initialLogicalP0.timestamp;
+					const priceTranslationVector = newLogicalP0.price - initialLogicalP0.price;
+
+					const newLogicalPoints: LineToolPoint[] = [];
+
+					// 5. Apply the Stable Translation Vector to all original points.
+					for (const originalLogicalPoint of this._originalDragPoints) {
+						
+						const translatedLogicalPoint: LineToolPoint = {
+							// Apply the stable logical vectors
+							timestamp: originalLogicalPoint.timestamp + timeTranslationVector,
+							price: originalLogicalPoint.price + priceTranslationVector,
+						};
+
+						newLogicalPoints.push(translatedLogicalPoint);
+					}
+					
+					// 6. Update the tool with the full array of new translated points
+					tool.setPoints(newLogicalPoints);
+
+
+
+				}
 
 				this._draggedTool.updateAllViews();
 				this._plugin.requestUpdate();
@@ -801,7 +720,7 @@ export class InteractionManager<HorzScaleItem> {
 
 		// Flag to indicate if a specific interaction flow was handled.
 		let handledInteraction = false;
- 
+ 
 		// --- 1. Finalize Creation Click/Drag ---
 		if (this._isCreationGesture && this._creationTool && this._mouseDownPoint) {
 
@@ -814,9 +733,9 @@ export class InteractionManager<HorzScaleItem> {
 
 			// Determine finalization method once
 			const finalizationMethod = tool.getFinalizationMethod();
- 
+ 
 			const endPoint = point || this._mouseDownPoint;
- 
+ 
 			// Start with the raw screen point
 			let finalScreenPoint: Point = endPoint;
 
@@ -861,15 +780,15 @@ export class InteractionManager<HorzScaleItem> {
 
 				// this will also downgrade the path tool as well since tool.supportsClickDragCreation = false for that
 				if (isSubsequentPointOfFixedTool || tool.supportsClickDragCreation?.() === false) {
-					// We override the drag state to false. This forces the upcoming check for 
+					// We override the drag state to false. This forces the upcoming check for 
 					// "isDiscreteClick" to evaluate as true, effectively treating the quick drag as a point click.
 					isDiscreteClick = true; 
 				}
 			}			
 
 			// Check creation method preferences
-			const supportsClickClick = tool.supportsClickClickCreation?.() !== false; 
-			const supportsClickDrag = tool.supportsClickDragCreation?.() === true; 
+			const supportsClickClick = tool.supportsClickClickCreation?.() !== false; 
+			const supportsClickDrag = tool.supportsClickDragCreation?.() === true; 
 
 
 			if (finalizationMethod === FinalizationMethod.MouseUp) {
@@ -907,18 +826,18 @@ export class InteractionManager<HorzScaleItem> {
                 
                 // VARIABLE TO CAPTURE HINT
                 let snapAxis: SnapAxis = 'none';
- 
+ 
 				if (isShiftKeyDown && isShiftConstraintSupported) {
 
 					// Determine the index of the point that is *about to be added* (P1 if P0 exists)
 					const anchorIndexBeingAdded = tool.getPermanentPointsCount();
- 
+ 
 					// The constraint source point is always P0 (index 0)
 					const anchorIndexUsedForConstraint = 0;
- 
+ 
 					// Retrieve the original Logical P0 point for the constraint calculation
 					const originalLogicalPoint = tool.getPoint(anchorIndexUsedForConstraint);
- 
+ 
 					// We need a safe points array to pass to the method
 					const allOriginalLogicalPoints = [originalLogicalPoint] as LineToolPoint[];
 
@@ -1018,7 +937,7 @@ export class InteractionManager<HorzScaleItem> {
 				// We just need to check if the final state is 'finished'.
 				// Finalization for Bounded Drag Tools (e.g., Rectangle)
 				if (finalizationMethod === FinalizationMethod.PointCount && tool.pointsCount === 2) {
-					if (tool.points().length === 2) { 
+					if (tool.points().length === 2) { 
 						this._finalizeToolCreation(tool);
 						return;
 					}
@@ -1028,7 +947,7 @@ export class InteractionManager<HorzScaleItem> {
 			// Always reset gesture-specific flags after a creation mouseup
 			this._resetCreationGestureStateOnly();
 			return; // Handled creation flow
- 
+ 
 		}
 
 		// --- 2. Finalize Editing Click/Drag ---
@@ -1039,19 +958,19 @@ export class InteractionManager<HorzScaleItem> {
 				const tool = this._draggedTool as BaseLineTool<HorzScaleItem> & { normalize?: () => void };
 				if (tool.normalize) { tool.normalize(); }
 			} else { // It was a discrete CLICK ON AN EXISTING TOOL (selection)
-				this._handleStandaloneClick(this._dragStartPoint); 
+				this._handleStandaloneClick(this._dragStartPoint); 
 			}
 
 			// Always reset editing-specific flags after an editing mouseup
-			this._resetEditingGestureStateOnly(); 
+			this._resetEditingGestureStateOnly(); 
 			return; // Handled editing flow
 		}
- 
+ 
 		// --- 3. Standalone Click (in empty space or on external UI) ---
 		// This block is reached ONLY if no creation or editing gesture was active.
 		const timeDeltaFinal = performance.now() - this._mouseDownTime;
 		const distanceMovedFinal = this._mouseDownPoint && point ? point.subtract(this._mouseDownPoint).length() : 0;
- 
+ 
 		// This handles short clicks. Long clicks (non-drag, non-create, non-edit) also fall through here.
 		// If it's a short click, we need to decide if it was on the chart.
 		const wasAShortClick = (timeDeltaFinal < CLICK_TIMEOUT && distanceMovedFinal <= DRAG_THRESHOLD && point);
@@ -1128,10 +1047,6 @@ export class InteractionManager<HorzScaleItem> {
 		this._draggedPointIndex = null;
 		this._dragStartPoint = null;
 		this._originalDragPoints = null;
-		this._originalTranslationPoints = null;
-		this._originalTranslationLogicalIndices = null;
-		this._originalTranslationScreenPoints = null;
-		this._dragStartPrice = null;
 		this._chart.applyOptions({ handleScroll: { pressedMouseMove: true } });
 	}
 
@@ -1225,7 +1140,7 @@ export class InteractionManager<HorzScaleItem> {
 
 		// --- 2. Hover/Hit Test Logic (Existing Tool Logic) ---
 		const hitResult = this._hitTest(point);
-		if (hitResult && hitResult.tool) {
+		if (hitResult?.tool) {
 			this._plugin.fireDoubleClickEvent(hitResult.tool);
 		}
 	}
@@ -1260,11 +1175,11 @@ export class InteractionManager<HorzScaleItem> {
                 // We SKIP the complex multi-point ghosting and constraint logic below.
                 return; 
             }			
- 
+ 
 			// GOTCHA if i used the crosshair subscribe via sourceEvent , TouchMouseEventData, shiftKey it is spotty
 			// it will only sometime show shift is true, so i use true browser events to get a reliable stream of shift data
 			const isShiftKeyDown = this._isShiftKeyDown;
- 
+ 
 			let finalScreenPoint: Point | null = rawScreenPoint;
 
 			// NEW: Check if the tool supports click-click creation (ghosting is part of this)
@@ -1298,8 +1213,8 @@ export class InteractionManager<HorzScaleItem> {
 				if (toolBeingCreated.getShiftConstrainedPoint && originalLogicalPoint) {
 					// Apply the constraint logic using the correct anchor index
 					const constraintResult = toolBeingCreated.getShiftConstrainedPoint( // <<< CHANGE: Capture ConstraintResult
-						anchorIndexBeingDragged, 
-						rawScreenPoint, 
+						anchorIndexBeingDragged, 
+						rawScreenPoint, 
 						phase,
 						originalLogicalPoint,
 						allOriginalLogicalPoints
@@ -1324,7 +1239,7 @@ export class InteractionManager<HorzScaleItem> {
 				toolBeingCreated.setLastPoint(null);
 			}
 
-			this._plugin.requestUpdate(); 
+			this._plugin.requestUpdate(); 
 			return;
 		}
 

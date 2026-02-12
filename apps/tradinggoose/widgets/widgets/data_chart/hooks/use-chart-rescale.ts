@@ -10,8 +10,12 @@ type UseChartRescaleArgs = {
 }
 
 const resolveChartWidth = (chart: IChartApi, container: HTMLDivElement | null) => {
-  const timeScaleWidth = chart.timeScale().width()
-  if (timeScaleWidth > 0) return timeScaleWidth
+  try {
+    const timeScaleWidth = chart.timeScale().width()
+    if (timeScaleWidth > 0) return timeScaleWidth
+  } catch {
+    return 0
+  }
   if (container?.clientWidth && container.clientWidth > 0) return container.clientWidth
   return 0
 }
@@ -46,12 +50,11 @@ export const useChartRescale = ({ chartRef, chartContainerRef }: UseChartRescale
       if (!shouldRescaleRef.current) return
       if (rescaleRafRef.current !== null) return
 
-      const chart = chartRef.current
-      if (!chart) return
-
       rescaleRafRef.current = window.requestAnimationFrame(() => {
         rescaleRafRef.current = null
         if (!shouldRescaleRef.current) return
+        const chart = chartRef.current
+        if (!chart) return
 
         const width = resolveChartWidth(chart, chartContainerRef.current)
         if (!width) {
@@ -64,17 +67,21 @@ export const useChartRescale = ({ chartRef, chartContainerRef }: UseChartRescale
           const windowBars = resolveWindowBars(expectedBars)
 
           if (resolvedLength > 0) {
-            const timeScale = chart.timeScale()
-            timeScale.resetTimeScale()
-            timeScale.applyOptions({ rightOffset: DEFAULT_RIGHT_OFFSET })
+            try {
+              const timeScale = chart.timeScale()
+              timeScale.resetTimeScale()
+              timeScale.applyOptions({ rightOffset: DEFAULT_RIGHT_OFFSET })
 
-            if (!windowBars) {
-              timeScale.fitContent()
-            } else {
-              const lastIndex = Math.max(resolvedLength - 1, 0)
-              const from = lastIndex - (windowBars - 1)
-              const to = lastIndex + DEFAULT_RIGHT_OFFSET
-              timeScale.setVisibleLogicalRange({ from, to })
+              if (!windowBars) {
+                timeScale.fitContent()
+              } else {
+                const lastIndex = Math.max(resolvedLength - 1, 0)
+                const from = lastIndex - (windowBars - 1)
+                const to = lastIndex + DEFAULT_RIGHT_OFFSET
+                timeScale.setVisibleLogicalRange({ from, to })
+              }
+            } catch {
+              return
             }
 
             rescaleAttemptsRef.current = 0
@@ -103,8 +110,10 @@ export const useChartRescale = ({ chartRef, chartContainerRef }: UseChartRescale
     }
   }, [])
 
+  const containerElement = chartContainerRef.current
+
   useEffect(() => {
-    const container = chartContainerRef.current
+    const container = containerElement
     if (!container) return
     const observer = new ResizeObserver(() => {
       const lastArgs = lastArgsRef.current
@@ -113,8 +122,11 @@ export const useChartRescale = ({ chartRef, chartContainerRef }: UseChartRescale
       scheduleRescale(lastArgs.expectedBars, lastArgs.dataLength)
     })
     observer.observe(container)
-    return () => observer.disconnect()
-  }, [chartContainerRef, scheduleRescale])
+    return () => {
+      observer.disconnect()
+      cancelRescale()
+    }
+  }, [containerElement, scheduleRescale, cancelRescale])
 
   return { resetRescale, scheduleRescale, cancelRescale }
 }

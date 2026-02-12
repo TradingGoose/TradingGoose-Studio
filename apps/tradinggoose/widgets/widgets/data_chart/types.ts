@@ -53,7 +53,6 @@ export type DataChartDataParams = {
   provider?: string
   providerParams?: Record<string, unknown>
   auth?: DataChartAuthParams
-  interval?: MarketInterval | string
   live?: {
     enabled?: boolean
     interval?: MarketInterval | string
