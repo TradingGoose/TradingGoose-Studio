@@ -72,7 +72,7 @@ const DropdownMenuContent = React.forwardRef<
     {
       className,
       sideOffset = 4,
-      avoidCollisions = false,
+      avoidCollisions,
       sticky = 'always',
       align = 'auto',
       side = 'auto',
@@ -82,18 +82,18 @@ const DropdownMenuContent = React.forwardRef<
     },
     ref
   ) => {
-    const resolvedAlign: AlignValue | undefined = align === 'auto' ? undefined : align
+    const usesAutoPlacement = side === 'auto' || align === 'auto'
+    const resolvedAvoidCollisions = avoidCollisions ?? usesAutoPlacement
+    const resolvedAlign: AlignValue = align === 'auto' ? 'center' : align
     const resolvedSide: SideValue = side === 'auto' ? 'bottom' : side
-    const contentAlign: AlignValue | undefined =
-      resolvedAlign === 'center' ? undefined : resolvedAlign
 
     const content = (
       <DropdownMenuPrimitive.Content
         ref={ref}
         sideOffset={sideOffset}
-        avoidCollisions={avoidCollisions}
+        avoidCollisions={resolvedAvoidCollisions}
         sticky={sticky as any}
-        align={contentAlign}
+        align={resolvedAlign}
         side={resolvedSide}
         className={cn(
           'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md data-[state=closed]:animate-out data-[state=open]:animate-in',
