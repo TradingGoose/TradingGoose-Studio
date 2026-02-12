@@ -509,16 +509,17 @@ export const DataChartFooter = ({
     const anchor = new Date(0)
     const rangeEnd = addRangeToDate(anchor, preset.range)
     const rangeMs = rangeEnd.getTime() - anchor.getTime()
-    const fallbackInterval = params.data?.interval
+    const fallbackInterval = params.view?.interval
     const presetInterval = preset.interval
     const interval =
       presetInterval ?? chooseIntervalForRange(rangeMs, allowedIntervals) ?? fallbackInterval
-    const nextData = { ...(params.data ?? {}) } as Record<string, unknown>
-    delete nextData.window
-    delete nextData.fallbackWindow
-    if (interval) {
-      nextData.interval = interval
-    }
+    const {
+      window: _window,
+      fallbackWindow: _fallbackWindow,
+      interval: _legacyInterval,
+      ...nextDataBase
+    } = (params.data ?? {}) as Record<string, unknown>
+    const nextData = { ...nextDataBase }
 
     const nextView = { ...(params.view ?? {}) } as Record<string, unknown>
     nextView.rangePresetId = preset.id
@@ -583,8 +584,8 @@ export const DataChartFooter = ({
                             const resolvedInterval =
                               preset.interval ??
                               chooseIntervalForRange(rangeMs, allowedIntervals) ??
-                              (typeof params.data?.interval === 'string'
-                                ? params.data.interval
+                              (typeof params.view?.interval === 'string'
+                                ? params.view.interval
                                 : null)
                             const rangeLabel =
                               preset.id === 'all'

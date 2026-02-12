@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo } from 'react'
 import type { PairColor } from '@/widgets/pair-colors'
+import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
 import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
+
 type SeriesWindow = ReturnType<
   typeof import('@/widgets/widgets/data_chart/series-window').resolveSeriesWindow
 >
@@ -13,6 +15,8 @@ type UseChartDefaultsArgs = {
   seriesWindow: SeriesWindow
   onWidgetParamsChange?: (params: Record<string, unknown> | null) => void
   resolvedPairColor: PairColor
+  panelId?: string
+  widgetKey?: string
 }
 
 export const useChartDefaults = ({
@@ -21,52 +25,47 @@ export const useChartDefaults = ({
   seriesWindow,
   onWidgetParamsChange,
   resolvedPairColor,
+  panelId,
+  widgetKey,
 }: UseChartDefaultsArgs) => {
   const shouldPersistDefaults = useMemo(() => {
     if (!onWidgetParamsChange) return false
     if (!providerId) return false
     const currentData = dataParams.data ?? {}
+    const currentDataRecord = currentData as Record<string, unknown>
     const currentView = dataParams.view ?? {}
     const hasWindowParams =
-      Object.prototype.hasOwnProperty.call(currentData as Record<string, unknown>, 'window') ||
-      Object.prototype.hasOwnProperty.call(currentData as Record<string, unknown>, 'fallbackWindow')
+      currentDataRecord.window != null || currentDataRecord.fallbackWindow != null
+    const hasLegacyIntervalParam = currentDataRecord.interval != null
 
     return (
       hasWindowParams ||
-      (seriesWindow.interval && seriesWindow.interval !== currentData.interval) ||
+      hasLegacyIntervalParam ||
       (seriesWindow.interval && seriesWindow.interval !== currentView.interval) ||
       !currentView.marketSession
     )
-  }, [
-    dataParams.data,
-    dataParams.view,
-    onWidgetParamsChange,
-    providerId,
-    seriesWindow.interval,
-  ])
+  }, [dataParams.data, dataParams.view, onWidgetParamsChange, providerId, seriesWindow.interval])
 
   useEffect(() => {
     if (!onWidgetParamsChange || !shouldPersistDefaults) return
 
-    const nextData = { ...(dataParams.data ?? {}) } as Record<string, unknown>
-    delete nextData.window
-    delete nextData.fallbackWindow
-    if (seriesWindow.interval) {
-      nextData.interval = seriesWindow.interval
-    }
+    const {
+      window: _window,
+      fallbackWindow: _fallbackWindow,
+      interval: _legacyInterval,
+      ...nextDataBase
+    } = (dataParams.data ?? {}) as Record<string, unknown>
+    const nextData = { ...nextDataBase }
 
-    const nextView = { ...(dataParams.view ?? {}) } as Record<string, unknown>
-    if (seriesWindow.interval) {
-      nextView.interval = seriesWindow.interval
-    } else {
-      delete nextView.interval
-    }
+    const viewBase = { ...(dataParams.view ?? {}) } as Record<string, unknown>
+    const nextView = seriesWindow.interval
+      ? { ...viewBase, interval: seriesWindow.interval }
+      : (({ interval: _interval, ...rest }) => rest)(viewBase)
     if (!nextView.marketSession) {
       nextView.marketSession = 'regular'
     }
 
     const nextParams: DataChartWidgetParams = {
-      ...(dataParams ?? {}),
       data: nextData as DataChartWidgetParams['data'],
       view: nextView as DataChartWidgetParams['view'],
     }
@@ -76,12 +75,17 @@ export const useChartDefaults = ({
         ? (({ listing: _listing, ...rest }) => rest)(nextParams)
         : nextParams
 
-    onWidgetParamsChange(nextPayload as Record<string, unknown>)
+    emitDataChartParamsChange({
+      params: nextPayload as Record<string, unknown>,
+      panelId,
+      widgetKey,
+    })
   }, [
     dataParams,
-    onWidgetParamsChange,
+    panelId,
     resolvedPairColor,
     seriesWindow.interval,
     shouldPersistDefaults,
+    widgetKey,
   ])
 }

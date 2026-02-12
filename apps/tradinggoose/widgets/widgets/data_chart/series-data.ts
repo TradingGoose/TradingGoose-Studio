@@ -138,11 +138,6 @@ const coerceFiniteNumber = (value: unknown): number | null => {
   return null
 }
 
-const clampTimestampToInterval = (timestamp: number, intervalMs?: number | null): number => {
-  if (!intervalMs || !Number.isFinite(intervalMs) || intervalMs <= 0) return timestamp
-  return Math.floor(timestamp / intervalMs) * intervalMs
-}
-
 const clampTimestampToChartResolution = (timestamp: number): number => {
   // lightweight-charts numeric times are second-based.
   return Math.floor(timestamp / 1000) * 1000
@@ -207,7 +202,8 @@ export const mapMarketBarToBarMs = (
     close
   )
   if (!normalizedOhlc) return null
-  const openTime = clampTimestampToChartResolution(clampTimestampToInterval(timestamp, intervalMs))
+  // Preserve provider bar anchors across ranges/intervals; only coerce to second precision for LWC.
+  const openTime = clampTimestampToChartResolution(timestamp)
   const closeTime = intervalMs ? openTime + intervalMs : openTime
   const volume = coerceFiniteNumber(bar.volume) ?? undefined
   const turnover = coerceFiniteNumber(bar.turnover) ?? undefined

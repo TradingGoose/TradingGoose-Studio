@@ -1,7 +1,7 @@
 import type { MutableRefObject } from 'react'
 import type { IChartApi, ISeriesApi } from 'lightweight-charts'
-import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/manual-tool-types'
 import type { ManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/manual-line-tools-snapshot'
+import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/manual-tool-types'
 import type { ILineToolsPlugin, LineToolExport } from '@/widgets/widgets/data_chart/plugins/core'
 import type { DrawToolsRef, IndicatorRuntimeEntry } from '@/widgets/widgets/data_chart/types'
 
@@ -31,6 +31,7 @@ export type ResolvedOwnerTarget = {
 
 export type PluginEntry = {
   plugin: ILineToolsPlugin
+  series: ISeriesApi<any>
   chartElement: HTMLElement
   owners: Set<OwnerId>
   pointerUpHandler: (event: PointerEvent) => void
@@ -90,6 +91,7 @@ export type UseManualLineToolsAdapterParams = {
   chartRef: MutableRefObject<IChartApi | null>
   mainSeriesRef: MutableRefObject<ISeriesApi<any> | null>
   chartReady: number
+  syncVersion?: number
   panelId?: string
   drawTools: DrawToolsRef[]
   indicatorRuntimeRef: MutableRefObject<Map<string, IndicatorRuntimeEntry>>

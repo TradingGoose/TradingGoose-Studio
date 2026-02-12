@@ -428,6 +428,37 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
 	}
 
 	/**
+	 * Recomputes pane/axis view data for existing tools without mutating their points/options.
+	 *
+	 * This is useful after chart scale/data changes where tools were created before the series
+	 * had a stable visible range and their coordinates need a deterministic refresh.
+	 *
+	 * @param ids - Optional list of tool IDs to refresh. If omitted, refreshes all tools.
+	 * @returns void
+	 */
+	public refreshLineToolViews(ids?: string[]): void {
+		const targetIds = ids && ids.length > 0 ? ids : Array.from(this._tools.keys());
+		let updated = false;
+
+		targetIds.forEach(id => {
+			const tool = this._tools.get(id);
+			if (!tool) {
+				return;
+			}
+			try {
+				tool.updateAllViews();
+				updated = true;
+			} catch {
+				// Ignore transient disposal races while chart/series are resetting.
+			}
+		});
+
+		if (updated) {
+			this._applyChartUpdate('refreshLineToolViews');
+		}
+	}
+
+	/**
 	 * Subscribes a callback function to the "Double Click" event.
 	 *
 	 * This event fires whenever a user double-clicks on an existing line tool.

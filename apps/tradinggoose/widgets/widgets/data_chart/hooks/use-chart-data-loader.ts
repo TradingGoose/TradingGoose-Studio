@@ -74,6 +74,7 @@ type UseChartDataLoaderArgs = {
   mainSeriesRef: MutableRefObject<
     ISeriesApi<'Candlestick'> | ISeriesApi<'Bar'> | ISeriesApi<'Area'> | null
   >
+  chartReady: number
   socket?: Socket | null
   workspaceId?: string | null
   providerId?: string | null
@@ -102,6 +103,7 @@ export const useChartDataLoader = ({
   chartRef,
   chartContainerRef,
   mainSeriesRef,
+  chartReady,
   socket,
   workspaceId,
   providerId,
@@ -283,6 +285,7 @@ export const useChartDataLoader = ({
       setIsLoading(false)
       return
     }
+    let isDisposed = false
 
     const refreshAt =
       typeof dataParams.runtime?.refreshAt === 'number' ? dataParams.runtime.refreshAt : null
@@ -313,6 +316,7 @@ export const useChartDataLoader = ({
 
     loaderVersionRef.current += 1
     const loaderVersion = loaderVersionRef.current
+    const isStale = () => isDisposed || loaderVersion !== loaderVersionRef.current
 
     const resolveRetentionStartMs = () => {
       if (!retentionRule?.maxRangeDays || retentionRule.maxRangeDays <= 0) return null
@@ -418,7 +422,7 @@ export const useChartDataLoader = ({
         let incomingBars: ReturnType<typeof mapMarketSeriesToBarsMs> = []
         try {
           const seriesResponse = await fetchSeriesRange(startMs, boundary)
-          if (loaderVersion !== loaderVersionRef.current) return merged
+          if (isStale()) return merged
           updateMarketSessions(seriesResponse.marketSessions)
           incomingBars = mapMarketSeriesToBarsMs(seriesResponse, dataContext.intervalMs)
         } catch (error) {
@@ -467,12 +471,12 @@ export const useChartDataLoader = ({
               ? fetchSeriesRange(pendingRange.startMs, pendingRange.endMs, true)
               : fetchSeries(true)
         )
-        if (loaderVersion !== loaderVersionRef.current) return
+        if (isStale()) return
         updateMarketSessions(seriesResponse.marketSessions)
         let barsMs = mapMarketSeriesToBarsMs(seriesResponse, dataContext.intervalMs)
         if (!useExplicitRange && primaryWindow?.mode !== 'range') {
           barsMs = await ensureMinimumBars(barsMs)
-          if (loaderVersion !== loaderVersionRef.current) return
+          if (isStale()) return
         }
         barsMs = sanitizeBarsMs(barsMs)
         dataContext.barsMsRef.current = barsMs
@@ -523,16 +527,24 @@ export const useChartDataLoader = ({
         setSeriesTimezone((prev) => (prev === nextTimezone ? prev : nextTimezone))
         setChartError(null)
       } catch (error) {
+        if (isStale()) return
         console.error('Failed to load chart data', error)
         setChartError(error instanceof Error ? error.message : 'Failed to load data')
       } finally {
-        setIsLoading(false)
+        if (!isStale()) {
+          setIsLoading(false)
+        }
       }
     }
 
     loadSeries()
 
-    const timeScale = chart.timeScale()
+    let timeScale: ReturnType<IChartApi['timeScale']> | null = null
+    try {
+      timeScale = chart.timeScale()
+    } catch {
+      timeScale = null
+    }
 
     const isFiniteLogicalRange = (
       nextRange: { from: number; to: number } | null
@@ -540,7 +552,13 @@ export const useChartDataLoader = ({
       Boolean(nextRange && Number.isFinite(nextRange.from) && Number.isFinite(nextRange.to))
 
     const readVisibleLogicalRange = () => {
-      const nextRange = timeScale.getVisibleLogicalRange()
+      if (!timeScale) return null
+      let nextRange: { from: number; to: number } | null = null
+      try {
+        nextRange = timeScale.getVisibleLogicalRange()
+      } catch {
+        return null
+      }
       return isFiniteLogicalRange(nextRange) ? nextRange : null
     }
 
@@ -586,8 +604,9 @@ export const useChartDataLoader = ({
     }
 
     const handleVisibleRangeChange = async (range: { from: number; to: number } | null) => {
+      if (!timeScale) return
       if (!isFiniteLogicalRange(range)) return
-      if (loaderVersion !== loaderVersionRef.current) return
+      if (isStale()) return
       if (Date.now() < backfillArmedAtRef.current) return
       if (primaryWindow?.mode === 'range' && range.from >= 0) return
       if (isLoadingOlderDataRef.current || !hasMoreHistoricalDataRef.current) return
@@ -609,7 +628,7 @@ export const useChartDataLoader = ({
           attempts < 4
         ) {
           attempts += 1
-          if (loaderVersion !== loaderVersionRef.current) return
+          if (isStale()) return
 
           const currentBars = dataContext.barsMsRef.current
           if (currentBars.length === 0) return
@@ -641,7 +660,7 @@ export const useChartDataLoader = ({
 
           try {
             const seriesResponse = await fetchSeriesRange(startMs, boundary, true)
-            if (loaderVersion !== loaderVersionRef.current) return
+            if (isStale()) return
             updateMarketSessions(seriesResponse.marketSessions)
             const incomingBars = mapMarketSeriesToBarsMs(seriesResponse, dataContext.intervalMs)
             if (incomingBars.length === 0) {
@@ -685,7 +704,11 @@ export const useChartDataLoader = ({
               const seriesData = mapBarsMsToSeriesData(merged, isLineSeries ? 'area' : null)
               applySeriesData(series, seriesData, isLineSeries ? 'area' : null, 'backfill')
             }
-            chart.clearCrosshairPosition()
+            try {
+              chart.clearCrosshairPosition()
+            } catch {
+              return
+            }
 
             if (addedBars <= 0) {
               historicalCursorRef.current = startMs
@@ -701,10 +724,18 @@ export const useChartDataLoader = ({
               merged.length
             )
             if (anchoredRange) {
-              timeScale.setVisibleLogicalRange(anchoredRange)
+              try {
+                timeScale.setVisibleLogicalRange(anchoredRange)
+              } catch {
+                return
+              }
               activeRange = anchoredRange
             } else if (safeRange) {
-              timeScale.setVisibleLogicalRange(safeRange)
+              try {
+                timeScale.setVisibleLogicalRange(safeRange)
+              } catch {
+                return
+              }
               activeRange = safeRange
             } else {
               activeRange = readVisibleLogicalRange()
@@ -731,18 +762,29 @@ export const useChartDataLoader = ({
       }
     }
 
-    timeScale.subscribeVisibleLogicalRangeChange(handleVisibleRangeChange)
+    if (timeScale) {
+      timeScale.subscribeVisibleLogicalRangeChange(handleVisibleRangeChange)
+    }
     startLiveSubscription()
 
     return () => {
+      isDisposed = true
+      loaderVersionRef.current += 1
       cancelRescale()
       stopLiveSubscription()
-      timeScale.unsubscribeVisibleLogicalRangeChange(handleVisibleRangeChange)
+      if (timeScale) {
+        try {
+          timeScale.unsubscribeVisibleLogicalRangeChange(handleVisibleRangeChange)
+        } catch {
+          // Ignore disposal races during chart teardown.
+        }
+      }
     }
   }, [
     chartRef,
     chartContainerRef,
     mainSeriesRef,
+    chartReady,
     dataContext,
     dataParams.runtime?.refreshAt,
     listing,
@@ -801,21 +843,5 @@ const applySeriesData = (
       points: sanitized.length,
     })
     safeSetEmpty()
-
-    if (sanitized.length === 0 || typeof window === 'undefined') return
-
-    window.requestAnimationFrame(() => {
-      try {
-        series.setData(sanitized as never)
-      } catch (retryError) {
-        const retryMessage = retryError instanceof Error ? retryError.message : String(retryError)
-        console.warn('[data_chart] Failed to retry series data', {
-          context,
-          message: retryMessage,
-          points: sanitized.length,
-        })
-        safeSetEmpty()
-      }
-    })
   }
 }
