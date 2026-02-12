@@ -1,6 +1,6 @@
 'use client'
 
-import { type MutableRefObject, useCallback, useEffect, useRef, useState } from 'react'
+import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { MonacoEditorHandle } from '@/components/monaco-editor'
 import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
 import { Notice } from '@/components/ui/notice'
@@ -94,6 +94,11 @@ export function IndicatorCodePanel({
   const indicatorSignatureRef = useRef('')
   const disallowedGlobalMessage =
     'Do not use $.pine or $.data. Use globals directly (ta, input, plot, open, high, low, close, volume).'
+  const monacoModelPath = useMemo(
+    () =>
+      `inmemory://model/pine-indicator-${encodeURIComponent(workspaceId)}-${encodeURIComponent(indicatorId)}.ts`,
+    [workspaceId, indicatorId]
+  )
 
   const validateNoDollarGlobals = (code: string) =>
     /\$\.(pine|data)\b/.test(code) ? disallowedGlobalMessage : null
@@ -377,6 +382,7 @@ export function IndicatorCodePanel({
           value={pineCode}
           onChange={handleCodeChange}
           language='typescript'
+          path={monacoModelPath}
           placeholder='Write PineTS code here...'
           minHeight='360px'
           className='flex-1 min-h-0'
