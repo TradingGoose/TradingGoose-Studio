@@ -3,13 +3,30 @@ import { pineIndicators, workflow } from '@tradinggoose/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { checkHybridAuth } from '@/lib/auth/hybrid'
 import { upsertIndicators } from '@/lib/indicators/custom/operations'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
+import { authenticateIndicatorRequest, checkWorkspacePermission } from '../utils'
 
 const logger = createLogger('IndicatorsAPI')
+
+const logWorkspacePermissionDenied = ({
+  requestId,
+  userId,
+  workspaceId,
+  code,
+}: {
+  requestId: string
+  userId: string
+  workspaceId: string
+  code: 'access_denied' | 'write_permission_required'
+}) => {
+  if (code === 'access_denied') {
+    logger.warn(`[${requestId}] User ${userId} does not have access to workspace ${workspaceId}`)
+    return
+  }
+  logger.warn(`[${requestId}] User ${userId} does not have write permission for workspace ${workspaceId}`)
+}
 
 const IndicatorSchema = z.object({
   workspaceId: z.string().min(1, 'workspaceId is required'),
@@ -31,13 +48,16 @@ export async function GET(request: NextRequest) {
   const workflowId = searchParams.get('workflowId')
 
   try {
-    const authResult = await checkHybridAuth(request, { requireWorkflowId: false })
-    if (!authResult.success || !authResult.userId) {
-      logger.warn(`[${requestId}] Unauthorized indicators access attempt`)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const auth = await authenticateIndicatorRequest({
+      request,
+      requestId,
+      logger,
+      action: 'access',
+      responseShape: 'errorOnly',
+    })
+    if ('response' in auth) return auth.response
 
-    const userId = authResult.userId
+    const userId = auth.userId
     let resolvedWorkspaceId: string | null = workspaceId
 
     if (!resolvedWorkspaceId && workflowId) {
@@ -60,13 +80,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 })
     }
 
-    if (!(authResult.authType === 'internal_jwt' && workflowId)) {
-      const permission = await getUserEntityPermissions(userId, 'workspace', resolvedWorkspaceId)
-      if (!permission) {
-        logger.warn(
-          `[${requestId}] User ${userId} does not have access to workspace ${resolvedWorkspaceId}`
-        )
-        return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    if (!(auth.authType === 'internal_jwt' && workflowId)) {
+      const permissionCheck = await checkWorkspacePermission({
+        userId,
+        workspaceId: resolvedWorkspaceId,
+        responseShape: 'errorOnly',
+      })
+      if (!permissionCheck.ok) {
+        logWorkspacePermissionDenied({
+          requestId,
+          userId,
+          workspaceId: resolvedWorkspaceId,
+          code: permissionCheck.code,
+        })
+        return permissionCheck.response
       }
     }
 
@@ -87,36 +114,40 @@ export async function POST(request: NextRequest) {
   const requestId = generateRequestId()
 
   try {
-    const authResult = await checkHybridAuth(request, { requireWorkflowId: false })
-    if (!authResult.success || !authResult.userId) {
-      logger.warn(`[${requestId}] Unauthorized indicators update attempt`)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const auth = await authenticateIndicatorRequest({
+      request,
+      requestId,
+      logger,
+      action: 'update',
+      responseShape: 'errorOnly',
+    })
+    if ('response' in auth) return auth.response
 
     const body = await request.json()
 
     try {
       const { indicators, workspaceId } = IndicatorSchema.parse(body)
 
-      const permission = await getUserEntityPermissions(authResult.userId, 'workspace', workspaceId)
-      if (!permission) {
-        logger.warn(
-          `[${requestId}] User ${authResult.userId} does not have access to workspace ${workspaceId}`
-        )
-        return NextResponse.json({ error: 'Access denied' }, { status: 403 })
-      }
-
-      if (permission !== 'admin' && permission !== 'write') {
-        logger.warn(
-          `[${requestId}] User ${authResult.userId} does not have write permission for workspace ${workspaceId}`
-        )
-        return NextResponse.json({ error: 'Write permission required' }, { status: 403 })
+      const permissionCheck = await checkWorkspacePermission({
+        userId: auth.userId,
+        workspaceId,
+        requireWrite: true,
+        responseShape: 'errorOnly',
+      })
+      if (!permissionCheck.ok) {
+        logWorkspacePermissionDenied({
+          requestId,
+          userId: auth.userId,
+          workspaceId,
+          code: permissionCheck.code,
+        })
+        return permissionCheck.response
       }
 
       const resultIndicators = await upsertIndicators({
         indicators,
         workspaceId,
-        userId: authResult.userId,
+        userId: auth.userId,
         requestId,
       })
 
@@ -163,25 +194,29 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
-    const authResult = await checkHybridAuth(request, { requireWorkflowId: false })
-    if (!authResult.success || !authResult.userId) {
-      logger.warn(`[${requestId}] Unauthorized indicator deletion attempt`)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const auth = await authenticateIndicatorRequest({
+      request,
+      requestId,
+      logger,
+      action: 'deletion',
+      responseShape: 'errorOnly',
+    })
+    if ('response' in auth) return auth.response
 
-    const permission = await getUserEntityPermissions(authResult.userId, 'workspace', workspaceId)
-    if (!permission) {
-      logger.warn(
-        `[${requestId}] User ${authResult.userId} does not have access to workspace ${workspaceId}`
-      )
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
-    }
-
-    if (permission !== 'admin' && permission !== 'write') {
-      logger.warn(
-        `[${requestId}] User ${authResult.userId} does not have write permission for workspace ${workspaceId}`
-      )
-      return NextResponse.json({ error: 'Write permission required' }, { status: 403 })
+    const permissionCheck = await checkWorkspacePermission({
+      userId: auth.userId,
+      workspaceId,
+      requireWrite: true,
+      responseShape: 'errorOnly',
+    })
+    if (!permissionCheck.ok) {
+      logWorkspacePermissionDenied({
+        requestId,
+        userId: auth.userId,
+        workspaceId,
+        code: permissionCheck.code,
+      })
+      return permissionCheck.response
     }
 
     await db
@@ -195,4 +230,3 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to delete indicator' }, { status: 500 })
   }
 }
-

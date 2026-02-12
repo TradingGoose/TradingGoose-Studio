@@ -3,14 +3,20 @@ import { pineIndicators } from '@tradinggoose/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { checkHybridAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
 import { compileIndicator } from '@/lib/indicators/custom/compile'
 import { DEFAULT_INDICATOR_MAP } from '@/lib/indicators/default'
 import { buildInputsMapFromMeta, normalizeInputMetaMap } from '@/lib/indicators/input-meta'
 import type { BarMs } from '@/lib/indicators/types'
-import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
+import {
+  authenticateIndicatorRequest,
+  getWorkspaceWritePermissionError,
+  isExecutionTimeoutError,
+  parseIndicatorRequestBody,
+  resolveIndicatorRuntimeConfig,
+  runWithExecutionTimeout,
+} from '../utils'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -44,34 +50,27 @@ export async function POST(request: NextRequest) {
   const requestId = generateRequestId()
 
   try {
-    const authResult = await checkHybridAuth(request, { requireWorkflowId: false })
-    if (!authResult.success || !authResult.userId) {
-      logger.warn(`[${requestId}] Unauthorized indicator execute attempt`)
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-    }
+    const auth = await authenticateIndicatorRequest({
+      request,
+      requestId,
+      logger,
+      action: 'execute',
+    })
+    if ('response' in auth) return auth.response
 
-    const body = await request.json().catch(() => ({}))
-    const parsed = ExecuteSchema.safeParse(body)
-    if (!parsed.success) {
-      const message = parsed.error.errors[0]?.message ?? 'Invalid request'
-      return NextResponse.json({ success: false, error: message }, { status: 400 })
-    }
+    const parsedBody = await parseIndicatorRequestBody({ request, schema: ExecuteSchema })
+    if ('response' in parsedBody) return parsedBody.response
 
-    const { workspaceId, indicatorIds, listingKey, interval, intervalMs } = parsed.data
+    const { workspaceId, indicatorIds, listingKey, interval, intervalMs } = parsedBody.data
+    const { useE2B, e2bTemplate, e2bKeepWarmMs, e2bReuseKey } = resolveIndicatorRuntimeConfig(
+      auth.userId,
+      workspaceId
+    )
 
-    const permission = await getUserEntityPermissions(authResult.userId, 'workspace', workspaceId)
-    if (!permission) {
-      return NextResponse.json({ success: false, error: 'Access denied' }, { status: 403 })
-    }
+    const permissionError = await getWorkspaceWritePermissionError(auth.userId, workspaceId)
+    if (permissionError) return permissionError
 
-    if (permission !== 'admin' && permission !== 'write') {
-      return NextResponse.json(
-        { success: false, error: 'Write permission required' },
-        { status: 403 }
-      )
-    }
-
-    const requestedBars = parsed.data.barsMs as BarMs[]
+    const requestedBars = parsedBody.data.barsMs as BarMs[]
     const barsWereTruncated = requestedBars.length > MAX_BARS
     const barsMs = barsWereTruncated ? requestedBars.slice(-MAX_BARS) : requestedBars
 
@@ -118,7 +117,7 @@ export async function POST(request: NextRequest) {
       }
 
       const inputMeta = normalizeInputMetaMap(resolvedIndicator.inputMeta)
-      const inputsOverride = parsed.data.inputsMapById?.[indicatorId]
+      const inputsOverride = parsedBody.data.inputsMapById?.[indicatorId]
       const baseInputsMap = buildInputsMapFromMeta(inputMeta)
       const inputsMap = inputsOverride ? { ...baseInputsMap, ...inputsOverride } : baseInputsMap
 
@@ -130,37 +129,23 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      const compilePromise = compileIndicator({
-        pineCode: resolvedIndicator.pineCode ?? '',
-        barsMs,
-        inputsMap,
-        listingKey,
-        interval,
-        intervalMs: intervalMs ?? null,
-      })
-
       try {
-        const compiled = await Promise.race([
-          compilePromise,
-          new Promise<null>((_resolve, reject) => {
-            const timeoutId = setTimeout(() => {
-              clearTimeout(timeoutId)
-              reject(new Error('Execution timed out'))
-            }, EXECUTION_TIMEOUT_MS)
+        const compiled = await runWithExecutionTimeout(
+          compileIndicator({
+            pineCode: resolvedIndicator.pineCode ?? '',
+            barsMs,
+            inputsMap,
+            listingKey,
+            interval,
+            intervalMs: intervalMs ?? null,
+            useE2B,
+            executionTimeoutMs: EXECUTION_TIMEOUT_MS,
+            e2bTemplate,
+            e2bReuseKey,
+            e2bKeepWarmMs,
           }),
-        ])
-
-        if (!compiled) {
-          results.push({
-            indicatorId,
-            output: null,
-            warnings,
-            unsupported: { plots: [], styles: [] },
-            counts: { plots: 0, markers: 0, drawings: 0, signals: 0 },
-            executionError: { message: 'Failed to execute indicator', code: 'runtime_error' },
-          })
-          continue
-        }
+          EXECUTION_TIMEOUT_MS
+        )
 
         if (compiled.unsupportedFeatures && compiled.unsupportedFeatures.length > 0) {
           results.push({
@@ -209,7 +194,7 @@ export async function POST(request: NextRequest) {
           counts,
         })
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
+        const timedOut = isExecutionTimeoutError(error)
         results.push({
           indicatorId,
           output: null,
@@ -217,10 +202,8 @@ export async function POST(request: NextRequest) {
           unsupported: { plots: [], styles: [] },
           counts: { plots: 0, markers: 0, drawings: 0, signals: 0 },
           executionError: {
-            message: message.toLowerCase().includes('timed out')
-              ? 'Execution timed out'
-              : 'Failed to execute indicator',
-            code: message.toLowerCase().includes('timed out') ? 'timeout' : 'runtime_error',
+            message: timedOut ? 'Execution timed out' : 'Failed to execute indicator',
+            code: timedOut ? 'timeout' : 'runtime_error',
           },
         })
       }

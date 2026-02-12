@@ -1,4 +1,6 @@
 import { Script, createContext } from 'vm'
+import { executeInE2B } from '@/lib/execution/e2b'
+import { CodeLanguage } from '@/lib/execution/languages'
 import type {
   BarMs,
   NormalizedPineOutput,
@@ -32,6 +34,8 @@ export type PineCompileResult = {
   executionError?: PineExecutionError
   unsupportedFeatures?: string[]
 }
+
+const DEFAULT_E2B_INDICATOR_TIMEOUT_MS = 15000
 
 const parseExecutionError = (error: unknown, lineOffset: number): PineExecutionError => {
   const message = error instanceof Error ? error.message : String(error)
@@ -74,6 +78,91 @@ const createVmFunction = (code: string): Function => {
     throw new Error('Expected a function expression')
   }
   return fn as Function
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const executeIndicatorInE2B = async ({
+  normalizedCode,
+  barsMs,
+  inputsMap,
+  listingKey,
+  interval,
+  timeoutMs,
+  e2bTemplate,
+  e2bReuseKey,
+  e2bKeepWarmMs,
+}: {
+  normalizedCode: string
+  barsMs: BarMs[]
+  inputsMap?: Record<string, unknown>
+  listingKey?: string
+  interval?: string
+  timeoutMs: number
+  e2bTemplate?: string
+  e2bReuseKey?: string
+  e2bKeepWarmMs?: number
+}): Promise<{ context: any; transpiledCode?: string }> => {
+  const codeForE2B = [
+    ';(async () => {',
+    "  const { Indicator, PineTS } = await import('pinets');",
+    "  if (typeof Indicator !== 'function' || typeof PineTS !== 'function') {",
+    "    throw new Error('Failed to initialize PineTS runtime in E2B sandbox');",
+    '  }',
+    `  const __sim_bars = JSON.parse(${JSON.stringify(JSON.stringify(barsMs))});`,
+    `  const __sim_inputs = JSON.parse(${JSON.stringify(JSON.stringify(inputsMap ?? {}))});`,
+    `  const __sim_listing_key = JSON.parse(${JSON.stringify(JSON.stringify(listingKey ?? null))});`,
+    `  const __sim_interval = JSON.parse(${JSON.stringify(JSON.stringify(interval ?? null))});`,
+    `  const __sim_indicator = (${normalizedCode});`,
+    '  try {',
+    '    const pine = new PineTS(__sim_bars, __sim_listing_key ?? undefined, __sim_interval ?? undefined);',
+    '    await pine.ready();',
+    '    const context = await pine.run(new Indicator(__sim_indicator, __sim_inputs));',
+    '    const payload = {',
+    '      context: {',
+    '        plots: context?.plots ?? {},',
+    '        indicator: context?.indicator ?? {},',
+    '      },',
+    "      transpiledCode: typeof pine.transpiledCode === 'string' ? pine.transpiledCode : null,",
+    '    };',
+    "    console.log('__SIM_RESULT__=' + JSON.stringify(payload));",
+    '  } catch (error) {',
+    "    console.log(String((error && (error.stack || error.message)) || error));",
+    '    throw error;',
+    '  }',
+    '})();',
+  ].join('\n')
+
+  const { result, stdout, error } = await executeInE2B({
+    code: codeForE2B,
+    language: CodeLanguage.JavaScript,
+    timeoutMs,
+    template: e2bTemplate,
+    reuseKey: e2bReuseKey,
+    keepWarmMs: e2bKeepWarmMs,
+  })
+
+  if (error) {
+    const detailedError = stdout && stdout.trim().length > 0 ? `${error}\n${stdout}` : error
+    throw new Error(detailedError)
+  }
+
+  if (!isRecord(result)) {
+    throw new Error('Invalid E2B indicator execution response')
+  }
+
+  const resultContext = isRecord(result.context) ? result.context : {}
+  const plots = isRecord(resultContext.plots) ? resultContext.plots : {}
+  const indicator = resultContext.indicator
+
+  return {
+    context: {
+      plots,
+      indicator,
+    },
+    transpiledCode: typeof result.transpiledCode === 'string' ? result.transpiledCode : undefined,
+  }
 }
 
 const toSeconds = (ms: number) => Math.floor(ms / 1000)
@@ -171,6 +260,11 @@ export async function compileIndicator({
   listingKey,
   interval,
   intervalMs,
+  useE2B = false,
+  executionTimeoutMs = DEFAULT_E2B_INDICATOR_TIMEOUT_MS,
+  e2bTemplate,
+  e2bReuseKey,
+  e2bKeepWarmMs,
 }: {
   pineCode: string
   barsMs: BarMs[]
@@ -178,6 +272,11 @@ export async function compileIndicator({
   listingKey?: string
   interval?: string
   intervalMs?: number | null
+  useE2B?: boolean
+  executionTimeoutMs?: number
+  e2bTemplate?: string
+  e2bReuseKey?: string
+  e2bKeepWarmMs?: number
 }): Promise<PineCompileResult> {
   const inferredIndicatorOptions = inferIndicatorOptionsFromPineCode(pineCode)
   const unsupportedFeatures = detectUnsupportedFeatures(pineCode)
@@ -263,22 +362,39 @@ export async function compileIndicator({
   let executionError: PineExecutionError | undefined
   let pineContext: any
   let transpiledCode: string | undefined
+  const executionInterval =
+    shouldResample && inferredIndicatorOptions?.timeframe
+      ? inferredIndicatorOptions.timeframe
+      : interval
 
   try {
-    const fn = createVmFunction(normalizedCode.code)
-    const result = await runPineTS({
-      barsMs: executionBars,
-      inputsMap,
-      listingKey,
-      interval:
-        shouldResample && inferredIndicatorOptions?.timeframe
-          ? inferredIndicatorOptions.timeframe
-          : interval,
-      code: fn,
-    })
-    pineContext = result.context
-    transpiledCode =
-      typeof result.transpiledCode === 'string' ? result.transpiledCode : undefined
+    if (useE2B) {
+      const result = await executeIndicatorInE2B({
+        normalizedCode: normalizedCode.code,
+        barsMs: executionBars,
+        inputsMap,
+        listingKey,
+        interval: executionInterval,
+        timeoutMs: executionTimeoutMs,
+        e2bTemplate,
+        e2bReuseKey,
+        e2bKeepWarmMs,
+      })
+      pineContext = result.context
+      transpiledCode = result.transpiledCode
+    } else {
+      const fn = createVmFunction(normalizedCode.code)
+      const result = await runPineTS({
+        barsMs: executionBars,
+        inputsMap,
+        listingKey,
+        interval: executionInterval,
+        code: fn,
+      })
+      pineContext = result.context
+      transpiledCode =
+        typeof result.transpiledCode === 'string' ? result.transpiledCode : undefined
+    }
   } catch (error) {
     executionError = parseExecutionError(error, 0)
   }
