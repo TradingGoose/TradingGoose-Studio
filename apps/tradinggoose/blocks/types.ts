@@ -140,27 +140,27 @@ export interface SubBlockConfig {
   providerType?: 'market' | 'trading'
   providerFieldId?: string
   required?:
-    | boolean
-    | {
-        field: string
-        value: string | number | boolean | Array<string | number | boolean>
-        not?: boolean
-        and?: {
-          field: string
-          value: string | number | boolean | Array<string | number | boolean> | undefined
-          not?: boolean
-        }
-      }
-    | (() => {
-        field: string
-        value: string | number | boolean | Array<string | number | boolean>
-        not?: boolean
-        and?: {
-          field: string
-          value: string | number | boolean | Array<string | number | boolean> | undefined
-          not?: boolean
-        }
-      })
+  | boolean
+  | {
+    field: string
+    value: string | number | boolean | Array<string | number | boolean>
+    not?: boolean
+    and?: {
+      field: string
+      value: string | number | boolean | Array<string | number | boolean> | undefined
+      not?: boolean
+    }
+  }
+  | (() => {
+    field: string
+    value: string | number | boolean | Array<string | number | boolean>
+    not?: boolean
+    and?: {
+      field: string
+      value: string | number | boolean | Array<string | number | boolean> | undefined
+      not?: boolean
+    }
+  })
   defaultValue?: string | number | boolean | Record<string, unknown> | Array<unknown>
   options?:
   | {
@@ -220,7 +220,7 @@ export interface SubBlockConfig {
   | SubBlockCondition
   | (() => SubBlockCondition)
   // Props specific to 'code' sub-block type
-  language?: 'javascript' | 'json' | 'python' | 'sql' | 'html' | 'plaintext'
+  language?: 'typescript' | 'javascript' | 'json' | 'python' | 'sql' | 'html' | 'plaintext'
   generationType?: GenerationType
   collapsible?: boolean
   defaultCollapsed?: boolean
@@ -229,9 +229,6 @@ export interface SubBlockConfig {
   serviceId?: string
   requiredScopes?: string[]
   supportsCredentialSets?: boolean
-  // Market selector provider override
-  providerType?: 'market' | 'trading'
-  providerFieldId?: string
   // File selector specific properties
   mimeType?: string
   // File upload specific properties
