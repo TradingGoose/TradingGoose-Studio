@@ -6,6 +6,29 @@ This directory contains scripts to automatically generate documentation for all 
 
 - `generate-docs.sh`: Generates documentation for all blocks
 - `setup-doc-generator.sh`: Installs dependencies required for the documentation generator
+- `create-e2b-pinets-template.ts`: Builds an E2B template with `pinets` preinstalled and prints the template ID
+
+## E2B PineTS Template Script
+
+Build a reusable E2B template for indicator/function execution without shipping PineTS bundle per run.
+
+```bash
+# Basic usage
+E2B_API_KEY=... bun run e2b:template:pinets
+
+# Custom alias/version
+E2B_API_KEY=... bun run e2b:template:pinets -- --alias tradinggoose-pinets --pinets-version 0.8.8
+```
+
+The script prints `TEMPLATE_ID=<id>` after a successful build.
+
+Use that value in app env:
+
+```bash
+E2B_INDICATOR_TEMPLATE_ID=<id>
+# optional default fallback:
+E2B_TEMPLATE_ID=<id>
+```
 
 ## How It Works
 
