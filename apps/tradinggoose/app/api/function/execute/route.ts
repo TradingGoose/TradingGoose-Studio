@@ -2,7 +2,7 @@ import { createContext, Script } from 'vm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { env, isTruthy } from '@/lib/env'
 import { executeInE2B } from '@/lib/execution/e2b'
-import { CodeLanguage, DEFAULT_CODE_LANGUAGE, isValidCodeLanguage } from '@/lib/execution/languages'
+import { CodeLanguage } from '@/lib/execution/languages'
 import { createLogger } from '@/lib/logs/console/logger'
 import { validateProxyUrl } from '@/lib/security/input-validation'
 import { generateRequestId } from '@/lib/utils'
@@ -39,7 +39,6 @@ function createSecureFetch(requestId: string) {
 
 // Constants for E2B code wrapping line counts
 const E2B_JS_WRAPPER_LINES = 3 // Lines before user code: ';(async () => {', '  try {', '    const __sim_result = await (async () => {'
-const E2B_PYTHON_WRAPPER_LINES = 1 // Lines before user code: 'def __sim_main__():'
 
 type TypeScriptModule = typeof import('typescript')
 
@@ -122,6 +121,22 @@ async function extractJavaScriptImports(
     logger.error('Failed to extract JavaScript imports', { error })
     return { imports: '', remainingCode: code, importLineCount: 0 }
   }
+}
+
+async function transpileTypeScriptCode(code: string): Promise<string> {
+  const tsModule = await loadTypeScriptModule()
+  const transpiled = tsModule.transpileModule(code, {
+    fileName: 'user-function.ts',
+    compilerOptions: {
+      target: tsModule.ScriptTarget.ES2020,
+      module: tsModule.ModuleKind.ESNext,
+      moduleResolution: tsModule.ModuleResolutionKind.Bundler,
+      esModuleInterop: true,
+      allowSyntheticDefaultImports: true,
+      skipLibCheck: true,
+    },
+  })
+  return transpiled.outputText
 }
 
 /**
@@ -246,66 +261,44 @@ function extractEnhancedError(
  */
 function formatE2BError(
   errorMessage: string,
-  errorOutput: string,
-  language: CodeLanguage,
   userCode: string,
   prologueLineCount: number
 ): { formattedError: string; cleanedOutput: string } {
-  // Calculate line offset based on language and prologue
-  const wrapperLines =
-    language === CodeLanguage.Python ? E2B_PYTHON_WRAPPER_LINES : E2B_JS_WRAPPER_LINES
-  const totalOffset = prologueLineCount + wrapperLines
+  const totalOffset = prologueLineCount + E2B_JS_WRAPPER_LINES
 
   let userLine: number | undefined
   let cleanErrorType = ''
   let cleanErrorMsg = ''
 
-  if (language === CodeLanguage.Python) {
-    // Python error format: "Cell In[X], line Y" followed by error details
-    // Extract line number from the Cell reference
-    const cellMatch = errorOutput.match(/Cell In\[\d+\], line (\d+)/)
-    if (cellMatch) {
-      const originalLine = Number.parseInt(cellMatch[1], 10)
+  // JavaScript error format from E2B: "SyntaxError: /path/file.ts: Message. (line:col)\n\n   9 | ..."
+  const firstLineEnd = errorMessage.indexOf('\n')
+  const firstLine = firstLineEnd > 0 ? errorMessage.substring(0, firstLineEnd) : errorMessage
+
+  // Parse: "SyntaxError: /home/user/index.ts: Missing semicolon. (11:9)"
+  const jsErrorMatch = firstLine.match(/^(\w+Error):\s*[^:]+:\s*([^(]+)\.\s*\((\d+):(\d+)\)/)
+  if (jsErrorMatch) {
+    cleanErrorType = jsErrorMatch[1]
+    cleanErrorMsg = jsErrorMatch[2].trim()
+    const originalLine = Number.parseInt(jsErrorMatch[3], 10)
+    userLine = originalLine - totalOffset
+  } else {
+    // Fallback: look for line number in the arrow pointer line (> 11 |)
+    const arrowMatch = errorMessage.match(/^>\s*(\d+)\s*\|/m)
+    if (arrowMatch) {
+      const originalLine = Number.parseInt(arrowMatch[1], 10)
       userLine = originalLine - totalOffset
     }
 
-    // Extract clean error message from the error string
-    // Remove file references like "(detected at line X) (file.py, line Y)"
-    cleanErrorMsg = errorMessage
-      .replace(/\s*\(detected at line \d+\)/g, '')
-      .replace(/\s*\([^)]+\.py, line \d+\)/g, '')
-      .trim()
-  } else if (language === CodeLanguage.JavaScript) {
-    // JavaScript error format from E2B: "SyntaxError: /path/file.ts: Message. (line:col)\n\n   9 | ..."
-    // First, extract the error type and message from the first line
-    const firstLineEnd = errorMessage.indexOf('\n')
-    const firstLine = firstLineEnd > 0 ? errorMessage.substring(0, firstLineEnd) : errorMessage
-
-    // Parse: "SyntaxError: /home/user/index.ts: Missing semicolon. (11:9)"
-    const jsErrorMatch = firstLine.match(/^(\w+Error):\s*[^:]+:\s*([^(]+)\.\s*\((\d+):(\d+)\)/)
-    if (jsErrorMatch) {
-      cleanErrorType = jsErrorMatch[1]
-      cleanErrorMsg = jsErrorMatch[2].trim()
-      const originalLine = Number.parseInt(jsErrorMatch[3], 10)
-      userLine = originalLine - totalOffset
+    // Try to extract error type and message
+    const errorMatch = firstLine.match(/^(\w+Error):\s*(.+)/)
+    if (errorMatch) {
+      cleanErrorType = errorMatch[1]
+      cleanErrorMsg = errorMatch[2]
+        .replace(/^[^:]+:\s*/, '') // Remove file path
+        .replace(/\s*\(\d+:\d+\)\s*$/, '') // Remove line:col at end
+        .trim()
     } else {
-      // Fallback: look for line number in the arrow pointer line (> 11 |)
-      const arrowMatch = errorMessage.match(/^>\s*(\d+)\s*\|/m)
-      if (arrowMatch) {
-        const originalLine = Number.parseInt(arrowMatch[1], 10)
-        userLine = originalLine - totalOffset
-      }
-      // Try to extract error type and message
-      const errorMatch = firstLine.match(/^(\w+Error):\s*(.+)/)
-      if (errorMatch) {
-        cleanErrorType = errorMatch[1]
-        cleanErrorMsg = errorMatch[2]
-          .replace(/^[^:]+:\s*/, '') // Remove file path
-          .replace(/\s*\(\d+:\d+\)\s*$/, '') // Remove line:col at end
-          .trim()
-      } else {
-        cleanErrorMsg = firstLine
-      }
+      cleanErrorMsg = firstLine
     }
   }
 
@@ -657,8 +650,6 @@ export async function POST(req: NextRequest) {
       code,
       params = {},
       timeout = DEFAULT_EXECUTION_TIMEOUT_MS,
-      language = DEFAULT_CODE_LANGUAGE,
-      useLocalVM = false,
       envVars = {},
       blockData = {},
       blockNameMapping = {},
@@ -690,123 +681,49 @@ export async function POST(req: NextRequest) {
     )
     resolvedCode = codeResolution.resolvedCode
     const contextVariables = codeResolution.contextVariables
+    const transpiledCode = await transpileTypeScriptCode(resolvedCode)
 
     const e2bEnabled = isTruthy(env.E2B_ENABLED)
-    const lang = isValidCodeLanguage(language) ? language : DEFAULT_CODE_LANGUAGE
-    const useE2B =
-      e2bEnabled &&
-      !useLocalVM &&
-      !isCustomTool &&
-      (lang === CodeLanguage.JavaScript || lang === CodeLanguage.Python)
+    const hasE2BApiKey = Boolean(process.env.E2B_API_KEY)
+    const e2bTemplate = env.E2B_TEMPLATE_ID
+    const useE2B = e2bEnabled && hasE2BApiKey && !isCustomTool
 
     if (useE2B) {
       logger.info(`[${requestId}] E2B status`, {
         enabled: e2bEnabled,
-        hasApiKey: Boolean(process.env.E2B_API_KEY),
-        language: lang,
+        hasApiKey: hasE2BApiKey,
+        template: e2bTemplate,
       })
       let prologue = ''
-      const epilogue = ''
-
-      if (lang === CodeLanguage.JavaScript) {
-        // Track prologue lines for error adjustment
-        let prologueLineCount = 0
-
-        const { imports, remainingCode } = await extractJavaScriptImports(resolvedCode)
-
-        const importSection: string = imports ? `${imports}\n` : ''
-        const importLineCount = imports ? imports.split('\n').length : 0
-
-        const codeBody = remainingCode
-        resolvedCode = importSection ? `${imports}\n\n${codeBody}` : codeBody
-
-        prologue += `const params = JSON.parse(${JSON.stringify(JSON.stringify(executionParams))});\n`
-        prologueLineCount++
-        prologue += `const environmentVariables = JSON.parse(${JSON.stringify(JSON.stringify(envVars))});\n`
-        prologueLineCount++
-        for (const [k, v] of Object.entries(contextVariables)) {
-          prologue += `const ${k} = JSON.parse(${JSON.stringify(JSON.stringify(v))});\n`
-          prologueLineCount++
-        }
-
-        const wrapped = [
-          ';(async () => {',
-          '  try {',
-          '    const __sim_result = await (async () => {',
-          `      ${codeBody.split('\n').join('\n      ')}`,
-          '    })();',
-          "    console.log('__SIM_RESULT__=' + JSON.stringify(__sim_result));",
-          '  } catch (error) {',
-          '    console.log(String((error && (error.stack || error.message)) || error));',
-          '    throw error;',
-          '  }',
-          '})();',
-        ].join('\n')
-        const codeForE2B = importSection + prologue + wrapped + epilogue
-
-        const execStart = Date.now()
-        const {
-          result: e2bResult,
-          stdout: e2bStdout,
-          sandboxId,
-          error: e2bError,
-        } = await executeInE2B({
-          code: codeForE2B,
-          language: CodeLanguage.JavaScript,
-          timeoutMs: timeout,
-        })
-        const executionTime = Date.now() - execStart
-        stdout += e2bStdout
-
-        logger.info(`[${requestId}] E2B JS sandbox`, {
-          sandboxId,
-          stdoutPreview: e2bStdout?.slice(0, 200),
-          error: e2bError,
-        })
-
-        // If there was an execution error, format it properly
-        if (e2bError) {
-          const { formattedError, cleanedOutput } = formatE2BError(
-            e2bError,
-            e2bStdout,
-            lang,
-            resolvedCode,
-            prologueLineCount + importLineCount
-          )
-          return NextResponse.json(
-            {
-              success: false,
-              error: formattedError,
-              output: { result: null, stdout: cleanedOutput, executionTime },
-            },
-            { status: 500 }
-          )
-        }
-
-        return NextResponse.json({
-          success: true,
-          output: { result: e2bResult ?? null, stdout, executionTime },
-        })
-      }
-      // Track prologue lines for error adjustment
       let prologueLineCount = 0
-      prologue += 'import json\n'
+      const { imports, remainingCode } = await extractJavaScriptImports(transpiledCode)
+      const importSection = imports ? `${imports}\n` : ''
+      const importLineCount = imports ? imports.split('\n').length : 0
+      const codeBody = remainingCode
+
+      prologue += `const params = JSON.parse(${JSON.stringify(JSON.stringify(executionParams))});\n`
       prologueLineCount++
-      prologue += `params = json.loads(${JSON.stringify(JSON.stringify(executionParams))})\n`
-      prologueLineCount++
-      prologue += `environmentVariables = json.loads(${JSON.stringify(JSON.stringify(envVars))})\n`
+      prologue += `const environmentVariables = JSON.parse(${JSON.stringify(JSON.stringify(envVars))});\n`
       prologueLineCount++
       for (const [k, v] of Object.entries(contextVariables)) {
-        prologue += `${k} = json.loads(${JSON.stringify(JSON.stringify(v))})\n`
+        prologue += `const ${k} = JSON.parse(${JSON.stringify(JSON.stringify(v))});\n`
         prologueLineCount++
       }
+
       const wrapped = [
-        'def __sim_main__():',
-        ...resolvedCode.split('\n').map((l) => `    ${l}`),
-        '__sim_result__ = __sim_main__()',
-        "print('__SIM_RESULT__=' + json.dumps(__sim_result__))",
+        ';(async () => {',
+        '  try {',
+        '    const __sim_result = await (async () => {',
+        `      ${codeBody.split('\n').join('\n      ')}`,
+        '    })();',
+        "    console.log('__SIM_RESULT__=' + JSON.stringify(__sim_result));",
+        '  } catch (error) {',
+        '    console.log(String((error && (error.stack || error.message)) || error));',
+        '    throw error;',
+        '  }',
+        '})();',
       ].join('\n')
-      const codeForE2B = prologue + wrapped + epilogue
+      const codeForE2B = importSection + prologue + wrapped
 
       const execStart = Date.now()
       const {
@@ -816,13 +733,14 @@ export async function POST(req: NextRequest) {
         error: e2bError,
       } = await executeInE2B({
         code: codeForE2B,
-        language: CodeLanguage.Python,
+        language: CodeLanguage.JavaScript,
         timeoutMs: timeout,
+        template: e2bTemplate,
       })
       const executionTime = Date.now() - execStart
       stdout += e2bStdout
 
-      logger.info(`[${requestId}] E2B Py sandbox`, {
+      logger.info(`[${requestId}] E2B JS sandbox`, {
         sandboxId,
         stdoutPreview: e2bStdout?.slice(0, 200),
         error: e2bError,
@@ -832,10 +750,8 @@ export async function POST(req: NextRequest) {
       if (e2bError) {
         const { formattedError, cleanedOutput } = formatE2BError(
           e2bError,
-          e2bStdout,
-          lang,
           resolvedCode,
-          prologueLineCount
+          prologueLineCount + importLineCount
         )
         return NextResponse.json(
           {
@@ -886,7 +802,7 @@ export async function POST(req: NextRequest) {
     userCodeStartLine = wrapperLines.length + 1
     const fullScript = [
       ...wrapperLines,
-      `    ${resolvedCode.split('\n').join('\n    ')}`,
+      `    ${transpiledCode.split('\n').join('\n    ')}`,
       '  } catch (error) {',
       '    console.error(error);',
       '    throw error;',

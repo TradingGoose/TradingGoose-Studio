@@ -134,12 +134,10 @@ describe('Function Execute API Route', () => {
       const response = await POST(req)
 
       expect(response.status).toBe(200)
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        expect.stringMatching(/\[.*\] Function execution request/),
-        expect.objectContaining({
-          timeout: 5000, // default timeout
-        })
+      const usedDefaultTimeout = mockRunInContext.mock.calls.some(
+        ([_, options]) => options?.timeout === 5000
       )
+      expect(usedDefaultTimeout).toBe(true)
     })
   })
 
