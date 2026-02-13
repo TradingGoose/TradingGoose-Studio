@@ -7,10 +7,12 @@ export const FunctionBlock: BlockConfig<CodeExecutionOutput> = {
   name: 'Function',
   description: 'Run custom logic',
   longDescription:
-    'This is a core workflow block. Execute custom TypeScript code within your workflow. Code transpiles to JavaScript at runtime and executes on E2B when enabled, otherwise local VM.',
+    'This is a core workflow block. Execute custom TypeScript code within your workflow. Code transpiles to JavaScript at runtime and executes on E2B when enabled, otherwise local VM. Indicator execution is available through indicator.<ID>(marketSeries) using Historical Data block output.',
   bestPractices: `
   - Write TypeScript statements only (no function wrapper).
   - If you need external imports, enable E2B at the environment level.
+  - Do not define Pine indicators directly in this block (no indicator(...), PineTS, or pinets imports).
+  - To execute built-in indicators, call indicator.<ID>(marketSeries), for example: await indicator.RSI(<historical_data>).
   - Can reference workflow variables using <blockName.output> syntax as usual within code. Avoid XML/HTML tags.
   `,
   docsLink: 'https://docs.sim.ai/blocks/function',
@@ -43,6 +45,7 @@ IMPORTANT FORMATTING RULES:
 6. Output: Ensure the code returns a value if the function is expected to produce output. Use 'return'.
 7. Clarity: Write clean, readable code.
 8. No Explanations: Do NOT include markdown formatting, comments explaining the rules, or any text other than the raw TypeScript code for the function body.
+9. Pine indicators: Do NOT define indicators directly with indicator(...) or pinets imports. Use indicator.<ID>(marketSeries) with Historical Data block output.
 
 Example Scenario:
 User Prompt: "Fetch user data from an API. Use the User ID passed in as 'userId' and an API Key stored as the 'SERVICE_API_KEY' environment variable."

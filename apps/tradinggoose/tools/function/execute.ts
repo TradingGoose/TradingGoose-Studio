@@ -6,7 +6,7 @@ export const functionExecuteTool: ToolConfig<CodeExecutionInput, CodeExecutionOu
   id: 'function_execute',
   name: 'Function Execute',
   description:
-    'Execute TypeScript code. fetch() is available. Code runs in async IIFE wrapper automatically after TypeScript transpiles to JavaScript. CRITICAL: Write plain statements with await/return, NOT wrapped in functions. Example for API call: const res = await fetch(url); const data = await res.json(); return data;',
+    'Execute TypeScript code. fetch() is available. Code runs in async IIFE wrapper automatically after TypeScript transpiles to JavaScript. CRITICAL: Write plain statements with await/return, NOT wrapped in functions. Use indicator.<ID>(marketSeries) for built-in indicators; direct pinets/PineTS indicator definitions are not supported in this block.',
   version: '1.0.0',
 
   params: {
@@ -15,7 +15,7 @@ export const functionExecuteTool: ToolConfig<CodeExecutionInput, CodeExecutionOu
       required: true,
       visibility: 'user-or-llm',
       description:
-        'Raw TypeScript statements (NOT a function). Code is transpiled to JavaScript and auto-wrapped in async context. MUST use fetch() for HTTP (NOT xhr/axios/request libs). Write like: await fetch(url) then return result. Imports require E2B runtime support.',
+        'Raw TypeScript statements (NOT a function). Code is transpiled to JavaScript and auto-wrapped in async context. MUST use fetch() for HTTP (NOT xhr/axios/request libs). Write like: await fetch(url) then return result. Imports require E2B runtime support. For indicators use indicator.<ID>(marketSeries); do not import pinets or define indicator(...) directly.',
     },
     timeout: {
       type: 'number',
