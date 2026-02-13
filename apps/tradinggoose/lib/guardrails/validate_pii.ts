@@ -136,7 +136,7 @@ async function executePythonPIIDetection(
 
       // Parse result from stdout
       try {
-        const prefix = '__SIM_RESULT__='
+        const prefix = '__TG_RESULT__='
         const lines = stdout.split('\n')
         const marker = lines.find((l) => l.startsWith(prefix))
 
