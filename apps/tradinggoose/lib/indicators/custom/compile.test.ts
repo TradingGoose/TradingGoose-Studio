@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { compileIndicator } from '@/lib/indicators/custom/compile'
-import { CodeLanguage } from '@/lib/execution/languages'
 import { executeInE2B } from '@/lib/execution/e2b'
+import { CodeLanguage } from '@/lib/execution/languages'
+import { compileIndicator } from '@/lib/indicators/custom/compile'
 import type { BarMs } from '@/lib/indicators/types'
 
 vi.mock('@/lib/execution/e2b', () => ({
@@ -63,7 +63,6 @@ plot(close, 'MA');
       useE2B: true,
       executionTimeoutMs: 9_999,
       e2bTemplate: 'tpl_indicator',
-      e2bReuseKey: 'indicator:user-1:workspace-1',
       e2bKeepWarmMs: 300_000,
     })
 
@@ -72,7 +71,6 @@ plot(close, 'MA');
         language: CodeLanguage.JavaScript,
         timeoutMs: 9_999,
         template: 'tpl_indicator',
-        reuseKey: 'indicator:user-1:workspace-1',
         keepWarmMs: 300_000,
       })
     )

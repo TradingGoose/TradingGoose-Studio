@@ -139,6 +139,24 @@ describe('Function Execute API Route', () => {
       )
       expect(usedDefaultTimeout).toBe(true)
     })
+
+    it.concurrent(
+      'should reject direct Pine indicator definitions in function blocks',
+      async () => {
+        const req = createMockRequest('POST', {
+          code: "indicator('Custom'); return null;",
+          useLocalVM: true,
+        })
+
+        const { POST } = await import('@/app/api/function/execute/route')
+        const response = await POST(req)
+        const data = await response.json()
+
+        expect(response.status).toBe(400)
+        expect(data.success).toBe(false)
+        expect(data.error).toContain('Direct Pine indicator definitions are disabled')
+      }
+    )
   })
 
   describe('Template Variable Resolution', () => {
@@ -604,6 +622,133 @@ SyntaxError: Invalid or unexpected token
       const response = await POST(req)
 
       expect(response.status).toBe(200)
+    })
+
+    it.concurrent('should inject indicator runtime helpers into VM context', async () => {
+      const req = createMockRequest('POST', {
+        code: 'return "ok";',
+        useLocalVM: true,
+      })
+
+      const { POST } = await import('@/app/api/function/execute/route')
+      const response = await POST(req)
+
+      expect(response.status).toBe(200)
+      expect(mockCreateContext).toHaveBeenCalled()
+
+      const contextArgs = mockCreateContext.mock.calls[0][0]
+      expect(contextArgs).toHaveProperty('indicator')
+      expect(typeof contextArgs.indicator.RSI).toBe('function')
+      expect(typeof contextArgs.indicator.list).toBe('function')
+      expect(contextArgs.indicator.list()).toContain('RSI')
+    })
+
+    it.concurrent(
+      'indicator runtime should require MarketSeries and run default indicators',
+      async () => {
+        const req = createMockRequest('POST', {
+          code: 'return "ok";',
+          useLocalVM: true,
+        })
+
+        const { POST } = await import('@/app/api/function/execute/route')
+        const response = await POST(req)
+        expect(response.status).toBe(200)
+
+        const contextArgs = mockCreateContext.mock.calls[0][0]
+
+        await expect(contextArgs.indicator.RSI({ bars: [] })).rejects.toThrow(
+          'Indicator runtime expects MarketSeries data'
+        )
+
+        const marketSeries = {
+          listing: {
+            listing_id: 'AAPL',
+            base_id: '',
+            quote_id: '',
+            listing_type: 'default',
+          },
+          bars: [
+            {
+              timeStamp: '2026-01-01T00:00:00.000Z',
+              open: 100,
+              high: 110,
+              low: 95,
+              close: 105,
+              volume: 1000,
+            },
+            {
+              timeStamp: '2026-01-02T00:00:00.000Z',
+              open: 106,
+              high: 112,
+              low: 101,
+              close: 108,
+              volume: 900,
+            },
+          ],
+        }
+
+        const runtimeResult = await contextArgs.indicator.RSI(marketSeries, { Length: 7 })
+
+        expect(runtimeResult).toMatchObject({
+          indicatorId: 'RSI',
+          indicatorName: 'Relative Strength Index',
+          plots: expect.any(Object),
+          indicator: expect.any(Object),
+        })
+      }
+    )
+
+    it.concurrent('should execute indicator runtime on E2B when E2B is enabled', async () => {
+      const previousEnabled = process.env.E2B_ENABLED
+      const previousApiKey = process.env.E2B_API_KEY
+
+      try {
+        process.env.E2B_ENABLED = 'true'
+        process.env.E2B_API_KEY = 'test-e2b-key'
+
+        const req = createMockRequest('POST', {
+          code: 'const result = await indicator.RSI(<series>); return result;',
+          params: {
+            series: {
+              listing: {
+                listing_id: 'AAPL',
+                base_id: '',
+                quote_id: '',
+                listing_type: 'default',
+              },
+              bars: [
+                {
+                  timeStamp: '2026-01-01T00:00:00.000Z',
+                  open: 100,
+                  high: 110,
+                  low: 95,
+                  close: 105,
+                  volume: 1000,
+                },
+              ],
+            },
+          },
+        })
+
+        const { POST } = await import('@/app/api/function/execute/route')
+        const { executeInE2B } = await import('@/lib/execution/e2b')
+        const executeInE2BMock = vi.mocked(executeInE2B)
+
+        const response = await POST(req)
+        expect(response.status).toBe(200)
+        expect(executeInE2BMock).toHaveBeenCalled()
+
+        const e2bCall = executeInE2BMock.mock.calls.at(-1)?.[0] as { code: string }
+        expect(e2bCall.code).toContain('const indicator = (() => {')
+        expect(e2bCall.code).toContain('__tg_indicator_manifest')
+        expect(e2bCall.code).toContain('await indicator.RSI')
+      } finally {
+        if (previousEnabled === undefined) process.env.E2B_ENABLED = undefined
+        else process.env.E2B_ENABLED = previousEnabled
+        if (previousApiKey === undefined) process.env.E2B_API_KEY = undefined
+        else process.env.E2B_API_KEY = previousApiKey
+      }
     })
   })
 })
