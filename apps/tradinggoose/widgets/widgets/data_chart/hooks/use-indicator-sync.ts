@@ -36,7 +36,7 @@ import {
 const DEFAULT_PANE_HEIGHT_PX = 100
 const MAX_MARKERS_TOTAL = 2000
 const MAX_BARS = 2000
-const EXECUTION_DEBOUNCE_MS = 300
+const EXECUTION_DEBOUNCE_MS = 0
 const DEFAULT_PINE_LINE_WIDTH = 1
 
 type MainSeries = ISeriesApi<'Candlestick'> | ISeriesApi<'Bar'> | ISeriesApi<'Area'>
@@ -169,7 +169,7 @@ type ExecuteResult = {
   output: NormalizedPineOutput | null
   warnings: Array<{ code: string; message: string }>
   unsupported: { plots: string[]; styles: string[] }
-  counts: { plots: number; markers: number; drawings: number; signals: number }
+  counts: { plots: number; markers: number; signals: number }
   executionError?: { message: string; code?: string; unsupported?: { features: string[] } }
 }
 
@@ -488,8 +488,7 @@ export const useIndicatorSync = ({
     }
 
     const barsMs = dataContext.barsMsRef.current
-    const barsWereTruncated = barsMs.length > MAX_BARS
-    const truncatedBars = barsWereTruncated ? barsMs.slice(-MAX_BARS) : barsMs
+    const truncatedBars = barsMs.length > MAX_BARS ? barsMs.slice(-MAX_BARS) : barsMs
     const barDirectionByTimeSec = new Map<number, boolean>()
     let previousClose: number | null = null
     truncatedBars.forEach((bar) => {
@@ -549,6 +548,19 @@ export const useIndicatorSync = ({
 
       if (indicatorsToExecute.length > 0) {
         try {
+          const marketSeries = {
+            listing: listingKey ?? undefined,
+            bars: truncatedBars.map((bar) => ({
+              timeStamp: new Date(bar.openTime).toISOString(),
+              open: bar.open,
+              high: bar.high,
+              low: bar.low,
+              close: bar.close,
+              volume: bar.volume,
+              turnover: bar.turnover,
+            })),
+          }
+
           const response = await fetch('/api/indicators/execute', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -556,7 +568,7 @@ export const useIndicatorSync = ({
             body: JSON.stringify({
               workspaceId,
               indicatorIds: indicatorsToExecute.map((item) => item.id),
-              barsMs: truncatedBars,
+              marketSeries,
               inputsMapById: indicatorsToExecute.reduce<Record<string, Record<string, unknown>>>(
                 (acc, item) => {
                   acc[item.id] = item.inputsMap
@@ -564,7 +576,6 @@ export const useIndicatorSync = ({
                 },
                 {}
               ),
-              listingKey: listingKey ?? undefined,
               interval: interval ?? undefined,
               intervalMs: dataContext.intervalMs ?? undefined,
             }),
