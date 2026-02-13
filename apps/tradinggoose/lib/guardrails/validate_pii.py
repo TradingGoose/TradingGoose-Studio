@@ -147,16 +147,16 @@ def main():
             result = detect_pii(text, entity_types, mode, language)
         
         # Output result with marker for parsing
-        print(f"__SIM_RESULT__={json.dumps(result)}")
+        print(f"__TG_RESULT__={json.dumps(result)}")
         
     except json.JSONDecodeError as e:
-        print(f"__SIM_RESULT__={json.dumps({
+        print(f"__TG_RESULT__={json.dumps({
             'passed': False,
             'error': f'Invalid JSON input: {str(e)}',
             'detectedEntities': []
         })}")
     except Exception as e:
-        print(f"__SIM_RESULT__={json.dumps({
+        print(f"__TG_RESULT__={json.dumps({
             'passed': False,
             'error': f'Unexpected error: {str(e)}',
             'detectedEntities': []

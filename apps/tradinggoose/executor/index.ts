@@ -43,8 +43,8 @@ const logger = createLogger('Executor')
 
 declare global {
   interface Window {
-    __SIM_TELEMETRY_ENABLED?: boolean
-    __SIM_TRACK_EVENT?: (eventName: string, properties?: Record<string, any>) => void
+    __TG_TELEMETRY_ENABLED?: boolean
+    __TG_TRACK_EVENT?: (eventName: string, properties?: Record<string, any>) => void
   }
 }
 
@@ -52,7 +52,7 @@ declare global {
  * Tracks telemetry events for workflow execution if telemetry is enabled
  */
 function trackWorkflowTelemetry(eventName: string, data: Record<string, any>) {
-  if (typeof window !== 'undefined' && window.__SIM_TRACK_EVENT) {
+  if (typeof window !== 'undefined' && window.__TG_TRACK_EVENT) {
     // Add timestamp and sanitize the data to avoid circular references
     const safeData = {
       ...data,
@@ -60,7 +60,7 @@ function trackWorkflowTelemetry(eventName: string, data: Record<string, any>) {
     }
 
     // Track the event through the global telemetry function
-    window.__SIM_TRACK_EVENT(eventName, {
+    window.__TG_TRACK_EVENT(eventName, {
       category: 'workflow',
       ...safeData,
     })
@@ -185,24 +185,24 @@ export class Executor {
     private workflowParam:
       | SerializedWorkflow
       | {
-          workflow: SerializedWorkflow
-          currentBlockStates?: Record<string, BlockOutput>
-          envVarValues?: Record<string, string>
-          workflowInput?: any
-          workflowVariables?: Record<string, any>
-          contextExtensions?: {
-            stream?: boolean
-            selectedOutputs?: string[]
-            edges?: Array<{ source: string; target: string }>
-            onStream?: (streamingExecution: StreamingExecution) => Promise<void>
-            onBlockComplete?: (blockId: string, output: any) => Promise<void>
-            executionId?: string
-            workspaceId?: string
-            isChildExecution?: boolean
-            // Marks executions that must use deployed constraints (API/webhook/schedule/chat)
-            isDeployedContext?: boolean
-          }
-        },
+        workflow: SerializedWorkflow
+        currentBlockStates?: Record<string, BlockOutput>
+        envVarValues?: Record<string, string>
+        workflowInput?: any
+        workflowVariables?: Record<string, any>
+        contextExtensions?: {
+          stream?: boolean
+          selectedOutputs?: string[]
+          edges?: Array<{ source: string; target: string }>
+          onStream?: (streamingExecution: StreamingExecution) => Promise<void>
+          onBlockComplete?: (blockId: string, output: any) => Promise<void>
+          executionId?: string
+          workspaceId?: string
+          isChildExecution?: boolean
+          // Marks executions that must use deployed constraints (API/webhook/schedule/chat)
+          isDeployedContext?: boolean
+        }
+      },
     private initialBlockStates: Record<string, BlockOutput> = {},
     private environmentVariables: Record<string, string> = {},
     workflowInput?: any,
@@ -2205,7 +2205,7 @@ export class Executor {
       const consoleErrorMessage = isCancellation
         ? undefined
         : error.message ||
-          `Error executing ${block.metadata?.id || 'unknown'} block: ${String(error)}`
+        `Error executing ${block.metadata?.id || 'unknown'} block: ${String(error)}`
       const errorIterationContext = resolveIterationContext()
 
       // If this error came from a child workflow execution, persist its trace spans on the log
@@ -2301,9 +2301,9 @@ export class Executor {
       }
       const failureDuration = context.metadata.startTime
         ? Math.max(
-            0,
-            new Date(failureEndTime).getTime() - new Date(context.metadata.startTime).getTime()
-          )
+          0,
+          new Date(failureEndTime).getTime() - new Date(context.metadata.startTime).getTime()
+        )
         : (context.metadata.duration ?? 0)
       context.metadata.duration = failureDuration
 
@@ -2364,14 +2364,14 @@ export class Executor {
       })
 
       const executionError = new Error(errorMessage)
-      ;(executionError as any).executionResult = executionResultPayload
+        ; (executionError as any).executionResult = executionResultPayload
       if (Array.isArray((error as { childTraceSpans?: TraceSpan[] } | null)?.childTraceSpans)) {
-        ;(executionError as any).childTraceSpans = (
+        ; (executionError as any).childTraceSpans = (
           error as { childTraceSpans?: TraceSpan[] }
         ).childTraceSpans
-        ;(executionError as any).childWorkflowName = (
-          error as { childWorkflowName?: string }
-        ).childWorkflowName
+          ; (executionError as any).childWorkflowName = (
+            error as { childWorkflowName?: string }
+          ).childWorkflowName
       }
       throw executionError
     }

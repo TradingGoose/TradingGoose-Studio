@@ -8,7 +8,6 @@ export interface E2BExecutionRequest {
   language: CodeLanguage
   timeoutMs: number
   template?: string
-  reuseKey?: string
   keepWarmMs?: number
 }
 
@@ -21,6 +20,7 @@ export interface E2BExecutionResult {
 
 const logger = createLogger('E2BExecution')
 const DEFAULT_MAX_E2B_KEEP_WARM_MS = 60 * 60 * 1000
+const WARM_SANDBOX_TIMEOUT_BUFFER_MS = 5_000
 
 const resolveMaxKeepWarmMs = () => {
   const raw = env.MAX_E2B_KEEP_WARM_MS
@@ -31,6 +31,11 @@ const resolveMaxKeepWarmMs = () => {
 }
 
 const MAX_E2B_KEEP_WARM_MS = resolveMaxKeepWarmMs()
+
+const isSandboxNotFoundError = (error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error ?? '')
+  return /sandbox\b.*\bnot found/i.test(message)
+}
 
 const summarizeCode = (code: string) => ({
   codeLength: code.length,
@@ -53,26 +58,20 @@ const sanitizeTemplate = (template?: string) => {
   return value && value.length > 0 ? value : undefined
 }
 
-const sanitizeReuseKey = (reuseKey?: string) => {
-  const value = reuseKey?.trim()
-  return value && value.length > 0 ? value : undefined
-}
-
 const normalizeKeepWarmMs = (keepWarmMs?: number) => {
   if (!Number.isFinite(keepWarmMs)) return 0
   const normalizedKeepWarmMs = Math.max(0, Math.floor(keepWarmMs ?? 0))
   return Math.min(normalizedKeepWarmMs, MAX_E2B_KEEP_WARM_MS)
 }
 
-const buildWarmCacheKey = ({
-  template,
-  language,
-  reuseKey,
-}: {
-  template?: string
-  language: CodeLanguage
-  reuseKey: string
-}) => `${template ?? '__default_template__'}::${language}::${reuseKey}`
+const resolveWarmSandboxTimeoutMs = (keepWarmMs: number, executionTimeoutMs: number) =>
+  Math.min(
+    MAX_E2B_KEEP_WARM_MS,
+    keepWarmMs + Math.max(0, executionTimeoutMs) + WARM_SANDBOX_TIMEOUT_BUFFER_MS
+  )
+
+const buildWarmCacheKey = ({ template, language }: { template?: string; language: CodeLanguage }) =>
+  `${template ?? '__default_template__'}::${language}::pool`
 
 const clearWarmKillTimer = (entry: WarmSandboxEntry) => {
   if (!entry.killTimer) return
@@ -233,7 +232,7 @@ const runCodeInSandbox = async ({
 
   const stdout = stdoutChunks.join('\n')
   let result: unknown = null
-  const prefix = '__SIM_RESULT__='
+  const prefix = '__TG_RESULT__='
   const lines = stdout.split('\n')
   const marker = lines.find((l) => l.startsWith(prefix))
   let cleanedStdout = stdout
@@ -253,9 +252,8 @@ const runCodeInSandbox = async ({
 export async function executeInE2B(req: E2BExecutionRequest): Promise<E2BExecutionResult> {
   const { code, language, timeoutMs } = req
   const template = sanitizeTemplate(req.template)
-  const reuseKey = sanitizeReuseKey(req.reuseKey)
   const keepWarmMs = normalizeKeepWarmMs(req.keepWarmMs)
-  const warmReuseEnabled = Boolean(reuseKey) && keepWarmMs > 0
+  const warmReuseEnabled = keepWarmMs > 0
 
   logger.info(`Executing code in E2B`, {
     language,
@@ -263,7 +261,6 @@ export async function executeInE2B(req: E2BExecutionRequest): Promise<E2BExecuti
     template,
     warmReuseEnabled,
     keepWarmMs: warmReuseEnabled ? keepWarmMs : undefined,
-    reuseKey: warmReuseEnabled ? reuseKey : undefined,
     ...summarizeCode(code),
   })
 
@@ -272,26 +269,47 @@ export async function executeInE2B(req: E2BExecutionRequest): Promise<E2BExecuti
     throw new Error('E2B_API_KEY is required when E2B is enabled')
   }
 
-  if (warmReuseEnabled && reuseKey) {
-    const cacheKey = buildWarmCacheKey({ template, language, reuseKey })
-    const entry = await getOrCreateWarmSandbox({ cacheKey, template, apiKey })
-    clearWarmKillTimer(entry)
+  if (warmReuseEnabled) {
+    const cacheKey = buildWarmCacheKey({ template, language })
+    const warmSandboxTimeoutMs = resolveWarmSandboxTimeoutMs(keepWarmMs, timeoutMs)
+    let retryOnNotFound = true
 
-    try {
-      const result = await runWithSandboxLock(entry, () =>
-        runCodeInSandbox({
-          sandbox: entry.sandbox,
-          sandboxId: entry.sandboxId,
-          code,
-          language,
-          timeoutMs,
+    while (true) {
+      const entry = await getOrCreateWarmSandbox({
+        cacheKey,
+        template,
+        apiKey,
+      })
+
+      try {
+        const result = await runWithSandboxLock(entry, async () => {
+          // Clear keep-warm timer right before execution starts (after queue wait).
+          // This avoids inheriting an about-to-expire timer from a prior run.
+          clearWarmKillTimer(entry)
+          const executionResult = await runCodeInSandbox({
+            sandbox: entry.sandbox,
+            sandboxId: entry.sandboxId,
+            code,
+            language,
+            timeoutMs,
+          })
+          await entry.sandbox.setTimeout(warmSandboxTimeoutMs)
+          return executionResult
         })
-      )
-      scheduleWarmSandboxKill(cacheKey, keepWarmMs)
-      return result
-    } catch (error) {
-      await destroyWarmSandbox(cacheKey, 'execution_failed')
-      throw error
+
+        scheduleWarmSandboxKill(cacheKey, keepWarmMs)
+        return result
+      } catch (error) {
+        const shouldRetry = retryOnNotFound && isSandboxNotFoundError(error)
+        await destroyWarmSandbox(
+          cacheKey,
+          shouldRetry ? 'sandbox_not_found_retry' : 'execution_failed'
+        )
+        if (!shouldRetry) {
+          throw error
+        }
+        retryOnNotFound = false
+      }
     }
   }
 
