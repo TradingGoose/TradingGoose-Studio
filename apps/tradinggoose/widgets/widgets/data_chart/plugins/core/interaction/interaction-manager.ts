@@ -1098,6 +1098,25 @@ export class InteractionManager<HorzScaleItem> {
 			this.deselectAllTools();
 		}
 	}
+
+	private _resolveSeriesPane(): IPaneApi<HorzScaleItem> | null {
+		try {
+			return this._series.getPane();
+		} catch {
+			return null;
+		}
+	}
+
+	private _isSeriesPaneEvent(params: MouseEventParams<HorzScaleItem>): boolean {
+		if (typeof params.paneIndex !== 'number') {
+			return true;
+		}
+		const pane = this._resolveSeriesPane();
+		if (!pane) {
+			return false;
+		}
+		return pane.paneIndex() === params.paneIndex;
+	}
 	
 	/**
 	 * Handles the chart's double-click event broadcast.
@@ -1110,6 +1129,7 @@ export class InteractionManager<HorzScaleItem> {
 	 * @private
 	 */
 	private _handleDblClick(params: MouseEventParams<HorzScaleItem>): void {
+		if (!this._isSeriesPaneEvent(params)) return;
 		const point = params.point ? new Point(params.point.x, params.point.y) : null;
 		if (!point) return;
 
@@ -1157,10 +1177,12 @@ export class InteractionManager<HorzScaleItem> {
 	 * @private
 	 */
 	private _handleCrosshairMove(params: MouseEventParams<HorzScaleItem>): void {
+		const isSeriesPaneEvent = this._isSeriesPaneEvent(params);
 		// --- Ghosting Logic ---
 		const toolBeingCreated = this._currentToolCreating;
 		if (toolBeingCreated) {
-			const rawScreenPoint = params.point ? new Point(params.point.x, params.point.y) : null;
+			const rawScreenPoint =
+				isSeriesPaneEvent && params.point ? new Point(params.point.x, params.point.y) : null;
 
             // --- Single-Point Tool Ghosting (Pre-Click Ghosting) ---
             if (rawScreenPoint && toolBeingCreated.pointsCount === 1) {
@@ -1244,7 +1266,7 @@ export class InteractionManager<HorzScaleItem> {
 		}
 
 		// --- Hover Logic ---
-		const point = params.point ? new Point(params.point.x, params.point.y) : null;
+		const point = isSeriesPaneEvent && params.point ? new Point(params.point.x, params.point.y) : null;
 		const hitResult = point ? this._hitTest(point) : null;
 		const hoveredTool = hitResult ? hitResult.tool : null;
 
@@ -1305,15 +1327,32 @@ export class InteractionManager<HorzScaleItem> {
 	}
 
 	/**
-	 * Converts a raw browser `MouseEvent` (which uses screen coordinates) into a chart-relative
-	 * {@link Point} object (CSS pixels relative to the chart canvas).
+	 * Converts a raw browser `MouseEvent` into a pane-local {@link Point} for the series
+	 * this interaction manager instance is bound to.
 	 *
 	 * @param event - The browser's MouseEvent.
-	 * @returns A chart-relative {@link Point} object, or `null` if the chart element bounding box cannot be retrieved.
+	 * @returns A pane-local {@link Point}, or `null` when the event is outside the bound pane.
 	 * @private
 	 */
 	private _eventToPoint(event: MouseEvent): Point | null {
-		const rect = this._chart.chartElement().getBoundingClientRect();
-		return new Point(event.clientX - rect.left, event.clientY - rect.top);
+		const pane = this._resolveSeriesPane();
+		const paneElement = pane?.getHTMLElement();
+		if (!paneElement) {
+			return null;
+		}
+
+		const paneRect = paneElement.getBoundingClientRect();
+		const x = event.clientX - paneRect.left;
+		const y = event.clientY - paneRect.top;
+		if (!Number.isFinite(x) || !Number.isFinite(y)) {
+			return null;
+		}
+		if (x < 0 || x > paneRect.width) {
+			return null;
+		}
+		if (y < 0 || y > paneRect.height) {
+			return null;
+		}
+		return new Point(x, y);
 	}
 }

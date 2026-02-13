@@ -63,6 +63,22 @@ const DRAW_TOOLS_SIDEBAR_WIDTH_PX = 40
 const LEFT_OVERLAY_GAP_PX = 3
 const LEFT_OVERLAY_INSET_PX = DRAW_TOOLS_SIDEBAR_WIDTH_PX + LEFT_OVERLAY_GAP_PX
 const DEFAULT_MANUAL_DRAW_TOOLS: DrawToolsRef[] = [{ id: 'manual-main', pane: 'price' }]
+const DRAW_TRACE_STORAGE_KEY = 'tg:data-chart:draw-trace'
+
+const makeUniqueDrawToolsId = (baseId: string, drawTools: DrawToolsRef[]): string => {
+  const existing = new Set(drawTools.map((entry) => entry.id))
+  if (!existing.has(baseId)) {
+    return baseId
+  }
+
+  let suffix = 2
+  let nextId = `${baseId}-${suffix}`
+  while (existing.has(nextId)) {
+    suffix += 1
+    nextId = `${baseId}-${suffix}`
+  }
+  return nextId
+}
 
 const normalizeDrawToolsRefs = (raw: unknown): DrawToolsRef[] => {
   if (!Array.isArray(raw)) return []
@@ -76,19 +92,11 @@ const normalizeDrawToolsRefs = (raw: unknown): DrawToolsRef[] => {
     const normalizedId = seen === 0 ? baseId : `${baseId}-${seen + 1}`
     counts.set(baseId, seen + 1)
 
-    const pane: DrawToolsRef['pane'] = record?.pane === 'indicator' ? 'indicator' : 'price'
-    const indicatorId =
-      pane === 'indicator' && typeof record?.indicatorId === 'string' && record.indicatorId.trim().length > 0
-        ? record.indicatorId.trim()
-        : undefined
     const snapshot = normalizeManualOwnerSnapshot(record?.snapshot)
 
     const normalized: DrawToolsRef = {
       id: normalizedId,
-      pane,
-    }
-    if (indicatorId) {
-      normalized.indicatorId = indicatorId
+      pane: 'price',
     }
     if (snapshot) {
       normalized.snapshot = snapshot
@@ -182,8 +190,37 @@ export const DataChartWidgetBody = ({
   const legendContainerRef = useRef<HTMLDivElement | null>(null)
   const [legendOffset, setLegendOffset] = useState(0)
   const [activeDrawToolsId, setActiveDrawToolsId] = useState<string | null>(null)
+  const [transientDrawTools, setTransientDrawTools] = useState<DrawToolsRef[]>([])
   const drawToolsBootstrapScopeRef = useRef<string | null>(null)
   const drawToolsBootstrapDoneRef = useRef(false)
+  const pointerPaneIndexRef = useRef<number | null>(null)
+  const pendingManualToolTypeRef = useRef<ManualToolType | null>(null)
+  const startManualToolForSelectionRef = useRef<
+    ((toolType: ManualToolType) => boolean) | null
+  >(null)
+
+  const traceDrawRouting = useCallback(
+    (event: string, details?: () => Record<string, unknown>) => {
+      if (typeof window === 'undefined') return
+      let enabled = false
+      try {
+        enabled =
+          (window as { __TG_DRAW_TRACE__?: boolean }).__TG_DRAW_TRACE__ === true ||
+          window.localStorage.getItem(DRAW_TRACE_STORAGE_KEY) === '1'
+      } catch {
+        enabled = false
+      }
+      if (!enabled) return
+      const payload = details ? details() : {}
+      console.info(`[data-chart/draw-trace] ${event}`, {
+        panelId,
+        widgetKey,
+        chartResetKey,
+        ...payload,
+      })
+    },
+    [panelId, widgetKey, chartResetKey]
+  )
 
   useChartDefaults({
     dataParams: dataParams as DataChartWidgetParams,
@@ -288,6 +325,26 @@ export const DataChartWidgetBody = ({
     [normalizedDrawTools]
   )
 
+  const effectiveDrawTools = useMemo<DrawToolsRef[]>(() => {
+    if (transientDrawTools.length === 0) return resolvedDrawTools
+    const byId = new Map(resolvedDrawTools.map((entry) => [entry.id, entry]))
+    transientDrawTools.forEach((entry) => {
+      if (!byId.has(entry.id)) {
+        byId.set(entry.id, entry)
+      }
+    })
+    return Array.from(byId.values())
+  }, [resolvedDrawTools, transientDrawTools])
+
+  useEffect(() => {
+    if (transientDrawTools.length === 0) return
+    const persistedIds = new Set(resolvedDrawTools.map((entry) => entry.id))
+    const next = transientDrawTools.filter((entry) => !persistedIds.has(entry.id))
+    if (next.length !== transientDrawTools.length) {
+      setTransientDrawTools(next)
+    }
+  }, [resolvedDrawTools, transientDrawTools])
+
   useEffect(() => {
     if (drawToolsBootstrapScopeRef.current === drawToolsScopeKey) return
     drawToolsBootstrapScopeRef.current = drawToolsScopeKey
@@ -323,17 +380,17 @@ export const DataChartWidgetBody = ({
   }, [dataParams.view, panelId, widgetKey, drawToolsScopeKey])
 
   useEffect(() => {
-    if (resolvedDrawTools.length === 0) {
+    if (effectiveDrawTools.length === 0) {
       if (activeDrawToolsId !== null) {
         setActiveDrawToolsId(null)
       }
       return
     }
-    if (activeDrawToolsId && resolvedDrawTools.some((entry) => entry.id === activeDrawToolsId)) {
+    if (activeDrawToolsId && effectiveDrawTools.some((entry) => entry.id === activeDrawToolsId)) {
       return
     }
-    setActiveDrawToolsId(resolvedDrawTools[0].id)
-  }, [resolvedDrawTools, activeDrawToolsId])
+    setActiveDrawToolsId(effectiveDrawTools[0].id)
+  }, [effectiveDrawTools, activeDrawToolsId])
 
   const handleActiveDrawToolsChange = useCallback((nextDrawToolsId: string) => {
     setActiveDrawToolsId((current) => (current === nextDrawToolsId ? current : nextDrawToolsId))
@@ -342,6 +399,7 @@ export const DataChartWidgetBody = ({
   const {
     revision: manualLineToolsRevision,
     teardownAll: teardownManualLineTools,
+    syncOwnersNow,
     toManualOwnerId,
     startManualTool,
     removeSelected,
@@ -349,6 +407,7 @@ export const DataChartWidgetBody = ({
     clearAll,
     hasOwnerTools,
     getOwnerSnapshot,
+    isOwnerAttached,
     getOwnerVisibilityMode,
     setAllVisibility,
     getToolCapability,
@@ -361,7 +420,7 @@ export const DataChartWidgetBody = ({
     chartReady,
     syncVersion: dataVersion,
     panelId,
-    drawTools: resolvedDrawTools,
+    drawTools: effectiveDrawTools,
     indicatorRuntimeRef,
     indicatorRuntimeVersion,
     onActiveDrawToolsIdChange: handleActiveDrawToolsChange,
@@ -399,9 +458,6 @@ export const DataChartWidgetBody = ({
         id: entry.id,
         pane: entry.pane,
       }
-      if (entry.indicatorId) {
-        nextEntry.indicatorId = entry.indicatorId
-      }
       if (nextSnapshot) {
         nextEntry.snapshot = nextSnapshot
       }
@@ -436,10 +492,12 @@ export const DataChartWidgetBody = ({
   ])
 
   const activeDrawToolsRef = useMemo(() => {
-    if (resolvedDrawTools.length === 0) return null
-    if (!activeDrawToolsId) return resolvedDrawTools[0]
-    return resolvedDrawTools.find((entry) => entry.id === activeDrawToolsId) ?? resolvedDrawTools[0]
-  }, [resolvedDrawTools, activeDrawToolsId])
+    if (effectiveDrawTools.length === 0) return null
+    if (!activeDrawToolsId) return effectiveDrawTools[0]
+    return (
+      effectiveDrawTools.find((entry) => entry.id === activeDrawToolsId) ?? effectiveDrawTools[0]
+    )
+  }, [effectiveDrawTools, activeDrawToolsId])
 
   const activeManualOwnerId = useMemo(
     () => (activeDrawToolsRef ? toManualOwnerId(activeDrawToolsRef.id) : null),
@@ -450,6 +508,12 @@ export const DataChartWidgetBody = ({
     if (!activeManualOwnerId) return
     reconcileSelection(activeManualOwnerId)
   }, [activeManualOwnerId, reconcileSelection])
+
+  useEffect(() => {
+    return () => {
+      pendingManualToolTypeRef.current = null
+    }
+  }, [])
 
   useIndicatorSync({
     chartRef,
@@ -527,7 +591,139 @@ export const DataChartWidgetBody = ({
   useEffect(() => {
     setPaneSnapshot([])
     setPaneLayout([])
+    pointerPaneIndexRef.current = null
+    setTransientDrawTools([])
   }, [chartResetKey])
+
+  useEffect(() => {
+    const container = chartContainerRef.current
+    if (!container) return
+
+    const updatePointerPaneIndex = (
+      clientY: number,
+      options?: { traceEvent?: string; target?: EventTarget | null }
+    ) => {
+      const chart = chartRef.current
+      if (!chart) {
+        pointerPaneIndexRef.current = null
+        return null
+      }
+
+      const panes = chart.panes()
+      if (options?.target instanceof Node) {
+        for (const pane of panes) {
+          const element = pane.getHTMLElement()
+          if (!element) continue
+          if (element.contains(options.target)) {
+            const paneIndex = pane.paneIndex()
+            pointerPaneIndexRef.current = paneIndex
+            if (options?.traceEvent) {
+              traceDrawRouting(options.traceEvent, () => ({
+                clientY,
+                paneIndex,
+                hitMethod: 'target',
+              }))
+            }
+            return paneIndex
+          }
+        }
+      }
+
+      const containerRect = container.getBoundingClientRect()
+      const pointerY = clientY - containerRect.top
+      const paneBounds: Array<{ paneIndex: number; top: number; bottom: number }> = []
+      for (const pane of panes) {
+        const element = pane.getHTMLElement()
+        if (!element) continue
+        const rect = element.getBoundingClientRect()
+        const top = rect.top - containerRect.top
+        const bottom = top + rect.height
+        const paneIndex = pane.paneIndex()
+        paneBounds.push({ paneIndex, top, bottom })
+        if (pointerY >= top && pointerY <= bottom) {
+          pointerPaneIndexRef.current = paneIndex
+          if (options?.traceEvent) {
+            traceDrawRouting(options.traceEvent, () => ({
+              clientY,
+              pointerY,
+              paneIndex,
+              paneBounds,
+              hitMethod: 'bounds',
+            }))
+          }
+          return paneIndex
+        }
+      }
+      pointerPaneIndexRef.current = null
+      if (options?.traceEvent) {
+        traceDrawRouting(options.traceEvent, () => ({
+          clientY,
+          pointerY,
+          paneIndex: null,
+          paneBounds,
+          hitMethod: 'none',
+        }))
+      }
+      return null
+    }
+
+    const startPendingTool = (paneIndex: number | null, source: 'pointerdown-pending' | 'mousedown-pending') => {
+      const pendingToolType = pendingManualToolTypeRef.current
+      if (!pendingToolType) return
+      const started = startManualToolForSelectionRef.current?.(pendingToolType) ?? false
+      traceDrawRouting(source, () => ({
+        paneIndex,
+        pendingToolType,
+        started,
+      }))
+      if (started) {
+        pendingManualToolTypeRef.current = null
+      }
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      updatePointerPaneIndex(event.clientY)
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const paneIndex = updatePointerPaneIndex(event.clientY, {
+        traceEvent: 'pointer-pane-hit',
+        target: event.target,
+      })
+      startPendingTool(paneIndex, 'pointerdown-pending')
+    }
+
+    const handleMouseMove = (event: MouseEvent) => {
+      updatePointerPaneIndex(event.clientY)
+    }
+
+    const handleMouseDown = (event: MouseEvent) => {
+      const paneIndex = updatePointerPaneIndex(event.clientY, {
+        traceEvent: 'pointer-pane-hit',
+        target: event.target,
+      })
+      startPendingTool(paneIndex, 'mousedown-pending')
+    }
+
+    const supportsPointerEvents = typeof window !== 'undefined' && 'PointerEvent' in window
+    if (supportsPointerEvents) {
+      container.addEventListener('pointermove', handlePointerMove, true)
+      container.addEventListener('pointerdown', handlePointerDown, true)
+    } else {
+      container.addEventListener('mousemove', handleMouseMove, true)
+      container.addEventListener('mousedown', handleMouseDown, true)
+    }
+
+    return () => {
+      if (supportsPointerEvents) {
+        container.removeEventListener('pointermove', handlePointerMove, true)
+        container.removeEventListener('pointerdown', handlePointerDown, true)
+      } else {
+        container.removeEventListener('mousemove', handleMouseMove, true)
+        container.removeEventListener('mousedown', handleMouseDown, true)
+      }
+    }
+  }, [chartContainerRef, chartRef, traceDrawRouting])
 
   const refreshPaneSnapshot = useCallback(() => {
     if (!chartRef.current) return
@@ -771,7 +967,14 @@ export const DataChartWidgetBody = ({
       if (!meta) return
       const runtimeEntry = indicatorRuntimeRef.current.get(id)
       if (!runtimeEntry) return
-      const paneIndex = runtimeEntry?.pane ? runtimeEntry.pane.paneIndex() : mainPaneIndex
+      const paneIndex = (() => {
+        if (!runtimeEntry.pane) return runtimeEntry.paneIndex ?? mainPaneIndex
+        try {
+          return runtimeEntry.pane.paneIndex()
+        } catch {
+          return runtimeEntry.paneIndex ?? mainPaneIndex
+        }
+      })()
       const list = grouped.get(paneIndex) ?? []
       list.push({
         id,
@@ -799,12 +1002,95 @@ export const DataChartWidgetBody = ({
 
   const hasIndicatorRuntime = indicatorRuntimeRef.current.size > 0
 
+  const startManualToolForSelection = useCallback(
+    (toolType: ManualToolType) => {
+      let targetOwner = effectiveDrawTools.find((entry) => entry.pane === 'price') ?? null
+      let nextDrawTools = effectiveDrawTools
+      let createdOwner: DrawToolsRef | null = null
+
+      if (!targetOwner) {
+        const createdPriceOwner: DrawToolsRef = {
+          id: makeUniqueDrawToolsId('manual-main', effectiveDrawTools),
+          pane: 'price',
+        }
+        nextDrawTools = [...effectiveDrawTools, createdPriceOwner]
+        targetOwner = createdPriceOwner
+        createdOwner = createdPriceOwner
+      }
+
+      if (!targetOwner) return false
+
+      syncOwnersNow(nextDrawTools)
+      if (createdOwner) {
+        setTransientDrawTools((prev) => {
+          if (prev.some((entry) => entry.id === createdOwner.id)) {
+            return prev
+          }
+          return [...prev, createdOwner]
+        })
+      }
+
+      if (nextDrawTools !== effectiveDrawTools) {
+        const view = dataParams.view ?? {}
+        const currentDrawTools = Array.isArray(view.drawTools) ? view.drawTools : []
+        if (JSON.stringify(currentDrawTools) !== JSON.stringify(nextDrawTools)) {
+          traceDrawRouting('emit-drawtools', () => ({
+            nextDrawTools,
+          }))
+          emitDataChartParamsChange({
+            params: {
+              view: {
+                ...view,
+                drawTools: nextDrawTools,
+              },
+            },
+            panelId,
+            widgetKey,
+          })
+        }
+      }
+
+      if (targetOwner.id !== activeDrawToolsId) {
+        setActiveDrawToolsId(targetOwner.id)
+      }
+
+      const ownerId = toManualOwnerId(targetOwner.id)
+      const attached = isOwnerAttached(ownerId)
+      const started = attached ? startManualTool(toolType, ownerId) : false
+      traceDrawRouting('start-manual-tool', () => ({
+        toolType,
+        ownerId,
+        targetOwner,
+        attached,
+        started,
+      }))
+      return started
+    },
+    [
+      activeDrawToolsId,
+      dataParams.view,
+      effectiveDrawTools,
+      isOwnerAttached,
+      panelId,
+      traceDrawRouting,
+      syncOwnersNow,
+      startManualTool,
+      toManualOwnerId,
+      widgetKey,
+    ]
+  )
+
+  startManualToolForSelectionRef.current = startManualToolForSelection
+
   const handleSelectManualTool = useCallback(
     (toolType: ManualToolType) => {
-      if (!activeManualOwnerId) return
-      startManualTool(toolType, activeManualOwnerId)
+      pendingManualToolTypeRef.current = toolType
+      traceDrawRouting('tool-selected', () => ({
+        toolType,
+        pointerPaneIndex: pointerPaneIndexRef.current,
+      }))
     },
-    [activeManualOwnerId, startManualTool]
+    [traceDrawRouting]
   )
 
   const handleClearManualTools = useCallback(() => {
