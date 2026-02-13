@@ -215,8 +215,7 @@ export const env = createEnv({
     // E2B Remote Code Execution
     E2B_ENABLED: z.string().optional(),                  // Enable E2B remote code execution
     E2B_API_KEY: z.string().optional(),                  // E2B API key for sandbox creation
-    E2B_TEMPLATE_ID: z.string().optional(),                  // Default E2B template id for sandbox creation
-    E2B_INDICATOR_TEMPLATE_ID: z.string().optional(),                  // Indicator-specific E2B template id
+    E2B_INDICATOR_TEMPLATE_ID: z.string().optional(),                  // E2B template id for indicator/function sandbox creation
     MAX_E2B_KEEP_WARM_MS: z.string().optional(),                  // Max allowed E2B sandbox keep-warm duration in milliseconds (default 1 hour)
     E2B_KEEP_WARM_MS: z.string().optional(),                  // Default E2B sandbox keep-warm duration in milliseconds
     E2B_INDICATOR_KEEP_WARM_MS: z.string().optional(),                  // Indicator-specific keep-warm duration in milliseconds

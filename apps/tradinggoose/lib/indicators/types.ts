@@ -81,7 +81,6 @@ export type NormalizedPineMarker = {
 export type NormalizedPineOutput = {
   series: NormalizedPineSeries[]
   markers: NormalizedPineMarker[]
-  drawings: unknown[]
   signals: unknown[]
   unsupported: PineUnsupportedInfo
   indicator?: IndicatorOptions

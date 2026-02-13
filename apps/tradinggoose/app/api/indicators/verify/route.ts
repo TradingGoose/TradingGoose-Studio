@@ -1,17 +1,17 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { getHighestPrioritySubscription } from '@/lib/billing/core/subscription'
+import { executeCompiledIndicator } from '@/lib/indicators/execution/compile-execution'
+import { mapMarketSeriesToBarsMs } from '@/lib/indicators/series-data'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateMockMarketSeries } from '@/lib/market/mock-series'
 import { generateRequestId } from '@/lib/utils'
-import { compileIndicator } from '@/lib/indicators/custom/compile'
-import { mapMarketSeriesToBarsMs } from '@/lib/indicators/series-data'
 import {
   authenticateIndicatorRequest,
   getWorkspaceWritePermissionError,
   isExecutionTimeoutError,
   parseIndicatorRequestBody,
   resolveIndicatorRuntimeConfig,
-  runWithExecutionTimeout,
 } from '../utils'
 
 export const runtime = 'nodejs'
@@ -53,33 +53,30 @@ export async function POST(request: NextRequest) {
     if ('response' in parsedBody) return parsedBody.response
 
     const { workspaceId, pineCode, inputs } = parsedBody.data
-    const { useE2B, e2bTemplate, e2bKeepWarmMs, e2bReuseKey } = resolveIndicatorRuntimeConfig(
-      auth.userId,
-      workspaceId
-    )
 
     const permissionError = await getWorkspaceWritePermissionError(auth.userId, workspaceId)
     if (permissionError) return permissionError
 
+    const userSubscription = await getHighestPrioritySubscription(auth.userId)
+    const { useE2B, e2bTemplate, e2bKeepWarmMs } = resolveIndicatorRuntimeConfig(
+      userSubscription?.plan
+    )
+
     const series = generateMockMarketSeries()
     const barsMs = mapMarketSeriesToBarsMs(series).slice(0, MAX_BARS)
 
-    const compiled = await runWithExecutionTimeout(
-      compileIndicator({
-        pineCode,
-        barsMs,
-        inputsMap: inputs ?? {},
-        listingKey: 'mock',
-        interval: '1d',
-        intervalMs: 86_400_000,
-        useE2B,
-        executionTimeoutMs: VERIFY_EXECUTION_TIMEOUT_MS,
-        e2bTemplate,
-        e2bReuseKey,
-        e2bKeepWarmMs,
-      }),
-      VERIFY_EXECUTION_TIMEOUT_MS
-    )
+    const compiled = await executeCompiledIndicator({
+      pineCode,
+      barsMs,
+      inputsMap: inputs ?? {},
+      listingKey: 'mock',
+      interval: '1d',
+      intervalMs: 86_400_000,
+      useE2B,
+      e2bTemplate,
+      e2bKeepWarmMs,
+      executionTimeoutMs: VERIFY_EXECUTION_TIMEOUT_MS,
+    })
 
     if (compiled.unsupportedFeatures && compiled.unsupportedFeatures.length > 0) {
       return NextResponse.json(
@@ -109,7 +106,6 @@ export async function POST(request: NextRequest) {
     const output = compiled.output
     const plotsCount = output.series.length
     const markersCount = output.markers.length
-    const drawingsCount = output.drawings.length
     const signalsCount = output.signals.length
 
     if (plotsCount === 0 && markersCount === 0 && signalsCount === 0) {
@@ -154,7 +150,6 @@ export async function POST(request: NextRequest) {
       data: {
         plotsCount,
         markersCount,
-        drawingsCount,
         signalsCount,
         warnings,
         unsupported: output.unsupported,

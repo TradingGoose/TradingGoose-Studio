@@ -299,7 +299,6 @@ export function normalizeContext({
     output: {
       series,
       markers,
-      drawings: [],
       signals: [],
       unsupported,
     },

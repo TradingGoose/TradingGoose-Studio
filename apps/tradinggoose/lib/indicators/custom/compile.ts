@@ -1,23 +1,23 @@
-import { Script, createContext } from 'vm'
 import { executeInE2B } from '@/lib/execution/e2b'
 import { CodeLanguage } from '@/lib/execution/languages'
-import type {
-  BarMs,
-  NormalizedPineOutput,
-  PineWarning,
-  PineUnsupportedInfo,
-} from '@/lib/indicators/types'
+import { buildPineTSE2BSingleIndicatorScript } from '@/lib/indicators/execution/e2b-script-builder'
+import { executeIndicatorInLocalVm } from '@/lib/indicators/execution/local-executor'
 import {
   coerceIndicatorCount,
   inferIndicatorOptionsFromPineCode,
   normalizeIndicatorOptions,
   resolveIndicatorTimeframeMs,
 } from '@/lib/indicators/indicator-options'
-import { normalizeIndicatorCode } from '@/lib/indicators/normalize-indicator-code'
-import { runPineTS } from '@/lib/indicators/run-pinets'
 import { normalizeContext } from '@/lib/indicators/normalize-context'
-import { detectUnsupportedFeatures } from '@/lib/indicators/unsupported'
+import { normalizeIndicatorCode } from '@/lib/indicators/normalize-indicator-code'
 import { aggregateBarsMs, buildIndexMaps, normalizeBarsMs } from '@/lib/indicators/series-data'
+import type {
+  BarMs,
+  NormalizedPineOutput,
+  PineUnsupportedInfo,
+  PineWarning,
+} from '@/lib/indicators/types'
+import { detectUnsupportedFeatures } from '@/lib/indicators/unsupported'
 
 export type PineExecutionError = {
   message: string
@@ -61,25 +61,6 @@ const parseExecutionError = (error: unknown, lineOffset: number): PineExecutionE
   return { message, line, column, stack }
 }
 
-const createVmFunction = (code: string): Function => {
-  const sandbox = {
-    Math,
-    Date,
-    console: {
-      log: () => { },
-      warn: () => { },
-      error: () => { },
-    },
-  }
-  const vmContext = createContext(sandbox)
-  const script = new Script(`(${code})`, { filename: 'indicator-code.js' })
-  const fn = script.runInContext(vmContext)
-  if (typeof fn !== 'function') {
-    throw new Error('Expected a function expression')
-  }
-  return fn as Function
-}
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
@@ -91,7 +72,6 @@ const executeIndicatorInE2B = async ({
   interval,
   timeoutMs,
   e2bTemplate,
-  e2bReuseKey,
   e2bKeepWarmMs,
 }: {
   normalizedCode: string
@@ -101,45 +81,21 @@ const executeIndicatorInE2B = async ({
   interval?: string
   timeoutMs: number
   e2bTemplate?: string
-  e2bReuseKey?: string
   e2bKeepWarmMs?: number
 }): Promise<{ context: any; transpiledCode?: string }> => {
-  const codeForE2B = [
-    ';(async () => {',
-    "  const { Indicator, PineTS } = await import('pinets');",
-    "  if (typeof Indicator !== 'function' || typeof PineTS !== 'function') {",
-    "    throw new Error('Failed to initialize PineTS runtime in E2B sandbox');",
-    '  }',
-    `  const __sim_bars = JSON.parse(${JSON.stringify(JSON.stringify(barsMs))});`,
-    `  const __sim_inputs = JSON.parse(${JSON.stringify(JSON.stringify(inputsMap ?? {}))});`,
-    `  const __sim_listing_key = JSON.parse(${JSON.stringify(JSON.stringify(listingKey ?? null))});`,
-    `  const __sim_interval = JSON.parse(${JSON.stringify(JSON.stringify(interval ?? null))});`,
-    `  const __sim_indicator = (${normalizedCode});`,
-    '  try {',
-    '    const pine = new PineTS(__sim_bars, __sim_listing_key ?? undefined, __sim_interval ?? undefined);',
-    '    await pine.ready();',
-    '    const context = await pine.run(new Indicator(__sim_indicator, __sim_inputs));',
-    '    const payload = {',
-    '      context: {',
-    '        plots: context?.plots ?? {},',
-    '        indicator: context?.indicator ?? {},',
-    '      },',
-    "      transpiledCode: typeof pine.transpiledCode === 'string' ? pine.transpiledCode : null,",
-    '    };',
-    "    console.log('__SIM_RESULT__=' + JSON.stringify(payload));",
-    '  } catch (error) {',
-    "    console.log(String((error && (error.stack || error.message)) || error));",
-    '    throw error;',
-    '  }',
-    '})();',
-  ].join('\n')
+  const codeForE2B = buildPineTSE2BSingleIndicatorScript({
+    normalizedCode,
+    barsMs,
+    inputsMap,
+    listingKey,
+    interval,
+  })
 
   const { result, stdout, error } = await executeInE2B({
     code: codeForE2B,
     language: CodeLanguage.JavaScript,
     timeoutMs,
     template: e2bTemplate,
-    reuseKey: e2bReuseKey,
     keepWarmMs: e2bKeepWarmMs,
   })
 
@@ -263,7 +219,6 @@ export async function compileIndicator({
   useE2B = false,
   executionTimeoutMs = DEFAULT_E2B_INDICATOR_TIMEOUT_MS,
   e2bTemplate,
-  e2bReuseKey,
   e2bKeepWarmMs,
 }: {
   pineCode: string
@@ -275,7 +230,6 @@ export async function compileIndicator({
   useE2B?: boolean
   executionTimeoutMs?: number
   e2bTemplate?: string
-  e2bReuseKey?: string
   e2bKeepWarmMs?: number
 }): Promise<PineCompileResult> {
   const inferredIndicatorOptions = inferIndicatorOptionsFromPineCode(pineCode)
@@ -377,23 +331,21 @@ export async function compileIndicator({
         interval: executionInterval,
         timeoutMs: executionTimeoutMs,
         e2bTemplate,
-        e2bReuseKey,
         e2bKeepWarmMs,
       })
       pineContext = result.context
       transpiledCode = result.transpiledCode
     } else {
-      const fn = createVmFunction(normalizedCode.code)
-      const result = await runPineTS({
+      const result = await executeIndicatorInLocalVm({
         barsMs: executionBars,
         inputsMap,
         listingKey,
         interval: executionInterval,
-        code: fn,
+        code: normalizedCode.code,
+        codeFormat: 'functionExpression',
       })
       pineContext = result.context
-      transpiledCode =
-        typeof result.transpiledCode === 'string' ? result.transpiledCode : undefined
+      transpiledCode = typeof result.transpiledCode === 'string' ? result.transpiledCode : undefined
     }
   } catch (error) {
     executionError = parseExecutionError(error, 0)
@@ -426,9 +378,7 @@ export async function compileIndicator({
     Object.keys(mergedIndicatorOptions).length > 0 ? mergedIndicatorOptions : undefined
 
   const timeframeGaps =
-    typeof indicatorOptions?.timeframe_gaps === 'boolean'
-      ? indicatorOptions.timeframe_gaps
-      : true
+    typeof indicatorOptions?.timeframe_gaps === 'boolean' ? indicatorOptions.timeframe_gaps : true
 
   let output: NormalizedPineOutput = {
     ...normalized.output,
@@ -436,7 +386,11 @@ export async function compileIndicator({
   }
 
   if (shouldResample) {
-    output = expandOutputToBase(output, baseBars.map((bar) => bar.openTime), timeframeGaps)
+    output = expandOutputToBase(
+      output,
+      baseBars.map((bar) => bar.openTime),
+      timeframeGaps
+    )
   }
 
   output = applyIndicatorLimits(output, compileWarnings)
