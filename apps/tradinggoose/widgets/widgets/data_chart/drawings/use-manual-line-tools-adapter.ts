@@ -107,7 +107,6 @@ export const useManualLineToolsAdapter = ({
       chartRef,
       mainSeriesRef,
       chartScopeKeyRef,
-      indicatorRuntimeRef,
       activeOwnerChangeRef,
       pluginsBySeriesAttachmentKeyRef,
       ownerBindingByIdRef,
@@ -214,6 +213,7 @@ export const useManualLineToolsAdapter = ({
   return {
     revision,
     teardownAll: attachmentControllerRef.current.teardownAll,
+    syncOwnersNow: attachmentControllerRef.current.syncOwners,
     toManualOwnerId,
     startManualTool: actionsControllerRef.current.startManualTool,
     toggleManualTool: actionsControllerRef.current.toggleManualTool,

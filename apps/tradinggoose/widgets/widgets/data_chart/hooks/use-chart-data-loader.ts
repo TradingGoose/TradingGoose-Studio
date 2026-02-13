@@ -483,6 +483,7 @@ export const useChartDataLoader = ({
         const { indexByOpenTimeMs, openTimeMsByIndex } = buildIndexMaps(barsMs)
         dataContext.indexByOpenTimeMsRef.current = indexByOpenTimeMs
         dataContext.openTimeMsByIndexRef.current = openTimeMsByIndex
+        onDataLoaded?.()
 
         const chartSeries = mainSeriesRef.current
         if (chartSeries) {
@@ -499,8 +500,6 @@ export const useChartDataLoader = ({
             ? true
             : typeof earliestTimestamp === 'number' && earliestTimestamp > retentionStartMs
         hasMoreHistoricalDataRef.current = canLoadMore
-
-        onDataLoaded?.()
         const expectedBars =
           primaryWindow?.mode === 'range' && typeof expectedBarsRef.current === 'number'
             ? Math.min(expectedBarsRef.current, barsMs.length)
@@ -692,6 +691,7 @@ export const useChartDataLoader = ({
             const { indexByOpenTimeMs, openTimeMsByIndex } = buildIndexMaps(merged)
             dataContext.indexByOpenTimeMsRef.current = indexByOpenTimeMs
             dataContext.openTimeMsByIndexRef.current = openTimeMsByIndex
+            onDataBackfill?.()
 
             const safeRange = previousRange
               ? clampLogicalRange(previousRange.from, previousRange.to, merged.length)
@@ -747,8 +747,6 @@ export const useChartDataLoader = ({
                 ? incomingBars.length > 0
                 : typeof earliestTimestamp === 'number' && earliestTimestamp > retentionStartMs
             hasMoreHistoricalDataRef.current = canLoadMore
-
-            onDataBackfill?.()
             if (!activeRange) {
               activeRange = readVisibleLogicalRange()
             }

@@ -38,13 +38,12 @@ import {
   type ILineToolsPlugin,
   type LineToolExport,
 } from '@/widgets/widgets/data_chart/plugins/core'
-import type { DrawToolsRef, IndicatorRuntimeEntry } from '@/widgets/widgets/data_chart/types'
+import type { DrawToolsRef } from '@/widgets/widgets/data_chart/types'
 
 type ManualLineToolsAttachmentControllerParams = {
   chartRef: MutableRefObject<IChartApi | null>
   mainSeriesRef: MutableRefObject<ISeriesApi<any> | null>
   chartScopeKeyRef: MutableRefObject<string>
-  indicatorRuntimeRef: MutableRefObject<Map<string, IndicatorRuntimeEntry>>
   activeOwnerChangeRef: MutableRefObject<((drawToolsId: string) => void) | undefined>
   pluginsBySeriesAttachmentKeyRef: MutableRefObject<Map<SeriesAttachmentKey, PluginEntry>>
   ownerBindingByIdRef: MutableRefObject<Map<OwnerId, OwnerBinding>>
@@ -115,15 +114,7 @@ export const createManualLineToolsAttachmentController = (
     if (!chart || !mainSeries) return null
 
     if (drawToolsRef.pane === 'indicator') {
-      if (!drawToolsRef.indicatorId) return null
-      const runtimeEntry = params.indicatorRuntimeRef.current.get(drawToolsRef.indicatorId)
-      if (!runtimeEntry?.paneAnchorSeries || !runtimeEntry.paneAnchorIdentity) return null
-      return {
-        pane: 'indicator',
-        indicatorId: drawToolsRef.indicatorId,
-        series: runtimeEntry.paneAnchorSeries,
-        seriesAttachmentKey: `chart:${params.chartScopeKeyRef.current}:indicator:${drawToolsRef.indicatorId}:anchor:${runtimeEntry.paneAnchorIdentity}`,
-      }
+      return null
     }
 
     const mainSeriesIdentity = getSeriesIdentity(mainSeries)

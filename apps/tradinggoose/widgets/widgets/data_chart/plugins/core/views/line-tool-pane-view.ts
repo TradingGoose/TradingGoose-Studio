@@ -131,9 +131,8 @@ export abstract class LineToolPaneView<HorzScaleItem> implements IUpdatablePaneV
      */
     public renderer(): IPaneRenderer | null {
         if (this._invalidated) {
-            const chartElement = this._chart.chartElement();
-            const height = chartElement.clientHeight;
-            const width = chartElement.clientWidth;
+            const height = this._tool.getChartDrawingHeight();
+            const width = this._tool.getChartDrawingWidth();
 
             // If the chart has no size, there is nothing to draw.
             if (height <= 0 || width <= 0) {

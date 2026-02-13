@@ -37,7 +37,13 @@ export const createManualLineToolsAdapterActions = (
 ) => {
   const startManualTool = (type: ManualToolType, ownerId: OwnerId) => {
     const pluginContext = params.getPluginEntryForOwner(ownerId)
-    if (!pluginContext) return false
+    if (!pluginContext) {
+      console.warn('[manual-line-tools] startManualTool skipped: owner is not attached', {
+        ownerId,
+        type,
+      })
+      return false
+    }
 
     const capability = params.ensureOwnerCapability(ownerId, type)
     if (capability.supportsCreate === 'unsupported') {
@@ -55,8 +61,17 @@ export const createManualLineToolsAdapterActions = (
 
     const createdId = pluginContext.pluginEntry.plugin.addLineTool(type, [])
     if (!createdId) {
-      capability.supportsCreate = 'unsupported'
-      params.bumpVersion()
+      console.warn('[manual-line-tools] addLineTool failed', {
+        ownerId,
+        type,
+        pane: pluginContext.binding.pane,
+        indicatorId: pluginContext.binding.indicatorId ?? null,
+        seriesAttachmentKey: pluginContext.binding.seriesAttachmentKey,
+      })
+      if (capability.supportsCreate !== 'unknown') {
+        capability.supportsCreate = 'unknown'
+        params.bumpVersion()
+      }
       return false
     }
 

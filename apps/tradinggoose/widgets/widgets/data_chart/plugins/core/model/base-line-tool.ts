@@ -1353,8 +1353,14 @@ export abstract class BaseLineTool<HorzScaleItem>
    * @returns The pixel width of the drawing area.
    */
   public getChartDrawingWidth(): number {
-    // Assumption: this._chart (IChartApiBase) exposes paneSize() which returns a PaneSize object {width, height}.
-    const paneDimensions = this._chart.paneSize()
+    const paneIndex = (() => {
+      try {
+        return this._series.getPane().paneIndex()
+      } catch {
+        return 0
+      }
+    })()
+    const paneDimensions = this._chart.paneSize(paneIndex)
     return paneDimensions.width
   }
 
@@ -1367,8 +1373,14 @@ export abstract class BaseLineTool<HorzScaleItem>
    * @returns The pixel height of the drawing area.
    */
   public getChartDrawingHeight(): number {
-    // Assumption: this._chart (IChartApiBase) exposes paneSize() which returns a PaneSize object {width, height}.
-    const paneDimensions = this._chart.paneSize()
+    const paneIndex = (() => {
+      try {
+        return this._series.getPane().paneIndex()
+      } catch {
+        return 0
+      }
+    })()
+    const paneDimensions = this._chart.paneSize(paneIndex)
     return paneDimensions.height
   }
 }
