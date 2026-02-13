@@ -26,8 +26,6 @@ Use that value in app env:
 
 ```bash
 E2B_INDICATOR_TEMPLATE_ID=<id>
-# optional default fallback:
-E2B_TEMPLATE_ID=<id>
 ```
 
 ## How It Works
