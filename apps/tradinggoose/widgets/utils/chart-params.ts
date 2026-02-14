@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { WidgetInstance } from '@/widgets/layout'
-import type { ManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/manual-line-tools-snapshot'
-import { normalizeManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/manual-line-tools-snapshot'
+import type { ManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/snapshot'
+import { normalizeManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/snapshot'
 import {
   DATA_CHART_WIDGET_UPDATE_PARAMS_EVENT,
   type DataChartWidgetUpdateEventDetail,

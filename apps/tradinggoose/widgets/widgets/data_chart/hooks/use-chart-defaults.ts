@@ -36,11 +36,9 @@ export const useChartDefaults = ({
     const currentView = dataParams.view ?? {}
     const hasWindowParams =
       currentDataRecord.window != null || currentDataRecord.fallbackWindow != null
-    const hasLegacyIntervalParam = currentDataRecord.interval != null
 
     return (
       hasWindowParams ||
-      hasLegacyIntervalParam ||
       (seriesWindow.interval && seriesWindow.interval !== currentView.interval) ||
       !currentView.marketSession
     )
@@ -52,7 +50,6 @@ export const useChartDefaults = ({
     const {
       window: _window,
       fallbackWindow: _fallbackWindow,
-      interval: _legacyInterval,
       ...nextDataBase
     } = (dataParams.data ?? {}) as Record<string, unknown>
     const nextData = { ...nextDataBase }

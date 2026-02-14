@@ -184,7 +184,7 @@ export const buildSeriesOptions = (
       seriesType: AreaSeries,
       options: {
         topColor: '#ffab0070',
-        bottomColor: '#ffab0000',
+        bottomColor: '#ffab000f',
         lineColor: '#ffab00',
         lineWidth: 2,
         ...commonPriceFormat,

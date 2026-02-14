@@ -38,7 +38,7 @@ import { LineToolPathPaneView } from '../views/LineToolPathPaneView';
  * A Path tool is a series of connected line segments.
  * These defaults set:
  * 1. **Interaction:** Standard pointer/grabbing cursors.
- * 2. **Visuals:** A solid blue line (`#2962ff`) with an arrow head at the *end* of the path.
+ * 2. **Visuals:** A solid blue line (`#ffbb00`) with an arrow head at the *end* of the path.
  * 3. **Labels:** Axis labels are hidden by default, as paths are often used for general directionality or waves.
  */
 export const PathOptionDefaults: LineToolOptionsInternal<'Path'> = {
@@ -58,7 +58,7 @@ export const PathOptionDefaults: LineToolOptionsInternal<'Path'> = {
 	// Specific Options for Line Options (Polygonal Renderer)
 	line: {
 		width: 1,
-		color: '#2962ff', // Default blue color
+		color: '#ffbb00', // Default blue color
 		style: LineStyle.Solid,
 		end: { left: LineEnd.Normal, right: LineEnd.Arrow }, // Arrowhead on the final segment's end
 	},
@@ -87,7 +87,7 @@ export class LineToolPath<HorzScaleItem> extends BaseLineTool<HorzScaleItem> {
 	 * @override
 	 */
 	public override readonly toolType: LineToolType = 'Path';
-	
+
 	/**
 	 * Defines the number of anchor points required to draw this tool.
 	 *

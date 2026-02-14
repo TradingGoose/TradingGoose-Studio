@@ -17,11 +17,11 @@ import {
   DRAW_TOOL_LABELS,
   type DrawToolActionType,
 } from '@/widgets/widgets/data_chart/components/draw-tool-icon-registry'
-import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/manual-tool-types'
+import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/tool-types'
 import type {
   OwnerVisibilityMode,
   ToolCreateCapability,
-} from '@/widgets/widgets/data_chart/drawings/use-manual-line-tools-adapter'
+} from '@/widgets/widgets/data_chart/drawings/use-adapter'
 
 type DrawToolsSidebarProps = {
   activeOwnerId: string | null

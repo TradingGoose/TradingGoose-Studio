@@ -7,14 +7,18 @@ import type {
   OwnerVisibilityMode,
   PluginContext,
   ToolCreateCapability,
-} from '@/widgets/widgets/data_chart/drawings/manual-line-tools-adapter-types'
-import type { ManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/manual-line-tools-snapshot'
-import { parseLineToolExports } from '@/widgets/widgets/data_chart/drawings/manual-line-tools-adapter-utils'
-import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/manual-tool-types'
+} from '@/widgets/widgets/data_chart/drawings/adapter-types'
+import { parseLineToolExports } from '@/widgets/widgets/data_chart/drawings/adapter-utils'
+import {
+  type ManualOwnerSnapshot,
+  mergeManualOwnerSnapshots,
+} from '@/widgets/widgets/data_chart/drawings/snapshot'
+import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/tool-types'
 import type { IndicatorRuntimeEntry } from '@/widgets/widgets/data_chart/types'
 
 type ManualLineToolsAdapterActionsParams = {
   getPluginEntryForOwner: (ownerId: OwnerId) => PluginContext | null
+  rebindOwner: (ownerId: OwnerId) => boolean
   reconcileSelection: (ownerId: OwnerId) => void
   exportOwnerSnapshot: (ownerId: OwnerId) => ManualOwnerSnapshot | null
   ownerBindingByIdRef: MutableRefObject<Map<OwnerId, OwnerBinding>>
@@ -35,12 +39,68 @@ type ManualLineToolsAdapterActionsParams = {
 export const createManualLineToolsAdapterActions = (
   params: ManualLineToolsAdapterActionsParams
 ) => {
+  const resolveSelectedIds = (ownerId: OwnerId, pluginContext?: PluginContext | null) => {
+    const resolvedPluginContext = pluginContext ?? params.getPluginEntryForOwner(ownerId)
+    if (!resolvedPluginContext) {
+      return params.ownerSelectedIdsRef.current.get(ownerId) ?? new Set<string>()
+    }
+
+    const ownerIds = params.ownerToolIdsRef.current.get(ownerId) ?? new Set<string>()
+    const selectedExports = parseLineToolExports(
+      resolvedPluginContext.pluginEntry.plugin.getSelectedLineTools()
+    )
+    const selectedIds = new Set<string>()
+    selectedExports.forEach((tool) => {
+      if (ownerIds.has(tool.id)) {
+        selectedIds.add(tool.id)
+      }
+    })
+
+    if (
+      selectedIds.size === 0 &&
+      selectedExports.length > 0 &&
+      resolvedPluginContext.pluginEntry.owners.size === 1 &&
+      resolvedPluginContext.pluginEntry.owners.has(ownerId)
+    ) {
+      // Fallback: when owner-id tracking is stale after rebind/import, but this plugin entry
+      // is exclusively owned by this owner, treat selected tools as belonging to this owner.
+      selectedExports.forEach((tool) => {
+        selectedIds.add(tool.id)
+      })
+    }
+
+    return selectedIds
+  }
+
   const startManualTool = (type: ManualToolType, ownerId: OwnerId) => {
-    const pluginContext = params.getPluginEntryForOwner(ownerId)
-    if (!pluginContext) {
+    const resolvePluginContext = (allowRebind: boolean) => {
+      const existing = params.getPluginEntryForOwner(ownerId)
+      if (existing) {
+        return {
+          pluginContext: existing,
+          rebindAttempted: false,
+        }
+      }
+      if (!allowRebind) {
+        return {
+          pluginContext: null,
+          rebindAttempted: false,
+        }
+      }
+      const rebound = params.rebindOwner(ownerId)
+      return {
+        pluginContext: rebound ? params.getPluginEntryForOwner(ownerId) : null,
+        rebindAttempted: true,
+      }
+    }
+
+    const { pluginContext: initialPluginContext, rebindAttempted: rebindMissingContextAttempted } =
+      resolvePluginContext(true)
+    if (!initialPluginContext) {
       console.warn('[manual-line-tools] startManualTool skipped: owner is not attached', {
         ownerId,
         type,
+        rebindAttempted: rebindMissingContextAttempted,
       })
       return false
     }
@@ -54,12 +114,24 @@ export const createManualLineToolsAdapterActions = (
       const byType = params.ensureOwnerToolIdsByType(ownerId)
       const trackedId = byType.get(type)
       if (trackedId) {
-        pluginContext.pluginEntry.plugin.removeLineToolsById([trackedId])
+        initialPluginContext.pluginEntry.plugin.removeLineToolsById([trackedId])
         params.removeIdsFromOwnerState(ownerId, [trackedId])
       }
     }
 
-    const createdId = pluginContext.pluginEntry.plugin.addLineTool(type, [])
+    let pluginContext = initialPluginContext
+    let createdId = pluginContext.pluginEntry.plugin.addLineTool(type, [])
+    let rebindFailedCreateAttempted = false
+    if (!createdId) {
+      rebindFailedCreateAttempted = true
+      if (params.rebindOwner(ownerId)) {
+        const reboundPluginContext = params.getPluginEntryForOwner(ownerId)
+        if (reboundPluginContext) {
+          pluginContext = reboundPluginContext
+          createdId = pluginContext.pluginEntry.plugin.addLineTool(type, [])
+        }
+      }
+    }
     if (!createdId) {
       console.warn('[manual-line-tools] addLineTool failed', {
         ownerId,
@@ -67,6 +139,7 @@ export const createManualLineToolsAdapterActions = (
         pane: pluginContext.binding.pane,
         indicatorId: pluginContext.binding.indicatorId ?? null,
         seriesAttachmentKey: pluginContext.binding.seriesAttachmentKey,
+        rebindAttempted: rebindMissingContextAttempted || rebindFailedCreateAttempted,
       })
       if (capability.supportsCreate !== 'unknown') {
         capability.supportsCreate = 'unknown'
@@ -119,8 +192,11 @@ export const createManualLineToolsAdapterActions = (
     if (!pluginContext) return
 
     const ownerIds = params.ownerToolIdsRef.current.get(ownerId) ?? new Set<string>()
-    const selectedIds = params.ownerSelectedIdsRef.current.get(ownerId) ?? new Set<string>()
-    const removable = Array.from(selectedIds).filter((id) => ownerIds.has(id))
+    const selectedIds = resolveSelectedIds(ownerId, pluginContext)
+    const removable =
+      ownerIds.size > 0
+        ? Array.from(selectedIds).filter((id) => ownerIds.has(id))
+        : Array.from(selectedIds)
     if (removable.length === 0) return
 
     pluginContext.pluginEntry.plugin.removeLineToolsById(removable)
@@ -134,9 +210,9 @@ export const createManualLineToolsAdapterActions = (
     if (!pluginContext) return
 
     const ownerIds = params.ownerToolIdsRef.current.get(ownerId) ?? new Set<string>()
-    const selectedIds = params.ownerSelectedIdsRef.current.get(ownerId) ?? new Set<string>()
+    const selectedIds = resolveSelectedIds(ownerId, pluginContext)
     const hidAny = Array.from(selectedIds).reduce((updated, id) => {
-      if (!ownerIds.has(id)) return updated
+      if (ownerIds.size > 0 && !ownerIds.has(id)) return updated
       const toolExport = parseLineToolExports(
         pluginContext.pluginEntry.plugin.getLineToolByID(id)
       )[0]
@@ -158,11 +234,22 @@ export const createManualLineToolsAdapterActions = (
   }
 
   const clearAll = (ownerId: OwnerId) => {
+    const hadPendingSnapshot = params.pendingOwnerSnapshotRef.current.delete(ownerId)
     const pluginContext = params.getPluginEntryForOwner(ownerId)
-    if (!pluginContext) return
+    if (!pluginContext) {
+      if (hadPendingSnapshot) {
+        params.bumpVersion()
+      }
+      return
+    }
 
     const ownerIds = params.ownerToolIdsRef.current.get(ownerId)
-    if (!ownerIds || ownerIds.size === 0) return
+    if (!ownerIds || ownerIds.size === 0) {
+      if (hadPendingSnapshot) {
+        params.bumpVersion()
+      }
+      return
+    }
     const ids = Array.from(ownerIds)
     pluginContext.pluginEntry.plugin.removeLineToolsById(ids)
     params.removeIdsFromOwnerState(ownerId, ids)
@@ -175,9 +262,9 @@ export const createManualLineToolsAdapterActions = (
   }
 
   const getOwnerSnapshot = (ownerId: OwnerId) => {
+    const pending = params.pendingOwnerSnapshotRef.current.get(ownerId) ?? null
     const exported = params.exportOwnerSnapshot(ownerId)
-    if (exported) return exported
-    return params.pendingOwnerSnapshotRef.current.get(ownerId) ?? null
+    return mergeManualOwnerSnapshots(pending, exported)
   }
 
   const getOwnerVisibilityMode = (ownerId: OwnerId): OwnerVisibilityMode => {
@@ -245,12 +332,20 @@ export const createManualLineToolsAdapterActions = (
   }
 
   const hasSelectedManualDrawingsInPane = (ownerId: OwnerId, paneIndex: number) => {
-    const selected = params.ownerSelectedIdsRef.current.get(ownerId)
+    const pluginContext = params.getPluginEntryForOwner(ownerId)
+    const selected = resolveSelectedIds(ownerId, pluginContext)
     if (!selected || selected.size === 0) return false
+
+    if (pluginContext) {
+      try {
+        return pluginContext.pluginEntry.series.getPane().paneIndex() === paneIndex
+      } catch {
+        // Fall through to binding/runtime checks below.
+      }
+    }
 
     const binding = params.ownerBindingByIdRef.current.get(ownerId)
     if (!binding) return false
-
     if (binding.pane === 'price') {
       const mainSeries = params.mainSeriesRef.current
       if (!mainSeries) return false
@@ -259,12 +354,18 @@ export const createManualLineToolsAdapterActions = (
 
     if (!binding.indicatorId) return false
     const runtimeEntry = params.indicatorRuntimeRef.current.get(binding.indicatorId)
-    if (!runtimeEntry?.pane) return false
-    return runtimeEntry.pane.paneIndex() === paneIndex
+    if (!runtimeEntry) return false
+    if (runtimeEntry.pane) {
+      return runtimeEntry.pane.paneIndex() === paneIndex
+    }
+    if (runtimeEntry.paneIndex === paneIndex) {
+      return true
+    }
+    return false
   }
 
   const getSelectedCount = (ownerId: OwnerId) => {
-    return params.ownerSelectedIdsRef.current.get(ownerId)?.size ?? 0
+    return resolveSelectedIds(ownerId).size
   }
 
   return {

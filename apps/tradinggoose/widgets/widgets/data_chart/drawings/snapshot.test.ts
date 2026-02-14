@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   decodeManualOwnerSnapshot,
   encodeManualOwnerSnapshot,
-} from '@/widgets/widgets/data_chart/drawings/manual-line-tools-snapshot'
+  mergeManualOwnerSnapshots,
+} from '@/widgets/widgets/data_chart/drawings/snapshot'
 
 describe('manual-line-tools-snapshot', () => {
   it('encodes only minimal editable options', () => {
@@ -202,5 +203,53 @@ describe('manual-line-tools-snapshot', () => {
         options: {},
       },
     ])
+  })
+
+  it('merges snapshots by tool id while preserving existing tools', () => {
+    const pending = {
+      tools: [
+        {
+          id: 'old-tool',
+          toolType: 'Rectangle',
+          points: [
+            { timestamp: 1770750300, price: 419.08 },
+            { timestamp: 1770750360, price: 420.01 },
+          ],
+        },
+      ],
+    }
+    const exported = {
+      tools: [
+        {
+          id: 'new-tool',
+          toolType: 'TrendLine',
+          points: [
+            { timestamp: 1770750400, price: 430.08 },
+            { timestamp: 1770750460, price: 431.01 },
+          ],
+        },
+      ],
+    }
+
+    expect(mergeManualOwnerSnapshots(pending, exported)).toEqual({
+      tools: [
+        {
+          id: 'old-tool',
+          toolType: 'Rectangle',
+          points: [
+            { timestamp: 1770750300, price: 419.08 },
+            { timestamp: 1770750360, price: 420.01 },
+          ],
+        },
+        {
+          id: 'new-tool',
+          toolType: 'TrendLine',
+          points: [
+            { timestamp: 1770750400, price: 430.08 },
+            { timestamp: 1770750460, price: 431.01 },
+          ],
+        },
+      ],
+    })
   })
 })

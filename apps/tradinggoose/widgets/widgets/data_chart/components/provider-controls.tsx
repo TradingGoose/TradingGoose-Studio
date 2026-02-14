@@ -89,10 +89,7 @@ export const DataChartProviderSettingsButton = ({
         (paramValuesRef.current.apiSecret as string | undefined) ?? authParams?.apiSecret
       return apiKey || apiSecret ? { apiKey, apiSecret } : undefined
     })()
-    const { interval: _legacyInterval, ...nextDataBase } = (dataParams ?? {}) as Record<
-      string,
-      unknown
-    >
+    const { ...nextDataBase } = (dataParams ?? {}) as Record<string, unknown>
     emitDataChartParamsChange({
       params: {
         data: {
@@ -281,7 +278,6 @@ export const DataChartProviderSelector = ({
     const {
       window: _window,
       fallbackWindow: _fallbackWindow,
-      interval: _legacyInterval,
       ...nextDataBase
     } = (dataParams ?? {}) as Record<string, unknown>
     const nextData = { ...nextDataBase, provider: nextProvider }

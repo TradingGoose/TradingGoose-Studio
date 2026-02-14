@@ -49,11 +49,11 @@ const CrossLineDefaultOptions: LineToolOptionsInternal<'CrossLine'> = {
 	showTimeAxisLabels: true,
 	priceAxisLabelAlwaysVisible: true,
 	timeAxisLabelAlwaysVisible: true,
-	
+
 	// Specific Line Options (Inherited from the simplified V3.8 CrossLine options)
 	line: {
 		width: 1,
-		color: '#2962ff', // Default blue
+		color: '#ffbb00', // Default blue
 		style: LineStyle.Solid,
 		// We keep extend/end properties to give flexibility, but the view will handle the infinite span
 		extend: { left: true, right: true }, // The view will interpret this as full infinite span
@@ -82,7 +82,7 @@ export class LineToolCrossLine<HorzScaleItem> extends BaseLineTool<HorzScaleItem
 	 * @override
 	 */
 	public override readonly toolType: LineToolType = 'CrossLine';
-	
+
 	/**
 	 * Defines the number of anchor points required to draw this tool.
 	 *
@@ -172,7 +172,7 @@ export class LineToolCrossLine<HorzScaleItem> extends BaseLineTool<HorzScaleItem
 
 		return compositeRenderer.hitTest(x, y);
 	}
-	
+
 	/**
 	 * Updates the coordinates of the single anchor point (Intersection).
 	 *
@@ -189,7 +189,7 @@ export class LineToolCrossLine<HorzScaleItem> extends BaseLineTool<HorzScaleItem
 		if (index === 0) {
 			// Update both Price and Time freely.
 			this._points[0].timestamp = point.timestamp;
-			this._points[0].price = point.price; 
+			this._points[0].price = point.price;
 			this._triggerChartUpdate();
 		}
 	}

@@ -1,4 +1,4 @@
-import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/manual-tool-types'
+import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/tool-types'
 import { LineToolArrow } from '@/widgets/widgets/data_chart/plugins/arrow'
 import { LineToolBrush } from '@/widgets/widgets/data_chart/plugins/brush'
 import { LineToolCallout } from '@/widgets/widgets/data_chart/plugins/callout'

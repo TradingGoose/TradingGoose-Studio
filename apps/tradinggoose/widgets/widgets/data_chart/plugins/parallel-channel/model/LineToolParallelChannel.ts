@@ -68,17 +68,17 @@ export const ParallelChannelOptionDefaults: LineToolOptionsInternal<'ParallelCha
 
 	channelLine: {
 		width: 1,
-		color: '#2962ff',
+		color: '#ffbb00',
 		style: LineStyle.Solid,
 	},
 	middleLine: {
 		width: 1,
-		color: '#2962ff',
+		color: '#ffbb00',
 		style: LineStyle.Dashed,
 	},
 	showMiddleLine: true,
 	extend: { left: false, right: false },
-	background: { color: 'rgba(41, 98, 255, 0.2)' },
+	background: { color: '#ffbb0030' },
 };
 
 
@@ -196,7 +196,7 @@ export class LineToolParallelChannel<HorzScaleItem> extends BaseLineTool<HorzSca
 	 */
 	public supportsShiftClickDragConstraint(): boolean {
 		return true; // We want Y-lock if the user drags the second point
-	}	
+	}
 
 	/**
 	 * Helper function to stabilize the X-coordinate (Time) of a calculated midpoint.
@@ -296,7 +296,7 @@ export class LineToolParallelChannel<HorzScaleItem> extends BaseLineTool<HorzSca
 		}
 
 		// Cannot calculate P3, P4, P5 if P0, P1, P2 aren't all present
-		if (currentPoints.length < 3) return null; 
+		if (currentPoints.length < 3) return null;
 
 		const [p0, p1, p2] = currentPoints;
 
@@ -306,7 +306,7 @@ export class LineToolParallelChannel<HorzScaleItem> extends BaseLineTool<HorzSca
 		if (index === 3) {
 			// **FIX: Use lowercase p0 and p1 (the defined variables)**
 			const channelHeight = p1.price - p0.price; // Vertical distance of top line segment
-			
+
 			const p3: LineToolPoint = {
 				timestamp: p1.timestamp, // P3's X is P1's X
 				price: p2.price + channelHeight, // P3's Y is P2's Y + vertical height
@@ -317,7 +317,7 @@ export class LineToolParallelChannel<HorzScaleItem> extends BaseLineTool<HorzSca
 		// --- Snapped Midpoint Logic (Indices 4 & 5) ---
 		let midPointA: LineToolPoint;
 		let midPointB: LineToolPoint;
-		
+
 		if (index === 4) { // Height Midpoint (Midpoint of P2-P3)
 			const p3 = this.getPoint(3); // Recursive call to get the virtual P3
 			if (!p3) return null;
@@ -341,7 +341,7 @@ export class LineToolParallelChannel<HorzScaleItem> extends BaseLineTool<HorzSca
 			timestamp: stableTime,
 			price: stablePrice,
 		};
-	}	
+	}
 
 	/**
 	 * Helper to snap a raw price value to the nearest price scale tick.
@@ -395,8 +395,8 @@ export class LineToolParallelChannel<HorzScaleItem> extends BaseLineTool<HorzSca
 		const P2 = originalPoints[2]; // Bottom-Left (defines channel's vertical offset)
 
 		// Derived P3 (Bottom-Right)
-		const P3 = this.getPoint(3); 
-		if (P3 === null) return; 
+		const P3 = this.getPoint(3);
+		if (P3 === null) return;
 
 		let priceDelta: number;
 		let newP0: LineToolPoint;
@@ -413,32 +413,32 @@ export class LineToolParallelChannel<HorzScaleItem> extends BaseLineTool<HorzSca
 
 			case 0: // Top Left (P0) is dragged.
 			case 2: { // Bottom Left (P2) is dragged.
-				
+
 				// 1. Calculate the Y-distance (Price)
-				const channelHeightDelta = P2.price - P0.price; 
-				
+				const channelHeightDelta = P2.price - P0.price;
+
 				// 2. The dragged point (constrainedPoint) sets the new position for the entire side.
-                // X-movement is now allowed (uses newPoint.timestamp)
+				// X-movement is now allowed (uses newPoint.timestamp)
 
 				if (index === 0) {
 					// Dragging P0: P0 moves to newPoint, P2 follows, maintaining height.
 					newP0 = constrainedPoint; // Uses new X and constrained Y
-					newP2 = { 
-                        timestamp: constrainedPoint.timestamp, 
-                        price: constrainedPoint.price + channelHeightDelta 
-                    };
+					newP2 = {
+						timestamp: constrainedPoint.timestamp,
+						price: constrainedPoint.price + channelHeightDelta
+					};
 				} else { // index === 2
 					// Dragging P2: P2 moves to newPoint, P0 follows, maintaining height.
 					newP2 = constrainedPoint; // Uses new X and constrained Y
-					newP0 = { 
-                        timestamp: constrainedPoint.timestamp, 
-                        price: constrainedPoint.price - channelHeightDelta 
-                    };
+					newP0 = {
+						timestamp: constrainedPoint.timestamp,
+						price: constrainedPoint.price - channelHeightDelta
+					};
 				}
-				
+
 				// Apply updates atomically
-				this._points[0] = newP0; 
-				this._points[2] = newP2; 
+				this._points[0] = newP0;
+				this._points[2] = newP2;
 				break;
 			}
 
@@ -446,26 +446,26 @@ export class LineToolParallelChannel<HorzScaleItem> extends BaseLineTool<HorzSca
 
 			case 1: // Top Right (P1) is dragged.
 			case 3: { // Bottom Right (P3 derived) is dragged.
- 
+
 				// The base P1 position before the move
 				const oldP1 = this._points[1];
- 
+
 				if (index === 1) {
 					// Dragging P1: P1 is simply set to the new, constrained position.
 					newP1 = constrainedPoint; // Uses new X and constrained Y
 				} else { // index === 3 (Dragging P3)
-					
+
 					// 1. Calculate the vertical delta of the P3 move relative to its original position.
 					// P3 is defined by this.getPoint(3), which we fetched at the start of setPoint.
 					const dragDeltaPrice = constrainedPoint.price - P3.price;
- 
+
 					// 2. The P3 drag means P1 must move by the same vertical delta.
 					newP1 = {
 						timestamp: constrainedPoint.timestamp, // New X is from mouse
 						price: oldP1.price + dragDeltaPrice // New Y is P1's old Y + the delta
 					};
 				}
- 
+
 				// Apply updates atomically
 				this._points[1] = newP1;
 				// P0 and P2 are left unchanged. This ensures only the right side moves.
@@ -479,17 +479,17 @@ export class LineToolParallelChannel<HorzScaleItem> extends BaseLineTool<HorzSca
 				// This movement must be Y-only (X-locked).
 				const originalAnchor4 = this.getPoint(4);
 				if (!originalAnchor4) return;
-				
+
 				// Use the constrained newPoint for the delta calculation
 				// X is locked, so we use the original P2 X
 				priceDelta = constrainedPoint.price - originalAnchor4.price;
-				
+
 				// Update P2: Y-position moves by the delta. X-position remains fixed.
 				newP2 = {
 					timestamp: P2.timestamp,
-					price: P2.price + priceDelta, 
+					price: P2.price + priceDelta,
 				};
-				
+
 				// Apply update
 				this._points[2] = newP2;
 				break;
@@ -503,10 +503,10 @@ export class LineToolParallelChannel<HorzScaleItem> extends BaseLineTool<HorzSca
 				// This movement must be Y-only (X-locked).
 				const originalAnchor5 = this.getPoint(5);
 				if (!originalAnchor5) return;
-				
+
 				// Use the constrained newPoint for the delta calculation
 				priceDelta = constrainedPoint.price - originalAnchor5.price;
-				
+
 				// Translate P0 and P1. P2 remains fixed.
 				newP0 = {
 					timestamp: P0.timestamp,
@@ -516,13 +516,13 @@ export class LineToolParallelChannel<HorzScaleItem> extends BaseLineTool<HorzSca
 					timestamp: P1.timestamp,
 					price: P1.price + priceDelta,
 				};
-				
+
 				// Apply updates atomically
 				this._points[0] = newP0;
 				this._points[1] = newP1;
 				break;
 			}
-			
+
 			// --- FALLBACK (For primary points 0, 1, 2 if dragged directly) ---
 			default:
 				// Fall back to the original BaseLineTool implementation for single-point edits.
@@ -532,7 +532,7 @@ export class LineToolParallelChannel<HorzScaleItem> extends BaseLineTool<HorzSca
 
 		// *** EFFICIENCY FIX: Only call update once, after all point manipulations are complete. ***
 		this._triggerChartUpdate();
-	}	
+	}
 
 	/**
 	 * Overrides the ghost point logic to constrain the 3rd point (P2) during creation.
@@ -569,16 +569,16 @@ export class LineToolParallelChannel<HorzScaleItem> extends BaseLineTool<HorzSca
 				timestamp: fixedTime,
 				price: newPrice,
 			};
- 
+
 			// 4. Set the constrained point as the last point.
 			super.setLastPoint(constrainedPoint);
 			return;
 		}
- 
+
 		// For all other cases (ghosting P1), use the default unconstrained behavior
 		// This means P1 is free to move in X and Y during its creation step.
 		super.setLastPoint(point);
-	}	
+	}
 
 	/**
 	 * Re-orders the internal points so P0 is always to the left of P1 in time.
@@ -600,7 +600,7 @@ export class LineToolParallelChannel<HorzScaleItem> extends BaseLineTool<HorzSca
 
 		// Only normalize if the top line is drawn right-to-left
 		if (p0.timestamp > p1.timestamp) {
-			
+
 			// 1. Get the position of the derived P3 (Bottom Right) BEFORE the swap.
 			const P3_old_position = this.getPoint(3);
 			if (P3_old_position === null) return;
@@ -641,7 +641,7 @@ export class LineToolParallelChannel<HorzScaleItem> extends BaseLineTool<HorzSca
 		return compositeRenderer.hitTest(x, y);
 	}
 
-	
+
 	/**
 	 * Implements granular Shift constraint logic.
 	 *
@@ -666,33 +666,33 @@ export class LineToolParallelChannel<HorzScaleItem> extends BaseLineTool<HorzSca
 		originalLogicalPoint: LineToolPoint,
 		allOriginalLogicalPoints: LineToolPoint[]
 	): ConstraintResult {
-		
+
 		// 1. Determine the Constraint Source Point (Logical Coordinates)
 		let constraintSourceLogical: LineToolPoint | null = null;
-		
+
 		// --- SCENARIO A: CREATION PHASE (P1 Y-Lock to P0 Y) ---
 		if (phase === InteractionPhase.Creation) {
-			
+
 			// During creation, we are placing the 2nd point (P1). The constraint source is P0 (index 0).
 			// The InteractionManager passes allOriginalLogicalPoints[0] as P0.
 			// We ensure the constraint only applies when placing P1 (pointIndex should be 1).
-			
+
 			if (pointIndex === 1 && allOriginalLogicalPoints.length >= 1) {
 				// P0 (index 0) is the source point.
 				constraintSourceLogical = allOriginalLogicalPoints[0];
 			}
-			
+
 		}
-		
+
 		// --- SCENARIO B: EDITING PHASE (Anchor Y-Lock to Opposite Anchor Y) ---
 		else if (phase === InteractionPhase.Editing) {
-			
+
 			// This is the logic for dragging one of the four corners (Indices 0, 1, 2, 3) 
 			// while holding Shift to force a horizontal drag (Y-lock).
-			
+
 			// This is the logic you originally provided for the Edit phase (Constraining Corners)
 			if (pointIndex === 0) { // Dragging P0 is constrained by P1
-				constraintSourceLogical = this.getPoint(1); 
+				constraintSourceLogical = this.getPoint(1);
 			} else if (pointIndex === 1) { // Dragging P1 is constrained by P0
 				constraintSourceLogical = this.getPoint(0);
 			} else if (pointIndex === 2) { // Dragging P2 is constrained by P3
@@ -704,14 +704,14 @@ export class LineToolParallelChannel<HorzScaleItem> extends BaseLineTool<HorzSca
 				return { point: rawScreenPoint, snapAxis: 'none' };
 			}
 		}
-		
+
 		// --- Fallback if no constraint is applicable or source is missing ---
 		if (!constraintSourceLogical) {
-			return { point: rawScreenPoint, snapAxis: 'none' }; 
+			return { point: rawScreenPoint, snapAxis: 'none' };
 		}
 
 		// 2. Apply the Constraint (Same for both Creation and Editing Scenarios A & B)
-		
+
 		// Convert the constraint source's logical position to its current screen coordinates.
 		// NOTE: If using 'this.getPoint(index)' for Editing, this is already the constrained logical point.
 		const constraintSourceScreenPoint = this.pointToScreenPoint(constraintSourceLogical)!;
@@ -724,7 +724,7 @@ export class LineToolParallelChannel<HorzScaleItem> extends BaseLineTool<HorzSca
 
 		// The resulting segment is forced horizontal, meaning we are constraining the PRICE (Y) axis.
 		return { point: constrainedPoint, snapAxis: 'price' };
-	}	
+	}
 
 	/**
 	 * Overrides the base `addPoint` to enforce the X-axis lock when committing the 3rd point.
@@ -736,7 +736,7 @@ export class LineToolParallelChannel<HorzScaleItem> extends BaseLineTool<HorzSca
 	 * @override
 	 */
 	public override addPoint(point: LineToolPoint): void {
-		
+
 		// If it's the 1st or 2nd point, allow it as-is.
 		if (this._points.length < 2) {
 			super.addPoint(point);
@@ -746,19 +746,19 @@ export class LineToolParallelChannel<HorzScaleItem> extends BaseLineTool<HorzSca
 		// --- Constraint Logic for the 3rd Point (P2) ---
 
 		if (this._points.length === 2) {
-			
+
 			// We are adding the 3rd point (P2). P0 already exists at index 0.
 			const P0 = this._points[0];
-			
+
 			// 1. Lock the X-coordinate (timestamp) to P0's X (Time).
 			const fixedTime = P0.timestamp;
-			
+
 			// 2. Use the raw Y-coordinate (price) from the mouse up position.
 			const finalPointP2: LineToolPoint = {
 				timestamp: fixedTime,
 				price: point.price,
 			};
-			
+
 			// Commit the constrained point.
 			super.addPoint(finalPointP2);
 			return;

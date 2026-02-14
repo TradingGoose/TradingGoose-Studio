@@ -131,8 +131,7 @@ const isTimestampWithinSeriesBounds = <HorzScaleItem>(
  */
 export abstract class BaseLineTool<HorzScaleItem>
   extends PriceDataSource<HorzScaleItem>
-  implements ISeriesPrimitive<HorzScaleItem>
-{
+  implements ISeriesPrimitive<HorzScaleItem> {
   // Abstract properties that must be defined by child classes
   // These properties are now set in the constructor from subclass arguments
 
@@ -488,11 +487,11 @@ export abstract class BaseLineTool<HorzScaleItem>
     // Nullify references to LWCharts APIs to prevent memory leaks / stale closures.
     // This is important because chart/series APIs might hold references back to the primitive.
     // Cast to `any` only where strictly necessary for re-assigning readonly properties for cleanup.
-    ;(this._chart as any) = null
-    ;(this._series as any) = null
-    ;(this._horzScaleBehavior as any) = null
-    ;(this._attachedPane as any) = null // Clear the IPaneApi reference
-    ;(this._requestUpdate as any) = null // Clear the requestUpdate callback
+    ; (this._chart as any) = null
+      ; (this._series as any) = null
+      ; (this._horzScaleBehavior as any) = null
+      ; (this._attachedPane as any) = null // Clear the IPaneApi reference
+      ; (this._requestUpdate as any) = null // Clear the requestUpdate callback
   }
 
   /**
@@ -929,7 +928,7 @@ export abstract class BaseLineTool<HorzScaleItem>
   public priceAxisLabelColor(): string | null {
     // The view will check the active state. This method just needs to provide a color if labels are shown.
     // Returning a static color simplifies this, but tools can override for more complex behavior.
-    return '#2962FF' // Default active color
+    return '#ffbb00' // Default active color
   }
 
   /**
@@ -941,7 +940,7 @@ export abstract class BaseLineTool<HorzScaleItem>
    */
   public timeAxisLabelColor(): string | null {
     // Same logic as priceAxisLabelColor
-    return '#2962FF' // Default active color
+    return '#ffbb00' // Default active color
   }
 
   /**
@@ -1168,8 +1167,8 @@ export abstract class BaseLineTool<HorzScaleItem>
         renderer.clear()
       }
     })
-    ;(this._paneViews as any) = [] // Breaks references to renderers and views
-    ;(this._points as any) = []
+      ; (this._paneViews as any) = [] // Breaks references to renderers and views
+      ; (this._points as any) = []
     this._lastPoint = null
 
     // Clear price scale reference
@@ -1181,7 +1180,7 @@ export abstract class BaseLineTool<HorzScaleItem>
     this._editing = false
     this._creating = false
     this._editedPointIndex = null
-    ;(this._currentPoint as any) = new Point(0, 0) // Reset Point instance (or nullify)
+      ; (this._currentPoint as any) = new Point(0, 0) // Reset Point instance (or nullify)
 
     // Note: The `detached()` method will handle nullifying references to external LWCharts APIs.
     // We do not call `this.detached()` here as `detached()` is part of the `ISeriesPrimitive` lifecycle
@@ -1360,8 +1359,12 @@ export abstract class BaseLineTool<HorzScaleItem>
         return 0
       }
     })()
-    const paneDimensions = this._chart.paneSize(paneIndex)
-    return paneDimensions.width
+    try {
+      const paneDimensions = this._chart.paneSize(paneIndex)
+      return Number.isFinite(paneDimensions.width) ? paneDimensions.width : 0
+    } catch {
+      return 0
+    }
   }
 
   /**
@@ -1380,7 +1383,11 @@ export abstract class BaseLineTool<HorzScaleItem>
         return 0
       }
     })()
-    const paneDimensions = this._chart.paneSize(paneIndex)
-    return paneDimensions.height
+    try {
+      const paneDimensions = this._chart.paneSize(paneIndex)
+      return Number.isFinite(paneDimensions.height) ? paneDimensions.height : 0
+    } catch {
+      return 0
+    }
   }
 }
