@@ -7,13 +7,11 @@ Define indicator script trigger API:
 This must integrate with existing workflow trigger infrastructure and be directly usable as implementation instructions.
 
 ## Verified Current Constraints
-1. `trigger(...)` is not available in PineTS runtime today.
-- `../PineTS/src/transpiler/settings.ts` (no `trigger` in context vars)
-- `../PineTS/src/namespaces/Core.ts` (no `Core.trigger(...)`)
-- `../PineTS/src/types/PineTypes.ts` (no trigger declaration)
+1. `trigger(...)` is not available in the current `pinets` package/runtime.
 - indicator execution currently only runs `new Indicator(code, inputs)`:
   - `apps/tradinggoose/lib/indicators/run-pinets.ts`
   - `apps/tradinggoose/lib/indicators/execution/e2b-script-builder.ts`
+- `trigger(...)` support must be implemented as a TradingGoose-Studio runtime extension (local + E2B), not as an upstream PineTS dependency.
 2. Indicator normalized output currently includes `series`, `markers`, `signals`, `unsupported`, `indicator` only.
 - `apps/tradinggoose/lib/indicators/types.ts`
 - `apps/tradinggoose/lib/indicators/normalize-context.ts`
@@ -58,6 +56,9 @@ This must integrate with existing workflow trigger infrastructure and be directl
 8. Monitor configuration is webhook-backed only:
 - no `indicator_monitor_configs` table
 - no `indicator_monitor_auth_profiles` table
+9. `trigger(...)` support is Studio-owned:
+- do not block implementation on upstream PineTS changes
+- do not require `../PineTS` edits for this feature plan
 
 ## Public Script API
 ```ts
@@ -628,12 +629,13 @@ Logging metadata contract for monitor filtering:
 ## Planned Implementation Steps
 Execution gate:
 1. Steps `9+` must not start until steps `1-8` are implemented and validated.
-2. Studio implementation is blocked until PineTS `trigger(...)` support is implemented and the same build is pinned for root tooling + app runtime.
+2. Studio implementation is blocked until Studio-owned `trigger(...)` runtime extension is implemented and root/app `pinets` versions are aligned.
 
-1. Hard prerequisite: PineTS prerequisite changes in `../PineTS`:
-- add runtime/transpiler/type support for `trigger(...)`
+1. Hard prerequisite: Studio-owned `trigger(...)` runtime extension:
+- implement `trigger(...)` collection through Studio runtime integration in local + E2B execution paths
+- include editor typings/docs exposure for `trigger(...)` as Studio extension
 2. Hard prerequisite: PineTS dependency rollout alignment in Studio:
-- publish and pin same `pinets` build in root + app
+- pin the same `pinets` version in root + app
 - refresh lockfile and verify runtime/editor parity across:
   - app runtime dependency
   - root dependency used by cheat-sheet generator
@@ -696,14 +698,17 @@ Execution gate:
 20. Update editor typings/docs to include `trigger(...)`.
 
 ## Planned File Touchpoints
-1. PineTS prerequisite:
-- `../PineTS/src/transpiler/settings.ts`
-- `../PineTS/src/namespaces/Core.ts`
-- `../PineTS/src/types/PineTypes.ts`
+1. Studio-owned `trigger(...)` runtime extension:
+- `apps/tradinggoose/lib/indicators/run-pinets.ts`
+- `apps/tradinggoose/lib/indicators/execution/e2b-script-builder.ts`
+- `apps/tradinggoose/lib/indicators/custom/compile.ts`
+- `apps/tradinggoose/lib/indicators/normalize-context.ts`
+- `scripts/generate-pine-cheat-sheet.cjs`
+- `apps/tradinggoose/widgets/widgets/editor_indicator/components/pine-cheat-sheet.ts`
+- `apps/tradinggoose/widgets/widgets/editor_indicator/components/pine-cheat-sheet-typings.ts`
 2. PineTS consumption alignment:
 - `package.json`
 - `apps/tradinggoose/package.json`
-- `scripts/generate-pine-cheat-sheet.cjs`
 - `bun.lock`
 3. Monitor APIs (new, webhook-backed):
 - `apps/tradinggoose/app/api/indicator-monitors/route.ts`
@@ -724,8 +729,6 @@ Execution gate:
  - `apps/tradinggoose/lib/logs/execution/logger.ts`
  - `apps/tradinggoose/lib/logs/execution/logging-factory.ts`
 6. Indicator runtime:
-- `apps/tradinggoose/lib/indicators/run-pinets.ts`
-- `apps/tradinggoose/lib/indicators/execution/e2b-script-builder.ts`
 - `apps/tradinggoose/lib/indicators/custom/compile.ts`
 - `apps/tradinggoose/lib/indicators/normalize-context.ts`
 - `apps/tradinggoose/lib/indicators/types.ts`
