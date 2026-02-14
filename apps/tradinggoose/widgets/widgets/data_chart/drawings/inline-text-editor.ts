@@ -1,90 +1,27 @@
 import type {
   InlineTextEditorControllerParams,
   OpenInlineTextEditorParams,
-} from '@/widgets/widgets/data_chart/drawings/manual-line-tools-adapter-types'
-import { resolveInlineTextAnchorPoint } from '@/widgets/widgets/data_chart/drawings/manual-line-tools-adapter-utils'
-
-const resolveCssBorderStyle = (borderStyle: unknown) => {
-  if (typeof borderStyle === 'string') {
-    const normalized = borderStyle.toLowerCase()
-    if (normalized.includes('dot')) return 'dotted'
-    if (normalized.includes('dash')) return 'dashed'
-    if (normalized === 'none') return 'none'
-  }
-
-  const numericStyle = Number(borderStyle)
-  if (Number.isFinite(numericStyle)) {
-    if (numericStyle === 1 || numericStyle === 4) return 'dotted'
-    if (numericStyle === 2 || numericStyle === 3) return 'dashed'
-  }
-
-  return 'solid'
-}
-
-const resolveCssBorderRadius = (radius: unknown) => {
-  if (typeof radius === 'number' && Number.isFinite(radius)) {
-    return `${Math.max(0, radius)}px`
-  }
-
-  if (Array.isArray(radius) && radius.length > 0) {
-    const resolved = radius
-      .slice(0, 4)
-      .map((value) => Number(value))
-      .filter((value) => Number.isFinite(value))
-      .map((value) => `${Math.max(0, value)}px`)
-    if (resolved.length > 0) {
-      return resolved.join(' ')
-    }
-  }
-
-  return '4px'
-}
-
-const resolveCssBoxShadow = (shadowOptions: unknown) => {
-  if (!shadowOptions || typeof shadowOptions !== 'object') return 'none'
-
-  const shadow = shadowOptions as {
-    color?: unknown
-    blur?: unknown
-    offset?: { x?: unknown; y?: unknown } | undefined
-  }
-
-  if (typeof shadow.color !== 'string' || shadow.color.trim().length === 0) return 'none'
-
-  const blur = Number(shadow.blur)
-  const offsetX = Number(shadow.offset?.x)
-  const offsetY = Number(shadow.offset?.y)
-  const resolvedBlur = Number.isFinite(blur) ? Math.max(0, blur) : 0
-  const resolvedOffsetX = Number.isFinite(offsetX) ? offsetX : 0
-  const resolvedOffsetY = Number.isFinite(offsetY) ? offsetY : 0
-
-  return `${resolvedOffsetX}px ${resolvedOffsetY}px ${resolvedBlur}px ${shadow.color}`
-}
-
-const isCssColorLike = (value: string): boolean => {
-  const normalized = value.trim().toLowerCase()
-  return (
-    normalized.startsWith('#') ||
-    normalized.startsWith('rgb(') ||
-    normalized.startsWith('rgba(') ||
-    normalized.startsWith('hsl(') ||
-    normalized.startsWith('hsla(') ||
-    normalized.startsWith('oklab(') ||
-    normalized.startsWith('oklch(') ||
-    normalized.startsWith('color(') ||
-    normalized.startsWith('var(') ||
-    normalized === 'transparent'
-  )
-}
-
-const resolveThemeColorToken = (styles: CSSStyleDeclaration, tokenName: string): string => {
-  const rawValue = styles.getPropertyValue(tokenName).trim()
-  if (!rawValue) return ''
-  if (isCssColorLike(rawValue)) return rawValue
-  return `hsl(${rawValue})`
-}
-
-const MINIMUM_BOX_PADDING_PIXELS = 5
+} from '@/widgets/widgets/data_chart/drawings/adapter-types'
+import { resolveInlineTextAnchorPoint } from '@/widgets/widgets/data_chart/drawings/adapter-utils'
+import {
+  type InlineEditorTextBoxOptions,
+  type InlineEditorTextFontOptions,
+  type InlineEditorTextOptions,
+  type InlineEditorToolOptions,
+  MINIMUM_BOX_PADDING_PIXELS,
+  resolveAnchorXCoordinate,
+  resolveCssBorderRadius,
+  resolveCssBorderStyle,
+  resolveCssBoxShadow,
+  resolveNonEmptyColor,
+  resolveScaledBorderRadius,
+  resolveScaledBorderWidth,
+  resolveThemeColorToken,
+  resolveWrappedLinesMaxWidth,
+} from '@/widgets/widgets/data_chart/drawings/inline-text-editor-utils'
+import { setInlineEditorActiveForTool } from '@/widgets/widgets/data_chart/plugins/core/model/inline-editor-state'
+import { resolveSystemFontFamily } from '@/widgets/widgets/data_chart/plugins/core/utils/theme-text-style'
+import { TrendLineOptionDefaults } from '@/widgets/widgets/data_chart/plugins/shared/lines/model/LineToolTrendLine'
 
 export const createInlineTextEditorController = ({
   chartRef,
@@ -107,12 +44,16 @@ export const createInlineTextEditorController = ({
 
     const latestTool = parseLineToolExports(params.plugin.getLineToolByID(params.tool.id))[0]
     const toolToEdit = latestTool ?? params.tool
-    const toolOptions = (toolToEdit.options as { text?: any } | undefined) ?? {}
-    const textOptions = toolOptions.text ?? {}
-    const textBoxOptions = textOptions.box ?? {}
-    const textBorderOptions = textBoxOptions.border ?? {}
-    const textBackgroundOptions = textBoxOptions.background ?? {}
-    const textFontOptions = textOptions.font ?? {}
+    const toolOptions = (toolToEdit.options as InlineEditorToolOptions | undefined) ?? {}
+    const isInlineEditableTool = toolToEdit.toolType === 'Text' || toolToEdit.toolType === 'Callout'
+
+    const textOptions: InlineEditorTextOptions = toolOptions.text ?? {}
+    const textBoxOptions: InlineEditorTextBoxOptions = textOptions.box ?? {}
+    const textBorderOptions: NonNullable<InlineEditorTextBoxOptions['border']> =
+      textBoxOptions.border ?? {}
+    const textBackgroundOptions: NonNullable<InlineEditorTextBoxOptions['background']> =
+      textBoxOptions.background ?? {}
+    const textFontOptions: InlineEditorTextFontOptions = textOptions.font ?? {}
     const currentTextValue = typeof textOptions.value === 'string' ? textOptions.value : ''
     const anchorPoint = resolveInlineTextAnchorPoint(toolToEdit)
     if (!anchorPoint) return
@@ -136,9 +77,8 @@ export const createInlineTextEditorController = ({
       chartStyles.backgroundColor.trim() ||
       rootStyles.backgroundColor.trim() ||
       '#0f172a'
-    const themeFontFamily = chartStyles.fontFamily.trim() || rootStyles.fontFamily.trim()
 
-    const rawX = chart.timeScale().timeToCoordinate(anchorPoint.timestamp as any)
+    const rawX = resolveAnchorXCoordinate(chart, params.series, anchorPoint.timestamp)
     const rawY = params.series.priceToCoordinate(anchorPoint.price)
     const fallbackX = chartElement.clientWidth / 2
     const fallbackY = chartElement.clientHeight / 2
@@ -159,10 +99,13 @@ export const createInlineTextEditorController = ({
       clampedBoxScale === 1
         ? 1
         : Math.ceil(clampedBoxScale * normalizedTextFontSize) / normalizedTextFontSize
+
     const requestedBoxAngle = Number(textBoxOptions?.angle)
     const boxAngle = Number.isFinite(requestedBoxAngle) ? requestedBoxAngle : 0
-    const boxHorizontalAlignment = `${textBoxOptions?.alignment?.horizontal ?? 'center'}`.toLowerCase()
+    const boxHorizontalAlignment =
+      `${textBoxOptions?.alignment?.horizontal ?? 'center'}`.toLowerCase()
     const boxVerticalAlignment = `${textBoxOptions?.alignment?.vertical ?? 'middle'}`.toLowerCase()
+
     const translateX =
       boxHorizontalAlignment === 'right' || boxHorizontalAlignment === 'end'
         ? '-100%'
@@ -189,76 +132,112 @@ export const createInlineTextEditorController = ({
           : '0%'
 
     const resolvedFontSize = Math.max(1, Math.ceil(normalizedTextFontSize * fontAwareScale))
-    const borderWidthValue = Number(textBorderOptions?.width)
-    const resolvedBorderWidth = Number.isFinite(borderWidthValue) ? Math.max(0, borderWidthValue) : 0
+    const resolvedBorderWidth = resolveScaledBorderWidth(
+      textBorderOptions?.width,
+      toolToEdit.toolType,
+      clampedBoxScale
+    )
+    const resolvedBorderRadius = resolveCssBorderRadius(
+      resolveScaledBorderRadius(textBorderOptions?.radius, clampedBoxScale)
+    )
+
     const boxPaddingX = Number(textBoxOptions?.padding?.x)
     const boxPaddingY = Number(textBoxOptions?.padding?.y)
     const backgroundInflationX = Number(textBackgroundOptions?.inflation?.x)
     const backgroundInflationY = Number(textBackgroundOptions?.inflation?.y)
+
     const scaledBoxPaddingX =
       (Number.isFinite(boxPaddingX) ? Math.max(0, boxPaddingX) : 0) * fontAwareScale +
       MINIMUM_BOX_PADDING_PIXELS
     const scaledBoxPaddingY =
       (Number.isFinite(boxPaddingY) ? Math.max(0, boxPaddingY) : 0) * fontAwareScale +
       MINIMUM_BOX_PADDING_PIXELS
+
     const resolvedPaddingX =
       scaledBoxPaddingX +
-      (Number.isFinite(backgroundInflationX) ? Math.max(0, backgroundInflationX) * fontAwareScale : 0)
+      (Number.isFinite(backgroundInflationX)
+        ? Math.max(0, backgroundInflationX) * fontAwareScale
+        : 0)
     const resolvedPaddingY =
       scaledBoxPaddingY +
-      (Number.isFinite(backgroundInflationY) ? Math.max(0, backgroundInflationY) * fontAwareScale : 0)
-    const wordWrapWidth = Number(textOptions?.wordWrapWidth)
-    const wrapWidth =
-      Number.isFinite(wordWrapWidth) && wordWrapWidth > 0
-        ? wordWrapWidth * fontAwareScale
-        : 120 * fontAwareScale
-    const measurementCanvas = document.createElement('canvas')
-    const measurementContext = measurementCanvas.getContext('2d')
-    const fontFamily =
-      typeof textFontOptions?.family === 'string' && textFontOptions.family.trim()
-        ? textFontOptions.family
-        : themeFontFamily
-    const measureFont =
-      `${textFontOptions?.bold ? 'bold ' : ''}${textFontOptions?.italic ? 'italic ' : ''}${resolvedFontSize}px ${fontFamily}`
-    const measuredContentWidth = (() => {
-      if (!measurementContext) return 0
-      measurementContext.font = measureFont
-      let maxMeasuredWidth = 0
-      for (const line of currentTextValue.split(/\r\n|\r|\n/)) {
-        maxMeasuredWidth = Math.max(maxMeasuredWidth, measurementContext.measureText(line).width)
-      }
-      return maxMeasuredWidth
-    })()
-    const resolvedContentWidth = measuredContentWidth > 0 ? Math.min(measuredContentWidth, wrapWidth) : wrapWidth
-    const requestedWidth = resolvedContentWidth + resolvedPaddingX * 2 + resolvedBorderWidth * 2
-    const minWidth = Math.max(48, resolvedPaddingX * 2 + resolvedBorderWidth * 2 + 1)
-    const maxWidth = Math.max(minWidth, chartElement.clientWidth - 16)
-    const width = Math.max(minWidth, Math.min(requestedWidth, maxWidth))
+      (Number.isFinite(backgroundInflationY)
+        ? Math.max(0, backgroundInflationY) * fontAwareScale
+        : 0)
+
+    const rawWordWrapWidth = textOptions?.wordWrapWidth
+    const numericWordWrapWidth = Number(rawWordWrapWidth)
+    const hasFiniteWrapWidth = Number.isFinite(numericWordWrapWidth) && numericWordWrapWidth > 0
+    const scaledWrapWidth = hasFiniteWrapWidth
+      ? numericWordWrapWidth * fontAwareScale
+      : rawWordWrapWidth
+    const maxAllowedWidth = hasFiniteWrapWidth ? numericWordWrapWidth * fontAwareScale : null
+    const forceCalculateMaxLineWidth = textOptions?.forceCalculateMaxLineWidth === true
+
+    const fontFamily = resolveSystemFontFamily(
+      typeof textFontOptions?.family === 'string' ? textFontOptions.family : undefined
+    )
+    const measureFont = `${textFontOptions?.bold ? 'bold ' : ''}${textFontOptions?.italic ? 'italic ' : ''}${resolvedFontSize}px ${fontFamily}`
+
+    const resolveEditorWidth = (value: string): number => {
+      const linesMaxWidth = resolveWrappedLinesMaxWidth(
+        value,
+        measureFont,
+        scaledWrapWidth,
+        maxAllowedWidth,
+        forceCalculateMaxLineWidth
+      )
+      return Math.max(1, linesMaxWidth + resolvedPaddingX * 2 + resolvedBorderWidth * 2)
+    }
+
     const linePadding = Number(textOptions?.padding)
     const resolvedLinePadding =
       Number.isFinite(linePadding) && linePadding > 0 ? linePadding * fontAwareScale : 0
+
     const fontColor =
       typeof textFontOptions?.color === 'string' && textFontOptions.color.trim()
         ? textFontOptions.color
         : typeof textOptions?.font?.color === 'string' && textOptions.font.color.trim()
           ? textOptions.font.color
           : themeTextColor
-    const borderColor =
-      typeof textBorderOptions?.color === 'string' && textBorderOptions.color.trim()
-        ? textBorderOptions.color
-        : 'transparent'
+
+    const lineColorFallback = resolveNonEmptyColor(
+      toolOptions.line?.color,
+      TrendLineOptionDefaults.line.color
+    )
+    const borderColor = resolveNonEmptyColor(
+      textBorderOptions?.color,
+      toolToEdit.toolType === 'Callout' ? lineColorFallback : TrendLineOptionDefaults.line.color
+    )
+
     const rawBackgroundColor =
       typeof textBackgroundOptions?.color === 'string' ? textBackgroundOptions.color.trim() : ''
     const backgroundColor =
       rawBackgroundColor.length > 0 && rawBackgroundColor.toLowerCase() !== 'transparent'
-        ? textBackgroundOptions.color
+        ? rawBackgroundColor
         : themeBackgroundColor
+
     const textAlign =
       boxHorizontalAlignment === 'left'
         ? 'left'
         : boxHorizontalAlignment === 'right'
           ? 'right'
           : 'center'
+
+    const minimumTextAreaHeight = Math.max(
+      1,
+      Math.ceil(resolvedFontSize + resolvedPaddingY * 2 + resolvedBorderWidth * 2)
+    )
+
+    const viewportMaxHeight = Math.max(80, chartElement.clientHeight - 16)
+    const boxMaxHeight = Number(textBoxOptions?.maxHeight)
+    const configuredEditorMaxHeight =
+      Number.isFinite(boxMaxHeight) && boxMaxHeight > 0
+        ? boxMaxHeight + resolvedPaddingY * 2 + resolvedBorderWidth * 2
+        : viewportMaxHeight
+    const maxEditorHeight = Math.max(
+      minimumTextAreaHeight,
+      Math.min(viewportMaxHeight, configuredEditorMaxHeight)
+    )
 
     const textarea = document.createElement('textarea')
     textarea.value = currentTextValue
@@ -269,9 +248,9 @@ export const createInlineTextEditorController = ({
     textarea.style.top = `${safeY}px`
     textarea.style.transformOrigin = `${transformOriginX} ${transformOriginY}`
     textarea.style.transform = `translate(${translateX}, ${translateY}) rotate(${-boxAngle}deg)`
-    textarea.style.width = `${width}px`
-    textarea.style.minHeight = `${Math.max(30, Math.round(resolvedFontSize * 1.8))}px`
-    textarea.style.maxHeight = `${Math.max(80, chartElement.clientHeight - 16)}px`
+    textarea.style.width = `${resolveEditorWidth(currentTextValue)}px`
+    textarea.style.minHeight = `${minimumTextAreaHeight}px`
+    textarea.style.maxHeight = `${maxEditorHeight}px`
     textarea.style.paddingLeft = `${resolvedPaddingX}px`
     textarea.style.paddingRight = `${resolvedPaddingX}px`
     textarea.style.paddingTop = `${resolvedPaddingY}px`
@@ -284,19 +263,19 @@ export const createInlineTextEditorController = ({
       resolvedBorderWidth === 0 ? 'none' : resolveCssBorderStyle(textBorderOptions?.style)
     textarea.style.borderWidth = `${resolvedBorderWidth}px`
     textarea.style.borderColor = borderColor
-    textarea.style.borderRadius = resolveCssBorderRadius(textBorderOptions?.radius)
+    textarea.style.borderRadius = resolvedBorderRadius
     textarea.style.background = backgroundColor
     textarea.style.color = fontColor
     textarea.style.caretColor = fontColor
     textarea.style.fontFamily = fontFamily
     textarea.style.fontSize = `${resolvedFontSize}px`
     textarea.style.fontWeight = textFontOptions?.bold ? '700' : '400'
-    textarea.style.fontStyle = textFontOptions?.italic
-      ? 'italic'
-      : 'normal'
+    textarea.style.fontStyle = textFontOptions?.italic ? 'italic' : 'normal'
     textarea.style.lineHeight = `${Math.max(1, resolvedFontSize + resolvedLinePadding)}px`
     textarea.style.textAlign = textAlign
     textarea.style.whiteSpace = 'pre-wrap'
+    textarea.style.overflowWrap = 'anywhere'
+    textarea.style.wordBreak = 'break-word'
     textarea.style.boxShadow = resolveCssBoxShadow(textBoxOptions?.shadow)
     textarea.style.zIndex = '10'
     textarea.style.boxSizing = 'border-box'
@@ -304,25 +283,17 @@ export const createInlineTextEditorController = ({
     const stopEvent = (event: Event) => {
       event.stopPropagation()
     }
-    const syncHeight = () => {
-      const maxHeight = Math.max(80, chartElement.clientHeight - 16)
-      const minHeight = Number.parseFloat(textarea.style.minHeight)
 
+    const syncLayout = () => {
+      textarea.style.width = `${resolveEditorWidth(textarea.value)}px`
       textarea.style.paddingTop = `${resolvedPaddingY}px`
       textarea.style.paddingBottom = `${resolvedPaddingY}px`
       textarea.style.height = '0px'
-      const contentHeight = textarea.scrollHeight
-      const targetHeight = Math.min(maxHeight, Math.max(contentHeight, minHeight))
-
-      const extraVerticalSpace = Math.max(0, targetHeight - contentHeight)
-      const topInset = Math.floor(extraVerticalSpace / 2)
-      const bottomInset = extraVerticalSpace - topInset
-      textarea.style.paddingTop = `${resolvedPaddingY + topInset}px`
-      textarea.style.paddingBottom = `${resolvedPaddingY + bottomInset}px`
-
-      textarea.style.height = '0px'
-      const centeredHeight = Math.min(maxHeight, Math.max(textarea.scrollHeight, minHeight))
-      textarea.style.height = `${centeredHeight}px`
+      const targetHeight = Math.min(
+        maxEditorHeight,
+        Math.max(textarea.scrollHeight, minimumTextAreaHeight)
+      )
+      textarea.style.height = `${targetHeight}px`
     }
 
     let finalized = false
@@ -346,49 +317,63 @@ export const createInlineTextEditorController = ({
         chartElement.style.position = previousChartPosition
       }
 
-      if (!commit) return
+      try {
+        const latestTool = parseLineToolExports(params.plugin.getLineToolByID(params.tool.id))[0]
+        if (!latestTool) return
+        const latestOptions = (latestTool.options as InlineEditorToolOptions | undefined) ?? {}
 
-      const nextTextValue = textarea.value
-      const latestTool = parseLineToolExports(params.plugin.getLineToolByID(params.tool.id))[0]
-      if (!latestTool) return
-      if ((latestTool.options as { editable?: boolean } | undefined)?.editable === false) return
+        if (!commit || latestOptions.editable === false) {
+          return
+        }
 
-      const latestTextValue = (latestTool.options as { text?: { value?: unknown } } | undefined)
-        ?.text?.value
-      const currentValue = typeof latestTextValue === 'string' ? latestTextValue : ''
-      if (nextTextValue === currentValue) return
+        const nextTextValue = textarea.value
+        const latestTextValue = (latestOptions as { text?: { value?: unknown } } | undefined)?.text
+          ?.value
+        const currentValue = typeof latestTextValue === 'string' ? latestTextValue : ''
+        if (nextTextValue === currentValue) {
+          return
+        }
 
-      const nextOptions = {
-        ...(latestTool.options ?? {}),
-        text: {
-          ...((latestTool.options as { text?: Record<string, unknown> } | undefined)?.text ?? {}),
-          value: nextTextValue,
-        },
+        const nextOptions = {
+          ...latestOptions,
+          text: {
+            ...((latestOptions as { text?: Record<string, unknown> } | undefined)?.text ?? {}),
+            value: nextTextValue,
+          },
+        }
+
+        params.plugin.createOrUpdateLineTool(
+          latestTool.toolType as any,
+          latestTool.points,
+          nextOptions as any,
+          latestTool.id
+        )
+
+        reconcileSelection(params.ownerId)
+        bumpVersion()
+      } finally {
+        if (isInlineEditableTool) {
+          setInlineEditorActiveForTool(toolToEdit.id, false)
+          params.plugin.refreshLineToolViews([toolToEdit.id])
+        }
       }
-
-      params.plugin.createOrUpdateLineTool(
-        latestTool.toolType as any,
-        latestTool.points,
-        nextOptions as any,
-        latestTool.id
-      )
-
-      reconcileSelection(params.ownerId)
-      bumpVersion()
     }
 
     const onInput = () => {
-      syncHeight()
+      syncLayout()
     }
+
     const onBlur = () => {
       finalize(true)
     }
+
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault()
         finalize(false)
         return
       }
+
       if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault()
         finalize(true)
@@ -402,8 +387,13 @@ export const createInlineTextEditorController = ({
     textarea.addEventListener('input', onInput)
     textarea.addEventListener('blur', onBlur)
 
+    if (isInlineEditableTool) {
+      setInlineEditorActiveForTool(toolToEdit.id, true)
+      params.plugin.refreshLineToolViews([toolToEdit.id])
+    }
+
     chartElement.appendChild(textarea)
-    syncHeight()
+    syncLayout()
     textarea.focus()
     textarea.select()
 

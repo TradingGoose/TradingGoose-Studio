@@ -3,8 +3,8 @@ import type {
   OwnerId,
   OwnerStateRefs,
   OwnerToolCapability,
-} from '@/widgets/widgets/data_chart/drawings/manual-line-tools-adapter-types'
-import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/manual-tool-types'
+} from '@/widgets/widgets/data_chart/drawings/adapter-types'
+import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/tool-types'
 
 export const createOwnerStateHelpers = (refs: OwnerStateRefs) => {
   const ensureOwnerToolIds = (ownerId: OwnerId) => {

@@ -1,7 +1,7 @@
 import type { MutableRefObject } from 'react'
 import type { IChartApi, ISeriesApi } from 'lightweight-charts'
-import type { ManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/manual-line-tools-snapshot'
-import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/manual-tool-types'
+import type { ManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/snapshot'
+import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/tool-types'
 import type { ILineToolsPlugin, LineToolExport } from '@/widgets/widgets/data_chart/plugins/core'
 import type { DrawToolsRef, IndicatorRuntimeEntry } from '@/widgets/widgets/data_chart/types'
 

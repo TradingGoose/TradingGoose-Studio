@@ -94,6 +94,35 @@ export const encodeManualOwnerSnapshot = (
   return { tools: normalized }
 }
 
+export const mergeManualOwnerSnapshots = (
+  ...snapshots: Array<ManualOwnerSnapshot | null | undefined>
+): ManualOwnerSnapshot | null => {
+  const toolById = new Map<string, ManualOwnerSnapshotTool>()
+  const orderedIds: string[] = []
+
+  snapshots.forEach((snapshot) => {
+    const normalized = normalizeManualOwnerSnapshot(snapshot)
+    if (!normalized) return
+
+    normalized.tools.forEach((tool) => {
+      if (!toolById.has(tool.id)) {
+        orderedIds.push(tool.id)
+      }
+      toolById.set(tool.id, tool)
+    })
+  })
+
+  if (orderedIds.length === 0) {
+    return null
+  }
+
+  const mergedTools = orderedIds
+    .map((id) => toolById.get(id))
+    .filter((tool): tool is ManualOwnerSnapshotTool => tool !== undefined)
+
+  return mergedTools.length > 0 ? { tools: mergedTools } : null
+}
+
 export const decodeManualOwnerSnapshot = (snapshot: unknown): ManualOwnerImportTool[] => {
   const normalized = normalizeManualOwnerSnapshot(snapshot)
   if (!normalized) return []

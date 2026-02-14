@@ -1,12 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { IPaneApi } from 'lightweight-charts'
-import { X } from 'lucide-react'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
-import { Input } from '@/components/ui/input'
 import { DEFAULT_INDICATOR_MAP } from '@/lib/indicators/default'
-import { buildInputsMapFromMeta } from '@/lib/indicators/input-meta'
 import type { InputMetaMap } from '@/lib/indicators/types'
 import { useSocket } from '@/contexts/socket-context'
 import { useIndicators } from '@/hooks/queries/indicators'
@@ -14,44 +10,32 @@ import type { MarketSessionWindow } from '@/providers/market/types'
 import { usePairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import {
-  emitDataChartParamsChange,
-  useDataChartParamsPersistence,
-} from '@/widgets/utils/chart-params'
-import { ChartLegend } from '@/widgets/widgets/data_chart/components/chart-legend'
-import { DrawControl } from '@/widgets/widgets/data_chart/components/draw-control'
+import { useDataChartParamsPersistence } from '@/widgets/utils/chart-params'
+import { ChartPaneOverlays } from '@/widgets/widgets/data_chart/components/chart-pane-overlays'
 import { DrawToolsSidebar } from '@/widgets/widgets/data_chart/components/draw-tools-sidebar'
 import { DataChartFooter } from '@/widgets/widgets/data_chart/components/footer'
-import { IndicatorControl } from '@/widgets/widgets/data_chart/components/indicator-control'
-import { PaneControl } from '@/widgets/widgets/data_chart/components/pane-control'
-import {
-  normalizeManualOwnerSnapshot,
-  serializeManualOwnerSnapshot,
-} from '@/widgets/widgets/data_chart/drawings/manual-line-tools-snapshot'
-import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/manual-tool-types'
-import { useManualLineToolsAdapter } from '@/widgets/widgets/data_chart/drawings/use-manual-line-tools-adapter'
+import { IndicatorSettingsModal } from '@/widgets/widgets/data_chart/components/indicator-settings-modal'
 import { useChartDataLoader } from '@/widgets/widgets/data_chart/hooks/use-chart-data-loader'
 import { useChartDefaults } from '@/widgets/widgets/data_chart/hooks/use-chart-defaults'
 import { useChartInstance } from '@/widgets/widgets/data_chart/hooks/use-chart-instance'
 import { useChartLegend } from '@/widgets/widgets/data_chart/hooks/use-chart-legend'
 import { useChartStyles } from '@/widgets/widgets/data_chart/hooks/use-chart-styles'
 import { useChartVisibleRange } from '@/widgets/widgets/data_chart/hooks/use-chart-visible-range'
-import {
-  type IndicatorPlotValue,
-  useIndicatorLegend,
-} from '@/widgets/widgets/data_chart/hooks/use-indicator-legend'
-import { useListingState } from '@/widgets/widgets/data_chart/hooks/use-listing-state'
+import { useIndicatorControls } from '@/widgets/widgets/data_chart/hooks/use-indicator-controls'
+import { useIndicatorLegend } from '@/widgets/widgets/data_chart/hooks/use-indicator-legend'
 import { useIndicatorSync } from '@/widgets/widgets/data_chart/hooks/use-indicator-sync'
+import { useListingState } from '@/widgets/widgets/data_chart/hooks/use-listing-state'
+import { useManualDrawToolsController } from '@/widgets/widgets/data_chart/hooks/use-manual-draw-tools-controller'
+import { usePaneLayoutController } from '@/widgets/widgets/data_chart/hooks/use-pane-layout-controller'
 import { useThemeVersion } from '@/widgets/widgets/data_chart/hooks/use-theme-version'
 import type { BarMs } from '@/widgets/widgets/data_chart/series-data'
 import { intervalToMs } from '@/widgets/widgets/data_chart/series-data'
 import { resolveSeriesWindow } from '@/widgets/widgets/data_chart/series-window'
 import type {
-  IndicatorRuntimeEntry,
-  DataChartWidgetParams,
   DataChartDataContext,
-  DrawToolsRef,
+  DataChartWidgetParams,
   dataChartWidgetParams,
+  IndicatorRuntimeEntry,
 } from '@/widgets/widgets/data_chart/types'
 import {
   buildIndicatorRefs,
@@ -62,48 +46,7 @@ import { getListingSymbol } from '@/widgets/widgets/data_chart/utils/listing-uti
 const DRAW_TOOLS_SIDEBAR_WIDTH_PX = 40
 const LEFT_OVERLAY_GAP_PX = 3
 const LEFT_OVERLAY_INSET_PX = DRAW_TOOLS_SIDEBAR_WIDTH_PX + LEFT_OVERLAY_GAP_PX
-const DEFAULT_MANUAL_DRAW_TOOLS: DrawToolsRef[] = [{ id: 'manual-main', pane: 'price' }]
 const DRAW_TRACE_STORAGE_KEY = 'tg:data-chart:draw-trace'
-
-const makeUniqueDrawToolsId = (baseId: string, drawTools: DrawToolsRef[]): string => {
-  const existing = new Set(drawTools.map((entry) => entry.id))
-  if (!existing.has(baseId)) {
-    return baseId
-  }
-
-  let suffix = 2
-  let nextId = `${baseId}-${suffix}`
-  while (existing.has(nextId)) {
-    suffix += 1
-    nextId = `${baseId}-${suffix}`
-  }
-  return nextId
-}
-
-const normalizeDrawToolsRefs = (raw: unknown): DrawToolsRef[] => {
-  if (!Array.isArray(raw)) return []
-  const counts = new Map<string, number>()
-
-  return raw.map((entry, index) => {
-    const record = entry as Partial<DrawToolsRef> | null
-    const candidateId = typeof record?.id === 'string' ? record.id.trim() : ''
-    const baseId = candidateId || `manual-${index + 1}`
-    const seen = counts.get(baseId) ?? 0
-    const normalizedId = seen === 0 ? baseId : `${baseId}-${seen + 1}`
-    counts.set(baseId, seen + 1)
-
-    const snapshot = normalizeManualOwnerSnapshot(record?.snapshot)
-
-    const normalized: DrawToolsRef = {
-      id: normalizedId,
-      pane: 'price',
-    }
-    if (snapshot) {
-      normalized.snapshot = snapshot
-    }
-    return normalized
-  })
-}
 
 export const DataChartWidgetBody = ({
   params,
@@ -183,21 +126,16 @@ export const DataChartWidgetBody = ({
     [chartResetKey]
   )
   const [indicatorRuntimeVersion, setIndicatorRuntimeVersion] = useState(0)
-  const [paneSnapshot, setPaneSnapshot] = useState<IPaneApi<any>[]>([])
-  const [paneLayout, setPaneLayout] = useState<Array<{ top: number; height: number }>>([])
-  const [settingsIndicatorId, setSettingsIndicatorId] = useState<string | null>(null)
-  const [settingsDraft, setSettingsDraft] = useState<Record<string, unknown>>({})
+  const { paneSnapshot, paneLayout, handleMovePaneUp, handleMovePaneDown } =
+    usePaneLayoutController({
+      chartRef,
+      chartContainerRef,
+      chartReady,
+      indicatorRuntimeVersion,
+      chartResetKey,
+    })
   const legendContainerRef = useRef<HTMLDivElement | null>(null)
   const [legendOffset, setLegendOffset] = useState(0)
-  const [activeDrawToolsId, setActiveDrawToolsId] = useState<string | null>(null)
-  const [transientDrawTools, setTransientDrawTools] = useState<DrawToolsRef[]>([])
-  const drawToolsBootstrapScopeRef = useRef<string | null>(null)
-  const drawToolsBootstrapDoneRef = useRef(false)
-  const pointerPaneIndexRef = useRef<number | null>(null)
-  const pendingManualToolTypeRef = useRef<ManualToolType | null>(null)
-  const startManualToolForSelectionRef = useRef<
-    ((toolType: ManualToolType) => boolean) | null
-  >(null)
 
   const traceDrawRouting = useCallback(
     (event: string, details?: () => Record<string, unknown>) => {
@@ -310,211 +248,6 @@ export const DataChartWidgetBody = ({
     return metaMap
   }, [pineIndicators, pineIndicatorIds])
 
-  const drawToolsScopeKey = useMemo(
-    () => `${panelId ?? 'panel'}:${widgetKey}:${chartResetKey}`,
-    [chartResetKey, panelId, widgetKey]
-  )
-
-  const normalizedDrawTools = useMemo(
-    () => normalizeDrawToolsRefs(dataParams.view?.drawTools),
-    [dataParams.view?.drawTools]
-  )
-
-  const resolvedDrawTools = useMemo<DrawToolsRef[]>(
-    () => (normalizedDrawTools.length > 0 ? normalizedDrawTools : DEFAULT_MANUAL_DRAW_TOOLS),
-    [normalizedDrawTools]
-  )
-
-  const effectiveDrawTools = useMemo<DrawToolsRef[]>(() => {
-    if (transientDrawTools.length === 0) return resolvedDrawTools
-    const byId = new Map(resolvedDrawTools.map((entry) => [entry.id, entry]))
-    transientDrawTools.forEach((entry) => {
-      if (!byId.has(entry.id)) {
-        byId.set(entry.id, entry)
-      }
-    })
-    return Array.from(byId.values())
-  }, [resolvedDrawTools, transientDrawTools])
-
-  useEffect(() => {
-    if (transientDrawTools.length === 0) return
-    const persistedIds = new Set(resolvedDrawTools.map((entry) => entry.id))
-    const next = transientDrawTools.filter((entry) => !persistedIds.has(entry.id))
-    if (next.length !== transientDrawTools.length) {
-      setTransientDrawTools(next)
-    }
-  }, [resolvedDrawTools, transientDrawTools])
-
-  useEffect(() => {
-    if (drawToolsBootstrapScopeRef.current === drawToolsScopeKey) return
-    drawToolsBootstrapScopeRef.current = drawToolsScopeKey
-    drawToolsBootstrapDoneRef.current = false
-  }, [drawToolsScopeKey])
-
-  useEffect(() => {
-    const view = dataParams.view ?? {}
-    const rawDrawTools = Array.isArray(view.drawTools) ? view.drawTools : []
-    const normalized = normalizeDrawToolsRefs(rawDrawTools)
-    const needsBootstrap = normalized.length === 0
-    const nextDrawTools = needsBootstrap ? DEFAULT_MANUAL_DRAW_TOOLS : normalized
-
-    const currentSerialized = JSON.stringify(rawDrawTools)
-    const nextSerialized = JSON.stringify(nextDrawTools)
-    if (currentSerialized === nextSerialized) return
-
-    if (needsBootstrap) {
-      if (drawToolsBootstrapDoneRef.current) return
-      drawToolsBootstrapDoneRef.current = true
-    }
-
-    emitDataChartParamsChange({
-      params: {
-        view: {
-          ...view,
-          drawTools: nextDrawTools,
-        },
-      },
-      panelId,
-      widgetKey,
-    })
-  }, [dataParams.view, panelId, widgetKey, drawToolsScopeKey])
-
-  useEffect(() => {
-    if (effectiveDrawTools.length === 0) {
-      if (activeDrawToolsId !== null) {
-        setActiveDrawToolsId(null)
-      }
-      return
-    }
-    if (activeDrawToolsId && effectiveDrawTools.some((entry) => entry.id === activeDrawToolsId)) {
-      return
-    }
-    setActiveDrawToolsId(effectiveDrawTools[0].id)
-  }, [effectiveDrawTools, activeDrawToolsId])
-
-  const handleActiveDrawToolsChange = useCallback((nextDrawToolsId: string) => {
-    setActiveDrawToolsId((current) => (current === nextDrawToolsId ? current : nextDrawToolsId))
-  }, [])
-
-  const {
-    revision: manualLineToolsRevision,
-    teardownAll: teardownManualLineTools,
-    syncOwnersNow,
-    toManualOwnerId,
-    startManualTool,
-    removeSelected,
-    hideSelected,
-    clearAll,
-    hasOwnerTools,
-    getOwnerSnapshot,
-    isOwnerAttached,
-    getOwnerVisibilityMode,
-    setAllVisibility,
-    getToolCapability,
-    isNonSelectableToolActive,
-    hasSelectedManualDrawingsInPane,
-    reconcileSelection,
-  } = useManualLineToolsAdapter({
-    chartRef,
-    mainSeriesRef,
-    chartReady,
-    syncVersion: dataVersion,
-    panelId,
-    drawTools: effectiveDrawTools,
-    indicatorRuntimeRef,
-    indicatorRuntimeVersion,
-    onActiveDrawToolsIdChange: handleActiveDrawToolsChange,
-  })
-
-  useEffect(() => {
-    registerBeforeDestroy(teardownManualLineTools)
-  }, [registerBeforeDestroy, teardownManualLineTools])
-
-  useEffect(() => {
-    const view = dataParams.view ?? {}
-    const rawDrawTools = Array.isArray(view.drawTools) ? view.drawTools : []
-    if (rawDrawTools.length === 0) return
-
-    const normalized = normalizeDrawToolsRefs(rawDrawTools)
-    if (normalized.length === 0) return
-
-    let changed = false
-    const nextDrawTools = normalized.map((entry) => {
-      const ownerId = toManualOwnerId(entry.id)
-      const snapshot = getOwnerSnapshot(ownerId)
-      const nextSnapshot = snapshot && snapshot.tools.length > 0 ? snapshot : undefined
-      const currentSnapshot = normalizeManualOwnerSnapshot(entry.snapshot) ?? undefined
-      if (!nextSnapshot) return entry
-
-      if (
-        serializeManualOwnerSnapshot(currentSnapshot) ===
-        serializeManualOwnerSnapshot(nextSnapshot)
-      ) {
-        return entry
-      }
-
-      changed = true
-      const nextEntry: DrawToolsRef = {
-        id: entry.id,
-        pane: entry.pane,
-      }
-      if (nextSnapshot) {
-        nextEntry.snapshot = nextSnapshot
-      }
-      return nextEntry
-    })
-
-    if (!changed) return
-
-    const currentSerialized = JSON.stringify(rawDrawTools)
-    const nextSerialized = JSON.stringify(nextDrawTools)
-    if (currentSerialized === nextSerialized) {
-      return
-    }
-
-    emitDataChartParamsChange({
-      params: {
-        view: {
-          ...view,
-          drawTools: nextDrawTools,
-        },
-      },
-      panelId,
-      widgetKey,
-    })
-  }, [
-    dataParams.view,
-    panelId,
-    widgetKey,
-    manualLineToolsRevision,
-    toManualOwnerId,
-    getOwnerSnapshot,
-  ])
-
-  const activeDrawToolsRef = useMemo(() => {
-    if (effectiveDrawTools.length === 0) return null
-    if (!activeDrawToolsId) return effectiveDrawTools[0]
-    return (
-      effectiveDrawTools.find((entry) => entry.id === activeDrawToolsId) ?? effectiveDrawTools[0]
-    )
-  }, [effectiveDrawTools, activeDrawToolsId])
-
-  const activeManualOwnerId = useMemo(
-    () => (activeDrawToolsRef ? toManualOwnerId(activeDrawToolsRef.id) : null),
-    [activeDrawToolsRef, toManualOwnerId]
-  )
-
-  useEffect(() => {
-    if (!activeManualOwnerId) return
-    reconcileSelection(activeManualOwnerId)
-  }, [activeManualOwnerId, reconcileSelection])
-
-  useEffect(() => {
-    return () => {
-      pendingManualToolTypeRef.current = null
-    }
-  }, [])
-
   useIndicatorSync({
     chartRef,
     mainSeriesRef,
@@ -555,6 +288,62 @@ export const DataChartWidgetBody = ({
     dataVersion,
     runtimeVersion: indicatorRuntimeVersion,
   })
+  const {
+    settingsIndicatorId,
+    settingsDraft,
+    settingsMeta,
+    handleToggleHidden,
+    handleRemoveIndicator,
+    handleOpenSettings,
+    handleCloseSettings,
+    handleSaveSettings,
+    handleDraftChange,
+    indicatorControlsByPane,
+    hasIndicatorRuntime,
+  } = useIndicatorControls({
+    view: dataParams.view,
+    panelId,
+    widgetKey,
+    pineIndicatorIds,
+    indicatorMetaById,
+    indicatorRefsById,
+    indicatorLegend,
+    hiddenIndicators,
+    indicatorRuntimeRef,
+    indicatorRuntimeVersion,
+    mainSeriesRef,
+    paneSnapshot,
+    chartResetKey,
+  })
+  const {
+    activeManualOwnerId,
+    hasActiveOwnerTools,
+    activeOwnerVisibilityMode,
+    resolveManualToolCapability,
+    resolveNonSelectableToolActive,
+    handleSelectManualTool,
+    handleToggleAllManualVisibility,
+    handleClearManualTools,
+    handleHideSelectedDrawings,
+    handleRemoveSelectedDrawings,
+    resolveSelectedOwnerForPane,
+  } = useManualDrawToolsController({
+    view: dataParams.view,
+    panelId,
+    widgetKey,
+    chartResetKey,
+    chartRef,
+    chartContainerRef,
+    mainSeriesRef,
+    chartReady,
+    registerBeforeDestroy,
+    dataVersion,
+    indicatorRuntimeRef,
+    indicatorRuntimeVersion,
+    paneSnapshot,
+    paneLayout,
+    traceDrawRouting,
+  })
 
   const chartSettings = useMemo(() => {
     const view = dataParams.view ?? {}
@@ -589,219 +378,11 @@ export const DataChartWidgetBody = ({
   })
 
   useEffect(() => {
-    setPaneSnapshot([])
-    setPaneLayout([])
-    pointerPaneIndexRef.current = null
-    setTransientDrawTools([])
-  }, [chartResetKey])
-
-  useEffect(() => {
-    const container = chartContainerRef.current
-    if (!container) return
-
-    const updatePointerPaneIndex = (
-      clientY: number,
-      options?: { traceEvent?: string; target?: EventTarget | null }
-    ) => {
-      const chart = chartRef.current
-      if (!chart) {
-        pointerPaneIndexRef.current = null
-        return null
-      }
-
-      const panes = chart.panes()
-      if (options?.target instanceof Node) {
-        for (const pane of panes) {
-          const element = pane.getHTMLElement()
-          if (!element) continue
-          if (element.contains(options.target)) {
-            const paneIndex = pane.paneIndex()
-            pointerPaneIndexRef.current = paneIndex
-            if (options?.traceEvent) {
-              traceDrawRouting(options.traceEvent, () => ({
-                clientY,
-                paneIndex,
-                hitMethod: 'target',
-              }))
-            }
-            return paneIndex
-          }
-        }
-      }
-
-      const containerRect = container.getBoundingClientRect()
-      const pointerY = clientY - containerRect.top
-      const paneBounds: Array<{ paneIndex: number; top: number; bottom: number }> = []
-      for (const pane of panes) {
-        const element = pane.getHTMLElement()
-        if (!element) continue
-        const rect = element.getBoundingClientRect()
-        const top = rect.top - containerRect.top
-        const bottom = top + rect.height
-        const paneIndex = pane.paneIndex()
-        paneBounds.push({ paneIndex, top, bottom })
-        if (pointerY >= top && pointerY <= bottom) {
-          pointerPaneIndexRef.current = paneIndex
-          if (options?.traceEvent) {
-            traceDrawRouting(options.traceEvent, () => ({
-              clientY,
-              pointerY,
-              paneIndex,
-              paneBounds,
-              hitMethod: 'bounds',
-            }))
-          }
-          return paneIndex
-        }
-      }
-      pointerPaneIndexRef.current = null
-      if (options?.traceEvent) {
-        traceDrawRouting(options.traceEvent, () => ({
-          clientY,
-          pointerY,
-          paneIndex: null,
-          paneBounds,
-          hitMethod: 'none',
-        }))
-      }
-      return null
-    }
-
-    const startPendingTool = (paneIndex: number | null, source: 'pointerdown-pending' | 'mousedown-pending') => {
-      const pendingToolType = pendingManualToolTypeRef.current
-      if (!pendingToolType) return
-      const started = startManualToolForSelectionRef.current?.(pendingToolType) ?? false
-      traceDrawRouting(source, () => ({
-        paneIndex,
-        pendingToolType,
-        started,
-      }))
-      if (started) {
-        pendingManualToolTypeRef.current = null
-      }
-    }
-
-    const handlePointerMove = (event: PointerEvent) => {
-      updatePointerPaneIndex(event.clientY)
-    }
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const paneIndex = updatePointerPaneIndex(event.clientY, {
-        traceEvent: 'pointer-pane-hit',
-        target: event.target,
-      })
-      startPendingTool(paneIndex, 'pointerdown-pending')
-    }
-
-    const handleMouseMove = (event: MouseEvent) => {
-      updatePointerPaneIndex(event.clientY)
-    }
-
-    const handleMouseDown = (event: MouseEvent) => {
-      const paneIndex = updatePointerPaneIndex(event.clientY, {
-        traceEvent: 'pointer-pane-hit',
-        target: event.target,
-      })
-      startPendingTool(paneIndex, 'mousedown-pending')
-    }
-
-    const supportsPointerEvents = typeof window !== 'undefined' && 'PointerEvent' in window
-    if (supportsPointerEvents) {
-      container.addEventListener('pointermove', handlePointerMove, true)
-      container.addEventListener('pointerdown', handlePointerDown, true)
-    } else {
-      container.addEventListener('mousemove', handleMouseMove, true)
-      container.addEventListener('mousedown', handleMouseDown, true)
-    }
-
-    return () => {
-      if (supportsPointerEvents) {
-        container.removeEventListener('pointermove', handlePointerMove, true)
-        container.removeEventListener('pointerdown', handlePointerDown, true)
-      } else {
-        container.removeEventListener('mousemove', handleMouseMove, true)
-        container.removeEventListener('mousedown', handleMouseDown, true)
-      }
-    }
-  }, [chartContainerRef, chartRef, traceDrawRouting])
-
-  const refreshPaneSnapshot = useCallback(() => {
-    if (!chartRef.current) return
-    const panes = chartRef.current.panes()
-    setPaneSnapshot((prev) => {
-      if (prev.length === panes.length && prev.every((pane, index) => pane === panes[index])) {
-        return prev
-      }
-      return panes
-    })
-  }, [chartRef])
-
-  const updatePaneLayout = useCallback(() => {
-    const container = chartContainerRef.current
-    if (!container) return
-    const containerRect = container.getBoundingClientRect()
-    const next: Array<{ top: number; height: number }> = []
-
-    paneSnapshot.forEach((pane) => {
-      const element = pane.getHTMLElement()
-      if (!element) return
-      const rect = element.getBoundingClientRect()
-      const top = rect.top - containerRect.top
-      const height = rect.height
-      const index = pane.paneIndex()
-      next[index] = { top, height }
-    })
-
-    setPaneLayout((prev) => {
-      const maxLength = Math.max(prev.length, next.length)
-      for (let i = 0; i < maxLength; i += 1) {
-        const prevEntry = prev[i]
-        const nextEntry = next[i]
-        if (!prevEntry && !nextEntry) continue
-        if (!prevEntry || !nextEntry) return next
-        if (Math.abs(prevEntry.top - nextEntry.top) > 0.5) return next
-        if (Math.abs(prevEntry.height - nextEntry.height) > 0.5) return next
-      }
-      return prev
-    })
-  }, [chartContainerRef, paneSnapshot])
-
-  useEffect(() => {
-    refreshPaneSnapshot()
-  }, [chartReady, indicatorRuntimeVersion, refreshPaneSnapshot])
-
-  useEffect(() => {
-    const container = chartContainerRef.current
-    if (!container) return
-    let raf: number | null = null
-    const schedule = () => {
-      if (raf !== null) return
-      raf = window.requestAnimationFrame(() => {
-        raf = null
-        updatePaneLayout()
-      })
-    }
-    schedule()
-    const observer = new ResizeObserver(schedule)
-    observer.observe(container)
-    paneSnapshot.forEach((pane) => {
-      const element = pane.getHTMLElement()
-      if (element) observer.observe(element)
-    })
-    return () => {
-      if (raf !== null) {
-        window.cancelAnimationFrame(raf)
-      }
-      observer.disconnect()
-    }
-  }, [chartContainerRef, paneSnapshot, updatePaneLayout])
-
-  useEffect(() => {
     indicatorRuntimeRef.current.forEach((entry, indicatorId) => {
       const isHidden = hiddenIndicators.has(indicatorId)
       entry.plots.forEach((plot) => {
         if (typeof (plot.series as { applyOptions?: unknown }).applyOptions === 'function') {
-          ; (plot.series as { applyOptions: (options: { visible: boolean }) => void }).applyOptions({
+          ;(plot.series as { applyOptions: (options: { visible: boolean }) => void }).applyOptions({
             visible: !isHidden,
           })
         }
@@ -823,335 +404,6 @@ export const DataChartWidgetBody = ({
     observer.observe(element)
     return () => observer.disconnect()
   }, [legendData, listingLabel, resolvedListing, isResolving, intervalLabel])
-
-  const handleToggleHidden = useCallback(
-    (indicatorId: string) => {
-      const view = dataParams.view ?? {}
-      const currentRefs = Array.isArray(view.pineIndicators) ? view.pineIndicators : []
-      const nextRefs = currentRefs.map((ref) => {
-        if (ref.id !== indicatorId) return ref
-        const isHidden = ref.visible === false
-        return { ...ref, visible: isHidden ? true : false }
-      })
-      emitDataChartParamsChange({
-        params: {
-          view: {
-            ...view,
-            pineIndicators: nextRefs,
-          },
-        },
-        panelId,
-        widgetKey,
-      })
-    },
-    [dataParams.view, panelId, widgetKey]
-  )
-
-  const handleRemoveIndicator = useCallback(
-    (indicatorId: string) => {
-      const view = dataParams.view ?? {}
-      const currentRefs = Array.isArray(view.pineIndicators) ? view.pineIndicators : []
-      const nextRefs = currentRefs.filter((ref) => ref.id !== indicatorId)
-      emitDataChartParamsChange({
-        params: {
-          view: {
-            ...view,
-            pineIndicators: nextRefs,
-          },
-        },
-        panelId,
-        widgetKey,
-      })
-    },
-    [dataParams.view, panelId, widgetKey]
-  )
-
-  const handleUpdateIndicatorInputs = useCallback(
-    (indicatorId: string, inputs: Record<string, unknown>) => {
-      const view = dataParams.view ?? {}
-      const currentRefs = Array.isArray(view.pineIndicators) ? view.pineIndicators : []
-      const hasExisting = currentRefs.some((ref) => ref.id === indicatorId)
-      const nextRefs = hasExisting
-        ? currentRefs.map((ref) => (ref.id === indicatorId ? { ...ref, inputs } : ref))
-        : [...currentRefs, { id: indicatorId, inputs }]
-      emitDataChartParamsChange({
-        params: {
-          view: {
-            ...view,
-            pineIndicators: nextRefs,
-          },
-        },
-        panelId,
-        widgetKey,
-      })
-    },
-    [dataParams.view, panelId, widgetKey]
-  )
-
-  const handleOpenSettings = useCallback(
-    (indicatorId: string) => {
-      const meta = indicatorMetaById.get(indicatorId)
-      const inputs = buildInputsMapFromMeta(
-        meta?.inputMeta ?? undefined,
-        indicatorRefsById.get(indicatorId)?.inputs
-      )
-      setSettingsIndicatorId(indicatorId)
-      setSettingsDraft(inputs)
-    },
-    [indicatorMetaById, indicatorRefsById]
-  )
-
-  const handleCloseSettings = useCallback(() => {
-    setSettingsIndicatorId(null)
-    setSettingsDraft({})
-  }, [])
-
-  const handleSaveSettings = useCallback(() => {
-    if (!settingsIndicatorId) return
-    const meta = indicatorMetaById.get(settingsIndicatorId)
-    const nextInputs = buildInputsMapFromMeta(meta?.inputMeta ?? undefined, settingsDraft)
-    handleUpdateIndicatorInputs(settingsIndicatorId, nextInputs)
-    handleCloseSettings()
-  }, [
-    settingsIndicatorId,
-    indicatorMetaById,
-    settingsDraft,
-    handleUpdateIndicatorInputs,
-    handleCloseSettings,
-  ])
-
-  const handleDraftChange = useCallback((title: string, value: unknown) => {
-    setSettingsDraft((prev) => ({
-      ...prev,
-      [title]: value,
-    }))
-  }, [])
-
-  const handleMovePaneUp = useCallback(
-    (pane: IPaneApi<any>) => {
-      const index = pane.paneIndex()
-      if (index <= 0) return
-      pane.moveTo(index - 1)
-      refreshPaneSnapshot()
-    },
-    [refreshPaneSnapshot]
-  )
-
-  const handleMovePaneDown = useCallback(
-    (pane: IPaneApi<any>) => {
-      const index = pane.paneIndex()
-      if (index >= paneSnapshot.length - 1) return
-      pane.moveTo(index + 1)
-      refreshPaneSnapshot()
-    },
-    [paneSnapshot.length, refreshPaneSnapshot]
-  )
-
-  const indicatorControlsByPane = useMemo(() => {
-    const mainPaneIndex = mainSeriesRef.current?.getPane().paneIndex() ?? 0
-    const grouped = new Map<
-      number,
-      Array<{
-        id: string
-        name: string
-        inputMeta?: InputMetaMap | null
-        inputs?: Record<string, unknown>
-        values: IndicatorPlotValue[]
-        isHidden: boolean
-        errorMessage?: string
-      }>
-    >()
-
-    pineIndicatorIds.forEach((id) => {
-      const meta = indicatorMetaById.get(id)
-      if (!meta) return
-      const runtimeEntry = indicatorRuntimeRef.current.get(id)
-      if (!runtimeEntry) return
-      const paneIndex = (() => {
-        if (!runtimeEntry.pane) return runtimeEntry.paneIndex ?? mainPaneIndex
-        try {
-          return runtimeEntry.pane.paneIndex()
-        } catch {
-          return runtimeEntry.paneIndex ?? mainPaneIndex
-        }
-      })()
-      const list = grouped.get(paneIndex) ?? []
-      list.push({
-        id,
-        name: meta.name,
-        inputMeta: meta.inputMeta,
-        inputs: indicatorRefsById.get(id)?.inputs,
-        values: indicatorLegend.get(id) ?? [],
-        isHidden: hiddenIndicators.has(id),
-        errorMessage: runtimeEntry?.errorMessage,
-      })
-      grouped.set(paneIndex, list)
-    })
-
-    return grouped
-  }, [
-    pineIndicatorIds,
-    indicatorMetaById,
-    indicatorLegend,
-    hiddenIndicators,
-    indicatorRuntimeVersion,
-    indicatorRefsById,
-    paneSnapshot,
-    chartResetKey,
-  ])
-
-  const hasIndicatorRuntime = indicatorRuntimeRef.current.size > 0
-
-  const startManualToolForSelection = useCallback(
-    (toolType: ManualToolType) => {
-      let targetOwner = effectiveDrawTools.find((entry) => entry.pane === 'price') ?? null
-      let nextDrawTools = effectiveDrawTools
-      let createdOwner: DrawToolsRef | null = null
-
-      if (!targetOwner) {
-        const createdPriceOwner: DrawToolsRef = {
-          id: makeUniqueDrawToolsId('manual-main', effectiveDrawTools),
-          pane: 'price',
-        }
-        nextDrawTools = [...effectiveDrawTools, createdPriceOwner]
-        targetOwner = createdPriceOwner
-        createdOwner = createdPriceOwner
-      }
-
-      if (!targetOwner) return false
-
-      syncOwnersNow(nextDrawTools)
-      if (createdOwner) {
-        setTransientDrawTools((prev) => {
-          if (prev.some((entry) => entry.id === createdOwner.id)) {
-            return prev
-          }
-          return [...prev, createdOwner]
-        })
-      }
-
-      if (nextDrawTools !== effectiveDrawTools) {
-        const view = dataParams.view ?? {}
-        const currentDrawTools = Array.isArray(view.drawTools) ? view.drawTools : []
-        if (JSON.stringify(currentDrawTools) !== JSON.stringify(nextDrawTools)) {
-          traceDrawRouting('emit-drawtools', () => ({
-            nextDrawTools,
-          }))
-          emitDataChartParamsChange({
-            params: {
-              view: {
-                ...view,
-                drawTools: nextDrawTools,
-              },
-            },
-            panelId,
-            widgetKey,
-          })
-        }
-      }
-
-      if (targetOwner.id !== activeDrawToolsId) {
-        setActiveDrawToolsId(targetOwner.id)
-      }
-
-      const ownerId = toManualOwnerId(targetOwner.id)
-      const attached = isOwnerAttached(ownerId)
-      const started = attached ? startManualTool(toolType, ownerId) : false
-      traceDrawRouting('start-manual-tool', () => ({
-        toolType,
-        ownerId,
-        targetOwner,
-        attached,
-        started,
-      }))
-      return started
-    },
-    [
-      activeDrawToolsId,
-      dataParams.view,
-      effectiveDrawTools,
-      isOwnerAttached,
-      panelId,
-      traceDrawRouting,
-      syncOwnersNow,
-      startManualTool,
-      toManualOwnerId,
-      widgetKey,
-    ]
-  )
-
-  startManualToolForSelectionRef.current = startManualToolForSelection
-
-  const handleSelectManualTool = useCallback(
-    (toolType: ManualToolType) => {
-      pendingManualToolTypeRef.current = toolType
-      traceDrawRouting('tool-selected', () => ({
-        toolType,
-        pointerPaneIndex: pointerPaneIndexRef.current,
-      }))
-    },
-    [traceDrawRouting]
-  )
-
-  const handleClearManualTools = useCallback(() => {
-    if (!activeManualOwnerId) return
-    clearAll(activeManualOwnerId)
-  }, [activeManualOwnerId, clearAll])
-
-  const hasActiveOwnerTools = activeManualOwnerId ? hasOwnerTools(activeManualOwnerId) : false
-
-  const activeOwnerVisibilityMode = activeManualOwnerId
-    ? getOwnerVisibilityMode(activeManualOwnerId)
-    : 'hide'
-
-  const handleToggleAllManualVisibility = useCallback(() => {
-    if (!activeManualOwnerId) return
-    const targetVisible = getOwnerVisibilityMode(activeManualOwnerId) === 'show'
-    setAllVisibility(activeManualOwnerId, targetVisible)
-  }, [activeManualOwnerId, getOwnerVisibilityMode, setAllVisibility])
-
-  const resolveManualToolCapability = useCallback(
-    (toolType: ManualToolType) => {
-      if (!activeManualOwnerId) return 'unknown'
-      return getToolCapability(activeManualOwnerId, toolType)
-    },
-    [activeManualOwnerId, getToolCapability]
-  )
-
-  const resolveNonSelectableToolActive = useCallback(
-    (toolType: ManualToolType) => {
-      if (!activeManualOwnerId) return false
-      return isNonSelectableToolActive(activeManualOwnerId, toolType)
-    },
-    [activeManualOwnerId, isNonSelectableToolActive]
-  )
-
-  const handleHideSelectedDrawings = useCallback(() => {
-    if (!activeManualOwnerId) return
-    hideSelected(activeManualOwnerId)
-  }, [activeManualOwnerId, hideSelected])
-
-  const handleRemoveSelectedDrawings = useCallback(() => {
-    if (!activeManualOwnerId) return
-    removeSelected(activeManualOwnerId)
-  }, [activeManualOwnerId, removeSelected])
-
-  const settingsMeta = useMemo(() => {
-    if (!settingsIndicatorId) return null
-    return indicatorMetaById.get(settingsIndicatorId) ?? null
-  }, [settingsIndicatorId, indicatorMetaById])
-
-  const settingsInputEntries = useMemo(() => {
-    if (!settingsMeta?.inputMeta) return []
-    return Object.entries(settingsMeta.inputMeta).map(([title, meta]) => ({ title, meta }))
-  }, [settingsMeta])
-
-  const resolveDraftValue = useCallback((value: unknown) => {
-    if (typeof value === 'number' && Number.isFinite(value)) return String(value)
-    if (typeof value === 'string') return value
-    if (typeof value === 'boolean') return value ? 'true' : 'false'
-    return ''
-  }, [])
 
   const hasProvider = Boolean(providerId)
   const hasListing = Boolean(listing)
@@ -1199,96 +451,34 @@ export const DataChartWidgetBody = ({
         <div
           ref={chartContainerCallbackRef}
           aria-hidden={showErrorState}
-          className={`relative z-0 h-full w-full bg-background text-foreground${showErrorState ? ' pointer-events-none opacity-0' : ''
-            }`}
+          className={`relative z-0 h-full w-full bg-background text-foreground${
+            showErrorState ? ' pointer-events-none opacity-0' : ''
+          }`}
         />
         {!showEmptyState && !showErrorState && (
-          <div className='pointer-events-none absolute inset-0 z-10'>
-            {(() => {
-              const mainPaneIndex = mainSeriesRef.current?.getPane().paneIndex() ?? 0
-              return paneSnapshot.map((pane) => {
-                const paneIndex = pane.paneIndex()
-                const layout = paneLayout[paneIndex]
-                if (!layout) return null
-                const indicatorItems = indicatorControlsByPane.get(paneIndex) ?? []
-                const isMainPane = paneIndex === mainPaneIndex
-                const topOffset = isMainPane ? legendOffset - 3 : 3
-                const hasSelectedManualInPane =
-                  activeManualOwnerId !== null
-                    ? hasSelectedManualDrawingsInPane(activeManualOwnerId, paneIndex)
-                    : false
-                const showRightControls = hasIndicatorRuntime || hasSelectedManualInPane
-
-                return (
-                  <div
-                    key={`pane-overlay-${paneIndex}`}
-                    className='absolute right-0 left-0'
-                    style={{ top: `${layout.top}px`, height: `${layout.height}px` }}
-                  >
-                    <div className='relative h-full w-full'>
-                      {isMainPane && (
-                        <ChartLegend
-                          legend={legendData}
-                          listingLabel={listingLabel}
-                          listing={resolvedListing}
-                          intervalLabel={intervalLabel}
-                          isResolving={isResolving}
-                          containerRef={legendContainerRef}
-                          leftInsetPx={LEFT_OVERLAY_INSET_PX}
-                        />
-                      )}
-                      {hasIndicatorRuntime && indicatorItems.length > 0 && (
-                        <div
-                          className='pointer-events-none absolute mr-24 pr-20'
-                          style={{ top: `${topOffset}px`, left: `${LEFT_OVERLAY_INSET_PX}px` }}
-                        >
-                          <div className='inline-flex flex-col items-start gap-1'>
-                            {indicatorItems.map((item) => (
-                              <div key={item.id} className='pointer-events-none'>
-                                <IndicatorControl
-                                  indicatorId={item.id}
-                                  name={item.name}
-                                  inputMeta={item.inputMeta}
-                                  indicatorInputs={item.inputs}
-                                  plotValues={item.values}
-                                  isHidden={item.isHidden}
-                                  errorMessage={item.errorMessage}
-                                  onToggleHidden={handleToggleHidden}
-                                  onRemove={handleRemoveIndicator}
-                                  onOpenSettings={handleOpenSettings}
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {showRightControls && (
-                        <div className='pointer-events-auto absolute top-[3px] right-[4px] pr-14'>
-                          <div className='inline-flex items-start gap-1'>
-                            {hasSelectedManualInPane && (
-                              <DrawControl
-                                onHideSelected={handleHideSelectedDrawings}
-                                onRemoveSelected={handleRemoveSelectedDrawings}
-                                disabled={!activeManualOwnerId}
-                              />
-                            )}
-                            {hasIndicatorRuntime && (
-                              <PaneControl
-                                paneIndex={paneIndex}
-                                paneCount={paneSnapshot.length}
-                                onMoveUp={() => handleMovePaneUp(pane)}
-                                onMoveDown={() => handleMovePaneDown(pane)}
-                              />
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )
-              })
-            })()}
-          </div>
+          <ChartPaneOverlays
+            paneSnapshot={paneSnapshot}
+            paneLayout={paneLayout}
+            mainPaneIndex={mainSeriesRef.current?.getPane().paneIndex() ?? 0}
+            legendOffset={legendOffset}
+            legendData={legendData}
+            listingLabel={listingLabel}
+            resolvedListing={resolvedListing}
+            intervalLabel={intervalLabel}
+            isResolving={isResolving}
+            legendContainerRef={legendContainerRef}
+            leftOverlayInsetPx={LEFT_OVERLAY_INSET_PX}
+            indicatorControlsByPane={indicatorControlsByPane}
+            hasIndicatorRuntime={hasIndicatorRuntime}
+            resolveSelectedOwnerForPane={resolveSelectedOwnerForPane}
+            onToggleHidden={handleToggleHidden}
+            onRemoveIndicator={handleRemoveIndicator}
+            onOpenSettings={handleOpenSettings}
+            onHideSelectedDrawings={handleHideSelectedDrawings}
+            onRemoveSelectedDrawings={handleRemoveSelectedDrawings}
+            onMovePaneUp={handleMovePaneUp}
+            onMovePaneDown={handleMovePaneDown}
+          />
         )}
         {showEmptyState && (
           <div className='absolute inset-0 z-10 flex'>
@@ -1311,122 +501,14 @@ export const DataChartWidgetBody = ({
           </div>
         )}
       </div>
-      {settingsMeta && (
-        <div
-          className='absolute inset-0 z-40 flex items-center justify-center bg-secondary/40 p-4 backdrop-blur-sm'
-          onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              handleCloseSettings()
-            }
-          }}
-        >
-          <div className='w-full max-w-md rounded-md border border-border bg-background p-4 shadow-lg'>
-            <div className='flex items-start justify-between gap-2'>
-              <div>
-                <p className='font-semibold text-base text-foreground'>{settingsMeta.name}</p>
-                <p className='text-muted-foreground text-xs'>Indicator settings</p>
-              </div>
-              <button
-                type='button'
-                className='inline-flex h-8 w-8 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-muted/40 p-0 font-medium text-sm ring-offset-background transition-colors hover:bg-muted hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:h-4 [&_svg]:w-4 [&_svg]:shrink-0'
-                onClick={handleCloseSettings}
-              >
-                <X aria-hidden='true' />
-                <span className='sr-only'>Close</span>
-              </button>
-            </div>
-            <div className='mt-4 space-y-3'>
-              {settingsInputEntries.length === 0 ? (
-                <p className='text-muted-foreground text-sm'>No configurable inputs.</p>
-              ) : (
-                settingsInputEntries.map(({ title, meta }) => {
-                  const draftValue = settingsDraft[title]
-                  const resolvedValue =
-                    typeof draftValue !== 'undefined' ? draftValue : (meta.defval ?? '')
-                  if (meta.type === 'bool') {
-                    return (
-                      <label
-                        key={`${settingsIndicatorId}-${title}`}
-                        className='flex items-center justify-between gap-3 text-sm'
-                      >
-                        <span className='font-medium text-foreground'>{title}</span>
-                        <input
-                          type='checkbox'
-                          className='h-4 w-4 accent-primary'
-                          checked={Boolean(resolvedValue)}
-                          onChange={(event) => handleDraftChange(title, event.target.checked)}
-                        />
-                      </label>
-                    )
-                  }
-
-                  if (Array.isArray(meta.options) && meta.options.length > 0) {
-                    return (
-                      <label
-                        key={`${settingsIndicatorId}-${title}`}
-                        className='flex flex-col gap-1 text-sm'
-                      >
-                        <span className='font-medium text-foreground'>{title}</span>
-                        <select
-                          className='h-9 w-full rounded-md border border-input bg-background px-2 text-sm'
-                          value={resolveDraftValue(resolvedValue)}
-                          onChange={(event) => handleDraftChange(title, event.target.value)}
-                        >
-                          {meta.options.map((option) => (
-                            <option
-                              key={`${settingsIndicatorId}-${title}-${String(option)}`}
-                              value={String(option)}
-                            >
-                              {String(option)}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )
-                  }
-
-                  const isNumber = meta.type === 'int' || meta.type === 'float'
-                  const inputId = `${settingsIndicatorId}-${title}-input`
-                  return (
-                    <label
-                      key={`${settingsIndicatorId}-${title}`}
-                      className='flex flex-col gap-1 text-sm'
-                      htmlFor={inputId}
-                    >
-                      <span className='font-medium text-foreground'>{title}</span>
-                      <Input
-                        id={inputId}
-                        type={isNumber ? 'number' : 'text'}
-                        value={resolveDraftValue(resolvedValue)}
-                        onChange={(event) => handleDraftChange(title, event.target.value)}
-                        min={typeof meta.minval === 'number' ? meta.minval : undefined}
-                        max={typeof meta.maxval === 'number' ? meta.maxval : undefined}
-                        step={typeof meta.step === 'number' ? meta.step : undefined}
-                      />
-                    </label>
-                  )
-                })
-              )}
-            </div>
-            <div className='mt-4 flex items-center justify-end gap-2'>
-              <button
-                type='button'
-                className='inline-flex h-9 items-center justify-center rounded-sm border border-input px-3 text-foreground text-sm hover:bg-muted'
-                onClick={handleCloseSettings}
-              >
-                Cancel
-              </button>
-              <button
-                type='button'
-                className='inline-flex h-9 items-center justify-center rounded-sm bg-primary px-3 text-primary-foreground text-sm hover:bg-primary-hover'
-                onClick={handleSaveSettings}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <IndicatorSettingsModal
+        indicatorId={settingsIndicatorId}
+        meta={settingsMeta}
+        draft={settingsDraft}
+        onDraftChange={handleDraftChange}
+        onClose={handleCloseSettings}
+        onSave={handleSaveSettings}
+      />
       <DataChartFooter
         params={dataParams as DataChartWidgetParams}
         widgetKey={widgetKey}

@@ -516,7 +516,6 @@ export const DataChartFooter = ({
     const {
       window: _window,
       fallbackWindow: _fallbackWindow,
-      interval: _legacyInterval,
       ...nextDataBase
     } = (params.data ?? {}) as Record<string, unknown>
     const nextData = { ...nextDataBase }

@@ -32,7 +32,7 @@ import {
   NOTES_FAMILY_TOOL_TYPES,
   SHAPES_FAMILY_TOOL_TYPES,
   SINGLE_TOOL_TYPES,
-} from '@/widgets/widgets/data_chart/drawings/manual-tool-types'
+} from '@/widgets/widgets/data_chart/drawings/tool-types'
 
 export type DrawToolActionType =
   | 'clearAll'

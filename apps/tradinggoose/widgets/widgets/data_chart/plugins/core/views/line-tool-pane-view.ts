@@ -2,7 +2,7 @@
 
 import { IUpdatablePaneView, IPaneRenderer, LineToolHitTestData, PaneCursorType, HitTestType, LineAnchorCreationData, PrimitivePaneViewZOrder } from '../types';
 import { AnchorPoint } from '../rendering/line-anchor-renderer';
-import { Point,  } from '../utils/geometry';
+import { Point, } from '../utils/geometry';
 import { CompositeRenderer } from '../rendering/composite-renderer';
 import { IChartApiBase, ISeriesApi, SeriesType, IPaneApi } from 'lightweight-charts';
 import { BaseLineTool } from '../model/base-line-tool';
@@ -45,7 +45,7 @@ export abstract class LineToolPaneView<HorzScaleItem> implements IUpdatablePaneV
      * @protected
      */
     protected readonly _series: ISeriesApi<SeriesType, HorzScaleItem>;
-	
+
 
     /**
      * Internal cache of the tool's points converted to screen coordinates (pixels).
@@ -130,20 +130,27 @@ export abstract class LineToolPaneView<HorzScaleItem> implements IUpdatablePaneV
      * @returns The {@link IPaneRenderer} to be drawn, or `null` if nothing should be rendered.
      */
     public renderer(): IPaneRenderer | null {
-        if (this._invalidated) {
-            const height = this._tool.getChartDrawingHeight();
-            const width = this._tool.getChartDrawingWidth();
+        try {
+            if (this._invalidated) {
+                const height = this._tool.getChartDrawingHeight();
+                const width = this._tool.getChartDrawingWidth();
 
-            // If the chart has no size, there is nothing to draw.
-            if (height <= 0 || width <= 0) {
-                (this._renderer as CompositeRenderer<HorzScaleItem>).clear();
-                return null;
+                // If the chart has no size, there is nothing to draw.
+                if (height <= 0 || width <= 0) {
+                    (this._renderer as CompositeRenderer<HorzScaleItem>).clear();
+                    return null;
+                }
+
+                this._updateImpl(height, width);
+                this._invalidated = false;
             }
-
-            this._updateImpl(height, width);
-            this._invalidated = false;
+            return this._renderer;
+        } catch {
+            // Teardown/rebind can race hit-testing; fail safe instead of throwing.
+            (this._renderer as CompositeRenderer<HorzScaleItem>).clear();
+            this._invalidated = true;
+            return null;
         }
-        return this._renderer;
     }
 
     public zOrder(): PrimitivePaneViewZOrder {
@@ -239,7 +246,7 @@ export abstract class LineToolPaneView<HorzScaleItem> implements IUpdatablePaneV
         // This abstract method is just a placeholder to ensure it's called.
     }
 
-    
+
 
     /**
      * Factory method to create or recycle a `LineAnchorRenderer`.
@@ -252,20 +259,20 @@ export abstract class LineToolPaneView<HorzScaleItem> implements IUpdatablePaneV
      * @returns A configured {@link LineAnchorRenderer}.
      * @protected
      */
-    protected createLineAnchor(data: LineAnchorCreationData, index: number): LineAnchorRenderer<HorzScaleItem> { 
+    protected createLineAnchor(data: LineAnchorCreationData, index: number): LineAnchorRenderer<HorzScaleItem> {
         let renderer = this._lineAnchorRenderers[index];
         if (!renderer) {
             renderer = new LineAnchorRenderer(this._chart); // Pass chart instance to anchor renderer
             this._lineAnchorRenderers.push(renderer);
         }
-        
+
         // Populate the renderer with common anchor data
         const toolOptions = this._tool.options();
         renderer.setData({
             ...data,
             radius: 6, // Default radius
             strokeWidth: 1, // Default stroke width
-            color: '#1E53E5', // Default color (blue)
+            color: '#ff8800', // Default color (blue)
             hoveredStrokeWidth: 4, // Default hovered stroke width
             selected: this._tool.isSelected(),
             visible: this.areAnchorsVisible(),
@@ -295,7 +302,7 @@ export abstract class LineToolPaneView<HorzScaleItem> implements IUpdatablePaneV
 
         // Apply a color based on the chart's background type
         const defaultAnchorColor = backgroundColor.type === 'solid' ? backgroundColor.color : 'transparent';
-        
+
         return points.map(point => defaultAnchorColor);
     }
 }

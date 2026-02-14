@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { IChartApi } from 'lightweight-charts'
-import { createManualLineToolsAdapterActions } from '@/widgets/widgets/data_chart/drawings/manual-line-tools-adapter-actions'
-import { createManualLineToolsAttachmentController } from '@/widgets/widgets/data_chart/drawings/manual-line-tools-adapter-attachment-controller'
+import { createManualLineToolsAdapterActions } from '@/widgets/widgets/data_chart/drawings/adapter-actions'
+import { createManualLineToolsAttachmentController } from '@/widgets/widgets/data_chart/drawings/adapter-attachment-controller'
 import type {
   InlineTextEditorEntry,
   OwnerBinding,
@@ -12,20 +12,20 @@ import type {
   PluginEntry,
   SeriesAttachmentKey,
   UseManualLineToolsAdapterParams,
-} from '@/widgets/widgets/data_chart/drawings/manual-line-tools-adapter-types'
+} from '@/widgets/widgets/data_chart/drawings/adapter-types'
 import {
   parseLineToolExports,
   toManualOwnerId,
-} from '@/widgets/widgets/data_chart/drawings/manual-line-tools-adapter-utils'
-import { createInlineTextEditorController } from '@/widgets/widgets/data_chart/drawings/manual-line-tools-inline-text-editor'
-import { createOwnerStateHelpers } from '@/widgets/widgets/data_chart/drawings/manual-line-tools-owner-state'
-import type { ManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/manual-line-tools-snapshot'
-import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/manual-tool-types'
+} from '@/widgets/widgets/data_chart/drawings/adapter-utils'
+import { createInlineTextEditorController } from '@/widgets/widgets/data_chart/drawings/inline-text-editor'
+import { createOwnerStateHelpers } from '@/widgets/widgets/data_chart/drawings/owner-state'
+import type { ManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/snapshot'
+import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/tool-types'
 
 export type {
   OwnerVisibilityMode,
   ToolCreateCapability,
-} from '@/widgets/widgets/data_chart/drawings/manual-line-tools-adapter-types'
+} from '@/widgets/widgets/data_chart/drawings/adapter-types'
 
 let fallbackChartScopeCounter = 1
 
@@ -106,6 +106,7 @@ export const useManualLineToolsAdapter = ({
     attachmentControllerRef.current = createManualLineToolsAttachmentController({
       chartRef,
       mainSeriesRef,
+      indicatorRuntimeRef,
       chartScopeKeyRef,
       activeOwnerChangeRef,
       pluginsBySeriesAttachmentKeyRef,
@@ -137,6 +138,7 @@ export const useManualLineToolsAdapter = ({
   if (!actionsControllerRef.current) {
     actionsControllerRef.current = createManualLineToolsAdapterActions({
       getPluginEntryForOwner: attachmentControllerRef.current.getPluginEntryForOwner,
+      rebindOwner: attachmentControllerRef.current.rebindOwner,
       reconcileSelection: attachmentControllerRef.current.reconcileSelection,
       exportOwnerSnapshot: attachmentControllerRef.current.exportOwnerSnapshot,
       ownerBindingByIdRef,
@@ -173,25 +175,23 @@ export const useManualLineToolsAdapter = ({
 
   useEffect(() => {
     let rafId: number | null = null
-    let attempts = 0
-    const maxAttempts = 60
 
     const runSync = () => {
       const chartReadyNow = Boolean(chartRef.current)
       const seriesReadyNow = Boolean(mainSeriesRef.current)
       if (!chartReadyNow || !seriesReadyNow) {
-        attempts += 1
-        if (attempts >= maxAttempts) return
         rafId = window.requestAnimationFrame(runSync)
         return
       }
 
       attachmentControllerRef.current?.syncOwners(drawTools)
-      // One trailing sync after readiness helps import snapshots after style/series settle.
-      rafId = window.requestAnimationFrame(() => {
-        if (!chartRef.current || !mainSeriesRef.current) return
-        attachmentControllerRef.current?.syncOwners(drawTools)
-      })
+      const shouldContinue =
+        attachmentControllerRef.current?.hasPendingIndicatorRestore(drawTools) ?? false
+      if (!shouldContinue) {
+        return
+      }
+
+      rafId = window.requestAnimationFrame(runSync)
     }
 
     runSync()
@@ -214,6 +214,8 @@ export const useManualLineToolsAdapter = ({
     revision,
     teardownAll: attachmentControllerRef.current.teardownAll,
     syncOwnersNow: attachmentControllerRef.current.syncOwners,
+    rebindOwnerToPane: attachmentControllerRef.current.rebindOwnerToPane,
+    rebindOrAttachOwnerToPane: attachmentControllerRef.current.rebindOrAttachOwnerToPane,
     toManualOwnerId,
     startManualTool: actionsControllerRef.current.startManualTool,
     toggleManualTool: actionsControllerRef.current.toggleManualTool,

@@ -11,38 +11,40 @@ import type {
   PluginEntry,
   ResolvedOwnerTarget,
   SeriesAttachmentKey,
-} from '@/widgets/widgets/data_chart/drawings/manual-line-tools-adapter-types'
+} from '@/widgets/widgets/data_chart/drawings/adapter-types'
 import {
   areSetsEqual,
   fromManualOwnerId,
   parseDoubleClickTool,
   parseLineToolExports,
   toManualOwnerId,
-} from '@/widgets/widgets/data_chart/drawings/manual-line-tools-adapter-utils'
+} from '@/widgets/widgets/data_chart/drawings/adapter-utils'
+import { createAttachmentControllerTargetResolvers } from '@/widgets/widgets/data_chart/drawings/attachment-controller-targets'
 import {
   registerAllManualTools,
   TEXT_EDITABLE_TOOL_TYPES,
-} from '@/widgets/widgets/data_chart/drawings/manual-line-tools-plugin-registry'
+} from '@/widgets/widgets/data_chart/drawings/plugin-registry'
 import {
   decodeManualOwnerSnapshot,
   encodeManualOwnerSnapshot,
   type ManualOwnerSnapshot,
   normalizeManualOwnerSnapshot,
-} from '@/widgets/widgets/data_chart/drawings/manual-line-tools-snapshot'
+} from '@/widgets/widgets/data_chart/drawings/snapshot'
 import {
   MANUAL_TOOL_TYPES,
   type ManualToolType,
-} from '@/widgets/widgets/data_chart/drawings/manual-tool-types'
+} from '@/widgets/widgets/data_chart/drawings/tool-types'
 import {
   createLineToolsPlugin,
   type ILineToolsPlugin,
   type LineToolExport,
 } from '@/widgets/widgets/data_chart/plugins/core'
-import type { DrawToolsRef } from '@/widgets/widgets/data_chart/types'
+import type { DrawToolsRef, IndicatorRuntimeEntry } from '@/widgets/widgets/data_chart/types'
 
 type ManualLineToolsAttachmentControllerParams = {
   chartRef: MutableRefObject<IChartApi | null>
   mainSeriesRef: MutableRefObject<ISeriesApi<any> | null>
+  indicatorRuntimeRef: MutableRefObject<Map<string, IndicatorRuntimeEntry>>
   chartScopeKeyRef: MutableRefObject<string>
   activeOwnerChangeRef: MutableRefObject<((drawToolsId: string) => void) | undefined>
   pluginsBySeriesAttachmentKeyRef: MutableRefObject<Map<SeriesAttachmentKey, PluginEntry>>
@@ -73,57 +75,21 @@ type ManualLineToolsAttachmentControllerParams = {
 export const createManualLineToolsAttachmentController = (
   params: ManualLineToolsAttachmentControllerParams
 ) => {
-  const seriesIdentityMap = new WeakMap<ISeriesApi<any>, string>()
-  let seriesIdentityCounter = 1
-
-  const getSeriesIdentity = (series: ISeriesApi<any>) => {
-    const existing = seriesIdentityMap.get(series)
-    if (existing) return existing
-    const next = `s${seriesIdentityCounter++}`
-    seriesIdentityMap.set(series, next)
-    return next
-  }
-
-  const isSeriesReadyForViewUpdate = (series: ISeriesApi<any>) => {
-    const chart = params.chartRef.current
-    if (!chart) return false
-
-    try {
-      const visibleRange = chart.timeScale().getVisibleLogicalRange()
-      if (
-        !visibleRange ||
-        !Number.isFinite(visibleRange.from) ||
-        !Number.isFinite(visibleRange.to)
-      ) {
-        return false
-      }
-    } catch {
-      return false
-    }
-
-    try {
-      return series.dataByIndex(0, 0 as any) !== null
-    } catch {
-      return false
-    }
-  }
-
-  const resolveOwnerTarget = (drawToolsRef: DrawToolsRef): ResolvedOwnerTarget | null => {
-    const chart = params.chartRef.current
-    const mainSeries = params.mainSeriesRef.current
-    if (!chart || !mainSeries) return null
-
-    if (drawToolsRef.pane === 'indicator') {
-      return null
-    }
-
-    const mainSeriesIdentity = getSeriesIdentity(mainSeries)
-    return {
-      pane: 'price',
-      series: mainSeries,
-      seriesAttachmentKey: `chart:${params.chartScopeKeyRef.current}:price:${mainSeriesIdentity}`,
-    }
-  }
+  const ownerViewRefreshRafByOwner = new Map<OwnerId, number>()
+  const {
+    isSeriesOnChart,
+    isSeriesReadyForViewUpdate,
+    hasUsablePriceProjection,
+    resolveRuntimePaneIndex,
+    resolveIndicatorRuntime,
+    resolveOwnerTarget,
+    resolveIndicatorTargetForPane,
+  } = createAttachmentControllerTargetResolvers({
+    chartRef: params.chartRef,
+    mainSeriesRef: params.mainSeriesRef,
+    indicatorRuntimeRef: params.indicatorRuntimeRef,
+    chartScopeKeyRef: params.chartScopeKeyRef,
+  })
 
   const getPluginEntryForOwner = (ownerId: OwnerId): PluginContext | null => {
     const binding = params.ownerBindingByIdRef.current.get(ownerId)
@@ -132,7 +98,28 @@ export const createManualLineToolsAttachmentController = (
       binding.seriesAttachmentKey
     )
     if (!pluginEntry) return null
+    const chart = params.chartRef.current
+    if (chart && !isSeriesOnChart(chart, pluginEntry.series)) {
+      return null
+    }
     return { binding, pluginEntry }
+  }
+
+  const cancelOwnerViewRefresh = (ownerId: OwnerId) => {
+    const rafId = ownerViewRefreshRafByOwner.get(ownerId)
+    if (typeof rafId === 'number') {
+      window.cancelAnimationFrame(rafId)
+      ownerViewRefreshRafByOwner.delete(ownerId)
+    }
+  }
+
+  const scheduleOwnerViewRefresh = (ownerId: OwnerId) => {
+    if (ownerViewRefreshRafByOwner.has(ownerId)) return
+    const rafId = window.requestAnimationFrame(() => {
+      ownerViewRefreshRafByOwner.delete(ownerId)
+      refreshOwnerViews(ownerId)
+    })
+    ownerViewRefreshRafByOwner.set(ownerId, rafId)
   }
 
   const reconcileSelection = (ownerId: OwnerId) => {
@@ -195,19 +182,21 @@ export const createManualLineToolsAttachmentController = (
     ownerId: OwnerId,
     plugin: ILineToolsPlugin,
     snapshot: ManualOwnerSnapshot
-  ) => {
+  ): number => {
     const parsed = decodeManualOwnerSnapshot(snapshot)
-    if (parsed.length === 0) return
-    if (!plugin.importLineTools(JSON.stringify(parsed))) return
+    if (parsed.length === 0) return 0
+    if (!plugin.importLineTools(JSON.stringify(parsed))) return 0
 
     const ownerIds = params.ensureOwnerToolIds(ownerId)
     const ownerIdsByType = params.ensureOwnerToolIdsByType(ownerId)
     const ownerCapabilities = params.ensureOwnerCapabilities(ownerId)
+    let importedCount = 0
 
     parsed.forEach((toolData) => {
       const importedTool = parseLineToolExports(plugin.getLineToolByID(toolData.id))[0]
       if (!importedTool) return
 
+      importedCount += 1
       ownerIds.add(importedTool.id)
 
       const toolType = importedTool.toolType as ManualToolType
@@ -224,32 +213,48 @@ export const createManualLineToolsAttachmentController = (
         ownerIdsByType.set(toolType, importedTool.id)
       }
     })
+
+    return importedCount
   }
 
   const importPendingOwnerSnapshot = (ownerId: OwnerId, pluginEntry: PluginEntry) => {
     const pendingSnapshot = params.pendingOwnerSnapshotRef.current.get(ownerId)
     if (!pendingSnapshot) return false
-    if (!isSeriesReadyForViewUpdate(pluginEntry.series)) return false
 
-    importOwnerSnapshot(ownerId, pluginEntry.plugin, pendingSnapshot)
-    params.pendingOwnerSnapshotRef.current.delete(ownerId)
-    return true
+    const importedCount = importOwnerSnapshot(ownerId, pluginEntry.plugin, pendingSnapshot)
+    if (importedCount > 0) {
+      params.pendingOwnerSnapshotRef.current.delete(ownerId)
+      return true
+    }
+    return false
   }
 
   const refreshOwnerViews = (ownerId: OwnerId) => {
     const pluginContext = getPluginEntryForOwner(ownerId)
-    if (!pluginContext) return
+    if (!pluginContext) {
+      cancelOwnerViewRefresh(ownerId)
+      return
+    }
 
     importPendingOwnerSnapshot(ownerId, pluginContext.pluginEntry)
 
     if (!isSeriesReadyForViewUpdate(pluginContext.pluginEntry.series)) {
+      scheduleOwnerViewRefresh(ownerId)
       return
     }
 
     const ownerToolIds = params.ownerToolIdsRef.current.get(ownerId)
-    if (!ownerToolIds || ownerToolIds.size === 0) return
+    if (!ownerToolIds || ownerToolIds.size === 0) {
+      if (params.pendingOwnerSnapshotRef.current.has(ownerId)) {
+        scheduleOwnerViewRefresh(ownerId)
+      } else {
+        cancelOwnerViewRefresh(ownerId)
+      }
+      return
+    }
 
     pluginContext.pluginEntry.plugin.refreshLineToolViews(Array.from(ownerToolIds))
+    cancelOwnerViewRefresh(ownerId)
   }
 
   const reconcileOwnersForSeries = (seriesAttachmentKey: SeriesAttachmentKey) => {
@@ -364,6 +369,8 @@ export const createManualLineToolsAttachmentController = (
     drawToolsRef: DrawToolsRef,
     target: ResolvedOwnerTarget
   ) => {
+    cancelOwnerViewRefresh(ownerId)
+
     let pluginEntry = params.pluginsBySeriesAttachmentKeyRef.current.get(target.seriesAttachmentKey)
     if (!pluginEntry) {
       pluginEntry = createPluginEntry(target)
@@ -395,6 +402,8 @@ export const createManualLineToolsAttachmentController = (
   }
 
   const detachOwner = (ownerId: OwnerId, options?: DetachOptions) => {
+    cancelOwnerViewRefresh(ownerId)
+
     if (params.activeInlineTextEditorRef.current?.ownerId === ownerId) {
       params.closeInlineTextEditor(true)
     }
@@ -460,7 +469,92 @@ export const createManualLineToolsAttachmentController = (
   const reconcileOwnerAttachment = (drawToolsRef: DrawToolsRef) => {
     const ownerId = toManualOwnerId(drawToolsRef.id)
     let currentBinding = params.ownerBindingByIdRef.current.get(ownerId)
-    const target = resolveOwnerTarget(drawToolsRef)
+    const chart = params.chartRef.current
+    const currentPluginEntry = currentBinding
+      ? (params.pluginsBySeriesAttachmentKeyRef.current.get(currentBinding.seriesAttachmentKey) ??
+        null)
+      : null
+    const stableCurrentTarget = (() => {
+      if (!currentBinding || !currentPluginEntry || !chart) return null
+      if (!isSeriesOnChart(chart, currentPluginEntry.series)) return null
+
+      const bindingMatchesRequestedOwner =
+        currentBinding.pane === drawToolsRef.pane &&
+        (currentBinding.pane !== 'indicator' ||
+          (() => {
+            if (typeof drawToolsRef.indicatorId !== 'string') return false
+            const requestedIndicatorId = drawToolsRef.indicatorId.trim()
+            if (!requestedIndicatorId) return false
+            const currentIndicatorId = currentBinding.indicatorId?.trim() ?? ''
+            if (!currentIndicatorId) return false
+            return currentIndicatorId.toLowerCase() === requestedIndicatorId.toLowerCase()
+          })())
+
+      if (!bindingMatchesRequestedOwner) return null
+
+      if (currentBinding.pane === 'price') {
+        return {
+          pane: 'price' as const,
+          series: currentPluginEntry.series,
+          seriesAttachmentKey: currentBinding.seriesAttachmentKey,
+        }
+      }
+
+      const indicatorId =
+        typeof drawToolsRef.indicatorId === 'string' ? drawToolsRef.indicatorId.trim() : ''
+      if (!indicatorId) return null
+
+      const runtime = resolveIndicatorRuntime(indicatorId)
+      if (!runtime) {
+        return {
+          pane: 'indicator' as const,
+          indicatorId,
+          series: currentPluginEntry.series,
+          seriesAttachmentKey: currentBinding.seriesAttachmentKey,
+        }
+      }
+      const { runtimeEntry } = runtime
+
+      const mainPaneIndex = (() => {
+        try {
+          return params.mainSeriesRef.current?.getPane().paneIndex() ?? 0
+        } catch {
+          return 0
+        }
+      })()
+      const runtimePaneIndex = resolveRuntimePaneIndex(runtimeEntry, mainPaneIndex)
+      const currentPaneIndex = (() => {
+        try {
+          return currentPluginEntry.series.getPane().paneIndex()
+        } catch {
+          return null
+        }
+      })()
+      if (currentPaneIndex === null || currentPaneIndex !== runtimePaneIndex) {
+        return null
+      }
+      const chartPane =
+        chart.panes().find((candidatePane) => candidatePane.paneIndex() === runtimePaneIndex) ??
+        null
+      const paneHasProjectedSeries =
+        chartPane
+          ?.getSeries()
+          .some((series) => hasUsablePriceProjection(series, runtimePaneIndex)) ?? false
+      if (
+        paneHasProjectedSeries &&
+        !hasUsablePriceProjection(currentPluginEntry.series, runtimePaneIndex)
+      ) {
+        return null
+      }
+
+      return {
+        pane: 'indicator' as const,
+        indicatorId,
+        series: currentPluginEntry.series,
+        seriesAttachmentKey: currentBinding.seriesAttachmentKey,
+      }
+    })()
+    const target = stableCurrentTarget ?? resolveOwnerTarget(drawToolsRef)
     const persistedSnapshot = normalizeManualOwnerSnapshot(drawToolsRef.snapshot)
 
     if (
@@ -493,11 +587,7 @@ export const createManualLineToolsAttachmentController = (
     }
 
     if (!currentBinding) {
-      if (
-        persistedSnapshot &&
-        !params.pendingOwnerSnapshotRef.current.has(ownerId) &&
-        (params.ownerToolIdsRef.current.get(ownerId)?.size ?? 0) === 0
-      ) {
+      if (persistedSnapshot && !params.pendingOwnerSnapshotRef.current.has(ownerId)) {
         params.pendingOwnerSnapshotRef.current.set(ownerId, persistedSnapshot)
       }
       attachOwner(ownerId, drawToolsRef, target)
@@ -508,6 +598,10 @@ export const createManualLineToolsAttachmentController = (
       const ownerSnapshot = exportOwnerSnapshot(ownerId)
       if (ownerSnapshot) {
         params.pendingOwnerSnapshotRef.current.set(ownerId, ownerSnapshot)
+      } else if (persistedSnapshot) {
+        // Rebind can happen after indicator series recreation where runtime export is unavailable.
+        // Fall back to persisted snapshot so tools are re-imported on the new attachment.
+        params.pendingOwnerSnapshotRef.current.set(ownerId, persistedSnapshot)
       }
       detachOwner(ownerId, { preserveCapabilities: true, preservePendingSnapshot: true })
       attachOwner(ownerId, drawToolsRef, target)
@@ -524,11 +618,15 @@ export const createManualLineToolsAttachmentController = (
 
     if (pluginEntry && persistedSnapshot) {
       const runtimeSnapshot = exportOwnerSnapshot(ownerId)
+      const runtimeToolCount = runtimeSnapshot?.tools.length ?? 0
+      const persistedToolCount = persistedSnapshot.tools.length
       // Recover from runtime desync by restoring persisted snapshot when nothing is currently mounted.
-      if (!runtimeSnapshot) {
-        if (isSeriesReadyForViewUpdate(pluginEntry.series)) {
-          importOwnerSnapshot(ownerId, pluginEntry.plugin, persistedSnapshot)
-        } else if (!params.pendingOwnerSnapshotRef.current.has(ownerId)) {
+      if (runtimeToolCount < persistedToolCount) {
+        const importedCount = importOwnerSnapshot(ownerId, pluginEntry.plugin, persistedSnapshot)
+        if (
+          importedCount < persistedToolCount &&
+          !params.pendingOwnerSnapshotRef.current.has(ownerId)
+        ) {
           params.pendingOwnerSnapshotRef.current.set(ownerId, persistedSnapshot)
         }
       }
@@ -557,15 +655,210 @@ export const createManualLineToolsAttachmentController = (
     })
   }
 
+  const preserveOwnerSnapshotForRebind = (ownerId: OwnerId) => {
+    const ownerSnapshot = exportOwnerSnapshot(ownerId)
+    if (ownerSnapshot) {
+      params.pendingOwnerSnapshotRef.current.set(ownerId, ownerSnapshot)
+    }
+  }
+
+  const reuseExistingOwnerTarget = (
+    ownerId: OwnerId,
+    drawToolsRef: DrawToolsRef,
+    target: ResolvedOwnerTarget
+  ) => {
+    const existingBinding = params.ownerBindingByIdRef.current.get(ownerId)
+    if (existingBinding?.seriesAttachmentKey !== target.seriesAttachmentKey) {
+      return false
+    }
+
+    const pluginEntry = params.pluginsBySeriesAttachmentKeyRef.current.get(
+      target.seriesAttachmentKey
+    )
+    if (!pluginEntry) {
+      return false
+    }
+
+    params.ownerBindingByIdRef.current.set(ownerId, {
+      seriesAttachmentKey: target.seriesAttachmentKey,
+      pane: drawToolsRef.pane,
+      indicatorId: target.indicatorId ?? drawToolsRef.indicatorId,
+    })
+    importPendingOwnerSnapshot(ownerId, pluginEntry)
+    reconcileSelection(ownerId)
+    refreshOwnerViews(ownerId)
+    return true
+  }
+
+  const isOwnerAttached = (ownerId: OwnerId) => {
+    return params.ownerBindingByIdRef.current.has(ownerId)
+  }
+
+  const toDrawToolsRefFromBinding = (drawToolsId: string, binding: OwnerBinding): DrawToolsRef =>
+    binding.pane === 'indicator' && binding.indicatorId
+      ? {
+          id: drawToolsId,
+          pane: 'indicator',
+          indicatorId: binding.indicatorId,
+        }
+      : {
+          id: drawToolsId,
+          pane: 'price',
+        }
+
+  const rebindOwner = (ownerId: OwnerId) => {
+    const binding = params.ownerBindingByIdRef.current.get(ownerId)
+    const drawToolsId = fromManualOwnerId(ownerId)
+    if (!binding || !drawToolsId) return false
+
+    const drawToolsRef = toDrawToolsRefFromBinding(drawToolsId, binding)
+    const target = resolveOwnerTarget(drawToolsRef)
+    if (!target) {
+      return false
+    }
+    if (reuseExistingOwnerTarget(ownerId, drawToolsRef, target)) {
+      return true
+    }
+
+    preserveOwnerSnapshotForRebind(ownerId)
+    detachOwner(ownerId, { preserveCapabilities: true, preservePendingSnapshot: true })
+    attachOwner(ownerId, drawToolsRef, target)
+    return isOwnerAttached(ownerId)
+  }
+
+  const rebindOwnerToPane = (ownerId: OwnerId, paneIndex: number) => {
+    const binding = params.ownerBindingByIdRef.current.get(ownerId)
+    const drawToolsId = fromManualOwnerId(ownerId)
+    if (!binding || !drawToolsId) return false
+
+    const drawToolsRef = toDrawToolsRefFromBinding(drawToolsId, binding)
+    const target = resolveIndicatorTargetForPane(
+      ownerId,
+      binding.indicatorId,
+      paneIndex,
+      `pane-${paneIndex}`
+    )
+    if (!target) return false
+
+    if (reuseExistingOwnerTarget(ownerId, drawToolsRef, target)) {
+      return true
+    }
+
+    preserveOwnerSnapshotForRebind(ownerId)
+    detachOwner(ownerId, { preserveCapabilities: true, preservePendingSnapshot: true })
+    attachOwner(ownerId, drawToolsRef, target)
+    return isOwnerAttached(ownerId)
+  }
+
+  const rebindOrAttachOwnerToPane = (
+    ownerId: OwnerId,
+    drawToolsRef: DrawToolsRef,
+    paneIndex: number
+  ) => {
+    const target = resolveIndicatorTargetForPane(ownerId, drawToolsRef.indicatorId, paneIndex)
+    if (!target) return false
+
+    if (reuseExistingOwnerTarget(ownerId, drawToolsRef, target)) {
+      return true
+    }
+
+    preserveOwnerSnapshotForRebind(ownerId)
+
+    const hasBinding = params.ownerBindingByIdRef.current.has(ownerId)
+    if (hasBinding) {
+      detachOwner(ownerId, { preserveCapabilities: true, preservePendingSnapshot: true })
+    }
+    attachOwner(ownerId, drawToolsRef, target)
+    return isOwnerAttached(ownerId)
+  }
+
+  const hasPendingIndicatorRestore = (drawTools: DrawToolsRef[]) => {
+    const mainPaneIndex = (() => {
+      try {
+        return params.mainSeriesRef.current?.getPane().paneIndex() ?? 0
+      } catch {
+        return 0
+      }
+    })()
+
+    for (const entry of drawTools) {
+      if (entry.pane !== 'indicator') continue
+      const snapshotTools = Array.isArray(entry.snapshot?.tools) ? entry.snapshot.tools : []
+      if (snapshotTools.length === 0) continue
+
+      const requestedIndicatorId =
+        typeof entry.indicatorId === 'string' ? entry.indicatorId.trim() : ''
+      if (!requestedIndicatorId) continue
+      const runtime = resolveIndicatorRuntime(requestedIndicatorId)
+      if (!runtime) continue
+      const { runtimeEntry } = runtime
+      if (runtimeEntry.errorMessage) continue
+
+      const runtimePaneIndex = resolveRuntimePaneIndex(runtimeEntry, mainPaneIndex)
+      if (!Number.isFinite(runtimePaneIndex) || runtimePaneIndex === mainPaneIndex) {
+        continue
+      }
+
+      const ownerId = toManualOwnerId(entry.id)
+      if (!isOwnerAttached(ownerId)) {
+        return true
+      }
+
+      if (params.pendingOwnerSnapshotRef.current.has(ownerId)) {
+        return true
+      }
+
+      const ownerToolIds = params.ownerToolIdsRef.current.get(ownerId)
+      if (!ownerToolIds || ownerToolIds.size === 0) {
+        return true
+      }
+
+      const pluginContext = getPluginEntryForOwner(ownerId)
+      if (!pluginContext) {
+        return true
+      }
+
+      let boundPaneIndex: number | null = null
+      try {
+        boundPaneIndex = pluginContext.pluginEntry.series.getPane().paneIndex()
+      } catch {
+        boundPaneIndex = null
+      }
+      if (boundPaneIndex === null || boundPaneIndex !== runtimePaneIndex) {
+        return true
+      }
+
+      let mountedToolCount = 0
+      ownerToolIds.forEach((toolId) => {
+        const exported = parseLineToolExports(
+          pluginContext.pluginEntry.plugin.getLineToolByID(toolId)
+        )
+        if (exported.length > 0) {
+          mountedToolCount += 1
+        }
+      })
+      if (mountedToolCount < snapshotTools.length) {
+        return true
+      }
+      if (!isSeriesReadyForViewUpdate(pluginContext.pluginEntry.series)) {
+        return true
+      }
+    }
+
+    return false
+  }
+
   const teardownAll = () => {
+    ownerViewRefreshRafByOwner.forEach((rafId) => {
+      window.cancelAnimationFrame(rafId)
+    })
+    ownerViewRefreshRafByOwner.clear()
+
     params.closeInlineTextEditor(true)
 
     // Capture latest runtime snapshots before destroying plugin entries.
     params.ownerBindingByIdRef.current.forEach((_, ownerId) => {
-      const ownerSnapshot = exportOwnerSnapshot(ownerId)
-      if (ownerSnapshot) {
-        params.pendingOwnerSnapshotRef.current.set(ownerId, ownerSnapshot)
-      }
+      preserveOwnerSnapshotForRebind(ownerId)
     })
 
     params.pluginsBySeriesAttachmentKeyRef.current.forEach((pluginEntry, seriesAttachmentKey) => {
@@ -581,10 +874,6 @@ export const createManualLineToolsAttachmentController = (
     params.bumpVersion()
   }
 
-  const isOwnerAttached = (ownerId: OwnerId) => {
-    return params.ownerBindingByIdRef.current.has(ownerId)
-  }
-
   return {
     getPluginEntryForOwner,
     reconcileSelection,
@@ -593,5 +882,9 @@ export const createManualLineToolsAttachmentController = (
     detachOwner,
     teardownAll,
     isOwnerAttached,
+    rebindOwner,
+    rebindOwnerToPane,
+    rebindOrAttachOwnerToPane,
+    hasPendingIndicatorRestore,
   }
 }
