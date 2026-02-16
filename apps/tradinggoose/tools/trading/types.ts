@@ -1,4 +1,4 @@
-import type { ListingIdentity, ListingInputValue, ListingType } from '@/lib/listing/identity'
+import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
 import type {
   TradingActionResponse,
   TradingHoldingsResponse,
@@ -133,9 +133,6 @@ export interface OrderSubmit {
   recordedAt: string
   workflowId?: string
   workflowExecutionId?: string
-  listingId?: string | null
-  listingKey?: string | null
-  listingType?: ListingType
   listingIdentity?: ListingIdentity | null
   request: OrderSubmitRequest
   response: OrderSubmitResponse

@@ -74,6 +74,7 @@ export function OrderIdSelectorInput({
   const requestKeyRef = useRef<string>('')
 
   const debouncedQuery = useDebounce(query, 300)
+  const selectedOrderId = selectedOrder?.id.trim() ?? ''
 
   const setOrderIdValue = useCallback(
     (nextValue: string | null) => {
@@ -122,7 +123,12 @@ export function OrderIdSelectorInput({
 
   useEffect(() => {
     const trimmed = debouncedQuery.trim()
-    const shouldFetch = open || isOrderUuid(trimmed)
+    const currentTrimmed = currentValue.trim()
+    const isSelectedOrderSynced =
+      !!selectedOrderId &&
+      equalsIgnoreCase(trimmed, selectedOrderId) &&
+      equalsIgnoreCase(currentTrimmed, selectedOrderId)
+    const shouldFetch = open || (isOrderUuid(trimmed) && !isSelectedOrderSynced)
 
     if (!shouldFetch) {
       if (!open && !trimmed) {
@@ -141,7 +147,7 @@ export function OrderIdSelectorInput({
     abortRef.current = controller
 
     const requestQuery =
-      open && selectedOrder && equalsIgnoreCase(trimmed, selectedOrder.id) ? '' : trimmed
+      open && selectedOrderId && equalsIgnoreCase(trimmed, selectedOrderId) ? '' : trimmed
     const requestKey = `${workflowId ?? ''}|${requestQuery}|${open ? 'open' : 'closed'}`
     requestKeyRef.current = requestKey
 
@@ -172,8 +178,12 @@ export function OrderIdSelectorInput({
             return
           }
 
-          setSelectedOrder(match)
-          setQuery(match.id)
+          if (!selectedOrderId || !equalsIgnoreCase(selectedOrderId, match.id)) {
+            setSelectedOrder(match)
+          }
+          setQuery((previous) =>
+            equalsIgnoreCase(previous.trim(), match.id) ? previous : match.id
+          )
           if (!equalsIgnoreCase(currentValue.trim(), match.id)) {
             setOrderIdValue(match.id)
           }
@@ -189,7 +199,7 @@ export function OrderIdSelectorInput({
     return () => {
       controller.abort()
     }
-  }, [currentValue, debouncedQuery, open, selectedOrder, setOrderIdValue, workflowId])
+  }, [currentValue, debouncedQuery, open, selectedOrderId, setOrderIdValue, workflowId])
 
   useEffect(() => {
     setHighlightedIndex((previous) => {

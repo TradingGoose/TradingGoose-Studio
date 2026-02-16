@@ -98,50 +98,13 @@ const toIsoDate = (...values: unknown[]): string | null => {
 }
 
 const parseListingIdentityFromRow = (row: OrderHistoryRow): ListingIdentity | null => {
-  const fromIdentity = toListingValueObject((row.listingIdentity ?? undefined) as any)
-  if (fromIdentity) {
-    return fromIdentity
-  }
-
-  const listingType = row.listingType
-  if (listingType !== 'default' && listingType !== 'crypto' && listingType !== 'currency') {
-    return null
-  }
-
-  if (listingType === 'default') {
-    const listingId = readString(row.listingId, row.listingKey)
-    if (!listingId) return null
-    return {
-      listing_id: listingId,
-      base_id: '',
-      quote_id: '',
-      listing_type: 'default',
-    }
-  }
-
-  const listingKey = readString(row.listingKey)
-  if (!listingKey || !listingKey.includes(':')) {
-    return null
-  }
-
-  const [baseId, quoteId] = listingKey.split(':')
-  const base = baseId?.trim() ?? ''
-  const quote = quoteId?.trim() ?? ''
-  if (!base || !quote) return null
-
-  return {
-    listing_id: '',
-    base_id: base,
-    quote_id: quote,
-    listing_type: listingType,
-  }
+  return toListingValueObject((row.listingIdentity ?? undefined) as any)
 }
 
 const resolveListingForRow = async (
-  row: OrderHistoryRow,
+  identity: ListingIdentity | null,
   cache: Map<string, ListingResolved | null>
 ): Promise<ListingResolved | null> => {
-  const identity = parseListingIdentityFromRow(row)
   if (!identity) return null
 
   const key = resolveListingKey(identity)
@@ -191,8 +154,9 @@ const mapOrderRow = async (
   const requestRecord = toRecord(row.request)
   const responseRecord = toRecord(row.response)
   const normalizedRecord = toRecord(row.normalizedOrder)
+  const listingIdentity = parseListingIdentityFromRow(row)
 
-  const resolvedListing = await resolveListingForRow(row, listingCache)
+  const resolvedListing = await resolveListingForRow(listingIdentity, listingCache)
 
   const rawSymbol = readString(
     resolvedListing?.base,
@@ -231,7 +195,7 @@ const mapOrderRow = async (
     companyName: readString(resolvedListing?.name),
     iconUrl: readString(resolvedListing?.iconUrl),
     assetClass: readString(resolvedListing?.assetClass),
-    listingType: readString(row.listingType, resolvedListing?.listing_type),
+    listingType: readString(listingIdentity?.listing_type, resolvedListing?.listing_type),
   }
 }
 
@@ -277,8 +241,12 @@ export async function GET(request: NextRequest) {
         const dateSearchCondition = buildDateSearchCondition(query)
         const searchConditions: SQL[] = [
           sql`${orderHistoryTable.id}::text ILIKE ${searchTerm}`,
-          sql`COALESCE(${orderHistoryTable.listingId}, '') ILIKE ${searchTerm}`,
-          sql`COALESCE(${orderHistoryTable.listingKey}, '') ILIKE ${searchTerm}`,
+          sql`COALESCE(${orderHistoryTable.listingIdentity}::text, '') ILIKE ${searchTerm}`,
+          sql`COALESCE(${orderHistoryTable.listingIdentity}->>'listing_id', '') ILIKE ${searchTerm}`,
+          sql`COALESCE(${orderHistoryTable.listingIdentity}->>'base_id', '') ILIKE ${searchTerm}`,
+          sql`COALESCE(${orderHistoryTable.listingIdentity}->>'quote_id', '') ILIKE ${searchTerm}`,
+          sql`COALESCE(${orderHistoryTable.listingIdentity}->>'listing_type', '') ILIKE ${searchTerm}`,
+          sql`COALESCE((${orderHistoryTable.listingIdentity}->>'base_id') || ':' || (${orderHistoryTable.listingIdentity}->>'quote_id'), '') ILIKE ${searchTerm}`,
           sql`${orderHistoryTable.normalizedOrder}::text ILIKE ${searchTerm}`,
           sql`${orderHistoryTable.response}::text ILIKE ${searchTerm}`,
           sql`${orderHistoryTable.request}::text ILIKE ${searchTerm}`,
