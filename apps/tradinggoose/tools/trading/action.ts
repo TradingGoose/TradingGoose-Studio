@@ -124,9 +124,39 @@ const normalizeSizingValue = (value: unknown): number | undefined => {
   return typeof parsed === 'number' && Number.isFinite(parsed) ? parsed : undefined
 }
 
+const resolveOrderSizingMode = (
+  mode: unknown
+): TradingActionParams['orderSizingMode'] | undefined => {
+  if (mode === 'quantity' || mode === 'notional') return mode
+  if (typeof mode !== 'string') return undefined
+
+  const normalized = mode.trim().toLowerCase()
+  if (normalized === 'quantity' || normalized === 'notional') return normalized
+  return undefined
+}
+
 const normalizeOrderSizing = (params: TradingActionParams): TradingActionParams => {
   const quantity = normalizeSizingValue(params.quantity)
   const notional = normalizeSizingValue(params.notional)
+  const orderSizingMode = resolveOrderSizingMode(params.orderSizingMode)
+
+  if (orderSizingMode === 'notional') {
+    return {
+      ...params,
+      orderSizingMode,
+      quantity: undefined,
+      notional,
+    }
+  }
+
+  if (orderSizingMode === 'quantity') {
+    return {
+      ...params,
+      orderSizingMode,
+      quantity,
+      notional: undefined,
+    }
+  }
 
   return {
     ...params,
@@ -138,8 +168,15 @@ const normalizeOrderSizing = (params: TradingActionParams): TradingActionParams 
 const validateOrderSizing = (params: TradingActionParams) => {
   const hasQuantity = params.quantity !== undefined && params.quantity !== null
   const hasNotional = params.notional !== undefined && params.notional !== null
+  const orderSizingMode = resolveOrderSizingMode(params.orderSizingMode)
 
   if (params.provider === 'alpaca') {
+    if (orderSizingMode === 'quantity' && !hasQuantity) {
+      throw new Error('Alpaca orders require qty when orderSizingMode=quantity.')
+    }
+    if (orderSizingMode === 'notional' && !hasNotional) {
+      throw new Error('Alpaca orders require notional when orderSizingMode=notional.')
+    }
     if (!hasQuantity && !hasNotional) {
       throw new Error('Quantity or notional is required for Alpaca orders.')
     }
