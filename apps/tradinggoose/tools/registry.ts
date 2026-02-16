@@ -219,7 +219,12 @@ import {
 import { slackCanvasTool, slackMessageReaderTool, slackMessageTool } from '@/tools/slack'
 import { smsSendTool } from '@/tools/sms'
 import { stagehandAgentTool, stagehandExtractTool } from '@/tools/stagehand'
-import { orderHistoryTool, tradingActionTool, tradingHoldingsTool } from '@/tools/trading'
+import {
+  orderHistoryTool,
+  tradingActionTool,
+  tradingHoldingsTool,
+  tradingOrderDetailTool,
+} from '@/tools/trading'
 import {
   supabaseDeleteTool,
   supabaseGetRowTool,
@@ -449,6 +454,7 @@ export const tools: Record<string, ToolConfig> = {
   thinking_tool: thinkingTool,
   trading_place_order: tradingActionTool,
   trading_get_holdings: tradingHoldingsTool,
+  trading_order_detail: tradingOrderDetailTool,
   trading_order_history: orderHistoryTool,
   stagehand_extract: stagehandExtractTool,
   stagehand_agent: stagehandAgentTool,

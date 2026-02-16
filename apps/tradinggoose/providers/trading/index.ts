@@ -1,6 +1,9 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import type { TradingProvider } from '@/providers/trading/providers'
 import type {
+  TradingOrderDetailInput,
+  TradingOrderDetailResult,
+  TradingOrderHistoryRecord,
   TradingProviderId,
   TradingProviderRequest,
   TradingRequestConfig,
@@ -62,6 +65,20 @@ export function executeTradingProviderRequest(
       throw new Error(`Unsupported trading request kind: ${kind}`)
     }
   }
+}
+
+export async function executeTradingProviderOrderDetailRequest(
+  providerId: TradingProviderId,
+  historyRecord: TradingOrderHistoryRecord,
+  params: TradingOrderDetailInput
+): Promise<TradingOrderDetailResult> {
+  const provider = getTradingProvider(providerId)
+
+  if (!provider.orderDetailRequest) {
+    throw new Error(`Provider ${providerId} does not support order detail requests`)
+  }
+
+  return provider.orderDetailRequest(historyRecord, params)
 }
 
 export * from './providers'

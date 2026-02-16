@@ -1,10 +1,10 @@
+import type { ListingIdentity, ListingInputValue, ListingType } from '@/lib/listing/identity'
 import type {
   TradingActionResponse,
   TradingHoldingsResponse,
-  TradingProviderId,
   TradingOrderType,
+  TradingProviderId,
 } from '@/providers/trading/types'
-import type { ListingIdentity, ListingInputValue, ListingType } from '@/lib/listing/identity'
 
 export interface TradingActionParams {
   provider: TradingProviderId
@@ -43,6 +43,60 @@ export interface TradingHoldingsParams {
   apiSecret?: string
   accountId?: string
   accountUrl?: string
+}
+
+export interface TradingOrderDetailParams {
+  orderId: string
+  provider?: TradingProviderId
+  environment?: 'paper' | 'live'
+  credential?: string
+  accessToken?: string
+  apiKey?: string
+  apiSecret?: string
+  tradierCredential?: string
+  robinhoodCredential?: string
+  alpacaCredential?: string
+  accountId?: string
+  accountUrl?: string
+}
+
+export interface TradingOrderDetailOutput {
+  appOrderId: string
+  provider: TradingProviderId | string
+  providerOrderId: string
+  environment?: string | null
+  clientOrderId?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
+  submittedAt?: string | null
+  filledAt?: string | null
+  canceledAt?: string | null
+  expiredAt?: string | null
+  symbol?: string | null
+  side?: string | null
+  status?: string | null
+  orderType?: string | null
+  timeInForce?: string | null
+  quantity?: string | number | null
+  filledQuantity?: string | number | null
+  remainingQuantity?: string | number | null
+  notional?: string | number | null
+  limitPrice?: string | number | null
+  stopPrice?: string | number | null
+  averageFillPrice?: string | number | null
+  raw?: unknown
+}
+
+export interface TradingOrderDetailResponse {
+  success: boolean
+  output: {
+    summary: string
+    provider: TradingProviderId | string
+    appOrderId: string
+    providerOrderId: string
+    orderDetail: TradingOrderDetailOutput
+  }
+  error?: string
 }
 
 export interface OrderSubmitRequest {

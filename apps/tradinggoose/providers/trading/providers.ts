@@ -5,6 +5,9 @@ import { robinhoodTradingProviderConfig } from '@/providers/trading/robinhood/co
 import { tradierTradingProviderConfig } from '@/providers/trading/tradier/config'
 import type {
   TradingAuthType,
+  TradingOrderDetailInput,
+  TradingOrderDetailResult,
+  TradingOrderHistoryRecord,
   TradingFieldDefinition,
   TradingHoldingsInput,
   TradingHoldingsNormalizationContext,
@@ -163,6 +166,10 @@ export interface TradingProvider {
   }
   buildOrderRequest?: (params: TradingOrderInput) => TradingRequestConfig
   buildHoldingsRequest?: (params: TradingHoldingsInput) => TradingRequestConfig
+  orderDetailRequest?: (
+    historyRecord: TradingOrderHistoryRecord,
+    params: TradingOrderDetailInput
+  ) => Promise<TradingOrderDetailResult>
   normalizeOrder?: (data: any) => TradingOrder
   normalizeHoldings?: (
     data: any,

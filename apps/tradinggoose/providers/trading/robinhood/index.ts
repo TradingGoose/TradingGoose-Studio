@@ -4,6 +4,7 @@ import {
   buildRobinhoodOrderRequest,
   normalizeRobinhoodOrder,
 } from '@/providers/trading/robinhood/orders'
+import { robinhoodOrderDetailRequest } from '@/providers/trading/robinhood/orderDetail'
 import {
   buildRobinhoodHoldingsRequest,
   normalizeRobinhoodHoldings,
@@ -19,6 +20,7 @@ export const robinhoodProvider: TradingProvider = {
   },
   buildOrderRequest: buildRobinhoodOrderRequest,
   buildHoldingsRequest: buildRobinhoodHoldingsRequest,
+  orderDetailRequest: robinhoodOrderDetailRequest,
   normalizeOrder: normalizeRobinhoodOrder,
   normalizeHoldings: normalizeRobinhoodHoldings,
 }
