@@ -49,9 +49,9 @@ export const TradingOrderDetailBlock: BlockConfig<TradingOrderDetailResponse> = 
     {
       id: 'orderId',
       title: 'Order ID',
-      type: 'short-input',
+      type: 'order-id-selector',
       layout: 'full',
-      placeholder: 'Trading Goose order ID (orderHistoryTable.id)',
+      placeholder: 'Search by order ID, symbol, ticker, quote, or date',
       required: true,
     },
     {
