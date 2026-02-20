@@ -4,6 +4,7 @@ import {
   buildAlpacaOrderRequest,
   normalizeAlpacaOrder,
 } from '@/providers/trading/alpaca/orders'
+import { alpacaOrderDetailRequest } from '@/providers/trading/alpaca/orderDetail'
 import {
   buildAlpacaHoldingsRequest,
   normalizeAlpacaHoldings,
@@ -19,6 +20,7 @@ export const alpacaProvider: TradingProvider = {
   },
   buildOrderRequest: buildAlpacaOrderRequest,
   buildHoldingsRequest: buildAlpacaHoldingsRequest,
+  orderDetailRequest: alpacaOrderDetailRequest,
   normalizeOrder: normalizeAlpacaOrder,
   normalizeHoldings: normalizeAlpacaHoldings,
 }

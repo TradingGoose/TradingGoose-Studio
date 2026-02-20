@@ -69,6 +69,7 @@ export type SubBlockType =
   | 'document-selector' // Document selector for knowledge bases
   | 'document-tag-entry' // Document tag entry for creating documents
   | 'market-selector' // Market listing selector (provider/currency/listing)
+  | 'order-id-selector' // Trading order selector backed by order history
   | 'mcp-server-selector' // MCP server selector
   | 'mcp-tool-selector' // MCP tool selector
   | 'mcp-dynamic-args' // MCP dynamic arguments based on tool schema

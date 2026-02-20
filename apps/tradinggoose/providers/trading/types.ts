@@ -82,6 +82,26 @@ export interface TradingHoldingsInput {
   providerParams?: TradingProviderParams
 }
 
+export interface TradingOrderDetailInput extends TradingHoldingsInput {
+  orderId: string
+  provider?: TradingProviderId
+}
+
+export interface TradingOrderHistoryRecord {
+  id: string
+  provider: string
+  environment?: string | null
+  workflowId?: string | null
+  request?: Record<string, any> | null
+  response?: Record<string, any> | null
+  normalizedOrder?: Record<string, any> | null
+}
+
+export interface TradingOrderDetailResult {
+  providerOrderId: string
+  orderDetail: Record<string, any>
+}
+
 export interface TradingHoldingsNormalizationContext extends TradingHoldingsInput {
   providerId?: TradingProviderId
   providerName?: string

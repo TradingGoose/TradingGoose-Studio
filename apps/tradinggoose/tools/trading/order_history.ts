@@ -1,5 +1,5 @@
-import type { ToolConfig } from '@/tools/types'
 import type { OrderHistory } from '@/tools/trading/types'
+import type { ToolConfig } from '@/tools/types'
 
 export interface OrderHistoryParams {
   startDate: string
@@ -48,9 +48,7 @@ export const orderHistoryTool: ToolConfig<OrderHistoryParams, OrderHistoryRespon
   },
 
   request: {
-    url: (
-      params: OrderHistoryParams & { _context?: { workflowId?: string } }
-    ) => {
+    url: (params: OrderHistoryParams & { _context?: { workflowId?: string } }) => {
       const startDate = params.startDate
       const endDate = params.endDate
       const workflowId = params.workflowId || params._context?.workflowId
@@ -114,9 +112,7 @@ export const orderHistoryTool: ToolConfig<OrderHistoryParams, OrderHistoryRespon
           recordedAt: { type: 'string', description: 'Recorded timestamp' },
           workflowId: { type: 'string', description: 'Workflow ID' },
           workflowExecutionId: { type: 'string', description: 'Workflow execution ID' },
-          listingId: { type: 'string', description: 'Listing object ID' },
-          listingKey: { type: 'string', description: 'Listing identity key' },
-          listingType: { type: 'string', description: 'Listing type' },
+          listingIdentity: { type: 'object', description: 'Listing identity metadata' },
           request: { type: 'object', description: 'Normalized order request payload' },
           response: { type: 'object', description: 'Normalized order response payload' },
           normalizedOrder: { type: 'object', description: 'Provider-normalized order details' },

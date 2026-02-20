@@ -1,8 +1,7 @@
+import { toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
-import { resolveListingKey, toListingValueObject } from '@/lib/listing/identity'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { executeTradingProviderRequest, getTradingProvider } from '@/providers/trading'
-import type { ToolConfig } from '@/tools/types'
 import type {
   OrderSubmit,
   OrderSubmitRequest,
@@ -10,6 +9,7 @@ import type {
   TradingActionParams,
   TradingActionResponse,
 } from '@/tools/trading/types'
+import type { ToolConfig } from '@/tools/types'
 
 const logger = createLogger('TradingActionTool')
 
@@ -79,10 +79,7 @@ const buildOrderSubmitResponse = (
   const orderId =
     normalizedOrder?.id ?? rawOrder?.id ?? rawOrder?.order_id ?? rawOrder?.order?.id ?? null
   const clientOrderId =
-    rawOrder?.client_order_id ??
-    rawOrder?.clientOrderId ??
-    rawOrder?.order?.client_order_id ??
-    null
+    rawOrder?.client_order_id ?? rawOrder?.clientOrderId ?? rawOrder?.order?.client_order_id ?? null
   const createdAt =
     rawOrder?.created_at ??
     rawOrder?.create_date ??
@@ -124,9 +121,39 @@ const normalizeSizingValue = (value: unknown): number | undefined => {
   return typeof parsed === 'number' && Number.isFinite(parsed) ? parsed : undefined
 }
 
+const resolveOrderSizingMode = (
+  mode: unknown
+): TradingActionParams['orderSizingMode'] | undefined => {
+  if (mode === 'quantity' || mode === 'notional') return mode
+  if (typeof mode !== 'string') return undefined
+
+  const normalized = mode.trim().toLowerCase()
+  if (normalized === 'quantity' || normalized === 'notional') return normalized
+  return undefined
+}
+
 const normalizeOrderSizing = (params: TradingActionParams): TradingActionParams => {
   const quantity = normalizeSizingValue(params.quantity)
   const notional = normalizeSizingValue(params.notional)
+  const orderSizingMode = resolveOrderSizingMode(params.orderSizingMode)
+
+  if (orderSizingMode === 'notional') {
+    return {
+      ...params,
+      orderSizingMode,
+      quantity: undefined,
+      notional,
+    }
+  }
+
+  if (orderSizingMode === 'quantity') {
+    return {
+      ...params,
+      orderSizingMode,
+      quantity,
+      notional: undefined,
+    }
+  }
 
   return {
     ...params,
@@ -138,8 +165,15 @@ const normalizeOrderSizing = (params: TradingActionParams): TradingActionParams 
 const validateOrderSizing = (params: TradingActionParams) => {
   const hasQuantity = params.quantity !== undefined && params.quantity !== null
   const hasNotional = params.notional !== undefined && params.notional !== null
+  const orderSizingMode = resolveOrderSizingMode(params.orderSizingMode)
 
   if (params.provider === 'alpaca') {
+    if (orderSizingMode === 'quantity' && !hasQuantity) {
+      throw new Error('Alpaca orders require qty when orderSizingMode=quantity.')
+    }
+    if (orderSizingMode === 'notional' && !hasNotional) {
+      throw new Error('Alpaca orders require notional when orderSizingMode=notional.')
+    }
     if (!hasQuantity && !hasNotional) {
       throw new Error('Quantity or notional is required for Alpaca orders.')
     }
@@ -350,14 +384,6 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
           : normalizedOrder
 
       const listingIdentity = toListingValueObject(params.listing)
-      const listingKey = resolveListingKey(params.listing)
-      const listingId =
-        params.listing &&
-        typeof params.listing === 'object' &&
-        'id' in params.listing &&
-        (params.listing as any).id
-          ? String((params.listing as any).id)
-          : undefined
 
       const errorPayload = result.success
         ? undefined
@@ -382,9 +408,6 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
         recordedAt: new Date().toISOString(),
         workflowId: context?.workflowId ?? (params as any)._workflowId,
         workflowExecutionId: context?.executionId,
-        listingId,
-        listingKey,
-        listingType: listingIdentity?.listing_type,
         listingIdentity,
         request: buildOrderSubmitRequest(params),
         response: responsePayload,

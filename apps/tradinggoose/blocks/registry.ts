@@ -72,6 +72,7 @@ import { TelegramBlock } from '@/blocks/blocks/telegram'
 import { ThinkingBlock } from '@/blocks/blocks/thinking'
 import { TradingActionBlock } from '@/blocks/blocks/trading_action'
 import { TradingHoldingsBlock } from '@/blocks/blocks/trading_holdings'
+import { TradingOrderDetailBlock } from '@/blocks/blocks/trading_order_detail'
 import { TradingOrderHistoryBlock } from '@/blocks/blocks/trading_order_history'
 import { TranslateBlock } from '@/blocks/blocks/translate'
 import { TwilioSMSBlock } from '@/blocks/blocks/twilio'
@@ -228,6 +229,7 @@ export const registry: Record<string, BlockConfig> = {
   thinking: ThinkingBlock,
   trading_action: TradingActionBlock,
   trading_holdings: TradingHoldingsBlock,
+  trading_order_detail: TradingOrderDetailBlock,
   trading_order_history: TradingOrderHistoryBlock,
   translate: TranslateBlock,
   twilio_sms: TwilioSMSBlock,

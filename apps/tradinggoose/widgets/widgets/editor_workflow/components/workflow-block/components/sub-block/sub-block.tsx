@@ -24,6 +24,7 @@ import {
   KnowledgeBaseSelector,
   LongInput,
   ListingSelectorInput,
+  OrderIdSelectorInput,
   McpDynamicArgs,
   McpServerSelector,
   McpToolSelector,
@@ -266,6 +267,17 @@ export const SubBlock = memo(
         case 'market-selector':
           return (
             <ListingSelectorInput
+              blockId={blockId}
+              subBlockId={config.id}
+              isPreview={isPreview}
+              previewValue={previewValue as string | null | undefined}
+              disabled={isDisabled}
+              config={config}
+            />
+          )
+        case 'order-id-selector':
+          return (
+            <OrderIdSelectorInput
               blockId={blockId}
               subBlockId={config.id}
               isPreview={isPreview}
@@ -596,7 +608,10 @@ export const SubBlock = memo(
     const required = isFieldRequired()
 
     const showLabel =
-      config.type !== 'switch' && config.type !== 'market-selector' && config.type !== 'trigger-save'
+      config.type !== 'switch' &&
+      config.type !== 'market-selector' &&
+      config.type !== 'order-id-selector' &&
+      config.type !== 'trigger-save'
 
     return (
       <div

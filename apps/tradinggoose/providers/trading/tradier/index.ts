@@ -4,6 +4,7 @@ import {
   buildTradierOrderRequest,
   normalizeTradierOrder,
 } from '@/providers/trading/tradier/orders'
+import { tradierOrderDetailRequest } from '@/providers/trading/tradier/orderDetail'
 import {
   buildTradierHoldingsRequest,
   normalizeTradierHoldings,
@@ -19,6 +20,7 @@ export const tradierProvider: TradingProvider = {
   },
   buildOrderRequest: buildTradierOrderRequest,
   buildHoldingsRequest: buildTradierHoldingsRequest,
+  orderDetailRequest: tradierOrderDetailRequest,
   normalizeOrder: normalizeTradierOrder,
   normalizeHoldings: normalizeTradierHoldings,
 }

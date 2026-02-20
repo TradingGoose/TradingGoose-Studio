@@ -18,6 +18,7 @@ import {
   FileUpload,
   LongInput,
   ListingSelectorInput,
+  OrderIdSelectorInput,
   ProjectSelectorInput,
   ShortInput,
   SliderInput,
@@ -1239,6 +1240,25 @@ export function ToolInput({
         )
       }
 
+      case 'order-id-selector':
+        return (
+          <OrderIdSelectorInput
+            blockId={blockId}
+            subBlockId={uniqueSubBlockId}
+            isPreview={isPreview}
+            previewValue={value}
+            value={value}
+            onChange={(orderId) => onChange(orderId ?? '')}
+            disabled={disabled}
+            config={{
+              id: uniqueSubBlockId,
+              type: 'order-id-selector',
+              title: uiComponent.title || formatParameterLabel(param.id),
+              required: param.required,
+            }}
+          />
+        )
+
       case 'channel-selector':
         return (
           <ChannelSelectorSyncWrapper
@@ -1783,7 +1803,9 @@ export function ToolInput({
 
                         // Render standalone parameters
                         standaloneParams.forEach((param) => {
-                          const hideLabel = param.uiComponent?.type === 'market-selector'
+                          const hideLabel =
+                            param.uiComponent?.type === 'market-selector' ||
+                            param.uiComponent?.type === 'order-id-selector'
                           renderedElements.push(
                             <div key={param.id} className='relative min-w-0 space-y-1.5'>
                               {!hideLabel && (
