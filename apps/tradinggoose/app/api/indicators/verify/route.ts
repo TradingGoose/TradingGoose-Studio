@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { getHighestPrioritySubscription } from '@/lib/billing/core/subscription'
 import { executeCompiledIndicator } from '@/lib/indicators/execution/compile-execution'
 import { mapMarketSeriesToBarsMs } from '@/lib/indicators/series-data'
+import { detectTriggerUsage } from '@/lib/indicators/trigger-detection'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateMockMarketSeries } from '@/lib/market/mock-series'
 import { generateRequestId } from '@/lib/utils'
@@ -53,6 +54,7 @@ export async function POST(request: NextRequest) {
     if ('response' in parsedBody) return parsedBody.response
 
     const { workspaceId, pineCode, inputs } = parsedBody.data
+    const triggerUsageDetected = detectTriggerUsage(pineCode)
 
     const permissionError = await getWorkspaceWritePermissionError(auth.userId, workspaceId)
     if (permissionError) return permissionError
@@ -108,7 +110,7 @@ export async function POST(request: NextRequest) {
     const markersCount = output.markers.length
     const signalsCount = output.signals.length
 
-    if (plotsCount === 0 && markersCount === 0 && signalsCount === 0) {
+    if (plotsCount === 0 && markersCount === 0 && signalsCount === 0 && !triggerUsageDetected) {
       return NextResponse.json(
         {
           success: false,
@@ -120,6 +122,15 @@ export async function POST(request: NextRequest) {
     }
 
     const warnings = [...compiled.warnings]
+    const triggerOnly =
+      triggerUsageDetected && plotsCount === 0 && markersCount === 0 && signalsCount === 0
+
+    if (triggerOnly) {
+      warnings.push({
+        code: 'trigger_only_script',
+        message: 'Script uses trigger(...) without plots/markers/signals, which is valid.',
+      })
+    }
 
     if (plotsCount > 0) {
       const hasPlotValues = output.series.some((plot) =>
@@ -151,6 +162,8 @@ export async function POST(request: NextRequest) {
         plotsCount,
         markersCount,
         signalsCount,
+        triggerUsageDetected,
+        triggerOnly,
         warnings,
         unsupported: output.unsupported,
       },

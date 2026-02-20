@@ -366,7 +366,7 @@ export function IndicatorCodePanel({
         )}
       </div>
 
-      <div ref={codeEditorRef} className='relative mt-3 flex min-h-0 flex-1 flex-col rounded-md'>
+      <div ref={codeEditorRef} className='relative mt-2 flex min-h-0 flex-1 flex-col rounded-md'>
         <WandPromptBar
           isVisible={calcWand.isPromptVisible}
           isLoading={calcWand.isLoading}
@@ -384,7 +384,7 @@ export function IndicatorCodePanel({
           language='typescript'
           path={monacoModelPath}
           placeholder='Write PineTS code here...'
-          minHeight='360px'
+          minHeight='0px'
           className='flex-1 min-h-0'
           highlightVariables={true}
           editorHandleRef={codeEditorHandleRef}

@@ -79,6 +79,15 @@ export const CHEAT_SHEET_GROUPS = {
         ],
         members: formatMembers('indicator'),
       },
+      {
+        key: 'trigger',
+        description: 'Emit workflow trigger events from indicator scripts.',
+        examples: [
+          "trigger('ma_cross', { condition: ta.crossover(ta.ema(close, 9), ta.ema(close, 21)), input: 'MA cross long', signal: 'long' })",
+          "trigger('risk_flat', { condition: close < ta.ema(close, 21), input: 'Trend weakened', signal: 'flat', position: 'inBar', color: '#f59e0b' })",
+        ],
+        members: formatMembers('trigger'),
+      },
       { key: 'na', description: 'Missing value (not available).' },
       { key: 'nz', description: 'Replace missing value with fallback.' },
       { key: 'color', description: 'Color utilities/constructors.' },

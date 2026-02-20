@@ -173,7 +173,7 @@ export interface FilterState {
   workspaceId: string
 
   // View mode
-  viewMode: 'logs' | 'dashboard'
+  viewMode: 'logs' | 'monitors' | 'dashboard'
 
   // Filter states
   timeRange: TimeRange
@@ -198,7 +198,7 @@ export interface FilterState {
   // Actions
   setLogs: (logs: WorkflowLog[], append?: boolean) => void
   setWorkspaceId: (workspaceId: string) => void
-  setViewMode: (viewMode: 'logs' | 'dashboard') => void
+  setViewMode: (viewMode: 'logs' | 'monitors' | 'dashboard') => void
   setTimeRange: (timeRange: TimeRange) => void
   setLevel: (level: LogLevel) => void
   setWorkflowIds: (workflowIds: string[]) => void

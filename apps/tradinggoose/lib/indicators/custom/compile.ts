@@ -11,9 +11,11 @@ import {
 import { normalizeContext } from '@/lib/indicators/normalize-context'
 import { normalizeIndicatorCode } from '@/lib/indicators/normalize-indicator-code'
 import { aggregateBarsMs, buildIndexMaps, normalizeBarsMs } from '@/lib/indicators/series-data'
+import { detectTriggerUsage } from '@/lib/indicators/trigger-detection'
 import type {
   BarMs,
   NormalizedPineOutput,
+  NormalizedPineSignal,
   PineUnsupportedInfo,
   PineWarning,
 } from '@/lib/indicators/types'
@@ -82,7 +84,12 @@ const executeIndicatorInE2B = async ({
   timeoutMs: number
   e2bTemplate?: string
   e2bKeepWarmMs?: number
-}): Promise<{ context: any; transpiledCode?: string }> => {
+}): Promise<{
+  context: any
+  transpiledCode?: string
+  triggerSignals: NormalizedPineSignal[]
+  triggerWarnings: PineWarning[]
+}> => {
   const codeForE2B = buildPineTSE2BSingleIndicatorScript({
     normalizedCode,
     barsMs,
@@ -118,6 +125,12 @@ const executeIndicatorInE2B = async ({
       indicator,
     },
     transpiledCode: typeof result.transpiledCode === 'string' ? result.transpiledCode : undefined,
+    triggerSignals: Array.isArray(result.triggerSignals)
+      ? (result.triggerSignals as NormalizedPineSignal[])
+      : [],
+    triggerWarnings: Array.isArray(result.triggerWarnings)
+      ? (result.triggerWarnings as PineWarning[])
+      : [],
   }
 }
 
@@ -232,6 +245,7 @@ export async function compileIndicator({
   e2bTemplate?: string
   e2bKeepWarmMs?: number
 }): Promise<PineCompileResult> {
+  const triggerUsageDetected = detectTriggerUsage(pineCode)
   const inferredIndicatorOptions = inferIndicatorOptionsFromPineCode(pineCode)
   const unsupportedFeatures = detectUnsupportedFeatures(pineCode)
   if (unsupportedFeatures.length > 0) {
@@ -316,6 +330,8 @@ export async function compileIndicator({
   let executionError: PineExecutionError | undefined
   let pineContext: any
   let transpiledCode: string | undefined
+  let triggerSignals: NormalizedPineSignal[] = []
+  let triggerWarnings: PineWarning[] = []
   const executionInterval =
     shouldResample && inferredIndicatorOptions?.timeframe
       ? inferredIndicatorOptions.timeframe
@@ -335,6 +351,35 @@ export async function compileIndicator({
       })
       pineContext = result.context
       transpiledCode = result.transpiledCode
+      triggerSignals = result.triggerSignals
+      triggerWarnings = result.triggerWarnings
+
+      if (triggerUsageDetected && triggerSignals.length === 0) {
+        try {
+          const fallback = await executeIndicatorInLocalVm({
+            barsMs: executionBars,
+            inputsMap,
+            listingKey,
+            interval: executionInterval,
+            code: normalizedCode.code,
+            codeFormat: 'functionExpression',
+          })
+          const fallbackSignals = Array.isArray(fallback.triggerSignals)
+            ? (fallback.triggerSignals as NormalizedPineSignal[])
+            : []
+          const fallbackWarnings = Array.isArray(fallback.triggerWarnings)
+            ? (fallback.triggerWarnings as PineWarning[])
+            : []
+          if (fallbackSignals.length > 0) {
+            triggerSignals = fallbackSignals
+          }
+          if (fallbackWarnings.length > 0) {
+            triggerWarnings = [...triggerWarnings, ...fallbackWarnings]
+          }
+        } catch {
+          // Best-effort fallback for trigger capture parity when E2B runtime can't emit trigger calls.
+        }
+      }
     } else {
       const result = await executeIndicatorInLocalVm({
         barsMs: executionBars,
@@ -346,6 +391,12 @@ export async function compileIndicator({
       })
       pineContext = result.context
       transpiledCode = typeof result.transpiledCode === 'string' ? result.transpiledCode : undefined
+      triggerSignals = Array.isArray(result.triggerSignals)
+        ? (result.triggerSignals as NormalizedPineSignal[])
+        : []
+      triggerWarnings = Array.isArray(result.triggerWarnings)
+        ? (result.triggerWarnings as PineWarning[])
+        : []
     }
   } catch (error) {
     executionError = parseExecutionError(error, 0)
@@ -365,6 +416,7 @@ export async function compileIndicator({
     context: pineContext,
     indexByOpenTimeMs,
     openTimeMsByIndex,
+    triggerSignals,
   })
 
   const runtimeIndicatorOptions = normalizeIndicatorOptions(pineContext?.indicator, {
@@ -397,7 +449,7 @@ export async function compileIndicator({
 
   return {
     output,
-    warnings: [...normalized.warnings, ...compileWarnings],
+    warnings: [...normalized.warnings, ...triggerWarnings, ...compileWarnings],
     unsupported: output.unsupported,
     transpiledCode,
   }

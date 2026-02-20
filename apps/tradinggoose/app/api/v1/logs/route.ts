@@ -3,6 +3,7 @@ import { permissions, workflow, workflowExecutionLogs } from '@tradinggoose/db/s
 import { and, eq, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildLogFilters, getOrderBy } from '@/app/api/v1/logs/filters'
 import { createApiResponse, getUserLimits } from '@/app/api/v1/logs/meta'
@@ -30,6 +31,19 @@ const QueryParamsSchema = z.object({
   details: z.enum(['basic', 'full']).optional().default('basic'),
   includeTraceSpans: z.coerce.boolean().optional().default(false),
   includeFinalOutput: z.coerce.boolean().optional().default(false),
+  monitorId: z.string().optional(),
+  listing: z.string().optional(),
+  indicatorId: z.string().optional(),
+  providerId: z.string().optional(),
+  interval: z.string().optional(),
+  triggerSource: z.preprocess(
+    (value) => {
+      if (typeof value !== 'string') return value
+      const trimmed = value.trim()
+      return trimmed.length === 0 ? undefined : trimmed
+    },
+    z.literal('indicator_trigger').optional()
+  ),
   limit: z.coerce.number().optional().default(100),
   cursor: z.string().optional(),
   order: z.enum(['desc', 'asc']).optional().default('desc'),
@@ -47,6 +61,26 @@ function encodeCursor(data: CursorData): string {
 function decodeCursor(cursor: string): CursorData | null {
   try {
     return JSON.parse(Buffer.from(cursor, 'base64').toString())
+  } catch {
+    return null
+  }
+}
+
+const normalizeOptionalString = (value: string | undefined) => {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
+const parseListingFilter = (
+  value: string | undefined
+): ListingIdentity | undefined | null => {
+  const normalized = normalizeOptionalString(value)
+  if (!normalized) return undefined
+
+  try {
+    const parsed = JSON.parse(normalized)
+    return toListingValueObject(parsed)
   } catch {
     return null
   }
@@ -74,6 +108,18 @@ export async function GET(request: NextRequest) {
     }
 
     const params = validationResult.data
+    const monitorId = normalizeOptionalString(params.monitorId)
+    const listing = parseListingFilter(params.listing)
+    const indicatorId = normalizeOptionalString(params.indicatorId)
+    const providerId = normalizeOptionalString(params.providerId)
+    const interval = normalizeOptionalString(params.interval)
+    const triggerSource = params.triggerSource
+    if (listing === null) {
+      return NextResponse.json({ error: 'Invalid listing filter' }, { status: 400 })
+    }
+    const hasMonitorFilters = Boolean(
+      monitorId || listing || indicatorId || providerId || interval || triggerSource
+    )
 
     logger.info(`[${requestId}] Fetching logs for workspace ${params.workspaceId}`, {
       userId,
@@ -99,6 +145,12 @@ export async function GET(request: NextRequest) {
       minCost: params.minCost,
       maxCost: params.maxCost,
       model: params.model,
+      monitorId,
+      listing,
+      indicatorId,
+      providerId,
+      interval,
+      triggerSource,
       cursor: params.cursor ? decodeCursor(params.cursor) || undefined : undefined,
       order: params.order,
     }
@@ -140,10 +192,12 @@ export async function GET(request: NextRequest) {
         )
       )
 
+    const logsQueryStartedAt = Date.now()
     const logs = await baseQuery
       .where(conditions)
       .orderBy(orderBy)
       .limit(params.limit + 1)
+    const logsQueryDurationMs = Date.now() - logsQueryStartedAt
 
     const hasMore = logs.length > params.limit
     const data = logs.slice(0, params.limit)
@@ -154,6 +208,23 @@ export async function GET(request: NextRequest) {
       nextCursor = encodeCursor({
         startedAt: lastLog.startedAt.toISOString(),
         id: lastLog.id,
+      })
+    }
+
+    if (hasMonitorFilters) {
+      logger.info(`[${requestId}] Monitor-filtered v1 logs query`, {
+        workspaceId: params.workspaceId,
+        limit: params.limit,
+        order: params.order,
+        logsQueryDurationMs,
+        monitorFilters: {
+          monitorId,
+          listing,
+          indicatorId,
+          providerId,
+          interval,
+          triggerSource,
+        },
       })
     }
 

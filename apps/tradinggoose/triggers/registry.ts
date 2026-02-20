@@ -43,6 +43,7 @@ import {
   hubspotTicketDeletedTrigger,
   hubspotTicketPropertyChangedTrigger,
 } from '@/triggers/hubspot'
+import { indicatorTrigger } from '@/triggers/indicator'
 import { imapPollingTrigger } from '@/triggers/imap'
 import {
   microsoftTeamsChatSubscriptionTrigger,
@@ -114,5 +115,6 @@ export const TRIGGER_REGISTRY: TriggerRegistry = {
   hubspot_ticket_created: hubspotTicketCreatedTrigger,
   hubspot_ticket_deleted: hubspotTicketDeletedTrigger,
   hubspot_ticket_property_changed: hubspotTicketPropertyChangedTrigger,
+  indicator_trigger: indicatorTrigger,
   imap_poller: imapPollingTrigger,
 }

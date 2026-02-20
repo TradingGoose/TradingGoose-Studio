@@ -192,6 +192,30 @@ export async function acquireLock(
 }
 
 /**
+ * Monitor-runtime scoped lock acquisition.
+ * Unlike acquireLock(), this path is fail-closed when Redis is unavailable.
+ */
+export async function acquireMonitorRuntimeLock(
+  lockKey: string,
+  value: string,
+  expirySeconds: number
+): Promise<boolean> {
+  try {
+    const redis = getRedisClient()
+    if (!redis) {
+      logger.warn('Redis client not available, monitor runtime lock acquisition denied.')
+      return false
+    }
+
+    const result = await redis.set(lockKey, value, 'EX', expirySeconds, 'NX')
+    return result === 'OK'
+  } catch (error) {
+    logger.error(`Error acquiring monitor runtime lock for key ${lockKey}:`, { error })
+    return false
+  }
+}
+
+/**
  * Retrieves the value of a key from Redis.
  * @param key The key to retrieve.
  * @returns The value of the key, or null if the key doesn't exist or an error occurs.

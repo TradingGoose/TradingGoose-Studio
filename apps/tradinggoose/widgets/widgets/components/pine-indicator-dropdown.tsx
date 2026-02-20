@@ -99,9 +99,9 @@ export function IndicatorDropdown({
     () =>
       includeDefaults
         ? DEFAULT_INDICATORS_META.map((indicator) => ({
-            id: indicator.id,
-            name: indicator.name,
-          }))
+          id: indicator.id,
+          name: indicator.name,
+        }))
         : [],
     [includeDefaults]
   )
@@ -427,11 +427,19 @@ export function IndicatorDropdown({
                                 handleToggleIndicator(option.id)
                               }}
                             >
-                              <FunctionSquare
-                                className='h-4 w-4 text-muted-foreground'
+                              <div
+                                className='h-5 w-5 rounded-xs p-0.5'
+                                style={{
+                                  backgroundColor: `${option.color ?? FALLBACK_COLOR}20`,
+                                }}
                                 aria-hidden='true'
-                                style={{ color: option.color ?? FALLBACK_COLOR }}
-                              />
+                              >
+                                <FunctionSquare
+                                  className='h-4 w-4 text-muted-foreground'
+                                  aria-hidden='true'
+                                  style={{ color: option.color ?? FALLBACK_COLOR }}
+                                />
+                              </div>
                               <span className={widgetHeaderMenuTextClassName}>{option.name}</span>
                               {isSelected && <Check className='h-4 w-4 text-foreground' />}
                             </DropdownMenuItem>

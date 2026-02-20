@@ -433,11 +433,15 @@ export function ListingSelector({
             ),
             hideInputText && 'text-transparent caret-transparent placeholder:text-transparent'
           )}
+          name={`listing-search-${instanceId}`}
           placeholder='Search listings...'
-          autoComplete='new-password'
+          autoComplete='off'
           autoCorrect='off'
           autoCapitalize='off'
           spellCheck={false}
+          data-1p-ignore='true'
+          data-lpignore='true'
+          data-form-type='other'
           value={displayValue}
           onChange={(event) => {
             if (disabled) return

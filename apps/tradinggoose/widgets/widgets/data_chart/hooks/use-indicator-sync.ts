@@ -841,9 +841,15 @@ export const useIndicatorSync = ({
 
         indicatorPaneSeriesMapRef.current.set(indicatorId, paneAnchorSeries)
         const paneAnchorIdentity = paneAnchorSeries ? getSeriesIdentity(paneAnchorSeries) : null
-
         output.markers.forEach((marker) => {
-          const targetSeries = hasNonOverlay ? paneAnchorSeries : mainSeries
+          const targetSeries =
+            indicatorRefMap.get(indicatorId)?.visible === false
+              ? null
+              : marker.source === 'trigger'
+                ? mainSeries
+                : hasNonOverlay
+                  ? paneAnchorSeries
+                  : mainSeries
           if (!targetSeries) return
           const resolvedMarker = toSeriesMarker(marker)
           if (!resolvedMarker) return

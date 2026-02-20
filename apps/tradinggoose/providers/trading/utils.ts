@@ -37,14 +37,15 @@ export function resolveTradingListingContext(input: TradingSymbolInput): Trading
   const listingValue = input.listing as ListingInputValue | undefined
   const record = (listingValue || {}) as Record<string, unknown>
 
-  const listingKeyFromListing = resolveListingKey(listingValue)
+  const listingIdentity = toListingValueObject(listingValue)
+  const listingKeyFromListing = resolveListingKey(listingIdentity)
 
   const base =
     input.base ||
     readListingField(record, 'base') ||
-    (listingKeyFromListing?.includes(':')
-      ? listingKeyFromListing.split(':')[0]
-      : listingKeyFromListing)
+    (listingIdentity?.listing_type === 'default'
+      ? listingIdentity.listing_id || undefined
+      : listingIdentity?.base_id || undefined)
 
   if (!base) {
     throw new Error('listing base is required')
@@ -53,7 +54,9 @@ export function resolveTradingListingContext(input: TradingSymbolInput): Trading
   const quote =
     input.quote ||
     readListingField(record, 'quote') ||
-    (listingKeyFromListing?.includes(':') ? listingKeyFromListing.split(':')[1] : undefined)
+    (listingIdentity && listingIdentity.listing_type !== 'default'
+      ? listingIdentity.quote_id || undefined
+      : undefined)
 
   const listingKey = listingKeyFromListing || (quote ? `${base}:${quote}` : base)
 
@@ -67,7 +70,7 @@ export function resolveTradingListingContext(input: TradingSymbolInput): Trading
 
   return {
     listingKey,
-    listing: toListingValueObject(listingValue ?? listingKey),
+    listing: listingIdentity,
     base,
     quote: quote ?? undefined,
     assetClass: assetClass ?? undefined,
