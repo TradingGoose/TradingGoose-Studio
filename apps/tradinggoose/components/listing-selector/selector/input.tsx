@@ -32,6 +32,7 @@ export interface StockSelectorProps {
   instanceId: string
   blockId?: string
   disabled?: boolean
+  compact?: boolean
   className?: string
   providerType?: 'market' | 'trading'
   onListingChange?: (listing: ListingOption | null) => void
@@ -39,19 +40,16 @@ export interface StockSelectorProps {
   onListingTagSelect?: (value: string) => void
 }
 
-const hasListingDetails = (listing?: ListingOption | null): boolean => {
+const hasResolvedListingMetadata = (listing?: ListingOption | null): boolean => {
   if (!listing) return false
-  const base = listing.base?.trim()
-  if (!base) return false
-  if (listing.listing_type === 'default') return true
-  const quote = listing.quote?.trim()
-  return Boolean(quote)
+  return Boolean(listing.name?.trim() || listing.iconUrl?.trim())
 }
 
 export function StockSelector({
   instanceId,
   blockId,
   disabled,
+  compact = false,
   className,
   providerType = 'market',
   onListingChange,
@@ -211,7 +209,7 @@ export function StockSelector({
     const listingKey = resolveListingKey(identity)
     if (!listingKey) return
 
-    if (safeInstance.selectedListing && hasListingDetails(safeInstance.selectedListing)) {
+    if (safeInstance.selectedListing && hasResolvedListingMetadata(safeInstance.selectedListing)) {
       hydratedKeyRef.current = listingKey
       return
     }
@@ -264,12 +262,17 @@ export function StockSelector({
       <div className='relative'>
         <Input
           ref={inputRef}
+          name={`listing-search-${instanceId}`}
           className={cn(
             'w-full pr-10',
+            compact ? 'h-8 text-sm' : 'h-10',
             hideInputText && 'text-transparent caret-transparent placeholder:text-transparent'
           )}
-          placeholder='Search listings...'
-          autoComplete='new-password'
+          placeholder='Select listing'
+          autoComplete='off'
+          data-1p-ignore='true'
+          data-lpignore='true'
+          data-form-type='other'
           value={displayValue}
           onChange={(event) => {
             if (disabled) return
@@ -381,8 +384,18 @@ export function StockSelector({
           type='text'
         />
         {showRichOverlay ? (
-          <div className='pointer-events-none absolute inset-y-0 left-0 flex items-center px-1 w-full'>
-            <MarketListingRow listing={selectedListing} showAssetClass className='w-full' />
+          <div
+            className={cn(
+              'pointer-events-none absolute inset-y-0 left-0 flex items-center w-full',
+              compact ? 'px-2' : 'px-1'
+            )}
+          >
+            <MarketListingRow
+              listing={selectedListing}
+              showAssetClass={!compact}
+              compact={compact}
+              className='w-full'
+            />
           </div>
         ) : null}
         {showTagOverlay ? (

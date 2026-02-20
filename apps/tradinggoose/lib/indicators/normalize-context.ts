@@ -3,8 +3,9 @@ import type {
   NormalizedPineOutput,
   NormalizedPinePlot,
   NormalizedPineSeries,
-  PineWarning,
+  NormalizedPineSignal,
   PineUnsupportedInfo,
+  PineWarning,
   SeriesMarkerPosition,
   SeriesMarkerShape,
 } from '@/lib/indicators/types'
@@ -40,7 +41,10 @@ const mapLocation = (location?: string): SeriesMarkerPosition | null => {
   return null
 }
 
-const resolveOffset = (pointOptions?: Record<string, unknown>, plotOptions?: Record<string, unknown>) => {
+const resolveOffset = (
+  pointOptions?: Record<string, unknown>,
+  plotOptions?: Record<string, unknown>
+) => {
   const raw = pointOptions?.offset ?? plotOptions?.offset
   if (typeof raw !== 'number' || !Number.isFinite(raw) || raw === 0) return 0
   return Math.trunc(raw)
@@ -95,10 +99,12 @@ export function normalizeContext({
   context,
   indexByOpenTimeMs,
   openTimeMsByIndex,
+  triggerSignals = [],
 }: {
   context: any
   indexByOpenTimeMs?: Map<number, number>
   openTimeMsByIndex?: number[]
+  triggerSignals?: NormalizedPineSignal[]
 }): { output: NormalizedPineOutput; warnings: PineWarning[] } {
   const warnings: PineWarning[] = []
   const unsupported: PineUnsupportedInfo = { plots: [], styles: [] }
@@ -129,8 +135,7 @@ export function normalizeContext({
         })
       }
       const plotShape = mapShape(plotOptions.shape as string | undefined) ?? 'circle'
-      const plotLocation =
-        mapLocation(plotOptions.location as string | undefined) ?? 'aboveBar'
+      const plotLocation = mapLocation(plotOptions.location as string | undefined) ?? 'aboveBar'
 
       const data = Array.isArray((plot as any).data) ? (plot as any).data : []
       data.forEach((point: any) => {
@@ -143,13 +148,11 @@ export function normalizeContext({
           indexByOpenTimeMs,
           openTimeMsByIndex
         )
-        if (!Number.isFinite(timeMs ?? NaN)) return
+        if (!Number.isFinite(timeMs ?? Number.NaN)) return
         const mappedTime = toSeconds(timeMs as number)
 
-        const rawShape =
-          mapShape(pointOptions.shape as string | undefined) ?? plotShape ?? 'circle'
-        const rawLocation =
-          mapLocation(pointOptions.location as string | undefined) ?? plotLocation
+        const rawShape = mapShape(pointOptions.shape as string | undefined) ?? plotShape ?? 'circle'
+        const rawLocation = mapLocation(pointOptions.location as string | undefined) ?? plotLocation
         if (!rawShape || !rawLocation) return
 
         const marker: NormalizedPineMarker = {
@@ -244,12 +247,10 @@ export function normalizeContext({
           indexByOpenTimeMs,
           openTimeMsByIndex
         )
-        if (!Number.isFinite(timeMs ?? NaN)) return null
+        if (!Number.isFinite(timeMs ?? Number.NaN)) return null
         const mappedTime = toSeconds(timeMs as number)
         const rawValue =
-          typeof point.value === 'number' && Number.isFinite(point.value)
-            ? point.value
-            : null
+          typeof point.value === 'number' && Number.isFinite(point.value) ? point.value : null
 
         return {
           time: mappedTime,
@@ -260,9 +261,7 @@ export function normalizeContext({
               : undefined,
         }
       })
-      .filter(
-        (point: unknown): point is NormalizedPineSeries['points'][number] => Boolean(point)
-      )
+      .filter((point: unknown): point is NormalizedPineSeries['points'][number] => Boolean(point))
 
     if (resolvedStyle.needsMarkers) {
       if (style === 'style_cross') {
@@ -295,11 +294,24 @@ export function normalizeContext({
     }
   })
 
+  triggerSignals.forEach((signal) => {
+    const shape: SeriesMarkerShape =
+      signal.signal === 'long' ? 'arrowUp' : signal.signal === 'short' ? 'arrowDown' : 'circle'
+    markers.push({
+      source: 'trigger',
+      time: signal.time,
+      position: signal.position,
+      shape,
+      color: signal.color,
+      text: signal.event,
+    })
+  })
+
   return {
     output: {
       series,
       markers,
-      signals: [],
+      signals: triggerSignals,
       unsupported,
     },
     warnings,

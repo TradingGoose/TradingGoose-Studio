@@ -49,6 +49,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const webhookData = webhooks[0]
 
+    if (webhookData.webhook.provider === 'indicator') {
+      logger.warn(`[${requestId}] Generic webhook read blocked for indicator webhook: ${id}`)
+      return NextResponse.json({ error: 'Webhook not found' }, { status: 404 })
+    }
+
     // Check if user has permission to access this webhook
     let hasAccess = false
 
@@ -99,6 +104,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const body = await request.json()
     const { path, provider, providerConfig, isActive } = body
 
+    if (provider === 'indicator') {
+      logger.warn(`[${requestId}] Generic webhook update cannot set indicator provider: ${id}`)
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     // Find the webhook and check permissions
     const webhooks = await db
       .select({
@@ -120,6 +130,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     const webhookData = webhooks[0]
+
+    if (webhookData.webhook.provider === 'indicator') {
+      logger.warn(`[${requestId}] Generic webhook update blocked for indicator webhook: ${id}`)
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     // Check if user has permission to modify this webhook
     let canModify = false
@@ -215,6 +230,11 @@ export async function DELETE(
     }
 
     const webhookData = webhooks[0]
+
+    if (webhookData.webhook.provider === 'indicator') {
+      logger.warn(`[${requestId}] Generic webhook delete blocked for indicator webhook: ${id}`)
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     // Check if user has permission to delete this webhook
     let canDelete = false

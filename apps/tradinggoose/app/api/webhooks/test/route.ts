@@ -1,8 +1,10 @@
 import { db } from '@tradinggoose/db'
-import { webhook } from '@tradinggoose/db/schema'
+import { webhook, workflow } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
+import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
 
@@ -14,6 +16,12 @@ export async function GET(request: NextRequest) {
   const requestId = generateRequestId()
 
   try {
+    const session = await getSession()
+    if (!session?.user?.id) {
+      logger.warn(`[${requestId}] Unauthorized webhook test helper access attempt`)
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
     const webhookId = searchParams.get('id')
 
@@ -24,14 +32,51 @@ export async function GET(request: NextRequest) {
 
     logger.debug(`[${requestId}] Testing webhook with ID: ${webhookId}`)
 
-    const webhooks = await db.select().from(webhook).where(eq(webhook.id, webhookId)).limit(1)
+    const rows = await db
+      .select({
+        webhook: webhook,
+        workflow: {
+          id: workflow.id,
+          userId: workflow.userId,
+          workspaceId: workflow.workspaceId,
+        },
+      })
+      .from(webhook)
+      .innerJoin(workflow, eq(webhook.workflowId, workflow.id))
+      .where(eq(webhook.id, webhookId))
+      .limit(1)
 
-    if (webhooks.length === 0) {
+    if (rows.length === 0) {
       logger.warn(`[${requestId}] Webhook not found: ${webhookId}`)
       return NextResponse.json({ success: false, error: 'Webhook not found' }, { status: 404 })
     }
 
-    const foundWebhook = webhooks[0]
+    const { webhook: foundWebhook, workflow: foundWorkflow } = rows[0]
+
+    let canRead = foundWorkflow.userId === session.user.id
+    if (!canRead && foundWorkflow.workspaceId) {
+      const permission = await getUserEntityPermissions(
+        session.user.id,
+        'workspace',
+        foundWorkflow.workspaceId
+      )
+      canRead = permission === 'write' || permission === 'admin'
+    }
+
+    if (!canRead) {
+      logger.warn(`[${requestId}] User ${session.user.id} denied webhook test helper access`, {
+        webhookId,
+      })
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+    }
+
+    if (foundWebhook.provider === 'indicator') {
+      logger.warn(`[${requestId}] Blocked webhook test helper call for indicator webhook`, {
+        webhookId,
+      })
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+    }
+
     const provider = foundWebhook.provider || 'generic'
     const providerConfig = (foundWebhook.providerConfig as Record<string, any>) || {}
 
@@ -168,7 +213,7 @@ export async function GET(request: NextRequest) {
         let responseText = ''
         try {
           responseText = await response.text()
-        } catch (_e) { }
+        } catch (_e) {}
 
         const success = status >= 200 && status < 300
 

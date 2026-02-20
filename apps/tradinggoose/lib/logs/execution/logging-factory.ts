@@ -6,11 +6,18 @@ export function createTriggerObject(
   type: ExecutionTrigger['type'],
   additionalData?: Record<string, unknown>
 ): ExecutionTrigger {
+  const sourceOverrideRaw =
+    typeof additionalData?.source === 'string' ? additionalData.source.trim() : ''
+  const source = sourceOverrideRaw || type
+
+  const { source: _source, ...dataWithoutSource } = additionalData ?? {}
+  const hasData = Object.keys(dataWithoutSource).length > 0
+
   return {
     type,
-    source: type,
+    source,
     timestamp: new Date().toISOString(),
-    ...(additionalData && { data: additionalData }),
+    ...(hasData ? { data: dataWithoutSource } : {}),
   }
 }
 

@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { buildAlpacaOrderRequest } from '@/providers/trading/alpaca/orders'
 
 const baseParams = {
-  listing: 'AAPL',
+  listing: {
+    listing_id: 'AAPL',
+    base_id: '',
+    quote_id: '',
+    listing_type: 'default' as const,
+  },
   side: 'buy' as const,
   orderType: 'market' as const,
   timeInForce: 'day' as const,

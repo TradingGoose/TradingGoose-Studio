@@ -1,11 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Loader2, Scroll, RefreshCw } from 'lucide-react'
+import { Loader2, Plus, RefreshCw, Scroll } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { toListingValueObject } from '@/lib/listing/identity'
 import { parseQuery, queryToApiParams } from '@/lib/logs/query-parser'
 import { cn } from '@/lib/utils'
 import { Dashboard } from '@/app/workspace/[workspaceId]/logs/components/dashboard'
@@ -15,6 +16,10 @@ import {
   AutocompleteSearch,
   LogsToolbar,
 } from '@/app/workspace/[workspaceId]/logs/components/logs-toolbar'
+import {
+  type MonitorExportContext,
+  MonitorsView,
+} from '@/app/workspace/[workspaceId]/logs/components/monitors/monitors-view'
 import { useFolders } from '@/hooks/queries/folders'
 import { useLogDetail, useLogsList } from '@/hooks/queries/logs'
 import { useDebounce } from '@/hooks/use-debounce'
@@ -65,10 +70,16 @@ export default function Logs() {
   const selectedRowRef = useRef<HTMLTableRowElement | null>(null)
   const loaderRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const monitorsRefreshHandlerRef = useRef<(() => Promise<void>) | null>(null)
+  const monitorsAddHandlerRef = useRef<(() => void) | null>(null)
   const isInitialized = useRef<boolean>(false)
 
   const [searchQuery, setSearchQuery] = useState(storeSearchQuery)
   const debouncedSearchQuery = useDebounce(searchQuery, 300)
+  const [monitorExportContext, setMonitorExportContext] = useState<MonitorExportContext | null>(
+    null
+  )
+  const [isMonitorsRefreshing, setIsMonitorsRefreshing] = useState(false)
 
   const [availableWorkflows, setAvailableWorkflows] = useState<string[]>([])
   const [availableFolders, setAvailableFolders] = useState<string[]>([])
@@ -105,7 +116,7 @@ export default function Logs() {
   const hasMore = Boolean(logsQuery.hasNextPage)
   const isFetchingMore = logsQuery.isFetchingNextPage
   const isInitialLoading = logsQuery.isLoading && !logsQuery.data
-  const isRefreshing = logsQuery.isRefetching
+  const isRefreshing = viewMode === 'monitors' ? isMonitorsRefreshing : logsQuery.isRefetching
   const loading = isInitialLoading
   const error =
     logsQuery.error instanceof Error
@@ -225,6 +236,12 @@ export default function Logs() {
   }, [selectedLogIndex])
 
   const handleRefresh = async () => {
+    if (viewMode === 'monitors') {
+      if (monitorsRefreshHandlerRef.current) {
+        await monitorsRefreshHandlerRef.current()
+      }
+      return
+    }
     await logsQuery.refetch()
   }
 
@@ -236,9 +253,22 @@ export default function Logs() {
     const params = new URLSearchParams()
     params.set('workspaceId', workspaceId)
     if (level !== 'all') params.set('level', level)
-    if (triggers.length > 0) params.set('triggers', triggers.join(','))
-    if (workflowIds.length > 0) params.set('workflowIds', workflowIds.join(','))
-    if (folderIds.length > 0) params.set('folderIds', folderIds.join(','))
+    if (viewMode === 'monitors' && monitorExportContext) {
+      params.set('workflowIds', monitorExportContext.workflowId)
+      params.set('monitorId', monitorExportContext.monitorId)
+      const normalizedListing = toListingValueObject(monitorExportContext.listing)
+      if (normalizedListing) {
+        params.set('listing', JSON.stringify(normalizedListing))
+      }
+      params.set('indicatorId', monitorExportContext.indicatorId)
+      params.set('providerId', monitorExportContext.providerId)
+      params.set('interval', monitorExportContext.interval)
+      params.set('triggerSource', monitorExportContext.triggerSource)
+    } else {
+      if (triggers.length > 0) params.set('triggers', triggers.join(','))
+      if (workflowIds.length > 0) params.set('workflowIds', workflowIds.join(','))
+      if (folderIds.length > 0) params.set('folderIds', folderIds.join(','))
+    }
 
     const parsed = parseQuery(debouncedSearchQuery)
     const extra = queryToApiParams(parsed)
@@ -362,12 +392,13 @@ export default function Logs() {
   }, [logs, selectedLogIndex, isSidebarOpen, selectedLog, handleNavigateNext, handleNavigatePrev])
 
   const isDashboardView = viewMode === 'dashboard'
+  const isMonitorsView = viewMode === 'monitors'
 
   const headerLeftContent = isDashboardView ? null : (
     <div className='flex w-full flex-1 items-center gap-3'>
       <div className='hidden items-center gap-2 sm:flex'>
         <Scroll className='h-[18px] w-[18px] text-muted-foreground' />
-        <span className='font-medium text-sm'>Logs</span>
+        <span className='font-medium text-sm'>{isMonitorsView ? 'Monitors' : 'Logs'}</span>
       </div>
       <div className='flex w-full flex-1'>
         <AutocompleteSearch
@@ -413,13 +444,27 @@ export default function Logs() {
           onClick={() => setViewMode('logs')}
           className={cn(
             'h-7 rounded-sm px-3 font-normal text-xs',
-            viewMode !== 'dashboard'
+            viewMode === 'logs'
               ? 'bg-background text-foreground'
               : 'text-muted-foreground hover:text-foreground'
           )}
-          aria-pressed={viewMode !== 'dashboard'}
+          aria-pressed={viewMode === 'logs'}
         >
           Logs
+        </Button>
+        <Button
+          variant='ghost'
+          size='sm'
+          onClick={() => setViewMode('monitors')}
+          className={cn(
+            'h-7 rounded-sm px-3 font-normal text-xs',
+            viewMode === 'monitors'
+              ? 'bg-background text-foreground'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+          aria-pressed={viewMode === 'monitors'}
+        >
+          Monitors
         </Button>
         <Button
           variant='ghost'
@@ -427,11 +472,9 @@ export default function Logs() {
           onClick={() => setViewMode('dashboard')}
           className={cn(
             'h-7 rounded-sm px-3 font-normal text-xs',
-            viewMode === 'dashboard'
-              ? 'bg-background text-foreground'
-              : 'text-muted-foreground hover:text-foreground'
+            'text-muted-foreground hover:text-foreground'
           )}
-          aria-pressed={viewMode === 'dashboard'}
+          aria-pressed={false}
         >
           Dashboard
         </Button>
@@ -441,6 +484,26 @@ export default function Logs() {
 
   const headerRightContent = (
     <div className='flex flex-wrap items-center gap-3'>
+      {isMonitorsView ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant='ghost'
+              size='icon'
+              onClick={() => {
+                monitorsAddHandlerRef.current?.()
+              }}
+              className='h-9 rounded-md hover:bg-secondary'
+              aria-label='Add monitor'
+            >
+              <Plus className='h-5 w-5' />
+              <span className='sr-only'>Add monitor</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Add monitor</TooltipContent>
+        </Tooltip>
+      ) : null}
+
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
@@ -562,6 +625,31 @@ export default function Logs() {
         {header}
         <div className='min-h-0 flex-1 overflow-hidden'>
           <Dashboard />
+        </div>
+      </div>
+    )
+  }
+
+  if (isMonitorsView) {
+    return (
+      <div className='flex h-full min-h-0 flex-col'>
+        {header}
+        <div className='min-h-0 flex-1 overflow-hidden'>
+          <MonitorsView
+            workspaceId={workspaceId}
+            timeRange={timeRange}
+            level={level}
+            searchQuery={debouncedSearchQuery}
+            live={isLive}
+            onRefreshHandleChange={(handler) => {
+              monitorsRefreshHandlerRef.current = handler
+            }}
+            onAddMonitorHandleChange={(handler) => {
+              monitorsAddHandlerRef.current = handler
+            }}
+            onExportContextChange={setMonitorExportContext}
+            onRefreshingChange={setIsMonitorsRefreshing}
+          />
         </div>
       </div>
     )

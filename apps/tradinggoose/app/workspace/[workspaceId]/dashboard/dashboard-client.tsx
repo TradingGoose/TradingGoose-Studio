@@ -1117,8 +1117,12 @@ function applyPairDataToWidget(
   if (copilotChatId) {
     baseParams.copilotChatId = copilotChatId
   }
-  baseParams.indicatorId = indicatorId
-  baseParams.pineIndicatorId = pineIndicatorId
+  if (indicatorId) {
+    baseParams.indicatorId = indicatorId
+  }
+  if (pineIndicatorId) {
+    baseParams.pineIndicatorId = pineIndicatorId
+  }
 
   if (areWidgetParamsEqual(widget.params ?? null, baseParams)) {
     return widget

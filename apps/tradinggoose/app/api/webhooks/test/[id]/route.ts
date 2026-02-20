@@ -5,6 +5,7 @@ import {
   checkRateLimits,
   findWebhookAndWorkflow,
   handleProviderChallenges,
+  mapDispatchGateResultToHttpResponse,
   parseWebhookBody,
   queueWebhookExecution,
   verifyProviderAuth,
@@ -21,18 +22,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const webhookId = (await params).id
 
   logger.info(`[${requestId}] Test webhook request received for webhook ${webhookId}`)
-
-  const parseResult = await parseWebhookBody(request, requestId)
-  if (parseResult instanceof NextResponse) {
-    return parseResult
-  }
-
-  const { body, rawBody } = parseResult
-
-  const challengeResponse = await handleProviderChallenges(body, request, requestId, '')
-  if (challengeResponse) {
-    return challengeResponse
-  }
 
   const url = new URL(request.url)
   const token = url.searchParams.get('token')
@@ -56,12 +45,32 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { webhook: foundWebhook, workflow: foundWorkflow } = result
 
+  if (foundWebhook.provider === 'indicator') {
+    logger.warn(`[${requestId}] Blocked external test-receiver request for indicator webhook`, {
+      webhookId: foundWebhook.id,
+    })
+    return new NextResponse('Forbidden', { status: 403 })
+  }
+
+  const parseResult = await parseWebhookBody(request, requestId)
+  if (parseResult instanceof NextResponse) {
+    return parseResult
+  }
+
+  const { body, rawBody } = parseResult
+
+  const challengeResponse = await handleProviderChallenges(body, request, requestId, '')
+  if (challengeResponse) {
+    return challengeResponse
+  }
+
   const authError = await verifyProviderAuth(foundWebhook, request, rawBody, requestId)
   if (authError) {
     return authError
   }
 
-  const rateLimitError = await checkRateLimits(foundWorkflow, foundWebhook, requestId)
+  const rateLimitResult = await checkRateLimits(foundWorkflow, foundWebhook, requestId)
+  const rateLimitError = mapDispatchGateResultToHttpResponse(rateLimitResult, foundWebhook.provider)
   if (rateLimitError) {
     return rateLimitError
   }
@@ -70,10 +79,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     `[${requestId}] Executing TEST webhook for ${foundWebhook.provider} (workflow: ${foundWorkflow.id})`
   )
 
-  return queueWebhookExecution(foundWebhook, foundWorkflow, body, request, {
-    requestId,
-    path: foundWebhook.path,
-    testMode: true,
-    executionTarget: 'live',
-  })
+  return queueWebhookExecution(
+    foundWebhook,
+    foundWorkflow,
+    body,
+    { kind: 'http', request },
+    {
+      requestId,
+      path: foundWebhook.path,
+      testMode: true,
+      executionTarget: 'live',
+    }
+  )
 }

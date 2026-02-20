@@ -73,15 +73,28 @@ export type NormalizedPineMarker = {
   time: number
   position: SeriesMarkerPosition
   shape: SeriesMarkerShape
+  source?: 'trigger'
   color?: string
   text?: string
   price?: number
 }
 
+export type IndicatorTriggerSignal = 'long' | 'short' | 'flat'
+
+export type NormalizedPineSignal = {
+  event: string
+  input: string
+  signal: IndicatorTriggerSignal
+  time: number
+  barIndex: number
+  position: SeriesMarkerPosition
+  color?: string
+}
+
 export type NormalizedPineOutput = {
   series: NormalizedPineSeries[]
   markers: NormalizedPineMarker[]
-  signals: unknown[]
+  signals: NormalizedPineSignal[]
   unsupported: PineUnsupportedInfo
   indicator?: IndicatorOptions
 }

@@ -4,6 +4,7 @@ import { and, desc, eq, gte, inArray, lte, type SQL, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
+import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('LogsExportAPI')
@@ -20,8 +21,41 @@ const ExportParamsSchema = z.object({
   search: z.string().optional(),
   workflowName: z.string().optional(),
   folderName: z.string().optional(),
+  monitorId: z.string().optional(),
+  listing: z.string().optional(),
+  indicatorId: z.string().optional(),
+  providerId: z.string().optional(),
+  interval: z.string().optional(),
+  triggerSource: z.preprocess(
+    (value) => {
+      if (typeof value !== 'string') return value
+      const trimmed = value.trim()
+      return trimmed.length === 0 ? undefined : trimmed
+    },
+    z.literal('indicator_trigger').optional()
+  ),
   workspaceId: z.string(),
 })
+
+const normalizeOptionalString = (value: string | undefined) => {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
+const parseListingFilter = (
+  value: string | undefined
+): ListingIdentity | undefined | null => {
+  const normalized = normalizeOptionalString(value)
+  if (!normalized) return undefined
+
+  try {
+    const parsed = JSON.parse(normalized)
+    return toListingValueObject(parsed)
+  } catch {
+    return null
+  }
+}
 
 function escapeCsv(value: any): string {
   if (value === null || value === undefined) return ''
@@ -42,6 +76,15 @@ export async function GET(request: NextRequest) {
     const userId = session.user.id
     const { searchParams } = new URL(request.url)
     const params = ExportParamsSchema.parse(Object.fromEntries(searchParams.entries()))
+    const monitorId = normalizeOptionalString(params.monitorId)
+    const listing = parseListingFilter(params.listing)
+    const indicatorId = normalizeOptionalString(params.indicatorId)
+    const providerId = normalizeOptionalString(params.providerId)
+    const interval = normalizeOptionalString(params.interval)
+    const triggerSource = normalizeOptionalString(params.triggerSource)
+    if (listing === null) {
+      return NextResponse.json({ error: 'Invalid listing filter' }, { status: 400 })
+    }
 
     const selectColumns = {
       id: workflowExecutionLogs.id,
@@ -100,6 +143,46 @@ export async function GET(request: NextRequest) {
       conditions = and(conditions, sql`${workflow.name} ILIKE ${folderTerm}`)
     }
 
+    if (monitorId) {
+      conditions = and(
+        conditions,
+        sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->>'id' = ${monitorId}`
+      )
+    }
+    if (listing) {
+      conditions = and(
+        conditions,
+        sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->'listing'->>'listing_type' = ${listing.listing_type}`,
+        sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->'listing'->>'listing_id' = ${listing.listing_id}`,
+        sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->'listing'->>'base_id' = ${listing.base_id}`,
+        sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->'listing'->>'quote_id' = ${listing.quote_id}`
+      )
+    }
+    if (indicatorId) {
+      conditions = and(
+        conditions,
+        sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->>'indicatorId' = ${indicatorId}`
+      )
+    }
+    if (providerId) {
+      conditions = and(
+        conditions,
+        sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->>'providerId' = ${providerId}`
+      )
+    }
+    if (interval) {
+      conditions = and(
+        conditions,
+        sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->>'interval' = ${interval}`
+      )
+    }
+    if (triggerSource) {
+      conditions = and(
+        conditions,
+        sql`${workflowExecutionLogs.executionData}->'trigger'->>'source' = ${triggerSource}`
+      )
+    }
+
     const header = [
       'startedAt',
       'level',
@@ -154,7 +237,7 @@ export async function GET(request: NextRequest) {
                   if (ed.message) message = ed.message
                   if (ed.traceSpans) traces = ed.traceSpans
                 }
-              } catch { }
+              } catch {}
               const line = [
                 escapeCsv(r.startedAt?.toISOString?.() || r.startedAt),
                 escapeCsv(r.level),
@@ -177,7 +260,7 @@ export async function GET(request: NextRequest) {
           logger.error('Export stream error', { error: e?.message })
           try {
             controller.error(e)
-          } catch { }
+          } catch {}
         }
       },
     })

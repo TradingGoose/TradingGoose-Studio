@@ -26,6 +26,81 @@ export interface WebhookProcessorOptions {
   executionTarget?: 'deployed' | 'live'
 }
 
+export type DispatchGateResult =
+  | { allowed: true }
+  | {
+      allowed: false
+      code: 'PINNED_API_KEY_REQUIRED' | 'RATE_LIMIT_EXCEEDED' | 'USAGE_LIMIT_EXCEEDED'
+      message: string
+    }
+
+export type QueueWebhookExecutionContext =
+  | { kind: 'http'; request: NextRequest }
+  | { kind: 'internal'; headers?: Record<string, string> }
+
+export type QueueWebhookExecutionOptions = WebhookProcessorOptions & {
+  headerOverrides?: Record<string, string>
+}
+
+export type QueueWebhookExecutionInternalResult =
+  | { queued: true }
+  | {
+      queued: false
+      code: 'PINNED_API_KEY_REQUIRED' | 'QUEUE_FAILED'
+      message: string
+    }
+
+const resolveBaseHeaders = (context: QueueWebhookExecutionContext): Record<string, string> => {
+  if (context.kind === 'http') {
+    return Object.fromEntries(context.request.headers.entries())
+  }
+  return { ...(context.headers ?? {}) }
+}
+
+const mergeHeadersWithOverrides = (
+  baseHeaders: Record<string, string>,
+  headerOverrides?: Record<string, string>
+) => {
+  if (!headerOverrides) {
+    return baseHeaders
+  }
+  return {
+    ...baseHeaders,
+    ...headerOverrides,
+  }
+}
+
+export function mapDispatchGateResultToHttpResponse(
+  result: DispatchGateResult,
+  provider: string
+): NextResponse | null {
+  if (result.allowed) {
+    return null
+  }
+
+  if (result.code === 'PINNED_API_KEY_REQUIRED') {
+    return NextResponse.json({ message: 'Pinned API key required' }, { status: 200 })
+  }
+
+  if (result.code === 'RATE_LIMIT_EXCEEDED') {
+    if (provider === 'microsoftteams') {
+      return NextResponse.json({
+        type: 'message',
+        text: 'Rate limit exceeded. Please try again later.',
+      })
+    }
+    return NextResponse.json({ message: 'Rate limit exceeded' }, { status: 200 })
+  }
+
+  if (provider === 'microsoftteams') {
+    return NextResponse.json({
+      type: 'message',
+      text: 'Usage limit exceeded. Please upgrade your plan to continue.',
+    })
+  }
+  return NextResponse.json({ message: 'Usage limit exceeded' }, { status: 200 })
+}
+
 export async function parseWebhookBody(
   request: NextRequest,
   requestId: string
@@ -267,13 +342,17 @@ export async function checkRateLimits(
   foundWorkflow: any,
   foundWebhook: any,
   requestId: string
-): Promise<NextResponse | null> {
+): Promise<DispatchGateResult> {
   try {
     const actorUserId = await getApiKeyOwnerUserId(foundWorkflow.pinnedApiKeyId)
 
     if (!actorUserId) {
       logger.warn(`[${requestId}] Webhook requires pinned API key to attribute usage`)
-      return NextResponse.json({ message: 'Pinned API key required' }, { status: 200 })
+      return {
+        allowed: false,
+        code: 'PINNED_API_KEY_REQUIRED',
+        message: 'Pinned API key required',
+      }
     }
 
     const userSubscription = await getHighestPrioritySubscription(actorUserId)
@@ -293,14 +372,11 @@ export async function checkRateLimits(
         resetAt: rateLimitCheck.resetAt,
       })
 
-      if (foundWebhook.provider === 'microsoftteams') {
-        return NextResponse.json({
-          type: 'message',
-          text: 'Rate limit exceeded. Please try again later.',
-        })
+      return {
+        allowed: false,
+        code: 'RATE_LIMIT_EXCEEDED',
+        message: 'Rate limit exceeded',
       }
-
-      return NextResponse.json({ message: 'Rate limit exceeded' }, { status: 200 })
     }
 
     logger.debug(`[${requestId}] Rate limit check passed for webhook`, {
@@ -312,7 +388,7 @@ export async function checkRateLimits(
     logger.error(`[${requestId}] Error checking webhook rate limits:`, rateLimitError)
   }
 
-  return null
+  return { allowed: true }
 }
 
 export async function checkUsageLimits(
@@ -320,10 +396,10 @@ export async function checkUsageLimits(
   foundWebhook: any,
   requestId: string,
   testMode: boolean
-): Promise<NextResponse | null> {
+): Promise<DispatchGateResult> {
   if (testMode) {
     logger.debug(`[${requestId}] Skipping usage limit check for test webhook`)
-    return null
+    return { allowed: true }
   }
 
   try {
@@ -331,7 +407,11 @@ export async function checkUsageLimits(
 
     if (!actorUserId) {
       logger.warn(`[${requestId}] Webhook requires pinned API key to attribute usage`)
-      return NextResponse.json({ message: 'Pinned API key required' }, { status: 200 })
+      return {
+        allowed: false,
+        code: 'PINNED_API_KEY_REQUIRED',
+        message: 'Pinned API key required',
+      }
     }
 
     const usageCheck = await checkServerSideUsageLimits(actorUserId)
@@ -346,14 +426,11 @@ export async function checkUsageLimits(
         }
       )
 
-      if (foundWebhook.provider === 'microsoftteams') {
-        return NextResponse.json({
-          type: 'message',
-          text: 'Usage limit exceeded. Please upgrade your plan to continue.',
-        })
+      return {
+        allowed: false,
+        code: 'USAGE_LIMIT_EXCEEDED',
+        message: 'Usage limit exceeded',
       }
-
-      return NextResponse.json({ message: 'Usage limit exceeded' }, { status: 200 })
     }
 
     logger.debug(`[${requestId}] Usage limit check passed for webhook`, {
@@ -365,24 +442,86 @@ export async function checkUsageLimits(
     logger.error(`[${requestId}] Error checking webhook usage limits:`, usageError)
   }
 
-  return null
+  return { allowed: true }
 }
 
 export async function queueWebhookExecution(
   foundWebhook: any,
   foundWorkflow: any,
   body: any,
-  request: NextRequest,
-  options: WebhookProcessorOptions
+  context: QueueWebhookExecutionContext,
+  options: QueueWebhookExecutionOptions
 ): Promise<NextResponse> {
+  const queueResult = await queueWebhookExecutionInternal(
+    foundWebhook,
+    foundWorkflow,
+    body,
+    context,
+    options
+  )
+
+  if (!queueResult.queued) {
+    if (queueResult.code === 'PINNED_API_KEY_REQUIRED') {
+      return (
+        mapDispatchGateResultToHttpResponse(
+          {
+            allowed: false,
+            code: 'PINNED_API_KEY_REQUIRED',
+            message: queueResult.message,
+          },
+          foundWebhook.provider
+        ) ?? NextResponse.json({ message: queueResult.message }, { status: 200 })
+      )
+    }
+
+    if (foundWebhook.provider === 'microsoftteams') {
+      return NextResponse.json({
+        type: 'message',
+        text: 'Webhook processing failed',
+      })
+    }
+
+    return NextResponse.json({ message: 'Internal server error' }, { status: 200 })
+  }
+
+  if (foundWebhook.provider === 'microsoftteams') {
+    const providerConfig = (foundWebhook.providerConfig as Record<string, any>) || {}
+    const triggerId = providerConfig.triggerId as string | undefined
+
+    // Chat subscription (Graph API) returns 202
+    if (triggerId === 'microsoftteams_chat_subscription') {
+      return new NextResponse(null, { status: 202 })
+    }
+
+    // Channel webhook (outgoing webhook) returns message response
+    return NextResponse.json({
+      type: 'message',
+      text: 'Sim',
+    })
+  }
+
+  return NextResponse.json({ message: 'Webhook processed' })
+}
+
+export async function queueWebhookExecutionInternal(
+  foundWebhook: any,
+  foundWorkflow: any,
+  body: any,
+  context: QueueWebhookExecutionContext,
+  options: QueueWebhookExecutionOptions
+): Promise<QueueWebhookExecutionInternalResult> {
   try {
     const actorUserId = await getApiKeyOwnerUserId(foundWorkflow.pinnedApiKeyId)
     if (!actorUserId) {
       logger.warn(`[${options.requestId}] Webhook requires pinned API key to attribute usage`)
-      return NextResponse.json({ message: 'Pinned API key required' }, { status: 200 })
+      return {
+        queued: false,
+        code: 'PINNED_API_KEY_REQUIRED',
+        message: 'Pinned API key required',
+      }
     }
 
-    const headers = Object.fromEntries(request.headers.entries())
+    const baseHeaders = resolveBaseHeaders(context)
 
     // For Microsoft Teams Graph notifications, extract unique identifiers for idempotency
     if (
@@ -396,9 +535,11 @@ export async function queueWebhookExecution(
       const messageId = notification.resourceData?.id
 
       if (subscriptionId && messageId) {
-        headers['x-teams-notification-id'] = `${subscriptionId}:${messageId}`
+        baseHeaders['x-teams-notification-id'] = `${subscriptionId}:${messageId}`
       }
     }
+
+    const headers = mergeHeadersWithOverrides(baseHeaders, options.headerOverrides)
 
     // Extract credentialId from webhook config for credential-based webhooks
     const providerConfig = (foundWebhook.providerConfig as Record<string, any>) || {}
@@ -423,7 +564,8 @@ export async function queueWebhookExecution(
     if (useTrigger) {
       const handle = await tasks.trigger('webhook-execution', payload)
       logger.info(
-        `[${options.requestId}] Queued ${options.testMode ? 'TEST ' : ''}webhook execution task ${handle.id
+        `[${options.requestId}] Queued ${options.testMode ? 'TEST ' : ''}webhook execution task ${
+          handle.id
         } for ${foundWebhook.provider} webhook`
       )
     } else {
@@ -431,38 +573,19 @@ export async function queueWebhookExecution(
         logger.error(`[${options.requestId}] Direct webhook execution failed`, error)
       })
       logger.info(
-        `[${options.requestId}] Queued direct ${options.testMode ? 'TEST ' : ''
+        `[${options.requestId}] Queued direct ${
+          options.testMode ? 'TEST ' : ''
         }webhook execution for ${foundWebhook.provider} webhook (Trigger.dev disabled)`
       )
     }
 
-    if (foundWebhook.provider === 'microsoftteams') {
-      const providerConfig = (foundWebhook.providerConfig as Record<string, any>) || {}
-      const triggerId = providerConfig.triggerId as string | undefined
-
-      // Chat subscription (Graph API) returns 202
-      if (triggerId === 'microsoftteams_chat_subscription') {
-        return new NextResponse(null, { status: 202 })
-      }
-
-      // Channel webhook (outgoing webhook) returns message response
-      return NextResponse.json({
-        type: 'message',
-        text: 'Sim',
-      })
-    }
-
-    return NextResponse.json({ message: 'Webhook processed' })
+    return { queued: true }
   } catch (error: any) {
     logger.error(`[${options.requestId}] Failed to queue webhook execution:`, error)
-
-    if (foundWebhook.provider === 'microsoftteams') {
-      return NextResponse.json({
-        type: 'message',
-        text: 'Webhook processing failed',
-      })
+    return {
+      queued: false,
+      code: 'QUEUE_FAILED',
+      message: 'Failed to queue webhook execution',
     }
-
-    return NextResponse.json({ message: 'Internal server error' }, { status: 200 })
   }
 }

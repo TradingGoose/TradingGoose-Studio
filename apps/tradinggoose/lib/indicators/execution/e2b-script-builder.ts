@@ -13,17 +13,217 @@ const encodeJsonParse = (value: unknown) => JSON.stringify(JSON.stringify(value)
 
 const buildPineTSE2BExecutorCoreSource = () =>
   `
+const __tg_indicator_trigger_sentinel = '__tg_indicator_trigger__';
+const __tg_trigger_event_pattern = /^[a-z][a-z0-9_]{0,63}$/;
+const __tg_valid_trigger_signals = new Set(['long', 'short', 'flat']);
+const __tg_valid_trigger_positions = new Set(['aboveBar', 'belowBar', 'inBar']);
+const __tg_context_call_patch_flag = '__tg_indicator_trigger_call_patched__';
+const __tg_trigger_call_id_pattern = /(^|[.$])trigger$/i;
+
+const __tg_push_trigger_warning = (collector, code, message) => {
+  collector.warnings.push({ code, message });
+};
+
+const __tg_is_record = (value) =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const __tg_resolve_current_value = (context, value) => {
+  try {
+    if (context && typeof context.get === 'function') {
+      return context.get(value, 0);
+    }
+  } catch {
+    return undefined;
+  }
+  return value;
+};
+
+const __tg_resolve_time_seconds = (context) => {
+  const primary = __tg_resolve_current_value(context, context?.data?.openTime);
+  if (typeof primary === 'number' && Number.isFinite(primary)) {
+    return Math.floor(primary / 1000);
+  }
+  const fallback = __tg_resolve_current_value(context, context?.data?.time);
+  if (typeof fallback === 'number' && Number.isFinite(fallback)) {
+    return Math.floor(fallback / 1000);
+  }
+  return null;
+};
+
+const __tg_capture_trigger_call = (collector, context, args) => {
+  const eventArg = args[0];
+  const optionsArg = args[1];
+
+  const resolvedEvent = __tg_resolve_current_value(context, eventArg);
+  const event = typeof resolvedEvent === 'string' ? resolvedEvent.trim() : '';
+  if (!event || !__tg_trigger_event_pattern.test(event)) {
+    __tg_push_trigger_warning(
+      collector,
+      'indicator_trigger_invalid_event',
+      'trigger(event, options) requires event to match /^[a-z][a-z0-9_]{0,63}$/'
+    );
+    return;
+  }
+
+  const resolvedOptions = __tg_resolve_current_value(context, optionsArg);
+  if (!__tg_is_record(resolvedOptions)) {
+    __tg_push_trigger_warning(
+      collector,
+      'indicator_trigger_invalid_options',
+      'trigger(event, options) requires an options object.'
+    );
+    return;
+  }
+
+  let conditionValue;
+  try {
+    conditionValue = __tg_resolve_current_value(context, resolvedOptions.condition);
+  } catch {
+    __tg_push_trigger_warning(
+      collector,
+      'indicator_trigger_condition_unresolved',
+      'trigger options.condition could not be resolved for current bar.'
+    );
+    return;
+  }
+  if (!Boolean(conditionValue)) {
+    return;
+  }
+
+  const resolvedInput = __tg_resolve_current_value(context, resolvedOptions.input);
+  const input = typeof resolvedInput === 'string' ? resolvedInput.trim() : '';
+  if (!input) {
+    __tg_push_trigger_warning(
+      collector,
+      'indicator_trigger_invalid_input',
+      'trigger options.input is required and must be a non-empty string.'
+    );
+    return;
+  }
+
+  const resolvedSignal = __tg_resolve_current_value(context, resolvedOptions.signal);
+  const signal = typeof resolvedSignal === 'string' ? resolvedSignal.trim() : '';
+  if (!__tg_valid_trigger_signals.has(signal)) {
+    __tg_push_trigger_warning(
+      collector,
+      'indicator_trigger_invalid_signal',
+      'trigger options.signal must be one of long | short | flat.'
+    );
+    return;
+  }
+
+  const time = __tg_resolve_time_seconds(context);
+  if (time === null) {
+    __tg_push_trigger_warning(
+      collector,
+      'indicator_trigger_invalid_time',
+      'trigger call dropped because current bar open time is unavailable.'
+    );
+    return;
+  }
+
+  const resolvedPosition = __tg_resolve_current_value(context, resolvedOptions.position);
+  const position = typeof resolvedPosition === 'string' && __tg_valid_trigger_positions.has(resolvedPosition.trim())
+    ? resolvedPosition.trim()
+    : 'aboveBar';
+
+  const resolvedColor = __tg_resolve_current_value(context, resolvedOptions.color);
+  const color = typeof resolvedColor === 'string' && resolvedColor.trim().length > 0
+    ? resolvedColor.trim()
+    : undefined;
+
+  const barIndex = Number.isFinite(context?.idx) ? Number(context.idx) : 0;
+
+  collector.events.push({
+    event,
+    input,
+    signal,
+    position,
+    color,
+    time,
+    barIndex,
+  });
+};
+
+const __tg_install_trigger_sentinel = (target) => {
+  const existing = target?.trigger;
+  if (typeof existing === 'function' && existing?.[__tg_indicator_trigger_sentinel] === true) {
+    return existing;
+  }
+
+  const sentinel = function __tg_indicator_trigger_noop() {
+    return undefined;
+  };
+
+  Object.defineProperty(sentinel, __tg_indicator_trigger_sentinel, {
+    value: true,
+    writable: false,
+    enumerable: false,
+    configurable: false,
+  });
+
+  Object.defineProperty(target, 'trigger', {
+    value: sentinel,
+    writable: true,
+    enumerable: false,
+    configurable: true,
+  });
+
+  return sentinel;
+};
+
+const __tg_patch_context_call = (ContextCtor, collector) => {
+  const contextPrototype = ContextCtor?.prototype;
+  if (!contextPrototype || contextPrototype[__tg_context_call_patch_flag]) {
+    return;
+  }
+
+  const originalCall = contextPrototype.call;
+  if (typeof originalCall !== 'function') {
+    throw new Error('PineTS Context.call is unavailable for trigger bridge patching.');
+  }
+
+  contextPrototype.call = function __tg_patched_context_call(fn, id, ...args) {
+    const globalTrigger = globalThis?.trigger;
+    const isSentinel =
+      typeof fn === 'function' &&
+      (fn === globalTrigger || fn?.[__tg_indicator_trigger_sentinel] === true);
+    const triggerById = typeof id === 'string' && __tg_trigger_call_id_pattern.test(id.trim());
+
+    if (isSentinel || triggerById) {
+      __tg_capture_trigger_call(collector, this, args);
+      return undefined;
+    }
+
+    return originalCall.apply(this, [fn, id, ...args]);
+  };
+
+  Object.defineProperty(contextPrototype, __tg_context_call_patch_flag, {
+    value: true,
+    writable: false,
+    enumerable: false,
+    configurable: false,
+  });
+};
+
 const __tg_run_pinets_indicator = async ({ bars, listingKey, interval, indicatorCode, inputs }) => {
-  const { Indicator, PineTS } = await import('pinets');
-  if (typeof Indicator !== 'function' || typeof PineTS !== 'function') {
+  const { Indicator, PineTS, Context } = await import('pinets');
+  if (typeof Indicator !== 'function' || typeof PineTS !== 'function' || typeof Context !== 'function') {
     throw new Error('Failed to initialize PineTS runtime in E2B sandbox');
   }
+
+  const collector = { events: [], warnings: [] };
+  __tg_install_trigger_sentinel(globalThis);
+  __tg_patch_context_call(Context, collector);
+
   const pine = new PineTS(bars, listingKey ?? undefined, interval ?? undefined);
   await pine.ready();
   const context = await pine.run(new Indicator(indicatorCode, inputs));
   return {
     context,
     transpiledCode: typeof pine.transpiledCode === 'string' ? pine.transpiledCode : null,
+    triggerSignals: collector.events,
+    triggerWarnings: collector.warnings,
   };
 };
 `.trim()
@@ -50,7 +250,7 @@ export const buildPineTSE2BSingleIndicatorScript = ({
   const __tg_indicator = (${normalizedCode});
   ${buildPineTSE2BExecutorCoreSource()}
   try {
-    const { context, transpiledCode } = await __tg_run_pinets_indicator({
+    const { context, transpiledCode, triggerSignals, triggerWarnings } = await __tg_run_pinets_indicator({
       bars: __tg_bars,
       listingKey: __tg_listing_key,
       interval: __tg_interval,
@@ -63,6 +263,8 @@ export const buildPineTSE2BSingleIndicatorScript = ({
         indicator: context?.indicator ?? {},
       },
       transpiledCode,
+      triggerSignals: Array.isArray(triggerSignals) ? triggerSignals : [],
+      triggerWarnings: Array.isArray(triggerWarnings) ? triggerWarnings : [],
     };
     console.log('__TG_RESULT__=' + JSON.stringify(payload));
   } catch (error) {

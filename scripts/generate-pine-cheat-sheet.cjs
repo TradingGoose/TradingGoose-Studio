@@ -154,6 +154,7 @@ const generateMembers = () => {
     indicator: parseTypeProperties(PINE_TYPES_FILE, 'IndicatorOptions').filter(
       (option) => !indicatorOptionExclusions.has(option)
     ),
+    trigger: ['trigger'],
     plotStyles: parseClassGetters(plotsFile, 'PlotHelper'),
     hlineStyles: parseClassGetters(plotsFile, 'HlineHelper'),
   }
@@ -331,6 +332,16 @@ const buildTypeDefs = (members) => {
   push('  optionsOrTitle?: IndicatorOptions | string,')
   push('  optionsMaybe?: IndicatorOptions')
   push(') => void')
+  push("type TriggerMarkerPosition = 'aboveBar' | 'belowBar' | 'inBar'")
+  push("type IndicatorTriggerSignal = 'long' | 'short' | 'flat'")
+  push('type IndicatorTriggerOptions = {')
+  push('  condition: any')
+  push('  input: string')
+  push('  signal: IndicatorTriggerSignal')
+  push('  position?: TriggerMarkerPosition')
+  push('  color?: string')
+  push('}')
+  push('declare const trigger: (event: string, options: IndicatorTriggerOptions) => void')
   push('')
 
   simpleConsts.forEach((name) => {

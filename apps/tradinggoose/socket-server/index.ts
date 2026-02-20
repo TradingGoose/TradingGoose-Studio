@@ -3,6 +3,7 @@ import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { createSocketIOServer } from '@/socket-server/config/socket'
 import { setupAllHandlers } from '@/socket-server/handlers'
+import { IndicatorMonitorRuntime } from '@/socket-server/market/indicator-monitor-runtime'
 import { type AuthenticatedSocket, authenticateSocket } from '@/socket-server/middleware/auth'
 import { RoomManager } from '@/socket-server/rooms/manager'
 import { createHttpHandler } from '@/socket-server/routes/http'
@@ -16,10 +17,16 @@ const io = createSocketIOServer(httpServer)
 
 // Initialize room manager after io is created
 const roomManager = new RoomManager(io)
+const indicatorMonitorRuntime = new IndicatorMonitorRuntime(logger)
 
 io.use(authenticateSocket)
 
-const httpHandler = createHttpHandler(roomManager, logger)
+const httpHandler = createHttpHandler(roomManager, logger, {
+  getMonitorRuntimeHealth: () => indicatorMonitorRuntime.getHealth(),
+  onIndicatorMonitorsReconcile: async () => {
+    await indicatorMonitorRuntime.requestReconcile()
+  },
+})
 httpServer.on('request', httpHandler)
 
 process.on('uncaughtException', (error) => {
@@ -88,6 +95,9 @@ logger.info('Starting Socket.IO server...', {
 httpServer.listen(PORT, '0.0.0.0', () => {
   logger.info(`Socket.IO server running on port ${PORT}`)
   logger.info(`🏥 Health check available at: http://localhost:${PORT}/health`)
+  void indicatorMonitorRuntime.start().catch((error) => {
+    logger.error('Failed to start indicator monitor runtime', { error })
+  })
 })
 
 httpServer.on('error', (error) => {
@@ -95,18 +105,24 @@ httpServer.on('error', (error) => {
   process.exit(1)
 })
 
-process.on('SIGINT', () => {
-  logger.info('Shutting down Socket.IO server...')
-  httpServer.close(() => {
-    logger.info('Socket.IO server closed')
-    process.exit(0)
-  })
-})
+let isShuttingDown = false
+const shutdown = () => {
+  if (isShuttingDown) return
+  isShuttingDown = true
 
-process.on('SIGTERM', () => {
   logger.info('Shutting down Socket.IO server...')
-  httpServer.close(() => {
-    logger.info('Socket.IO server closed')
-    process.exit(0)
-  })
-})
+  void indicatorMonitorRuntime
+    .stop()
+    .catch((error) => {
+      logger.error('Failed to stop indicator monitor runtime cleanly', { error })
+    })
+    .finally(() => {
+      httpServer.close(() => {
+        logger.info('Socket.IO server closed')
+        process.exit(0)
+      })
+    })
+}
+
+process.on('SIGINT', shutdown)
+process.on('SIGTERM', shutdown)

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useRef } from 'react'
+import { useCallback, useRef } from 'react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useIndicators } from '@/hooks/queries/indicators'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
@@ -9,8 +9,8 @@ import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { useIndicatorEditorActions } from '@/widgets/utils/indicator-editor-actions'
 import { useIndicatorSelectionPersistence } from '@/widgets/utils/indicator-selection'
-import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 import { IndicatorCodePanel } from '@/widgets/widgets/editor_indicator/components/pine-indicator-code-panel'
+import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 import { getIndicatorIdFromParams } from '@/widgets/widgets/editor_indicator/utils'
 
 type EditorIndicatorWidgetBodyProps = WidgetComponentProps
@@ -30,16 +30,8 @@ export function EditorIndicatorWidgetBody({
   const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
 
-  const paramsIndicatorId = useMemo(() => getIndicatorIdFromParams(params), [params])
-  const fallbackIndicatorId = useMemo(() => {
-    if (pairContext?.pineIndicatorId) return null
-    return pairContext?.indicatorId ?? null
-  }, [pairContext?.indicatorId, pairContext?.pineIndicatorId])
-  const fallbackIndicator = useIndicatorsStore((state) =>
-    fallbackIndicatorId ? state.getIndicator(fallbackIndicatorId, workspaceId ?? undefined) : undefined
-  )
-  const resolvedPairIndicatorId =
-    pairContext?.pineIndicatorId ?? (fallbackIndicator ? fallbackIndicatorId : null)
+  const paramsIndicatorId = getIndicatorIdFromParams(params)
+  const resolvedPairIndicatorId = pairContext?.pineIndicatorId ?? paramsIndicatorId
   const indicatorId = isLinkedToColorPair ? resolvedPairIndicatorId : paramsIndicatorId
 
   const indicator = useIndicatorsStore((state) =>
@@ -58,8 +50,8 @@ export function EditorIndicatorWidgetBody({
     },
   })
 
-  const codeSaveRef = useRef<() => void>(() => { })
-  const codeVerifyRef = useRef<() => void>(() => { })
+  const codeSaveRef = useRef<() => void>(() => {})
+  const codeVerifyRef = useRef<() => void>(() => {})
 
   const handleSave = useCallback(() => {
     codeSaveRef.current()

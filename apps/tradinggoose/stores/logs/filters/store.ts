@@ -61,6 +61,12 @@ const parseStringArrayFromURL = (value: string | null): string[] => {
   return value.split(',').filter(Boolean)
 }
 
+const parseViewModeFromURL = (value: string | null): 'logs' | 'monitors' | 'dashboard' => {
+  if (value === 'dashboard') return 'dashboard'
+  if (value === 'monitors') return 'monitors'
+  return 'logs'
+}
+
 const timeRangeToURL = (timeRange: TimeRange): string => {
   switch (timeRange) {
     case 'Past 30 minutes':
@@ -115,7 +121,12 @@ export const useFilterStore = create<FilterState>((set, get) => ({
 
   setWorkspaceId: (workspaceId) => set({ workspaceId }),
 
-  setViewMode: (viewMode) => set({ viewMode }),
+  setViewMode: (viewMode) => {
+    set({ viewMode })
+    if (!get()._isInitializing) {
+      get().syncWithURL()
+    }
+  },
 
   setTimeRange: (timeRange) => {
     set({ timeRange })
@@ -241,8 +252,10 @@ export const useFilterStore = create<FilterState>((set, get) => ({
     const folderIds = parseStringArrayFromURL(params.get('folderIds'))
     const triggers = parseTriggerArrayFromURL(params.get('triggers'))
     const searchQuery = params.get('search') || ''
+    const viewMode = parseViewModeFromURL(params.get('view'))
 
     set({
+      viewMode,
       timeRange,
       level,
       workflowIds,
@@ -257,10 +270,14 @@ export const useFilterStore = create<FilterState>((set, get) => ({
   },
 
   syncWithURL: () => {
-    const { timeRange, level, workflowIds, folderIds, triggers, searchQuery } = get()
+    const { timeRange, level, workflowIds, folderIds, triggers, searchQuery, viewMode } = get()
     const params = new URLSearchParams()
 
     // Only add non-default values to keep URL clean
+    if (viewMode !== 'logs') {
+      params.set('view', viewMode)
+    }
+
     if (timeRange !== DEFAULT_TIME_RANGE) {
       params.set('timeRange', timeRangeToURL(timeRange))
     }

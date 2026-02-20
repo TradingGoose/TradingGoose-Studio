@@ -1,5 +1,6 @@
 import { createContext, Script } from 'vm'
 import { runPineTS } from '@/lib/indicators/run-pinets'
+import { createIndicatorTriggerSentinel } from '@/lib/indicators/trigger-bridge'
 import type { BarMs } from '@/lib/indicators/types'
 
 type PineVmFn = (...args: unknown[]) => unknown
@@ -8,6 +9,7 @@ const createLocalVmIndicatorFunction = (code: string): PineVmFn => {
   const vmContext = createContext({
     Math,
     Date,
+    trigger: createIndicatorTriggerSentinel(),
     console: {
       log: () => {},
       warn: () => {},
