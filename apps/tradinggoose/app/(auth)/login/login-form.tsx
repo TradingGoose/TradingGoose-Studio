@@ -495,7 +495,7 @@ export default function LoginPage({
             <div className='divider w-full border-t' />
           </div>
           <div className='relative flex justify-center text-sm'>
-            <span className=' px-4 font-[340] text-muted-foreground'>Or continue with</span>
+            <span className='bg-background px-4 font-[340] text-muted-foreground'>Or continue with</span>
           </div>
         </div>
       )}
