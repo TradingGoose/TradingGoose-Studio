@@ -49,7 +49,7 @@ export type MonacoEditorProps = {
   onBlur?: () => void
   onFocus?: () => void
   autoHeight?: boolean
-  extraLibs?: Array<{
+  extraLibs?: ReadonlyArray<{
     content: string
     filePath?: string
   }>

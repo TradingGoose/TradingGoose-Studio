@@ -39,7 +39,7 @@ interface CodeEditorProps {
   onWandClick?: () => void
   wandButtonDisabled?: boolean
   autoHeight?: boolean
-  extraLibs?: Array<{ content: string; filePath?: string }>
+  extraLibs?: ReadonlyArray<{ content: string; filePath?: string }>
   editorOptions?: MonacoEditorProps['options']
 }
 
