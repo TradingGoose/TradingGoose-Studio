@@ -300,7 +300,7 @@ export function WorkspaceFiles() {
                                     {formatDisplayDate(file.uploadedAt)}
                                   </td>
                                   <td className='px-4 py-3'>
-                                    <div className='flex items-center justify-end gap-1.5'>
+                                    <div className='flex items-center justify-centergap-1.5'>
                                       <Button
                                         variant='ghost'
                                         size='icon'

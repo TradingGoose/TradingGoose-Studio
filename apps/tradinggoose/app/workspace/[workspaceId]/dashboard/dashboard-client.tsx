@@ -10,7 +10,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import { BookOpen, Building2, LayoutDashboard, LibraryBig, ScrollText, Search, Shapes } from 'lucide-react'
+import { BookOpen, Building2, LayoutTemplate, LibraryBig, ScrollText, Search, Shapes } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
@@ -684,7 +684,7 @@ export function DashboardClient({
   const headerLeftContent = (
     <div className='flex w-full flex-1 items-center gap-3'>
       <div className='hidden items-center gap-2 sm:flex'>
-        <LayoutDashboard className='h-[18px] w-[18px] text-muted-foreground' />
+        <LayoutTemplate className='h-[18px] w-[18px] text-muted-foreground' />
         <span className='font-medium text-sm'>Dashboard</span>
       </div>
       <div ref={searchContainerRef} className='relative flex flex-1'>

@@ -87,15 +87,15 @@
     --primary-hover: 48, 100%, 50%;
 
     /* Secondary Colors */
-    --secondary: 160 4.8% 90.9%;
+    --secondary: 240 4.8% 90.9%;
     --secondary-foreground: 24 9.8% 10%;
 
     /* Muted Colors */
-    --muted: 240 4.762% 95.882%;
+    --muted: 240 4.762% 93.882%;
     --muted-foreground: 240 4.237% 46.275%;
 
     /* Accent Colors */
-    --accent: 240 4.762% 93.382%;
+    --accent: 240 4.762% 97.382%;
     --accent-foreground: 240 5.882% 10%;
 
     /* Destructive Colors */
