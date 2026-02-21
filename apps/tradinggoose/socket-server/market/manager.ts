@@ -1,17 +1,17 @@
 import { createHash } from 'crypto'
-import { createLogger } from '@/lib/logs/console/logger'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
-import { resolveListingKey, type ListingIdentity } from '@/lib/listing/identity'
+import { type ListingIdentity, resolveListingKey } from '@/lib/listing/identity'
+import { createLogger } from '@/lib/logs/console/logger'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
-import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 import type { MarketBar } from '@/providers/market/types'
+import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 import type { AuthenticatedSocket } from '@/socket-server/middleware/auth'
 import {
-  AlpacaMarketStream,
-  type AlpacaMarket,
   type AlpacaCryptoRegion,
   type AlpacaFeed,
+  type AlpacaMarket,
+  AlpacaMarketStream,
 } from './alpaca'
 import { FinnhubMarketStream } from './finnhub'
 
@@ -187,7 +187,11 @@ export class MarketStreamManager {
       secretKey,
     })
 
-    const subscriptionId = `${streamKey}:${channel}:${symbol}`
+    const intervalToken =
+      typeof payload.interval === 'string' && payload.interval.trim()
+        ? payload.interval.trim()
+        : 'na'
+    const subscriptionId = `${streamKey}:${channel}:${symbol}:${intervalToken}`
     const record: MarketSubscriptionRecord = {
       subscriptionId,
       streamKey,
@@ -237,9 +241,9 @@ export class MarketStreamManager {
       throw new Error('listing is required to subscribe to market data')
     }
 
-    const channel = payload.channel ?? 'bars'
-    if (channel !== 'bars') {
-      throw new Error('Finnhub streaming supports bars only')
+    const channel = payload.channel ?? 'trades'
+    if (channel !== 'bars' && channel !== 'trades') {
+      throw new Error('Finnhub streaming supports bars and trades only')
     }
 
     const context = await resolveListingContext(listing)
@@ -266,7 +270,11 @@ export class MarketStreamManager {
       apiKey,
     })
 
-    const subscriptionId = `${streamKey}:${channel}:${symbol}`
+    const intervalToken =
+      typeof payload.interval === 'string' && payload.interval.trim()
+        ? payload.interval.trim()
+        : 'na'
+    const subscriptionId = `${streamKey}:${channel}:${symbol}:${intervalToken}`
     const record: MarketSubscriptionRecord = {
       subscriptionId,
       streamKey,
@@ -347,31 +355,32 @@ export class MarketStreamManager {
     const stream =
       config.provider === 'alpaca'
         ? new AlpacaMarketStream(
-          {
-            market: config.market,
-            feed: config.feed,
-            cryptoRegion: config.cryptoRegion,
-            keyId: config.keyId,
-            secretKey: config.secretKey,
-          },
-          {
-            onBar: ({ symbol, bar, raw }) => this.handleBar(streamKey, symbol, bar, raw),
-            onTrade: ({ symbol, trade, raw }) =>
-              this.handleTrade(streamKey, symbol, trade, raw),
-            onQuote: ({ symbol, quote, raw }) =>
-              this.handleQuote(streamKey, symbol, quote, raw),
-            onError: (payload) => this.handleStreamError(streamKey, payload.message, payload.detail),
-          }
-        )
+            {
+              market: config.market,
+              feed: config.feed,
+              cryptoRegion: config.cryptoRegion,
+              keyId: config.keyId,
+              secretKey: config.secretKey,
+            },
+            {
+              onBar: ({ symbol, bar, raw }) => this.handleBar(streamKey, symbol, bar, raw),
+              onTrade: ({ symbol, trade, raw }) => this.handleTrade(streamKey, symbol, trade, raw),
+              onQuote: ({ symbol, quote, raw }) => this.handleQuote(streamKey, symbol, quote, raw),
+              onError: (payload) =>
+                this.handleStreamError(streamKey, payload.message, payload.detail),
+            }
+          )
         : new FinnhubMarketStream(
-          {
-            apiKey: config.apiKey,
-          },
-          {
-            onBar: ({ symbol, bar, raw }) => this.handleBar(streamKey, symbol, bar, raw),
-            onError: (payload) => this.handleStreamError(streamKey, payload.message, payload.detail),
-          }
-        )
+            {
+              apiKey: config.apiKey,
+            },
+            {
+              onBar: ({ symbol, bar, raw }) => this.handleBar(streamKey, symbol, bar, raw),
+              onTrade: ({ symbol, trade, raw }) => this.handleTrade(streamKey, symbol, trade, raw),
+              onError: (payload) =>
+                this.handleStreamError(streamKey, payload.message, payload.detail),
+            }
+          )
 
     const state: StreamState = {
       stream,
@@ -561,11 +570,11 @@ function resolveProviderId(provider?: MarketProviderId): MarketProviderId {
 function resolveMarket(payload: MarketSubscribePayload, assetClass?: string): AlpacaMarket {
   const override = String(
     payload.market ??
-    payload.providerParams?.market ??
-    payload.providerParams?.alpacaMarket ??
-    payload.providerParams?.assetClass ??
-    payload.providerParams?.endpoint ??
-    ''
+      payload.providerParams?.market ??
+      payload.providerParams?.alpacaMarket ??
+      payload.providerParams?.assetClass ??
+      payload.providerParams?.endpoint ??
+      ''
   ).toLowerCase()
 
   if (override === 'crypto') return 'crypto'
@@ -574,7 +583,10 @@ function resolveMarket(payload: MarketSubscribePayload, assetClass?: string): Al
   return assetClass === 'crypto' ? 'crypto' : 'stocks'
 }
 
-function resolveFeed(payload: MarketSubscribePayload, market: AlpacaMarket): AlpacaFeed | undefined {
+function resolveFeed(
+  payload: MarketSubscribePayload,
+  market: AlpacaMarket
+): AlpacaFeed | undefined {
   if (market === 'crypto') return undefined
   const feed = String(payload.feed ?? payload.providerParams?.feed ?? 'iex').toLowerCase()
   return feed === 'sip' ? 'sip' : 'iex'
@@ -582,15 +594,19 @@ function resolveFeed(payload: MarketSubscribePayload, market: AlpacaMarket): Alp
 
 function resolveCryptoRegion(payload: MarketSubscribePayload): AlpacaCryptoRegion {
   const region = String(
-    payload.cryptoRegion ?? payload.providerParams?.cryptoRegion ?? payload.providerParams?.region ?? 'us'
+    payload.cryptoRegion ??
+      payload.providerParams?.cryptoRegion ??
+      payload.providerParams?.region ??
+      'us'
   ).toLowerCase()
   if (region === 'us-1' || region === 'eu-1') return region
   return 'us'
 }
 
-function resolveAlpacaCredentials(
-  payload: MarketSubscribePayload
-): { keyId?: string; secretKey?: string } {
+function resolveAlpacaCredentials(payload: MarketSubscribePayload): {
+  keyId?: string
+  secretKey?: string
+} {
   const keyId = payload.auth?.apiKey || process.env.ALPACA_API_KEY_ID
   const secretKey = payload.auth?.apiSecret || process.env.ALPACA_API_SECRET_KEY
 
@@ -682,10 +698,7 @@ async function resolveMarketSubscribeEnv(
   payload: MarketSubscribePayload,
   userId?: string
 ): Promise<MarketSubscribePayload> {
-  if (
-    !hasEnvVarRefs(payload.auth) &&
-    !hasEnvVarRefs(payload.providerParams)
-  ) {
+  if (!hasEnvVarRefs(payload.auth) && !hasEnvVarRefs(payload.providerParams)) {
     return payload
   }
 
@@ -700,10 +713,10 @@ async function resolveMarketSubscribeEnv(
     : payload.auth
   const resolvedProviderParams = payload.providerParams
     ? (resolveEnvVarRefs(
-      payload.providerParams,
-      envVars,
-      missingVars
-    ) as MarketSubscribePayload['providerParams'])
+        payload.providerParams,
+        envVars,
+        missingVars
+      ) as MarketSubscribePayload['providerParams'])
     : payload.providerParams
 
   if (missingVars.size > 0) {

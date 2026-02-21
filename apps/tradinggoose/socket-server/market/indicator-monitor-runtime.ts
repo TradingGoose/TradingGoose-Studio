@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { db } from '@tradinggoose/db'
 import { pineIndicators, webhook, workflow } from '@tradinggoose/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
+import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { DEFAULT_INDICATOR_RUNTIME_MAP } from '@/lib/indicators/default/runtime'
 import {
   applyIndicatorTriggerPayloadBudget,
@@ -19,7 +20,11 @@ import {
   normalizeBarsMs,
 } from '@/lib/indicators/series-data'
 import type { BarMs, NormalizedPineSignal } from '@/lib/indicators/types'
-import { resolveListingKey, toListingValueObject, type ListingIdentity } from '@/lib/listing/identity'
+import {
+  type ListingIdentity,
+  resolveListingKey,
+  toListingValueObject,
+} from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { acquireMonitorRuntimeLock, getRedisClient, releaseLock } from '@/lib/redis'
 import { decryptSecret } from '@/lib/utils'
@@ -81,6 +86,7 @@ type MonitorRuntimeConfig = {
   path: string
   workflowId: string
   workspaceId: string
+  userId: string
   pinnedApiKeyId: string | null
   blockId: string
   providerId: 'alpaca' | 'finnhub'
@@ -116,6 +122,7 @@ const LOCK_KEY = 'indicator-monitor-runtime-lock'
 const LOCK_EXPIRY_SECONDS = 60 * 60
 const RECONCILE_INTERVAL_MS = 30_000
 const MONITOR_WINDOW_BARS = 2000
+const ENV_VAR_PATTERN = /\{\{([^}]+)\}\}/g
 
 const toTrimmedString = (value: unknown): string | null => {
   if (typeof value !== 'string') return null
@@ -209,6 +216,7 @@ const chooseCandidate = ({
 const normalizeProviderConfig = (
   row: typeof webhook.$inferSelect,
   workspaceId: string,
+  userId: string,
   pinnedApiKeyId: string | null
 ): MonitorRuntimeConfig | null => {
   if (!isRecord(row.providerConfig)) return null
@@ -243,6 +251,7 @@ const normalizeProviderConfig = (
     path: row.path,
     workflowId: row.workflowId,
     workspaceId,
+    userId,
     pinnedApiKeyId,
     blockId: row.blockId,
     providerId,
@@ -269,13 +278,38 @@ async function resolveMonitorAuth(
 ): Promise<{ apiKey?: string; apiSecret?: string }> {
   const encryptedSecrets = monitor.auth?.encryptedSecrets ?? {}
   const decryptedSecrets: Record<string, string> = {}
+  let envVars: Record<string, string> | null = null
+  const missingVars = new Set<string>()
 
   for (const [key, value] of Object.entries(encryptedSecrets)) {
     try {
       const result = await decryptSecret(value)
-      if (result.decrypted?.trim()) {
-        decryptedSecrets[key] = result.decrypted.trim()
+      const decrypted = result.decrypted?.trim()
+      if (!decrypted) continue
+
+      if (decrypted.includes('{{') && decrypted.includes('}}')) {
+        if (!envVars) {
+          envVars = await getEffectiveDecryptedEnv(monitor.userId, monitor.workspaceId)
+        }
+
+        const resolved = decrypted.replace(ENV_VAR_PATTERN, (_match, envKeyRaw) => {
+          const envKey = String(envKeyRaw).trim()
+          if (!envKey) return _match
+          const envValue = envVars?.[envKey]
+          if (envValue === undefined) {
+            missingVars.add(envKey)
+            return ''
+          }
+          return envValue
+        })
+        const trimmedResolved = resolved.trim()
+        if (trimmedResolved) {
+          decryptedSecrets[key] = trimmedResolved
+        }
+        continue
       }
+
+      decryptedSecrets[key] = decrypted
     } catch (error) {
       logger.warn('Failed to decrypt monitor auth secret', {
         monitorId: monitor.id,
@@ -283,6 +317,12 @@ async function resolveMonitorAuth(
         error,
       })
     }
+  }
+
+  if (missingVars.size > 0) {
+    throw new Error(
+      `Missing environment variable${missingVars.size > 1 ? 's' : ''}: ${Array.from(missingVars).join(', ')}`
+    )
   }
 
   return {
@@ -453,6 +493,7 @@ export class IndicatorMonitorRuntime {
           webhook,
           workflow: {
             id: workflow.id,
+            userId: workflow.userId,
             workspaceId: workflow.workspaceId,
             pinnedApiKeyId: workflow.pinnedApiKeyId,
             isDeployed: workflow.isDeployed,
@@ -476,6 +517,7 @@ export class IndicatorMonitorRuntime {
         const normalized = normalizeProviderConfig(
           row.webhook,
           row.workflow.workspaceId,
+          row.workflow.userId,
           row.workflow.pinnedApiKeyId
         )
 

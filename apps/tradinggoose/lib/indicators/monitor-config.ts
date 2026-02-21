@@ -38,6 +38,7 @@ export type IndicatorMonitorAuthStored = {
 export type IndicatorMonitorAuthPublic = {
   hasEncryptedSecrets?: boolean
   encryptedSecretFieldIds?: string[]
+  secretReferences?: Record<string, string>
 }
 
 export type IndicatorMonitorProviderConfig = {
@@ -148,11 +149,11 @@ export const normalizeIndicatorMonitorConfig = async (
   }
 
   const requiredSecretParamIds = getRequiredLiveSecretParamIds(input.providerId)
-  const incomingAuth = input.authInput
-  const incomingSecretValues = incomingAuth?.secrets ?? {}
-  const encryptedSecrets = {
-    ...(input.previousAuth?.encryptedSecrets ?? {}),
-  }
+  const incomingSecretValues = input.authInput?.secrets ?? {}
+  const replacingAuth = input.authInput !== undefined
+  const encryptedSecrets: Record<string, string> = replacingAuth
+    ? {}
+    : { ...(input.previousAuth?.encryptedSecrets ?? {}) }
 
   for (const [fieldId, secretValue] of Object.entries(incomingSecretValues)) {
     const trimmed = secretValue?.trim()
@@ -161,13 +162,15 @@ export const normalizeIndicatorMonitorConfig = async (
     encryptedSecrets[fieldId] = encrypted.encrypted
   }
 
-  const missingRequiredSecrets = requiredSecretParamIds.filter(
-    (fieldId) => !encryptedSecrets[fieldId]
-  )
-  if (missingRequiredSecrets.length > 0) {
-    throw new Error(
-      `Missing required auth secret values for provider fields: ${missingRequiredSecrets.join(', ')}`
+  if (!input.previousAuth) {
+    const missingRequiredSecrets = requiredSecretParamIds.filter(
+      (fieldId) => !encryptedSecrets[fieldId]
     )
+    if (missingRequiredSecrets.length > 0) {
+      throw new Error(
+        `Missing required auth secret values for provider fields: ${missingRequiredSecrets.join(', ')}`
+      )
+    }
   }
 
   const providerParams = normalizeProviderParams(input.providerId, input.providerParams)

@@ -15,19 +15,6 @@ export const parseErrorMessage = async (response: Response): Promise<string> => 
   return `Request failed (${response.status})`
 }
 
-export const formatListingLabel = (listing: IndicatorMonitorRecord['providerConfig']['monitor']['listing'] | null | undefined) => {
-  if (!listing) return 'Select listing'
-
-  if (listing.listing_type === 'default') {
-    return listing.listing_id || 'Listing'
-  }
-
-  const base = listing.base_id || ''
-  const quote = listing.quote_id || ''
-  if (base && quote) return `${base}/${quote}`
-  return base || quote || 'Listing'
-}
-
 const mapProviderParamsToDraftValues = (
   providerParams: Record<string, unknown> | undefined
 ): Record<string, string> => {
@@ -52,7 +39,7 @@ export const buildDraftFromMonitor = (monitor: IndicatorMonitorRecord): MonitorD
     interval: monitor.providerConfig.monitor.interval,
     indicatorId: monitor.providerConfig.monitor.indicatorId,
     listing: monitor.providerConfig.monitor.listing,
-    secretValues: {},
+    secretValues: { ...(auth?.secretReferences ?? {}) },
     providerParamValues: mapProviderParamsToDraftValues(
       monitor.providerConfig.monitor.providerParams
     ),

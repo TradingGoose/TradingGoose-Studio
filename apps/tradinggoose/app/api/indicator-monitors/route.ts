@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     const rows = await listIndicatorMonitorRows({ workspaceId, workflowId, blockId })
     return NextResponse.json(
       {
-        data: rows.map((row) => toIndicatorMonitorRecord(row.webhook)),
+        data: await Promise.all(rows.map((row) => toIndicatorMonitorRecord(row.webhook))),
       },
       { status: 200 }
     )
@@ -130,9 +130,12 @@ export async function POST(request: NextRequest) {
       })
       .returning()
 
-    await notifyIndicatorMonitorsReconcile({ requestId, logger })
+    void notifyIndicatorMonitorsReconcile({ requestId, logger })
 
-    return NextResponse.json({ data: toIndicatorMonitorRecord(createdMonitor) }, { status: 201 })
+    return NextResponse.json(
+      { data: await toIndicatorMonitorRecord(createdMonitor) },
+      { status: 201 }
+    )
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Internal server error'
     const clientErrorPatterns = [

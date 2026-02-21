@@ -80,6 +80,13 @@ export default function Logs() {
     null
   )
   const [isMonitorsRefreshing, setIsMonitorsRefreshing] = useState(false)
+  const [monitorAddState, setMonitorAddState] = useState<{
+    canAdd: boolean
+    reason: string | null
+  }>({
+    canAdd: false,
+    reason: 'Loading monitor requirements...',
+  })
 
   const [availableWorkflows, setAvailableWorkflows] = useState<string[]>([])
   const [availableFolders, setAvailableFolders] = useState<string[]>([])
@@ -393,6 +400,13 @@ export default function Logs() {
 
   const isDashboardView = viewMode === 'dashboard'
   const isMonitorsView = viewMode === 'monitors'
+  const isAddMonitorDisabled = isMonitorsView
+    ? !monitorAddState.canAdd || monitorsAddHandlerRef.current === null
+    : false
+  const addMonitorTooltip = isAddMonitorDisabled
+    ? monitorAddState.reason ||
+      'Please configure workflow that uses indicator as trigger and indicator that emits trigger to add monitor'
+    : 'Add monitor'
 
   const headerLeftContent = isDashboardView ? null : (
     <div className='flex w-full flex-1 items-center gap-3'>
@@ -487,20 +501,24 @@ export default function Logs() {
       {isMonitorsView ? (
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant='ghost'
-              size='icon'
-              onClick={() => {
-                monitorsAddHandlerRef.current?.()
-              }}
-              className='h-9 rounded-md hover:bg-secondary'
-              aria-label='Add monitor'
-            >
-              <Plus className='h-5 w-5' />
-              <span className='sr-only'>Add monitor</span>
-            </Button>
+            <span className='inline-flex'>
+              <Button
+                variant='ghost'
+                size='icon'
+                onClick={() => {
+                  if (isAddMonitorDisabled) return
+                  monitorsAddHandlerRef.current?.()
+                }}
+                className='h-9 rounded-md hover:bg-secondary'
+                aria-label='Add monitor'
+                disabled={isAddMonitorDisabled}
+              >
+                <Plus className='h-5 w-5' />
+                <span className='sr-only'>Add monitor</span>
+              </Button>
+            </span>
           </TooltipTrigger>
-          <TooltipContent>Add monitor</TooltipContent>
+          <TooltipContent className='max-w-xs'>{addMonitorTooltip}</TooltipContent>
         </Tooltip>
       ) : null}
 
@@ -647,6 +665,7 @@ export default function Logs() {
             onAddMonitorHandleChange={(handler) => {
               monitorsAddHandlerRef.current = handler
             }}
+            onAddMonitorStateChange={setMonitorAddState}
             onExportContextChange={setMonitorExportContext}
             onRefreshingChange={setIsMonitorsRefreshing}
           />

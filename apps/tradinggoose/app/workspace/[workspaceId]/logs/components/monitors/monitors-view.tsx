@@ -10,6 +10,7 @@ import {
   getMarketProviderOptionsByKind,
   getMarketProviderParamDefinitions,
   getMarketSeriesCapabilities,
+  type MarketProviderParamDefinition,
 } from '@/providers/market/providers'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
@@ -30,6 +31,12 @@ import { buildDefaultDraft, buildDraftFromMonitor, parseErrorMessage } from './u
 
 export type { MonitorExportContext } from './types'
 
+const parseMonitorResponse = async (response: Response): Promise<IndicatorMonitorRecord | null> => {
+  const payload = await response.json().catch(() => null)
+  const data = payload?.data
+  return data && typeof data === 'object' ? (data as IndicatorMonitorRecord) : null
+}
+
 export function MonitorsView({
   workspaceId,
   timeRange,
@@ -38,9 +45,30 @@ export function MonitorsView({
   live,
   onRefreshHandleChange,
   onAddMonitorHandleChange,
+  onAddMonitorStateChange,
   onExportContextChange,
   onRefreshingChange,
 }: MonitorsViewProps) {
+  const isAuthParamDefinition = useCallback((definition: MarketProviderParamDefinition) => {
+    if (definition.password) return true
+    const normalizedId = definition.id.replace(/\s+/g, '').toLowerCase()
+    const normalizedTitle = (definition.title ?? '').replace(/\s+/g, '').toLowerCase()
+    const normalized = `${normalizedId} ${normalizedTitle}`
+    return [
+      'apikey',
+      'api_key',
+      'api-key',
+      'secretkey',
+      'secret_key',
+      'secret-key',
+      'token',
+      'access_token',
+      'auth_token',
+      'secret',
+      'password',
+    ].some((pattern) => normalized.includes(pattern))
+  }, [])
+
   const [monitors, setMonitors] = useState<IndicatorMonitorRecord[]>([])
   const [monitorsLoading, setMonitorsLoading] = useState(true)
   const [monitorsError, setMonitorsError] = useState<string | null>(null)
@@ -114,10 +142,25 @@ export function MonitorsView({
     return Array.from(grouped.values()).sort((a, b) => a.workflowName.localeCompare(b.workflowName))
   }, [workflowTargets])
 
+  const addMonitorDisabledReason = useMemo(() => {
+    if (referenceLoading) return 'Loading monitor requirements...'
+    if (workflowTargets.length > 0 && indicatorOptions.length > 0) return null
+    return 'Please configure workflow that uses indicator as trigger and indicator that emits trigger to add monitor'
+  }, [referenceLoading, workflowTargets.length, indicatorOptions.length])
+
+  const canAddMonitor = addMonitorDisabledReason === null
+
   const selectedMonitor = useMemo(
     () => monitors.find((monitor) => monitor.monitorId === selectedMonitorId) ?? null,
     [monitors, selectedMonitorId]
   )
+
+  const upsertMonitor = useCallback((nextMonitor: IndicatorMonitorRecord) => {
+    setMonitors((current) => [
+      nextMonitor,
+      ...current.filter((entry) => entry.monitorId !== nextMonitor.monitorId),
+    ])
+  }, [])
 
   const refreshMonitors = useCallback(async () => {
     setMonitorsLoading(true)
@@ -275,11 +318,11 @@ export function MonitorsView({
       editingProviderDefinitions.filter(
         (definition) =>
           definition.required &&
-          definition.password &&
+          isAuthParamDefinition(definition) &&
           definition.visibility !== 'hidden' &&
           definition.visibility !== 'llm-only'
       ),
-    [editingProviderDefinitions]
+    [editingProviderDefinitions, isAuthParamDefinition]
   )
 
   const editingNonSecretDefinitions = useMemo(
@@ -287,58 +330,91 @@ export function MonitorsView({
       editingProviderDefinitions.filter(
         (definition) =>
           definition.required &&
-          !definition.password &&
+          !isAuthParamDefinition(definition) &&
           definition.visibility !== 'hidden' &&
           definition.visibility !== 'llm-only'
       ),
-    [editingProviderDefinitions]
+    [editingProviderDefinitions, isAuthParamDefinition]
   )
 
   const editingListingInstanceId =
     isEditorOpen && editingDraft ? `indicator-monitor-edit-${editingKey ?? 'new'}` : null
 
   useEffect(() => {
-    if (!editingDraft || !editingListingInstanceId) return
-
-    ensureListingSelectorInstance(editingListingInstanceId, {
-      providerId: editingDraft.providerId,
-      selectedListingValue: editingDraft.listing,
-    })
+    if (!editingDraft?.providerId || !editingListingInstanceId) return
     updateListingSelectorInstance(editingListingInstanceId, {
       providerId: editingDraft.providerId,
-      selectedListingValue: editingDraft.listing,
     })
-  }, [
-    editingDraft,
-    editingListingInstanceId,
-    ensureListingSelectorInstance,
-    updateListingSelectorInstance,
-  ])
+  }, [editingDraft?.providerId, editingListingInstanceId, updateListingSelectorInstance])
 
   const beginCreateMonitor = useCallback(() => {
+    const instanceId = 'indicator-monitor-edit-new'
+    const draft = buildDefaultDraft({
+      providers: streamingProviders,
+    })
+    ensureListingSelectorInstance(instanceId, {
+      providerId: draft.providerId,
+      selectedListingValue: null,
+      selectedListing: null,
+      query: '',
+      results: [],
+      error: undefined,
+    })
     setEditingKey(null)
-    setEditingDraft(
-      buildDefaultDraft({
-        providers: streamingProviders,
-      })
-    )
+    setEditingDraft(draft)
     setEditingErrors({})
     setIsEditorOpen(true)
-  }, [streamingProviders])
+  }, [streamingProviders, ensureListingSelectorInstance])
 
   useEffect(() => {
-    onAddMonitorHandleChange(beginCreateMonitor)
+    onAddMonitorHandleChange(canAddMonitor ? beginCreateMonitor : null)
     return () => {
       onAddMonitorHandleChange(null)
     }
-  }, [onAddMonitorHandleChange, beginCreateMonitor])
+  }, [onAddMonitorHandleChange, beginCreateMonitor, canAddMonitor])
 
-  const beginEditMonitor = useCallback((monitor: IndicatorMonitorRecord) => {
-    setEditingKey(monitor.monitorId)
-    setEditingDraft(buildDraftFromMonitor(monitor))
-    setEditingErrors({})
-    setIsEditorOpen(true)
-  }, [])
+  useEffect(() => {
+    onAddMonitorStateChange({
+      canAdd: canAddMonitor,
+      reason: addMonitorDisabledReason,
+    })
+    return () => {
+      onAddMonitorStateChange({ canAdd: false, reason: null })
+    }
+  }, [onAddMonitorStateChange, canAddMonitor, addMonitorDisabledReason])
+
+  const beginEditMonitor = useCallback(
+    (monitor: IndicatorMonitorRecord) => {
+      const listingValue = monitor.providerConfig.monitor.listing
+      const listingWithDetails =
+        listingValue &&
+        typeof listingValue === 'object' &&
+        (typeof (listingValue as { base?: unknown }).base === 'string' ||
+          typeof (listingValue as { name?: unknown }).name === 'string' ||
+          typeof (listingValue as { iconUrl?: unknown }).iconUrl === 'string')
+          ? (listingValue as any)
+          : null
+      const instanceId = `indicator-monitor-edit-${monitor.monitorId}`
+      ensureListingSelectorInstance(instanceId, {
+        providerId: monitor.providerConfig.monitor.providerId,
+        selectedListingValue: listingValue,
+        selectedListing: listingWithDetails,
+        query: '',
+        results: [],
+        error: undefined,
+      })
+      updateListingSelectorInstance(instanceId, {
+        providerId: monitor.providerConfig.monitor.providerId,
+        selectedListingValue: listingValue,
+        selectedListing: listingWithDetails,
+      })
+      setEditingKey(monitor.monitorId)
+      setEditingDraft(buildDraftFromMonitor(monitor))
+      setEditingErrors({})
+      setIsEditorOpen(true)
+    },
+    [ensureListingSelectorInstance, updateListingSelectorInstance]
+  )
 
   const cancelEditing = useCallback(() => {
     setIsEditorOpen(false)
@@ -437,15 +513,13 @@ export function MonitorsView({
 
     const authPayload = (() => {
       const secrets = Object.fromEntries(
-        Object.entries(editingDraft.secretValues)
-          .map(([key, value]) => [key, value.trim()] as const)
-          .filter(([, value]) => value.length > 0)
+        Object.entries(editingDraft.secretValues).map(
+          ([key, value]) => [key, value.trim()] as const
+        )
       )
-
-      if (Object.keys(secrets).length === 0) {
+      if (!editingKey && Object.values(secrets).every((value) => value.length === 0)) {
         return undefined
       }
-
       return { secrets }
     })()
 
@@ -486,6 +560,13 @@ export function MonitorsView({
         if (!response.ok) {
           throw new Error(await parseErrorMessage(response))
         }
+
+        const savedMonitor = await parseMonitorResponse(response)
+        if (savedMonitor) {
+          upsertMonitor(savedMonitor)
+          setSelectedMonitorId(savedMonitor.monitorId)
+          setIsMonitorLogsPanelOpen(true)
+        }
       } else {
         const response = await fetch(`/api/indicator-monitors/${encodeURIComponent(editingKey)}`, {
           method: 'PATCH',
@@ -496,9 +577,13 @@ export function MonitorsView({
         if (!response.ok) {
           throw new Error(await parseErrorMessage(response))
         }
+
+        const savedMonitor = await parseMonitorResponse(response)
+        if (savedMonitor) {
+          upsertMonitor(savedMonitor)
+        }
       }
 
-      await refreshMonitors()
       setIsEditorOpen(false)
       setEditingKey(null)
       setEditingDraft(null)
@@ -512,15 +597,21 @@ export function MonitorsView({
     editingDraft,
     editingKey,
     editingNonSecretDefinitions,
-    refreshMonitors,
+    upsertMonitor,
     validateDraft,
     workspaceId,
   ])
 
   const toggleMonitorState = useCallback(
     async (monitor: IndicatorMonitorRecord) => {
+      const nextIsActive = !monitor.isActive
       setTogglingMonitorId(monitor.monitorId)
       setMonitorsError(null)
+      setMonitors((current) =>
+        current.map((entry) =>
+          entry.monitorId === monitor.monitorId ? { ...entry, isActive: nextIsActive } : entry
+        )
+      )
 
       try {
         const response = await fetch(
@@ -530,7 +621,7 @@ export function MonitorsView({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               workspaceId,
-              isActive: !monitor.isActive,
+              isActive: nextIsActive,
             }),
           }
         )
@@ -539,39 +630,44 @@ export function MonitorsView({
           throw new Error(await parseErrorMessage(response))
         }
 
-        await refreshMonitors()
+        const savedMonitor = await parseMonitorResponse(response)
+        if (savedMonitor) {
+          upsertMonitor(savedMonitor)
+        }
       } catch (error) {
+        setMonitors((current) =>
+          current.map((entry) =>
+            entry.monitorId === monitor.monitorId ? { ...entry, isActive: !nextIsActive } : entry
+          )
+        )
         setMonitorsError(error instanceof Error ? error.message : 'Failed to update monitor state')
       } finally {
         setTogglingMonitorId(null)
       }
     },
-    [workspaceId, refreshMonitors]
+    [workspaceId, upsertMonitor]
   )
 
-  const removeMonitor = useCallback(
-    async (monitorId: string) => {
-      setDeletingMonitorId(monitorId)
-      setMonitorsError(null)
+  const removeMonitor = useCallback(async (monitorId: string) => {
+    setDeletingMonitorId(monitorId)
+    setMonitorsError(null)
 
-      try {
-        const response = await fetch(`/api/indicator-monitors/${encodeURIComponent(monitorId)}`, {
-          method: 'DELETE',
-        })
+    try {
+      const response = await fetch(`/api/indicator-monitors/${encodeURIComponent(monitorId)}`, {
+        method: 'DELETE',
+      })
 
-        if (!response.ok) {
-          throw new Error(await parseErrorMessage(response))
-        }
-
-        await refreshMonitors()
-      } catch (error) {
-        setMonitorsError(error instanceof Error ? error.message : 'Failed to delete monitor')
-      } finally {
-        setDeletingMonitorId(null)
+      if (!response.ok) {
+        throw new Error(await parseErrorMessage(response))
       }
-    },
-    [refreshMonitors]
-  )
+
+      setMonitors((current) => current.filter((entry) => entry.monitorId !== monitorId))
+    } catch (error) {
+      setMonitorsError(error instanceof Error ? error.message : 'Failed to delete monitor')
+    } finally {
+      setDeletingMonitorId(null)
+    }
+  }, [])
 
   const selectMonitor = useCallback((monitorId: string) => {
     setSelectedMonitorId(monitorId)
@@ -691,7 +787,7 @@ export function MonitorsView({
           order={1}
           defaultSize={panelLayout?.[0] ?? 42}
           minSize={28}
-          className='min-h-0 min-w-0 overflow-hidden p-1'
+          className='min-h-0 min-w-0 overflow-hidden'
         >
           <MonitorTable
             monitors={monitors}
@@ -724,7 +820,7 @@ export function MonitorsView({
                 showMonitorLogDetails ? (panelLayout?.[1] ?? 33) : (panelLayout?.[1] ?? 58)
               }
               minSize={22}
-              className='min-h-0 min-w-0 overflow-hidden p-1'
+              className='min-h-0 min-w-0 overflow-hidden'
             >
               {monitorLogsList}
             </ResizablePanel>
@@ -768,6 +864,7 @@ export function MonitorsView({
         nonSecretDefinitions={editingNonSecretDefinitions}
         secretDefinitions={editingSecretDefinitions}
         listingInstanceId={editingListingInstanceId}
+        workspaceId={workspaceId}
         onOpenChange={handleEditorOpenChange}
         onCancel={cancelEditing}
         onSave={() => {

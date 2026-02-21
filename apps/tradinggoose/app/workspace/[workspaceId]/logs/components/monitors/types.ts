@@ -35,6 +35,7 @@ export type IndicatorMonitorRecord = {
       auth?: {
         hasEncryptedSecrets?: boolean
         encryptedSecretFieldIds?: string[]
+        secretReferences?: Record<string, string>
       }
       providerParams?: Record<string, unknown>
     }
@@ -74,6 +75,7 @@ export type MonitorsViewProps = {
   live: boolean
   onRefreshHandleChange: (handler: (() => Promise<void>) | null) => void
   onAddMonitorHandleChange: (handler: (() => void) | null) => void
+  onAddMonitorStateChange: (state: { canAdd: boolean; reason: string | null }) => void
   onExportContextChange: (context: MonitorExportContext | null) => void
   onRefreshingChange: (refreshing: boolean) => void
 }

@@ -47,7 +47,6 @@ type SeriesWindow = ReturnType<
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const PREFETCH_THRESHOLD = 126
-const EMPTY_BARS_ERROR = 'No bar data returned'
 const INITIAL_BACKFILL_COOLDOWN_MS = 750
 
 const mergeMarketSessions = (
@@ -193,27 +192,6 @@ export const useChartDataLoader = ({
     backfillArmedAtRef.current = Number.POSITIVE_INFINITY
   }
 
-  const isEmptyBarsError = (error: unknown) =>
-    error instanceof Error && error.message.toLowerCase().includes(EMPTY_BARS_ERROR.toLowerCase())
-
-  const retryIfEmptyBars = async <T>(
-    fetcher: () => Promise<T>,
-    retryFetcher?: () => Promise<T>
-  ): Promise<T> => {
-    try {
-      return await fetcher()
-    } catch (error) {
-      if (!isEmptyBarsError(error)) {
-        throw error
-      }
-      if (!retryFetcher) {
-        throw error
-      }
-      await new Promise((resolve) => setTimeout(resolve, 250))
-      return await retryFetcher()
-    }
-  }
-
   const clampPendingRange = (
     startMs: number,
     endMs: number,
@@ -357,7 +335,7 @@ export const useChartDataLoader = ({
       return assertMarketSeries(payload)
     }
 
-    const fetchSeries = async (allowEmpty = false): Promise<MarketSeries> => {
+    const fetchSeries = async (): Promise<MarketSeries> => {
       const windows = seriesWindow.windows ?? []
       if (!windows.length) {
         throw new Error('Invalid time window')
@@ -367,9 +345,7 @@ export const useChartDataLoader = ({
         listing,
         interval: requestInterval,
         normalizationMode,
-        providerParams: allowEmpty
-          ? { ...(providerParams ?? {}), allowEmpty: true }
-          : providerParams,
+        providerParams,
         windows,
       })
     }
@@ -461,16 +437,10 @@ export const useChartDataLoader = ({
           expectedBarsRef.current = null
         }
         dataContext.marketSessionsRef.current = []
-        const seriesResponse = await retryIfEmptyBars(
-          () =>
-            useExplicitRange && pendingRange
-              ? fetchSeriesRange(pendingRange.startMs, pendingRange.endMs)
-              : fetchSeries(),
-          () =>
-            useExplicitRange && pendingRange
-              ? fetchSeriesRange(pendingRange.startMs, pendingRange.endMs, true)
-              : fetchSeries(true)
-        )
+        const seriesResponse =
+          useExplicitRange && pendingRange
+            ? await fetchSeriesRange(pendingRange.startMs, pendingRange.endMs)
+            : await fetchSeries()
         if (isStale()) return
         updateMarketSessions(seriesResponse.marketSessions)
         let barsMs = mapMarketSeriesToBarsMs(seriesResponse, dataContext.intervalMs)

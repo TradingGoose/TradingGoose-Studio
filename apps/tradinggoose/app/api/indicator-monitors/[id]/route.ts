@@ -65,7 +65,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     })
     if (!permission.ok) return permission.response
 
-    return NextResponse.json({ data: toIndicatorMonitorRecord(row.webhook) }, { status: 200 })
+    return NextResponse.json({ data: await toIndicatorMonitorRecord(row.webhook) }, { status: 200 })
   } catch (error) {
     logger.error(`[${requestId}] Failed to load indicator monitor`, { error })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -158,9 +158,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       .where(and(eq(webhook.id, id), eq(webhook.provider, 'indicator')))
       .returning()
 
-    await notifyIndicatorMonitorsReconcile({ requestId, logger })
+    void notifyIndicatorMonitorsReconcile({ requestId, logger })
 
-    return NextResponse.json({ data: toIndicatorMonitorRecord(updatedMonitor) }, { status: 200 })
+    return NextResponse.json(
+      { data: await toIndicatorMonitorRecord(updatedMonitor) },
+      { status: 200 }
+    )
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Internal server error'
     logger.error(`[${requestId}] Failed to update indicator monitor`, { error })
@@ -207,7 +210,7 @@ export async function DELETE(
     if (!permission.ok) return permission.response
 
     await db.delete(webhook).where(and(eq(webhook.id, id), eq(webhook.provider, 'indicator')))
-    await notifyIndicatorMonitorsReconcile({ requestId, logger })
+    void notifyIndicatorMonitorsReconcile({ requestId, logger })
 
     return NextResponse.json({ success: true }, { status: 200 })
   } catch (error) {

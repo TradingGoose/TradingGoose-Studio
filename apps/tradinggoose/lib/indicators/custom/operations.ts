@@ -1,7 +1,7 @@
 import { db } from '@tradinggoose/db'
 import { pineIndicators } from '@tradinggoose/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
-import { getRandomVibrantColor } from '@/lib/colors'
+import { getStableVibrantColor } from '@/lib/colors'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 
@@ -22,6 +22,7 @@ interface UpsertIndicatorsParams {
 
 const resolveIndicatorColor = (
   input: string | null | undefined,
+  indicatorId: string,
   fallback?: string | null
 ): string => {
   if (typeof input === 'string' && input.trim().length > 0) {
@@ -30,7 +31,7 @@ const resolveIndicatorColor = (
   if (typeof fallback === 'string' && fallback.trim().length > 0) {
     return fallback.trim()
   }
-  return getRandomVibrantColor()
+  return getStableVibrantColor(indicatorId)
 }
 
 export async function upsertIndicators({
@@ -47,12 +48,14 @@ export async function upsertIndicators({
         const existing = await tx
           .select()
           .from(pineIndicators)
-          .where(and(eq(pineIndicators.id, indicator.id), eq(pineIndicators.workspaceId, workspaceId)))
+          .where(
+            and(eq(pineIndicators.id, indicator.id), eq(pineIndicators.workspaceId, workspaceId))
+          )
           .limit(1)
 
         if (existing.length > 0) {
           const existingColor = existing[0]?.color
-          const nextColor = resolveIndicatorColor(indicator.color, existingColor)
+          const nextColor = resolveIndicatorColor(indicator.color, indicator.id, existingColor)
 
           await tx
             .update(pineIndicators)
@@ -70,10 +73,11 @@ export async function upsertIndicators({
         }
       }
 
-      const nextColor = resolveIndicatorColor(indicator.color)
+      const indicatorId = indicator.id ?? crypto.randomUUID()
+      const nextColor = resolveIndicatorColor(indicator.color, indicatorId)
 
       await tx.insert(pineIndicators).values({
-        ...(indicator.id ? { id: indicator.id } : null),
+        id: indicatorId,
         workspaceId,
         userId,
         name: indicator.name,
@@ -94,4 +98,3 @@ export async function upsertIndicators({
       .orderBy(desc(pineIndicators.createdAt))
   })
 }
-

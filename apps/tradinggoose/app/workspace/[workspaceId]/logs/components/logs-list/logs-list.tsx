@@ -53,7 +53,7 @@ export function LogsList({
   selectedRowRef,
 }: LogsListProps) {
   return (
-    <div className='flex h-full max-h-full min-h-0 min-w-0 flex-1 overflow-hidden p-1'>
+    <div className='flex h-full max-h-full min-h-0 min-w-0 flex-1 overflow-hidden'>
       <div className='flex h-full max-h-full min-h-0 flex-1 flex-col overflow-hidden'>
         <div className=' sm:hidden'>
           <TooltipProvider>
@@ -61,40 +61,42 @@ export function LogsList({
           </TooltipProvider>
         </div>
 
-        <div className='flex h-full max-h-full min-h-0 flex-1 flex-col overflow-hidden'>
+        <div className='flex h-full max-h-full min-h-0 flex-1 flex-col overflow-hidden p-1'>
           <div className='h-full max-h-full min-h-0 w-full overflow-x-auto'>
             <div className='h-full max-h-full min-h-0 min-w-0'>
               <div className='flex h-full max-h-full min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border'>
                 <div className='shrink-0 border-b bg-card/40'>
-                  <table className='w-full table-fixed'>
+                  <table className='w-full table-auto'>
                     <colgroup>
-                      <col className='w-[28%]' />
-                      <col className='w-[12%]' />
-                      <col className='w-[30%]' />
+                      <col className='w-[20%]' />
                       <col className='w-[15%]' />
+                      <col className='w-[25%]' />
+                      <col className='w-[20%]' />
+                      <col className='hidden xl:table-column' />
+                      <col className='hidden xl:table-column' />
                     </colgroup>
                     <thead>
                       <tr>
-                        <th className='px-4 pt-2 pb-3 text-left font-medium'>
+                        <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
                           <span className='text-muted-foreground text-xs leading-none'>Time</span>
                         </th>
-                        <th className='px-4 pt-2 pb-3 text-left font-medium'>
+                        <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
                           <span className='text-muted-foreground text-xs leading-none'>Status</span>
                         </th>
-                        <th className='px-4 pt-2 pb-3 text-left font-medium'>
+                        <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
                           <span className='text-muted-foreground text-xs leading-none'>
                             Workflow
                           </span>
                         </th>
-                        <th className='px-4 pt-2 pb-3 text-left font-medium'>
+                        <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
                           <span className='text-muted-foreground text-xs leading-none'>Cost</span>
                         </th>
-                        <th className='hidden px-4 pt-2 pb-3 text-left font-medium xl:table-cell'>
+                        <th className='hidden px-4 pt-2 pb-3 text-center align-middle font-medium xl:table-cell'>
                           <span className='text-muted-foreground text-xs leading-none'>
                             Trigger
                           </span>
                         </th>
-                        <th className='hidden px-4 pt-2 pb-3 text-left font-medium xl:table-cell'>
+                        <th className='hidden px-4 pt-2 pb-3 text-center align-middle font-medium xl:table-cell'>
                           <span className='text-muted-foreground text-xs leading-none'>
                             Duration
                           </span>
@@ -131,12 +133,14 @@ export function LogsList({
                       </div>
                     </div>
                   ) : (
-                    <table className='w-full table-fixed'>
+                    <table className='w-full table-auto'>
                       <colgroup>
-                        <col className='w-[28%]' />
-                        <col className='w-[12%]' />
-                        <col className='w-[30%]' />
+                        <col className='w-[20%]' />
                         <col className='w-[15%]' />
+                        <col className='w-[25%]' />
+                        <col className='w-[20%]' />
+                        <col className='hidden xl:table-column' />
+                        <col className='hidden xl:table-column' />
                       </colgroup>
                       <tbody>
                         {logs.map((log) => {
@@ -153,7 +157,7 @@ export function LogsList({
                               )}
                               onClick={() => onLogClick(log)}
                             >
-                              <td className='px-4 py-3'>
+                              <td className='px-4 py-3 text-center align-middle'>
                                 <div className='text-[13px]'>
                                   <span className='font-sm text-muted-foreground'>
                                     {formattedDate.compactDate}
@@ -166,7 +170,7 @@ export function LogsList({
                                   </span>
                                 </div>
                               </td>
-                              <td className='px-4 py-3'>
+                              <td className='px-4 py-3 text-center align-middle'>
                                 <div
                                   className={cn(
                                     'inline-flex items-center rounded-sm px-[6px] py-[2px] font-medium text-xs transition-all duration-200 lg:px-[8px]',
@@ -178,19 +182,19 @@ export function LogsList({
                                   {log.level}
                                 </div>
                               </td>
-                              <td className='px-4 py-3'>
+                              <td className='px-4 py-3 text-center align-middle'>
                                 <div className='truncate font-medium text-[13px]'>
                                   {log.workflow?.name || 'Unknown Workflow'}
                                 </div>
                               </td>
-                              <td className='px-4 py-3'>
+                              <td className='px-4 py-3 text-center align-middle'>
                                 <div className='font-medium text-muted-foreground text-xs'>
                                   {typeof (log as any)?.cost?.total === 'number'
                                     ? `$${((log as any).cost.total as number).toFixed(4)}`
                                     : '—'}
                                 </div>
                               </td>
-                              <td className='hidden px-4 py-3 xl:table-cell'>
+                              <td className='hidden px-4 py-3 text-center align-middle xl:table-cell'>
                                 {log.trigger ? (
                                   <div
                                     className={cn(
@@ -211,7 +215,7 @@ export function LogsList({
                                   <div className='text-muted-foreground text-xs'>—</div>
                                 )}
                               </td>
-                              <td className='hidden px-4 py-3 text-muted-foreground text-xs xl:table-cell'>
+                              <td className='hidden px-4 py-3 text-center align-middle text-muted-foreground text-xs xl:table-cell'>
                                 {log.duration || '—'}
                               </td>
                             </tr>
@@ -220,7 +224,7 @@ export function LogsList({
 
                         {hasMore && (
                           <tr>
-                            <td colSpan={6} className='px-4 py-4'>
+                            <td colSpan={6} className='px-4 py-4 text-center align-middle'>
                               <div
                                 ref={loaderRef}
                                 className='flex items-center justify-center gap-2 text-muted-foreground'

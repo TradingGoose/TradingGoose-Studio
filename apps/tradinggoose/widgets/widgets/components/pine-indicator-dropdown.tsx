@@ -1,7 +1,7 @@
 'use client'
 
 import { type KeyboardEvent, useEffect, useMemo, useState } from 'react'
-import { Check, ChevronDown, FunctionSquare, Loader2, Search } from 'lucide-react'
+import { Check, ChevronDown, Activity, Loader2, Search } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -234,7 +234,7 @@ export function IndicatorDropdown({
       }}
       aria-hidden='true'
     >
-      <FunctionSquare
+      <Activity
         className='h-4 w-4'
         aria-hidden='true'
         style={{ color: selectedIndicatorColor ?? FALLBACK_COLOR }}
@@ -434,7 +434,7 @@ export function IndicatorDropdown({
                                 }}
                                 aria-hidden='true'
                               >
-                                <FunctionSquare
+                                <Activity
                                   className='h-4 w-4 text-muted-foreground'
                                   aria-hidden='true'
                                   style={{ color: option.color ?? FALLBACK_COLOR }}

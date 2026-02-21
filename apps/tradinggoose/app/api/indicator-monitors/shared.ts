@@ -3,10 +3,13 @@ import { pineIndicators, webhook, workflow, workflowBlocks } from '@tradinggoose
 import { and, desc, eq } from 'drizzle-orm'
 import { DEFAULT_INDICATOR_RUNTIME_MAP } from '@/lib/indicators/default/runtime'
 import {
+  type IndicatorMonitorAuthStored,
   type IndicatorMonitorProviderConfig,
   toPublicIndicatorMonitorProviderConfig,
 } from '@/lib/indicators/monitor-config'
 import { isIndicatorTriggerCapable } from '@/lib/indicators/trigger-detection'
+import { resolveListingIdentity } from '@/lib/listing/resolve'
+import { decryptSecret } from '@/lib/utils'
 
 export const INDICATOR_PROVIDER = 'indicator'
 
@@ -138,14 +141,57 @@ const parseIndicatorProviderConfig = (
   return providerConfig as IndicatorMonitorProviderConfig
 }
 
-export const toIndicatorMonitorRecord = (webhookRow: WebhookRow) => {
+const deriveSecretReferences = async (
+  auth?: IndicatorMonitorAuthStored
+): Promise<Record<string, string> | undefined> => {
+  if (!auth?.encryptedSecrets || Object.keys(auth.encryptedSecrets).length === 0) {
+    return undefined
+  }
+
+  const references: Record<string, string> = {}
+  for (const [fieldId, encryptedValue] of Object.entries(auth.encryptedSecrets)) {
+    try {
+      const decrypted = (await decryptSecret(encryptedValue)).decrypted?.trim()
+      if (decrypted) {
+        references[fieldId] = decrypted
+      }
+    } catch {
+      // ignore decrypt failures for unreadable values
+    }
+  }
+
+  return Object.keys(references).length > 0 ? references : undefined
+}
+
+export const toIndicatorMonitorRecord = async (webhookRow: WebhookRow) => {
   const providerConfig = parseIndicatorProviderConfig(webhookRow.providerConfig)
+  const derivedSecretReferences = await deriveSecretReferences(providerConfig.monitor.auth)
+  const publicProviderConfig = toPublicIndicatorMonitorProviderConfig(providerConfig)
+  const resolvedListing = await resolveListingIdentity(publicProviderConfig.monitor.listing).catch(
+    () => null
+  )
+  const auth = publicProviderConfig.monitor.auth
+
   return {
     monitorId: webhookRow.id,
     workflowId: webhookRow.workflowId,
     blockId: webhookRow.blockId,
     isActive: webhookRow.isActive,
-    providerConfig: toPublicIndicatorMonitorProviderConfig(providerConfig),
+    providerConfig: {
+      ...publicProviderConfig,
+      monitor: {
+        ...publicProviderConfig.monitor,
+        ...(derivedSecretReferences
+          ? {
+              auth: {
+                ...(auth ?? {}),
+                secretReferences: derivedSecretReferences,
+              },
+            }
+          : {}),
+        listing: resolvedListing ?? publicProviderConfig.monitor.listing,
+      },
+    },
     createdAt: webhookRow.createdAt.toISOString(),
     updatedAt: webhookRow.updatedAt.toISOString(),
   }

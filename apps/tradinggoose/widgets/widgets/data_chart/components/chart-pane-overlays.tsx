@@ -76,7 +76,7 @@ export const ChartPaneOverlays = ({
         if (!layout) return null
         const indicatorItems = indicatorControlsByPane.get(paneIndex) ?? []
         const isMainPane = paneIndex === mainPaneIndex
-        const topOffset = isMainPane ? legendOffset - 3 : 3
+        const topOffset = isMainPane ? legendOffset - 2 : 2
         const selectedOwnerIdInPane = resolveSelectedOwnerForPane(paneIndex)
         const hasSelectedManualInPane = selectedOwnerIdInPane !== null
         const showRightControls = hasIndicatorRuntime || hasSelectedManualInPane

@@ -1,6 +1,6 @@
 'use client'
 
-import { FunctionSquare, Workflow as WorkflowIcon } from 'lucide-react'
+import { Activity, Workflow as WorkflowIcon } from 'lucide-react'
 import { StockSelector } from '@/components/listing-selector/selector/input'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,8 +14,10 @@ import {
 import { Input } from '@/components/ui/input'
 import { toListingValue } from '@/lib/listing/identity'
 import { cn } from '@/lib/utils'
+import type { SubBlockConfig } from '@/blocks/types'
 import type { MarketProviderParamDefinition } from '@/providers/market/providers'
 import { getMarketSeriesCapabilities } from '@/providers/market/providers'
+import { ShortInput } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/short-input'
 import { SearchableDropdown } from './searchable-dropdown'
 import type {
   IndicatorOption,
@@ -39,6 +41,7 @@ type MonitorEditorModalProps = {
   nonSecretDefinitions: MarketProviderParamDefinition[]
   secretDefinitions: MarketProviderParamDefinition[]
   listingInstanceId: string | null
+  workspaceId: string
   onOpenChange: (open: boolean) => void
   onCancel: () => void
   onSave: () => void
@@ -61,6 +64,7 @@ export function MonitorEditorModal({
   nonSecretDefinitions,
   secretDefinitions,
   listingInstanceId,
+  workspaceId,
   onOpenChange,
   onCancel,
   onSave,
@@ -87,7 +91,7 @@ export function MonitorEditorModal({
               )}
             >
               <div className='space-y-2'>
-                <p className='text-xs text-muted-foreground'>Provider</p>
+                <p className='text-muted-foreground text-xs'>Provider</p>
                 <SearchableDropdown
                   value={draft.providerId}
                   options={streamingProviders.map((provider) => ({
@@ -148,7 +152,7 @@ export function MonitorEditorModal({
 
               {nonSecretDefinitions.length > 0 ? (
                 <div className='space-y-2'>
-                  <p className='text-xs text-muted-foreground'>Feed</p>
+                  <p className='text-muted-foreground text-xs'>Feed</p>
                   {nonSecretDefinitions.map((definition) => {
                     const key = `param:${definition.id}`
                     const value = draft.providerParamValues[definition.id] ?? ''
@@ -203,7 +207,7 @@ export function MonitorEditorModal({
 
             {secretDefinitions.length > 0 ? (
               <div className='space-y-2'>
-                <p className='text-xs text-muted-foreground'>Auth</p>
+                <p className='text-muted-foreground text-xs'>Auth</p>
                 <div
                   className={cn(
                     'grid gap-3',
@@ -212,19 +216,31 @@ export function MonitorEditorModal({
                 >
                   {secretDefinitions.map((definition) => {
                     const key = `secret:${definition.id}`
+                    const normalizedId = definition.id.replace(/\s+/g, '').toLowerCase()
+                    const isPasswordField = definition.password || normalizedId.includes('secret')
+                    const shortInputConfig: SubBlockConfig = {
+                      id: definition.id,
+                      title: definition.title ?? definition.id,
+                      type: 'short-input',
+                      inputType: definition.type === 'number' ? 'number' : 'text',
+                      placeholder: definition.placeholder ?? definition.title ?? definition.id,
+                      connectionDroppable: false,
+                    }
                     return (
                       <div key={definition.id} className='space-y-1'>
-                        <Input
+                        <ShortInput
+                          blockId={`monitor-auth-${editingKey ?? 'new'}`}
+                          subBlockId={definition.id}
+                          inputId={`monitor-secret-${definition.id}`}
+                          isConnecting={false}
+                          config={shortInputConfig}
                           value={draft.secretValues[definition.id] ?? ''}
-                          onChange={(event) =>
-                            onUpdateSecretValue(definition.id, event.target.value)
-                          }
+                          onChange={(value) => onUpdateSecretValue(definition.id, value)}
                           placeholder={definition.title || definition.id}
-                          type='password'
-                          autoComplete='new-password'
-                          data-1p-ignore='true'
-                          data-lpignore='true'
-                          data-form-type='other'
+                          password={isPasswordField}
+                          workspaceId={workspaceId}
+                          enableTags={false}
+                          forceEnvVarDropdown
                         />
                         {errors[key] ? (
                           <p className='text-[11px] text-destructive'>{errors[key]}</p>
@@ -238,7 +254,7 @@ export function MonitorEditorModal({
 
             <div className='grid gap-3 sm:grid-cols-2'>
               <div className='space-y-2'>
-                <p className='text-xs text-muted-foreground'>Listing</p>
+                <p className='text-muted-foreground text-xs'>Listing</p>
                 {listingInstanceId ? (
                   <StockSelector
                     instanceId={listingInstanceId}
@@ -254,7 +270,7 @@ export function MonitorEditorModal({
               </div>
 
               <div className='space-y-2'>
-                <p className='text-xs text-muted-foreground'>Interval</p>
+                <p className='text-muted-foreground text-xs'>Interval</p>
                 <SearchableDropdown
                   value={draft.interval}
                   options={providerIntervals.map((interval) => ({
@@ -274,7 +290,7 @@ export function MonitorEditorModal({
 
             <div className='grid gap-3 sm:grid-cols-2'>
               <div className='space-y-2'>
-                <p className='text-xs text-muted-foreground'>Workflow</p>
+                <p className='text-muted-foreground text-xs'>Workflow</p>
                 <SearchableDropdown
                   value={draft.workflowId}
                   options={workflowPickerOptions.map((option) => ({
@@ -346,7 +362,7 @@ export function MonitorEditorModal({
               </div>
 
               <div className='space-y-2'>
-                <p className='text-xs text-muted-foreground'>Indicator</p>
+                <p className='text-muted-foreground text-xs'>Indicator</p>
                 <SearchableDropdown
                   value={draft.indicatorId}
                   options={indicatorPickerOptions.map((option) => ({
@@ -368,7 +384,7 @@ export function MonitorEditorModal({
                         }}
                         aria-hidden='true'
                       >
-                        <FunctionSquare
+                        <Activity
                           className='h-full w-full'
                           style={{ color: selected?.color ?? '#64748b' }}
                         />
@@ -390,7 +406,7 @@ export function MonitorEditorModal({
                         style={{ backgroundColor: `${option.color}20` }}
                         aria-hidden='true'
                       >
-                        <FunctionSquare className='h-full w-full' style={{ color: option.color }} />
+                        <Activity className='h-full w-full' style={{ color: option.color }} />
                       </span>
                       <span className='truncate'>{option.name}</span>
                     </>
