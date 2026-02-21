@@ -39,12 +39,8 @@ export const useEnvironmentStore = create<EnvironmentStore>()((set, get) => ({
     try {
       set({ isLoading: true, error: null })
 
-      const transformedVariables = Object.entries(variables).reduce(
-        (acc, [key, value]) => ({
-          ...acc,
-          [key]: { key, value },
-        }),
-        {}
+      const transformedVariables = Object.fromEntries(
+        Object.entries(variables).map(([key, value]) => [key, { key, value }])
       )
 
       set({ variables: transformedVariables })
@@ -54,15 +50,7 @@ export const useEnvironmentStore = create<EnvironmentStore>()((set, get) => ({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          variables: Object.entries(transformedVariables).reduce(
-            (acc, [key, value]) => ({
-              ...acc,
-              [key]: (value as EnvironmentVariable).value,
-            }),
-            {}
-          ),
-        }),
+        body: JSON.stringify({ variables }),
       })
 
       if (!response.ok) {
@@ -94,8 +82,18 @@ export const useEnvironmentStore = create<EnvironmentStore>()((set, get) => ({
         workspace: Record<string, string>
         personal: Record<string, string>
         conflicts: string[]
-        workspaceMeta?: { createdAt?: string | null; updatedAt?: string | null }
-        personalMeta?: { createdAt?: string | null; updatedAt?: string | null }
+        workspaceRows?: Array<{
+          key: string
+          value: string
+          createdAt?: string | null
+          updatedAt?: string | null
+        }>
+        personalRows?: Array<{
+          key: string
+          value: string
+          createdAt?: string | null
+          updatedAt?: string | null
+        }>
       }
     } catch (error) {
       logger.error('Error loading workspace environment:', { error })

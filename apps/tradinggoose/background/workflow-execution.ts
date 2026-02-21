@@ -4,11 +4,10 @@ import { task } from '@trigger.dev/sdk'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { checkServerSideUsageLimits } from '@/lib/billing'
-import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
+import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
-import { decryptSecret } from '@/lib/utils'
 import { loadDeployedWorkflowState } from '@/lib/workflows/db-helpers'
 import { updateWorkflowRunCounts } from '@/lib/workflows/utils'
 import { Executor } from '@/executor'
@@ -88,17 +87,7 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
       .limit(1)
     const workspaceId = wfRows[0]?.workspaceId || undefined
 
-    const { personalEncrypted, workspaceEncrypted } = await getPersonalAndWorkspaceEnv(
-      payload.userId,
-      workspaceId
-    )
-    const mergedEncrypted = { ...personalEncrypted, ...workspaceEncrypted }
-    const decryptionPromises = Object.entries(mergedEncrypted).map(async ([key, encrypted]) => {
-      const { decrypted } = await decryptSecret(encrypted)
-      return [key, decrypted] as const
-    })
-    const decryptedPairs = await Promise.all(decryptionPromises)
-    const decryptedEnvVars: Record<string, string> = Object.fromEntries(decryptedPairs)
+    const decryptedEnvVars = await getEffectiveDecryptedEnv(payload.userId, workspaceId)
 
     // Start logging session
     await loggingSession.safeStart({

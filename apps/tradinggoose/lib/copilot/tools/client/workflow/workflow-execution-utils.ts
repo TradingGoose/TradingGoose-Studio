@@ -130,11 +130,7 @@ export async function executeWorkflowWithLogging(
   // Merge subblock states from the appropriate store
   const mergedStates = mergeSubblockState(validBlocks, activeWorkflowId)
 
-  // Don't filter out trigger blocks - let the executor handle them properly
-  // The standard executor has TriggerBlockHandler that knows how to handle triggers
-  const filteredStates = mergedStates
-
-  const currentBlockStates = Object.entries(filteredStates).reduce(
+  const currentBlockStates = Object.entries(mergedStates).reduce(
     (acc, [id, block]) => {
       acc[id] = Object.entries(block.subBlocks).reduce(
         (subAcc, [key, subBlock]) => {
@@ -148,15 +144,19 @@ export async function executeWorkflowWithLogging(
     {} as Record<string, Record<string, any>>
   )
 
-  // Get environment variables
-  const envVars = getAllVariables()
-  const envVarValues = Object.entries(envVars).reduce(
+  // Get environment variables with workspace precedence
+  const workspaceId = useWorkflowRegistry.getState().workflows[activeWorkflowId]?.workspaceId
+  const workspaceEnv = workspaceId
+    ? (await useEnvironmentStore.getState().loadWorkspaceEnvironment(workspaceId)).workspace
+    : {}
+  const envVarValues = Object.entries(getAllVariables()).reduce(
     (acc, [key, variable]: [string, any]) => {
       acc[key] = variable.value
       return acc
     },
     {} as Record<string, string>
   )
+  Object.assign(envVarValues, workspaceEnv)
 
   // Get workflow variables
   const workflowVars = getVariablesByWorkflowId(activeWorkflowId)
@@ -168,14 +168,10 @@ export async function executeWorkflowWithLogging(
     {} as Record<string, any>
   )
 
-  // Don't filter edges - let all connections remain intact
-  // The executor's routing system will handle execution paths properly
-  const filteredEdges = workflowEdges
-
   // Create serialized workflow with filtered blocks and edges
   const workflow = new Serializer().serializeWorkflow(
-    filteredStates,
-    filteredEdges,
+    mergedStates,
+    workflowEdges,
     workflowLoops,
     workflowParallels
   )

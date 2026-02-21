@@ -1,10 +1,27 @@
 import { db } from '@tradinggoose/db'
-import { environment, workspaceEnvironment } from '@tradinggoose/db/schema'
+import { environmentVariables } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { createLogger } from '@/lib/logs/console/logger'
 import { decryptSecret } from '@/lib/utils'
 
 const logger = createLogger('EnvironmentUtils')
+
+function buildEncryptedMap(rows: Array<{ key: string; value: string }>): Record<string, string> {
+  return Object.fromEntries(rows.map((row) => [row.key, row.value]))
+}
+
+async function decryptAll(src: Record<string, string>): Promise<Record<string, string>> {
+  const out: Record<string, string> = {}
+  for (const [k, v] of Object.entries(src)) {
+    try {
+      const { decrypted } = await decryptSecret(v)
+      out[k] = decrypted
+    } catch {
+      out[k] = ''
+    }
+  }
+  return out
+}
 
 /**
  * Get environment variable keys for a user
@@ -15,22 +32,12 @@ export async function getEnvironmentVariableKeys(userId: string): Promise<{
   count: number
 }> {
   try {
-    const result = await db
-      .select()
-      .from(environment)
-      .where(eq(environment.userId, userId))
-      .limit(1)
+    const rows = await db
+      .select({ key: environmentVariables.key })
+      .from(environmentVariables)
+      .where(eq(environmentVariables.userId, userId))
 
-    if (!result.length || !result[0].variables) {
-      return {
-        variableNames: [],
-        count: 0,
-      }
-    }
-
-    // Get the keys (variable names) without decrypting values
-    const encryptedVariables = result[0].variables as Record<string, string>
-    const variableNames = Object.keys(encryptedVariables)
+    const variableNames = rows.map((row) => row.key)
 
     return {
       variableNames,
@@ -48,49 +55,35 @@ export async function getPersonalAndWorkspaceEnv(
 ): Promise<{
   personalEncrypted: Record<string, string>
   workspaceEncrypted: Record<string, string>
-  personalDecrypted: Record<string, string>
-  workspaceDecrypted: Record<string, string>
   conflicts: string[]
 }> {
   const [personalRows, workspaceRows] = await Promise.all([
-    db.select().from(environment).where(eq(environment.userId, userId)).limit(1),
+    db
+      .select({
+        key: environmentVariables.key,
+        value: environmentVariables.value,
+      })
+      .from(environmentVariables)
+      .where(eq(environmentVariables.userId, userId)),
     workspaceId
       ? db
-        .select()
-        .from(workspaceEnvironment)
-        .where(eq(workspaceEnvironment.workspaceId, workspaceId))
-        .limit(1)
-      : Promise.resolve([] as any[]),
+          .select({
+            key: environmentVariables.key,
+            value: environmentVariables.value,
+          })
+          .from(environmentVariables)
+          .where(eq(environmentVariables.workspaceId, workspaceId))
+      : Promise.resolve([] as Array<{ key: string; value: string }>),
   ])
 
-  const personalEncrypted: Record<string, string> = (personalRows[0]?.variables as any) || {}
-  const workspaceEncrypted: Record<string, string> = (workspaceRows[0]?.variables as any) || {}
-
-  const decryptAll = async (src: Record<string, string>) => {
-    const out: Record<string, string> = {}
-    for (const [k, v] of Object.entries(src)) {
-      try {
-        const { decrypted } = await decryptSecret(v)
-        out[k] = decrypted
-      } catch {
-        out[k] = ''
-      }
-    }
-    return out
-  }
-
-  const [personalDecrypted, workspaceDecrypted] = await Promise.all([
-    decryptAll(personalEncrypted),
-    decryptAll(workspaceEncrypted),
-  ])
+  const personalEncrypted = buildEncryptedMap(personalRows)
+  const workspaceEncrypted = buildEncryptedMap(workspaceRows)
 
   const conflicts = Object.keys(personalEncrypted).filter((k) => k in workspaceEncrypted)
 
   return {
     personalEncrypted,
     workspaceEncrypted,
-    personalDecrypted,
-    workspaceDecrypted,
     conflicts,
   }
 }
@@ -99,9 +92,6 @@ export async function getEffectiveDecryptedEnv(
   userId: string,
   workspaceId?: string
 ): Promise<Record<string, string>> {
-  const { personalDecrypted, workspaceDecrypted } = await getPersonalAndWorkspaceEnv(
-    userId,
-    workspaceId
-  )
-  return { ...personalDecrypted, ...workspaceDecrypted }
+  const { personalEncrypted, workspaceEncrypted } = await getPersonalAndWorkspaceEnv(userId, workspaceId)
+  return decryptAll({ ...personalEncrypted, ...workspaceEncrypted })
 }

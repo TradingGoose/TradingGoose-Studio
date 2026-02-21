@@ -177,6 +177,16 @@ export async function executeWorkflow(
       workflow.workspaceId || undefined
     )
     const variables = EnvVarsSchema.parse({ ...personalEncrypted, ...workspaceEncrypted })
+    const decryptedEnvVars: Record<string, string> = {}
+    for (const [key, encryptedValue] of Object.entries(variables)) {
+      try {
+        const { decrypted } = await decryptSecret(encryptedValue)
+        decryptedEnvVars[key] = decrypted
+      } catch (error: any) {
+        logger.error(`[${requestId}] Failed to decrypt environment variable "${key}"`, error)
+        throw new Error(`Failed to decrypt environment variable "${key}": ${error.message}`)
+      }
+    }
 
     await loggingSession.safeStart({
       userId: actorUserId,
@@ -197,23 +207,11 @@ export async function executeWorkflow(
               if (matches) {
                 for (const match of matches) {
                   const varName = match.slice(2, -2)
-                  const encryptedValue = variables[varName]
-                  if (!encryptedValue) {
+                  const decryptedValue = decryptedEnvVars[varName]
+                  if (decryptedValue === undefined) {
                     throw new Error(`Environment variable "${varName}" was not found`)
                   }
-
-                  try {
-                    const { decrypted } = await decryptSecret(encryptedValue)
-                    value = (value as string).replace(match, decrypted)
-                  } catch (error: any) {
-                    logger.error(
-                      `[${requestId}] Error decrypting environment variable "${varName}"`,
-                      error
-                    )
-                    throw new Error(
-                      `Failed to decrypt environment variable "${varName}": ${error.message}`
-                    )
-                  }
+                  value = (value as string).replace(match, decryptedValue)
                 }
               }
             }
@@ -227,17 +225,6 @@ export async function executeWorkflow(
       },
       Promise.resolve({} as Record<string, Record<string, any>>)
     )
-
-    const decryptedEnvVars: Record<string, string> = {}
-    for (const [key, encryptedValue] of Object.entries(variables)) {
-      try {
-        const { decrypted } = await decryptSecret(encryptedValue)
-        decryptedEnvVars[key] = decrypted
-      } catch (error: any) {
-        logger.error(`[${requestId}] Failed to decrypt environment variable "${key}"`, error)
-        throw new Error(`Failed to decrypt environment variable "${key}": ${error.message}`)
-      }
-    }
 
     const processedBlockStates = Object.entries(currentBlockStates).reduce(
       (acc, [blockId, blockState]) => {

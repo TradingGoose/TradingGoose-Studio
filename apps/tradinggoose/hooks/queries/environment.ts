@@ -5,35 +5,24 @@ import { fetchPersonalEnvironment, fetchWorkspaceEnvironment } from '@/lib/envir
 import { createLogger } from '@/lib/logs/console/logger'
 import { API_ENDPOINTS } from '@/stores/constants'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
-import type { EnvironmentVariable } from '@/stores/settings/environment/types'
-
-export type { WorkspaceEnvironmentData } from '@/lib/environment/api'
-export type { EnvironmentVariable } from '@/stores/settings/environment/types'
 
 const logger = createLogger('EnvironmentQueries')
 
-/**
- * Query key factories for environment variable queries
- */
 export const environmentKeys = {
   all: ['environment'] as const,
   personal: () => [...environmentKeys.all, 'personal'] as const,
   workspace: (workspaceId: string) => [...environmentKeys.all, 'workspace', workspaceId] as const,
 }
 
-/**
- * Environment Variable Types
- */
-/**
- * Hook to fetch personal environment variables
- */
+export type { WorkspaceEnvironmentData } from '@/lib/environment/api'
+
 export function usePersonalEnvironment() {
   const setVariables = useEnvironmentStore((state) => state.setVariables)
 
   const query = useQuery({
     queryKey: environmentKeys.personal(),
     queryFn: fetchPersonalEnvironment,
-    staleTime: 60 * 1000, // 1 minute
+    staleTime: 60 * 1000,
     placeholderData: keepPreviousData,
   })
 
@@ -46,9 +35,6 @@ export function usePersonalEnvironment() {
   return query
 }
 
-/**
- * Hook to fetch workspace environment variables
- */
 export function useWorkspaceEnvironment<TData = WorkspaceEnvironmentData>(
   workspaceId: string,
   options?: { select?: (data: WorkspaceEnvironmentData) => TData }
@@ -56,55 +42,35 @@ export function useWorkspaceEnvironment<TData = WorkspaceEnvironmentData>(
   return useQuery({
     queryKey: environmentKeys.workspace(workspaceId),
     queryFn: () => fetchWorkspaceEnvironment(workspaceId),
-    enabled: !!workspaceId,
-    staleTime: 60 * 1000, // 1 minute
+    enabled: Boolean(workspaceId),
+    staleTime: 60 * 1000,
     placeholderData: keepPreviousData,
     ...options,
   })
 }
 
-/**
- * Save personal environment variables mutation
- */
-interface SavePersonalEnvironmentParams {
-  variables: Record<string, string>
+interface UpsertPersonalEnvironmentParams {
+  key: string
+  value: string
 }
 
-export function useSavePersonalEnvironment() {
+export function useUpsertPersonalEnvironment() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ variables }: SavePersonalEnvironmentParams) => {
-      const transformedVariables = Object.entries(variables).reduce(
-        (acc, [key, value]) => ({
-          ...acc,
-          [key]: { key, value },
-        }),
-        {}
-      )
-
+    mutationFn: async ({ key, value }: UpsertPersonalEnvironmentParams) => {
       const response = await fetch(API_ENDPOINTS.ENVIRONMENT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          variables: Object.entries(transformedVariables).reduce(
-            (acc, [key, value]) => ({
-              ...acc,
-              [key]: (value as EnvironmentVariable).value,
-            }),
-            {}
-          ),
-        }),
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, value }),
       })
 
       if (!response.ok) {
-        throw new Error(`Failed to save environment variables: ${response.statusText}`)
+        throw new Error(`Failed to update personal environment variable: ${response.statusText}`)
       }
 
-      logger.info('Saved personal environment variables')
-      return transformedVariables
+      logger.info(`Upserted personal environment variable: ${key}`)
+      return response.json()
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: environmentKeys.personal() })
@@ -113,9 +79,35 @@ export function useSavePersonalEnvironment() {
   })
 }
 
-/**
- * Upsert workspace environment variables mutation
- */
+interface RemovePersonalEnvironmentParams {
+  key: string
+}
+
+export function useRemovePersonalEnvironment() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ key }: RemovePersonalEnvironmentParams) => {
+      const response = await fetch(API_ENDPOINTS.ENVIRONMENT, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to remove personal environment variable: ${response.statusText}`)
+      }
+
+      logger.info(`Removed personal environment variable: ${key}`)
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: environmentKeys.personal() })
+      queryClient.invalidateQueries({ queryKey: environmentKeys.all })
+    },
+  })
+}
+
 interface UpsertWorkspaceEnvironmentParams {
   workspaceId: string
   variables: Record<string, string>
@@ -137,7 +129,7 @@ export function useUpsertWorkspaceEnvironment() {
       }
 
       logger.info(`Upserted workspace environment variables for workspace: ${workspaceId}`)
-      return await response.json()
+      return response.json()
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
@@ -148,9 +140,6 @@ export function useUpsertWorkspaceEnvironment() {
   })
 }
 
-/**
- * Remove workspace environment variables mutation
- */
 interface RemoveWorkspaceEnvironmentParams {
   workspaceId: string
   keys: string[]
@@ -172,7 +161,7 @@ export function useRemoveWorkspaceEnvironment() {
       }
 
       logger.info(`Removed ${keys.length} workspace environment keys for workspace: ${workspaceId}`)
-      return await response.json()
+      return response.json()
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({

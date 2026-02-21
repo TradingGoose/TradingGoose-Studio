@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
-import { environment, workspace, workspaceEnvironment } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
+import { environmentVariables, workspace } from '@tradinggoose/db/schema'
+import { and, eq, inArray } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
@@ -17,6 +17,35 @@ const UpsertSchema = z.object({
 const DeleteSchema = z.object({
   keys: z.array(z.string()).min(1),
 })
+
+async function decryptValue(value: string) {
+  try {
+    const { decrypted } = await decryptSecret(value)
+    return decrypted
+  } catch {
+    return ''
+  }
+}
+
+async function decryptRows(
+  rows: Array<{ key: string; value: string; createdAt: Date; updatedAt: Date }>
+) {
+  const decryptedRows = await Promise.all(
+    rows.map(async (row) => ({
+      key: row.key,
+      value: await decryptValue(row.value),
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    }))
+  )
+
+  const record: Record<string, string> = {}
+  for (const row of decryptedRows) {
+    record[row.key] = row.value
+  }
+
+  return { rows: decryptedRows, record }
+}
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const requestId = generateRequestId()
@@ -43,63 +72,44 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Workspace env (encrypted)
-    const wsEnvRow = await db
-      .select()
-      .from(workspaceEnvironment)
-      .where(eq(workspaceEnvironment.workspaceId, workspaceId))
-      .limit(1)
-
-    const wsEncrypted: Record<string, string> = (wsEnvRow[0]?.variables as any) || {}
-    const wsCreatedAt = wsEnvRow[0]?.createdAt || null
-    const wsUpdatedAt = wsEnvRow[0]?.updatedAt || null
-
-    // Personal env (encrypted)
-    const personalRow = await db
-      .select()
-      .from(environment)
-      .where(eq(environment.userId, userId))
-      .limit(1)
-
-    const personalEncrypted: Record<string, string> = (personalRow[0]?.variables as any) || {}
-    const personalCreatedAt = personalRow[0]?.createdAt || null
-    const personalUpdatedAt = personalRow[0]?.updatedAt || null
-
-    // Decrypt both for UI
-    const decryptAll = async (src: Record<string, string>) => {
-      const out: Record<string, string> = {}
-      for (const [k, v] of Object.entries(src)) {
-        try {
-          const { decrypted } = await decryptSecret(v)
-          out[k] = decrypted
-        } catch {
-          out[k] = ''
-        }
-      }
-      return out
-    }
-
-    const [workspaceDecrypted, personalDecrypted] = await Promise.all([
-      decryptAll(wsEncrypted),
-      decryptAll(personalEncrypted),
+    const [workspaceRows, personalRows] = await Promise.all([
+      db
+        .select({
+          key: environmentVariables.key,
+          value: environmentVariables.value,
+          createdAt: environmentVariables.createdAt,
+          updatedAt: environmentVariables.updatedAt,
+        })
+        .from(environmentVariables)
+        .where(eq(environmentVariables.workspaceId, workspaceId)),
+      db
+        .select({
+          key: environmentVariables.key,
+          value: environmentVariables.value,
+          createdAt: environmentVariables.createdAt,
+          updatedAt: environmentVariables.updatedAt,
+        })
+        .from(environmentVariables)
+        .where(eq(environmentVariables.userId, userId)),
     ])
 
-    const conflicts = Object.keys(personalDecrypted).filter((k) => k in workspaceDecrypted)
+    const [workspaceDecrypted, personalDecrypted] = await Promise.all([
+      decryptRows(workspaceRows),
+      decryptRows(personalRows),
+    ])
+
+    const conflicts = Object.keys(personalDecrypted.record).filter(
+      (k) => k in workspaceDecrypted.record
+    )
 
     return NextResponse.json(
       {
         data: {
-          workspace: workspaceDecrypted,
-          personal: personalDecrypted,
+          workspace: workspaceDecrypted.record,
+          personal: personalDecrypted.record,
           conflicts,
-          workspaceMeta: {
-            createdAt: wsCreatedAt,
-            updatedAt: wsUpdatedAt,
-          },
-          personalMeta: {
-            createdAt: personalCreatedAt,
-            updatedAt: personalUpdatedAt,
-          },
+          workspaceRows: workspaceDecrypted.rows,
+          personalRows: personalDecrypted.rows,
         },
       },
       { status: 200 }
@@ -133,39 +143,29 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const body = await request.json()
     const { variables } = UpsertSchema.parse(body)
 
-    // Read existing encrypted ws vars
-    const existingRows = await db
-      .select()
-      .from(workspaceEnvironment)
-      .where(eq(workspaceEnvironment.workspaceId, workspaceId))
-      .limit(1)
-
-    const existingEncrypted: Record<string, string> = (existingRows[0]?.variables as any) || {}
-
-    // Encrypt incoming
-    const encryptedIncoming = await Promise.all(
-      Object.entries(variables).map(async ([key, value]) => {
+    await db.transaction(async (tx) => {
+      for (const [key, value] of Object.entries(variables)) {
         const { encrypted } = await encryptSecret(value)
-        return [key, encrypted] as const
-      })
-    ).then((entries) => Object.fromEntries(entries))
 
-    const merged = { ...existingEncrypted, ...encryptedIncoming }
-
-    // Upsert by unique workspace_id
-    await db
-      .insert(workspaceEnvironment)
-      .values({
-        id: crypto.randomUUID(),
-        workspaceId,
-        variables: merged,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: [workspaceEnvironment.workspaceId],
-        set: { variables: merged, updatedAt: new Date() },
-      })
+        await tx
+          .insert(environmentVariables)
+          .values({
+            id: crypto.randomUUID(),
+            workspaceId,
+            key,
+            value: encrypted,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: [environmentVariables.workspaceId, environmentVariables.key],
+            set: {
+              value: encrypted,
+              updatedAt: new Date(),
+            },
+          })
+      }
+    })
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
@@ -200,38 +200,14 @@ export async function DELETE(
     const body = await request.json()
     const { keys } = DeleteSchema.parse(body)
 
-    const wsRows = await db
-      .select()
-      .from(workspaceEnvironment)
-      .where(eq(workspaceEnvironment.workspaceId, workspaceId))
-      .limit(1)
-
-    const current: Record<string, string> = (wsRows[0]?.variables as any) || {}
-    let changed = false
-    for (const k of keys) {
-      if (k in current) {
-        delete current[k]
-        changed = true
-      }
-    }
-
-    if (!changed) {
-      return NextResponse.json({ success: true })
-    }
-
     await db
-      .insert(workspaceEnvironment)
-      .values({
-        id: wsRows[0]?.id || crypto.randomUUID(),
-        workspaceId,
-        variables: current,
-        createdAt: wsRows[0]?.createdAt || new Date(),
-        updatedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: [workspaceEnvironment.workspaceId],
-        set: { variables: current, updatedAt: new Date() },
-      })
+      .delete(environmentVariables)
+      .where(
+        and(
+          eq(environmentVariables.workspaceId, workspaceId),
+          inArray(environmentVariables.key, keys)
+        )
+      )
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
