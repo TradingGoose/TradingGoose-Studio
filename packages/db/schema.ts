@@ -348,6 +348,32 @@ export const workspaceEnvironment = pgTable(
   })
 )
 
+export const environmentVariables = pgTable(
+  'environment_variables',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id').references(() => workspace.id, { onDelete: 'cascade' }),
+    key: text('key').notNull(),
+    value: text('value').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    userIdIdx: index('environment_variables_user_id_idx').on(table.userId),
+    workspaceIdIdx: index('environment_variables_workspace_id_idx').on(table.workspaceId),
+    userKeyUnique: uniqueIndex('environment_variables_user_key_unique').on(table.userId, table.key),
+    workspaceKeyUnique: uniqueIndex('environment_variables_workspace_key_unique').on(
+      table.workspaceId,
+      table.key
+    ),
+    scopeCheck: check(
+      'environment_variables_scope_check',
+      sql`(user_id IS NOT NULL AND workspace_id IS NULL) OR (user_id IS NULL AND workspace_id IS NOT NULL)`
+    ),
+  })
+)
+
 export const settings = pgTable('settings', {
   id: text('id').primaryKey(), // Use the user id as the key
   userId: text('user_id')
@@ -767,7 +793,6 @@ export const workspace = pgTable('workspace', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
-
 
 export const layoutMap = pgTable(
   'layout_map',
