@@ -166,7 +166,9 @@ This must integrate with existing workflow trigger infrastructure and be directl
 - monitor auth stores encrypted provider secret fields only (`encryptedSecrets` by provider auth param id)
 - never persist plaintext secret/token/api-key values in `providerConfig.monitor.auth`
 - monitor APIs accept write-only secret input keyed by provider auth param ids, encrypt before persistence, and store ciphertext only
-- monitor APIs must redact auth in responses (no plaintext or ciphertext secret values returned)
+- monitor APIs must redact auth in responses (ciphertext is never returned; authenticated monitor APIs include decrypted edit-hydration values under `secretReferences`)
+- auth secret inputs may include environment references (`{{ENV_VAR_NAME}}`) and are persisted as encrypted write-only values
+- runtime must resolve env references from effective environment (`user + workspace`) before provider auth is used; unresolved env refs fail monitor startup for that row
 16. Resolved policy decision for this plan:
 - AGENTS no-legacy rules apply without exception in this plan scope
 - preserve existing provider-specific compatibility behavior for non-indicator webhook providers on `/api/webhooks/trigger/[path]`
@@ -433,6 +435,7 @@ type IndicatorMonitorAuthStored = {
 type IndicatorMonitorAuthPublic = {
   hasEncryptedSecrets?: boolean
   encryptedSecretFieldIds?: string[]
+  secretReferences?: Record<string, string>
 }
 
 type IndicatorWebhookProviderConfig = {
@@ -476,9 +479,9 @@ Rules:
 - providers that require multiple secret params must persist all required secret param ids through encrypted write-only secret inputs before save succeeds
 6. Provider non-secret runtime options are stored in `providerConfig.monitor.providerParams`.
 7. Monitor API response redaction contract:
-- never return plaintext secret values
 - never return encrypted ciphertext values
-- return only safe auth metadata in response shape (`hasEncryptedSecrets`, `encryptedSecretFieldIds`)
+- return auth metadata plus edit-hydration values in response shape (`hasEncryptedSecrets`, `encryptedSecretFieldIds`, `secretReferences`)
+- `secretReferences` are response-only values derived from decrypted stored secrets for edit hydration; they are not persisted as plaintext
 8. `webhookId` is internal plumbing only and is never exposed in UX labels.
 9. Auth edits update the same webhook row in place; no workflow redeploy is required.
 10. Monitor APIs persist monitor rows directly (typed monitor API path), not through generic `/api/webhooks` POST.
@@ -568,22 +571,31 @@ Row actions behavior:
 1. Non-edit mode actions column shows 3-dot menu.
 2. 3-dot menu contains `Edit`, `Pause` or `Activate` (based on current state), and `Remove`.
 3. Monitor create action is a header `+` icon button in Logs page header controls, positioned immediately left of Refresh in `Monitors` view (not inside monitor table panel).
-4. Clicking header `+` opens monitor config modal.
-5. `Edit` opens monitor config modal (custom-tools-style flow) instead of inline row edit.
-6. Modal contains editable controls:
+4. Header `+` button enablement is gated by monitor prerequisites:
+- enabled only when at least one workflow target with `indicator_trigger` exists and at least one trigger-capable indicator option exists
+- otherwise disabled with tooltip message: `Please configure workflow that uses indicator as trigger and indicator that emits trigger to add monitor`
+5. Clicking enabled header `+` opens monitor config modal.
+6. `Edit` opens monitor config modal (custom-tools-style flow) instead of inline row edit.
+7. Modal contains editable controls:
 - provider selector (searchable dropdown) + required non-secret provider params
 - auth editor (required secret fields only, no `Configured`/`Missing` status tag in modal; hidden when provider has no required secret fields)
 - listing selector
 - indicator selector (searchable modal dropdown, with interval selector in same section)
 - workflow selector (searchable modal dropdown)
-7. Modal actions are `Save` / `Cancel`.
-8. Save writes only if normalized form is valid; otherwise show inline field errors and keep modal open.
+8. Modal actions are `Save` / `Cancel`.
+9. Save writes only if normalized form is valid; otherwise show inline field errors and keep modal open.
+10. Monitor mutation UX must avoid full-table blocking reloads:
+- create/edit uses mutation response record to upsert local table state
+- pause/activate uses optimistic local status flip with rollback on failure
+- remove updates local table state after successful delete
+- full-table loading state is reserved for initial load/manual refresh only
 
 Dropdown source contract:
 1. provider options from `getMarketProviderOptionsByKind('live')` filtered by `getMarketLiveCapabilities(providerId)?.supportsStreaming === true`.
 2. provider/auth editor fields from provider live param definitions (`getMarketProviderParamDefinitions(providerId, 'live')`) scoped to selected provider:
 - include only required fields where visibility is not `hidden` and not `llm-only`
 - password fields render in auth column and persist to `auth.secrets[paramId]` (encrypted at save)
+- password inputs use env-var-aware short input behavior (same pattern as provider controls, with workspace-scoped env var lookup UI)
 - non-password fields render in provider column and persist to `providerParams[paramId]`
 - non-password fields with discrete options use searchable dropdown selectors (same monitor-local dropdown/search pattern as workflow/indicator selectors)
 - hide `Feed` section when selected provider has zero required non-secret live params
@@ -656,6 +668,12 @@ Monitor save pipeline (webhook-backed):
 - derive required secret param ids from selected provider auth definitions and enforce that all required ids are satisfied for the monitor
 - treat direct secret input as write-only; encrypt before persistence and map to `auth.encryptedSecrets[paramId]`
 - reject persistence payloads that attempt to store plaintext auth keys in `providerConfig.monitor.auth`
+- allow secret values to include env references (`{{ENV_VAR_NAME}}`) and persist them encrypted like any other secret input
+- derive edit-hydration secret values from decrypted secrets when building monitor API responses so monitor edit modal can prefill auth inputs
+- on runtime subscription start/reconcile, decrypt stored secret values, resolve env references via effective env (`user + workspace`), and fail that monitor row if required env keys are missing
+ - auth update semantics:
+ - create: auth input behaves as normal write-only secret set
+ - update: provided auth input replaces stored encrypted auth set for that monitor (blanked fields remove stored secrets)
 7. Monitor edit field derivation must match provider-definition behavior used by data-chart provider controls:
 - source field definitions from `getMarketProviderParamDefinitions(providerId, 'live')`
 - include only required fields with visibility not `hidden` and not `llm-only`
@@ -694,7 +712,7 @@ Important behavior:
 2. User can change provider/interval/indicator/workflow/listing/auth without redeploy.
 3. User can pause/activate monitors without losing saved configuration.
 4. Changes take effect through runtime reconcile, not deployment snapshot rewrite.
-5. Monitor API list/detail responses expose only redacted auth metadata (`hasEncryptedSecrets`, `encryptedSecretFieldIds`) and never return plaintext/ciphertext secret values.
+5. Monitor API list/detail responses expose only redacted auth metadata (`hasEncryptedSecrets`, `encryptedSecretFieldIds`, `secretReferences`) and never return plaintext/ciphertext secret values.
 
 ## Monitor Logs Drill-In Contract
 Monitor UI must drill into workflow runs for the selected monitor.
