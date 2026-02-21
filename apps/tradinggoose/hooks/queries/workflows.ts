@@ -1,11 +1,10 @@
 import { useEffect } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createLogger } from '@/lib/logs/console/logger'
+import { generateCreativeWorkflowName } from '@/lib/naming'
 import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
-import { generateCreativeWorkflowName } from '@/lib/naming'
-import { getNextWorkflowColor } from '@/stores/workflows/registry/utils'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 
 const logger = createLogger('WorkflowQueries')
@@ -93,17 +92,20 @@ export function useCreateWorkflow() {
       const { workspaceId, name, description, color, folderId } = variables
 
       logger.info(`Creating new workflow in workspace: ${workspaceId}`)
+      const requestBody: Record<string, unknown> = {
+        name: name || generateCreativeWorkflowName(),
+        description: description || 'New workflow',
+        workspaceId,
+        folderId: folderId || null,
+      }
+      if (typeof color === 'string' && color.trim().length > 0) {
+        requestBody.color = color.trim()
+      }
 
       const createResponse = await fetch('/api/workflows', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name || generateCreativeWorkflowName(),
-          description: description || 'New workflow',
-          color: color || getNextWorkflowColor(),
-          workspaceId,
-          folderId: folderId || null,
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       if (!createResponse.ok) {

@@ -1,20 +1,5 @@
 const VIBRANT_SATURATION = 100
 
-const supportsCrypto =
-  typeof globalThis !== 'undefined' &&
-  typeof globalThis.crypto !== 'undefined' &&
-  typeof globalThis.crypto.getRandomValues === 'function'
-
-const getRandomHue = (): number => {
-  if (supportsCrypto) {
-    const values = new Uint32Array(1)
-    globalThis.crypto.getRandomValues(values)
-    return values[0] % 360
-  }
-
-  return Math.floor(Math.random() * 360)
-}
-
 // Source - https://stackoverflow.com/a
 // Posted by Juraj, modified by community. See post 'Timeline' for change history
 // Retrieved 2025-11-24, License - CC BY-SA 4.0
@@ -29,12 +14,6 @@ function hslToHex(h: number, s: number, l: number): string {
       .padStart(2, '0')
   }
   return `#${f(0)}${f(8)}${f(4)}`
-}
-
-// Generates a random vibrant color using HSL with a fixed saturation/lightness for consistency
-export function getRandomVibrantColor(): string {
-  const hue = getRandomHue()
-  return hslToHex(hue, VIBRANT_SATURATION, 50)
 }
 
 export function getStableVibrantColor(seed: string): string {

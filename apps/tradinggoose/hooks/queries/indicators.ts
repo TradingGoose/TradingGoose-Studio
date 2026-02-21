@@ -1,10 +1,9 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'
-import { getRandomVibrantColor } from '@/lib/colors'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { InputMetaMap } from '@/lib/indicators/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useIndicatorsStore } from '@/stores/indicators/store'
 import type { IndicatorDefinition } from '@/stores/indicators/types'
-import type { InputMetaMap } from '@/lib/indicators/types'
 
 const logger = createLogger('IndicatorsQueries')
 const API_ENDPOINT = '/api/indicators/custom'
@@ -21,10 +20,7 @@ type ApiIndicator = Partial<IndicatorDefinition> & {
   name: string
 }
 
-function normalizeIndicator(
-  indicator: ApiIndicator,
-  workspaceId: string
-): IndicatorDefinition {
+function normalizeIndicator(indicator: ApiIndicator, workspaceId: string): IndicatorDefinition {
   return {
     id: indicator.id,
     workspaceId: indicator.workspaceId ?? workspaceId,
@@ -125,7 +121,9 @@ export function useIndicators(workspaceId: string) {
     const signature = query.data
       .map((indicator) => {
         const updatedAt =
-          typeof indicator.updatedAt === 'string' ? indicator.updatedAt : indicator.createdAt ?? ''
+          typeof indicator.updatedAt === 'string'
+            ? indicator.updatedAt
+            : (indicator.createdAt ?? '')
         return `${indicator.id}:${updatedAt}:${indicator.name}:${indicator.color ?? ''}:${indicator.pineCode ?? ''}`
       })
       .join('|')
@@ -143,10 +141,7 @@ export function useIndicators(workspaceId: string) {
 
 interface CreateIndicatorParams {
   workspaceId: string
-  indicator: Omit<
-    IndicatorDefinition,
-    'id' | 'workspaceId' | 'userId' | 'createdAt' | 'updatedAt'
-  >
+  indicator: Omit<IndicatorDefinition, 'id' | 'workspaceId' | 'userId' | 'createdAt' | 'updatedAt'>
 }
 
 export function useCreateIndicator() {
@@ -161,7 +156,7 @@ export function useCreateIndicator() {
         color:
           typeof indicator.color === 'string' && indicator.color.trim().length > 0
             ? indicator.color.trim()
-            : getRandomVibrantColor(),
+            : undefined,
       }
 
       const response = await fetch(API_ENDPOINT, {
@@ -216,7 +211,7 @@ export function useUpdateIndicator() {
         throw new Error('Indicator not found')
       }
 
-      const resolvedInputMeta = Object.prototype.hasOwnProperty.call(updates, 'inputMeta')
+      const resolvedInputMeta = Object.hasOwn(updates, 'inputMeta')
         ? updates.inputMeta
         : currentIndicator.inputMeta
 
@@ -263,9 +258,9 @@ export function useUpdateIndicator() {
           previousIndicators.map((indicator) =>
             indicator.id === indicatorId
               ? {
-                ...indicator,
-                ...updates,
-              }
+                  ...indicator,
+                  ...updates,
+                }
               : indicator
           )
         )

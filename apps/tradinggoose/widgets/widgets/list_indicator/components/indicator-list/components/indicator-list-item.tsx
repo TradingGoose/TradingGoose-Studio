@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { FunctionSquare, Pencil, Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Copy, Activity, Pencil, Trash2 } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -12,6 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type { IndicatorDefinition } from '@/stores/indicators/types'
@@ -20,9 +20,11 @@ interface IndicatorListItemProps {
   indicator: IndicatorDefinition
   isSelected: boolean
   onSelect: (indicatorId: string) => void
+  onCopy: (indicator: IndicatorDefinition) => Promise<void>
   onDelete: (indicatorId: string) => Promise<void>
   onRename: (indicatorId: string, name: string) => Promise<void>
   canEdit: boolean
+  isCopying: boolean
   isDeleting: boolean
 }
 
@@ -30,9 +32,11 @@ export function IndicatorListItem({
   indicator,
   isSelected,
   onSelect,
+  onCopy,
   onDelete,
   onRename,
   canEdit,
+  isCopying,
   isDeleting,
 }: IndicatorListItemProps) {
   const [isHovered, setIsHovered] = useState(false)
@@ -109,6 +113,15 @@ export function IndicatorListItem({
     }
   }
 
+  const handleCopyIndicator = async () => {
+    if (isCopying) return
+    try {
+      await onCopy(indicator)
+    } catch (error) {
+      console.error('Failed to copy indicator', error)
+    }
+  }
+
   const interactiveChildren = (
     <>
       {isEditing ? (
@@ -155,14 +168,14 @@ export function IndicatorListItem({
       <div
         className={cn(
           'group flex h-8 cursor-pointer items-center rounded-sm px-2 py-2 font-medium font-sans text-sm transition-colors',
-          isSelected ? 'bg-secondary' : 'hover:bg-secondary/60'
+          isSelected ? 'bg-secondary/60' : 'hover:bg-secondary/30'
         )}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
         <button
           type='button'
-          className='flex min-w-0 flex-1 items-center border-0 bg-transparent p-0 text-left gap-2'
+          className='flex min-w-0 flex-1 items-center gap-2 border-0 bg-transparent p-0 text-left'
           disabled={isEditing}
           onClick={(event) => {
             if (isEditing) {
@@ -174,13 +187,13 @@ export function IndicatorListItem({
           draggable={false}
         >
           <span
-            className='h-5 w-5 p-0.5 rounded-xs items-center justify-center flex'
+            className='flex h-5 w-5 items-center justify-center rounded-xs p-0.5'
             style={{
-              backgroundColor: (indicator.color ?? '#3972F6') + '20',
+              backgroundColor: `${indicator.color ?? '#3972F6'}20`,
             }}
             aria-hidden='true'
           >
-            <FunctionSquare
+            <Activity
               className='h-full'
               aria-hidden='true'
               style={{ color: indicator.color ?? '#3972F6' }}
@@ -189,7 +202,23 @@ export function IndicatorListItem({
           {interactiveChildren}
         </button>
         {canEdit && isHovered && !isEditing && (
-          <div className='flex items-center justify-center gap-1' onClick={(e) => e.stopPropagation()}>
+          <div
+            className='flex items-center justify-center gap-1'
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Button
+              variant='ghost'
+              size='icon'
+              disabled={isCopying || isDeleting}
+              className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground disabled:opacity-50'
+              onClick={(event) => {
+                event.stopPropagation()
+                void handleCopyIndicator()
+              }}
+            >
+              <Copy className='!h-3.5 !w-3.5' />
+              <span className='sr-only'>Duplicate indicator</span>
+            </Button>
             <Button
               variant='ghost'
               size='icon'

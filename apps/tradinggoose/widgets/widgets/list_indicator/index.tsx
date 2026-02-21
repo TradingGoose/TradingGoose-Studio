@@ -2,7 +2,10 @@
 
 import { useCallback } from 'react'
 import { ListChecks } from 'lucide-react'
-import { getRandomVibrantColor } from '@/lib/colors'
+import {
+  useUserPermissionsContext,
+  WorkspacePermissionsProvider,
+} from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCreateIndicator } from '@/hooks/queries/indicators'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { emitIndicatorSelectionChange } from '@/widgets/utils/indicator-selection'
@@ -12,10 +15,6 @@ import {
   IndicatorList,
   IndicatorListMessage,
 } from '@/widgets/widgets/list_indicator/components/indicator-list/indicator-list'
-import {
-  WorkspacePermissionsProvider,
-  useUserPermissionsContext,
-} from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 
 const DEFAULT_INDICATOR = {
   name: 'New Indicator',
@@ -40,7 +39,6 @@ const IndicatorListHeaderRight = ({
         workspaceId,
         indicator: {
           ...DEFAULT_INDICATOR,
-          color: getRandomVibrantColor(),
         },
       })
       const created = Array.isArray(response) ? response[0] : null

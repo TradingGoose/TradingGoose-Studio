@@ -37,7 +37,10 @@ export interface WorkflowRegistryActions {
   setActiveWorkflow: (params: string | { workflowId: string; channelId?: string }) => Promise<void>
   switchToWorkspace: (id: string) => Promise<void>
   loadWorkflows: (workspaceId?: string) => Promise<void>
-  removeWorkflow: (id: string) => Promise<void>
+  removeWorkflow: (
+    id: string,
+    options?: { skipApi?: boolean; templateAction?: 'keep' | 'delete' }
+  ) => Promise<void>
   updateWorkflow: (id: string, metadata: Partial<WorkflowMetadata>) => Promise<void>
   createWorkflow: (options?: {
     isInitial?: boolean
