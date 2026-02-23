@@ -279,7 +279,6 @@ type IndicatorWorkflowTriggerPayload = {
       options?: Record<string, unknown>
       interval?: string
       intervalMs?: number
-      listingKey?: string
     }
     output: NormalizedPineOutput
   }
@@ -373,8 +372,7 @@ Use nested output fields so required tag paths are resolvable:
       inputs: { type: 'object', description: 'Resolved indicator inputs.' },
       options: { type: 'object', description: 'Resolved indicator options.' },
       interval: { type: 'string', description: 'Execution interval.' },
-      intervalMs: { type: 'number', description: 'Execution interval ms.' },
-      listingKey: { type: 'string', description: 'Execution listing key.' }
+      intervalMs: { type: 'number', description: 'Execution interval ms.' }
     },
     output: {
       series: { type: 'array', description: 'Normalized series output.' },
@@ -472,20 +470,21 @@ Rules:
 1. `monitorId` is `webhook.id` (no separate monitor id table).
 2. `webhook.path` is deterministic and immutable: `indicator-monitor-{monitorId}`.
 3. All monitor runtime settings live in `webhook.providerConfig.monitor`.
-4. `listingKey` is never persisted in `webhook.providerConfig.monitor`; runtime derives keys from `monitor.listing` when needed.
-5. Auth storage contract for indicator monitors:
+4. `listingIdentity` is the single source of truth across monitor storage, runtime matching, and payload contracts.
+5. Resolved listing objects must never include a derived `id` field; identity fields remain canonical (`listing_type`, `listing_id`, `base_id`, `quote_id`).
+6. Auth storage contract for indicator monitors:
 - plaintext secret fields (for example `apiKey`, `apiSecret`, `token`, `password`) are forbidden in persisted monitor auth
 - monitor APIs accept write-only secret values keyed by provider auth param ids, encrypt each value before persistence, and store ciphertext only under `auth.encryptedSecrets[paramId]`
 - providers that require multiple secret params must persist all required secret param ids through encrypted write-only secret inputs before save succeeds
-6. Provider non-secret runtime options are stored in `providerConfig.monitor.providerParams`.
-7. Monitor API response redaction contract:
+7. Provider non-secret runtime options are stored in `providerConfig.monitor.providerParams`.
+8. Monitor API response redaction contract:
 - never return encrypted ciphertext values
 - return auth metadata plus edit-hydration values in response shape (`hasEncryptedSecrets`, `encryptedSecretFieldIds`, `secretReferences`)
 - `secretReferences` are response-only values derived from decrypted stored secrets for edit hydration; they are not persisted as plaintext
-8. `webhookId` is internal plumbing only and is never exposed in UX labels.
-9. Auth edits update the same webhook row in place; no workflow redeploy is required.
-10. Monitor APIs persist monitor rows directly (typed monitor API path), not through generic `/api/webhooks` POST.
-11. Generic webhook CRUD APIs must not manage `provider = 'indicator'` rows:
+9. `webhookId` is internal plumbing only and is never exposed in UX labels.
+10. Auth edits update the same webhook row in place; no workflow redeploy is required.
+11. Monitor APIs persist monitor rows directly (typed monitor API path), not through generic `/api/webhooks` POST.
+12. Generic webhook CRUD APIs must not manage `provider = 'indicator'` rows:
 - `POST /api/webhooks` must reject `provider = 'indicator'` with `403`
 - `PATCH /api/webhooks/[id]` must reject when target webhook provider is `indicator` with `403`
 - `DELETE /api/webhooks/[id]` must reject when target webhook provider is `indicator` with `403`
@@ -493,13 +492,13 @@ Rules:
 - branch `workflowId + blockId`
 - default user-owned list branch
 - `GET /api/webhooks/[id]` must return `404` when target webhook provider is `indicator`
-11. Indicator monitor webhooks are internal-only triggers:
+13. Indicator monitor webhooks are internal-only triggers:
 - they must never be executed from public external webhook HTTP requests
 - they are dispatched only by trusted internal paths (manual execute + socket runtime)
-12. `webhook.path` is internal plumbing only:
+14. `webhook.path` is internal plumbing only:
 - monitor list/detail APIs must not expose `webhook.path`
 - monitor UI must not display or serialize `webhook.path`
-13. External webhook route safeguards are mandatory:
+15. External webhook route safeguards are mandatory:
 - `POST /api/webhooks/trigger/[path]` must reject `provider = 'indicator'` with `403`
 - canonical POST branch order for `/api/webhooks/trigger/[path]` is fixed (single source of truth):
   1. resolve webhook-by-path first
