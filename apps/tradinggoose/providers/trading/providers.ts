@@ -132,7 +132,6 @@ export type TradingRuleScopeKey =
 
 export interface TradingSymbolRule {
   assetClass?: AssetClass
-  listingKey?: string
   market?: string
   country?: string
   city?: string

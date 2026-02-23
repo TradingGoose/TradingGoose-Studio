@@ -16,7 +16,6 @@ import { Input } from '@/components/ui/input'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { useBrandConfig } from '@/lib/branding/branding'
 import {
-  resolveListingKey,
   toListingValueObject,
   type ListingIdentity,
   type ListingInputValue,
@@ -1218,8 +1217,7 @@ function hasLinkedColorPairs(colorPairs?: PersistedColorPairsState): boolean {
 function getListingIdentity(listing?: ListingInputValue | null): ListingIdentity | null {
   if (!listing) return null
   const identity = toListingValueObject(listing)
-  if (!identity) return null
-  return resolveListingKey(identity) ? identity : null
+  return identity ?? null
 }
 
 function collectPairColors(node: LayoutNode, set: Set<PairColor> = new Set()): Set<PairColor> {

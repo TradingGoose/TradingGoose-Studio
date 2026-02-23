@@ -4,7 +4,6 @@ import {
 } from '@/lib/indicators/default/runtime'
 import { buildInputsMapFromMeta } from '@/lib/indicators/input-meta'
 import { mapMarketSeriesToBarsMs } from '@/lib/indicators/series-data'
-import { resolveListingKey } from '@/lib/listing/identity'
 import type { MarketSeries } from '@/providers/market/types'
 import { executeIndicatorInLocalVm } from './local-executor'
 
@@ -84,7 +83,7 @@ const executeFunctionIndicator = async ({
     const runResult = await executeIndicatorInLocalVm({
       barsMs,
       inputsMap,
-      listingKey: resolveListingKey(series.listing ?? undefined),
+      listing: series.listing ?? null,
       code: entry.pineCode,
     })
     const context = runResult.context

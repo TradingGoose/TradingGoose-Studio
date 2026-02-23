@@ -1,5 +1,5 @@
 import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
-import { resolveListingKey, toListingValueObject } from '@/lib/listing/identity'
+import { toListingValueObject } from '@/lib/listing/identity'
 import type { AssetClass } from '@/providers/market/types'
 import type {
   TradingProviderConfig,
@@ -20,7 +20,6 @@ const readListingField = (record: Record<string, unknown>, key: string): string 
 }
 
 export interface TradingListingContext {
-  listingKey: string
   listing?: ListingIdentity | null
   base: string
   quote?: string
@@ -38,7 +37,6 @@ export function resolveTradingListingContext(input: TradingSymbolInput): Trading
   const record = (listingValue || {}) as Record<string, unknown>
 
   const listingIdentity = toListingValueObject(listingValue)
-  const listingKeyFromListing = resolveListingKey(listingIdentity)
 
   const base =
     input.base ||
@@ -58,8 +56,6 @@ export function resolveTradingListingContext(input: TradingSymbolInput): Trading
       ? listingIdentity.quote_id || undefined
       : undefined)
 
-  const listingKey = listingKeyFromListing || (quote ? `${base}:${quote}` : base)
-
   const assetClass =
     input.assetClass || (readListingField(record, 'assetClass') as AssetClass | undefined)
 
@@ -69,7 +65,6 @@ export function resolveTradingListingContext(input: TradingSymbolInput): Trading
   const timeZoneName = readListingField(record, 'timeZoneName') || input.timeZoneName
 
   return {
-    listingKey,
     listing: listingIdentity,
     base,
     quote: quote ?? undefined,
@@ -128,7 +123,6 @@ export function resolveTradingProviderSymbol(
 
 function matchesRule(rule: TradingSymbolRule, context: TradingListingContext): boolean {
   if (rule.assetClass && rule.assetClass !== context.assetClass) return false
-  if (rule.listingKey && rule.listingKey !== context.listingKey) return false
   if (rule.market && rule.market !== context.marketCode) return false
   if (rule.country && rule.country !== context.countryCode) return false
   if (rule.city && rule.city !== context.cityName) return false
@@ -163,7 +157,6 @@ function scoreRule(rule: TradingSymbolRule, precedence: TradingRuleScopeKey[]): 
   })
 
   let score = 0
-  if (rule.listingKey) score += fieldWeights.listing || 0
   if (rule.market) score += fieldWeights.market || 0
   if (rule.currency) score += fieldWeights.currency || 0
   if (rule.assetClass) score += fieldWeights.assetClass || 0
@@ -205,7 +198,13 @@ function renderTemplate(template: string, context: TradingListingContext): strin
       case 'assetClass':
         return context.assetClass || ''
       case 'listing':
-        return context.listingKey
+        if (context.listing?.listing_type === 'default') {
+          return context.listing.listing_id || ''
+        }
+        if (context.listing?.base_id && context.listing?.quote_id) {
+          return `${context.listing.base_id}:${context.listing.quote_id}`
+        }
+        return context.quote ? `${context.base}:${context.quote}` : context.base
       default:
         return ''
     }

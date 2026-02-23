@@ -2,6 +2,7 @@ import { createContext, Script } from 'vm'
 import { runPineTS } from '@/lib/indicators/run-pinets'
 import { createIndicatorTriggerSentinel } from '@/lib/indicators/trigger-bridge'
 import type { BarMs } from '@/lib/indicators/types'
+import type { ListingIdentity } from '@/lib/listing/identity'
 
 type PineVmFn = (...args: unknown[]) => unknown
 
@@ -25,14 +26,14 @@ const createLocalVmIndicatorFunction = (code: string): PineVmFn => {
 export const executeIndicatorInLocalVm = async ({
   barsMs,
   inputsMap,
-  listingKey,
+  listing,
   interval,
   code,
   codeFormat = 'pinets',
 }: {
   barsMs: BarMs[]
   inputsMap?: Record<string, unknown>
-  listingKey?: string
+  listing?: ListingIdentity | null
   interval?: string
   code: string | PineVmFn
   codeFormat?: 'pinets' | 'functionExpression'
@@ -45,7 +46,7 @@ export const executeIndicatorInLocalVm = async ({
   return runPineTS({
     barsMs,
     inputsMap,
-    listingKey,
+    listing,
     interval,
     code: runtimeCode,
   })

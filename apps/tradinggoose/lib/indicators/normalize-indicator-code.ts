@@ -1,5 +1,11 @@
 import * as ts from 'typescript'
 
+export type FillOptionOverride = {
+  upperColor?: string
+  lowerColor?: string
+  opacity?: number
+}
+
 export const looksLikeFunctionExpression = (code: string): boolean => {
   const trimmed = code.trim()
   if (!trimmed) return false
@@ -9,6 +15,64 @@ export const looksLikeFunctionExpression = (code: string): boolean => {
   if (/^async\s+[_$a-zA-Z][\w$]*\s*=>/.test(trimmed)) return true
   if (/^[_$a-zA-Z][\w$]*\s*=>/.test(trimmed)) return true
   return false
+}
+
+export const extractFillOptionOverrides = (pineCode: string): FillOptionOverride[] => {
+  if (!pineCode.trim()) return []
+  const sourceFile = ts.createSourceFile(
+    'indicator.ts',
+    pineCode,
+    ts.ScriptTarget.ESNext,
+    true,
+    ts.ScriptKind.TS
+  )
+  const overrides: FillOptionOverride[] = []
+
+  const visit = (node: ts.Node) => {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === 'fill'
+    ) {
+      const options = node.arguments[2]
+      if (!options || !ts.isObjectLiteralExpression(options)) {
+        overrides.push({})
+      } else {
+        const override: FillOptionOverride = {}
+        options.properties.forEach((property) => {
+          if (!ts.isPropertyAssignment(property)) return
+          const key =
+            ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)
+              ? property.name.text
+              : null
+          if (!key) return
+
+          if (key === 'opacity' && ts.isNumericLiteral(property.initializer)) {
+            const value = Number(property.initializer.text)
+            if (Number.isFinite(value)) override.opacity = value
+            return
+          }
+
+          if (
+            (key === 'upperColor' || key === 'lowerColor') &&
+            (ts.isStringLiteral(property.initializer) ||
+              ts.isNoSubstitutionTemplateLiteral(property.initializer))
+          ) {
+            if (key === 'upperColor') {
+              override.upperColor = property.initializer.text
+            } else {
+              override.lowerColor = property.initializer.text
+            }
+          }
+        })
+        overrides.push(override)
+      }
+    }
+    node.forEachChild(visit)
+  }
+
+  visit(sourceFile)
+  return overrides
 }
 
 export const transpileTypeScript = (code: string): { code: string; error?: string } => {

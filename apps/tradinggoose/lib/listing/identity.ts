@@ -8,7 +8,6 @@ export type ListingIdentity = {
 }
 
 export type ListingResolved = ListingIdentity & {
-  id: string
   base: string
   quote?: string | null
   name?: string | null
@@ -48,28 +47,6 @@ const readListingType = (record: Record<string, unknown>): ListingType | undefin
   return isListingType(raw) ? raw : undefined
 }
 
-export const resolveListingKey = (value: ListingInputValue): string | undefined => {
-  if (!value) return undefined
-  if (typeof value === 'string') return value
-
-  const record = value as Record<string, unknown>
-  const listingType = readListingType(record)
-  if (!listingType) return undefined
-  const listingId = readListingField(record, 'listing_id')
-  const baseId = readListingField(record, 'base_id')
-  const quoteId = readListingField(record, 'quote_id')
-
-  if (listingType === 'default') {
-    return listingId
-  }
-
-  if (baseId && quoteId) {
-    return `${baseId}:${quoteId}`
-  }
-
-  return undefined
-}
-
 export const toListingValue = (
   listing: ListingOption | null | undefined
 ): ListingIdentity | null => {
@@ -83,6 +60,19 @@ export const toListingValueObject = (value: ListingInputValue): ListingIdentity 
   if (typeof value === 'string') return null
 
   return normalizeListingIdentity(value as Record<string, unknown>)
+}
+
+export const areListingIdentitiesEqual = (
+  left?: ListingIdentity | null,
+  right?: ListingIdentity | null
+) => {
+  if (!left || !right) return false
+  return (
+    left.listing_type === right.listing_type &&
+    left.listing_id === right.listing_id &&
+    left.base_id === right.base_id &&
+    left.quote_id === right.quote_id
+  )
 }
 
 const normalizeListingIdentity = (

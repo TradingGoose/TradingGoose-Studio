@@ -60,7 +60,7 @@ export function ListingSelectorDropdown({
               const isHighlighted = index === highlightedIndex
               return (
                 <div
-                  key={listing.id}
+                  key={`${listing.listing_type}|${listing.listing_id}|${listing.base_id}|${listing.quote_id}`}
                   data-option-index={index}
                   onMouseEnter={() => onHighlightChange(index)}
                   onMouseDown={(event) => {

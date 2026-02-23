@@ -49,7 +49,6 @@ export const indicatorTrigger: TriggerConfig = {
         options: { type: 'object', description: 'Resolved indicator options.' },
         interval: { type: 'string', description: 'Execution interval.' },
         intervalMs: { type: 'number', description: 'Execution interval ms.' },
-        listingKey: { type: 'string', description: 'Execution listing key.' },
       },
       output: {
         series: { type: 'array', description: 'Normalized series output.' },

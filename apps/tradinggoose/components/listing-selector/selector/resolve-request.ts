@@ -1,7 +1,6 @@
 import {
   type ListingIdentity,
   type ListingResolved,
-  resolveListingKey,
 } from '@/lib/listing/identity'
 import { MARKET_API_VERSION } from '@/lib/market/client/constants'
 
@@ -289,11 +288,7 @@ function buildResolvedListing(
           listing_type: listing.listing_type,
         }
 
-  const listingKey = resolveListingKey(normalizedIdentity)
-  if (!listingKey) return null
-
   return {
-    id: listingKey,
     ...normalizedIdentity,
     base,
     quote: details.quote ?? null,

@@ -4,8 +4,18 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import type { ListingOption } from '@/lib/listing/identity'
 
+const resolveListingFallbackLabel = (listing: ListingOption): string => {
+  const base = listing.base?.trim()
+  if (base) return base
+  const quote = listing.quote?.trim()
+  if (quote) return quote
+  const name = listing.name?.trim()
+  if (name) return name
+  return 'Listing'
+}
+
 export function getListingPrimary(listing: ListingOption): string {
-  return listing.base?.trim() || listing.name?.trim() || listing.id
+  return resolveListingFallbackLabel(listing)
 }
 
 export function getListingSecondary(listing: ListingOption): string | null {
@@ -17,7 +27,7 @@ export function getListingSecondary(listing: ListingOption): string | null {
 }
 
 export function getListingFallback(listing: ListingOption): string {
-  const base = listing.base?.trim() || listing.name?.trim() || listing.id
+  const base = resolveListingFallbackLabel(listing)
   return base.slice(0, 2).toUpperCase()
 }
 

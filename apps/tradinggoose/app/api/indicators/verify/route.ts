@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       pineCode,
       barsMs,
       inputsMap: inputs ?? {},
-      listingKey: 'mock',
+      listing: series.listing ?? null,
       interval: '1d',
       intervalMs: 86_400_000,
       useE2B,

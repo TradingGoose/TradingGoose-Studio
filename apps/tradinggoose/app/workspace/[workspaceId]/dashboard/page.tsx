@@ -5,7 +5,7 @@ import { and, asc, eq } from 'drizzle-orm'
 import { getSession } from '@/lib/auth'
 import { resolveListingIdentity } from '@/lib/listing/resolve'
 import {
-  resolveListingKey,
+  areListingIdentitiesEqual,
   toListingValueObject,
   type ListingIdentity,
   type ListingInputValue,
@@ -23,7 +23,7 @@ import {
 } from '@/widgets/layout'
 
 type ListingRecord = Record<string, unknown>
-type ListingCache = Map<string, ListingResolved | null>
+type ListingCache = Array<{ listing: ListingIdentity; resolved: ListingResolved | null }>
 
 const readText = (value: unknown): string | null => {
   if (typeof value === 'string') {
@@ -65,7 +65,6 @@ const mergeResolvedListing = (
     }
   }
 
-  applyIfMissing('id', resolved.id)
   applyIfMissing('listing_id', resolved.listing_id)
   applyIfMissing('base_id', resolved.base_id)
   applyIfMissing('quote_id', resolved.quote_id)
@@ -99,16 +98,13 @@ const resolveListingValue = async (
   if (!listingIdentity) return value
   if (hasResolvedFields(record, listingIdentity.listing_type)) return value
 
-  const key = resolveListingKey(listingIdentity)
-  if (!key) return value
-
-  const cached = cache.get(key)
-  if (cached !== undefined) {
-    return cached ? mergeResolvedListing(record, cached) : value
+  const cached = cache.find((entry) => areListingIdentitiesEqual(entry.listing, listingIdentity))
+  if (cached) {
+    return cached.resolved ? mergeResolvedListing(record, cached.resolved) : value
   }
 
   const resolved = await resolveListingIdentity(listingIdentity).catch(() => null)
-  cache.set(key, resolved ?? null)
+  cache.push({ listing: listingIdentity, resolved: resolved ?? null })
   if (!resolved) return value
   return mergeResolvedListing(record, resolved)
 }
@@ -277,7 +273,7 @@ export default async function WorkspaceDashboardPage({
 
   const layoutState = normalizeDashboardLayout(activeLayout?.layout)
   const colorPairsState = normalizeColorPairsState(activeLayout?.color_pair)
-  const listingCache = new Map()
+  const listingCache: ListingCache = []
   const hydratedLayout = await hydrateLayoutListings(layoutState, listingCache)
   const hydratedColorPairs = await hydrateColorPairsListings(colorPairsState, listingCache)
 

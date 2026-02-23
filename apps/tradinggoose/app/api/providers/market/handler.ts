@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
-import { resolveListingKey, type ListingIdentity } from '@/lib/listing/identity'
+import { type ListingIdentity } from '@/lib/listing/identity'
 import { executeProviderRequest } from '@/providers/market'
 import { MarketProviderError, normalizeMarketProviderError } from '@/providers/market/errors'
 import type { MarketProviderRequest } from '@/providers/market/providers'
@@ -188,7 +188,7 @@ export async function handleMarketProviderRequest({
     logger.info(`[${requestId}] Executing market provider request`, {
       provider: providerId,
       kind: normalizedRequest.kind,
-      listing: resolveListingKey(normalizedRequest.listing),
+      listing: normalizedRequest.listing,
       interval: normalizedRequest.kind === 'series' ? normalizedRequest.interval : undefined,
       normalizationMode: normalizedRequest.normalizationMode,
     })

@@ -26,7 +26,6 @@ import type {
 } from './types'
 
 type MonitorListingValue = IndicatorMonitorRecord['providerConfig']['monitor']['listing'] & {
-  id?: string
   base?: string
   quote?: string | null
   name?: string | null
@@ -39,20 +38,16 @@ const toListingOption = (
   listing: IndicatorMonitorRecord['providerConfig']['monitor']['listing']
 ): ListingOption | null => {
   const value = listing as MonitorListingValue
-  const base = typeof value.base === 'string' ? value.base.trim() : ''
+  const identityBase =
+    value.listing_type === 'default' ? value.listing_id?.trim() : value.base_id?.trim()
+  const identityQuote = value.listing_type === 'default' ? '' : value.quote_id?.trim()
+  const base = (typeof value.base === 'string' ? value.base.trim() : '') || identityBase || ''
   if (!base) return null
 
-  const quote = typeof value.quote === 'string' ? value.quote.trim() : ''
-  const id =
-    typeof value.id === 'string' && value.id.trim().length > 0
-      ? value.id.trim()
-      : quote
-        ? `${base}:${quote}`
-        : base
+  const quote = (typeof value.quote === 'string' ? value.quote.trim() : '') || identityQuote || ''
 
   return {
     ...listing,
-    id,
     base,
     quote: quote || null,
     name: typeof value.name === 'string' && value.name.trim().length > 0 ? value.name.trim() : null,

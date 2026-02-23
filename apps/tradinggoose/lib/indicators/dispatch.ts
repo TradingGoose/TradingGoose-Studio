@@ -72,7 +72,6 @@ export type IndicatorTriggerDispatchPayload = {
       options?: Record<string, unknown>
       interval?: string
       intervalMs?: number
-      listingKey?: string
     }
     output: DispatchNormalizedOutput
   }
@@ -126,6 +125,12 @@ const sliceSeriesOutput = (
     ...entry,
     points: entry.points.slice(-retainedBars),
   })),
+  fills: Array.isArray(output.fills)
+    ? output.fills.map((entry) => ({
+        ...entry,
+        points: entry.points.slice(-retainedBars),
+      }))
+    : [],
   markers: output.markers.slice(-retainedBars),
 })
 
@@ -273,6 +278,12 @@ export const applyIndicatorTriggerPayloadBudget = (
           ...entry,
           points: [...entry.points],
         })),
+        fills: Array.isArray(payload.indicator.output.fills)
+          ? payload.indicator.output.fills.map((entry) => ({
+              ...entry,
+              points: [...entry.points],
+            }))
+          : [],
         markers: [...payload.indicator.output.markers],
         ...(payload.indicator.output.signals
           ? { signals: [...payload.indicator.output.signals] }
@@ -369,7 +380,6 @@ export const buildIndicatorTriggerDispatchPayload = ({
   inputsMap,
   interval,
   intervalMs,
-  listingKey,
   marketSeries,
   monitor,
 }: {
@@ -383,7 +393,6 @@ export const buildIndicatorTriggerDispatchPayload = ({
   inputsMap: Record<string, unknown>
   interval?: string
   intervalMs?: number
-  listingKey?: string
   marketSeries: MarketSeries
   monitor: {
     id: string
@@ -423,7 +432,6 @@ export const buildIndicatorTriggerDispatchPayload = ({
         options: output.indicator as Record<string, unknown> | undefined,
         interval,
         intervalMs,
-        listingKey,
       },
       output: mergedOutput,
     },

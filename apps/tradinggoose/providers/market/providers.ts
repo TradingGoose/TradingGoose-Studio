@@ -123,7 +123,6 @@ export type RuleScopeKey = 'listing' | 'market' | 'currency' | 'assetClass' | 'c
 
 export interface MarketSymbolRule {
   assetClass?: AssetClass
-  listingKey?: string
   market?: string
   country?: string
   city?: string
@@ -158,7 +157,6 @@ export interface MarketProvider {
 }
 
 export interface ListingContext {
-  listingKey: string
   listing?: ListingIdentity | null
   base: string
   quote?: string

@@ -170,6 +170,10 @@ export const toIndicatorMonitorRecord = async (webhookRow: WebhookRow) => {
   const resolvedListing = await resolveListingIdentity(publicProviderConfig.monitor.listing).catch(
     () => null
   )
+  const listingForResponse = (() => {
+    if (!resolvedListing) return publicProviderConfig.monitor.listing
+    return resolvedListing
+  })()
   const auth = publicProviderConfig.monitor.auth
 
   return {
@@ -189,7 +193,7 @@ export const toIndicatorMonitorRecord = async (webhookRow: WebhookRow) => {
               },
             }
           : {}),
-        listing: resolvedListing ?? publicProviderConfig.monitor.listing,
+        listing: listingForResponse,
       },
     },
     createdAt: webhookRow.createdAt.toISOString(),

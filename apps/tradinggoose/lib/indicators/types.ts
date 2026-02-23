@@ -59,6 +59,22 @@ export type NormalizedPineSeries = {
   points: NormalizedPineSeriesPoint[]
 }
 
+export type NormalizedPineFillPoint = {
+  time: number
+  upper: number
+  lower: number
+}
+
+export type NormalizedPineFill = {
+  title: string
+  overlay: boolean
+  upperPlotTitle?: string
+  lowerPlotTitle?: string
+  topColor: string
+  bottomColor: string
+  points: NormalizedPineFillPoint[]
+}
+
 export type SeriesMarkerPosition =
   | 'aboveBar'
   | 'belowBar'
@@ -93,6 +109,7 @@ export type NormalizedPineSignal = {
 
 export type NormalizedPineOutput = {
   series: NormalizedPineSeries[]
+  fills: NormalizedPineFill[]
   markers: NormalizedPineMarker[]
   signals: NormalizedPineSignal[]
   unsupported: PineUnsupportedInfo

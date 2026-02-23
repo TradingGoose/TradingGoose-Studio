@@ -1,6 +1,6 @@
 import { createHash } from 'crypto'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
-import { type ListingIdentity, resolveListingKey } from '@/lib/listing/identity'
+import { areListingIdentitiesEqual, type ListingIdentity } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
@@ -55,7 +55,6 @@ export interface MarketSubscriptionInfo {
 
 interface MarketSubscriptionRecord extends MarketSubscriptionInfo {
   streamKey: string
-  listingKey: string
   socketId: string
   socket: AuthenticatedSocket
   listingBase?: string
@@ -139,8 +138,7 @@ export class MarketStreamManager {
     payload: MarketSubscribePayload
   ): Promise<MarketSubscriptionInfo> {
     const listing = payload.listing
-    const listingKey = resolveListingKey(listing)
-    if (!listing || !listingKey) {
+    if (!listing) {
       throw new Error('listing is required to subscribe to market data')
     }
 
@@ -195,7 +193,6 @@ export class MarketStreamManager {
     const record: MarketSubscriptionRecord = {
       subscriptionId,
       streamKey,
-      listingKey,
       listing,
       socketId: socket.id,
       socket,
@@ -214,7 +211,7 @@ export class MarketStreamManager {
       socketId: socket.id,
       userId: socket.userId,
       provider: 'alpaca',
-      listing: listingKey,
+      listing,
       symbol,
       market,
       channel,
@@ -236,8 +233,7 @@ export class MarketStreamManager {
     payload: MarketSubscribePayload
   ): Promise<MarketSubscriptionInfo> {
     const listing = payload.listing
-    const listingKey = resolveListingKey(listing)
-    if (!listing || !listingKey) {
+    if (!listing) {
       throw new Error('listing is required to subscribe to market data')
     }
 
@@ -278,7 +274,6 @@ export class MarketStreamManager {
     const record: MarketSubscriptionRecord = {
       subscriptionId,
       streamKey,
-      listingKey,
       listing,
       socketId: socket.id,
       socket,
@@ -297,7 +292,7 @@ export class MarketStreamManager {
       socketId: socket.id,
       userId: socket.userId,
       provider: 'finnhub',
-      listing: listingKey,
+      listing,
       symbol,
       market,
       channel,
@@ -503,12 +498,16 @@ export class MarketStreamManager {
 
     const symbol = payload.symbol ? normalizeSymbol(payload.symbol) : undefined
     const provider = payload.provider ? resolveProviderId(payload.provider) : undefined
-    const listingKey = resolveListingKey(payload.listing ?? null)
 
     const matches: MarketSubscriptionRecord[] = []
     socketMap.forEach((record) => {
       if (provider && record.provider !== provider) return
-      if (listingKey && record.listingKey !== listingKey) return
+      if (
+        payload.listing &&
+        (!record.listing || !areListingIdentitiesEqual(payload.listing, record.listing))
+      ) {
+        return
+      }
       if (symbol && record.symbol !== symbol) return
       matches.push(record)
     })
@@ -553,7 +552,7 @@ export class MarketStreamManager {
       socketId: record.socketId,
       userId: record.socket.userId,
       provider: record.provider,
-      listing: record.listingKey,
+      listing: record.listing,
       symbol: record.symbol,
       market: record.market,
     })

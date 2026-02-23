@@ -1,4 +1,4 @@
-import { resolveListingKey, toListingValueObject, type ListingIdentity } from '@/lib/listing/identity'
+import { toListingValueObject, type ListingIdentity } from '@/lib/listing/identity'
 import type { PairColor } from '@/widgets/pair-colors'
 import { isPairColor } from '@/widgets/pair-colors'
 
@@ -75,7 +75,6 @@ const normalizeListingIdentity = (value: unknown): ListingIdentity | null => {
   if (!value || typeof value !== 'object') return null
   const listing = toListingValueObject(value as any)
   if (!listing) return null
-  if (!resolveListingKey(listing)) return null
   return listing
 }
 

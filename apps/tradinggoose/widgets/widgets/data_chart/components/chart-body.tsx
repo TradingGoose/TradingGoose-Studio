@@ -76,7 +76,7 @@ export const DataChartWidgetBody = ({
   )
 
   const intervalLabel = seriesWindow.interval ?? ''
-  const { listing, listingKey, resolvedListing, isResolving } = useListingState({
+  const { listing, listingIdentitySignature, resolvedListing, isResolving } = useListingState({
     listingValue,
     intervalLabel,
   })
@@ -95,8 +95,8 @@ export const DataChartWidgetBody = ({
   }, [resolvedListing])
 
   const chartResetKey = useMemo(
-    () => [providerId ?? 'none', listingKey ?? 'none'].join('|'),
-    [listingKey, providerId]
+    () => [providerId ?? 'none', listingIdentitySignature ?? 'none'].join('|'),
+    [listingIdentitySignature, providerId]
   )
 
   const {
@@ -255,8 +255,10 @@ export const DataChartWidgetBody = ({
     workspaceId,
     indicatorRefs: pineIndicatorRefs,
     indicators: pineIndicators,
-    listingKey: listingKey ?? undefined,
+    listing,
     interval: seriesWindow.interval ?? seriesWindow.requestInterval ?? undefined,
+    viewStartMs: dataParams.view?.start,
+    viewEndMs: dataParams.view?.end,
     chartReady,
     indicatorRuntimeRef,
     onIndicatorRuntimeChange: handleIndicatorRuntimeChange,

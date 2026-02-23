@@ -16,9 +16,10 @@ import {
   triggerListingRankUpdate,
 } from '@/components/listing-selector/listing/rank-updates'
 import {
-  resolveListingKey,
+  areListingIdentitiesEqual,
   toListingValue,
   toListingValueObject,
+  type ListingIdentity,
   type ListingOption,
 } from '@/lib/listing/identity'
 import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
@@ -80,7 +81,7 @@ export function StockSelector({
   const [showTags, setShowTags] = useState(false)
   const [cursorPosition, setCursorPosition] = useState(0)
   const [variableCommitted, setVariableCommitted] = useState(false)
-  const hydratedKeyRef = useRef<string | null>(null)
+  const hydratedListingRef = useRef<ListingIdentity | null>(null)
   const hydrateRequestRef = useRef(0)
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
@@ -200,25 +201,23 @@ export function StockSelector({
     const selectedValue =
       safeInstance.selectedListingValue ?? safeInstance.selectedListing ?? null
     if (!selectedValue) {
-      hydratedKeyRef.current = null
+      hydratedListingRef.current = null
       return
     }
 
     const identity = toListingValueObject(selectedValue)
     if (!identity) return
-    const listingKey = resolveListingKey(identity)
-    if (!listingKey) return
 
     if (safeInstance.selectedListing && hasResolvedListingMetadata(safeInstance.selectedListing)) {
-      hydratedKeyRef.current = listingKey
+      hydratedListingRef.current = identity
       return
     }
 
-    if (hydratedKeyRef.current === listingKey) {
+    if (areListingIdentitiesEqual(hydratedListingRef.current, identity)) {
       return
     }
 
-    hydratedKeyRef.current = listingKey
+    hydratedListingRef.current = identity
     const requestId = ++hydrateRequestRef.current
     let cancelled = false
 

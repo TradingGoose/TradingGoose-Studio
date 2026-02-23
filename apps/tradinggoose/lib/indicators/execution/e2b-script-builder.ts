@@ -1,5 +1,6 @@
 import type { DefaultIndicatorRuntimeEntry } from '@/lib/indicators/default/runtime'
 import type { BarMs } from '@/lib/indicators/types'
+import type { ListingIdentity } from '@/lib/listing/identity'
 import {
   FUNCTION_INDICATOR_INVALID_OPTIONS_MESSAGE,
   FUNCTION_INDICATOR_MARKET_SERIES_ERROR_PREFIX,
@@ -206,7 +207,19 @@ const __tg_patch_context_call = (ContextCtor, collector) => {
   });
 };
 
-const __tg_run_pinets_indicator = async ({ bars, listingKey, interval, indicatorCode, inputs }) => {
+const __tg_resolve_listing_symbol = (listing) => {
+  if (!listing || typeof listing !== 'object' || Array.isArray(listing)) return undefined;
+  const listingType = typeof listing.listing_type === 'string' ? listing.listing_type.trim().toLowerCase() : '';
+  if (listingType === 'default') {
+    const listingId = typeof listing.listing_id === 'string' ? listing.listing_id.trim() : '';
+    return listingId || undefined;
+  }
+  const baseId = typeof listing.base_id === 'string' ? listing.base_id.trim() : '';
+  const quoteId = typeof listing.quote_id === 'string' ? listing.quote_id.trim() : '';
+  return baseId && quoteId ? baseId + ':' + quoteId : undefined;
+};
+
+const __tg_run_pinets_indicator = async ({ bars, listing, interval, indicatorCode, inputs }) => {
   const { Indicator, PineTS, Context } = await import('pinets');
   if (typeof Indicator !== 'function' || typeof PineTS !== 'function' || typeof Context !== 'function') {
     throw new Error('Failed to initialize PineTS runtime in E2B sandbox');
@@ -216,7 +229,7 @@ const __tg_run_pinets_indicator = async ({ bars, listingKey, interval, indicator
   __tg_install_trigger_sentinel(globalThis);
   __tg_patch_context_call(Context, collector);
 
-  const pine = new PineTS(bars, listingKey ?? undefined, interval ?? undefined);
+  const pine = new PineTS(bars, __tg_resolve_listing_symbol(listing), interval ?? undefined);
   await pine.ready();
   const context = await pine.run(new Indicator(indicatorCode, inputs));
   return {
@@ -232,27 +245,27 @@ export const buildPineTSE2BSingleIndicatorScript = ({
   normalizedCode,
   barsMs,
   inputsMap,
-  listingKey,
+  listing,
   interval,
 }: {
   normalizedCode: string
   barsMs: BarMs[]
   inputsMap?: Record<string, unknown>
-  listingKey?: string
+  listing?: ListingIdentity | null
   interval?: string
 }) =>
   `
 ;(async () => {
   const __tg_bars = JSON.parse(${encodeJsonParse(barsMs)});
   const __tg_inputs = JSON.parse(${encodeJsonParse(inputsMap ?? {})});
-  const __tg_listing_key = JSON.parse(${encodeJsonParse(listingKey ?? null)});
+  const __tg_listing = JSON.parse(${encodeJsonParse(listing ?? null)});
   const __tg_interval = JSON.parse(${encodeJsonParse(interval ?? null)});
   const __tg_indicator = (${normalizedCode});
   ${buildPineTSE2BExecutorCoreSource()}
   try {
     const { context, transpiledCode, triggerSignals, triggerWarnings } = await __tg_run_pinets_indicator({
       bars: __tg_bars,
-      listingKey: __tg_listing_key,
+      listing: __tg_listing,
       interval: __tg_interval,
       indicatorCode: __tg_indicator,
       inputs: __tg_inputs,
@@ -314,12 +327,21 @@ const indicator = (() => {
     if (!value || typeof value !== 'object' || Array.isArray(value) || !Array.isArray(value.bars) || value.bars.length === 0) throw new Error(${marketSeriesErrorPrefixPayload} + ' ' + __tg_indicator_usage_hint);
     return value;
   };
-  const resolveListingKey = (series) => {
+  const resolveListing = (series) => {
     const listing = series?.listing;
     if (!listing || typeof listing !== 'object' || Array.isArray(listing)) return undefined;
-    if (toTrimmedString(listing.listing_type).toLowerCase() === 'default') return toTrimmedString(listing.listing_id) || undefined;
-    const baseId = toTrimmedString(listing.base_id); const quoteId = toTrimmedString(listing.quote_id);
-    return baseId && quoteId ? baseId + ':' + quoteId : undefined;
+    const listingType = toTrimmedString(listing.listing_type).toLowerCase();
+    if (listingType !== 'default' && listingType !== 'crypto' && listingType !== 'currency') return undefined;
+    const listingId = toTrimmedString(listing.listing_id);
+    const baseId = toTrimmedString(listing.base_id);
+    const quoteId = toTrimmedString(listing.quote_id);
+    if (listingType === 'default' && listingId) {
+      return { listing_id: listingId, base_id: '', quote_id: '', listing_type: listingType };
+    }
+    if (baseId && quoteId) {
+      return { listing_id: '', base_id: baseId, quote_id: quoteId, listing_type: listingType };
+    }
+    return undefined;
   };
   const mapBars = (series) => {
     const map = new Map();
@@ -364,11 +386,11 @@ const indicator = (() => {
       const inputOverrides = readInputs(rawOptions);
       const barsMs = mapBars(marketSeries);
       if (barsMs.length === 0) throw new Error('MarketSeries has no valid bars after normalization.');
-      const listingKey = resolveListingKey(marketSeries) || undefined;
+      const listing = resolveListing(marketSeries) || undefined;
       const inputsMap = buildInputsMap(indicatorEntry, inputOverrides);
       const { context } = await __tg_run_pinets_indicator({
         bars: barsMs,
-        listingKey,
+        listing,
         indicatorCode: indicatorEntry.pineCode,
         inputs: inputsMap,
       });

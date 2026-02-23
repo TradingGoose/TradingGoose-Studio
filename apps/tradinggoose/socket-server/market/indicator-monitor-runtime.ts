@@ -22,7 +22,6 @@ import {
 import type { BarMs, NormalizedPineSignal } from '@/lib/indicators/types'
 import {
   type ListingIdentity,
-  resolveListingKey,
   toListingValueObject,
 } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -94,7 +93,6 @@ type MonitorRuntimeConfig = {
   intervalMs: number | null
   indicatorId: string
   listing: ListingIdentity
-  listingKey: string
   providerParams?: Record<string, unknown>
   auth?: {
     encryptedSecrets?: Record<string, string>
@@ -228,10 +226,9 @@ const normalizeProviderConfig = (
   const interval = toTrimmedString(monitor.interval)
   const indicatorId = toTrimmedString(monitor.indicatorId)
   const listing = toListingValueObject(monitor.listing as any)
-  const listingKey = listing ? resolveListingKey(listing) : null
 
   if (!providerId || (providerId !== 'alpaca' && providerId !== 'finnhub')) return null
-  if (!interval || !indicatorId || !listingKey || !listing) return null
+  if (!interval || !indicatorId || !listing) return null
   if (!row.blockId) return null
 
   const intervalMs = resolveDispatchIntervalMs(interval)
@@ -259,7 +256,6 @@ const normalizeProviderConfig = (
     intervalMs,
     indicatorId,
     listing,
-    listingKey,
     providerParams,
     auth,
   }
@@ -752,7 +748,7 @@ export class IndicatorMonitorRuntime {
         pineCode: subscription.indicator.pineCode,
         barsMs: subscription.bars,
         inputsMap: subscription.inputsMap,
-        listingKey: monitor.listingKey,
+        listing: monitor.listing,
         interval: monitor.interval,
         intervalMs: monitor.intervalMs,
         useE2B: false,
@@ -800,7 +796,6 @@ export class IndicatorMonitorRuntime {
         inputsMap: subscription.inputsMap,
         interval: monitor.interval,
         intervalMs: monitor.intervalMs ?? undefined,
-        listingKey: monitor.listingKey,
         marketSeries,
         monitor: {
           id: monitor.id,

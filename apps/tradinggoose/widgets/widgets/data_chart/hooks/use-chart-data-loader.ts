@@ -3,7 +3,7 @@
 import { type MutableRefObject, useEffect, useMemo, useRef, useState } from 'react'
 import type { IChartApi, ISeriesApi } from 'lightweight-charts'
 import type { Socket } from 'socket.io-client'
-import { type ListingIdentity, resolveListingKey } from '@/lib/listing/identity'
+import { type ListingIdentity } from '@/lib/listing/identity'
 import { getMarketSeriesCapabilities } from '@/providers/market/providers'
 import type {
   MarketInterval,
@@ -118,7 +118,7 @@ export const useChartDataLoader = ({
   const [isLoading, setIsLoading] = useState(false)
   const [seriesTimezone, setSeriesTimezone] = useState<string | null>(null)
   const lastProviderRef = useRef<string | null>(null)
-  const lastListingKeyRef = useRef<string | null>(null)
+  const lastListingSignatureRef = useRef<string | null>(null)
   const lastWindowSpanRef = useRef<number | null>(null)
   const expectedBarsRef = useRef<number | null>(null)
   const lastRefreshAtRef = useRef<number | null>(null)
@@ -139,11 +139,14 @@ export const useChartDataLoader = ({
     () => resolveRetentionRule(providerId, requestInterval ?? seriesWindow.interval ?? null),
     [providerId, requestInterval, seriesWindow.interval]
   )
-  const listingKey = useMemo(() => (listing ? resolveListingKey(listing) : null), [listing])
+  const listingSignature = useMemo(() => {
+    if (!listing) return null
+    return `${listing.listing_type}|${listing.listing_id}|${listing.base_id}|${listing.quote_id}`
+  }, [listing])
   const rangeKey = seriesWindow.windowKey ?? 'none'
   const rescaleKey = useMemo(
-    () => `${listingKey ?? 'none'}|${seriesWindow.interval ?? ''}|${rangeKey}`,
-    [listingKey, rangeKey, seriesWindow.interval]
+    () => `${listingSignature ?? 'none'}|${seriesWindow.interval ?? ''}|${rangeKey}`,
+    [listingSignature, rangeKey, seriesWindow.interval]
   )
   const providerParams = useMemo(() => {
     if (!providerId) return undefined
@@ -211,9 +214,9 @@ export const useChartDataLoader = ({
   useEffect(() => {
     const chart = chartRef.current
     const nextProvider = providerId ?? null
-    const nextListingKey = listingKey ?? null
+    const nextListingSignature = listingSignature ?? null
     const providerChanged = lastProviderRef.current !== nextProvider
-    const listingChanged = lastListingKeyRef.current !== nextListingKey
+    const listingChanged = lastListingSignatureRef.current !== nextListingSignature
 
     if (providerChanged || listingChanged) {
       const start = dataParams.view?.start
@@ -234,7 +237,7 @@ export const useChartDataLoader = ({
 
     if (!chart) {
       lastProviderRef.current = nextProvider
-      lastListingKeyRef.current = nextListingKey
+      lastListingSignatureRef.current = nextListingSignature
       return
     }
 
@@ -245,7 +248,7 @@ export const useChartDataLoader = ({
       resetHistoryState()
     }
 
-    if (listingChanged && lastListingKeyRef.current) {
+    if (listingChanged && lastListingSignatureRef.current) {
       lastWindowSpanRef.current = null
       setChartError(null)
       setSeriesTimezone(null)
@@ -253,8 +256,8 @@ export const useChartDataLoader = ({
     }
 
     lastProviderRef.current = nextProvider
-    lastListingKeyRef.current = nextListingKey
-  }, [chartRef, listingKey, providerId])
+    lastListingSignatureRef.current = nextListingSignature
+  }, [chartRef, listingSignature, providerId])
 
   useEffect(() => {
     const chart = chartRef.current

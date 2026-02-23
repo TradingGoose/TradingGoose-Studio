@@ -20,7 +20,7 @@ import {
 } from '@/lib/indicators/monitor-config'
 import { mapMarketSeriesToBarsMs } from '@/lib/indicators/series-data'
 import type { NormalizedPineSignal } from '@/lib/indicators/types'
-import { type ListingIdentity, resolveListingKey, toListingValueObject } from '@/lib/listing/identity'
+import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import {
@@ -111,8 +111,15 @@ const MarketBarSchema = z.object({
   turnover: z.number().optional(),
 })
 
+const ListingIdentitySchema = z.object({
+  listing_id: z.string(),
+  base_id: z.string(),
+  quote_id: z.string(),
+  listing_type: z.enum(['default', 'crypto', 'currency']),
+})
+
 const MarketSeriesSchema = z.object({
-  listing: z.any().nullable().optional(),
+  listing: ListingIdentitySchema.nullable().optional(),
   bars: z.array(MarketBarSchema).min(1, 'marketSeries.bars is required'),
 })
 
@@ -305,7 +312,6 @@ export async function POST(request: NextRequest) {
       ? { ...requestedMarketSeries, bars: requestedBars.slice(-MAX_BARS) }
       : requestedMarketSeries
     const barsMs = mapMarketSeriesToBarsMs(marketSeries, intervalMs ?? null)
-    const listingKey = resolveListingKey(marketSeries.listing ?? undefined)
     const executionListing = toListingValueObject(marketSeries.listing ?? null)
     const latestBarOpenTimeSec = resolveLatestBarOpenTimeSec(barsMs)
     const emittedAt = new Date().toISOString()
@@ -388,7 +394,7 @@ export async function POST(request: NextRequest) {
             pineCode,
             barsMs,
             inputsMap,
-            listingKey,
+            listing: executionListing,
             interval,
             intervalMs,
             useE2B,
@@ -552,7 +558,6 @@ export async function POST(request: NextRequest) {
                 inputsMap,
                 interval: dispatchInterval,
                 intervalMs: intervalMs ?? undefined,
-                listingKey,
                 marketSeries,
                 monitor: {
                   id: monitorRow.id,

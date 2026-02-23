@@ -1,5 +1,6 @@
 import { compileIndicator } from '@/lib/indicators/custom/compile'
 import type { BarMs } from '@/lib/indicators/types'
+import type { ListingIdentity } from '@/lib/listing/identity'
 
 const runWithExecutionTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T> =>
   Promise.race([
@@ -16,7 +17,7 @@ export const executeCompiledIndicator = async ({
   pineCode,
   barsMs,
   inputsMap,
-  listingKey,
+  listing,
   interval,
   intervalMs,
   useE2B,
@@ -27,7 +28,7 @@ export const executeCompiledIndicator = async ({
   pineCode: string
   barsMs: BarMs[]
   inputsMap: Record<string, unknown>
-  listingKey?: string
+  listing?: ListingIdentity | null
   interval?: string
   intervalMs?: number | null
   useE2B: boolean
@@ -40,7 +41,7 @@ export const executeCompiledIndicator = async ({
       pineCode,
       barsMs,
       inputsMap,
-      listingKey,
+      listing,
       interval,
       intervalMs: intervalMs ?? null,
       useE2B,

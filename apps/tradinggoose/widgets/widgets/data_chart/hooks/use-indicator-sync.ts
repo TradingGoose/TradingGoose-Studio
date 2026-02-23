@@ -1,32 +1,38 @@
 'use client'
 
 import { type MutableRefObject, useEffect, useMemo, useRef } from 'react'
+import type { CanvasRenderingTarget2D } from 'fancy-canvas'
 import {
   AreaSeries,
   createSeriesMarkers,
   HistogramSeries,
   type IChartApi,
   type IPaneApi,
+  type IPrimitivePaneRenderer,
+  type IPrimitivePaneView,
   type ISeriesApi,
   type ISeriesMarkersPluginApi,
+  type ISeriesPrimitive,
   LineSeries,
   LineType,
+  type SeriesAttachedParameter,
   type SeriesMarker,
 } from 'lightweight-charts'
 import { getStableVibrantColor } from '@/lib/colors'
 import { DEFAULT_INDICATOR_MAP } from '@/lib/indicators/default'
 import { buildInputsMapFromMeta } from '@/lib/indicators/input-meta'
 import type {
+  IndicatorOptions,
   NormalizedPineMarker,
   NormalizedPineOutput,
-  IndicatorOptions,
 } from '@/lib/indicators/types'
+import type { ListingIdentity } from '@/lib/listing/identity'
 import type { IndicatorDefinition } from '@/stores/indicators/types'
 import type {
-  IndicatorRuntimeEntry,
-  IndicatorRuntimePlot,
   DataChartDataContext,
   IndicatorRef,
+  IndicatorRuntimeEntry,
+  IndicatorRuntimePlot,
 } from '@/widgets/widgets/data_chart/types'
 import {
   DEFAULT_DOWN_COLOR,
@@ -89,7 +95,7 @@ const resolvePriceFormat = (format?: string, precision?: number) => {
   if (!formatType && !hasPrecision) return null
 
   const resolvedPrecision = hasPrecision ? Math.max(0, Math.min(10, Math.round(precision))) : 2
-  const minMove = 1 / Math.pow(10, resolvedPrecision)
+  const minMove = 1 / 10 ** resolvedPrecision
 
   return {
     type: formatType ?? 'price',
@@ -122,6 +128,19 @@ const safeRemoveSeries = (chart: IChartApi, series: ISeriesApi<any> | null) => {
   if (!series) return
   if (isSeriesOnChart(chart, series)) {
     chart.removeSeries(series)
+  }
+}
+
+const safeDetachPrimitive = (series: ISeriesApi<any>, primitive: ISeriesPrimitive<any>) => {
+  const detachPrimitive =
+    typeof (series as any).detachPrimitive === 'function'
+      ? ((series as any).detachPrimitive as (primitive: ISeriesPrimitive<any>) => void)
+      : null
+  if (!detachPrimitive) return
+  try {
+    detachPrimitive(primitive)
+  } catch {
+    // Ignore detach errors when the underlying series has already been removed.
   }
 }
 
@@ -187,6 +206,66 @@ const buildInputsHash = (inputs: Record<string, unknown>) => {
   return JSON.stringify(sorted)
 }
 
+const resolveVisibleEndIndex = (
+  barsMs: Array<{ openTime: number }>,
+  startMs?: number | null,
+  endMs?: number | null
+) => {
+  const lastIndex = barsMs.length - 1
+  if (lastIndex < 0) return -1
+  if (typeof startMs !== 'number' || !Number.isFinite(startMs)) return lastIndex
+  if (typeof endMs !== 'number' || !Number.isFinite(endMs)) return lastIndex
+
+  const visibleEndMs = Math.max(startMs, endMs)
+  if (visibleEndMs <= barsMs[0].openTime) return 0
+  for (let index = lastIndex; index >= 0; index -= 1) {
+    if (barsMs[index].openTime <= visibleEndMs) return index
+  }
+  return 0
+}
+
+const resolveExecutionWindow = <T extends { openTime: number }>({
+  barsMs,
+  maxBars,
+  viewStartMs,
+  viewEndMs,
+}: {
+  barsMs: T[]
+  maxBars: number
+  viewStartMs?: number | null
+  viewEndMs?: number | null
+}) => {
+  const totalBars = barsMs.length
+  if (totalBars === 0) {
+    return {
+      bars: [] as T[],
+      key: 'empty',
+    }
+  }
+
+  const windowSize = Math.min(maxBars, totalBars)
+  const lastIndex = totalBars - 1
+  if (windowSize === totalBars) {
+    return {
+      bars: barsMs,
+      key: `0:${lastIndex}:${totalBars}`,
+    }
+  }
+
+  let endIndex = resolveVisibleEndIndex(barsMs, viewStartMs, viewEndMs)
+  if (endIndex < 0) endIndex = lastIndex
+  endIndex = Math.max(0, Math.min(endIndex, lastIndex))
+  let startIndex = Math.max(0, endIndex - (windowSize - 1))
+  endIndex = Math.min(lastIndex, startIndex + (windowSize - 1))
+  startIndex = Math.max(0, endIndex - (windowSize - 1))
+  const bars = barsMs.slice(startIndex, endIndex + 1)
+
+  return {
+    bars,
+    key: `${startIndex}:${endIndex}:${totalBars}`,
+  }
+}
+
 const resolveSeriesDefinition = (seriesType?: string) => {
   if (seriesType === 'Histogram') return HistogramSeries
   if (seriesType === 'Area') return AreaSeries
@@ -240,7 +319,10 @@ const resolveSeriesOptions = (
     typeof indicatorOptions?.precision === 'number' && Number.isFinite(indicatorOptions.precision)
       ? indicatorOptions.precision
       : undefined
-  const priceFormat = resolvePriceFormat(plotFormat ?? indicatorFormat, plotPrecision ?? indicatorPrecision)
+  const priceFormat = resolvePriceFormat(
+    plotFormat ?? indicatorFormat,
+    plotPrecision ?? indicatorPrecision
+  )
   if (priceFormat && !('priceFormat' in options)) {
     options.priceFormat = priceFormat
   }
@@ -331,6 +413,150 @@ const buildSeriesData = (
   return seriesData
 }
 
+type IndicatorFill = NormalizedPineOutput['fills'][number]
+
+type IndicatorFillRendererPoint = {
+  x: number
+  upper: number
+  lower: number
+}
+
+type IndicatorFillViewData = {
+  points: IndicatorFillRendererPoint[]
+  topColor: string
+  bottomColor: string
+}
+
+type FillPrimitiveAttachment = {
+  series: ISeriesApi<any>
+  primitive: ISeriesPrimitive<any>
+  update: (fill: IndicatorFill) => void
+}
+
+const createFillPrimitive = (
+  initialFill: IndicatorFill
+): Omit<FillPrimitiveAttachment, 'series'> => {
+  const state: {
+    attached: SeriesAttachedParameter<any, any> | null
+    points: IndicatorFill['points']
+    topColor: string
+    bottomColor: string
+  } = {
+    attached: null,
+    points: initialFill.points,
+    topColor: initialFill.topColor,
+    bottomColor: initialFill.bottomColor,
+  }
+
+  const viewData: IndicatorFillViewData = {
+    points: [],
+    topColor: initialFill.topColor,
+    bottomColor: initialFill.bottomColor,
+  }
+
+  const updateView = () => {
+    const attached = state.attached
+    viewData.topColor = state.topColor
+    viewData.bottomColor = state.bottomColor
+    if (!attached) {
+      viewData.points = []
+      return
+    }
+
+    const timeScale = attached.chart.timeScale()
+    const nextPoints: IndicatorFillRendererPoint[] = []
+    state.points.forEach((point) => {
+      const x = timeScale.timeToCoordinate(point.time as any)
+      const upper = attached.series.priceToCoordinate(point.upper)
+      const lower = attached.series.priceToCoordinate(point.lower)
+      if (
+        typeof x !== 'number' ||
+        !Number.isFinite(x) ||
+        typeof upper !== 'number' ||
+        !Number.isFinite(upper) ||
+        typeof lower !== 'number' ||
+        !Number.isFinite(lower)
+      ) {
+        return
+      }
+      nextPoints.push({ x, upper, lower })
+    })
+
+    viewData.points = nextPoints
+  }
+
+  const renderer: IPrimitivePaneRenderer = {
+    draw() {},
+    drawBackground(target: CanvasRenderingTarget2D) {
+      target.useMediaCoordinateSpace(({ context }) => {
+        const points = viewData.points
+        if (points.length < 2) return
+
+        for (let i = 1; i < points.length; i += 1) {
+          const previous = points[i - 1]
+          const current = points[i]
+          if (!previous || !current) continue
+
+          const segment = new Path2D()
+          segment.moveTo(previous.x, previous.upper)
+          segment.lineTo(current.x, current.upper)
+          segment.lineTo(current.x, current.lower)
+          segment.lineTo(previous.x, previous.lower)
+          segment.closePath()
+
+          const upperMid = (previous.upper + current.upper) / 2
+          const lowerMid = (previous.lower + current.lower) / 2
+          const gradientEndY = lowerMid !== upperMid ? lowerMid : lowerMid + 1
+          const gradient = context.createLinearGradient(0, upperMid, 0, gradientEndY)
+          gradient.addColorStop(0, viewData.topColor)
+          gradient.addColorStop(1, viewData.bottomColor)
+
+          context.fillStyle = gradient
+          context.fill(segment)
+        }
+      })
+    },
+  }
+
+  const paneView: IPrimitivePaneView = {
+    zOrder() {
+      return 'bottom' as const
+    },
+    renderer() {
+      return renderer
+    },
+  }
+  const paneViews = [paneView] as const
+
+  const primitive: ISeriesPrimitive<any> = {
+    attached(attached) {
+      state.attached = attached
+      attached.requestUpdate()
+    },
+    detached() {
+      state.attached = null
+    },
+    updateAllViews() {
+      updateView()
+    },
+    paneViews() {
+      return paneViews
+    },
+  }
+
+  const update = (fill: IndicatorFill) => {
+    state.points = fill.points
+    state.topColor = fill.topColor
+    state.bottomColor = fill.bottomColor
+    state.attached?.requestUpdate()
+  }
+
+  return {
+    primitive,
+    update,
+  }
+}
+
 export const useIndicatorSync = ({
   chartRef,
   mainSeriesRef,
@@ -338,8 +564,10 @@ export const useIndicatorSync = ({
   workspaceId,
   indicatorRefs,
   indicators,
-  listingKey,
+  listing,
   interval,
+  viewStartMs,
+  viewEndMs,
   chartReady,
   indicatorRuntimeRef,
   onIndicatorRuntimeChange,
@@ -350,8 +578,10 @@ export const useIndicatorSync = ({
   workspaceId: string | null
   indicatorRefs: IndicatorRef[]
   indicators: IndicatorDefinition[]
-  listingKey?: string | null
+  listing?: ListingIdentity | null
   interval?: string | null
+  viewStartMs?: number | null
+  viewEndMs?: number | null
   chartReady?: number
   indicatorRuntimeRef?: MutableRefObject<Map<string, IndicatorRuntimeEntry>>
   onIndicatorRuntimeChange?: () => void
@@ -362,6 +592,9 @@ export const useIndicatorSync = ({
   const seriesIdentityMapRef = useRef(new WeakMap<ISeriesApi<any>, number>())
   const seriesIdentityCounterRef = useRef(1)
   const seriesMarkersMapRef = useRef(new Map<ISeriesApi<any>, ISeriesMarkersPluginApi<any>>())
+  const indicatorFillPrimitiveMapRef = useRef(
+    new Map<string, Map<string, FillPrimitiveAttachment>>()
+  )
   const cacheRef = useRef(new Map<string, CacheEntry>())
   const indicatorIdsRef = useRef<Set<string>>(new Set())
   const indicatorSignatureRef = useRef(new Map<string, string>())
@@ -405,7 +638,8 @@ export const useIndicatorSync = ({
     output.series
       .map(
         (entry) =>
-          `${entry.plot.title ?? ''}:${entry.plot.seriesType ?? 'Line'}:${entry.plot.overlay === false ? '0' : '1'
+          `${entry.plot.title ?? ''}:${entry.plot.seriesType ?? 'Line'}:${
+            entry.plot.overlay === false ? '0' : '1'
           }`
       )
       .join('|')
@@ -413,6 +647,14 @@ export const useIndicatorSync = ({
   const cleanupIndicator = (indicatorId: string) => {
     const chart = chartRef.current
     if (!chart) return
+
+    const fillPrimitiveMap = indicatorFillPrimitiveMapRef.current.get(indicatorId)
+    if (fillPrimitiveMap) {
+      fillPrimitiveMap.forEach(({ series, primitive }) => {
+        safeDetachPrimitive(series, primitive)
+      })
+      indicatorFillPrimitiveMapRef.current.delete(indicatorId)
+    }
 
     const seriesMap = indicatorSeriesMapRef.current.get(indicatorId)
     const seriesList = seriesMap ? Array.from(seriesMap.values()) : []
@@ -488,10 +730,16 @@ export const useIndicatorSync = ({
     }
 
     const barsMs = dataContext.barsMsRef.current
-    const truncatedBars = barsMs.length > MAX_BARS ? barsMs.slice(-MAX_BARS) : barsMs
+    const executionWindow = resolveExecutionWindow({
+      barsMs,
+      maxBars: MAX_BARS,
+      viewStartMs,
+      viewEndMs,
+    })
+    const executionBars = executionWindow.bars
     const barDirectionByTimeSec = new Map<number, boolean>()
     let previousClose: number | null = null
-    truncatedBars.forEach((bar) => {
+    executionBars.forEach((bar) => {
       const isUp =
         typeof previousClose === 'number' ? bar.close >= previousClose : bar.close >= bar.open
       barDirectionByTimeSec.set(Math.floor(bar.openTime / 1000), isUp)
@@ -510,7 +758,7 @@ export const useIndicatorSync = ({
         )
         const inputsHash = buildInputsHash(inputsMap)
         const indicatorVersion = indicator?.updatedAt ?? indicator?.createdAt ?? 'default'
-        const cacheKey = `${id}:${indicatorVersion}:${dataContext.dataVersion}:${inputsHash}`
+        const cacheKey = `${id}:${indicatorVersion}:${dataContext.dataVersion}:${executionWindow.key}:${inputsHash}`
         return { id, inputsMap, inputsHash, cacheKey }
       })
       .filter(
@@ -549,8 +797,8 @@ export const useIndicatorSync = ({
       if (indicatorsToExecute.length > 0) {
         try {
           const marketSeries = {
-            listing: listingKey ?? undefined,
-            bars: truncatedBars.map((bar) => ({
+            listing: listing ?? undefined,
+            bars: executionBars.map((bar) => ({
               timeStamp: new Date(bar.openTime).toISOString(),
               open: bar.open,
               high: bar.high,
@@ -692,13 +940,18 @@ export const useIndicatorSync = ({
         }
         indicatorPaneMapRef.current.set(indicatorId, pane)
 
-        const seriesMap =
-          existingSeriesMap ?? new Map<string, ISeriesApi<any>>()
+        const seriesMap = existingSeriesMap ?? new Map<string, ISeriesApi<any>>()
         indicatorSeriesMapRef.current.set(indicatorId, seriesMap)
+        const fillPrimitiveMap =
+          indicatorFillPrimitiveMapRef.current.get(indicatorId) ??
+          new Map<string, FillPrimitiveAttachment>()
+        indicatorFillPrimitiveMapRef.current.set(indicatorId, fillPrimitiveMap)
 
         let paneAnchorSeries: ISeriesApi<any> | null = null
         const nextSeriesKeys = new Set<string>()
+        const nextFillKeys = new Set<string>()
         const runtimePlots: IndicatorRuntimePlot[] = []
+        const indicatorVisible = indicatorRefMap.get(indicatorId)?.visible !== false
 
         output.series.forEach((seriesEntry, plotIndex) => {
           const seriesType = seriesEntry.plot.seriesType ?? 'Line'
@@ -714,17 +967,17 @@ export const useIndicatorSync = ({
           const histogramColorMode =
             seriesType === 'Histogram' && histogramColors
               ? seriesEntry.points.some(
-                (point) => typeof point.value === 'number' && point.value < 0
-              )
+                  (point) => typeof point.value === 'number' && point.value < 0
+                )
                 ? 'value'
                 : 'candle'
               : null
           const resolvedPlot =
             explicitColors.length === 0 && seriesType !== 'Histogram'
               ? {
-                ...seriesEntry.plot,
-                color: resolvePlotColor(plotKey),
-              }
+                  ...seriesEntry.plot,
+                  color: resolvePlotColor(plotKey),
+                }
               : seriesEntry.plot
           const options = resolveSeriesOptions(
             resolvedPlot,
@@ -747,7 +1000,8 @@ export const useIndicatorSync = ({
             return undefined
           })()
           let series = seriesMap.get(seriesKey) ?? null
-          const existingType = series && typeof series.seriesType === 'function' ? series.seriesType() : null
+          const existingType =
+            series && typeof series.seriesType === 'function' ? series.seriesType() : null
           const needsNewSeries = !series || (existingType && existingType !== seriesType)
           if (needsNewSeries) {
             if (series) {
@@ -764,7 +1018,7 @@ export const useIndicatorSync = ({
               : chart.addSeries(definition, options)
             seriesMap.set(seriesKey, series)
           } else if (series && typeof (series as any).applyOptions === 'function') {
-            ; (series as any).applyOptions(options)
+            ;(series as any).applyOptions(options)
           }
 
           if (series && indicatorScale === 'none' && seriesEntry.plot.overlay === false) {
@@ -841,6 +1095,55 @@ export const useIndicatorSync = ({
 
         indicatorPaneSeriesMapRef.current.set(indicatorId, paneAnchorSeries)
         const paneAnchorIdentity = paneAnchorSeries ? getSeriesIdentity(paneAnchorSeries) : null
+        if (indicatorVisible) {
+          const fillEntries = Array.isArray(output.fills) ? output.fills : []
+          fillEntries.forEach((fillEntry, fillIndex) => {
+            const fillKey = `${fillEntry.title}:${fillEntry.upperPlotTitle ?? ''}:${fillEntry.lowerPlotTitle ?? ''}:${fillIndex}`
+            nextFillKeys.add(fillKey)
+
+            const anchorSeries =
+              (fillEntry.upperPlotTitle ? seriesMap.get(fillEntry.upperPlotTitle) : null) ??
+              (fillEntry.lowerPlotTitle ? seriesMap.get(fillEntry.lowerPlotTitle) : null) ??
+              (hasNonOverlay ? paneAnchorSeries : mainSeries)
+
+            if (!anchorSeries) {
+              warnOnce(`Fill ${fillEntry.title} skipped because no anchor series was found.`)
+              return
+            }
+            if (!Array.isArray(fillEntry.points) || fillEntry.points.length < 2) {
+              return
+            }
+
+            const existingAttachment = fillPrimitiveMap.get(fillKey)
+            if (existingAttachment && existingAttachment.series !== anchorSeries) {
+              safeDetachPrimitive(existingAttachment.series, existingAttachment.primitive)
+              fillPrimitiveMap.delete(fillKey)
+            }
+
+            let attachment = fillPrimitiveMap.get(fillKey)
+            if (!attachment) {
+              const created = createFillPrimitive(fillEntry)
+              anchorSeries.attachPrimitive(created.primitive)
+              attachment = {
+                series: anchorSeries,
+                primitive: created.primitive,
+                update: created.update,
+              }
+              fillPrimitiveMap.set(fillKey, attachment)
+            }
+            attachment.update(fillEntry)
+          })
+        }
+
+        fillPrimitiveMap.forEach((attachment, fillKey) => {
+          if (indicatorVisible && nextFillKeys.has(fillKey)) return
+          safeDetachPrimitive(attachment.series, attachment.primitive)
+          fillPrimitiveMap.delete(fillKey)
+        })
+        if (fillPrimitiveMap.size === 0) {
+          indicatorFillPrimitiveMapRef.current.delete(indicatorId)
+        }
+
         output.markers.forEach((marker) => {
           const targetSeries =
             indicatorRefMap.get(indicatorId)?.visible === false
@@ -951,8 +1254,10 @@ export const useIndicatorSync = ({
     indicatorIds,
     indicatorMap,
     indicatorRefMap,
-    listingKey,
+    listing,
     interval,
+    viewStartMs,
+    viewEndMs,
     chartReady,
     indicatorRuntimeRef,
     onIndicatorRuntimeChange,

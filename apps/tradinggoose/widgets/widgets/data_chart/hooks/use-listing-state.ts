@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import {
+  areListingIdentitiesEqual,
   type ListingIdentity,
   type ListingInputValue,
   type ListingOption,
-  resolveListingKey,
   toListingValueObject,
 } from '@/lib/listing/identity'
 import {
@@ -21,7 +21,7 @@ type UseListingStateArgs = {
 
 export type ListingState = {
   listing: ListingIdentity | null
-  listingKey: string | null
+  listingIdentitySignature: string | null
   resolvedListing: ListingOption | null
   isResolving: boolean
   tooltipTitle: string
@@ -50,7 +50,7 @@ export const useListingState = ({
   const [resolvedListingState, setResolvedListing] = useState<ListingOption | null>(null)
   const [isResolving, setIsResolving] = useState(false)
   const listingResolveRef = useRef(0)
-  const hydratedKeyRef = useRef<string | null>(null)
+  const hydratedListingRef = useRef<ListingIdentity | null>(null)
   const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const listingIdentityRef = useRef<ListingIdentity | null>(null)
 
@@ -59,8 +59,11 @@ export const useListingState = ({
     return toListingValueObject(listingValue)
   }, [listingValue])
 
-  const listingKey = resolveListingKey(listingValue) ?? null
-  const listing = listingKey ? listingIdentity : null
+  const listing = listingIdentity ?? null
+  const listingIdentitySignature = useMemo(() => {
+    if (!listingIdentity) return null
+    return `${listingIdentity.listing_type}|${listingIdentity.listing_id}|${listingIdentity.base_id}|${listingIdentity.quote_id}`
+  }, [listingIdentity])
 
   const listingDetailsFromValue = useMemo(
     () => getListingDetailsFromValue(listingValue),
@@ -68,20 +71,15 @@ export const useListingState = ({
   )
 
   useEffect(() => {
-    if (listingIdentity && listingKey) {
-      const currentKey = listingIdentityRef.current
-        ? (resolveListingKey(listingIdentityRef.current) ?? null)
-        : null
-      if (currentKey !== listingKey) {
-        listingIdentityRef.current = listingIdentity
-      }
+    if (listingIdentity && !areListingIdentitiesEqual(listingIdentityRef.current, listingIdentity)) {
+      listingIdentityRef.current = listingIdentity
     }
 
     const activeIdentity = listingIdentityRef.current
-    if (!activeIdentity || !listingKey) {
+    if (!activeIdentity || !listingIdentitySignature) {
       setResolvedListing(null)
       setIsResolving(false)
-      hydratedKeyRef.current = null
+      hydratedListingRef.current = null
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current)
         retryTimeoutRef.current = null
@@ -92,7 +90,7 @@ export const useListingState = ({
     if (listingDetailsFromValue) {
       setResolvedListing(listingDetailsFromValue)
       setIsResolving(false)
-      hydratedKeyRef.current = listingKey
+      hydratedListingRef.current = activeIdentity
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current)
         retryTimeoutRef.current = null
@@ -139,8 +137,8 @@ export const useListingState = ({
         })
     }
 
-    if (hydratedKeyRef.current !== listingKey) {
-      hydratedKeyRef.current = listingKey
+    if (!areListingIdentitiesEqual(hydratedListingRef.current, activeIdentity)) {
+      hydratedListingRef.current = activeIdentity
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current)
         retryTimeoutRef.current = null
@@ -155,18 +153,23 @@ export const useListingState = ({
         retryTimeoutRef.current = null
       }
     }
-  }, [listingDetailsFromValue, listingKey, Boolean(listingIdentity)])
+  }, [listingDetailsFromValue, listingIdentity, listingIdentitySignature])
 
-  const resolvedListingKey = useMemo(() => {
-    if (!resolvedListingState) return null
-    return resolveListingKey(resolvedListingState) ?? resolvedListingState.id ?? null
-  }, [resolvedListingState])
+  const resolvedListingIdentity = useMemo(
+    () => toListingValueObject(resolvedListingState),
+    [resolvedListingState]
+  )
   const displayListing = useMemo(() => {
     if (listingDetailsFromValue) return listingDetailsFromValue
-    if (!listingKey || !resolvedListingState) return null
-    if (resolvedListingKey && resolvedListingKey !== listingKey) return null
+    if (!listingIdentity || !resolvedListingState) return null
+    if (
+      resolvedListingIdentity &&
+      !areListingIdentitiesEqual(resolvedListingIdentity, listingIdentity)
+    ) {
+      return null
+    }
     return resolvedListingState
-  }, [listingDetailsFromValue, listingKey, resolvedListingKey, resolvedListingState])
+  }, [listingDetailsFromValue, listingIdentity, resolvedListingIdentity, resolvedListingState])
 
   const listingType = displayListing?.listing_type ?? listingIdentity?.listing_type
   const { listingSymbolText, listingName } = useMemo(
@@ -198,7 +201,7 @@ export const useListingState = ({
 
   return {
     listing,
-    listingKey,
+    listingIdentitySignature,
     resolvedListing: displayListing,
     isResolving,
     tooltipTitle,

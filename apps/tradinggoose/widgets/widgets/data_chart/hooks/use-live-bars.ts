@@ -3,7 +3,7 @@
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
 import type { ISeriesApi } from 'lightweight-charts'
 import type { Socket } from 'socket.io-client'
-import { type ListingIdentity, resolveListingKey } from '@/lib/listing/identity'
+import { areListingIdentitiesEqual, type ListingIdentity } from '@/lib/listing/identity'
 import type { MarketBar } from '@/providers/market/types'
 import {
   buildIndexMaps,
@@ -70,7 +70,6 @@ export const useLiveBars = ({
   const intervalMsRef = useRef<number | null>(dataContext.intervalMs)
   const subscriptionRef = useRef<{
     subscriptionId?: string
-    listingKey?: string
     listing?: ListingIdentity | null
     provider?: MarketLiveProvider
     interval?: string
@@ -118,9 +117,6 @@ export const useLiveBars = ({
     if (liveProvider !== 'alpaca' && liveProvider !== 'finnhub') return
     const socketInstance = socketRef.current
     if (!socketInstance) return
-
-    const listingKey = resolveListingKey(listing)
-    if (!listingKey) return
 
     stopLiveSubscription()
     lastTradeTimestampMsRef.current = Number.NEGATIVE_INFINITY
@@ -251,9 +247,12 @@ export const useLiveBars = ({
       ) {
         return
       }
-      if (current.listingKey && payload.listing) {
-        const payloadKey = resolveListingKey(payload.listing)
-        if (payloadKey && payloadKey !== current.listingKey) return
+      if (
+        current.listing &&
+        payload.listing &&
+        !areListingIdentitiesEqual(payload.listing, current.listing)
+      ) {
+        return
       }
 
       const trade = payload.trade
@@ -290,9 +289,12 @@ export const useLiveBars = ({
       const current = subscriptionRef.current
       if (!current) return
       if (payload.provider && payload.provider !== current.provider) return
-      if (current.listingKey && payload.listing) {
-        const payloadKey = resolveListingKey(payload.listing)
-        if (payloadKey && payloadKey !== current.listingKey) return
+      if (
+        current.listing &&
+        payload.listing &&
+        !areListingIdentitiesEqual(payload.listing, current.listing)
+      ) {
+        return
       }
       if (current.interval && payload.interval && payload.interval !== current.interval) return
       if (payload.subscriptionId) {
@@ -326,7 +328,6 @@ export const useLiveBars = ({
 
     subscriptionRef.current = {
       subscriptionId: undefined,
-      listingKey,
       listing,
       provider: liveProvider,
       interval: interval ?? undefined,

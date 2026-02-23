@@ -9,7 +9,10 @@ import {
   resolveIndicatorTimeframeMs,
 } from '@/lib/indicators/indicator-options'
 import { normalizeContext } from '@/lib/indicators/normalize-context'
-import { normalizeIndicatorCode } from '@/lib/indicators/normalize-indicator-code'
+import {
+  extractFillOptionOverrides,
+  normalizeIndicatorCode,
+} from '@/lib/indicators/normalize-indicator-code'
 import { aggregateBarsMs, buildIndexMaps, normalizeBarsMs } from '@/lib/indicators/series-data'
 import { detectTriggerUsage } from '@/lib/indicators/trigger-detection'
 import type {
@@ -20,6 +23,7 @@ import type {
   PineWarning,
 } from '@/lib/indicators/types'
 import { detectUnsupportedFeatures } from '@/lib/indicators/unsupported'
+import type { ListingIdentity } from '@/lib/listing/identity'
 
 export type PineExecutionError = {
   message: string
@@ -70,7 +74,7 @@ const executeIndicatorInE2B = async ({
   normalizedCode,
   barsMs,
   inputsMap,
-  listingKey,
+  listing,
   interval,
   timeoutMs,
   e2bTemplate,
@@ -79,7 +83,7 @@ const executeIndicatorInE2B = async ({
   normalizedCode: string
   barsMs: BarMs[]
   inputsMap?: Record<string, unknown>
-  listingKey?: string
+  listing?: ListingIdentity | null
   interval?: string
   timeoutMs: number
   e2bTemplate?: string
@@ -94,7 +98,7 @@ const executeIndicatorInE2B = async ({
     normalizedCode,
     barsMs,
     inputsMap,
-    listingKey,
+    listing,
     interval,
   })
 
@@ -173,6 +177,42 @@ const expandSeriesPointsToBase = (
   return expanded
 }
 
+const expandFillPointsToBase = (
+  points: NormalizedPineOutput['fills'][number]['points'],
+  baseOpenTimeMsByIndex: number[],
+  timeframeGaps: boolean
+) => {
+  if (baseOpenTimeMsByIndex.length === 0) return points
+  const baseTimesSec = baseOpenTimeMsByIndex.map(toSeconds)
+  const expanded: NormalizedPineOutput['fills'][number]['points'] = []
+  let pointIndex = 0
+  let lastPoint: NormalizedPineOutput['fills'][number]['points'][number] | null = null
+
+  baseTimesSec.forEach((timeSec) => {
+    while (pointIndex < points.length && points[pointIndex]!.time <= timeSec) {
+      lastPoint = points[pointIndex] ?? null
+      pointIndex += 1
+    }
+
+    if (
+      !lastPoint ||
+      !Number.isFinite(lastPoint.upper) ||
+      !Number.isFinite(lastPoint.lower) ||
+      (timeframeGaps && lastPoint.time !== timeSec)
+    ) {
+      return
+    }
+
+    expanded.push({
+      time: timeSec,
+      upper: lastPoint.upper,
+      lower: lastPoint.lower,
+    })
+  })
+
+  return expanded
+}
+
 const expandOutputToBase = (
   output: NormalizedPineOutput,
   baseOpenTimeMsByIndex: number[],
@@ -183,6 +223,10 @@ const expandOutputToBase = (
     series: output.series.map((entry) => ({
       ...entry,
       points: expandSeriesPointsToBase(entry.points, baseOpenTimeMsByIndex, timeframeGaps),
+    })),
+    fills: output.fills.map((entry) => ({
+      ...entry,
+      points: expandFillPointsToBase(entry.points, baseOpenTimeMsByIndex, timeframeGaps),
     })),
   }
 }
@@ -195,11 +239,18 @@ const applyIndicatorLimits = (
   if (!indicator) return output
 
   let series = output.series
+  let fills = output.fills
   let markers = output.markers
 
   const maxLines = coerceIndicatorCount(indicator.max_lines_count)
   if (maxLines && series.length > maxLines) {
     series = series.slice(0, maxLines)
+    const retainedPlotTitles = new Set(series.map((entry) => entry.plot.title))
+    fills = fills.filter((fill) => {
+      if (fill.upperPlotTitle && !retainedPlotTitles.has(fill.upperPlotTitle)) return false
+      if (fill.lowerPlotTitle && !retainedPlotTitles.has(fill.lowerPlotTitle)) return false
+      return true
+    })
     warnings.push({
       code: 'indicator_max_lines_count',
       message: `Indicator plots truncated to ${maxLines} (max_lines_count).`,
@@ -218,6 +269,7 @@ const applyIndicatorLimits = (
   return {
     ...output,
     series,
+    fills,
     markers,
   }
 }
@@ -226,7 +278,7 @@ export async function compileIndicator({
   pineCode,
   barsMs,
   inputsMap,
-  listingKey,
+  listing,
   interval,
   intervalMs,
   useE2B = false,
@@ -237,7 +289,7 @@ export async function compileIndicator({
   pineCode: string
   barsMs: BarMs[]
   inputsMap?: Record<string, unknown>
-  listingKey?: string
+  listing?: ListingIdentity | null
   interval?: string
   intervalMs?: number | null
   useE2B?: boolean
@@ -305,6 +357,7 @@ export async function compileIndicator({
   }
 
   const { indexByOpenTimeMs, openTimeMsByIndex } = buildIndexMaps(executionBars)
+  const fillOptionOverrides = extractFillOptionOverrides(pineCode)
   const normalizedCode = normalizeIndicatorCode(pineCode)
 
   if (normalizedCode.error) {
@@ -343,7 +396,7 @@ export async function compileIndicator({
         normalizedCode: normalizedCode.code,
         barsMs: executionBars,
         inputsMap,
-        listingKey,
+        listing,
         interval: executionInterval,
         timeoutMs: executionTimeoutMs,
         e2bTemplate,
@@ -359,7 +412,7 @@ export async function compileIndicator({
           const fallback = await executeIndicatorInLocalVm({
             barsMs: executionBars,
             inputsMap,
-            listingKey,
+            listing,
             interval: executionInterval,
             code: normalizedCode.code,
             codeFormat: 'functionExpression',
@@ -384,7 +437,7 @@ export async function compileIndicator({
       const result = await executeIndicatorInLocalVm({
         barsMs: executionBars,
         inputsMap,
-        listingKey,
+        listing,
         interval: executionInterval,
         code: normalizedCode.code,
         codeFormat: 'functionExpression',
@@ -417,6 +470,7 @@ export async function compileIndicator({
     indexByOpenTimeMs,
     openTimeMsByIndex,
     triggerSignals,
+    fillOptionOverrides,
   })
 
   const runtimeIndicatorOptions = normalizeIndicatorOptions(pineContext?.indicator, {

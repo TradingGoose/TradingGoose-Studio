@@ -6,7 +6,7 @@ import {
   useListingSelectorStore,
 } from '@/stores/market/selector/store'
 import {
-  resolveListingKey,
+  areListingIdentitiesEqual,
   toListingValue,
   toListingValueObject,
   type ListingOption,
@@ -121,19 +121,21 @@ export const DataChartListingControl = ({
   }, [providerId, safeInstance.providerId, instanceId, updateInstance])
 
   useEffect(() => {
-    const currentListingKey = listingIdentity ? resolveListingKey(listingIdentity) : null
-    const selectedListingKey = resolveListingKey(safeInstance.selectedListingValue ?? null)
+    const selectedListingIdentity = toListingValueObject(safeInstance.selectedListingValue ?? null)
 
-    if (currentListingKey && currentListingKey !== selectedListingKey) {
+    if (
+      listingIdentity &&
+      !areListingIdentitiesEqual(listingIdentity, selectedListingIdentity)
+    ) {
       updateInstance(instanceId, {
         selectedListingValue: listingIdentity ?? null,
         selectedListing: displayListing,
-        query: currentListingKey,
+        query: '',
       })
       return
     }
 
-    if (!currentListingKey && safeInstance.selectedListingValue) {
+    if (!listingIdentity && safeInstance.selectedListingValue) {
       updateInstance(instanceId, {
         selectedListingValue: null,
         selectedListing: null,
