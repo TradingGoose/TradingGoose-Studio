@@ -158,7 +158,7 @@ const DataChartTimezoneDropdown = ({
     if (nextTimezone) {
       nextView.timezone = nextTimezone
     } else {
-      delete nextView.timezone
+      nextView.timezone = undefined
     }
     emitDataChartParamsChange({
       params: {
