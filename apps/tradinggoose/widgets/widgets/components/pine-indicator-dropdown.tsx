@@ -1,7 +1,7 @@
 'use client'
 
 import { type KeyboardEvent, useEffect, useMemo, useState } from 'react'
-import { Check, ChevronDown, Activity, Loader2, Search } from 'lucide-react'
+import { Activity, Check, ChevronDown, Loader2, Search } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +11,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { getStableVibrantColor } from '@/lib/colors'
 import { DEFAULT_INDICATORS_META } from '@/lib/indicators/default'
 import { cn } from '@/lib/utils'
 import { useIndicators } from '@/hooks/queries/indicators'
@@ -99,9 +100,10 @@ export function IndicatorDropdown({
     () =>
       includeDefaults
         ? DEFAULT_INDICATORS_META.map((indicator) => ({
-          id: indicator.id,
-          name: indicator.name,
-        }))
+            id: indicator.id,
+            name: indicator.name,
+            color: getStableVibrantColor(indicator.id),
+          }))
         : [],
     [includeDefaults]
   )
