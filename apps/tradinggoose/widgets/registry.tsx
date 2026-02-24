@@ -13,6 +13,7 @@ import { listIndicatorWidget } from '@/widgets/widgets/list_indicator'
 import { editorIndicatorWidget } from '@/widgets/widgets/editor_indicator'
 import { workflowListWidget } from '@/widgets/widgets/list_workflow'
 import { workflowVariablesWidget } from '@/widgets/widgets/workflow_variables'
+import { watchlistWidget } from '@/widgets/widgets/watchlist'
 
 const widgetCategoryConfig: WidgetCategoryDefinition[] = [
   {
@@ -40,6 +41,7 @@ const widgetRegistry: Record<string, DashboardWidgetDefinition> = {
   list_indicator: listIndicatorWidget,
   editor_indicator: editorIndicatorWidget,
   workflow_variables: workflowVariablesWidget,
+  watchlist: watchlistWidget,
 }
 
 export const getWidgetDefinition = (key: string): DashboardWidgetDefinition | undefined =>

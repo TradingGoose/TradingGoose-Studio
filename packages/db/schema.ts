@@ -626,6 +626,33 @@ export const pineIndicators = pgTable(
   })
 )
 
+export const watchlistTable = pgTable(
+  'watchlist_table',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspace.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    isSystem: boolean('is_system').notNull().default(false),
+    items: jsonb('items').notNull().default('[]'),
+    settings: jsonb('settings').notNull().default('{}'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    workspaceUserIdx: index('watchlist_table_workspace_user_idx').on(table.workspaceId, table.userId),
+    workspaceUserNameUnique: uniqueIndex('watchlist_table_workspace_user_name_unique').on(
+      table.workspaceId,
+      table.userId,
+      table.name
+    ),
+  })
+)
+
 export const subscription = pgTable(
   'subscription',
   {
@@ -935,9 +962,6 @@ export const orderHistoryTable = pgTable(
     recordedAt: timestamp('recorded_at').notNull().defaultNow(),
     workflowId: text('workflow_id').references(() => workflow.id, { onDelete: 'set null' }),
     workflowExecutionId: text('workflow_execution_id'),
-    listingId: text('listing_id'),
-    listingKey: text('listing_key'),
-    listingType: text('listing_type'),
     listingIdentity: jsonb('listing_identity'),
     request: jsonb('request').notNull(),
     response: jsonb('response').notNull(),
