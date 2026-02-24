@@ -652,6 +652,33 @@ export const pineIndicators = pgTable(
   })
 )
 
+export const watchlistTable = pgTable(
+  'watchlist_table',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspace.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    isSystem: boolean('is_system').notNull().default(false),
+    items: jsonb('items').notNull().default('[]'),
+    settings: jsonb('settings').notNull().default('{}'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    workspaceUserIdx: index('watchlist_table_workspace_user_idx').on(table.workspaceId, table.userId),
+    workspaceUserNameUnique: uniqueIndex('watchlist_table_workspace_user_name_unique').on(
+      table.workspaceId,
+      table.userId,
+      table.name
+    ),
+  })
+)
+
 export const subscription = pgTable(
   'subscription',
   {
