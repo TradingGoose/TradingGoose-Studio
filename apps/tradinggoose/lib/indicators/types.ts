@@ -111,7 +111,7 @@ export type NormalizedPineOutput = {
   series: NormalizedPineSeries[]
   fills: NormalizedPineFill[]
   markers: NormalizedPineMarker[]
-  signals: NormalizedPineSignal[]
+  triggers: NormalizedPineSignal[]
   unsupported: PineUnsupportedInfo
   indicator?: IndicatorOptions
 }

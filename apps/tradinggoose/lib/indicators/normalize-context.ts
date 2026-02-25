@@ -519,7 +519,7 @@ export function normalizeContext({
       series,
       fills,
       markers,
-      signals: triggerSignals,
+      triggers: triggerSignals,
       unsupported,
     },
     warnings,

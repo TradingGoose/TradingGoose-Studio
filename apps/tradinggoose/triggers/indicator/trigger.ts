@@ -53,7 +53,7 @@ export const indicatorTrigger: TriggerConfig = {
       output: {
         series: { type: 'array', description: 'Normalized series output.' },
         markers: { type: 'array', description: 'Normalized markers output.' },
-        signals: { type: 'array', description: 'Normalized signals output.' },
+        triggers: { type: 'array', description: 'Normalized triggers output.' },
         unsupported: { type: 'object', description: 'Unsupported output metadata.' },
         indicator: { type: 'object', description: 'Indicator options in output.' },
       },

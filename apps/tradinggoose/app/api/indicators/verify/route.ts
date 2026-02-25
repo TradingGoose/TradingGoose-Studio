@@ -67,9 +67,6 @@ export async function POST(request: NextRequest) {
       listing: series.listing ?? null,
       interval: '1d',
       intervalMs: 86_400_000,
-      useE2B,
-      e2bTemplate,
-      e2bKeepWarmMs,
       executionTimeoutMs: VERIFY_EXECUTION_TIMEOUT_MS,
     })
 
@@ -101,9 +98,9 @@ export async function POST(request: NextRequest) {
     const output = compiled.output
     const plotsCount = output.series.length
     const markersCount = output.markers.length
-    const signalsCount = output.signals.length
+    const triggersCount = output.triggers.length
 
-    if (plotsCount === 0 && markersCount === 0 && signalsCount === 0 && !triggerUsageDetected) {
+    if (plotsCount === 0 && markersCount === 0 && triggersCount === 0 && !triggerUsageDetected) {
       return NextResponse.json(
         {
           success: false,
@@ -116,12 +113,12 @@ export async function POST(request: NextRequest) {
 
     const warnings = [...compiled.warnings]
     const triggerOnly =
-      triggerUsageDetected && plotsCount === 0 && markersCount === 0 && signalsCount === 0
+      triggerUsageDetected && plotsCount === 0 && markersCount === 0 && triggersCount === 0
 
     if (triggerOnly) {
       warnings.push({
         code: 'trigger_only_script',
-        message: 'Script uses trigger(...) without plots/markers/signals, which is valid.',
+        message: 'Script uses trigger(...) without plots/markers/triggers, which is valid.',
       })
     }
 
@@ -154,7 +151,7 @@ export async function POST(request: NextRequest) {
       data: {
         plotsCount,
         markersCount,
-        signalsCount,
+        triggersCount,
         triggerUsageDetected,
         triggerOnly,
         warnings,

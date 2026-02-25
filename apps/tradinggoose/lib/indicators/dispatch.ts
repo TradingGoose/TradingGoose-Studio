@@ -50,8 +50,8 @@ type MonitorDispatchMetadata = {
   retainedBars: number
 }
 
-type DispatchNormalizedOutput = Omit<NormalizedPineOutput, 'signals' | 'unsupported'> & {
-  signals?: NormalizedPineOutput['signals']
+type DispatchNormalizedOutput = Omit<NormalizedPineOutput, 'triggers' | 'unsupported'> & {
+  triggers?: NormalizedPineOutput['triggers']
   unsupported?: NormalizedPineOutput['unsupported']
 }
 
@@ -149,7 +149,7 @@ const trimOptionalHeavyFields = (payload: IndicatorTriggerDispatchPayload) => {
   const { marketSessions: _marketSessions, ...marketSeriesWithoutSessions } =
     nextPayload.marketSeries
   const {
-    signals: _signals,
+    triggers: _triggers,
     unsupported: _unsupported,
     ...outputWithoutHeavyFields
   } = nextPayload.indicator.output
@@ -285,8 +285,8 @@ export const applyIndicatorTriggerPayloadBudget = (
             }))
           : [],
         markers: [...payload.indicator.output.markers],
-        ...(payload.indicator.output.signals
-          ? { signals: [...payload.indicator.output.signals] }
+        ...(payload.indicator.output.triggers
+          ? { triggers: [...payload.indicator.output.triggers] }
           : {}),
       },
     },
