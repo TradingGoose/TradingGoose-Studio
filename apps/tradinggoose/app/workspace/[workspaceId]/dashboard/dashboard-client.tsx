@@ -665,20 +665,23 @@ export function DashboardClient({
         throw new Error(`Failed to create layout (${response.status})`)
       }
 
-      const currentLayoutId = layoutIdRef.current
-      if (!currentLayoutId) {
-        throw new Error('No active layout available')
+      const { layout: createdLayout } = (await response.json()) as {
+        layout?: LayoutTab
+      }
+      if (!createdLayout?.id) {
+        throw new Error('Invalid create layout response')
       }
 
-      const data = await loadLayoutData(currentLayoutId)
-      applyLayoutData(data)
+      setLayouts((current) =>
+        sortLayouts([...current.filter((layout) => layout.id !== createdLayout.id), createdLayout])
+      )
     } catch (error) {
       console.error('Failed to create layout:', error)
     } finally {
       isCreatingLayoutRef.current = false
       setIsCreatingLayout(false)
     }
-  }, [workspaceId, loadLayoutData, applyLayoutData])
+  }, [workspaceId, sortLayouts])
 
   const headerLeftContent = (
     <div className='flex w-full flex-1 items-center gap-3'>
