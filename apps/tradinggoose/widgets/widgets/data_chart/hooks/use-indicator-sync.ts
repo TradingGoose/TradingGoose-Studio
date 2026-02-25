@@ -542,12 +542,14 @@ type IndicatorFillViewData = {
   points: IndicatorFillRendererPoint[]
   topColor: string
   bottomColor: string
+  visible: boolean
 }
 
 type FillPrimitiveAttachment = {
   series: ISeriesApi<any>
   primitive: ISeriesPrimitive<any>
   update: (fill: IndicatorFill) => void
+  setVisible: (visible: boolean) => void
 }
 
 const createFillPrimitive = (
@@ -558,23 +560,27 @@ const createFillPrimitive = (
     points: IndicatorFill['points']
     topColor: string
     bottomColor: string
+    visible: boolean
   } = {
     attached: null,
     points: initialFill.points,
     topColor: initialFill.topColor,
     bottomColor: initialFill.bottomColor,
+    visible: true,
   }
 
   const viewData: IndicatorFillViewData = {
     points: [],
     topColor: initialFill.topColor,
     bottomColor: initialFill.bottomColor,
+    visible: true,
   }
 
   const updateView = () => {
     const attached = state.attached
     viewData.topColor = state.topColor
     viewData.bottomColor = state.bottomColor
+    viewData.visible = state.visible
     if (!attached) {
       viewData.points = []
       return
@@ -606,6 +612,7 @@ const createFillPrimitive = (
     draw() {},
     drawBackground(target: CanvasRenderingTarget2D) {
       target.useMediaCoordinateSpace(({ context }) => {
+        if (!viewData.visible) return
         const points = viewData.points
         if (points.length < 2) return
 
@@ -665,12 +672,19 @@ const createFillPrimitive = (
     state.points = fill.points
     state.topColor = fill.topColor
     state.bottomColor = fill.bottomColor
+    state.visible = true
+    state.attached?.requestUpdate()
+  }
+
+  const setVisible = (visible: boolean) => {
+    state.visible = visible
     state.attached?.requestUpdate()
   }
 
   return {
     primitive,
     update,
+    setVisible,
   }
 }
 
@@ -771,7 +785,8 @@ export const useIndicatorSync = ({
 
     const fillPrimitiveMap = indicatorFillPrimitiveMapRef.current.get(indicatorId)
     if (fillPrimitiveMap) {
-      fillPrimitiveMap.forEach(({ series, primitive }) => {
+      fillPrimitiveMap.forEach(({ series, primitive, setVisible }) => {
+        setVisible(false)
         safeDetachPrimitive(series, primitive)
       })
       indicatorFillPrimitiveMapRef.current.delete(indicatorId)
@@ -821,6 +836,14 @@ export const useIndicatorSync = ({
     const mainSeries = mainSeriesRef.current
     if (!chart || !mainSeries) return
     if (!workspaceId) return
+
+    indicatorFillPrimitiveMapRef.current.forEach((fillPrimitiveMap, indicatorId) => {
+      const visible = indicatorRefMap.get(indicatorId)?.visible !== false
+      fillPrimitiveMap.forEach((attachment) => {
+        attachment.setVisible(visible)
+      })
+    })
+
     const runId = (runIdRef.current += 1)
     const clearIndicatorRuntime = () => {
       if (!indicatorRuntimeRef) return
@@ -1274,6 +1297,7 @@ export const useIndicatorSync = ({
                 series: anchorSeries,
                 primitive: created.primitive,
                 update: created.update,
+                setVisible: created.setVisible,
               }
               fillPrimitiveMap.set(fillKey, attachment)
             }
@@ -1282,11 +1306,15 @@ export const useIndicatorSync = ({
         }
 
         fillPrimitiveMap.forEach((attachment, fillKey) => {
-          if (indicatorVisible && nextFillKeys.has(fillKey)) return
+          if (!indicatorVisible) {
+            attachment.setVisible(false)
+            return
+          }
+          if (nextFillKeys.has(fillKey)) return
           safeDetachPrimitive(attachment.series, attachment.primitive)
           fillPrimitiveMap.delete(fillKey)
         })
-        if (fillPrimitiveMap.size === 0) {
+        if (indicatorVisible && fillPrimitiveMap.size === 0) {
           indicatorFillPrimitiveMapRef.current.delete(indicatorId)
         }
 
