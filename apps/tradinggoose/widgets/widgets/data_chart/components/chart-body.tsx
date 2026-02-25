@@ -257,8 +257,6 @@ export const DataChartWidgetBody = ({
     indicators: pineIndicators,
     listing,
     interval: seriesWindow.interval ?? seriesWindow.requestInterval ?? undefined,
-    viewStartMs: dataParams.view?.start,
-    viewEndMs: dataParams.view?.end,
     chartReady,
     indicatorRuntimeRef,
     onIndicatorRuntimeChange: handleIndicatorRuntimeChange,

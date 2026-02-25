@@ -12,7 +12,6 @@ import {
   mapBarsMsToSeriesData,
   mapMarketBarToBarMs,
   mergeBarsMs,
-  sanitizeBarsMs,
   sanitizeSeriesData,
 } from '@/widgets/widgets/data_chart/series-data'
 import type { DataChartCandleType, DataChartDataContext } from '@/widgets/widgets/data_chart/types'
@@ -184,7 +183,7 @@ export const useLiveBars = ({
 
       const previousBars = dataContext.barsMsRef.current
       const previousLastOpenTime = previousBars[previousBars.length - 1]?.openTime
-      const nextBars = sanitizeBarsMs(mergeBarsMs(previousBars, [aggregated], resolvedIntervalMs))
+      const nextBars = mergeBarsMs(previousBars, [aggregated], resolvedIntervalMs)
       dataContext.barsMsRef.current = nextBars
       const { indexByOpenTimeMs, openTimeMsByIndex } = buildIndexMaps(nextBars)
       dataContext.indexByOpenTimeMsRef.current = indexByOpenTimeMs

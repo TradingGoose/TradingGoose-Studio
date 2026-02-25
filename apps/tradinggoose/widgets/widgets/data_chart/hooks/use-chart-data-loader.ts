@@ -3,7 +3,7 @@
 import { type MutableRefObject, useEffect, useMemo, useRef, useState } from 'react'
 import type { IChartApi, ISeriesApi } from 'lightweight-charts'
 import type { Socket } from 'socket.io-client'
-import { type ListingIdentity } from '@/lib/listing/identity'
+import type { ListingIdentity } from '@/lib/listing/identity'
 import { getMarketSeriesCapabilities } from '@/providers/market/providers'
 import type {
   MarketInterval,
@@ -21,7 +21,6 @@ import {
   mapBarsMsToSeriesData,
   mapMarketSeriesToBarsMs,
   mergeBarsMs,
-  sanitizeBarsMs,
   sanitizeSeriesData,
 } from '@/widgets/widgets/data_chart/series-data'
 import {
@@ -46,8 +45,9 @@ type SeriesWindow = ReturnType<
 >
 
 const DAY_MS = 24 * 60 * 60 * 1000
-const PREFETCH_THRESHOLD = 126
-const INITIAL_BACKFILL_COOLDOWN_MS = 750
+const DYNAMIC_WINDOW_SEGMENTS = 3
+const MAX_BACKFILL_ATTEMPTS = 6
+const INITIAL_BACKFILL_COOLDOWN_MS = 150
 
 const mergeMarketSessions = (
   current: MarketSessionWindow[],
@@ -148,17 +148,15 @@ export const useChartDataLoader = ({
     () => `${listingSignature ?? 'none'}|${seriesWindow.interval ?? ''}|${rangeKey}`,
     [listingSignature, rangeKey, seriesWindow.interval]
   )
+  const resolvedMarketSession = dataParams.view?.marketSession ?? 'regular'
   const providerParams = useMemo(() => {
     if (!providerId) return undefined
     const rawParams = { ...(dataParams.data?.providerParams ?? {}) } as Record<string, unknown>
     rawParams.apiKey = undefined
     rawParams.apiSecret = undefined
-    const marketSession = dataParams.view?.marketSession
-    if (marketSession) {
-      rawParams.marketSession = marketSession
-    }
+    rawParams.marketSession = resolvedMarketSession
     return coerceProviderParams(providerId, rawParams)
-  }, [dataParams.data?.providerParams, dataParams.view?.marketSession, providerId])
+  }, [dataParams.data?.providerParams, providerId, resolvedMarketSession])
   const authParams = dataParams.data?.auth
   const normalizationMode = useMemo(() => {
     if (!providerId) return undefined
@@ -200,9 +198,7 @@ export const useChartDataLoader = ({
     endMs: number,
     intervalMs?: number | null
   ): { startMs: number; endMs: number } | null => {
-    const nowMs = Date.now()
-    const futureBuffer = intervalMs ? intervalMs * DEFAULT_RIGHT_OFFSET : 0
-    const maxEndMs = nowMs + futureBuffer
+    const maxEndMs = Date.now() + (intervalMs ? intervalMs * DEFAULT_RIGHT_OFFSET : 0)
     if (startMs >= maxEndMs) return null
     if (endMs <= maxEndMs) return { startMs, endMs }
     const span = endMs - startMs
@@ -374,59 +370,6 @@ export const useChartDataLoader = ({
     const resolveIntervalMs = () =>
       dataContext.intervalMs ?? intervalToMs(seriesWindow.interval ?? requestInterval ?? null)
 
-    const ensureMinimumBars = async (
-      seedBars: ReturnType<typeof mapMarketSeriesToBarsMs>
-    ): Promise<ReturnType<typeof mapMarketSeriesToBarsMs>> => {
-      const targetBars = expectedBarsRef.current
-      if (!targetBars || targetBars <= 0) return seedBars
-      if (seedBars.length >= targetBars) return seedBars
-      const intervalMs = resolveIntervalMs()
-      if (!intervalMs) return seedBars
-
-      const retentionStartMs = resolveRetentionStartMs()
-      let merged = seedBars
-      let boundary = merged[0]?.openTime ?? null
-      let attempts = 0
-
-      while (boundary && merged.length < targetBars && attempts < 4) {
-        attempts += 1
-        const remaining = targetBars - merged.length
-        const spanBars = Math.max(remaining, DEFAULT_BAR_COUNT)
-        let startMs = Math.max(0, boundary - intervalMs * spanBars)
-        if (retentionStartMs !== null && startMs < retentionStartMs) {
-          startMs = retentionStartMs
-        }
-        if (startMs >= boundary) break
-
-        let incomingBars: ReturnType<typeof mapMarketSeriesToBarsMs> = []
-        try {
-          const seriesResponse = await fetchSeriesRange(startMs, boundary)
-          if (isStale()) return merged
-          updateMarketSessions(seriesResponse.marketSessions)
-          incomingBars = mapMarketSeriesToBarsMs(seriesResponse, dataContext.intervalMs)
-        } catch (error) {
-          console.warn('Failed to load additional chart history', error)
-          break
-        }
-
-        if (incomingBars.length === 0) {
-          boundary = startMs
-          if (retentionStartMs !== null && boundary <= retentionStartMs) break
-          continue
-        }
-
-        const next = mergeBarsMs(merged, incomingBars, dataContext.intervalMs)
-        if (next.length === merged.length) {
-          boundary = startMs
-          continue
-        }
-        merged = next
-        boundary = merged[0]?.openTime ?? null
-      }
-
-      return merged
-    }
-
     const primaryWindow = seriesWindow.windows?.[0]
 
     const loadSeries = async () => {
@@ -446,12 +389,7 @@ export const useChartDataLoader = ({
             : await fetchSeries()
         if (isStale()) return
         updateMarketSessions(seriesResponse.marketSessions)
-        let barsMs = mapMarketSeriesToBarsMs(seriesResponse, dataContext.intervalMs)
-        if (!useExplicitRange && primaryWindow?.mode !== 'range') {
-          barsMs = await ensureMinimumBars(barsMs)
-          if (isStale()) return
-        }
-        barsMs = sanitizeBarsMs(barsMs)
+        const barsMs = mapMarketSeriesToBarsMs(seriesResponse, dataContext.intervalMs)
         dataContext.barsMsRef.current = barsMs
         const { indexByOpenTimeMs, openTimeMsByIndex } = buildIndexMaps(barsMs)
         dataContext.indexByOpenTimeMsRef.current = indexByOpenTimeMs
@@ -473,6 +411,7 @@ export const useChartDataLoader = ({
             ? true
             : typeof earliestTimestamp === 'number' && earliestTimestamp > retentionStartMs
         hasMoreHistoricalDataRef.current = canLoadMore
+        historicalCursorRef.current = null
         const expectedBars =
           primaryWindow?.mode === 'range' && typeof expectedBarsRef.current === 'number'
             ? Math.min(expectedBarsRef.current, barsMs.length)
@@ -534,45 +473,53 @@ export const useChartDataLoader = ({
       return isFiniteLogicalRange(nextRange) ? nextRange : null
     }
 
-    const clampLogicalRange = (fromIndex: number, toIndex: number, totalBars: number) => {
-      if (!Number.isFinite(fromIndex) || !Number.isFinite(toIndex) || totalBars <= 0) {
-        return null
-      }
-      const maxIndex = Math.max(0, totalBars - 1)
-      let from = Math.max(0, Math.min(fromIndex, maxIndex))
-      let to = Math.max(0, Math.min(toIndex, maxIndex))
-      if (from > to) {
-        const pivot = Math.min(from, to)
-        from = pivot
-        to = pivot
-      }
-      if (!Number.isFinite(from) || !Number.isFinite(to)) return null
+    const resolveFallbackLogicalRange = () => {
+      const totalBars = dataContext.barsMsRef.current.length
+      if (totalBars <= 0) return null
+      const to = totalBars - 1
+      const from = Math.max(0, to - (DEFAULT_BAR_COUNT - 1))
       return { from, to }
     }
 
-    const resolveAnchorFromRange = (
-      range: { from: number; to: number } | null,
-      openTimes: number[]
-    ): { fromTime: number; toTime: number } | null => {
-      if (!isFiniteLogicalRange(range) || openTimes.length === 0) return null
-      const fromIndex = Math.max(0, Math.floor(range.from))
-      const toIndex = Math.min(openTimes.length - 1, Math.ceil(range.to))
-      const fromTime = openTimes[fromIndex]
-      const toTime = openTimes[toIndex]
-      if (!Number.isFinite(fromTime) || !Number.isFinite(toTime)) return null
-      return { fromTime, toTime }
+    const resolveVisibleBars = (visibleRange: { from: number; to: number }) =>
+      Math.max(1, Math.ceil(visibleRange.to) - Math.floor(visibleRange.from) + 1)
+
+    const resolvePrefetchTargetBars = (visibleRange: { from: number; to: number }) =>
+      resolveVisibleBars(visibleRange) * DYNAMIC_WINDOW_SEGMENTS
+
+    const resolvePrefetchBarsNeeded = (
+      visibleRange: { from: number; to: number },
+      totalBars: number
+    ) => {
+      if (totalBars <= 0 || !hasMoreHistoricalDataRef.current) return 0
+
+      const visibleBars = resolveVisibleBars(visibleRange)
+      const targetBars = resolvePrefetchTargetBars(visibleRange)
+      const maxIndex = totalBars - 1
+      const fromIndexRaw = Math.floor(Math.min(visibleRange.from, visibleRange.to))
+      const fromIndex = Math.max(0, Math.min(fromIndexRaw, maxIndex))
+      const beforeBars = Math.max(0, fromIndex)
+      const leftPaddingTarget = Math.max(0, targetBars - visibleBars)
+      const leftPaddingDeficit = Math.max(0, leftPaddingTarget - beforeBars)
+      const totalDeficit = Math.max(0, targetBars - totalBars)
+      return Math.max(leftPaddingDeficit, totalDeficit)
     }
 
-    const resolveAnchoredRange = (
-      anchor: { fromTime: number; toTime: number } | null,
-      indexByOpenTimeMs: Map<number, number>,
-      totalBars: number
-    ): { from: number; to: number } | null => {
-      if (!anchor || totalBars <= 0) return null
-      const fromIndex = indexByOpenTimeMs.get(anchor.fromTime)
-      const toIndex = indexByOpenTimeMs.get(anchor.toTime)
-      if (fromIndex === undefined || toIndex === undefined) return null
-      return clampLogicalRange(fromIndex, toIndex, totalBars)
+    const shiftLogicalRange = (range: { from: number; to: number } | null, shift: number) => {
+      if (!isFiniteLogicalRange(range) || !Number.isFinite(shift)) return null
+      return {
+        from: range.from + shift,
+        to: range.to + shift,
+      }
+    }
+
+    const setHistoricalCursorFromNoGrowth = (
+      requestStartMs: number,
+      retentionStartMs: number | null
+    ) => {
+      historicalCursorRef.current = requestStartMs
+      hasMoreHistoricalDataRef.current =
+        retentionStartMs === null ? true : requestStartMs > retentionStartMs
     }
 
     const handleVisibleRangeChange = async (range: { from: number; to: number } | null) => {
@@ -580,77 +527,77 @@ export const useChartDataLoader = ({
       if (!isFiniteLogicalRange(range)) return
       if (isStale()) return
       if (Date.now() < backfillArmedAtRef.current) return
-      if (primaryWindow?.mode === 'range' && range.from >= 0) return
-      if (isLoadingOlderDataRef.current || !hasMoreHistoricalDataRef.current) return
+      if (isLoadingOlderDataRef.current) return
+      if (!hasMoreHistoricalDataRef.current) return
 
-      const needsMore = (visibleRange: { from: number; to: number }) =>
-        visibleRange.from <= PREFETCH_THRESHOLD
-
-      if (!needsMore(range)) return
+      const initialBarsNeeded = resolvePrefetchBarsNeeded(
+        range,
+        dataContext.barsMsRef.current.length
+      )
+      if (initialBarsNeeded <= 0) return
 
       isLoadingOlderDataRef.current = true
       let attempts = 0
       let activeRange: { from: number; to: number } | null = range
+      let backfillAddedAnyBars = false
 
       try {
-        while (
-          activeRange &&
-          needsMore(activeRange) &&
-          hasMoreHistoricalDataRef.current &&
-          attempts < 4
-        ) {
-          attempts += 1
-          if (isStale()) return
-
+        while (activeRange && attempts < MAX_BACKFILL_ATTEMPTS) {
           const currentBars = dataContext.barsMsRef.current
           if (currentBars.length === 0) return
+
+          const barsNeeded = resolvePrefetchBarsNeeded(activeRange, currentBars.length)
+          if (barsNeeded <= 0) break
+          if (!hasMoreHistoricalDataRef.current) break
+
+          attempts += 1
+          if (isStale()) return
 
           const oldestBar = currentBars[0]
           if (!oldestBar) return
 
-          const spanMs = resolveForwardSpanMs({
+          const baseSpanMs = resolveForwardSpanMs({
             window: seriesWindow.windows?.[0],
             interval: seriesWindow.interval ?? requestInterval,
             lastWindowSpanMs: lastWindowSpanRef.current,
           })
+          const intervalMs = resolveIntervalMs()
+          const requestedBars = Math.max(DEFAULT_BAR_COUNT, barsNeeded)
+          const spanMs =
+            intervalMs && intervalMs > 0
+              ? Math.max(intervalMs, intervalMs * requestedBars)
+              : baseSpanMs
           if (!spanMs) return
 
+          const retentionStartMs = resolveRetentionStartMs()
           const boundary = historicalCursorRef.current
             ? Math.min(oldestBar.openTime, historicalCursorRef.current)
             : oldestBar.openTime
           if (!boundary) return
-
-          const retentionStartMs = resolveRetentionStartMs()
-          let startMs = Math.max(0, boundary - spanMs)
-          if (retentionStartMs !== null && startMs < retentionStartMs) {
-            startMs = retentionStartMs
+          let requestStartMs = Math.max(0, boundary - spanMs)
+          if (retentionStartMs !== null && requestStartMs < retentionStartMs) {
+            requestStartMs = retentionStartMs
           }
-          if (startMs >= boundary) {
+          const requestEndMs = boundary
+          if (requestStartMs >= requestEndMs) {
             hasMoreHistoricalDataRef.current = false
-            return
+            activeRange = readVisibleLogicalRange()
+            continue
           }
 
           try {
-            const seriesResponse = await fetchSeriesRange(startMs, boundary, true)
+            const seriesResponse = await fetchSeriesRange(requestStartMs, requestEndMs, true)
             if (isStale()) return
             updateMarketSessions(seriesResponse.marketSessions)
             const incomingBars = mapMarketSeriesToBarsMs(seriesResponse, dataContext.intervalMs)
             if (incomingBars.length === 0) {
-              historicalCursorRef.current = startMs
-              const canLoadMore = retentionStartMs === null ? true : startMs > retentionStartMs
-              hasMoreHistoricalDataRef.current = canLoadMore
+              setHistoricalCursorFromNoGrowth(requestStartMs, retentionStartMs)
               activeRange = readVisibleLogicalRange()
               continue
             }
 
             const previousRange = readVisibleLogicalRange()
-            const anchorRange = resolveAnchorFromRange(
-              previousRange,
-              dataContext.openTimeMsByIndexRef.current
-            )
-            let merged = sanitizeBarsMs(
-              mergeBarsMs(currentBars, incomingBars, dataContext.intervalMs)
-            )
+            let merged = mergeBarsMs(currentBars, incomingBars, dataContext.intervalMs)
             if (
               retentionRule?.maxBars &&
               retentionRule.maxBars > 0 &&
@@ -664,11 +611,7 @@ export const useChartDataLoader = ({
             const { indexByOpenTimeMs, openTimeMsByIndex } = buildIndexMaps(merged)
             dataContext.indexByOpenTimeMsRef.current = indexByOpenTimeMs
             dataContext.openTimeMsByIndexRef.current = openTimeMsByIndex
-            onDataBackfill?.()
-
-            const safeRange = previousRange
-              ? clampLogicalRange(previousRange.from, previousRange.to, merged.length)
-              : null
+            if (addedBars > 0) backfillAddedAnyBars = true
 
             if (mainSeriesRef.current) {
               const series = mainSeriesRef.current
@@ -684,57 +627,91 @@ export const useChartDataLoader = ({
             }
 
             if (addedBars <= 0) {
-              historicalCursorRef.current = startMs
-              const canLoadMore = retentionStartMs === null ? true : startMs > retentionStartMs
-              hasMoreHistoricalDataRef.current = canLoadMore
+              setHistoricalCursorFromNoGrowth(requestStartMs, retentionStartMs)
               activeRange = readVisibleLogicalRange()
               continue
             }
 
-            const anchoredRange = resolveAnchoredRange(
-              anchorRange,
-              indexByOpenTimeMs,
-              merged.length
-            )
-            if (anchoredRange) {
+            const shiftedRange = shiftLogicalRange(previousRange, addedBars)
+            if (shiftedRange) {
               try {
-                timeScale.setVisibleLogicalRange(anchoredRange)
+                timeScale.setVisibleLogicalRange(shiftedRange)
               } catch {
                 return
               }
-              activeRange = anchoredRange
-            } else if (safeRange) {
-              try {
-                timeScale.setVisibleLogicalRange(safeRange)
-              } catch {
-                return
-              }
-              activeRange = safeRange
+              activeRange = shiftedRange
             } else {
               activeRange = readVisibleLogicalRange()
             }
 
             const earliestTimestamp = merged[0]?.openTime ?? null
-            const canLoadMore =
+            hasMoreHistoricalDataRef.current =
               retentionStartMs === null
                 ? incomingBars.length > 0
                 : typeof earliestTimestamp === 'number' && earliestTimestamp > retentionStartMs
-            hasMoreHistoricalDataRef.current = canLoadMore
             if (!activeRange) {
               activeRange = readVisibleLogicalRange()
             }
           } catch (error) {
-            console.error('Failed to load historical chart data', error)
+            console.error('Failed to load chart prefill data', error)
             return
           }
+        }
+        if (backfillAddedAnyBars && !isStale()) {
+          onDataBackfill?.()
         }
       } finally {
         isLoadingOlderDataRef.current = false
       }
     }
 
+    let initialPrefillTimer: number | null = null
+    const scheduleInitialPrefillPass = (delayMs = 150) => {
+      if (initialPrefillTimer !== null) window.clearTimeout(initialPrefillTimer)
+      initialPrefillTimer = window.setTimeout(
+        () => void runInitialPrefillPass(),
+        Math.max(0, delayMs)
+      )
+    }
+
+    const runInitialPrefillPass = async () => {
+      if (isStale()) return
+      if (
+        !Number.isFinite(backfillArmedAtRef.current) ||
+        Date.now() < backfillArmedAtRef.current ||
+        isLoadingOlderDataRef.current
+      ) {
+        scheduleInitialPrefillPass(150)
+        return
+      }
+      if (!hasMoreHistoricalDataRef.current) return
+
+      const visibleRange = readVisibleLogicalRange() ?? resolveFallbackLogicalRange()
+      if (!visibleRange) {
+        scheduleInitialPrefillPass(150)
+        return
+      }
+      if (resolvePrefetchBarsNeeded(visibleRange, dataContext.barsMsRef.current.length) <= 0) return
+
+      await handleVisibleRangeChange(visibleRange)
+
+      if (isStale()) return
+      const nextVisibleRange = readVisibleLogicalRange() ?? visibleRange
+      if (
+        hasMoreHistoricalDataRef.current &&
+        resolvePrefetchBarsNeeded(nextVisibleRange, dataContext.barsMsRef.current.length) > 0
+      ) {
+        scheduleInitialPrefillPass(150)
+      }
+    }
+
     if (timeScale) {
       timeScale.subscribeVisibleLogicalRangeChange(handleVisibleRangeChange)
+      scheduleInitialPrefillPass(
+        Number.isFinite(backfillArmedAtRef.current)
+          ? Math.max(0, backfillArmedAtRef.current - Date.now())
+          : 150
+      )
     }
     startLiveSubscription()
 
@@ -749,6 +726,9 @@ export const useChartDataLoader = ({
         } catch {
           // Ignore disposal races during chart teardown.
         }
+      }
+      if (initialPrefillTimer !== null) {
+        window.clearTimeout(initialPrefillTimer)
       }
     }
   }, [

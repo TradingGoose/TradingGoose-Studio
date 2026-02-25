@@ -40,9 +40,9 @@ import {
 } from '@/widgets/widgets/data_chart/utils/chart-styles'
 
 const DEFAULT_PANE_HEIGHT_PX = 100
-const MAX_MARKERS_TOTAL = 2000
-const MAX_BARS = 2000
 const EXECUTION_DEBOUNCE_MS = 0
+const MAX_EXECUTION_CHUNK_BARS = 1200
+const EXECUTION_CONTEXT_BARS = 300
 const DEFAULT_PINE_LINE_WIDTH = 1
 
 type MainSeries = ISeriesApi<'Candlestick'> | ISeriesApi<'Bar'> | ISeriesApi<'Area'>
@@ -131,6 +131,16 @@ const safeRemoveSeries = (chart: IChartApi, series: ISeriesApi<any> | null) => {
   }
 }
 
+const detachSeriesMarkers = (
+  seriesMarkersMap: Map<ISeriesApi<any>, ISeriesMarkersPluginApi<any>>,
+  series: ISeriesApi<any>
+) => {
+  const markersPlugin = seriesMarkersMap.get(series)
+  if (!markersPlugin) return
+  markersPlugin.detach()
+  seriesMarkersMap.delete(series)
+}
+
 const safeDetachPrimitive = (series: ISeriesApi<any>, primitive: ISeriesPrimitive<any>) => {
   const detachPrimitive =
     typeof (series as any).detachPrimitive === 'function'
@@ -188,14 +198,181 @@ type ExecuteResult = {
   output: NormalizedPineOutput | null
   warnings: Array<{ code: string; message: string }>
   unsupported: { plots: string[]; styles: string[] }
-  counts: { plots: number; markers: number; signals: number }
+  counts: { plots: number; markers: number; triggers: number }
   executionError?: { message: string; code?: string; unsupported?: { features: string[] } }
 }
 
-type CacheEntry = {
-  key: string
-  result: ExecuteResult
+type ExecutionInput = {
+  id: string
+  inputsMap: Record<string, unknown>
+  accumulationBase: string
 }
+
+type ProcessedRange = {
+  startMs: number
+  endMs: number
+}
+
+const resolveMissingChunk = (
+  bars: DataChartDataContext['barsMsRef']['current'],
+  range: ProcessedRange | undefined,
+  maxBars: number
+) => {
+  if (bars.length === 0) return null
+  if (!range) {
+    const startIndex = Math.max(0, bars.length - maxBars)
+    return bars.slice(startIndex)
+  }
+  const overlapBars = Math.max(0, Math.min(EXECUTION_CONTEXT_BARS, maxBars - 1))
+
+  const firstOpenTime = bars[0]?.openTime
+  const lastOpenTime = bars[bars.length - 1]?.openTime
+  if (
+    typeof firstOpenTime !== 'number' ||
+    typeof lastOpenTime !== 'number' ||
+    (range.startMs <= firstOpenTime && range.endMs >= lastOpenTime)
+  ) {
+    return null
+  }
+
+  const leftBoundaryIndex = bars.findIndex((bar) => bar.openTime >= range.startMs)
+  const rightBoundaryIndex = bars.findIndex((bar) => bar.openTime > range.endMs)
+  const leftBoundary = leftBoundaryIndex >= 0 ? leftBoundaryIndex : bars.length
+  const rightBoundary = rightBoundaryIndex >= 0 ? rightBoundaryIndex : bars.length
+
+  const missingLeftBars = Math.max(0, leftBoundary)
+  const missingRightBars = Math.max(0, bars.length - rightBoundary)
+  if (missingLeftBars <= 0 && missingRightBars <= 0) return null
+
+  if (missingLeftBars >= missingRightBars && missingLeftBars > 0) {
+    const endIndex = Math.min(bars.length, leftBoundary + overlapBars)
+    const startIndex = Math.max(0, endIndex - maxBars)
+    return bars.slice(startIndex, endIndex)
+  }
+
+  const startIndex = Math.max(0, rightBoundary - overlapBars)
+  const endIndex = Math.min(bars.length, startIndex + maxBars)
+  return bars.slice(startIndex, endIndex)
+}
+
+const resolveSeriesMergeKey = (entry: NormalizedPineOutput['series'][number], index: number) =>
+  `${entry.plot.title ?? ''}:${index}`
+
+const resolveFillMergeKey = (entry: NormalizedPineOutput['fills'][number], index: number) =>
+  `${entry.title}:${entry.upperPlotTitle ?? ''}:${entry.lowerPlotTitle ?? ''}:${index}`
+
+const mergeSeriesPoints = (
+  existing: NormalizedPineOutput['series'][number]['points'],
+  incoming: NormalizedPineOutput['series'][number]['points']
+) => {
+  const byTime = new Map<number, NormalizedPineOutput['series'][number]['points'][number]>()
+  existing.forEach((point) => {
+    byTime.set(point.time, point)
+  })
+  incoming.forEach((point) => {
+    const previous = byTime.get(point.time)
+    if (previous && point.value === null && previous.value !== null) return
+    byTime.set(point.time, point)
+  })
+  return Array.from(byTime.values()).sort((a, b) => a.time - b.time)
+}
+
+const mergeFillPoints = (
+  existing: NormalizedPineOutput['fills'][number]['points'],
+  incoming: NormalizedPineOutput['fills'][number]['points']
+) => {
+  const byTime = new Map<number, NormalizedPineOutput['fills'][number]['points'][number]>()
+  existing.forEach((point) => {
+    byTime.set(point.time, point)
+  })
+  incoming.forEach((point) => {
+    byTime.set(point.time, point)
+  })
+  return Array.from(byTime.values()).sort((a, b) => a.time - b.time)
+}
+
+const mergeSeriesEntries = (
+  existing: NormalizedPineOutput['series'],
+  incoming: NormalizedPineOutput['series']
+): NormalizedPineOutput['series'] => {
+  const existingByKey = new Map<string, NormalizedPineOutput['series'][number]>()
+  existing.forEach((entry, index) => {
+    existingByKey.set(resolveSeriesMergeKey(entry, index), entry)
+  })
+  return incoming.map((entry, index) => {
+    const previous = existingByKey.get(resolveSeriesMergeKey(entry, index))
+    if (!previous) return entry
+    return {
+      ...entry,
+      points: mergeSeriesPoints(previous.points, entry.points),
+    }
+  })
+}
+
+const mergeFillEntries = (
+  existing: NormalizedPineOutput['fills'],
+  incoming: NormalizedPineOutput['fills']
+): NormalizedPineOutput['fills'] => {
+  const existingByKey = new Map<string, NormalizedPineOutput['fills'][number]>()
+  existing.forEach((entry, index) => {
+    existingByKey.set(resolveFillMergeKey(entry, index), entry)
+  })
+  return incoming.map((entry, index) => {
+    const previous = existingByKey.get(resolveFillMergeKey(entry, index))
+    if (!previous) return entry
+    return {
+      ...entry,
+      points: mergeFillPoints(previous.points, entry.points),
+    }
+  })
+}
+
+const mergeMarkers = (
+  existing: NormalizedPineOutput['markers'],
+  incoming: NormalizedPineOutput['markers'],
+  replacedRange?: ProcessedRange
+): NormalizedPineOutput['markers'] => {
+  const existingMarkers =
+    replacedRange && Number.isFinite(replacedRange.startMs) && Number.isFinite(replacedRange.endMs)
+      ? (() => {
+          const startSec = Math.floor(replacedRange.startMs / 1000)
+          const endSec = Math.floor(replacedRange.endMs / 1000)
+          return existing.filter((marker) => marker.time < startSec || marker.time > endSec)
+        })()
+      : existing
+
+  const byKey = new Map<string, NormalizedPineOutput['markers'][number]>()
+  const toKey = (marker: NormalizedPineOutput['markers'][number]) =>
+    [
+      marker.time,
+      marker.source ?? '',
+      marker.position,
+      marker.shape,
+      marker.text ?? '',
+      marker.color ?? '',
+      typeof marker.price === 'number' && Number.isFinite(marker.price) ? marker.price : '',
+    ].join('|')
+
+  existingMarkers.forEach((marker) => {
+    byKey.set(toKey(marker), marker)
+  })
+  incoming.forEach((marker) => {
+    byKey.set(toKey(marker), marker)
+  })
+
+  return Array.from(byKey.values()).sort((a, b) => a.time - b.time)
+}
+
+const mergeIndicatorOutput = (
+  existing: NormalizedPineOutput,
+  incoming: NormalizedPineOutput,
+  replacedRange?: ProcessedRange
+): NormalizedPineOutput => ({
+  ...incoming,
+  series: mergeSeriesEntries(existing.series, incoming.series),
+  fills: mergeFillEntries(existing.fills, incoming.fills),
+  markers: mergeMarkers(existing.markers, incoming.markers, replacedRange),
+})
 
 const buildInputsHash = (inputs: Record<string, unknown>) => {
   const sortedKeys = Object.keys(inputs).sort()
@@ -204,66 +381,6 @@ const buildInputsHash = (inputs: Record<string, unknown>) => {
     sorted[key] = inputs[key]
   })
   return JSON.stringify(sorted)
-}
-
-const resolveVisibleEndIndex = (
-  barsMs: Array<{ openTime: number }>,
-  startMs?: number | null,
-  endMs?: number | null
-) => {
-  const lastIndex = barsMs.length - 1
-  if (lastIndex < 0) return -1
-  if (typeof startMs !== 'number' || !Number.isFinite(startMs)) return lastIndex
-  if (typeof endMs !== 'number' || !Number.isFinite(endMs)) return lastIndex
-
-  const visibleEndMs = Math.max(startMs, endMs)
-  if (visibleEndMs <= barsMs[0].openTime) return 0
-  for (let index = lastIndex; index >= 0; index -= 1) {
-    if (barsMs[index].openTime <= visibleEndMs) return index
-  }
-  return 0
-}
-
-const resolveExecutionWindow = <T extends { openTime: number }>({
-  barsMs,
-  maxBars,
-  viewStartMs,
-  viewEndMs,
-}: {
-  barsMs: T[]
-  maxBars: number
-  viewStartMs?: number | null
-  viewEndMs?: number | null
-}) => {
-  const totalBars = barsMs.length
-  if (totalBars === 0) {
-    return {
-      bars: [] as T[],
-      key: 'empty',
-    }
-  }
-
-  const windowSize = Math.min(maxBars, totalBars)
-  const lastIndex = totalBars - 1
-  if (windowSize === totalBars) {
-    return {
-      bars: barsMs,
-      key: `0:${lastIndex}:${totalBars}`,
-    }
-  }
-
-  let endIndex = resolveVisibleEndIndex(barsMs, viewStartMs, viewEndMs)
-  if (endIndex < 0) endIndex = lastIndex
-  endIndex = Math.max(0, Math.min(endIndex, lastIndex))
-  let startIndex = Math.max(0, endIndex - (windowSize - 1))
-  endIndex = Math.min(lastIndex, startIndex + (windowSize - 1))
-  startIndex = Math.max(0, endIndex - (windowSize - 1))
-  const bars = barsMs.slice(startIndex, endIndex + 1)
-
-  return {
-    bars,
-    key: `${startIndex}:${endIndex}:${totalBars}`,
-  }
 }
 
 const resolveSeriesDefinition = (seriesType?: string) => {
@@ -566,8 +683,6 @@ export const useIndicatorSync = ({
   indicators,
   listing,
   interval,
-  viewStartMs,
-  viewEndMs,
   chartReady,
   indicatorRuntimeRef,
   onIndicatorRuntimeChange,
@@ -580,22 +695,21 @@ export const useIndicatorSync = ({
   indicators: IndicatorDefinition[]
   listing?: ListingIdentity | null
   interval?: string | null
-  viewStartMs?: number | null
-  viewEndMs?: number | null
   chartReady?: number
   indicatorRuntimeRef?: MutableRefObject<Map<string, IndicatorRuntimeEntry>>
   onIndicatorRuntimeChange?: () => void
 }) => {
   const indicatorSeriesMapRef = useRef(new Map<string, Map<string, ISeriesApi<any>>>())
   const indicatorPaneMapRef = useRef(new Map<string, IPaneApi<any> | null>())
-  const indicatorPaneSeriesMapRef = useRef(new Map<string, ISeriesApi<any> | null>())
   const seriesIdentityMapRef = useRef(new WeakMap<ISeriesApi<any>, number>())
   const seriesIdentityCounterRef = useRef(1)
   const seriesMarkersMapRef = useRef(new Map<ISeriesApi<any>, ISeriesMarkersPluginApi<any>>())
   const indicatorFillPrimitiveMapRef = useRef(
     new Map<string, Map<string, FillPrimitiveAttachment>>()
   )
-  const cacheRef = useRef(new Map<string, CacheEntry>())
+  const accumulatedOutputRef = useRef(new Map<string, NormalizedPineOutput>())
+  const processedRangeRef = useRef(new Map<string, ProcessedRange>())
+  const accumulationBaseRef = useRef(new Map<string, string>())
   const indicatorIdsRef = useRef<Set<string>>(new Set())
   const indicatorSignatureRef = useRef(new Map<string, string>())
   const warningCacheRef = useRef(new Set<string>())
@@ -616,6 +730,13 @@ export const useIndicatorSync = ({
     () => new Map(indicators.map((indicator) => [indicator.id, indicator])),
     [indicators]
   )
+
+  const executionContextKey = useMemo(() => {
+    const listingKey = listing
+      ? [listing.listing_type, listing.listing_id, listing.base_id, listing.quote_id].join('|')
+      : 'none'
+    return `${workspaceId ?? 'none'}|${listingKey}|${interval ?? 'none'}`
+  }, [workspaceId, listing, interval])
 
   const warnOnce = (message: string) => {
     if (warningCacheRef.current.has(message)) return
@@ -677,19 +798,23 @@ export const useIndicatorSync = ({
 
     if (seriesMap) {
       seriesMap.forEach((series) => {
-        const markersPlugin = seriesMarkersMapRef.current.get(series)
-        if (markersPlugin) {
-          markersPlugin.detach()
-          seriesMarkersMapRef.current.delete(series)
-        }
+        detachSeriesMarkers(seriesMarkersMapRef.current, series)
         safeRemoveSeries(chart, series)
       })
       indicatorSeriesMapRef.current.delete(indicatorId)
     }
     indicatorPaneMapRef.current.delete(indicatorId)
-    indicatorPaneSeriesMapRef.current.delete(indicatorId)
     indicatorSignatureRef.current.delete(indicatorId)
+    accumulatedOutputRef.current.delete(indicatorId)
+    processedRangeRef.current.delete(indicatorId)
+    accumulationBaseRef.current.delete(indicatorId)
   }
+
+  useEffect(() => {
+    accumulatedOutputRef.current.clear()
+    processedRangeRef.current.clear()
+    accumulationBaseRef.current.clear()
+  }, [executionContextKey])
 
   useEffect(() => {
     const chart = chartRef.current
@@ -697,6 +822,14 @@ export const useIndicatorSync = ({
     if (!chart || !mainSeries) return
     if (!workspaceId) return
     const runId = (runIdRef.current += 1)
+    const clearIndicatorRuntime = () => {
+      if (!indicatorRuntimeRef) return
+      indicatorRuntimeRef.current = new Map()
+      if (runtimeSignatureRef.current !== '') {
+        runtimeSignatureRef.current = ''
+        onIndicatorRuntimeChange?.()
+      }
+    }
 
     const activeIds = new Set(indicatorIds)
     const previousIds = indicatorIdsRef.current
@@ -708,35 +841,48 @@ export const useIndicatorSync = ({
     indicatorIdsRef.current = activeIds
 
     if (indicatorIds.length === 0) {
-      if (indicatorRuntimeRef) {
-        indicatorRuntimeRef.current = new Map()
-        if (runtimeSignatureRef.current !== '') {
-          runtimeSignatureRef.current = ''
-          onIndicatorRuntimeChange?.()
-        }
-      }
+      clearIndicatorRuntime()
       return
     }
     if (dataContext.barsMsRef.current.length === 0) {
       activeIds.forEach((id) => cleanupIndicator(id))
-      if (indicatorRuntimeRef) {
-        indicatorRuntimeRef.current = new Map()
-        if (runtimeSignatureRef.current !== '') {
-          runtimeSignatureRef.current = ''
-          onIndicatorRuntimeChange?.()
-        }
-      }
+      clearIndicatorRuntime()
       return
     }
 
-    const barsMs = dataContext.barsMsRef.current
-    const executionWindow = resolveExecutionWindow({
-      barsMs,
-      maxBars: MAX_BARS,
-      viewStartMs,
-      viewEndMs,
+    const executionBars = dataContext.barsMsRef.current
+    if (executionBars.length === 0) return
+
+    const indicatorInputs: ExecutionInput[] = []
+    indicatorIds.forEach((id) => {
+      const indicator = indicatorMap.get(id)
+      const defaultIndicator = DEFAULT_INDICATOR_MAP.get(id)
+      if (!indicator && !defaultIndicator) return
+      const inputMeta = indicator?.inputMeta ?? defaultIndicator?.inputMeta
+      const inputsMap = buildInputsMapFromMeta(
+        inputMeta ?? undefined,
+        indicatorRefMap.get(id)?.inputs
+      )
+      const inputsHash = buildInputsHash(inputsMap)
+      const indicatorVersion = indicator?.updatedAt ?? indicator?.createdAt ?? 'default'
+      indicatorInputs.push({
+        id,
+        inputsMap,
+        accumulationBase: `${id}:${indicatorVersion}:${inputsHash}`,
+      })
     })
-    const executionBars = executionWindow.bars
+
+    if (indicatorInputs.length === 0) return
+
+    indicatorInputs.forEach((entry) => {
+      const previousBase = accumulationBaseRef.current.get(entry.id)
+      if (previousBase !== entry.accumulationBase) {
+        accumulationBaseRef.current.set(entry.id, entry.accumulationBase)
+        accumulatedOutputRef.current.delete(entry.id)
+        processedRangeRef.current.delete(entry.id)
+      }
+    })
+
     const barDirectionByTimeSec = new Map<number, boolean>()
     let previousClose: number | null = null
     executionBars.forEach((bar) => {
@@ -746,117 +892,127 @@ export const useIndicatorSync = ({
       previousClose = bar.close
     })
 
-    const indicatorInputs = indicatorIds
-      .map((id) => {
-        const indicator = indicatorMap.get(id)
-        const defaultIndicator = DEFAULT_INDICATOR_MAP.get(id)
-        if (!indicator && !defaultIndicator) return null
-        const inputMeta = indicator?.inputMeta ?? defaultIndicator?.inputMeta
-        const inputsMap = buildInputsMapFromMeta(
-          inputMeta ?? undefined,
-          indicatorRefMap.get(id)?.inputs
-        )
-        const inputsHash = buildInputsHash(inputsMap)
-        const indicatorVersion = indicator?.updatedAt ?? indicator?.createdAt ?? 'default'
-        const cacheKey = `${id}:${indicatorVersion}:${dataContext.dataVersion}:${executionWindow.key}:${inputsHash}`
-        return { id, inputsMap, inputsHash, cacheKey }
-      })
-      .filter(
-        (
-          entry
-        ): entry is {
-          id: string
-          inputsMap: Record<string, unknown>
-          inputsHash: string
-          cacheKey: string
-        } => Boolean(entry)
-      )
-
-    if (indicatorInputs.length === 0) return
-
-    const cachedResults: ExecuteResult[] = []
-    const indicatorsToExecute: Array<{
-      id: string
-      inputsMap: Record<string, unknown>
-      cacheKey: string
-    }> = []
-
-    indicatorInputs.forEach(({ id, inputsMap, cacheKey }) => {
-      const cached = cacheRef.current.get(cacheKey)
-      if (cached) {
-        cachedResults.push(cached.result)
-        return
-      }
-      indicatorsToExecute.push({ id, inputsMap, cacheKey })
-    })
-
     const controller = new AbortController()
     const debounceHandle = window.setTimeout(async () => {
-      let fetchedResults: ExecuteResult[] = []
-
-      if (indicatorsToExecute.length > 0) {
-        try {
-          const marketSeries = {
-            listing: listing ?? undefined,
-            bars: executionBars.map((bar) => ({
-              timeStamp: new Date(bar.openTime).toISOString(),
-              open: bar.open,
-              high: bar.high,
-              low: bar.low,
-              close: bar.close,
-              volume: bar.volume,
-              turnover: bar.turnover,
-            })),
-          }
-
-          const response = await fetch('/api/indicators/execute', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            signal: controller.signal,
-            body: JSON.stringify({
-              workspaceId,
-              indicatorIds: indicatorsToExecute.map((item) => item.id),
-              marketSeries,
-              inputsMapById: indicatorsToExecute.reduce<Record<string, Record<string, unknown>>>(
-                (acc, item) => {
-                  acc[item.id] = item.inputsMap
-                  return acc
-                },
-                {}
-              ),
-              interval: interval ?? undefined,
-              intervalMs: dataContext.intervalMs ?? undefined,
-            }),
+      const executionGroups = new Map<
+        string,
+        { bars: typeof executionBars; inputs: ExecutionInput[] }
+      >()
+      const executedRangeById = new Map<string, ProcessedRange>()
+      indicatorInputs.forEach((entry) => {
+        const chunk = resolveMissingChunk(
+          executionBars,
+          processedRangeRef.current.get(entry.id),
+          MAX_EXECUTION_CHUNK_BARS
+        )
+        if (!chunk || chunk.length === 0) return
+        const startMs = chunk[0]!.openTime
+        const endMs = chunk[chunk.length - 1]!.openTime
+        const key = `${startMs}:${endMs}:${chunk.length}`
+        const existing = executionGroups.get(key)
+        if (existing) {
+          existing.inputs.push(entry)
+        } else {
+          executionGroups.set(key, {
+            bars: chunk,
+            inputs: [entry],
           })
-
-          const payload = await response.json().catch(() => ({}))
-          if (!response.ok || !payload?.success) {
-            warnOnce(payload?.error || 'Failed to execute indicators')
-          } else if (Array.isArray(payload?.data)) {
-            fetchedResults = payload.data as ExecuteResult[]
-            fetchedResults.forEach((result) => {
-              const cachedInput = indicatorInputs.find((entry) => entry.id === result.indicatorId)
-              if (cachedInput) {
-                cacheRef.current.set(cachedInput.cacheKey, {
-                  key: cachedInput.cacheKey,
-                  result,
-                })
-              }
-            })
-          }
-        } catch (error) {
-          if ((error as Error).name !== 'AbortError') {
-            warnOnce(error instanceof Error ? error.message : 'Failed to execute indicators')
-          }
         }
-      }
+        executedRangeById.set(entry.id, { startMs, endMs })
+      })
+
+      const resultById = new Map<string, ExecuteResult>()
+      const executionErrorById = new Map<string, string>()
+
+      await Promise.all(
+        Array.from(executionGroups.values()).map(async (group) => {
+          if (controller.signal.aborted || runId !== runIdRef.current) return
+          try {
+            const marketSeries = {
+              listing: listing ?? undefined,
+              bars: group.bars.map((bar) => ({
+                timeStamp: new Date(bar.openTime).toISOString(),
+                open: bar.open,
+                high: bar.high,
+                low: bar.low,
+                close: bar.close,
+                volume: bar.volume,
+                turnover: bar.turnover,
+              })),
+            }
+
+            const response = await fetch('/api/indicators/execute', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              signal: controller.signal,
+              body: JSON.stringify({
+                workspaceId,
+                indicatorIds: group.inputs.map((item) => item.id),
+                marketSeries,
+                inputsMapById: group.inputs.reduce<Record<string, Record<string, unknown>>>(
+                  (acc, item) => {
+                    acc[item.id] = item.inputsMap
+                    return acc
+                  },
+                  {}
+                ),
+                interval: interval ?? undefined,
+                intervalMs: dataContext.intervalMs ?? undefined,
+              }),
+            })
+
+            const payload = await response.json().catch(() => ({}))
+            if (!response.ok || !payload?.success) {
+              warnOnce(payload?.error || 'Failed to execute indicators')
+            } else if (Array.isArray(payload?.data)) {
+              ;(payload.data as ExecuteResult[]).forEach((result) => {
+                resultById.set(result.indicatorId, result)
+              })
+            }
+          } catch (error) {
+            if ((error as Error).name !== 'AbortError') {
+              warnOnce(error instanceof Error ? error.message : 'Failed to execute indicators')
+            }
+          }
+        })
+      )
 
       if (controller.signal.aborted || runId !== runIdRef.current) {
         return
       }
 
-      const results = [...cachedResults, ...fetchedResults]
-      const resultMap = new Map(results.map((result) => [result.indicatorId, result]))
+      const extendProcessedRange = (indicatorId: string, range?: ProcessedRange) => {
+        if (!range) return
+        const previous = processedRangeRef.current.get(indicatorId)
+        if (!previous) {
+          processedRangeRef.current.set(indicatorId, range)
+          return
+        }
+        processedRangeRef.current.set(indicatorId, {
+          startMs: Math.min(previous.startMs, range.startMs),
+          endMs: Math.max(previous.endMs, range.endMs),
+        })
+      }
+
+      resultById.forEach((result, indicatorId) => {
+        if (!result.output) {
+          const errorMessage = result.executionError?.message?.trim()
+          if (errorMessage) {
+            executionErrorById.set(indicatorId, errorMessage)
+          }
+          return
+        }
+        if (result.warnings?.length) {
+          result.warnings.forEach((warning) => warnOnce(warning.message))
+        }
+        const existingOutput = accumulatedOutputRef.current.get(indicatorId)
+        const executedRange = executedRangeById.get(indicatorId)
+        const nextOutput = existingOutput
+          ? mergeIndicatorOutput(existingOutput, result.output, executedRange)
+          : result.output
+        accumulatedOutputRef.current.set(indicatorId, nextOutput)
+        extendProcessedRange(indicatorId, executedRange)
+      })
 
       const markerEntries: Array<{
         series: ISeriesApi<any>
@@ -872,12 +1028,10 @@ export const useIndicatorSync = ({
           cleanupIndicator(indicatorId)
           return
         }
-        const result = resultMap.get(indicatorId)
-        if (!result || !result.output) {
-          const errorMessage = result?.executionError?.message?.trim()
-          if (errorMessage) {
-            warnOnce(errorMessage)
-          }
+        const errorMessage = executionErrorById.get(indicatorId)
+        const output = accumulatedOutputRef.current.get(indicatorId)
+        if (!output) {
+          if (errorMessage) warnOnce(errorMessage)
           cleanupIndicator(indicatorId)
           if (errorMessage) {
             runtimeEntries.set(indicatorId, {
@@ -892,19 +1046,24 @@ export const useIndicatorSync = ({
           }
           return
         }
-
-        const output = result.output
+        if (errorMessage) warnOnce(errorMessage)
         const indicatorOptions = output.indicator
         const indicatorScale = resolveIndicatorScale(indicatorOptions)
         const signature = buildIndicatorSignature(output)
         const previousSignature = indicatorSignatureRef.current.get(indicatorId)
         const shouldRebuild = previousSignature !== signature
         if (shouldRebuild) {
+          const preservedAccumulationBase = accumulationBaseRef.current.get(indicatorId)
+          const preservedRange = processedRangeRef.current.get(indicatorId)
           cleanupIndicator(indicatorId)
           indicatorSignatureRef.current.set(indicatorId, signature)
-        }
-        if (result.warnings?.length) {
-          result.warnings.forEach((warning) => warnOnce(warning.message))
+          accumulatedOutputRef.current.set(indicatorId, output)
+          if (preservedAccumulationBase) {
+            accumulationBaseRef.current.set(indicatorId, preservedAccumulationBase)
+          }
+          if (preservedRange) {
+            processedRangeRef.current.set(indicatorId, preservedRange)
+          }
         }
 
         const hasNonOverlay = output.series.some((plot) => plot.plot.overlay === false)
@@ -1005,11 +1164,7 @@ export const useIndicatorSync = ({
           const needsNewSeries = !series || (existingType && existingType !== seriesType)
           if (needsNewSeries) {
             if (series) {
-              const markersPlugin = seriesMarkersMapRef.current.get(series)
-              if (markersPlugin) {
-                markersPlugin.detach()
-                seriesMarkersMapRef.current.delete(series)
-              }
+              detachSeriesMarkers(seriesMarkersMapRef.current, series)
               safeRemoveSeries(chart, series)
               seriesMap.delete(seriesKey)
             }
@@ -1053,11 +1208,7 @@ export const useIndicatorSync = ({
         seriesMap.forEach((series, key) => {
           if (key === '__anchor__') return
           if (!nextSeriesKeys.has(key)) {
-            const markersPlugin = seriesMarkersMapRef.current.get(series)
-            if (markersPlugin) {
-              markersPlugin.detach()
-              seriesMarkersMapRef.current.delete(series)
-            }
+            detachSeriesMarkers(seriesMarkersMapRef.current, series)
             safeRemoveSeries(chart, series)
             seriesMap.delete(key)
           }
@@ -1083,22 +1234,17 @@ export const useIndicatorSync = ({
         } else if (!pane && seriesMap.has('__anchor__')) {
           const anchor = seriesMap.get('__anchor__')
           if (anchor) {
-            const markersPlugin = seriesMarkersMapRef.current.get(anchor)
-            if (markersPlugin) {
-              markersPlugin.detach()
-              seriesMarkersMapRef.current.delete(anchor)
-            }
+            detachSeriesMarkers(seriesMarkersMapRef.current, anchor)
             safeRemoveSeries(chart, anchor)
           }
           seriesMap.delete('__anchor__')
         }
 
-        indicatorPaneSeriesMapRef.current.set(indicatorId, paneAnchorSeries)
         const paneAnchorIdentity = paneAnchorSeries ? getSeriesIdentity(paneAnchorSeries) : null
         if (indicatorVisible) {
           const fillEntries = Array.isArray(output.fills) ? output.fills : []
           fillEntries.forEach((fillEntry, fillIndex) => {
-            const fillKey = `${fillEntry.title}:${fillEntry.upperPlotTitle ?? ''}:${fillEntry.lowerPlotTitle ?? ''}:${fillIndex}`
+            const fillKey = resolveFillMergeKey(fillEntry, fillIndex)
             nextFillKeys.add(fillKey)
 
             const anchorSeries =
@@ -1145,14 +1291,13 @@ export const useIndicatorSync = ({
         }
 
         output.markers.forEach((marker) => {
-          const targetSeries =
-            indicatorRefMap.get(indicatorId)?.visible === false
-              ? null
-              : marker.source === 'trigger'
-                ? mainSeries
-                : hasNonOverlay
-                  ? paneAnchorSeries
-                  : mainSeries
+          const targetSeries = !indicatorVisible
+            ? null
+            : marker.source === 'trigger'
+              ? mainSeries
+              : hasNonOverlay
+                ? paneAnchorSeries
+                : mainSeries
           if (!targetSeries) return
           const resolvedMarker = toSeriesMarker(marker)
           if (!resolvedMarker) return
@@ -1169,18 +1314,15 @@ export const useIndicatorSync = ({
         })
       })
 
-      if (markerEntries.length > MAX_MARKERS_TOTAL) {
-        markerEntries.sort((a, b) => a.marker.time - b.marker.time)
-        const truncatedCount = markerEntries.length - MAX_MARKERS_TOTAL
-        markerEntries.splice(0, truncatedCount)
-        warnOnce(`Markers truncated to ${MAX_MARKERS_TOTAL} entries.`)
-      }
-
       const markersBySeries = new Map<ISeriesApi<any>, SeriesMarker<any>[]>()
       markerEntries.forEach(({ series, marker }) => {
         const list = markersBySeries.get(series) ?? []
         list.push(marker)
         markersBySeries.set(series, list)
+      })
+      markersBySeries.forEach((markers) => {
+        // lightweight-charts expects series markers to be sorted by time.
+        markers.sort((a, b) => a.time - b.time)
       })
 
       markersBySeries.forEach((markers, series) => {
@@ -1256,8 +1398,6 @@ export const useIndicatorSync = ({
     indicatorRefMap,
     listing,
     interval,
-    viewStartMs,
-    viewEndMs,
     chartReady,
     indicatorRuntimeRef,
     onIndicatorRuntimeChange,
