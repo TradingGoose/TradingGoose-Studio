@@ -25,7 +25,6 @@ import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/provide
 import { getBlock } from '@/blocks'
 import { useWorkflowExecution } from '@/hooks/workflow/use-workflow-execution'
 import { useOperationQueueStore } from '@/stores/operation-queue/store'
-import { usePanelStore } from '@/stores/panel/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
@@ -107,7 +106,6 @@ export function ControlBar({
   } = useWorkflowRegistry()
   const activeWorkflowId = workflowId
   const { isExecuting, handleRunWorkflow, handleCancelExecution } = useWorkflowExecution()
-  const { setActiveTab, togglePanel, isOpen } = usePanelStore()
 
   // User permissions - use stable activeWorkspaceId from registry instead of deriving from currentWorkflow
   const userPermissions = useUserPermissionsContext()
@@ -140,21 +138,12 @@ export function ControlBar({
     limit: number
   } | null>(null)
 
-  // Helper function to open console panel
-  const openConsolePanel = useCallback(() => {
-    setActiveTab('console')
-    if (!isOpen) {
-      togglePanel()
-    }
-  }, [setActiveTab, isOpen, togglePanel])
-
   // Shared condition for keyboard shortcut and button disabled state
   const isWorkflowBlocked = isExecuting || hasValidationErrors
 
   // Register keyboard shortcut for running workflow
   useKeyboardShortcuts(() => {
     if (!isWorkflowBlocked) {
-      openConsolePanel()
       handleRunWorkflow()
     }
   }, isWorkflowBlocked)
@@ -522,7 +511,6 @@ export function ControlBar({
       if (usageExceeded) {
         openSubscriptionSettings()
       } else {
-        openConsolePanel()
         handleRunWorkflow(undefined, true) // Start in debug mode
       }
     }
@@ -533,7 +521,6 @@ export function ControlBar({
     blocks,
     handleCancelDebug,
     handleRunWorkflow,
-    openConsolePanel,
   ])
 
   /**
@@ -555,7 +542,6 @@ export function ControlBar({
           <TooltipTrigger asChild>
             <Button
               onClick={() => {
-                openConsolePanel()
                 handleStepDebug()
               }}
               className={debugButtonClass}
@@ -572,7 +558,6 @@ export function ControlBar({
           <TooltipTrigger asChild>
             <Button
               onClick={() => {
-                openConsolePanel()
                 handleResumeDebug()
               }}
               className={debugButtonClass}
@@ -737,8 +722,6 @@ export function ControlBar({
     }
 
     const handleRunClick = () => {
-      openConsolePanel()
-
       if (usageExceeded) {
         openSubscriptionSettings()
       } else {
