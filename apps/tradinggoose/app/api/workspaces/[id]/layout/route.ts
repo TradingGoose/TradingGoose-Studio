@@ -3,7 +3,8 @@ import { layoutMap } from '@tradinggoose/db/schema'
 import { and, asc, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
-import { normalizeColorPairsState, normalizeDashboardLayout } from '@/widgets/layout'
+import { hydrateDashboardListingData } from '@/lib/listing/hydrate-ui'
+import { normalizeColorPairsState } from '@/widgets/layout'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: workspaceId } = await params
@@ -71,10 +72,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     isActive: !!layout.isActive,
   }))
 
+  const { layout: hydratedLayout, colorPairs: hydratedColorPairs } =
+    await hydrateDashboardListingData(activeLayout.layout, activeLayout.color_pair)
+
   return NextResponse.json({
     layoutId: activeLayout.id,
-    layout: normalizeDashboardLayout(activeLayout.layout),
-    colorPairs: normalizeColorPairsState(activeLayout.color_pair),
+    layout: hydratedLayout,
+    colorPairs: hydratedColorPairs,
     layouts: layoutMeta,
   })
 }
