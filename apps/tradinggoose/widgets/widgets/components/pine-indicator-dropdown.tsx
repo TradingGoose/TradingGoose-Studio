@@ -1,7 +1,7 @@
 'use client'
 
 import { type KeyboardEvent, useEffect, useMemo, useState } from 'react'
-import { Check, ChevronDown, FunctionSquare, Loader2, Search } from 'lucide-react'
+import { Activity, Check, ChevronDown, Loader2, Search } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +11,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { getStableVibrantColor } from '@/lib/colors'
 import { DEFAULT_INDICATORS_META } from '@/lib/indicators/default'
 import { cn } from '@/lib/utils'
 import { useIndicators } from '@/hooks/queries/indicators'
@@ -101,6 +102,7 @@ export function IndicatorDropdown({
         ? DEFAULT_INDICATORS_META.map((indicator) => ({
             id: indicator.id,
             name: indicator.name,
+            color: getStableVibrantColor(indicator.id),
           }))
         : [],
     [includeDefaults]
@@ -234,7 +236,7 @@ export function IndicatorDropdown({
       }}
       aria-hidden='true'
     >
-      <FunctionSquare
+      <Activity
         className='h-4 w-4'
         aria-hidden='true'
         style={{ color: selectedIndicatorColor ?? FALLBACK_COLOR }}
@@ -427,11 +429,19 @@ export function IndicatorDropdown({
                                 handleToggleIndicator(option.id)
                               }}
                             >
-                              <FunctionSquare
-                                className='h-4 w-4 text-muted-foreground'
+                              <div
+                                className='h-5 w-5 rounded-xs p-0.5'
+                                style={{
+                                  backgroundColor: `${option.color ?? FALLBACK_COLOR}20`,
+                                }}
                                 aria-hidden='true'
-                                style={{ color: option.color ?? FALLBACK_COLOR }}
-                              />
+                              >
+                                <Activity
+                                  className='h-4 w-4 text-muted-foreground'
+                                  aria-hidden='true'
+                                  style={{ color: option.color ?? FALLBACK_COLOR }}
+                                />
+                              </div>
                               <span className={widgetHeaderMenuTextClassName}>{option.name}</span>
                               {isSelected && <Check className='h-4 w-4 text-foreground' />}
                             </DropdownMenuItem>

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
+import { getStableVibrantColor } from '@/lib/colors'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateCreativeWorkflowName } from '@/lib/naming'
 import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
@@ -11,10 +12,9 @@ import type {
   WorkflowMetadata,
   WorkflowRegistry,
 } from '@/stores/workflows/registry/types'
-import { getNextWorkflowColor } from '@/stores/workflows/registry/utils'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store'
-import { isPairColor, type PairColor, type PAIR_COLORS } from '@/widgets/pair-colors'
+import { isPairColor, type PAIR_COLORS, type PairColor } from '@/widgets/pair-colors'
 
 const logger = createLogger('WorkflowRegistry')
 
@@ -96,9 +96,7 @@ const getActiveWorkflowIdFromState = (
   channelId?: string
 ): string | null => {
   const channelKey = resolveChannelId(channelId)
-  return state.loadedWorkflowIds[channelKey]
-    ? (state.activeWorkflowIds[channelKey] ?? null)
-    : null
+  return state.loadedWorkflowIds[channelKey] ? (state.activeWorkflowIds[channelKey] ?? null) : null
 }
 
 async function fetchWorkflowsFromDB(workspaceId?: string): Promise<void> {
@@ -188,7 +186,7 @@ async function fetchWorkflowsFromDB(workspaceId?: string): Promise<void> {
         id,
         name,
         description: description || '',
-        color: color || '#3972F6',
+        color: color || getStableVibrantColor(id),
         lastModified: createdAt ? new Date(createdAt) : new Date(),
         createdAt: createdAt ? new Date(createdAt) : new Date(),
         marketplaceData: marketplaceData || null,
@@ -688,16 +686,20 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
 
         // Create the workflow on the server first to get the server-generated ID
         try {
+          const requestBody: Record<string, unknown> = {
+            name: options.name || generateCreativeWorkflowName(),
+            description: options.description || 'New workflow',
+            workspaceId,
+            folderId: options.folderId || null,
+          }
+          if (options.marketplaceId) {
+            requestBody.color = '#808080'
+          }
+
           const response = await fetch('/api/workflows', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: options.name || generateCreativeWorkflowName(),
-              description: options.description || 'New workflow',
-              color: options.marketplaceId ? '#808080' : getNextWorkflowColor(),
-              workspaceId,
-              folderId: options.folderId || null,
-            }),
+            body: JSON.stringify(requestBody),
           })
 
           if (!response.ok) {
@@ -792,7 +794,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           lastModified: new Date(),
           createdAt: new Date(),
           description: metadata.description || 'Imported from marketplace',
-          color: metadata.color || getNextWorkflowColor(),
+          color: metadata.color || getStableVibrantColor(id),
           marketplaceData: { id: marketplaceId, status: 'temp' as const },
         }
 
@@ -909,7 +911,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
             body: JSON.stringify({
               name: `${sourceWorkflow.name} (Copy)`,
               description: sourceWorkflow.description,
-              color: sourceWorkflow.color,
               workspaceId: workspaceId,
               folderId: sourceWorkflow.folderId,
             }),
@@ -941,7 +942,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           lastModified: new Date(),
           createdAt: new Date(),
           description: sourceWorkflow.description,
-          color: getNextWorkflowColor(),
+          color: duplicatedWorkflow.color || getStableVibrantColor(id),
           workspaceId, // Include the workspaceId in the new workflow
           folderId: sourceWorkflow.folderId, // Include the folderId from source workflow
           // Do not copy marketplace data
@@ -1030,8 +1031,12 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
       },
 
       // Delete workflow and clean up associated storage
-      removeWorkflow: async (id: string, options?: { skipApi?: boolean }) => {
+      removeWorkflow: async (
+        id: string,
+        options?: { skipApi?: boolean; templateAction?: 'keep' | 'delete' }
+      ) => {
         const skipApi = options?.skipApi ?? false
+        const templateAction = options?.templateAction
         const { workflows } = get()
         const workflowToDelete = workflows[id]
 
@@ -1043,7 +1048,8 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
 
         if (!skipApi) {
           try {
-            const response = await fetch(`/api/workflows/${id}`, {
+            const query = templateAction ? `?deleteTemplates=${templateAction}` : ''
+            const response = await fetch(`/api/workflows/${id}${query}`, {
               method: 'DELETE',
             })
 
@@ -1088,11 +1094,9 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
             }
           })
 
-          const wasDefaultActive =
-            state.activeWorkflowIds[DEFAULT_WORKFLOW_CHANNEL_ID] === id
+          const wasDefaultActive = state.activeWorkflowIds[DEFAULT_WORKFLOW_CHANNEL_ID] === id
 
           if (wasDefaultActive) {
-
             // Clear workflow store state immediately when deleting active workflow
             useWorkflowStore.setState({
               blocks: {},

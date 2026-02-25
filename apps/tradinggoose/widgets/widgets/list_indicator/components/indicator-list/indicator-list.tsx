@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import {
+  useCreateIndicator,
   useDeleteIndicator,
   useIndicators,
   useUpdateIndicator,
@@ -34,8 +35,10 @@ export function IndicatorList({
 }: WidgetComponentProps) {
   const workspaceId = context?.workspaceId ?? null
   const permissions = useUserPermissionsContext()
+  const [copyingIds, setCopyingIds] = useState<Set<string>>(new Set())
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
   const { data: indicators = [], isLoading, error } = useIndicators(workspaceId ?? '')
+  const createMutation = useCreateIndicator()
   const deleteMutation = useDeleteIndicator()
   const updateMutation = useUpdateIndicator()
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
@@ -140,6 +143,41 @@ export function IndicatorList({
     [permissions.canEdit, updateMutation, workspaceId]
   )
 
+  const handleCopy = useCallback(
+    async (indicator: IndicatorDefinition) => {
+      if (!workspaceId || !permissions.canEdit) return
+      if (!indicator.id) return
+
+      setCopyingIds((prev) => new Set(prev).add(indicator.id))
+
+      try {
+        const copiedName = `${indicator.name || 'Untitled indicator'} (Copy)`
+        const response = await createMutation.mutateAsync({
+          workspaceId,
+          indicator: {
+            name: copiedName,
+            pineCode: indicator.pineCode ?? '',
+            inputMeta:
+              indicator.inputMeta && typeof indicator.inputMeta === 'object'
+                ? indicator.inputMeta
+                : undefined,
+          },
+        })
+        const created = Array.isArray(response) ? response[0] : null
+        if (created?.id) {
+          handleSelect(created.id)
+        }
+      } finally {
+        setCopyingIds((prev) => {
+          const next = new Set(prev)
+          next.delete(indicator.id)
+          return next
+        })
+      }
+    },
+    [createMutation, handleSelect, permissions.canEdit, workspaceId]
+  )
+
   if (isLoading) {
     return (
       <div className='flex h-full w-full items-center justify-center'>
@@ -167,9 +205,11 @@ export function IndicatorList({
               indicator={indicator}
               isSelected={indicator.id === selectedIndicatorId}
               onSelect={handleSelect}
+              onCopy={handleCopy}
               onDelete={handleDelete}
               onRename={handleRename}
               canEdit={permissions.canEdit}
+              isCopying={copyingIds.has(indicator.id)}
               isDeleting={deletingIds.has(indicator.id)}
             />
           ))}

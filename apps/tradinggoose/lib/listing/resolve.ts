@@ -1,6 +1,6 @@
 import { marketClient } from '@/lib/market/client'
 import { MARKET_API_VERSION } from '@/lib/market/client/constants'
-import { resolveListingKey, type ListingIdentity, type ListingResolved } from '@/lib/listing/identity'
+import { type ListingIdentity, type ListingResolved } from '@/lib/listing/identity'
 
 export type ResolvedListingDetails = {
   base?: string
@@ -100,7 +100,7 @@ const fetchMarketBatch = async <T>(
   const record = data as Record<string, unknown>
   uniqueIds.forEach((id) => {
     const value = record[id]
-    result[id] = value && typeof value === 'object' ? (value as T) : (value ?? null)
+    result[id] = value && typeof value === 'object' ? (value as T) : null
   })
   return result
 }
@@ -263,11 +263,7 @@ function buildResolvedListing(
         listing_type: listing.listing_type,
       }
 
-  const listingKey = resolveListingKey(normalizedIdentity)
-  if (!listingKey) return null
-
   return {
-    id: listingKey,
     ...normalizedIdentity,
     base,
     quote: details.quote ?? null,

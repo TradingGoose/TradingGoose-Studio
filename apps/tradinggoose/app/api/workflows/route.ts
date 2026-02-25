@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
+import { getStableVibrantColor } from '@/lib/colors'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
@@ -14,7 +15,7 @@ const logger = createLogger('WorkflowAPI')
 const CreateWorkflowSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().optional().default(''),
-  color: z.string().optional().default('#3972F6'),
+  color: z.string().optional(),
   workspaceId: z.string().optional(),
   folderId: z.string().nullable().optional(),
 })
@@ -115,6 +116,10 @@ export async function POST(req: NextRequest) {
 
     const workflowId = crypto.randomUUID()
     const now = new Date()
+    const resolvedColor =
+      typeof color === 'string' && color.trim().length > 0
+        ? color.trim()
+        : getStableVibrantColor(workflowId)
 
     logger.info(`[${requestId}] Creating workflow ${workflowId} for user ${session.user.id}`)
 
@@ -138,7 +143,7 @@ export async function POST(req: NextRequest) {
       folderId: folderId || null,
       name,
       description,
-      color,
+      color: resolvedColor,
       lastSynced: now,
       createdAt: now,
       updatedAt: now,
@@ -156,7 +161,7 @@ export async function POST(req: NextRequest) {
       id: workflowId,
       name,
       description,
-      color,
+      color: resolvedColor,
       workspaceId,
       folderId,
       createdAt: now,

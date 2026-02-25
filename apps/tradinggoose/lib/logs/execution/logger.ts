@@ -157,6 +157,36 @@ export class ExecutionLogger implements IExecutionLoggerService {
     // Extract files from trace spans, final output, and workflow input
     const executionFiles = this.extractFilesFromExecution(traceSpans, finalOutput, workflowInput)
 
+    const [existingLog] = await db
+      .select({
+        id: workflowExecutionLogs.id,
+        executionData: workflowExecutionLogs.executionData,
+      })
+      .from(workflowExecutionLogs)
+      .where(eq(workflowExecutionLogs.executionId, executionId))
+      .limit(1)
+
+    if (!existingLog) {
+      throw new Error(`Workflow log not found for execution ${executionId}`)
+    }
+
+    const existingExecutionData =
+      existingLog.executionData && typeof existingLog.executionData === 'object'
+        ? (existingLog.executionData as Record<string, unknown>)
+        : {}
+
+    const mergedExecutionData = {
+      ...existingExecutionData,
+      traceSpans,
+      finalOutput,
+      tokenBreakdown: {
+        prompt: costSummary.totalPromptTokens,
+        completion: costSummary.totalCompletionTokens,
+        total: costSummary.totalTokens,
+      },
+      models: costSummary.models,
+    }
+
     const [updatedLog] = await db
       .update(workflowExecutionLogs)
       .set({
@@ -164,16 +194,7 @@ export class ExecutionLogger implements IExecutionLoggerService {
         endedAt: new Date(endedAt),
         totalDurationMs,
         files: executionFiles.length > 0 ? executionFiles : null,
-        executionData: {
-          traceSpans,
-          finalOutput,
-          tokenBreakdown: {
-            prompt: costSummary.totalPromptTokens,
-            completion: costSummary.totalCompletionTokens,
-            total: costSummary.totalTokens,
-          },
-          models: costSummary.models,
-        },
+        executionData: mergedExecutionData,
         cost: {
           total: costSummary.totalCost,
           input: costSummary.totalInputCost,
@@ -309,7 +330,7 @@ export class ExecutionLogger implements IExecutionLoggerService {
           costSummary,
           updatedLog.trigger as ExecutionTrigger['type']
         )
-      } catch { }
+      } catch {}
       logger.warn('Usage threshold notification check failed (non-fatal)', { error: e })
     }
 

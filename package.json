@@ -26,6 +26,7 @@
     "prepare": "bun husky",
     "type-check": "turbo run type-check",
     "release": "bun run scripts/create-single-release.ts",
+    "e2b:template:pinets": "bun run scripts/create-e2b-pinets-template.ts",
     "db:generate": "cd ./packages/db && drizzle-kit generate --config=./drizzle.config.ts",
     "db:migrate": "cd ./packages/db && drizzle-kit migrate --config=./drizzle.config.ts"
   },
@@ -46,7 +47,7 @@
     "klinecharts": "10.0.0-beta1",
     "lightweight-charts": "5.1.0",
     "mongodb": "6.19.0",
-    "pinets": "0.8.6",
+    "pinets": "^0.8.8",
     "postgres": "^3.4.5",
     "react-day-picker": "^9",
     "remark-gfm": "4.0.1",

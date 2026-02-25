@@ -56,7 +56,6 @@ describe('Function Execute Tool', () => {
         blockNameMapping: {},
         blockOutputSchemas: {},
         isCustomTool: false,
-        language: 'javascript',
         timeout: 5000,
         workflowId: undefined,
         userId: undefined,
@@ -85,7 +84,6 @@ describe('Function Execute Tool', () => {
         blockNameMapping: {},
         blockOutputSchemas: {},
         isCustomTool: false,
-        language: 'javascript',
         workflowId: undefined,
         userId: undefined,
       })
@@ -105,10 +103,21 @@ describe('Function Execute Tool', () => {
         blockNameMapping: {},
         blockOutputSchemas: {},
         isCustomTool: false,
-        language: 'javascript',
         workflowId: undefined,
         userId: undefined,
       })
+    })
+
+    it.concurrent('should ignore runtime selection fields from inputs', () => {
+      const body = tester.getRequestBody({
+        code: 'return 42',
+        useLocalVM: true,
+        language: 'python',
+      })
+
+      expect(body).toEqual(expect.objectContaining({ code: 'return 42' }))
+      expect(body).not.toHaveProperty('useLocalVM')
+      expect(body).not.toHaveProperty('language')
     })
   })
 

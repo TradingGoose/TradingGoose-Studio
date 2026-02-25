@@ -164,7 +164,7 @@ export default function LogMarkdownRenderer({ content }: { content: string }) {
       </div>
     ),
     thead: ({ children }: React.HTMLAttributes<HTMLTableSectionElement>) => (
-      <thead className='bg-gray-50 text-left dark:bg-gray-800'>{children}</thead>
+      <thead className='bg-gray-50 text-center dark:bg-gray-800'>{children}</thead>
     ),
     tbody: ({ children }: React.HTMLAttributes<HTMLTableSectionElement>) => (
       <tbody className='divide-y divide-gray-200 dark:divide-gray-700 dark:bg-gray-900'>
@@ -175,12 +175,12 @@ export default function LogMarkdownRenderer({ content }: { content: string }) {
       <tr className='border-gray-200 border-b dark:border-gray-700'>{children}</tr>
     ),
     th: ({ children }: React.ThHTMLAttributes<HTMLTableCellElement>) => (
-      <th className='border-gray-300 border-r px-2 py-1 font-medium text-gray-700 text-xs last:border-r-0 dark:border-gray-700 dark:text-gray-300'>
+      <th className='border-gray-300 border-r px-2 py-1 text-center align-middle font-medium text-gray-700 text-xs last:border-r-0 dark:border-gray-700 dark:text-gray-300'>
         {children}
       </th>
     ),
     td: ({ children }: React.TdHTMLAttributes<HTMLTableCellElement>) => (
-      <td className='break-words border-gray-300 border-r px-2 py-1 text-gray-800 text-xs last:border-r-0 dark:border-gray-700 dark:text-gray-200'>
+      <td className='break-words border-gray-300 border-r px-2 py-1 text-center align-middle text-gray-800 text-xs last:border-r-0 dark:border-gray-700 dark:text-gray-200'>
         {children}
       </td>
     ),

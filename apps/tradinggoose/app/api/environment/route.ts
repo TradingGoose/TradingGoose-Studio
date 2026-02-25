@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
-import { environment } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
+import { environmentVariables } from '@tradinggoose/db/schema'
+import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
@@ -12,6 +12,13 @@ const logger = createLogger('EnvironmentAPI')
 
 const EnvVarSchema = z.object({
   variables: z.record(z.string()),
+})
+const UpsertEnvVarSchema = z.object({
+  key: z.string().min(1),
+  value: z.string(),
+})
+const DeleteEnvVarSchema = z.object({
+  key: z.string().min(1),
 })
 
 export async function POST(req: NextRequest) {
@@ -29,28 +36,26 @@ export async function POST(req: NextRequest) {
     try {
       const { variables } = EnvVarSchema.parse(body)
 
-      const encryptedVariables = await Promise.all(
+      const userId = session.user.id
+      const encryptedRows = await Promise.all(
         Object.entries(variables).map(async ([key, value]) => {
           const { encrypted } = await encryptSecret(value)
-          return [key, encrypted] as const
+          return {
+            id: crypto.randomUUID(),
+            userId,
+            key,
+            value: encrypted,
+          }
         })
-      ).then((entries) => Object.fromEntries(entries))
+      )
 
-      await db
-        .insert(environment)
-        .values({
-          id: crypto.randomUUID(),
-          userId: session.user.id,
-          variables: encryptedVariables,
-          updatedAt: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: [environment.userId],
-          set: {
-            variables: encryptedVariables,
-            updatedAt: new Date(),
-          },
-        })
+      await db.transaction(async (tx) => {
+        await tx.delete(environmentVariables).where(eq(environmentVariables.userId, userId))
+
+        if (encryptedRows.length > 0) {
+          await tx.insert(environmentVariables).values(encryptedRows)
+        }
+      })
 
       return NextResponse.json({ success: true })
     } catch (validationError) {
@@ -71,6 +76,89 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function PUT(req: NextRequest) {
+  const requestId = generateRequestId()
+
+  try {
+    const session = await getSession()
+    if (!session?.user?.id) {
+      logger.warn(`[${requestId}] Unauthorized environment variable update attempt`)
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const body = await req.json()
+    const { key, value } = UpsertEnvVarSchema.parse(body)
+    const { encrypted } = await encryptSecret(value)
+
+    await db
+      .insert(environmentVariables)
+      .values({
+        id: crypto.randomUUID(),
+        userId: session.user.id,
+        key,
+        value: encrypted,
+      })
+      .onConflictDoUpdate({
+        target: [environmentVariables.userId, environmentVariables.key],
+        set: {
+          value: encrypted,
+          updatedAt: new Date(),
+        },
+      })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      logger.warn(`[${requestId}] Invalid personal environment variable payload`, {
+        errors: error.errors,
+      })
+      return NextResponse.json(
+        { error: 'Invalid request data', details: error.errors },
+        { status: 400 }
+      )
+    }
+
+    logger.error(`[${requestId}] Error upserting environment variable`, error)
+    return NextResponse.json({ error: 'Failed to update environment variable' }, { status: 500 })
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  const requestId = generateRequestId()
+
+  try {
+    const session = await getSession()
+    if (!session?.user?.id) {
+      logger.warn(`[${requestId}] Unauthorized environment variable delete attempt`)
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const body = await req.json()
+    const { key } = DeleteEnvVarSchema.parse(body)
+
+    await db
+      .delete(environmentVariables)
+      .where(
+        and(eq(environmentVariables.userId, session.user.id), eq(environmentVariables.key, key))
+      )
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      logger.warn(`[${requestId}] Invalid personal environment variable delete payload`, {
+        errors: error.errors,
+      })
+      return NextResponse.json(
+        { error: 'Invalid request data', details: error.errors },
+        { status: 400 }
+      )
+    }
+
+    logger.error(`[${requestId}] Error deleting environment variable`, error)
+    return NextResponse.json({ error: 'Failed to delete environment variable' }, { status: 500 })
+  }
+}
+
 export async function GET(request: Request) {
   const requestId = generateRequestId()
 
@@ -83,26 +171,27 @@ export async function GET(request: Request) {
 
     const userId = session.user.id
 
-    const result = await db
-      .select()
-      .from(environment)
-      .where(eq(environment.userId, userId))
-      .limit(1)
+    const rows = await db
+      .select({
+        key: environmentVariables.key,
+        value: environmentVariables.value,
+      })
+      .from(environmentVariables)
+      .where(eq(environmentVariables.userId, userId))
 
-    if (!result.length || !result[0].variables) {
+    if (!rows.length) {
       return NextResponse.json({ data: {} }, { status: 200 })
     }
 
-    const encryptedVariables = result[0].variables as Record<string, string>
     const decryptedVariables: Record<string, EnvironmentVariable> = {}
 
-    for (const [key, encryptedValue] of Object.entries(encryptedVariables)) {
+    for (const row of rows) {
       try {
-        const { decrypted } = await decryptSecret(encryptedValue)
-        decryptedVariables[key] = { key, value: decrypted }
+        const { decrypted } = await decryptSecret(row.value)
+        decryptedVariables[row.key] = { key: row.key, value: decrypted }
       } catch (error) {
-        logger.error(`[${requestId}] Error decrypting variable ${key}`, error)
-        decryptedVariables[key] = { key, value: '' }
+        logger.error(`[${requestId}] Error decrypting variable ${row.key}`, error)
+        decryptedVariables[row.key] = { key: row.key, value: '' }
       }
     }
 

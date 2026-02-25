@@ -1,4 +1,5 @@
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { toListingValueObject, type ListingIdentity } from '@/lib/listing/identity'
 import { parseQuery, queryToApiParams } from '@/lib/logs/query-parser'
 import type { LogsResponse, WorkflowLog } from '@/stores/logs/filters/types'
 
@@ -29,6 +30,12 @@ interface LogFilters {
   triggers: string[]
   searchQuery: string
   limit: number
+  monitorId?: string
+  listing?: ListingIdentity
+  indicatorId?: string
+  providerId?: string
+  interval?: string
+  triggerSource?: 'indicator_trigger'
 }
 
 async function fetchLogsPage(
@@ -134,6 +141,24 @@ function buildQueryParams(workspaceId: string, filters: LogFilters, page: number
       params.set(key, value)
     }
   }
+
+  const normalizedListing = toListingValueObject(filters.listing ?? null)
+
+  const monitorFilters: Array<[string, string | undefined]> = [
+    ['monitorId', filters.monitorId],
+    ['listing', normalizedListing ? JSON.stringify(normalizedListing) : undefined],
+    ['indicatorId', filters.indicatorId],
+    ['providerId', filters.providerId],
+    ['interval', filters.interval],
+    ['triggerSource', filters.triggerSource],
+  ]
+
+  monitorFilters.forEach(([key, value]) => {
+    if (typeof value !== 'string') return
+    const trimmed = value.trim()
+    if (trimmed.length === 0) return
+    params.set(key, trimmed)
+  })
 
   return params.toString()
 }

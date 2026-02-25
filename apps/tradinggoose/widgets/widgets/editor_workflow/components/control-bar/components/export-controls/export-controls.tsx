@@ -8,6 +8,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { useWorkflowJsonStore } from '@/stores/workflows/json/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { widgetHeaderIconButtonClassName } from '@/widgets/widgets/components/widget-header-control'
+import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('ExportControls')
 
@@ -21,10 +22,10 @@ interface ExportControlsProps {
 export function ExportControls({ disabled = false, variant = 'workspace' }: ExportControlsProps) {
   const [isExporting, setIsExporting] = useState(false)
   const { workflows } = useWorkflowRegistry()
-  const activeWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId())
+  const { workflowId, channelId } = useWorkflowRoute()
   const { getJson } = useWorkflowJsonStore()
 
-  const currentWorkflow = activeWorkflowId ? workflows[activeWorkflowId] : null
+  const currentWorkflow = workflowId ? workflows[workflowId] : null
 
   const downloadFile = (content: string, filename: string, mimeType: string) => {
     try {
@@ -43,7 +44,7 @@ export function ExportControls({ disabled = false, variant = 'workspace' }: Expo
   }
 
   const handleExportJson = async () => {
-    if (!currentWorkflow || !activeWorkflowId) {
+    if (!currentWorkflow || !workflowId) {
       logger.warn('No active workflow to export')
       return
     }
@@ -51,7 +52,7 @@ export function ExportControls({ disabled = false, variant = 'workspace' }: Expo
     setIsExporting(true)
     try {
       // Get the JSON from the store
-      const jsonContent = await getJson()
+      const jsonContent = await getJson({ workflowId, channelId })
 
       if (!jsonContent) {
         throw new Error('Failed to generate JSON')
@@ -67,7 +68,7 @@ export function ExportControls({ disabled = false, variant = 'workspace' }: Expo
     }
   }
 
-  const isDisabled = disabled || isExporting || !currentWorkflow
+  const isDisabled = disabled || isExporting || !workflowId || !currentWorkflow
 
   const getTooltipText = () => {
     if (disabled) return 'Export not available'

@@ -4,6 +4,7 @@ import { and, desc, eq, gte, inArray, lte, type SQL, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
+import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 
@@ -24,8 +25,41 @@ const QueryParamsSchema = z.object({
   search: z.string().optional(),
   workflowName: z.string().optional(),
   folderName: z.string().optional(),
+  monitorId: z.string().optional(),
+  listing: z.string().optional(),
+  indicatorId: z.string().optional(),
+  providerId: z.string().optional(),
+  interval: z.string().optional(),
+  triggerSource: z.preprocess(
+    (value) => {
+      if (typeof value !== 'string') return value
+      const trimmed = value.trim()
+      return trimmed.length === 0 ? undefined : trimmed
+    },
+    z.literal('indicator_trigger').optional()
+  ),
   workspaceId: z.string(),
 })
+
+const normalizeOptionalString = (value: string | undefined) => {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
+const parseListingFilter = (
+  value: string | undefined
+): ListingIdentity | undefined | null => {
+  const normalized = normalizeOptionalString(value)
+  if (!normalized) return undefined
+
+  try {
+    const parsed = JSON.parse(normalized)
+    return toListingValueObject(parsed)
+  } catch {
+    return null
+  }
+}
 
 export async function GET(request: NextRequest) {
   const requestId = generateRequestId()
@@ -42,57 +76,69 @@ export async function GET(request: NextRequest) {
     try {
       const { searchParams } = new URL(request.url)
       const params = QueryParamsSchema.parse(Object.fromEntries(searchParams.entries()))
+      const monitorId = normalizeOptionalString(params.monitorId)
+      const listing = parseListingFilter(params.listing)
+      const indicatorId = normalizeOptionalString(params.indicatorId)
+      const providerId = normalizeOptionalString(params.providerId)
+      const interval = normalizeOptionalString(params.interval)
+      const triggerSource = normalizeOptionalString(params.triggerSource)
+      if (listing === null) {
+        return NextResponse.json({ error: 'Invalid listing filter' }, { status: 400 })
+      }
+      const hasMonitorFilters = Boolean(
+        monitorId || listing || indicatorId || providerId || interval || triggerSource
+      )
 
       // Conditionally select columns based on detail level to optimize performance
       const selectColumns =
         params.details === 'full'
           ? {
-            id: workflowExecutionLogs.id,
-            workflowId: workflowExecutionLogs.workflowId,
-            executionId: workflowExecutionLogs.executionId,
-            stateSnapshotId: workflowExecutionLogs.stateSnapshotId,
-            level: workflowExecutionLogs.level,
-            trigger: workflowExecutionLogs.trigger,
-            startedAt: workflowExecutionLogs.startedAt,
-            endedAt: workflowExecutionLogs.endedAt,
-            totalDurationMs: workflowExecutionLogs.totalDurationMs,
-            executionData: workflowExecutionLogs.executionData, // Large field - only in full mode
-            cost: workflowExecutionLogs.cost,
-            files: workflowExecutionLogs.files, // Large field - only in full mode
-            createdAt: workflowExecutionLogs.createdAt,
-            workflowName: workflow.name,
-            workflowDescription: workflow.description,
-            workflowColor: workflow.color,
-            workflowFolderId: workflow.folderId,
-            workflowUserId: workflow.userId,
-            workflowWorkspaceId: workflow.workspaceId,
-            workflowCreatedAt: workflow.createdAt,
-            workflowUpdatedAt: workflow.updatedAt,
-          }
+              id: workflowExecutionLogs.id,
+              workflowId: workflowExecutionLogs.workflowId,
+              executionId: workflowExecutionLogs.executionId,
+              stateSnapshotId: workflowExecutionLogs.stateSnapshotId,
+              level: workflowExecutionLogs.level,
+              trigger: workflowExecutionLogs.trigger,
+              startedAt: workflowExecutionLogs.startedAt,
+              endedAt: workflowExecutionLogs.endedAt,
+              totalDurationMs: workflowExecutionLogs.totalDurationMs,
+              executionData: workflowExecutionLogs.executionData, // Large field - only in full mode
+              cost: workflowExecutionLogs.cost,
+              files: workflowExecutionLogs.files, // Large field - only in full mode
+              createdAt: workflowExecutionLogs.createdAt,
+              workflowName: workflow.name,
+              workflowDescription: workflow.description,
+              workflowColor: workflow.color,
+              workflowFolderId: workflow.folderId,
+              workflowUserId: workflow.userId,
+              workflowWorkspaceId: workflow.workspaceId,
+              workflowCreatedAt: workflow.createdAt,
+              workflowUpdatedAt: workflow.updatedAt,
+            }
           : {
-            // Basic mode - exclude large fields for better performance
-            id: workflowExecutionLogs.id,
-            workflowId: workflowExecutionLogs.workflowId,
-            executionId: workflowExecutionLogs.executionId,
-            stateSnapshotId: workflowExecutionLogs.stateSnapshotId,
-            level: workflowExecutionLogs.level,
-            trigger: workflowExecutionLogs.trigger,
-            startedAt: workflowExecutionLogs.startedAt,
-            endedAt: workflowExecutionLogs.endedAt,
-            totalDurationMs: workflowExecutionLogs.totalDurationMs,
-            executionData: sql<null>`NULL`, // Exclude large execution data in basic mode
-            cost: workflowExecutionLogs.cost,
-            files: sql<null>`NULL`, // Exclude files in basic mode
-            createdAt: workflowExecutionLogs.createdAt,
-            workflowName: workflow.name,
-            workflowDescription: workflow.description,
-            workflowColor: workflow.color,
-            workflowFolderId: workflow.folderId,
-            workflowUserId: workflow.userId,
-            workflowWorkspaceId: workflow.workspaceId,
-            workflowCreatedAt: workflow.createdAt,
-            workflowUpdatedAt: workflow.updatedAt,
-          }
+              // Basic mode - exclude large fields for better performance
+              id: workflowExecutionLogs.id,
+              workflowId: workflowExecutionLogs.workflowId,
+              executionId: workflowExecutionLogs.executionId,
+              stateSnapshotId: workflowExecutionLogs.stateSnapshotId,
+              level: workflowExecutionLogs.level,
+              trigger: workflowExecutionLogs.trigger,
+              startedAt: workflowExecutionLogs.startedAt,
+              endedAt: workflowExecutionLogs.endedAt,
+              totalDurationMs: workflowExecutionLogs.totalDurationMs,
+              executionData: sql<null>`NULL`, // Exclude large execution data in basic mode
+              cost: workflowExecutionLogs.cost,
+              files: sql<null>`NULL`, // Exclude files in basic mode
+              createdAt: workflowExecutionLogs.createdAt,
+              workflowName: workflow.name,
+              workflowDescription: workflow.description,
+              workflowColor: workflow.color,
+              workflowFolderId: workflow.folderId,
+              workflowUserId: workflow.userId,
+              workflowWorkspaceId: workflow.workspaceId,
+              workflowCreatedAt: workflow.createdAt,
+              workflowUpdatedAt: workflow.updatedAt,
+            }
 
       const baseQuery = db
         .select(selectColumns)
@@ -175,12 +221,54 @@ export async function GET(request: NextRequest) {
         conditions = and(conditions, sql`${workflow.name} ILIKE ${folderTerm}`)
       }
 
+      if (monitorId) {
+        conditions = and(
+          conditions,
+          sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->>'id' = ${monitorId}`
+        )
+      }
+      if (listing) {
+        conditions = and(
+          conditions,
+          sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->'listing'->>'listing_type' = ${listing.listing_type}`,
+          sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->'listing'->>'listing_id' = ${listing.listing_id}`,
+          sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->'listing'->>'base_id' = ${listing.base_id}`,
+          sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->'listing'->>'quote_id' = ${listing.quote_id}`
+        )
+      }
+      if (indicatorId) {
+        conditions = and(
+          conditions,
+          sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->>'indicatorId' = ${indicatorId}`
+        )
+      }
+      if (providerId) {
+        conditions = and(
+          conditions,
+          sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->>'providerId' = ${providerId}`
+        )
+      }
+      if (interval) {
+        conditions = and(
+          conditions,
+          sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->>'interval' = ${interval}`
+        )
+      }
+      if (triggerSource) {
+        conditions = and(
+          conditions,
+          sql`${workflowExecutionLogs.executionData}->'trigger'->>'source' = ${triggerSource}`
+        )
+      }
+
       // Execute the query using the optimized join
+      const logsQueryStartedAt = Date.now()
       const logs = await baseQuery
         .where(conditions)
         .orderBy(desc(workflowExecutionLogs.startedAt))
         .limit(params.limit)
         .offset(params.offset)
+      const logsQueryDurationMs = Date.now() - logsQueryStartedAt
 
       // Get total count for pagination using the same join structure
       const countQuery = db
@@ -203,9 +291,29 @@ export async function GET(request: NextRequest) {
         )
         .where(conditions)
 
+      const countQueryStartedAt = Date.now()
       const countResult = await countQuery
+      const countQueryDurationMs = Date.now() - countQueryStartedAt
 
       const count = countResult[0]?.count || 0
+
+      if (hasMonitorFilters) {
+        logger.info(`[${requestId}] Monitor-filtered logs query`, {
+          workspaceId: params.workspaceId,
+          limit: params.limit,
+          offset: params.offset,
+          logsQueryDurationMs,
+          countQueryDurationMs,
+          monitorFilters: {
+            monitorId,
+            listing,
+            indicatorId,
+            providerId,
+            interval,
+            triggerSource,
+          },
+        })
+      }
 
       // Block executions are now extracted from trace spans instead of separate table
       const blockExecutionsByExecution: Record<string, any[]> = {}
@@ -322,7 +430,7 @@ export async function GET(request: NextRequest) {
           try {
             const fo = (log.executionData as any)?.finalOutput
             if (fo !== undefined) finalOutput = fo
-          } catch { }
+          } catch {}
         }
 
         const workflowSummary = {
@@ -350,12 +458,12 @@ export async function GET(request: NextRequest) {
           executionData:
             params.details === 'full'
               ? {
-                totalDuration: log.totalDurationMs,
-                traceSpans,
-                blockExecutions,
-                finalOutput,
-                enhanced: true,
-              }
+                  totalDuration: log.totalDurationMs,
+                  traceSpans,
+                  blockExecutions,
+                  finalOutput,
+                  enhanced: true,
+                }
               : undefined,
           cost:
             params.details === 'full'

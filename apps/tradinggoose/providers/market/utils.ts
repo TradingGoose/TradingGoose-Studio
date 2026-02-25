@@ -1,7 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { resolveListingIdentity } from '@/lib/listing/resolve'
 import {
-  resolveListingKey,
   toListingValueObject,
   type ListingInputValue,
 } from '@/lib/listing/identity'
@@ -14,15 +13,6 @@ const logger = createLogger('MarketProviderUtils')
 export async function resolveListingContext(listing: ListingInputValue): Promise<ListingContext> {
   const normalizedListing = toListingValueObject(listing)
   if (!normalizedListing) {
-    throw new MarketProviderError({
-      code: 'LISTING RESOLVE FAILED',
-      message: 'listing is required',
-      status: 400,
-    })
-  }
-
-  const listingKey = resolveListingKey(normalizedListing)
-  if (!listingKey) {
     throw new MarketProviderError({
       code: 'LISTING RESOLVE FAILED',
       message: 'listing is required',
@@ -65,7 +55,6 @@ export async function resolveListingContext(listing: ListingInputValue): Promise
         : normalizedListing.listing_type)) as AssetClass | undefined
 
   return {
-    listingKey,
     listing: normalizedListing,
     base: resolved.base,
     quote: resolved.quote ?? undefined,
@@ -118,7 +107,6 @@ export function resolveProviderSymbol(
 
 function matchesRule(rule: MarketSymbolRule, context: ListingContext): boolean {
   if (rule.assetClass && rule.assetClass !== context.assetClass) return false
-  if (rule.listingKey && rule.listingKey !== context.listingKey) return false
   if (rule.market && rule.market !== context.marketCode) return false
   if (rule.country && rule.country !== context.countryCode) return false
   if (rule.city && rule.city !== context.cityName) return false
@@ -154,7 +142,6 @@ function scoreRule(rule: MarketSymbolRule, precedence: RuleScopeKey[]): number {
   })
 
   let score = 0
-  if (rule.listingKey) score += fieldWeights.listing || 0
   if (rule.market) score += fieldWeights.market || 0
   if (rule.currency) score += fieldWeights.currency || 0
   if (rule.assetClass) score += fieldWeights.assetClass || 0
@@ -197,7 +184,14 @@ function renderTemplate(template: string, context: ListingContext): string {
       case 'assetClass':
         return context.assetClass || ''
       case 'listing':
-        return context.listingKey
+        if (!context.listing) return ''
+        if (context.listing.listing_type === 'default') {
+          return context.listing.listing_id || ''
+        }
+        if (context.listing.base_id && context.listing.quote_id) {
+          return `${context.listing.base_id}:${context.listing.quote_id}`
+        }
+        return ''
       default:
         return ''
     }

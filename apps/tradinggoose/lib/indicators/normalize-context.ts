@@ -1,23 +1,66 @@
+import type { FillOptionOverride } from '@/lib/indicators/normalize-indicator-code'
 import type {
+  NormalizedPineFill,
   NormalizedPineMarker,
   NormalizedPineOutput,
   NormalizedPinePlot,
   NormalizedPineSeries,
-  PineWarning,
+  NormalizedPineSignal,
   PineUnsupportedInfo,
+  PineWarning,
   SeriesMarkerPosition,
   SeriesMarkerShape,
 } from '@/lib/indicators/types'
 
 const toSeconds = (ms: number) => Math.floor(ms / 1000)
 
-const resolveHexAlpha = (color: string, alpha: number) => {
+const resolveColorAlpha = (color: string, alpha: number) => {
   const trimmed = color.trim()
-  if (!/^#([0-9a-fA-F]{6})$/.test(trimmed)) return color
-  const r = Number.parseInt(trimmed.slice(1, 3), 16)
-  const g = Number.parseInt(trimmed.slice(3, 5), 16)
-  const b = Number.parseInt(trimmed.slice(5, 7), 16)
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+  const boundedAlpha = Math.max(0, Math.min(1, alpha))
+  const alphaHex = Math.round(boundedAlpha * 255)
+    .toString(16)
+    .padStart(2, '0')
+    .toLowerCase()
+
+  const shortHex = trimmed.match(/^#([0-9a-fA-F]{3})$/)
+  if (shortHex) {
+    const [rHex, gHex, bHex] = shortHex[1]!.split('')
+    return `#${rHex}${rHex}${gHex}${gHex}${bHex}${bHex}${alphaHex}`.toLowerCase()
+  }
+
+  if (/^#([0-9a-fA-F]{6})$/.test(trimmed)) {
+    return `${trimmed}${alphaHex}`.toLowerCase()
+  }
+
+  if (/^#([0-9a-fA-F]{8})$/.test(trimmed)) {
+    return `${trimmed.slice(0, 7)}${alphaHex}`.toLowerCase()
+  }
+
+  const rgb = trimmed.match(/^rgba?\(([^)]+)\)$/i)
+  if (rgb) {
+    const parts = rgb[1]!.split(',').map((value) => value.trim())
+    if (parts.length >= 3) {
+      return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${boundedAlpha})`
+    }
+  }
+
+  return color
+}
+
+const resolveStringOption = (options: Record<string, unknown> | undefined, keys: string[]) => {
+  if (!options) return undefined
+  for (const key of keys) {
+    const value = options[key]
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim()
+    }
+  }
+  return undefined
+}
+
+const resolveOpacityAlpha = (raw: unknown) => {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return undefined
+  return Math.max(0, Math.min(1, raw))
 }
 
 const mapShape = (shape?: string): SeriesMarkerShape | null => {
@@ -40,7 +83,10 @@ const mapLocation = (location?: string): SeriesMarkerPosition | null => {
   return null
 }
 
-const resolveOffset = (pointOptions?: Record<string, unknown>, plotOptions?: Record<string, unknown>) => {
+const resolveOffset = (
+  pointOptions?: Record<string, unknown>,
+  plotOptions?: Record<string, unknown>
+) => {
   const raw = pointOptions?.offset ?? plotOptions?.offset
   if (typeof raw !== 'number' || !Number.isFinite(raw) || raw === 0) return 0
   return Math.trunc(raw)
@@ -68,8 +114,94 @@ const resolveMarkerText = (plot: { title?: string; options?: Record<string, unkn
       : null
   if (optionsText) return optionsText
   const title = plot.title?.trim()
-  return title && title.length > 0 ? title : '•'
+  return title
 }
+
+const resolvePlotColor = (options?: Record<string, unknown>) =>
+  resolveStringOption(options, ['color'])
+
+const resolveFillColors = ({
+  sharedFillColor,
+  upperFillColor,
+  lowerFillColor,
+  upperPlotColor,
+  lowerPlotColor,
+  opacityAlpha,
+}: {
+  sharedFillColor?: string
+  upperFillColor?: string
+  lowerFillColor?: string
+  upperPlotColor?: string
+  lowerPlotColor?: string
+  opacityAlpha?: number
+}) => {
+  const topBase = upperFillColor ?? sharedFillColor ?? upperPlotColor ?? '#60a5fa'
+  const bottomBase =
+    lowerFillColor ?? sharedFillColor ?? lowerPlotColor ?? upperPlotColor ?? topBase
+  const hasExplicitColor = Boolean(sharedFillColor || upperFillColor || lowerFillColor)
+
+  if (typeof opacityAlpha === 'number') {
+    return {
+      topColor: resolveColorAlpha(topBase, opacityAlpha),
+      bottomColor: resolveColorAlpha(bottomBase, opacityAlpha),
+    }
+  }
+
+  if (hasExplicitColor) {
+    return {
+      topColor: topBase,
+      bottomColor: bottomBase,
+    }
+  }
+
+  return {
+    topColor: resolveColorAlpha(topBase, 0.16),
+    bottomColor: resolveColorAlpha(bottomBase, 0.16),
+  }
+}
+
+const resolvePlotPoints = ({
+  data,
+  plotOptions,
+  indexByOpenTimeMs,
+  openTimeMsByIndex,
+}: {
+  data: any[]
+  plotOptions?: Record<string, unknown>
+  indexByOpenTimeMs?: Map<number, number>
+  openTimeMsByIndex?: number[]
+}): NormalizedPineSeries['points'] =>
+  data
+    .map((point: any) => {
+      if (!point || typeof point !== 'object') return null
+      const pointOptions = point.options ?? {}
+      const offset = resolveOffset(pointOptions, plotOptions)
+      const timeMs = resolveTimeWithOffset(
+        Number(point.time),
+        offset,
+        indexByOpenTimeMs,
+        openTimeMsByIndex
+      )
+      if (typeof timeMs !== 'number' || !Number.isFinite(timeMs)) return null
+      const mappedTime = toSeconds(timeMs)
+      const rawValue =
+        typeof point.value === 'number' && Number.isFinite(point.value) ? point.value : null
+
+      const normalizedPoint: NormalizedPineSeries['points'][number] = {
+        time: mappedTime,
+        value: rawValue,
+      }
+
+      if (typeof pointOptions.color === 'string') {
+        const color = pointOptions.color.trim()
+        if (color.length > 0) {
+          normalizedPoint.color = color
+        }
+      }
+
+      return normalizedPoint
+    })
+    .filter((point: unknown): point is NormalizedPineSeries['points'][number] => Boolean(point))
 
 const resolveSeriesStyle = (style?: string) => {
   const normalized = style ?? 'style_line'
@@ -83,7 +215,7 @@ const resolveSeriesStyle = (style?: string) => {
     return { seriesType: 'Line' as const, needsMarkers: false, lineType: 'withSteps' }
   }
   if (normalized === 'style_circles') {
-    return { seriesType: 'Line' as const, needsMarkers: true }
+    return { seriesType: undefined, needsMarkers: true }
   }
   if (normalized === 'style_line') {
     return { seriesType: 'Line' as const, needsMarkers: false }
@@ -95,17 +227,23 @@ export function normalizeContext({
   context,
   indexByOpenTimeMs,
   openTimeMsByIndex,
+  triggerSignals = [],
+  fillOptionOverrides = [],
 }: {
   context: any
   indexByOpenTimeMs?: Map<number, number>
   openTimeMsByIndex?: number[]
+  triggerSignals?: NormalizedPineSignal[]
+  fillOptionOverrides?: FillOptionOverride[]
 }): { output: NormalizedPineOutput; warnings: PineWarning[] } {
   const warnings: PineWarning[] = []
   const unsupported: PineUnsupportedInfo = { plots: [], styles: [] }
   const series: NormalizedPineSeries[] = []
+  const fills: NormalizedPineFill[] = []
   const markers: NormalizedPineMarker[] = []
 
   const plots = context?.plots && typeof context.plots === 'object' ? context.plots : {}
+  let fillOverrideCursor = 0
 
   Object.entries(plots).forEach(([title, plot]) => {
     if (!plot || typeof plot !== 'object') return
@@ -114,10 +252,7 @@ export function normalizeContext({
     const overlay = Boolean(
       plotOptions.overlay ?? plotOptions.force_overlay ?? context?.indicator?.overlay ?? false
     )
-    const plotColor =
-      typeof plotOptions.color === 'string' && plotOptions.color.trim().length > 0
-        ? plotOptions.color.trim()
-        : undefined
+    const plotColor = resolvePlotColor(plotOptions)
 
     if (style === 'shape' || style === 'char') {
       const fallbackText = resolveMarkerText({ title, options: plotOptions })
@@ -129,8 +264,7 @@ export function normalizeContext({
         })
       }
       const plotShape = mapShape(plotOptions.shape as string | undefined) ?? 'circle'
-      const plotLocation =
-        mapLocation(plotOptions.location as string | undefined) ?? 'aboveBar'
+      const plotLocation = mapLocation(plotOptions.location as string | undefined) ?? 'aboveBar'
 
       const data = Array.isArray((plot as any).data) ? (plot as any).data : []
       data.forEach((point: any) => {
@@ -143,13 +277,11 @@ export function normalizeContext({
           indexByOpenTimeMs,
           openTimeMsByIndex
         )
-        if (!Number.isFinite(timeMs ?? NaN)) return
+        if (!Number.isFinite(timeMs ?? Number.NaN)) return
         const mappedTime = toSeconds(timeMs as number)
 
-        const rawShape =
-          mapShape(pointOptions.shape as string | undefined) ?? plotShape ?? 'circle'
-        const rawLocation =
-          mapLocation(pointOptions.location as string | undefined) ?? plotLocation
+        const rawShape = mapShape(pointOptions.shape as string | undefined) ?? plotShape ?? 'circle'
+        const rawLocation = mapLocation(pointOptions.location as string | undefined) ?? plotLocation
         if (!rawShape || !rawLocation) return
 
         const marker: NormalizedPineMarker = {
@@ -191,7 +323,105 @@ export function normalizeContext({
       return
     }
 
-    if (style === 'background' || style === 'barcolor' || style === 'fill') {
+    if (style === 'fill') {
+      const fillOverride = fillOptionOverrides[fillOverrideCursor]
+      fillOverrideCursor += 1
+      const fillPlot1 =
+        typeof (plot as any).plot1 === 'string' ? ((plot as any).plot1 as string) : ''
+      const fillPlot2 =
+        typeof (plot as any).plot2 === 'string' ? ((plot as any).plot2 as string) : ''
+      const upperPlot = fillPlot1 ? (plots as Record<string, any>)[fillPlot1] : null
+      const lowerPlot = fillPlot2 ? (plots as Record<string, any>)[fillPlot2] : null
+      const upperOptions = upperPlot?.options ?? {}
+      const lowerOptions = lowerPlot?.options ?? {}
+      const upperPlotColor = resolvePlotColor(upperOptions)
+      const lowerPlotColor = resolvePlotColor(lowerOptions)
+      const fillUpperColor = fillOverride?.upperColor
+      const fillLowerColor = fillOverride?.lowerColor
+      const fillOpacityAlpha = resolveOpacityAlpha(fillOverride?.opacity)
+      const upperData = Array.isArray(upperPlot?.data) ? upperPlot.data : []
+      const lowerData = Array.isArray(lowerPlot?.data) ? lowerPlot.data : []
+
+      if (upperData.length === 0 || lowerData.length === 0) {
+        warnings.push({
+          code: 'fill_reference_missing',
+          message: `${title || 'fill'} could not resolve source plots "${fillPlot1 || 'plot1'}" and "${fillPlot2 || 'plot2'}".`,
+        })
+        return
+      }
+
+      const fillTitle =
+        typeof (plot as any).title === 'string' && (plot as any).title.trim().length > 0
+          ? (plot as any).title.trim()
+          : `${fillPlot1 || 'plot1'}:${fillPlot2 || 'plot2'}:fill`
+      const fillOverlay = Boolean(
+        upperOptions.overlay ??
+          upperOptions.force_overlay ??
+          lowerOptions.overlay ??
+          lowerOptions.force_overlay ??
+          overlay
+      )
+
+      const upperPoints = resolvePlotPoints({
+        data: upperData,
+        plotOptions: upperOptions,
+        indexByOpenTimeMs,
+        openTimeMsByIndex,
+      })
+      const lowerPoints = resolvePlotPoints({
+        data: lowerData,
+        plotOptions: lowerOptions,
+        indexByOpenTimeMs,
+        openTimeMsByIndex,
+      })
+      const lowerByTime = new Map<number, number>()
+      lowerPoints.forEach((point) => {
+        if (typeof point.value !== 'number' || !Number.isFinite(point.value)) return
+        lowerByTime.set(point.time, point.value)
+      })
+
+      const fillPoints: NormalizedPineFill['points'] = []
+      upperPoints.forEach((point) => {
+        if (typeof point.value !== 'number' || !Number.isFinite(point.value)) return
+        const lowerValue = lowerByTime.get(point.time)
+        if (typeof lowerValue !== 'number' || !Number.isFinite(lowerValue)) return
+        fillPoints.push({
+          time: point.time,
+          upper: point.value,
+          lower: lowerValue,
+        })
+      })
+
+      if (fillPoints.length < 2) {
+        warnings.push({
+          code: 'fill_insufficient_points',
+          message: `${fillTitle} has insufficient points after alignment and will be skipped.`,
+        })
+        return
+      }
+
+      const fillColors = resolveFillColors({
+        sharedFillColor: plotColor,
+        upperFillColor: fillUpperColor,
+        lowerFillColor: fillLowerColor,
+        upperPlotColor,
+        lowerPlotColor,
+        opacityAlpha: fillOpacityAlpha,
+      })
+
+      fills.push({
+        title: fillTitle,
+        overlay: fillOverlay,
+        upperPlotTitle: fillPlot1 || undefined,
+        lowerPlotTitle: fillPlot2 || undefined,
+        topColor: fillColors.topColor,
+        bottomColor: fillColors.bottomColor,
+        points: fillPoints,
+      })
+      return
+    }
+
+    if (style === 'background' || style === 'barcolor') {
       unsupported.styles.push(style)
       unsupported.plots.push(title)
       warnings.push({
@@ -220,8 +450,8 @@ export function normalizeContext({
     }
     if (resolvedStyle.seriesType === 'Area' && plotColor) {
       seriesOptions.lineColor = plotColor
-      seriesOptions.topColor = resolveHexAlpha(plotColor, 0.4)
-      seriesOptions.bottomColor = resolveHexAlpha(plotColor, 0)
+      seriesOptions.topColor = resolveColorAlpha(plotColor, 0.4)
+      seriesOptions.bottomColor = resolveColorAlpha(plotColor, 0)
     }
 
     const plotDescriptor: NormalizedPinePlot = {
@@ -233,34 +463,12 @@ export function normalizeContext({
       options: Object.keys(seriesOptions).length > 0 ? seriesOptions : undefined,
     }
 
-    const points = data
-      .map((point: any) => {
-        if (!point || typeof point !== 'object') return null
-        const pointOptions = point.options ?? {}
-        const offset = resolveOffset(pointOptions, plotOptions)
-        const timeMs = resolveTimeWithOffset(
-          Number(point.time),
-          offset,
-          indexByOpenTimeMs,
-          openTimeMsByIndex
-        )
-        if (!Number.isFinite(timeMs ?? NaN)) return null
-        const mappedTime = toSeconds(timeMs as number)
-        const rawValue =
-          typeof point.value === 'number' && Number.isFinite(point.value)
-            ? point.value
-            : null
-
-        return {
-          time: mappedTime,
-          value: rawValue,
-          color:
-            typeof pointOptions.color === 'string' && pointOptions.color.trim().length > 0
-              ? pointOptions.color.trim()
-              : undefined,
-        }
-      })
-      .filter((point): point is NormalizedPineSeries['points'][number] => Boolean(point))
+    const points = resolvePlotPoints({
+      data,
+      plotOptions,
+      indexByOpenTimeMs,
+      openTimeMsByIndex,
+    })
 
     if (resolvedStyle.needsMarkers) {
       if (style === 'style_cross') {
@@ -271,11 +479,11 @@ export function normalizeContext({
       } else if (style === 'style_circles') {
         warnings.push({
           code: 'style_circles_fallback',
-          message: `${title} uses style_circles; rendering line + circle markers.`,
+          message: `${title} uses style_circles; rendering circle markers only.`,
         })
       }
 
-      points.forEach((point) => {
+      points.forEach((point: NormalizedPineSeries['points'][number]) => {
         if (typeof point.value !== 'number' || !Number.isFinite(point.value)) return
         markers.push({
           time: point.time,
@@ -288,18 +496,32 @@ export function normalizeContext({
       })
     }
 
-    series.push({ plot: plotDescriptor, points })
+    if (resolvedStyle.seriesType) {
+      series.push({ plot: plotDescriptor, points })
+    }
+  })
+
+  triggerSignals.forEach((signal) => {
+    const shape: SeriesMarkerShape =
+      signal.signal === 'long' ? 'arrowUp' : signal.signal === 'short' ? 'arrowDown' : 'circle'
+    markers.push({
+      source: 'trigger',
+      time: signal.time,
+      position: signal.position,
+      shape,
+      color: signal.color,
+      text: signal.event,
+    })
   })
 
   return {
     output: {
       series,
+      fills,
       markers,
-      drawings: [],
-      signals: [],
+      triggers: triggerSignals,
       unsupported,
     },
     warnings,
   }
 }
-

@@ -39,6 +39,13 @@ describe('Function Execute API Route', () => {
         sandboxId: 'test-sandbox-id',
       }),
     }))
+    vi.doMock('@/lib/execution/runtime-config', () => ({
+      resolveExecutionRuntimeConfig: vi.fn(() => ({
+        useE2B: false,
+        e2bTemplate: undefined,
+        e2bKeepWarmMs: undefined,
+      })),
+    }))
 
     mockRunInContext.mockResolvedValue('vm success')
     mockCreateContext.mockReturnValue({})
@@ -49,7 +56,7 @@ describe('Function Execute API Route', () => {
   })
 
   describe('Security Tests', () => {
-    it.concurrent('should create secure fetch in VM context', async () => {
+    it('should create secure fetch in VM context', async () => {
       const req = createMockRequest('POST', {
         code: 'return "test"',
         useLocalVM: true,
@@ -66,7 +73,7 @@ describe('Function Execute API Route', () => {
       expect(contextArgs.fetch.name).toBe('secureFetch')
     })
 
-    it.concurrent('should block SSRF attacks through secure fetch wrapper', async () => {
+    it('should block SSRF attacks through secure fetch wrapper', async () => {
       const { validateProxyUrl } = await import('@/lib/security/input-validation')
 
       expect(validateProxyUrl('http://169.254.169.254/latest/meta-data/').isValid).toBe(false)
@@ -75,7 +82,7 @@ describe('Function Execute API Route', () => {
       expect(validateProxyUrl('http://10.0.0.1/internal').isValid).toBe(false)
     })
 
-    it.concurrent('should allow legitimate external URLs', async () => {
+    it('should allow legitimate external URLs', async () => {
       const { validateProxyUrl } = await import('@/lib/security/input-validation')
 
       expect(validateProxyUrl('https://api.github.com/user').isValid).toBe(true)
@@ -83,7 +90,7 @@ describe('Function Execute API Route', () => {
       expect(validateProxyUrl('https://example.com/api').isValid).toBe(true)
     })
 
-    it.concurrent('should block dangerous protocols', async () => {
+    it('should block dangerous protocols', async () => {
       const { validateProxyUrl } = await import('@/lib/security/input-validation')
 
       expect(validateProxyUrl('file:///etc/passwd').isValid).toBe(false)
@@ -93,7 +100,7 @@ describe('Function Execute API Route', () => {
   })
 
   describe('Basic Function Execution', () => {
-    it.concurrent('should execute simple JavaScript code successfully', async () => {
+    it('should execute simple JavaScript code successfully', async () => {
       const req = createMockRequest('POST', {
         code: 'return "Hello World"',
         timeout: 5000,
@@ -110,7 +117,7 @@ describe('Function Execute API Route', () => {
       expect(data.output).toHaveProperty('executionTime')
     })
 
-    it.concurrent('should handle missing code parameter', async () => {
+    it('should handle missing code parameter', async () => {
       const req = createMockRequest('POST', {
         timeout: 5000,
       })
@@ -124,7 +131,8 @@ describe('Function Execute API Route', () => {
       expect(data).toHaveProperty('error')
     })
 
-    it.concurrent('should use default timeout when not provided', async () => {
+    it('should use default timeout when not provided', async () => {
+      const { DEFAULT_EXECUTION_TIMEOUT_MS } = await import('@/lib/execution/constants')
       const req = createMockRequest('POST', {
         code: 'return "test"',
         useLocalVM: true,
@@ -134,17 +142,33 @@ describe('Function Execute API Route', () => {
       const response = await POST(req)
 
       expect(response.status).toBe(200)
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        expect.stringMatching(/\[.*\] Function execution request/),
-        expect.objectContaining({
-          timeout: 5000, // default timeout
-        })
+      const usedDefaultTimeout = mockRunInContext.mock.calls.some(
+        ([_, options]) => options?.timeout === DEFAULT_EXECUTION_TIMEOUT_MS
       )
+      expect(usedDefaultTimeout).toBe(true)
     })
+
+    it(
+      'should reject direct Pine indicator definitions in function blocks',
+      async () => {
+        const req = createMockRequest('POST', {
+          code: "indicator('Custom'); return null;",
+          useLocalVM: true,
+        })
+
+        const { POST } = await import('@/app/api/function/execute/route')
+        const response = await POST(req)
+        const data = await response.json()
+
+        expect(response.status).toBe(400)
+        expect(data.success).toBe(false)
+        expect(data.error).toContain('Direct Pine indicator definitions are disabled')
+      }
+    )
   })
 
   describe('Template Variable Resolution', () => {
-    it.concurrent('should resolve environment variables with {{var_name}} syntax', async () => {
+    it('should resolve environment variables with {{var_name}} syntax', async () => {
       const req = createMockRequest('POST', {
         code: 'return {{API_KEY}}',
         useLocalVM: true,
@@ -160,7 +184,7 @@ describe('Function Execute API Route', () => {
       // The code should be resolved to: return "secret-key-123"
     })
 
-    it.concurrent('should resolve tag variables with <tag_name> syntax', async () => {
+    it('should resolve tag variables with <tag_name> syntax', async () => {
       const req = createMockRequest('POST', {
         code: 'return <email>',
         useLocalVM: true,
@@ -176,7 +200,7 @@ describe('Function Execute API Route', () => {
       // The code should be resolved with the email object
     })
 
-    it.concurrent('should NOT treat email addresses as template variables', async () => {
+    it('should NOT treat email addresses as template variables', async () => {
       const req = createMockRequest('POST', {
         code: 'return "Email sent to user"',
         useLocalVM: true,
@@ -195,7 +219,7 @@ describe('Function Execute API Route', () => {
       // Should not try to replace <waleed@sim.ai> as a template variable
     })
 
-    it.concurrent('should only match valid variable names in angle brackets', async () => {
+    it('should only match valid variable names in angle brackets', async () => {
       const req = createMockRequest('POST', {
         code: 'return <validVar> + "<invalid@email.com>" + <another_valid>',
         useLocalVM: true,
@@ -214,7 +238,7 @@ describe('Function Execute API Route', () => {
   })
 
   describe('Gmail Email Data Handling', () => {
-    it.concurrent(
+    it(
       'should handle Gmail webhook data with email addresses containing angle brackets',
       async () => {
         const gmailData = {
@@ -251,7 +275,7 @@ describe('Function Execute API Route', () => {
       }
     )
 
-    it.concurrent(
+    it(
       'should properly serialize complex email objects with special characters',
       async () => {
         const complexEmailData = {
@@ -277,7 +301,7 @@ describe('Function Execute API Route', () => {
   })
 
   describe('Custom Tools', () => {
-    it.concurrent('should handle custom tool execution with direct parameter access', async () => {
+    it('should handle custom tool execution with direct parameter access', async () => {
       const req = createMockRequest('POST', {
         code: 'return location + " weather is sunny"',
         useLocalVM: true,
@@ -296,7 +320,7 @@ describe('Function Execute API Route', () => {
   })
 
   describe('Security and Edge Cases', () => {
-    it.concurrent('should handle malformed JSON in request body', async () => {
+    it('should handle malformed JSON in request body', async () => {
       const req = new NextRequest('http://localhost:3000/api/function/execute', {
         method: 'POST',
         body: 'invalid json{',
@@ -309,7 +333,7 @@ describe('Function Execute API Route', () => {
       expect(response.status).toBe(500)
     })
 
-    it.concurrent('should handle timeout parameter', async () => {
+    it('should handle timeout parameter', async () => {
       const req = createMockRequest('POST', {
         code: 'return "test"',
         useLocalVM: true,
@@ -327,7 +351,7 @@ describe('Function Execute API Route', () => {
       )
     })
 
-    it.concurrent('should handle empty parameters object', async () => {
+    it('should handle empty parameters object', async () => {
       const req = createMockRequest('POST', {
         code: 'return "no params"',
         useLocalVM: true,
@@ -535,7 +559,7 @@ SyntaxError: Invalid or unexpected token
       expect(data.debug.lineContent).toBe('return a + b + c + d;')
     })
 
-    it.concurrent('should provide helpful suggestions for common syntax errors', async () => {
+    it('should provide helpful suggestions for common syntax errors', async () => {
       const mockScript = vi.fn().mockImplementation(() => {
         const error = new Error('Unexpected end of input')
         error.name = 'SyntaxError'
@@ -567,7 +591,7 @@ SyntaxError: Invalid or unexpected token
   })
 
   describe('Utility Functions', () => {
-    it.concurrent('should properly escape regex special characters', async () => {
+    it('should properly escape regex special characters', async () => {
       // This tests the escapeRegExp function indirectly
       const req = createMockRequest('POST', {
         code: 'return {{special.chars+*?}}',
@@ -584,7 +608,7 @@ SyntaxError: Invalid or unexpected token
       // Should handle special regex characters in variable names
     })
 
-    it.concurrent('should handle JSON serialization edge cases', async () => {
+    it('should handle JSON serialization edge cases', async () => {
       // Test with complex but not circular data first
       const req = createMockRequest('POST', {
         code: 'return <complexData>',
@@ -606,6 +630,128 @@ SyntaxError: Invalid or unexpected token
       const response = await POST(req)
 
       expect(response.status).toBe(200)
+    })
+
+    it('should inject indicator runtime helpers into VM context', async () => {
+      const req = createMockRequest('POST', {
+        code: 'return "ok";',
+        useLocalVM: true,
+      })
+
+      const { POST } = await import('@/app/api/function/execute/route')
+      const response = await POST(req)
+
+      expect(response.status).toBe(200)
+      expect(mockCreateContext).toHaveBeenCalled()
+
+      const contextArgs = mockCreateContext.mock.calls[0][0]
+      expect(contextArgs).toHaveProperty('indicator')
+      expect(typeof contextArgs.indicator.RSI).toBe('function')
+      expect(typeof contextArgs.indicator.list).toBe('function')
+      expect(contextArgs.indicator.list()).toContain('RSI')
+    })
+
+    it(
+      'indicator runtime should require MarketSeries and run default indicators',
+      async () => {
+        const req = createMockRequest('POST', {
+          code: 'return "ok";',
+          useLocalVM: true,
+        })
+
+        const { POST } = await import('@/app/api/function/execute/route')
+        const response = await POST(req)
+        expect(response.status).toBe(200)
+
+        const contextArgs = mockCreateContext.mock.calls[0][0]
+
+        await expect(contextArgs.indicator.RSI({ bars: [] })).rejects.toThrow(
+          'Indicator runtime expects MarketSeries data'
+        )
+
+        const marketSeries = {
+          listing: {
+            listing_id: 'AAPL',
+            base_id: '',
+            quote_id: '',
+            listing_type: 'default',
+          },
+          bars: [
+            {
+              timeStamp: '2026-01-01T00:00:00.000Z',
+              open: 100,
+              high: 110,
+              low: 95,
+              close: 105,
+              volume: 1000,
+            },
+            {
+              timeStamp: '2026-01-02T00:00:00.000Z',
+              open: 106,
+              high: 112,
+              low: 101,
+              close: 108,
+              volume: 900,
+            },
+          ],
+        }
+
+        const runtimeResult = await contextArgs.indicator.RSI(marketSeries, { Length: 7 })
+
+        expect(runtimeResult).toMatchObject({
+          indicatorId: 'RSI',
+          indicatorName: 'Relative Strength Index',
+          plots: expect.any(Object),
+          indicator: expect.any(Object),
+        })
+      }
+    )
+
+    it('should execute indicator runtime on E2B when E2B is enabled', async () => {
+      vi.doMock('@/lib/execution/runtime-config', () => ({
+        resolveExecutionRuntimeConfig: vi.fn(() => ({
+          useE2B: true,
+          e2bTemplate: undefined,
+          e2bKeepWarmMs: undefined,
+        })),
+      }))
+
+      const req = createMockRequest('POST', {
+        code: 'const result = await indicator.RSI(<series>); return result;',
+        params: {
+          series: {
+            listing: {
+              listing_id: 'AAPL',
+              base_id: '',
+              quote_id: '',
+              listing_type: 'default',
+            },
+            bars: [
+              {
+                timeStamp: '2026-01-01T00:00:00.000Z',
+                open: 100,
+                high: 110,
+                low: 95,
+                close: 105,
+                volume: 1000,
+              },
+            ],
+          },
+        },
+      })
+
+      const { POST } = await import('@/app/api/function/execute/route')
+      const { executeInE2B } = await import('@/lib/execution/e2b')
+      const executeInE2BMock = vi.mocked(executeInE2B)
+
+      const response = await POST(req)
+      expect(response.status).toBe(200)
+      expect(executeInE2BMock).toHaveBeenCalled()
+
+      const e2bCall = executeInE2BMock.mock.calls.at(-1)?.[0] as { code: string }
+      expect(e2bCall.code).toContain('const indicator = (() => {')
+      expect(e2bCall.code).toContain('__tg_indicator_manifest')
+      expect(e2bCall.code).toContain('await indicator.RSI')
     })
   })
 })

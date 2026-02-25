@@ -31,6 +31,7 @@ import { HuggingFaceBlock } from '@/blocks/blocks/huggingface'
 import { HunterBlock } from '@/blocks/blocks/hunter'
 import { ImageGeneratorBlock } from '@/blocks/blocks/image_generator'
 import { InputTriggerBlock } from '@/blocks/blocks/input_trigger'
+import { IndicatorTriggerBlock } from '@/blocks/blocks/indicator_trigger'
 import { JinaBlock } from '@/blocks/blocks/jina'
 import { JiraBlock } from '@/blocks/blocks/jira'
 import { KnowledgeBlock } from '@/blocks/blocks/knowledge'
@@ -220,6 +221,7 @@ export const registry: Record<string, BlockConfig> = {
   stagehand_agent: StagehandAgentBlock,
   slack: SlackBlock,
   input_trigger: InputTriggerBlock,
+  indicator_trigger: IndicatorTriggerBlock,
   chat_trigger: ChatTriggerBlock,
   manual_trigger: ManualTriggerBlock,
   api_trigger: ApiTriggerBlock,

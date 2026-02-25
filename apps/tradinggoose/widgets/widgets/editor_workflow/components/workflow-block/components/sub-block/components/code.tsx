@@ -148,25 +148,23 @@ export function Code({
   const handleStreamChunkRef = useRef<(chunk: string) => void>(() => { })
 
   const [languageValue] = useSubBlockValue<string>(blockId, 'language')
-  const [remoteExecution] = useSubBlockValue<boolean>(blockId, 'remoteExecution')
+  const isPythonLanguage = languageValue === CodeLanguage.Python
 
   const effectiveLanguage = useMemo(() => {
-    if (remoteExecution) {
-      if (languageValue === CodeLanguage.Python) return 'python'
-      if (languageValue === CodeLanguage.JavaScript) return 'javascript'
-    }
+    if (languageValue === CodeLanguage.Python) return 'python'
+    if (languageValue === CodeLanguage.JavaScript) return 'javascript'
     return language
-  }, [language, languageValue, remoteExecution])
+  }, [language, languageValue])
 
   const dynamicPlaceholder = useMemo(() => {
-    if (remoteExecution && languageValue === CodeLanguage.Python) {
+    if (isPythonLanguage) {
       return 'Write Python...'
     }
     return placeholder
-  }, [remoteExecution, languageValue, placeholder])
+  }, [isPythonLanguage, placeholder])
 
   const dynamicWandConfig = useMemo(() => {
-    if (remoteExecution && languageValue === CodeLanguage.Python) {
+    if (isPythonLanguage) {
       return {
         ...wandConfig,
         prompt: `You are an expert Python programmer.
@@ -188,7 +186,7 @@ IMPORTANT FORMATTING RULES:
       }
     }
     return wandConfig
-  }, [wandConfig, remoteExecution, languageValue])
+  }, [wandConfig, isPythonLanguage])
 
   const handleCopy = async () => {
     if (!code) return

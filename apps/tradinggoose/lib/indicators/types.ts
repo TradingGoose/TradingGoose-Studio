@@ -59,6 +59,22 @@ export type NormalizedPineSeries = {
   points: NormalizedPineSeriesPoint[]
 }
 
+export type NormalizedPineFillPoint = {
+  time: number
+  upper: number
+  lower: number
+}
+
+export type NormalizedPineFill = {
+  title: string
+  overlay: boolean
+  upperPlotTitle?: string
+  lowerPlotTitle?: string
+  topColor: string
+  bottomColor: string
+  points: NormalizedPineFillPoint[]
+}
+
 export type SeriesMarkerPosition =
   | 'aboveBar'
   | 'belowBar'
@@ -73,16 +89,29 @@ export type NormalizedPineMarker = {
   time: number
   position: SeriesMarkerPosition
   shape: SeriesMarkerShape
+  source?: 'trigger'
   color?: string
   text?: string
   price?: number
 }
 
+export type IndicatorTriggerSignal = 'long' | 'short' | 'flat'
+
+export type NormalizedPineSignal = {
+  event: string
+  input: string
+  signal: IndicatorTriggerSignal
+  time: number
+  barIndex: number
+  position: SeriesMarkerPosition
+  color?: string
+}
+
 export type NormalizedPineOutput = {
   series: NormalizedPineSeries[]
+  fills: NormalizedPineFill[]
   markers: NormalizedPineMarker[]
-  drawings: unknown[]
-  signals: unknown[]
+  triggers: NormalizedPineSignal[]
   unsupported: PineUnsupportedInfo
   indicator?: IndicatorOptions
 }

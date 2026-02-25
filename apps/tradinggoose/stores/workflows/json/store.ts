@@ -7,13 +7,18 @@ import { useWorkflowRegistry } from '../registry/store'
 
 const logger = createLogger('WorkflowJsonStore')
 
+export interface WorkflowJsonScope {
+  workflowId?: string | null
+  channelId?: string
+}
+
 interface WorkflowJsonStore {
   json: string
   lastGenerated?: number
 
-  generateJson: () => void
-  getJson: () => Promise<string>
-  refreshJson: () => void
+  generateJson: (scope?: WorkflowJsonScope) => void
+  getJson: (scope?: WorkflowJsonScope) => Promise<string>
+  refreshJson: (scope?: WorkflowJsonScope) => void
 }
 
 export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
@@ -22,9 +27,13 @@ export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
       json: '',
       lastGenerated: undefined,
 
-      generateJson: () => {
-        // Get the active workflow ID from registry
-        const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
+      generateJson: (scope) => {
+        const scopedWorkflowId =
+          typeof scope?.workflowId === 'string' && scope.workflowId.trim().length > 0
+            ? scope.workflowId
+            : null
+        const activeWorkflowId =
+          scopedWorkflowId ?? useWorkflowRegistry.getState().getActiveWorkflowId(scope?.channelId)
 
         if (!activeWorkflowId) {
           logger.warn('No active workflow to generate JSON for')
@@ -33,7 +42,7 @@ export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
 
         try {
           // Get the workflow state with merged subblock values
-          const workflow = getWorkflowWithValues(activeWorkflowId)
+          const workflow = getWorkflowWithValues(activeWorkflowId, scope?.channelId)
 
           if (!workflow || !workflow.state) {
             logger.warn('No workflow state found for ID:', activeWorkflowId)
@@ -65,21 +74,25 @@ export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
         }
       },
 
-      getJson: async () => {
+      getJson: async (scope) => {
         const currentTime = Date.now()
         const { json, lastGenerated } = get()
+        const hasScope =
+          typeof scope?.workflowId === 'string' ||
+          (typeof scope?.channelId === 'string' && scope.channelId.length > 0)
 
-        // Auto-refresh if data is stale (older than 1 second) or never generated
-        if (!lastGenerated || currentTime - lastGenerated > 1000) {
-          get().generateJson()
+        // Scoped requests are always refreshed to avoid channel/workflow cache mismatch.
+        // Unscoped requests keep the short cache to reduce repeated work.
+        if (hasScope || !lastGenerated || currentTime - lastGenerated > 1000) {
+          get().generateJson(scope)
           return get().json
         }
 
         return json
       },
 
-      refreshJson: () => {
-        get().generateJson()
+      refreshJson: (scope) => {
+        get().generateJson(scope)
       },
     }),
     {

@@ -187,9 +187,11 @@ export function WorkspaceSwitcher({
                                 ) : null}
                               </div>
                             </div>
-                            {renameError && editingWorkspaceId === workspace.id ? (
-                              <p className='px-2 text-destructive text-xs'>{renameError}</p>
-                            ) : null}
+                            {
+                              renameError && editingWorkspaceId === workspace.id ? (
+                                <p className='px-2 text-destructive text-xs'>{renameError}</p>
+                              ) : null
+                            }
                           </div>
                         )
                       })}
@@ -229,7 +231,7 @@ export function WorkspaceSwitcher({
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
-      </SidebarMenuItem>
-    </SidebarMenu>
+      </SidebarMenuItem >
+    </SidebarMenu >
   )
 }

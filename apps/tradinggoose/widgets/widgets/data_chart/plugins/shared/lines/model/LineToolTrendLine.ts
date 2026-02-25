@@ -46,7 +46,7 @@ import { buildLineToolOptions } from './line-tool-options';
  * across all 2-point line tools.
  *
  * Key defaults include:
- * - Color: Blue (`#2962ff`)
+ * - Color: Blue (`#ffbb00`)
  * - Width: 1px
  * - Style: Solid
  * - Extensions: None (a finite segment)
@@ -64,11 +64,11 @@ export const TrendLineOptionDefaults: LineToolOptionsInternal<'TrendLine'> = {
 	showTimeAxisLabels: true,
 	priceAxisLabelAlwaysVisible: false,
 	timeAxisLabelAlwaysVisible: false,
-	
+
 	// Specific Options for TrendLineToolOptions
 	line: {
 		width: 1,
-		color: '#2962ff', // default blue
+		color: '#ffbb00', // default blue
 		style: LineStyle.Solid,
 		extend: { left: false, right: false },
 		end: { left: LineEnd.Normal, right: LineEnd.Normal },
@@ -80,10 +80,10 @@ export const TrendLineOptionDefaults: LineToolOptionsInternal<'TrendLine'> = {
 		forceTextAlign: false,
 		forceCalculateMaxLineWidth: false,
 		alignment: TextAlignment.Center,
-		font: { family: 'sans-serif', color: '#2962ff', size: 12, bold: false, italic: false },
-		box: { 
-			scale: 1, 
-			angle: 0, 
+		font: { family: 'sans-serif', color: '#ffbb00', size: 12, bold: false, italic: false },
+		box: {
+			scale: 1,
+			angle: 0,
 			alignment: { vertical: BoxVerticalAlignment.Middle, horizontal: BoxHorizontalAlignment.Center },
 			// Default box and shadow options
 		},
@@ -110,7 +110,7 @@ export class LineToolTrendLine<HorzScaleItem> extends BaseLineTool<HorzScaleItem
 	 * @override
 	 */
 	public override readonly toolType: LineToolType = 'TrendLine';
-	
+
 	/**
 	 * Defines the number of anchor points required to draw this tool.
 	 *
@@ -119,7 +119,7 @@ export class LineToolTrendLine<HorzScaleItem> extends BaseLineTool<HorzScaleItem
 	 * @override
 	 */
 	public override readonly pointsCount: number = 2;
-	
+
 	/**
 	 * Explicitly defines the highest valid index for an interactive anchor point.
 	 *
@@ -132,7 +132,7 @@ export class LineToolTrendLine<HorzScaleItem> extends BaseLineTool<HorzScaleItem
 	public maxAnchorIndex(): number {
 		return 1; // Anchors are indexed from 0 to 1.
 	}
-	
+
 	/**
 	 * Confirms that this tool can be created via the "Click-Click" method.
 	 *
@@ -231,7 +231,7 @@ export class LineToolTrendLine<HorzScaleItem> extends BaseLineTool<HorzScaleItem
 		// A PaneView is responsible for rendering the tool on the chart.
 		this._setPaneViews([new LineToolTrendLinePaneView(this, this._chart, this._series)]);
 	}
-	
+
 	/**
 	 * Implements the specific geometric constraint logic when the user holds the Shift key while drawing or editing.
 	 *
@@ -252,13 +252,13 @@ export class LineToolTrendLine<HorzScaleItem> extends BaseLineTool<HorzScaleItem
 	 * @override
 	 */
 	public override getShiftConstrainedPoint(
-		pointIndex: number, 
-		rawScreenPoint: Point, 
+		pointIndex: number,
+		rawScreenPoint: Point,
 		phase: InteractionPhase,
 		originalLogicalPoint: LineToolPoint, // This is the *dragged* point's original logical state
 		allOriginalLogicalPoints: LineToolPoint[] // This is the *entire array* of all points' original logical states
 	): ConstraintResult {
-		
+
 		// The Y-constraint always comes from the "other" (non-moving) point.
 		let constraintSourceLogicalPoint: LineToolPoint | null = null;
 
@@ -273,18 +273,18 @@ export class LineToolTrendLine<HorzScaleItem> extends BaseLineTool<HorzScaleItem
 			const otherPointIndex = pointIndex === 0 ? 1 : 0;
 			constraintSourceLogicalPoint = allOriginalLogicalPoints[otherPointIndex];
 		}
-		
+
 		if (!constraintSourceLogicalPoint) {
 			// Safety fallback: if the constraint source point doesn't exist, return raw.
-			return {point: rawScreenPoint, snapAxis: 'none'};
+			return { point: rawScreenPoint, snapAxis: 'none' };
 		}
 
 		// Convert the constraint source's logical position to its current screen coordinates
 		const constraintSourceScreenPoint = this.pointToScreenPoint(constraintSourceLogicalPoint);
-		
+
 		if (!constraintSourceScreenPoint) {
 			// Safety fallback: if conversion fails, return the raw mouse point.
-			return {point: rawScreenPoint, snapAxis: 'none'};
+			return { point: rawScreenPoint, snapAxis: 'none' };
 		}
 
 		// Apply the Constraint: Force the new point's Y-coordinate to match the Y-coordinate of the constraint source.
@@ -295,7 +295,7 @@ export class LineToolTrendLine<HorzScaleItem> extends BaseLineTool<HorzScaleItem
 			point: new Point(rawScreenPoint.x, constrainedY),
 			snapAxis: 'price',
 		};
-	}	
+	}
 
 	/**
 	 * Re-orders the internal points so that the start point (P0) is always chronologically earlier
@@ -374,7 +374,7 @@ export class LineToolTrendLine<HorzScaleItem> extends BaseLineTool<HorzScaleItem
 			return null;
 		}
 
-		
+
 		// 1. Get the PaneView that contains the Composite Renderer
 		const paneView = this._paneViews[0] as LineToolTrendLinePaneView<HorzScaleItem>;
 
@@ -391,7 +391,7 @@ export class LineToolTrendLine<HorzScaleItem> extends BaseLineTool<HorzScaleItem
 		// This Composite Renderer will automatically prioritize the Anchor hit (ChangePoint)
 		// over the Segment hit (MovePointBackground) because Anchors are appended LAST
 		// and the CompositeRenderer iterates backwards for hit testing priority.
-		
+
 		return hitResult;
 	}
 }

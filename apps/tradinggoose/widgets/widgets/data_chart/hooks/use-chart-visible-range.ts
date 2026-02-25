@@ -125,7 +125,11 @@ export const useChartVisibleRange = ({
         window.clearTimeout(flushTimerRef.current)
         flushTimerRef.current = null
       }
-      timeScale.unsubscribeVisibleLogicalRangeChange(handleRangeChange)
+      try {
+        timeScale.unsubscribeVisibleLogicalRangeChange(handleRangeChange)
+      } catch {
+        // Ignore disposal races during chart teardown.
+      }
     }
   }, [chartRef, dataContext, chartReady, interval, panelId, widgetKey])
 }

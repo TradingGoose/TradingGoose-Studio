@@ -71,6 +71,20 @@
       "when": 1770601113750,
       "tag": "0009_panoramic_moonstone",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1771609367622,
+      "tag": "0010_grey_vindicator",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1771637498504,
+      "tag": "0011_silky_ulik",
+      "breakpoints": true
     }
   ]
 }

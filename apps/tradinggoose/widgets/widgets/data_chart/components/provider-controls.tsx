@@ -89,10 +89,11 @@ export const DataChartProviderSettingsButton = ({
         (paramValuesRef.current.apiSecret as string | undefined) ?? authParams?.apiSecret
       return apiKey || apiSecret ? { apiKey, apiSecret } : undefined
     })()
+    const { ...nextDataBase } = (dataParams ?? {}) as Record<string, unknown>
     emitDataChartParamsChange({
       params: {
         data: {
-          ...(dataParams ?? {}),
+          ...nextDataBase,
           providerParams: nextProviderParams,
           auth: nextAuth,
         },
@@ -274,10 +275,12 @@ export const DataChartProviderSelector = ({
   const handleProviderChange = (nextProvider: string) => {
     if (!nextProvider || nextProvider === providerId) return
 
-    const nextData = { ...(dataParams ?? {}) } as Record<string, unknown>
-    delete nextData.window
-    delete nextData.fallbackWindow
-    nextData.provider = nextProvider
+    const {
+      window: _window,
+      fallbackWindow: _fallbackWindow,
+      ...nextDataBase
+    } = (dataParams ?? {}) as Record<string, unknown>
+    const nextData = { ...nextDataBase, provider: nextProvider }
 
     const nextView = { ...(viewParams ?? {}) } as Record<string, unknown>
     delete nextView.rangePresetId

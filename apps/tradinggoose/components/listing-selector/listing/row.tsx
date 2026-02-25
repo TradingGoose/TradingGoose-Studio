@@ -4,8 +4,18 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import type { ListingOption } from '@/lib/listing/identity'
 
+const resolveListingFallbackLabel = (listing: ListingOption): string => {
+  const base = listing.base?.trim()
+  if (base) return base
+  const quote = listing.quote?.trim()
+  if (quote) return quote
+  const name = listing.name?.trim()
+  if (name) return name
+  return 'Listing'
+}
+
 export function getListingPrimary(listing: ListingOption): string {
-  return listing.base?.trim() || listing.name?.trim() || listing.id
+  return resolveListingFallbackLabel(listing)
 }
 
 export function getListingSecondary(listing: ListingOption): string | null {
@@ -17,7 +27,7 @@ export function getListingSecondary(listing: ListingOption): string | null {
 }
 
 export function getListingFallback(listing: ListingOption): string {
-  const base = listing.base?.trim() || listing.name?.trim() || listing.id
+  const base = resolveListingFallbackLabel(listing)
   return base.slice(0, 2).toUpperCase()
 }
 
@@ -46,6 +56,7 @@ export interface MarketListingRowProps {
   placeholderTitle?: string
   placeholderSubtitle?: string
   showAssetClass?: boolean
+  compact?: boolean
   className?: string
 }
 
@@ -54,6 +65,7 @@ export function MarketListingRow({
   placeholderTitle = 'Select listing',
   placeholderSubtitle = 'Search by symbol or name',
   showAssetClass = false,
+  compact = false,
   className,
 }: MarketListingRowProps) {
   const primary = listing ? getListingPrimary(listing) : ''
@@ -69,17 +81,27 @@ export function MarketListingRow({
     : null
 
   return (
-    <div className={cn('flex items-center gap-2 pr-2', className)}>
-      <Avatar className='h-6 w-6 rounded-sm m-1 text-foreground bg-secondary/60'>
+    <div className={cn('flex items-center gap-2 pr-2', compact && 'h-8', className)}>
+      <Avatar
+        className={cn(
+          'rounded-sm text-foreground bg-secondary/60',
+          compact ? 'h-5 w-5' : 'h-6 w-6 m-1'
+        )}
+      >
         {listing?.iconUrl ? <AvatarImage src={listing.iconUrl} alt={primary} /> : null}
-        <AvatarFallback className='text-xs text-accent-foreground'>
+        <AvatarFallback className={cn('text-accent-foreground', compact ? 'text-[10px]' : 'text-xs')}>
           {listing ? getListingFallback(listing) : '??'}
         </AvatarFallback>
       </Avatar>
-      <div className='flex min-w-0 flex-1 flex-col gap-0.5 text-start leading-none'>
+      <div
+        className={cn(
+          'flex min-w-0 flex-1 text-start leading-none',
+          compact ? 'items-center gap-1' : 'flex-col gap-0.5'
+        )}
+      >
         {listing ? (
-          <span className='flex items-center gap-1 text-sm font-semibold'>
-            <span className='max-w-[22ch] truncate'>
+          <span className={cn('flex items-center gap-1 text-sm font-semibold', compact ? 'min-w-0' : '')}>
+            <span className={cn('truncate', compact ? 'max-w-full' : 'max-w-[22ch]')}>
               {primary}
               {quote ? <span className='text-muted-foreground'>/{quote}</span> : null}
             </span>
@@ -99,12 +121,14 @@ export function MarketListingRow({
             {placeholderTitle}
           </span>
         )}
-        <span className='max-w-full truncate text-xs text-muted-foreground'>
-          {listing ? secondary ?? '—' : placeholderSubtitle}
-        </span>
+        {!compact ? (
+          <span className='max-w-full truncate text-xs text-muted-foreground'>
+            {listing ? secondary ?? '—' : placeholderSubtitle}
+          </span>
+        ) : null}
       </div>
       {showAssetClass && listing ? (
-        <span className='ml-auto text-xs font-semibold text-muted-foreground'>
+        <span className={cn('ml-auto font-semibold text-muted-foreground', compact ? 'text-[10px]' : 'text-xs')}>
           {assetClassLabel}
         </span>
       ) : null}

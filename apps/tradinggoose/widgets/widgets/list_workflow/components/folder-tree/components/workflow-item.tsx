@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
-import { Pencil, Trash2, Workflow } from 'lucide-react'
+import { Copy, Pencil, Trash2, Workflow } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { shallow } from 'zustand/shallow'
 import {
   AlertDialog,
@@ -18,10 +19,10 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useFolderStore, useIsWorkflowSelected } from '@/stores/folders/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
+import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('WorkflowItem')
 
@@ -67,6 +68,7 @@ export function WorkflowItem({
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(workflow.name)
   const [isRenaming, setIsRenaming] = useState(false)
+  const [isDuplicating, setIsDuplicating] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const [deleteState, setDeleteState] = useState<{
     showDialog: boolean
@@ -81,11 +83,13 @@ export function WorkflowItem({
   })
   const dragStartedRef = useRef(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const router = useRouter()
   const workspaceId = useWorkspaceId()
   const { selectedWorkflows, selectOnly, toggleWorkflowSelection } = useFolderStore()
   const isSelected = useIsWorkflowSelected(workflow.id)
-  const { updateWorkflow, removeWorkflow } = useWorkflowRegistry(
+  const { duplicateWorkflow, updateWorkflow, removeWorkflow } = useWorkflowRegistry(
     (state) => ({
+      duplicateWorkflow: state.duplicateWorkflow,
       updateWorkflow: state.updateWorkflow,
       removeWorkflow: state.removeWorkflow,
     }),
@@ -219,15 +223,61 @@ export function WorkflowItem({
       setDeleteState((prev) => ({ ...prev, isDeleting: true }))
 
       try {
-        await removeWorkflow(workflow.id, action)
+        await removeWorkflow(workflow.id, { templateAction: action })
         resetDeleteState()
       } catch (error) {
         logger.error('Error deleting workflow with template action:', error)
         setDeleteState((prev) => ({ ...prev, isDeleting: false }))
       }
     },
-    [canDelete, isMarketplace, removeWorkflow, resetDeleteState, userPermissions.canEdit, workflow.id]
+    [
+      canDelete,
+      isMarketplace,
+      removeWorkflow,
+      resetDeleteState,
+      userPermissions.canEdit,
+      workflow.id,
+    ]
   )
+
+  const handleDuplicateWorkflow = useCallback(async () => {
+    if (!userPermissions.canEdit || isMarketplace || isDuplicating) return
+
+    setIsDuplicating(true)
+    try {
+      const duplicatedWorkflowId = await duplicateWorkflow(workflow.id)
+      if (!duplicatedWorkflowId) return
+
+      const duplicatedWorkflow = useWorkflowRegistry.getState().workflows[duplicatedWorkflowId]
+
+      if (disableNavigation) {
+        if (duplicatedWorkflow && onSelect) {
+          onSelect(duplicatedWorkflow)
+        }
+        return
+      }
+
+      if (workspaceId) {
+        router.push(`/workspace/${workspaceId}/w/${duplicatedWorkflowId}`)
+      } else if (duplicatedWorkflow && onSelect) {
+        onSelect(duplicatedWorkflow)
+      }
+    } catch (error) {
+      logger.error('Error duplicating workflow:', { error, workflowId: workflow.id })
+    } finally {
+      setIsDuplicating(false)
+    }
+  }, [
+    disableNavigation,
+    duplicateWorkflow,
+    isDuplicating,
+    isMarketplace,
+    onSelect,
+    router,
+    userPermissions.canEdit,
+    workflow.id,
+    workspaceId,
+  ])
 
   const handleClick = (e: React.MouseEvent) => {
     if (isDragging || isEditing) {
@@ -281,17 +331,7 @@ export function WorkflowItem({
   }
 
   const interactiveChildren = (
-
-    <span className='flex items-center gap-1'>
-      <span
-        className='h-5 w-5 p-0.5 rounded-xs items-center justify-center flex'
-        style={{
-          backgroundColor: workflow.color + '20',
-        }}
-        aria-hidden='true'
-      >
-        <Workflow className='h-full' aria-hidden='true' style={{ color: workflow.color }} />
-      </span>
+    <>
       {isEditing ? (
         <input
           ref={inputRef}
@@ -339,14 +379,16 @@ export function WorkflowItem({
         <span
           className={clsx(
             'min-w-0 flex-1 select-none truncate pr-1 font-medium font-sans text-sm',
-            active && !isDragOver ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'
+            active && !isDragOver
+              ? 'text-foreground'
+              : 'text-muted-foreground group-hover:text-foreground'
           )}
         >
           {workflow.name}
           {isMarketplace && ' (Preview)'}
         </span>
       )}
-    </span>
+    </>
   )
 
   return (
@@ -354,7 +396,7 @@ export function WorkflowItem({
       <div
         className={clsx(
           'group flex h-8 cursor-pointer items-center rounded-sm px-2 py-2 font-medium font-sans text-sm transition-colors',
-          active && !isDragOver ? 'bg-secondary' : 'hover:bg-secondary/60',
+          active && !isDragOver ? 'bg-secondary/60' : 'hover:bg-secondary/30',
           isSelected && selectedWorkflows.size > 1 && !active && !isDragOver ? 'bg-muted' : '',
           isDragging ? 'opacity-50' : ''
         )}
@@ -370,18 +412,36 @@ export function WorkflowItem({
             type='button'
             onClick={handleClick}
             disabled={isEditing}
-            className='flex min-w-0 flex-1 items-center border-0 bg-transparent p-0 text-left'
+            className='flex min-w-0 flex-1 items-center gap-2 border-0 bg-transparent p-0 text-left'
             draggable={false}
           >
+            <span
+              className='flex h-5 w-5 items-center justify-center rounded-xs p-0.5'
+              style={{
+                backgroundColor: `${workflow.color}20`,
+              }}
+              aria-hidden='true'
+            >
+              <Workflow className='h-full' aria-hidden='true' style={{ color: workflow.color }} />
+            </span>
             {interactiveChildren}
           </button>
         ) : (
           <Link
             href={`/workspace/${workspaceId}/w/${workflow.id}`}
-            className='flex min-w-0 flex-1 items-center'
+            className='flex min-w-0 flex-1 items-center gap-2'
             onClick={handleClick}
             draggable={false}
           >
+            <span
+              className='flex h-5 w-5 items-center justify-center rounded-xs p-0.5'
+              style={{
+                backgroundColor: `${workflow.color}20`,
+              }}
+              aria-hidden='true'
+            >
+              <Workflow className='h-full' aria-hidden='true' style={{ color: workflow.color }} />
+            </span>
             {interactiveChildren}
           </Link>
         )}
@@ -391,6 +451,19 @@ export function WorkflowItem({
             className='flex items-center justify-center gap-1'
             onClick={(e) => e.stopPropagation()}
           >
+            <Button
+              variant='ghost'
+              size='icon'
+              disabled={isDuplicating}
+              className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground disabled:opacity-50'
+              onClick={(e) => {
+                e.stopPropagation()
+                void handleDuplicateWorkflow()
+              }}
+            >
+              <Copy className='!h-3.5 !w-3.5' />
+              <span className='sr-only'>Duplicate workflow</span>
+            </Button>
             <Button
               variant='ghost'
               size='icon'

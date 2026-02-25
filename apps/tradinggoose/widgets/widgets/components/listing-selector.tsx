@@ -8,8 +8,8 @@ import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { formatDisplayText } from '@/components/ui/formatted-text'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
-import type { ListingOption } from '@/lib/listing/identity'
-import { resolveListingKey, toListingValue, toListingValueObject } from '@/lib/listing/identity'
+import type { ListingIdentity, ListingOption } from '@/lib/listing/identity'
+import { areListingIdentitiesEqual, toListingValue, toListingValueObject } from '@/lib/listing/identity'
 import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import {
   createEmptyListingSelectorInstance,
@@ -34,6 +34,12 @@ interface ListingSelectorProps {
   onListingTagSelect?: (value: string) => void
 }
 
+const getListingIdentityKey = (listing: ListingIdentity) =>
+  `${listing.listing_type}|${listing.listing_id}|${listing.base_id}|${listing.quote_id}`
+
+const getListingOptionKey = (listing: ListingOption) =>
+  `${getListingIdentityKey(listing)}|${listing.base ?? ''}|${listing.quote ?? ''}|${listing.name ?? ''}`
+
 const getListingSymbol = (listing: ListingOption): string => {
   const base = listing.base?.trim()
   const quote = listing.quote?.trim()
@@ -49,6 +55,14 @@ const getListingFallback = (listing: ListingOption): string => {
   const symbol = getListingSymbol(listing).trim()
   if (!symbol) return '??'
   return symbol.slice(0, 2).toUpperCase()
+}
+
+const getListingCompanyName = (listing: ListingOption): string | null => {
+  const name = listing.name?.trim()
+  if (!name) return null
+  const symbol = getListingSymbol(listing).trim()
+  if (symbol && symbol.toLowerCase() === name.toLowerCase()) return null
+  return name
 }
 
 const hasListingDetails = (listing?: ListingOption | null): boolean => {
@@ -81,8 +95,15 @@ const getFlagData = (
   }
 }
 
-const ListingSelectorRow = ({ listing }: { listing?: ListingOption | null }) => {
+const ListingSelectorRow = ({
+  listing,
+  showSecondary = false,
+}: {
+  listing?: ListingOption | null
+  showSecondary?: boolean
+}) => {
   const symbol = listing ? getListingSymbol(listing) : ''
+  const companyName = listing ? getListingCompanyName(listing) : null
   const assetClassLabel = listing?.assetClass?.toUpperCase() ?? ''
   const flagData = getFlagData(listing?.countryCode)
   const prefersFlagImage =
@@ -99,9 +120,16 @@ const ListingSelectorRow = ({ listing }: { listing?: ListingOption | null }) => 
           {listing ? getListingFallback(listing) : '??'}
         </AvatarFallback>
       </Avatar>
-      <span className='min-w-0 truncate text-sm font-medium'>
-        {listing ? symbol : 'Select listing'}
-      </span>
+      {showSecondary && companyName ? (
+        <div className='min-w-0 flex-1'>
+          <span className='block min-w-0 truncate text-sm font-medium'>{listing ? symbol : 'Select listing'}</span>
+          <span className='block min-w-0 truncate text-muted-foreground text-xs'>{companyName}</span>
+        </div>
+      ) : (
+        <span className='min-w-0 truncate text-sm font-medium'>
+          {listing ? symbol : 'Select listing'}
+        </span>
+      )}
       {prefersFlagImage && flagImageUrl ? (
         <img
           src={flagImageUrl}
@@ -162,7 +190,7 @@ export function ListingSelector({
     left: number
     width: number
   } | null>(null)
-  const hydratedKeyRef = useRef<string | null>(null)
+  const hydratedListingRef = useRef<ListingIdentity | null>(null)
   const hydrateRequestRef = useRef(0)
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
@@ -218,14 +246,13 @@ export function ListingSelector({
     return getListingSymbol(selectedListing)
   }, [selectedListing])
 
-  const selectedListingKey = useMemo(() => {
-    return resolveListingKey(safeInstance.selectedListingValue ?? selectedListing ?? null) ?? null
-  }, [safeInstance.selectedListingValue, selectedListing])
-  const hasUnresolvedSelection = Boolean(selectedListingKey) && !selectedListing
+  const selectedListingIdentity = useMemo(
+    () => toListingValueObject(safeInstance.selectedListingValue ?? selectedListing ?? null),
+    [safeInstance.selectedListingValue, selectedListing]
+  )
+  const hasUnresolvedSelection = Boolean(selectedListingIdentity) && !selectedListing
   const fallbackLabel = ''
-  const sanitizedQuery =
-    selectedListingKey && query.trim() === selectedListingKey ? '' : query
-  const displayValue = open ? sanitizedQuery : selectedLabel || fallbackLabel || sanitizedQuery
+  const displayValue = open ? query : selectedLabel || fallbackLabel || query
   const showRichOverlay = !open && !!selectedListing
   const showTagOverlay = !open && !selectedListing && Boolean(query?.trim().includes('<'))
   const showListingDropdown = open && !showTags
@@ -285,25 +312,23 @@ export function ListingSelector({
     const selectedValue =
       safeInstance.selectedListingValue ?? safeInstance.selectedListing ?? null
     if (!selectedValue) {
-      hydratedKeyRef.current = null
+      hydratedListingRef.current = null
       return
     }
 
     const identity = toListingValueObject(selectedValue)
     if (!identity) return
-    const listingKey = resolveListingKey(identity)
-    if (!listingKey) return
 
     if (safeInstance.selectedListing && hasListingDetails(safeInstance.selectedListing)) {
-      hydratedKeyRef.current = listingKey
+      hydratedListingRef.current = identity
       return
     }
 
-    if (hydratedKeyRef.current === listingKey) {
+    if (areListingIdentitiesEqual(hydratedListingRef.current, identity)) {
       return
     }
 
-    hydratedKeyRef.current = listingKey
+    hydratedListingRef.current = identity
     const requestId = ++hydrateRequestRef.current
     let cancelled = false
 
@@ -400,7 +425,7 @@ export function ListingSelector({
               const isHighlighted = index === highlightedIndex
               return (
                 <div
-                  key={listing.id}
+                  key={getListingOptionKey(listing)}
                   data-option-index={index}
                   onMouseEnter={() => setHighlightedIndex(index)}
                   onMouseDown={(event) => {
@@ -412,7 +437,7 @@ export function ListingSelector({
                     isHighlighted && 'bg-accent text-accent-foreground'
                   )}
                 >
-                  <ListingSelectorRow listing={listing} />
+                  <ListingSelectorRow listing={listing} showSecondary />
                 </div>
               )
             })
@@ -433,11 +458,15 @@ export function ListingSelector({
             ),
             hideInputText && 'text-transparent caret-transparent placeholder:text-transparent'
           )}
+          name={`listing-search-${instanceId}`}
           placeholder='Search listings...'
-          autoComplete='new-password'
+          autoComplete='off'
           autoCorrect='off'
           autoCapitalize='off'
           spellCheck={false}
+          data-1p-ignore='true'
+          data-lpignore='true'
+          data-form-type='other'
           value={displayValue}
           onChange={(event) => {
             if (disabled) return

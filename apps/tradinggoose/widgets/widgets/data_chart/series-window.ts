@@ -3,6 +3,7 @@ import {
   getMarketProviderParamDefinitions,
   getMarketSeriesCapabilities,
 } from '@/providers/market/providers'
+import { rangeToMs as resolveRangeMs, seriesWindowKey } from '@/providers/market/series-window'
 import {
   MARKET_INTERVALS,
   type MarketInterval,
@@ -11,7 +12,6 @@ import {
   type MarketSeriesWindowMode,
   type NormalizationMode,
 } from '@/providers/market/types'
-import { seriesWindowKey, rangeToMs as resolveRangeMs } from '@/providers/market/series-window'
 import {
   DEFAULT_BAR_COUNT,
   DEFAULT_RANGE_PRESETS,
@@ -124,13 +124,12 @@ export const resolveSeriesWindow = (params: DataChartWidgetParams, providerId?: 
       ? capabilities.windowModes
       : (['range'] as MarketSeriesWindowMode[])
 
-  const dataParams = params.data ?? {}
   const viewParams = params.view ?? {}
   const fallbackRange = DEFAULT_RANGE_PRESETS[0]?.range
   const rangePresetId =
     typeof viewParams.rangePresetId === 'string' ? viewParams.rangePresetId.trim() : ''
   const rangePreset = rangePresetId
-    ? DEFAULT_RANGE_PRESETS.find((preset) => preset.id === rangePresetId) ?? null
+    ? (DEFAULT_RANGE_PRESETS.find((preset) => preset.id === rangePresetId) ?? null)
     : null
 
   let window: MarketSeriesWindow | null = null
@@ -142,9 +141,8 @@ export const resolveSeriesWindow = (params: DataChartWidgetParams, providerId?: 
     window = resolveDefaultWindow(allowedWindowModes, fallbackRange)
   }
 
-  const dataInterval = normalizeInterval(dataParams.interval, allowedIntervals)
   const viewInterval = normalizeInterval(viewParams.interval, allowedIntervals)
-  let interval = dataInterval ?? viewInterval
+  let interval = viewInterval
   if (!interval && window && window.mode === 'range') {
     const rangeMs = rangeToMs(window.range)
     interval = rangeMs ? chooseIntervalForRange(rangeMs, allowedIntervals) : undefined

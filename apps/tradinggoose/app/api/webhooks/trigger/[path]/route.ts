@@ -6,6 +6,7 @@ import {
   checkUsageLimits,
   findWebhookAndWorkflow,
   handleProviderChallenges,
+  mapDispatchGateResultToHttpResponse,
   parseWebhookBody,
   queueWebhookExecution,
   verifyProviderAuth,
@@ -22,10 +23,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const requestId = generateRequestId()
   const { path } = await params
 
-  // Handle Microsoft Graph subscription validation
+  const findResult = await findWebhookAndWorkflow({ requestId, path })
+  if (!findResult) {
+    logger.warn(`[${requestId}] Webhook or workflow not found for path: ${path}`)
+    return new NextResponse('Not Found', { status: 404 })
+  }
+
+  const { webhook: foundWebhook } = findResult
+
+  if (foundWebhook.provider === 'indicator') {
+    logger.warn(`[${requestId}] Blocked external trigger request for indicator webhook`, {
+      path,
+      webhookId: foundWebhook.id,
+    })
+    return new NextResponse('Forbidden', { status: 403 })
+  }
+
   const url = new URL(request.url)
   const validationToken = url.searchParams.get('validationToken')
-
   if (validationToken) {
     logger.info(`[${requestId}] Microsoft Graph subscription validation for path: ${path}`)
     return new NextResponse(validationToken, {
@@ -34,7 +49,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     })
   }
 
-  // Handle other GET-based verifications if needed
   const challengeResponse = await handleProviderChallenges({}, request, requestId, path)
   if (challengeResponse) {
     return challengeResponse
@@ -50,7 +64,23 @@ export async function POST(
   const requestId = generateRequestId()
   const { path } = await params
 
-  // Handle Microsoft Graph subscription validation (some environments send POST with validationToken)
+  const findResult = await findWebhookAndWorkflow({ requestId, path })
+
+  if (!findResult) {
+    logger.warn(`[${requestId}] Webhook or workflow not found for path: ${path}`)
+    return new NextResponse('Not Found', { status: 404 })
+  }
+
+  const { webhook: foundWebhook, workflow: foundWorkflow } = findResult
+
+  if (foundWebhook.provider === 'indicator') {
+    logger.warn(`[${requestId}] Blocked external trigger request for indicator webhook`, {
+      path,
+      webhookId: foundWebhook.id,
+    })
+    return new NextResponse('Forbidden', { status: 403 })
+  }
+
   try {
     const url = new URL(request.url)
     const validationToken = url.searchParams.get('validationToken')
@@ -62,12 +92,10 @@ export async function POST(
       })
     }
   } catch {
-    // ignore URL parsing errors; proceed to normal handling
+    // ignore URL parsing errors; proceed to standard body processing
   }
 
   const parseResult = await parseWebhookBody(request, requestId)
-
-  // Check if parseWebhookBody returned an error response
   if (parseResult instanceof NextResponse) {
     return parseResult
   }
@@ -79,27 +107,22 @@ export async function POST(
     return challengeResponse
   }
 
-  const findResult = await findWebhookAndWorkflow({ requestId, path })
-
-  if (!findResult) {
-    logger.warn(`[${requestId}] Webhook or workflow not found for path: ${path}`)
-
-    return new NextResponse('Not Found', { status: 404 })
-  }
-
-  const { webhook: foundWebhook, workflow: foundWorkflow } = findResult
-
   const authError = await verifyProviderAuth(foundWebhook, request, rawBody, requestId)
   if (authError) {
     return authError
   }
 
-  const rateLimitError = await checkRateLimits(foundWorkflow, foundWebhook, requestId)
+  const rateLimitResult = await checkRateLimits(foundWorkflow, foundWebhook, requestId)
+  const rateLimitError = mapDispatchGateResultToHttpResponse(rateLimitResult, foundWebhook.provider)
   if (rateLimitError) {
     return rateLimitError
   }
 
-  const usageLimitError = await checkUsageLimits(foundWorkflow, foundWebhook, requestId, false)
+  const usageLimitResult = await checkUsageLimits(foundWorkflow, foundWebhook, requestId, false)
+  const usageLimitError = mapDispatchGateResultToHttpResponse(
+    usageLimitResult,
+    foundWebhook.provider
+  )
   if (usageLimitError) {
     return usageLimitError
   }
@@ -114,10 +137,16 @@ export async function POST(
     }
   }
 
-  return queueWebhookExecution(foundWebhook, foundWorkflow, body, request, {
-    requestId,
-    path,
-    testMode: false,
-    executionTarget: 'deployed',
-  })
+  return queueWebhookExecution(
+    foundWebhook,
+    foundWorkflow,
+    body,
+    { kind: 'http', request },
+    {
+      requestId,
+      path,
+      testMode: false,
+      executionTarget: 'deployed',
+    }
+  )
 }

@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
+import { getStableVibrantColor } from '@/lib/colors'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
@@ -43,6 +44,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // Generate new workflow ID
     const newWorkflowId = crypto.randomUUID()
     const now = new Date()
+    const resolvedColor =
+      typeof color === 'string' && color.trim().length > 0
+        ? color.trim()
+        : getStableVibrantColor(newWorkflowId)
 
     // Duplicate workflow and all related data in a transaction
     const result = await db.transaction(async (tx) => {
@@ -91,7 +96,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         folderId: folderId || source.folderId,
         name,
         description: description || source.description,
-        color: color || source.color,
+        color: resolvedColor,
         lastSynced: now,
         createdAt: now,
         updatedAt: now,
@@ -154,9 +159,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             if (dataObj.parentId && typeof dataObj.parentId === 'string') {
               updatedData = { ...dataObj }
               if (blockIdMapping.has(dataObj.parentId)) {
-                ; (updatedData as any).parentId = blockIdMapping.get(dataObj.parentId)!
-                  // Ensure extent is set to 'parent' for child blocks
-                  ; (updatedData as any).extent = 'parent'
+                ;(updatedData as any).parentId = blockIdMapping.get(dataObj.parentId)!
+                // Ensure extent is set to 'parent' for child blocks
+                ;(updatedData as any).extent = 'parent'
                 newExtent = 'parent'
               }
             }
@@ -235,9 +240,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                 | LoopConfig
                 | ParallelConfig
 
-                // Update the config ID to match the new subflow ID
+              // Update the config ID to match the new subflow ID
 
-                ; (updatedConfig as any).id = newSubflowId
+              ;(updatedConfig as any).id = newSubflowId
 
               // Update node references in config if they exist
               if ('nodes' in updatedConfig && Array.isArray(updatedConfig.nodes)) {
@@ -291,7 +296,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         id: newWorkflowId,
         name,
         description: description || source.description,
-        color: color || source.color,
+        color: resolvedColor,
         workspaceId: workspaceId || source.workspaceId,
         folderId: folderId || source.folderId,
         blocksCount: sourceBlocks.length,

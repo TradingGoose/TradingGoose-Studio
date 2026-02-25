@@ -42,7 +42,6 @@ function normalizeListingOption(option: ListingOption): ListingOption {
     }
     return {
       ...option,
-      id: listingId,
       listing_id: listingId,
       base_id: '',
       quote_id: '',
@@ -58,7 +57,6 @@ function normalizeListingOption(option: ListingOption): ListingOption {
 
   return {
     ...option,
-    id: `${baseId}:${quoteId}`,
     listing_id: '',
     base_id: baseId,
     quote_id: quoteId,

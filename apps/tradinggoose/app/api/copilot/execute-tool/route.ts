@@ -12,7 +12,6 @@ import {
 } from '@/lib/copilot/auth'
 import { createPermissionError, verifyWorkflowAccess } from '@/lib/copilot/auth/permissions'
 import { DEFAULT_EXECUTION_TIMEOUT_MS } from '@/lib/execution/constants'
-import { DEFAULT_CODE_LANGUAGE } from '@/lib/execution/languages'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
@@ -197,7 +196,6 @@ export async function POST(req: NextRequest) {
       executionParams.workflowVariables = executionParams.workflowVariables || {}
       executionParams.blockData = executionParams.blockData || {}
       executionParams.blockNameMapping = executionParams.blockNameMapping || {}
-      executionParams.language = executionParams.language || DEFAULT_CODE_LANGUAGE
       executionParams.timeout = executionParams.timeout || DEFAULT_EXECUTION_TIMEOUT_MS
     }
 

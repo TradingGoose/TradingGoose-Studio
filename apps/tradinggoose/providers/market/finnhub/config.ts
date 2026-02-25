@@ -1,9 +1,9 @@
-import type { MarketProviderConfig } from '@/providers/market/providers'
+import exchangeCodes from '@/providers/market/finnhub/exchangeCodes.json'
 import exchangeCodeToMarket from '@/providers/market/finnhub/exchangeCodeToMarket.json'
 import marketToExchangeCode from '@/providers/market/finnhub/marketToExchangeCode.json'
-import exchangeCodes from '@/providers/market/finnhub/exchangeCodes.json'
 import { finnhubSymbolRules } from '@/providers/market/finnhub/rules'
-import { AssetClass } from '@/providers/market/types'
+import type { MarketProviderConfig } from '@/providers/market/providers'
+import type { AssetClass } from '@/providers/market/types'
 
 const availableAssetClasses: AssetClass[] = [
   'stock',
@@ -83,7 +83,7 @@ export const finnhubProviderConfig: MarketProviderConfig = {
     },
     live: {
       supportsStreaming: true,
-      channels: ['bars'],
+      channels: ['trades', 'bars'],
       supportsInterval: false,
     },
   },

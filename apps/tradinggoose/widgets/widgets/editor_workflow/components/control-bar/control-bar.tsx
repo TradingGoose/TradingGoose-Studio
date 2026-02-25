@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   Bug,
-  Copy,
-  Layers,
+  LayoutDashboard,
   Play,
   RefreshCw,
   SkipForward,
@@ -13,26 +12,18 @@ import {
   Webhook,
   X,
 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui'
 import { useSession } from '@/lib/auth-client'
 import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
-import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import {
-  DeploymentControls,
-  ExportControls,
-  TemplateModal,
-  WebhookSettings,
-} from '@/widgets/widgets/editor_workflow/components/control-bar/components'
-import { getBlock } from '@/blocks'
-import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { useWorkflowExecution } from '@/hooks/workflow/use-workflow-execution'
 import {
   getKeyboardShortcutText,
   useKeyboardShortcuts,
 } from '@/app/workspace/[workspaceId]/components/use-keyboard-shortcuts'
+import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { getBlock } from '@/blocks'
+import { useWorkflowExecution } from '@/hooks/workflow/use-workflow-execution'
 import { useOperationQueueStore } from '@/stores/operation-queue/store'
 import { usePanelStore } from '@/stores/panel/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
@@ -43,6 +34,13 @@ import {
   widgetHeaderButtonGroupClassName,
   widgetHeaderIconButtonClassName,
 } from '@/widgets/widgets/components/widget-header-control'
+import {
+  DeploymentControls,
+  ExportControls,
+  TemplateModal,
+  WebhookSettings,
+} from '@/widgets/widgets/editor_workflow/components/control-bar/components'
+import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('ControlBar')
 
@@ -82,8 +80,7 @@ const WIDGET_DANGER_BUTTON_CLASS = cn(
 
 const getIconButtonClass = (extra?: string) => cn(WIDGET_ICON_BUTTON_CLASS, extra)
 
-const getDisabledIconButtonClass = (extra?: string) =>
-  cn(WIDGET_ICON_BUTTON_DISABLED_CLASS, extra)
+const getDisabledIconButtonClass = (extra?: string) => cn(WIDGET_ICON_BUTTON_DISABLED_CLASS, extra)
 
 const getPrimaryButtonClass = (extra?: string) => cn(WIDGET_PRIMARY_BUTTON_CLASS, extra)
 
@@ -98,15 +95,13 @@ export function ControlBar({
   className,
   variant = 'widget',
 }: ControlBarProps) {
-  const router = useRouter()
   const { data: session } = useSession()
-  const { workspaceId, workflowId, channelId } = useWorkflowRoute()
+  const { workflowId, channelId } = useWorkflowRoute()
   // Store hooks
   const { lastSaved, setNeedsRedeploymentFlag, blocks } = useWorkflowStore()
   const {
     workflows,
     updateWorkflow,
-    duplicateWorkflow,
     setDeploymentStatus,
     isLoading: isRegistryLoading,
   } = useWorkflowRegistry()
@@ -372,22 +367,6 @@ export function ControlBar({
   }
 
   /**
-   * Handle duplicating the current workflow
-   */
-  const handleDuplicateWorkflow = async () => {
-    if (!activeWorkflowId || !userPermissions.canEdit) return
-
-    try {
-      const newWorkflow = await duplicateWorkflow(activeWorkflowId)
-      if (newWorkflow) {
-        router.push(`/workspace/${workspaceId}/w/${newWorkflow}`)
-      }
-    } catch (error) {
-      logger.error('Error duplicating workflow:', { error })
-    }
-  }
-
-  /**
    * Render deploy button with tooltip
    */
   const renderDeployButton = () => (
@@ -432,42 +411,6 @@ export function ControlBar({
             <Webhook className='h-5 w-5' />
             <span className='sr-only'>Webhook Settings</span>
           </Button>
-        </TooltipTrigger>
-        <TooltipContent>{getTooltipText()}</TooltipContent>
-      </Tooltip>
-    )
-  }
-
-  /**
-   * Render workflow duplicate button
-   */
-  const renderDuplicateButton = () => {
-    const canEdit = userPermissions.canEdit
-    const isDisabled = !canEdit || isDebugging
-
-    const getTooltipText = () => {
-      if (!canEdit) return 'Admin permission required to duplicate workflows'
-      if (isDebugging) return 'Cannot duplicate workflow while debugging'
-      return 'Duplicate workflow'
-    }
-
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          {isDisabled ? (
-            <div className={getDisabledIconButtonClass()}>
-              <Copy className='h-4 w-4' />
-            </div>
-          ) : (
-            <Button
-              variant='outline'
-              onClick={handleDuplicateWorkflow}
-              className={getIconButtonClass()}
-            >
-              <Copy className='h-5 w-5' />
-              <span className='sr-only'>Duplicate Workflow</span>
-            </Button>
-          )}
         </TooltipTrigger>
         <TooltipContent>{getTooltipText()}</TooltipContent>
       </Tooltip>
@@ -529,7 +472,7 @@ export function ControlBar({
               {isAutoLayouting ? (
                 <RefreshCw className='h-4 w-4 animate-spin' />
               ) : (
-                <Layers className='h-4 w-4' />
+                <LayoutDashboard className='h-4 w-4' />
               )}
             </div>
           ) : (
@@ -542,7 +485,7 @@ export function ControlBar({
               {isAutoLayouting ? (
                 <RefreshCw className='h-5 w-5 animate-spin' />
               ) : (
-                <Layers className='h-5 w-5' />
+                <LayoutDashboard className='h-5 w-5' />
               )}
               <span className='sr-only'>Auto Layout</span>
             </Button>
@@ -723,9 +666,7 @@ export function ControlBar({
       <Tooltip>
         <TooltipTrigger asChild>
           {isDisabled ? (
-            <div
-              className={cn(getDisabledIconButtonClass(), isDebugging && 'text-yellow-500')}
-            >
+            <div className={cn(getDisabledIconButtonClass(), isDebugging && 'text-yellow-500')}>
               <Bug className='h-4 w-4' />
             </div>
           ) : (
@@ -833,7 +774,6 @@ export function ControlBar({
       {showOptionalControls && <ExportControls variant={variant} />}
       {showOptionalControls && renderAutoLayoutButton()}
       {showOptionalControls && renderPublishButton()}
-      {renderDuplicateButton()}
       {!isDebugging && renderDebugModeToggle()}
       {renderDeployButton()}
       {isDebugging ? renderDebugControlsBar() : renderRunButton()}

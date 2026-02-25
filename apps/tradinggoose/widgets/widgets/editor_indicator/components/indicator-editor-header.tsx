@@ -2,8 +2,8 @@
 
 import { Check, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import { useIndicatorsStore } from '@/stores/indicators/store'
 import type { PairColor } from '@/widgets/pair-colors'
 import { emitIndicatorEditorAction } from '@/widgets/utils/indicator-editor-actions'
 import { emitIndicatorSelectionChange } from '@/widgets/utils/indicator-selection'
@@ -29,17 +29,8 @@ export function IndicatorEditorSelector({
   const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
 
-  const fallbackIndicatorId = pairContext?.pineIndicatorId
-    ? null
-    : (pairContext?.indicatorId ?? null)
-  const fallbackIndicator = useIndicatorsStore((state) =>
-    fallbackIndicatorId
-      ? state.getIndicator(fallbackIndicatorId, workspaceId ?? undefined)
-      : undefined
-  )
-
   const resolvedIndicatorId = isLinkedToColorPair
-    ? (pairContext?.pineIndicatorId ?? (fallbackIndicator ? fallbackIndicatorId : null))
+    ? (pairContext?.pineIndicatorId ?? indicatorId ?? null)
     : (indicatorId ?? null)
 
   const handleIndicatorChange = (ids: string[]) => {
@@ -70,7 +61,7 @@ export function IndicatorEditorSelector({
   )
 }
 
-interface IndicatorEditorSaveButtonProps {
+interface IndicatorEditorActionButtonProps {
   workspaceId?: string
   indicatorId?: string | null
   panelId?: string
@@ -84,19 +75,15 @@ export function IndicatorEditorSaveButton({
   panelId,
   widgetKey,
   pairColor = 'gray',
-}: IndicatorEditorSaveButtonProps) {
+}: IndicatorEditorActionButtonProps) {
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
 
-  const fallbackIndicatorId = pairContext?.pineIndicatorId
-    ? null
-    : (pairContext?.indicatorId ?? null)
-  const fallbackIndicator = useIndicatorsStore((state) =>
-    fallbackIndicatorId
-      ? state.getIndicator(fallbackIndicatorId, workspaceId ?? undefined)
-      : undefined
-  )
+  const resolvedIndicatorId = isLinkedToColorPair
+    ? (pairContext?.pineIndicatorId ?? indicatorId ?? null)
+    : (indicatorId ?? null)
+  const saveDisabled = !workspaceId || !resolvedIndicatorId
 
   const handleSave = () => {
     emitIndicatorEditorAction({
@@ -106,31 +93,26 @@ export function IndicatorEditorSaveButton({
     })
   }
 
-  const resolvedIndicatorId = isLinkedToColorPair
-    ? (pairContext?.pineIndicatorId ?? (fallbackIndicator ? fallbackIndicatorId : null))
-    : (indicatorId ?? null)
-  const saveDisabled = !workspaceId || !resolvedIndicatorId
-
   return (
-    <Button
-      type='button'
-      variant='default'
-      size='sm'
-      className='h-7 w-7 text-xs'
-      onClick={handleSave}
-      disabled={saveDisabled}
-    >
-      <Save />
-    </Button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className='inline-flex'>
+          <Button
+            type='button'
+            variant='default'
+            size='sm'
+            className='h-7 w-7 text-xs'
+            onClick={handleSave}
+            disabled={saveDisabled}
+          >
+            <Save className='h-4 w-4' />
+            <span className='sr-only'>Save indicator</span>
+          </Button>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side='top'>Save indicator</TooltipContent>
+    </Tooltip>
   )
-}
-
-interface IndicatorEditorVerifyButtonProps {
-  workspaceId?: string
-  indicatorId?: string | null
-  panelId?: string
-  widgetKey?: string
-  pairColor?: PairColor
 }
 
 export function IndicatorEditorVerifyButton({
@@ -139,19 +121,15 @@ export function IndicatorEditorVerifyButton({
   panelId,
   widgetKey,
   pairColor = 'gray',
-}: IndicatorEditorVerifyButtonProps) {
+}: IndicatorEditorActionButtonProps) {
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
 
-  const fallbackIndicatorId = pairContext?.pineIndicatorId
-    ? null
-    : (pairContext?.indicatorId ?? null)
-  const fallbackIndicator = useIndicatorsStore((state) =>
-    fallbackIndicatorId
-      ? state.getIndicator(fallbackIndicatorId, workspaceId ?? undefined)
-      : undefined
-  )
+  const resolvedIndicatorId = isLinkedToColorPair
+    ? (pairContext?.pineIndicatorId ?? indicatorId ?? null)
+    : (indicatorId ?? null)
+  const verifyDisabled = !workspaceId || !resolvedIndicatorId
 
   const handleVerify = () => {
     emitIndicatorEditorAction({
@@ -161,22 +139,24 @@ export function IndicatorEditorVerifyButton({
     })
   }
 
-  const resolvedIndicatorId = isLinkedToColorPair
-    ? (pairContext?.pineIndicatorId ?? (fallbackIndicator ? fallbackIndicatorId : null))
-    : (indicatorId ?? null)
-  const verifyDisabled = !workspaceId || !resolvedIndicatorId
-
   return (
-    <Button
-      type='button'
-      variant='secondary'
-      size='sm'
-      className='h-7 w-7 text-xs'
-      onClick={handleVerify}
-      disabled={verifyDisabled}
-      title='Verify indicator'
-    >
-      <Check />
-    </Button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className='inline-flex'>
+          <Button
+            type='button'
+            variant='secondary'
+            size='sm'
+            className='h-7 w-7 text-xs'
+            onClick={handleVerify}
+            disabled={verifyDisabled}
+          >
+            <Check className='h-4 w-4' />
+            <span className='sr-only'>Verify indicator</span>
+          </Button>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side='top'>Verify indicator</TooltipContent>
+    </Tooltip>
   )
 }

@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { webhook, workflow } from '@tradinggoose/db/schema'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, ne } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
@@ -72,7 +72,13 @@ export async function GET(request: NextRequest) {
         })
         .from(webhook)
         .innerJoin(workflow, eq(webhook.workflowId, workflow.id))
-        .where(and(eq(webhook.workflowId, workflowId), eq(webhook.blockId, blockId)))
+        .where(
+          and(
+            eq(webhook.workflowId, workflowId),
+            eq(webhook.blockId, blockId),
+            ne(webhook.provider, 'indicator')
+          )
+        )
         .orderBy(desc(webhook.updatedAt))
 
       logger.info(
@@ -98,7 +104,7 @@ export async function GET(request: NextRequest) {
       })
       .from(webhook)
       .innerJoin(workflow, eq(webhook.workflowId, workflow.id))
-      .where(eq(workflow.userId, session.user.id))
+      .where(and(eq(workflow.userId, session.user.id), ne(webhook.provider, 'indicator')))
 
     logger.info(`[${requestId}] Retrieved ${webhooks.length} user-owned webhooks`)
     return NextResponse.json({ webhooks }, { status: 200 })
@@ -121,6 +127,11 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { workflowId, path, provider, providerConfig, blockId } = body
+
+    if (provider === 'indicator') {
+      logger.warn(`[${requestId}] Denied indicator webhook creation through generic webhook API`)
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     // Validate input
     if (!workflowId) {
@@ -150,7 +161,13 @@ export async function POST(request: NextRequest) {
           const existingForBlock = await db
             .select({ id: webhook.id, path: webhook.path })
             .from(webhook)
-            .where(and(eq(webhook.workflowId, workflowId), eq(webhook.blockId, blockId)))
+            .where(
+              and(
+                eq(webhook.workflowId, workflowId),
+                eq(webhook.blockId, blockId),
+                ne(webhook.provider, 'indicator')
+              )
+            )
             .limit(1)
 
           if (existingForBlock.length > 0) {
@@ -226,7 +243,13 @@ export async function POST(request: NextRequest) {
       const existingForBlock = await db
         .select({ id: webhook.id })
         .from(webhook)
-        .where(and(eq(webhook.workflowId, workflowId), eq(webhook.blockId, blockId)))
+        .where(
+          and(
+            eq(webhook.workflowId, workflowId),
+            eq(webhook.blockId, blockId),
+            ne(webhook.provider, 'indicator')
+          )
+        )
         .limit(1)
       if (existingForBlock.length > 0) {
         targetWebhookId = existingForBlock[0].id
@@ -234,11 +257,21 @@ export async function POST(request: NextRequest) {
     }
     if (!targetWebhookId) {
       const existingByPath = await db
-        .select({ id: webhook.id, workflowId: webhook.workflowId })
+        .select({ id: webhook.id, workflowId: webhook.workflowId, provider: webhook.provider })
         .from(webhook)
         .where(eq(webhook.path, finalPath))
         .limit(1)
       if (existingByPath.length > 0) {
+        if (existingByPath[0].provider === 'indicator') {
+          logger.warn(`[${requestId}] Generic webhook upsert blocked for indicator path collision`, {
+            path: finalPath,
+          })
+          return NextResponse.json(
+            { error: 'Webhook path already exists.', code: 'PATH_EXISTS' },
+            { status: 409 }
+          )
+        }
+
         // If a webhook with the same path exists but belongs to a different workflow, return an error
         if (existingByPath[0].workflowId !== workflowId) {
           logger.warn(`[${requestId}] Webhook path conflict: ${finalPath}`)
@@ -272,8 +305,14 @@ export async function POST(request: NextRequest) {
           isActive: true,
           updatedAt: new Date(),
         })
-        .where(eq(webhook.id, targetWebhookId))
+        .where(and(eq(webhook.id, targetWebhookId), ne(webhook.provider, 'indicator')))
         .returning()
+      if (updatedResult.length === 0) {
+        logger.warn(`[${requestId}] Generic webhook update blocked for indicator target`, {
+          webhookId: targetWebhookId,
+        })
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
       savedWebhook = updatedResult[0]
       logger.info(`[${requestId}] Webhook updated successfully`, {
         webhookId: savedWebhook.id,

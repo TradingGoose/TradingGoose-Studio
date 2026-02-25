@@ -129,6 +129,7 @@ function createDummyPluginApi(): ILineToolsPlugin {
 		applyLineToolOptions: dummyFnBoolean,
 		exportLineTools: dummyFnString,
 		importLineTools: dummyFnBoolean,
+		refreshLineToolViews: dummyFn,
 		subscribeLineToolsDoubleClick: dummyFn,
 		unsubscribeLineToolsDoubleClick: dummyFn,
 		subscribeLineToolsAfterEdit: dummyFn,
@@ -182,4 +183,3 @@ export { PriceAxisLabelStackingManager } from './model/price-axis-label-stacking
 export { LineToolsCorePlugin } from './core-plugin';
 export { InteractionManager } from './interaction/interaction-manager';
 export { ToolRegistry } from './model/tool-registry';
-

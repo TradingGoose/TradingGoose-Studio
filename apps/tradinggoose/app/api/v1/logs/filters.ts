@@ -1,5 +1,6 @@
 import { workflow, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { and, desc, eq, gte, inArray, lte, type SQL, sql } from 'drizzle-orm'
+import type { ListingIdentity } from '@/lib/listing/identity'
 
 export interface LogFilters {
   workspaceId: string
@@ -15,6 +16,12 @@ export interface LogFilters {
   minCost?: number
   maxCost?: number
   model?: string
+  monitorId?: string
+  listing?: ListingIdentity
+  indicatorId?: string
+  providerId?: string
+  interval?: string
+  triggerSource?: 'indicator_trigger'
   cursor?: {
     startedAt: string
     id: string
@@ -97,6 +104,46 @@ export function buildLogFilters(filters: LogFilters): SQL<unknown> {
   // Model filter
   if (filters.model) {
     conditions.push(sql`${workflowExecutionLogs.cost}->>'models' ? ${filters.model}`)
+  }
+
+  if (filters.monitorId) {
+    conditions.push(
+      sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->>'id' = ${filters.monitorId}`
+    )
+  }
+  if (filters.listing) {
+    conditions.push(
+      sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->'listing'->>'listing_type' = ${filters.listing.listing_type}`
+    )
+    conditions.push(
+      sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->'listing'->>'listing_id' = ${filters.listing.listing_id}`
+    )
+    conditions.push(
+      sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->'listing'->>'base_id' = ${filters.listing.base_id}`
+    )
+    conditions.push(
+      sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->'listing'->>'quote_id' = ${filters.listing.quote_id}`
+    )
+  }
+  if (filters.indicatorId) {
+    conditions.push(
+      sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->>'indicatorId' = ${filters.indicatorId}`
+    )
+  }
+  if (filters.providerId) {
+    conditions.push(
+      sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->>'providerId' = ${filters.providerId}`
+    )
+  }
+  if (filters.interval) {
+    conditions.push(
+      sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->>'interval' = ${filters.interval}`
+    )
+  }
+  if (filters.triggerSource) {
+    conditions.push(
+      sql`${workflowExecutionLogs.executionData}->'trigger'->>'source' = ${filters.triggerSource}`
+    )
   }
 
   // Combine all conditions with AND

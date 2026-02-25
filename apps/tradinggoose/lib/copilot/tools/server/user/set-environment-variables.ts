@@ -1,11 +1,11 @@
 import { db } from '@tradinggoose/db'
-import { environment } from '@tradinggoose/db/schema'
+import { environmentVariables } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { createPermissionError, verifyWorkflowAccess } from '@/lib/copilot/auth/permissions'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
-import { decryptSecret, encryptSecret } from '@/lib/utils'
+import { encryptSecret } from '@/lib/utils'
 
 interface SetEnvironmentVariablesParams {
   variables: Record<string, any> | Array<{ name: string; value: string }>
@@ -34,101 +34,81 @@ function normalizeVariables(
 }
 
 export const setEnvironmentVariablesServerTool: BaseServerTool<SetEnvironmentVariablesParams, any> =
-{
-  name: 'set_environment_variables',
-  async execute(
-    params: SetEnvironmentVariablesParams,
-    context?: { userId: string }
-  ): Promise<any> {
-    const logger = createLogger('SetEnvironmentVariablesServerTool')
+  {
+    name: 'set_environment_variables',
+    async execute(
+      params: SetEnvironmentVariablesParams,
+      context?: { userId: string }
+    ): Promise<any> {
+      const logger = createLogger('SetEnvironmentVariablesServerTool')
 
-    if (!context?.userId) {
-      logger.error(
-        'Unauthorized attempt to set environment variables - no authenticated user context'
-      )
-      throw new Error('Authentication required')
-    }
-
-    const authenticatedUserId = context.userId
-    const { variables, workflowId } = params || ({} as SetEnvironmentVariablesParams)
-
-    if (workflowId) {
-      const { hasAccess } = await verifyWorkflowAccess(authenticatedUserId, workflowId)
-
-      if (!hasAccess) {
-        const errorMessage = createPermissionError('modify environment variables in')
-        logger.error('Unauthorized attempt to set environment variables', {
-          workflowId,
-          authenticatedUserId,
-        })
-        throw new Error(errorMessage)
+      if (!context?.userId) {
+        logger.error(
+          'Unauthorized attempt to set environment variables - no authenticated user context'
+        )
+        throw new Error('Authentication required')
       }
-    }
 
-    const userId = authenticatedUserId
+      const authenticatedUserId = context.userId
+      const { variables, workflowId } = params || ({} as SetEnvironmentVariablesParams)
 
-    const normalized = normalizeVariables(variables || {})
-    const { variables: validatedVariables } = EnvVarSchema.parse({ variables: normalized })
+      if (workflowId) {
+        const { hasAccess } = await verifyWorkflowAccess(authenticatedUserId, workflowId)
 
-    const existingData = await db
-      .select()
-      .from(environment)
-      .where(eq(environment.userId, userId))
-      .limit(1)
-    const existingEncrypted = (existingData[0]?.variables as Record<string, string>) || {}
-
-    const toEncrypt: Record<string, string> = {}
-    const added: string[] = []
-    const updated: string[] = []
-    for (const [key, newVal] of Object.entries(validatedVariables)) {
-      if (!(key in existingEncrypted)) {
-        toEncrypt[key] = newVal
-        added.push(key)
-      } else {
-        try {
-          const { decrypted } = await decryptSecret(existingEncrypted[key])
-          if (decrypted !== newVal) {
-            toEncrypt[key] = newVal
-            updated.push(key)
-          }
-        } catch {
-          toEncrypt[key] = newVal
-          updated.push(key)
+        if (!hasAccess) {
+          const errorMessage = createPermissionError('modify environment variables in')
+          logger.error('Unauthorized attempt to set environment variables', {
+            workflowId,
+            authenticatedUserId,
+          })
+          throw new Error(errorMessage)
         }
       }
-    }
 
-    const newlyEncrypted = await Object.entries(toEncrypt).reduce(
-      async (accP, [key, val]) => {
-        const acc = await accP
-        const { encrypted } = await encryptSecret(val)
-        return { ...acc, [key]: encrypted }
-      },
-      Promise.resolve({} as Record<string, string>)
-    )
+      const userId = authenticatedUserId
 
-    const finalEncrypted = { ...existingEncrypted, ...newlyEncrypted }
+      const normalized = normalizeVariables(variables || {})
+      const { variables: validatedVariables } = EnvVarSchema.parse({ variables: normalized })
+      const variableEntries = Object.entries(validatedVariables)
 
-    await db
-      .insert(environment)
-      .values({
-        id: crypto.randomUUID(),
-        userId,
-        variables: finalEncrypted,
-        updatedAt: new Date(),
+      const existingRows = await db
+        .select({ key: environmentVariables.key })
+        .from(environmentVariables)
+        .where(eq(environmentVariables.userId, userId))
+
+      const existingKeySet = new Set(existingRows.map((row) => row.key))
+      const added = variableEntries.filter(([key]) => !existingKeySet.has(key)).map(([key]) => key)
+      const updated = variableEntries.filter(([key]) => existingKeySet.has(key)).map(([key]) => key)
+
+      await db.transaction(async (tx) => {
+        for (const [key, val] of variableEntries) {
+          const { encrypted } = await encryptSecret(val)
+
+          await tx
+            .insert(environmentVariables)
+            .values({
+              id: crypto.randomUUID(),
+              userId,
+              key,
+              value: encrypted,
+            })
+            .onConflictDoUpdate({
+              target: [environmentVariables.userId, environmentVariables.key],
+              set: {
+                value: encrypted,
+                updatedAt: new Date(),
+              },
+            })
+        }
       })
-      .onConflictDoUpdate({
-        target: [environment.userId],
-        set: { variables: finalEncrypted, updatedAt: new Date() },
-      })
 
-    return {
-      message: `Successfully processed ${Object.keys(validatedVariables).length} environment variable(s): ${added.length} added, ${updated.length} updated`,
-      variableCount: Object.keys(validatedVariables).length,
-      variableNames: Object.keys(validatedVariables),
-      totalVariableCount: Object.keys(finalEncrypted).length,
-      addedVariables: added,
-      updatedVariables: updated,
-    }
-  },
-}
+      return {
+        message: `Successfully processed ${Object.keys(validatedVariables).length} environment variable(s): ${added.length} added, ${updated.length} updated`,
+        variableCount: Object.keys(validatedVariables).length,
+        variableNames: Object.keys(validatedVariables),
+        totalVariableCount: existingRows.length + added.length,
+        addedVariables: added,
+        updatedVariables: updated,
+      }
+    },
+  }

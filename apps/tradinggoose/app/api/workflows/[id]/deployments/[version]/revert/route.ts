@@ -7,6 +7,7 @@ import { generateRequestId } from '@/lib/utils'
 import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
 import { validateWorkflowPermissions } from '@/lib/workflows/utils'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
+import { notifyIndicatorMonitorsReconcile } from '@/app/api/indicator-monitors/reconcile'
 
 const logger = createLogger('RevertToDeploymentVersionAPI')
 
@@ -91,12 +92,17 @@ export async function POST(
       const socketServerUrl = env.SOCKET_SERVER_URL || 'http://localhost:3002'
       await fetch(`${socketServerUrl}/api/workflow-reverted`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-Secret': env.INTERNAL_API_SECRET,
+        },
         body: JSON.stringify({ workflowId: id, timestamp: Date.now() }),
       })
     } catch (e) {
       logger.error('Error sending workflow reverted event to socket server', e)
     }
+
+    await notifyIndicatorMonitorsReconcile({ requestId, logger })
 
     return createSuccessResponse({
       message: 'Reverted to deployment version',

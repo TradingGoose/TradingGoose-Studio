@@ -1,11 +1,7 @@
 import type React from 'react'
-import { useCallback, useEffect, useState } from 'react'
-import {
-  usePersonalEnvironment,
-  useWorkspaceEnvironment,
-  type WorkspaceEnvironmentData,
-} from '@/hooks/queries/environment'
+import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
+import { usePersonalEnvironment, useWorkspaceEnvironment } from '@/hooks/queries/environment'
 
 interface EnvVarDropdownProps {
   visible: boolean
@@ -38,16 +34,7 @@ export const EnvVarDropdown: React.FC<EnvVarDropdownProps> = ({
   maxHeight = 'none',
 }) => {
   const { data: personalEnv = {} } = usePersonalEnvironment()
-  const { data: workspaceEnvData } = useWorkspaceEnvironment(workspaceId || '', {
-    select: useCallback(
-      (data: WorkspaceEnvironmentData): WorkspaceEnvironmentData => ({
-        workspace: data.workspace || {},
-        personal: data.personal || {},
-        conflicts: data.conflicts || [],
-      }),
-      []
-    ),
-  })
+  const { data: workspaceEnvData } = useWorkspaceEnvironment(workspaceId || '')
   const userEnvVars = Object.keys(personalEnv)
   const [selectedIndex, setSelectedIndex] = useState(0)
 
@@ -58,7 +45,8 @@ export const EnvVarDropdown: React.FC<EnvVarDropdownProps> = ({
   if (workspaceId) {
     // When workspaceId is provided, show both workspace and user env vars
     const workspaceVars = Object.keys(workspaceEnvData?.workspace || {})
-    const personalVars = Object.keys(workspaceEnvData?.personal || {})
+    const workspacePersonalVars = Object.keys(workspaceEnvData?.personal || {})
+    const personalVars = workspacePersonalVars.length > 0 ? workspacePersonalVars : userEnvVars
 
     if (workspaceVars.length > 0) {
       envVarGroups.push({ label: 'Workspace', variables: workspaceVars })

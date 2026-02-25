@@ -2,16 +2,23 @@ import { handleAuthError } from '@/lib/auth/auth-error-handler'
 import { API_ENDPOINTS } from '@/stores/constants'
 import type { EnvironmentVariable } from '@/stores/settings/environment/types'
 
+export interface WorkspaceEnvironmentRow {
+  key: string
+  value: string
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+
 export interface WorkspaceEnvironmentData {
   workspace: Record<string, string>
   personal: Record<string, string>
   conflicts: string[]
-  workspaceMeta?: { createdAt?: string | null; updatedAt?: string | null }
-  personalMeta?: { createdAt?: string | null; updatedAt?: string | null }
+  workspaceRows: WorkspaceEnvironmentRow[]
+  personalRows: WorkspaceEnvironmentRow[]
 }
 
 export async function fetchPersonalEnvironment(): Promise<Record<string, EnvironmentVariable>> {
-  const response = await fetch(API_ENDPOINTS.ENVIRONMENT)
+  const response = await fetch(API_ENDPOINTS.ENVIRONMENT, { cache: 'no-store' })
 
   if (!response.ok) {
     if (response.status === 401) {
@@ -32,7 +39,9 @@ export async function fetchPersonalEnvironment(): Promise<Record<string, Environ
 export async function fetchWorkspaceEnvironment(
   workspaceId: string
 ): Promise<WorkspaceEnvironmentData> {
-  const response = await fetch(API_ENDPOINTS.WORKSPACE_ENVIRONMENT(workspaceId))
+  const response = await fetch(API_ENDPOINTS.WORKSPACE_ENVIRONMENT(workspaceId), {
+    cache: 'no-store',
+  })
 
   if (!response.ok) {
     if (response.status === 401) {
@@ -47,7 +56,7 @@ export async function fetchWorkspaceEnvironment(
     workspace: data?.workspace || {},
     personal: data?.personal || {},
     conflicts: data?.conflicts || [],
-    workspaceMeta: data?.workspaceMeta,
-    personalMeta: data?.personalMeta,
+    workspaceRows: data?.workspaceRows || [],
+    personalRows: data?.personalRows || [],
   }
 }

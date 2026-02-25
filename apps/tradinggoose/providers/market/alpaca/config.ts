@@ -179,10 +179,7 @@ export const alpacaProviderConfig: MarketProviderConfig = {
       ],
       windowModes: ['range', 'bars', 'absolute'],
       normalizationModes: ['raw', 'adjusted', 'split_adjusted'],
-      marketSessions: ['regular', 'extended'],
-      retention: {
-        default: { maxBars: 10000 },
-      },
+      marketSessions: ['regular', 'extended']
     },
     live: {
       supportsStreaming: true,

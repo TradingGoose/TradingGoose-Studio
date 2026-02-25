@@ -215,6 +215,10 @@ export const env = createEnv({
     // E2B Remote Code Execution
     E2B_ENABLED: z.string().optional(),                  // Enable E2B remote code execution
     E2B_API_KEY: z.string().optional(),                  // E2B API key for sandbox creation
+    E2B_INDICATOR_TEMPLATE_ID: z.string().optional(),                  // E2B template id for indicator/function sandbox creation
+    MAX_E2B_KEEP_WARM_MS: z.string().optional(),                  // Max allowed E2B sandbox keep-warm duration in milliseconds (default 1 hour)
+    E2B_KEEP_WARM_MS: z.string().optional(),                  // Default E2B sandbox keep-warm duration in milliseconds
+    E2B_INDICATOR_KEEP_WARM_MS: z.string().optional(),                  // Indicator-specific keep-warm duration in milliseconds
 
     // SSO Configuration (for script-based registration)
     SSO_ENABLED: z.boolean().optional(),                 // Enable SSO functionality
@@ -281,7 +285,6 @@ export const env = createEnv({
     NEXT_PUBLIC_CUSTOM_CSS_URL: z.string().url().optional(),            // Custom CSS stylesheet URL
     NEXT_PUBLIC_SUPPORT_EMAIL: z.string().email().optional(),          // Custom support email
 
-    NEXT_PUBLIC_E2B_ENABLED: z.string().optional(),
     NEXT_PUBLIC_COPILOT_TRAINING_ENABLED: z.string().optional(),
     NEXT_PUBLIC_DOCUMENTATION_URL: z.string().url().optional(),            // Custom documentation URL
     NEXT_PUBLIC_TERMS_URL: z.string().url().optional(),            // Custom terms of service URL
@@ -329,7 +332,6 @@ export const env = createEnv({
     NEXT_PUBLIC_TRIGGER_DEV_ENABLED: process.env.NEXT_PUBLIC_TRIGGER_DEV_ENABLED,
     NEXT_PUBLIC_SSO_ENABLED: process.env.NEXT_PUBLIC_SSO_ENABLED,
     NEXT_PUBLIC_EMAIL_PASSWORD_SIGNUP_ENABLED: process.env.NEXT_PUBLIC_EMAIL_PASSWORD_SIGNUP_ENABLED,
-    NEXT_PUBLIC_E2B_ENABLED: process.env.NEXT_PUBLIC_E2B_ENABLED,
     NEXT_PUBLIC_COPILOT_TRAINING_ENABLED: process.env.NEXT_PUBLIC_COPILOT_TRAINING_ENABLED,
     NEXT_PUBLIC_POSTHOG_ENABLED: process.env.NEXT_PUBLIC_POSTHOG_ENABLED,
     NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,

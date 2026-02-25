@@ -8,14 +8,14 @@ import { Input } from '@/components/ui/input'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
-import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
-import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
-import { useWand } from '@/hooks/workflow/use-wand'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useTagSelection } from '@/hooks/use-tag-selection'
 import { useWebhookManagement } from '@/hooks/use-webhook-management'
+import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
+import { useWand } from '@/hooks/workflow/use-wand'
+import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
+import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('ShortInput')
 
@@ -51,6 +51,7 @@ interface ShortInputProps {
   useWebhookUrl?: boolean
   workspaceId?: string
   enableTags?: boolean
+  forceEnvVarDropdown?: boolean
 }
 
 export function ShortInput({
@@ -71,6 +72,7 @@ export function ShortInput({
   useWebhookUrl = false,
   workspaceId,
   enableTags = true,
+  forceEnvVarDropdown = false,
 }: ShortInputProps) {
   // Local state for immediate UI updates during streaming
   const [localContent, setLocalContent] = useState<string>('')
@@ -90,25 +92,25 @@ export function ShortInput({
   // Wand functionality (only if wandConfig is enabled)
   const wandHook = config.wandConfig?.enabled
     ? useWand({
-      wandConfig: config.wandConfig,
-      currentValue: localContent,
-      onStreamStart: () => {
-        // Clear the content when streaming starts
-        setLocalContent('')
-      },
-      onStreamChunk: (chunk) => {
-        // Update local content with each chunk as it arrives
-        setLocalContent((current) => current + chunk)
-      },
-      onGeneratedContent: (content) => {
-        // Final content update
-        setLocalContent(content)
-        if (!isPreview && !disabled) {
-          // Persist the generated content to the store after streaming
-          setStoreValueRef.current?.(content)
-        }
-      },
-    })
+        wandConfig: config.wandConfig,
+        currentValue: localContent,
+        onStreamStart: () => {
+          // Clear the content when streaming starts
+          setLocalContent('')
+        },
+        onStreamChunk: (chunk) => {
+          // Update local content with each chunk as it arrives
+          setLocalContent((current) => current + chunk)
+        },
+        onGeneratedContent: (content) => {
+          // Final content update
+          setLocalContent(content)
+          if (!isPreview && !disabled) {
+            // Persist the generated content to the store after streaming
+            setStoreValueRef.current?.(content)
+          }
+        },
+      })
     : null
   // State management - useSubBlockValue with explicit streaming control
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlockId, false, {
@@ -143,7 +145,6 @@ export function ShortInput({
     useWebhookUrl && webhookManagement.webhookUrl ? webhookManagement.webhookUrl : value
 
   const isNumericInput = config.inputType === 'number'
-  const resolvedInputType = password ? 'password' : isNumericInput ? 'number' : 'text'
   const numericStep = isNumericInput ? (config.step ?? (config.integer ? 1 : undefined)) : undefined
   const numericInputMode =
     isNumericInput && (config.integer || numericStep === 1 || numericStep === undefined)
@@ -171,6 +172,7 @@ export function ShortInput({
 
   // Check if this input is API key related
   const isApiKeyField = useMemo(() => {
+    if (forceEnvVarDropdown) return true
     const normalizedId = config?.id?.replace(/\s+/g, '').toLowerCase() || ''
     const normalizedTitle = config?.title?.replace(/\s+/g, '').toLowerCase() || ''
 
@@ -196,7 +198,7 @@ export function ShortInput({
         normalizedId.includes(pattern) ||
         normalizedTitle.includes(pattern)
     )
-  }, [config?.id, config?.title])
+  }, [config?.id, config?.title, forceEnvVarDropdown])
 
   // Handle input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -226,9 +228,8 @@ export function ShortInput({
       // Only show dropdown if there's text to filter by or the field is empty
       const shouldShowDropdown = newValue.trim() !== '' || newValue === ''
       setShowEnvVars(shouldShowDropdown)
-      // Use the entire input value as search term for API key fields,
-      // but if {{ is detected, use the standard search term extraction
-      setSearchTerm(envVarTrigger.show ? envVarTrigger.searchTerm : newValue)
+      // For API key style fields, keep the picker broad unless user types {{... explicitly.
+      setSearchTerm(envVarTrigger.show ? envVarTrigger.searchTerm : '')
     } else {
       // Normal behavior for non-API key fields
       setShowEnvVars(envVarTrigger.show)
@@ -440,7 +441,7 @@ export function ShortInput({
         onCancel={
           wandHook?.isStreaming
             ? wandHook?.cancelGeneration
-            : wandHook?.hidePromptInline || (() => { })
+            : wandHook?.hidePromptInline || (() => {})
         }
         onChange={(value: string) => wandHook?.updatePromptValue?.(value)}
         placeholder={config.wandConfig?.placeholder || 'Describe what you want to generate...'}
@@ -453,12 +454,11 @@ export function ShortInput({
           className={cn(
             'allow-scroll w-full overflow-auto text-transparent caret-foreground [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground/50 [&::-webkit-scrollbar]:hidden',
             isConnecting &&
-            config?.connectionDroppable !== false &&
-            'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500',
+              config?.connectionDroppable !== false &&
+              'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500',
             showCopyButton && wandHook ? 'pr-20' : showCopyButton ? 'pr-12' : undefined
           )}
           placeholder={placeholder ?? ''}
-          type={resolvedInputType}
           inputMode={isNumericInput ? numericInputMode : undefined}
           min={isNumericInput ? config.min : undefined}
           max={isNumericInput ? config.max : undefined}
@@ -510,9 +510,9 @@ export function ShortInput({
             {password && !isFocused
               ? '•'.repeat(effectiveValue?.toString().length ?? 0)
               : formatDisplayText(effectiveValue?.toString() ?? '', {
-                accessiblePrefixes,
-                highlightAll: !accessiblePrefixes,
-              })}
+                  accessiblePrefixes,
+                  highlightAll: !accessiblePrefixes,
+                })}
           </div>
         </div>
 

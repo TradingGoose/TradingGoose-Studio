@@ -3,13 +3,13 @@
 import { useRef, useState } from 'react'
 import { Braces, Plus, Search } from 'lucide-react'
 import { useParams } from 'next/navigation'
-import { GlobalNavbarHeader } from '@/global-navbar'
 import { Button, Input } from '@/components/ui'
-import { PrimaryButton } from '@/app/workspace/[workspaceId]/knowledge/components'
 import {
   EnvironmentVariables,
   type EnvironmentVariablesHandle,
-} from '@/global-navbar/settings-modal/components/environment/environment'
+} from '@/app/workspace/[workspaceId]/environment/components/environment-variables'
+import { PrimaryButton } from '@/app/workspace/[workspaceId]/knowledge/components'
+import { GlobalNavbarHeader } from '@/global-navbar'
 
 export function WorkspaceEnvironmentPage() {
   const params = useParams<{ workspaceId: string }>()
@@ -40,15 +40,16 @@ export function WorkspaceEnvironmentPage() {
   )
 
   const headerCenter = (
-    <div className='inline-flex h-9 items-center rounded-md border bg-muted p-1 gap-1 shadow-sm'>
+    <div className='inline-flex h-9 items-center gap-1 rounded-md border bg-muted p-1 shadow-sm'>
       <Button
         variant='ghost'
         size='sm'
         onClick={() => setKeyScope('workspace')}
-        className={`h-7 rounded-sm px-3 font-normal text-xs ${keyScope === 'workspace'
+        className={`h-7 rounded-sm px-3 font-normal text-xs ${
+          keyScope === 'workspace'
             ? 'bg-background text-foreground'
             : 'text-muted-foreground hover:text-foreground'
-          }`}
+        }`}
         aria-pressed={keyScope === 'workspace'}
       >
         Workspace
@@ -57,10 +58,11 @@ export function WorkspaceEnvironmentPage() {
         variant='ghost'
         size='sm'
         onClick={() => setKeyScope('personal')}
-        className={`h-7 rounded-sm px-3 font-normal text-xs ${keyScope === 'personal'
+        className={`h-7 rounded-sm px-3 font-normal text-xs ${
+          keyScope === 'personal'
             ? 'bg-background text-foreground'
             : 'text-muted-foreground hover:text-foreground'
-          }`}
+        }`}
         aria-pressed={keyScope === 'personal'}
       >
         Personal
@@ -74,9 +76,7 @@ export function WorkspaceEnvironmentPage() {
       disabled={isCardLoading || (keyScope === 'workspace' && !workspaceId)}
     >
       <Plus className='h-3.5 w-3.5' />
-      <span>
-        Create {keyScope === 'workspace' ? 'Workspace' : 'Personal'} Environment Variable
-      </span>
+      <span>Create {keyScope === 'workspace' ? 'Workspace' : 'Personal'} Environment Variable</span>
     </PrimaryButton>
   )
 
@@ -91,9 +91,7 @@ export function WorkspaceEnvironmentPage() {
                 <EnvironmentVariables
                   ref={envVarRef}
                   workspaceId={workspaceId}
-                  variant='page'
                   searchTerm={searchTerm}
-                  onSearchTermChange={setSearchTerm}
                   keyScope={keyScope}
                   onLoadingChange={setIsCardLoading}
                 />

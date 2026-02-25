@@ -1,5 +1,4 @@
 import { DEFAULT_EXECUTION_TIMEOUT_MS } from '@/lib/execution/constants'
-import { DEFAULT_CODE_LANGUAGE } from '@/lib/execution/languages'
 import type { CodeExecutionInput, CodeExecutionOutput } from '@/tools/function/types'
 import type { ToolConfig } from '@/tools/types'
 
@@ -7,7 +6,7 @@ export const functionExecuteTool: ToolConfig<CodeExecutionInput, CodeExecutionOu
   id: 'function_execute',
   name: 'Function Execute',
   description:
-    'Execute JavaScript code. fetch() is available. Code runs in async IIFE wrapper automatically. CRITICAL: Write plain statements with await/return, NOT wrapped in functions. Example for API call: const res = await fetch(url); const data = await res.json(); return data;',
+    'Execute TypeScript code. fetch() is available. Code runs in async IIFE wrapper automatically after TypeScript transpiles to JavaScript. CRITICAL: Write plain statements with await/return, NOT wrapped in functions. Use indicator.<ID>(marketSeries) for built-in indicators; direct pinets/PineTS indicator definitions are not supported in this block.',
   version: '1.0.0',
 
   params: {
@@ -16,14 +15,7 @@ export const functionExecuteTool: ToolConfig<CodeExecutionInput, CodeExecutionOu
       required: true,
       visibility: 'user-or-llm',
       description:
-        'Raw JavaScript statements (NOT a function). Code is auto-wrapped in async context. MUST use fetch() for HTTP (NOT xhr/axios/request libs). Write like: await fetch(url) then return result. NO import/require statements.',
-    },
-    language: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Language to execute (javascript or python)',
-      default: DEFAULT_CODE_LANGUAGE,
+        'Raw TypeScript statements (NOT a function). Code is transpiled to JavaScript and auto-wrapped in async context. MUST use fetch() for HTTP (NOT xhr/axios/request libs). Write like: await fetch(url) then return result. Imports require E2B runtime support. For indicators use indicator.<ID>(marketSeries); do not import pinets or define indicator(...) directly.',
     },
     timeout: {
       type: 'number',
@@ -82,7 +74,6 @@ export const functionExecuteTool: ToolConfig<CodeExecutionInput, CodeExecutionOu
 
       return {
         code: codeContent,
-        language: params.language || DEFAULT_CODE_LANGUAGE,
         timeout: params.timeout || DEFAULT_EXECUTION_TIMEOUT_MS,
         envVars: params.envVars || {},
         workflowVariables: params.workflowVariables || {},

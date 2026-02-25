@@ -600,7 +600,6 @@ export const WorkflowBlock = memo(
       const effectiveAdvanced = displayAdvancedMode
       const isPureTriggerBlock = config.category === 'triggers'
       const effectiveTrigger = displayTriggerMode || isPureTriggerBlock
-      const e2bClientEnabled = isTruthy(getEnv('NEXT_PUBLIC_E2B_ENABLED'))
 
       // Filter visible blocks and those that meet their conditions
       const visibleSubBlocks = config.subBlocks.filter((block) => {
@@ -608,11 +607,6 @@ export const WorkflowBlock = memo(
         if (data.isPreview && block.hideFromPreview) return false
 
         if (block.requiresFeature && !isTruthy(getEnv(block.requiresFeature))) {
-          return false
-        }
-
-        // Filter out E2B-related blocks if E2B is not enabled on the client
-        if (!e2bClientEnabled && (block.id === 'remoteExecution' || block.id === 'language')) {
           return false
         }
 

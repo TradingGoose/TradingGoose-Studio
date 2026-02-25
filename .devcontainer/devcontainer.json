@@ -4,7 +4,6 @@
   "service": "app",
   "workspaceFolder": "/workspace",
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
-
   "customizations": {
     "vscode": {
       "settings": {
@@ -28,10 +27,11 @@
       ]
     }
   },
-
-  "forwardPorts": [3000, 3002, 5432],
-
+  "forwardPorts": [
+    3000,
+    3002,
+    5432
+  ],
   "postCreateCommand": "bash -c 'bash .devcontainer/post-create.sh || true'",
-
   "remoteUser": "bun"
 }

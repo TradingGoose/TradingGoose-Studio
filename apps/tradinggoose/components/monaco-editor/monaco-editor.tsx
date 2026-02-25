@@ -210,17 +210,21 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
             setDiagnosticsOptions: (options: Record<string, unknown>) => void
           }
           JsxEmit?: { None?: unknown }
+          ModuleKind?: { ESNext?: unknown }
+          ModuleDetectionKind?: { Force?: unknown }
         }
       }).typescript
       return {
         tsDefaults: tsNamespace?.typescriptDefaults,
         jsDefaults: tsNamespace?.javascriptDefaults,
         jsxEmit: tsNamespace?.JsxEmit,
+        moduleKind: tsNamespace?.ModuleKind,
+        moduleDetectionKind: tsNamespace?.ModuleDetectionKind,
       }
     }
 
     const configureTypeScriptDefaults = (monaco: MonacoModule) => {
-      const { tsDefaults, jsDefaults, jsxEmit } = getTypeScriptDefaults(monaco)
+      const { tsDefaults, jsDefaults, jsxEmit, moduleKind, moduleDetectionKind } = getTypeScriptDefaults(monaco)
       const applyCompilerOptions = (defaults?: typeof tsDefaults) => {
         if (!defaults) return
         defaults.setCompilerOptions({
@@ -232,6 +236,8 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
           noImplicitAny: false,
           suppressImplicitAnyIndexErrors: true,
           ...(jsxEmit?.None ? { jsx: jsxEmit.None } : {}),
+          ...(moduleKind?.ESNext ? { module: moduleKind.ESNext } : {}),
+          ...(moduleDetectionKind?.Force ? { moduleDetection: moduleDetectionKind.Force } : {}),
         })
       }
       const applyDiagnosticsOptions = (defaults?: typeof tsDefaults) => {
@@ -239,7 +245,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
         defaults.setDiagnosticsOptions({
           noSemanticValidation: false,
           noSyntaxValidation: false,
-          diagnosticCodesToIgnore: [1108, 8010],
+          diagnosticCodesToIgnore: [1108, 6200, 8010],
         })
       }
       applyCompilerOptions(tsDefaults)
@@ -503,8 +509,19 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
       return () => {
         subscriptionsRef.current.forEach((subscription) => subscription.dispose())
         subscriptionsRef.current = []
+
+        // Dispose auto-generated models on unmount to avoid stale script files
+        // piling up in Monaco's TS project and triggering duplicate identifier diagnostics.
+        if (!path) {
+          const monaco = monacoRef.current
+          const currentPath = modelPathRef.current
+          if (monaco && currentPath) {
+            const model = monaco.editor.getModel(monaco.Uri.parse(currentPath))
+            model?.dispose()
+          }
+        }
       }
-    }, [])
+    }, [path])
 
     useEffect(() => {
       applyDecorations()
@@ -645,11 +662,22 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
             monaco.editor.setTheme(theme)
             updatePlaceholderOffset()
 
+            const model = editor.getModel()
+
             if (monaco) {
               configureTypeScriptDefaults(monaco)
+              if (model) {
+                const activePath = model.uri.toString()
+                monaco.editor.getModels().forEach((candidateModel) => {
+                  const candidatePath = candidateModel.uri.toString()
+                  if (candidatePath === activePath) return
+                  if (!candidatePath.startsWith('inmemory://model/monaco-')) return
+                  if (candidateModel.isAttachedToEditor()) return
+                  candidateModel.dispose()
+                })
+              }
             }
 
-            const model = editor.getModel()
             if (model && language) {
               monaco.editor.setModelLanguage(model, language)
             }

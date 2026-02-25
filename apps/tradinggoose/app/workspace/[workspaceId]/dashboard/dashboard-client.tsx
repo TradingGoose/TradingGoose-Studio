@@ -10,16 +10,23 @@ import {
   useRef,
   useState,
 } from 'react'
-import { BookOpen, Building2, LayoutDashboard, LibraryBig, ScrollText, Search, Shapes } from 'lucide-react'
+import {
+  BookOpen,
+  Building2,
+  LayoutTemplate,
+  LibraryBig,
+  ScrollText,
+  Search,
+  Shapes,
+} from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { useBrandConfig } from '@/lib/branding/branding'
 import {
-  resolveListingKey,
-  toListingValueObject,
   type ListingIdentity,
   type ListingInputValue,
+  toListingValueObject,
 } from '@/lib/listing/identity'
 import { type LayoutTab, LayoutTabs } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
 import { GlobalNavbarHeader } from '@/global-navbar'
@@ -217,17 +224,15 @@ export function DashboardClient({
       const normalizedPairs = normalizeColorPairsState(
         data.colorPairs ?? normalizedInitialColorPairs
       )
+      const hasLinkedPairs = hasLinkedColorPairs(normalizedPairs)
+      hydratePairStoreFromColorPairs(normalizedPairs)
 
       if (data.layout) {
-        const layoutWithPairs = hasLinkedColorPairs(normalizedPairs)
+        const layoutWithPairs = hasLinkedPairs
           ? applyColorPairsToLayout(data.layout, normalizedPairs)
           : data.layout
         setTree(layoutWithPairs)
         latestLayoutRef.current = layoutWithPairs
-      }
-
-      if (hasLinkedColorPairs(normalizedPairs)) {
-        hydratePairStoreFromColorPairs(normalizedPairs)
       }
 
       if (Array.isArray(data.layouts)) {
@@ -666,25 +671,28 @@ export function DashboardClient({
         throw new Error(`Failed to create layout (${response.status})`)
       }
 
-      const currentLayoutId = layoutIdRef.current
-      if (!currentLayoutId) {
-        throw new Error('No active layout available')
+      const { layout: createdLayout } = (await response.json()) as {
+        layout?: LayoutTab
+      }
+      if (!createdLayout?.id) {
+        throw new Error('Invalid create layout response')
       }
 
-      const data = await loadLayoutData(currentLayoutId)
-      applyLayoutData(data)
+      setLayouts((current) =>
+        sortLayouts([...current.filter((layout) => layout.id !== createdLayout.id), createdLayout])
+      )
     } catch (error) {
       console.error('Failed to create layout:', error)
     } finally {
       isCreatingLayoutRef.current = false
       setIsCreatingLayout(false)
     }
-  }, [workspaceId, loadLayoutData, applyLayoutData])
+  }, [workspaceId, sortLayouts])
 
   const headerLeftContent = (
     <div className='flex w-full flex-1 items-center gap-3'>
       <div className='hidden items-center gap-2 sm:flex'>
-        <LayoutDashboard className='h-[18px] w-[18px] text-muted-foreground' />
+        <LayoutTemplate className='h-[18px] w-[18px] text-muted-foreground' />
         <span className='font-medium text-sm'>Dashboard</span>
       </div>
       <div ref={searchContainerRef} className='relative flex flex-1'>
@@ -1117,8 +1125,12 @@ function applyPairDataToWidget(
   if (copilotChatId) {
     baseParams.copilotChatId = copilotChatId
   }
-  baseParams.indicatorId = indicatorId
-  baseParams.pineIndicatorId = pineIndicatorId
+  if (indicatorId) {
+    baseParams.indicatorId = indicatorId
+  }
+  if (pineIndicatorId) {
+    baseParams.pineIndicatorId = pineIndicatorId
+  }
 
   if (areWidgetParamsEqual(widget.params ?? null, baseParams)) {
     return widget
@@ -1131,31 +1143,28 @@ function applyPairDataToWidget(
 }
 
 function hydratePairStoreFromColorPairs(colorPairs: PersistedColorPairsState) {
-  if (!hasLinkedColorPairs(colorPairs)) {
-    return
-  }
-
-  const { setContext, resetContext } = usePairColorStore.getState()
-  const seen = new Set<LinkedPairColor>()
-
-  for (const pair of colorPairs.pairs ?? []) {
-    if (!pair || !pair.color || pair.color === 'gray') continue
-    seen.add(pair.color)
-    setContext(pair.color, {
-      workflowId: pair.workflowId ?? undefined,
-      listing: pair.listing ?? undefined,
-      copilotChatId: pair.copilotChatId ?? undefined,
-      indicatorId: pair.indicatorId ?? undefined,
-      pineIndicatorId: pair.pineIndicatorId ?? undefined,
-    })
-  }
+  const now = Date.now()
+  const currentContexts = usePairColorStore.getState().contexts
+  const nextContexts: Record<PairColor, PairColorContext> = { ...currentContexts }
 
   PAIR_COLORS.forEach((color) => {
     if (color === 'gray') return
-    const linked = color as LinkedPairColor
-    if (seen.has(linked)) return
-    resetContext(linked)
+    nextContexts[color] = {}
   })
+
+  for (const pair of colorPairs.pairs ?? []) {
+    if (!pair || !pair.color || pair.color === 'gray') continue
+    nextContexts[pair.color] = {
+      workflowId: pair.workflowId ?? undefined,
+      listing: pair.listing ?? null,
+      copilotChatId: pair.copilotChatId ?? null,
+      indicatorId: pair.indicatorId ?? null,
+      pineIndicatorId: pair.pineIndicatorId ?? null,
+      updatedAt: now,
+    }
+  }
+
+  usePairColorStore.setState({ contexts: nextContexts })
 }
 
 function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState {
@@ -1214,8 +1223,7 @@ function hasLinkedColorPairs(colorPairs?: PersistedColorPairsState): boolean {
 function getListingIdentity(listing?: ListingInputValue | null): ListingIdentity | null {
   if (!listing) return null
   const identity = toListingValueObject(listing)
-  if (!identity) return null
-  return resolveListingKey(identity) ? identity : null
+  return identity ?? null
 }
 
 function collectPairColors(node: LayoutNode, set: Set<PairColor> = new Set()): Set<PairColor> {

@@ -556,7 +556,7 @@ export function mockScheduleExecuteDb({
           }
         }
 
-        if (tbl === 'environment') {
+        if (tbl === 'environment_variables') {
           return {
             where: vi.fn().mockImplementation(() => ({
               limit: vi.fn().mockImplementation(() => [envRecord]),

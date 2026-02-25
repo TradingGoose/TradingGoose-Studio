@@ -128,21 +128,21 @@ if (typeof window !== 'undefined') {
     }
   })
 
-  /**
-   * Global event tracking function
-   */
+    /**
+     * Global event tracking function
+     */
 
-  ;(window as any).__SIM_TELEMETRY_ENABLED = telemetryEnabled
-  ;(window as any).__SIM_TRACK_EVENT = (eventName: string, properties?: any) => {
-    if (!telemetryEnabled) return
+    ; (window as any).__TG_TELEMETRY_ENABLED = telemetryEnabled
+    ; (window as any).__TG_TRACK_EVENT = (eventName: string, properties?: any) => {
+      if (!telemetryEnabled) return
 
-    addToBatch({
-      category: 'feature_usage',
-      action: eventName,
-      timestamp: Date.now(),
-      ...(properties || {}),
-    })
-  }
+      addToBatch({
+        category: 'feature_usage',
+        action: eventName,
+        timestamp: Date.now(),
+        ...(properties || {}),
+      })
+    }
 
   if (telemetryEnabled) {
     const shouldTrackVitals = Math.random() < 0.1

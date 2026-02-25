@@ -808,13 +808,27 @@ export function Dashboard() {
           onClick={() => setViewMode('logs')}
           className={cn(
             'h-7 rounded-sm px-3 font-normal text-xs',
-            viewMode !== 'dashboard'
+            viewMode === 'logs'
               ? 'bg-background text-foreground'
               : 'text-muted-foreground hover:text-foreground'
           )}
-          aria-pressed={viewMode !== 'dashboard'}
+          aria-pressed={viewMode === 'logs'}
         >
           Logs
+        </Button>
+        <Button
+          variant='ghost'
+          size='sm'
+          onClick={() => setViewMode('monitors')}
+          className={cn(
+            'h-7 rounded-sm px-3 font-normal text-xs',
+            viewMode === 'monitors'
+              ? 'bg-background text-foreground'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+          aria-pressed={viewMode === 'monitors'}
+        >
+          Monitors
         </Button>
         <Button
           variant='ghost'

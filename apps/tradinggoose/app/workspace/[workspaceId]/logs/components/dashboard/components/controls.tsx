@@ -27,7 +27,7 @@ export function Controls({
   live: boolean
   setLive: (v: (prev: boolean) => boolean) => void
   viewMode: string
-  setViewMode: (mode: 'logs' | 'dashboard') => void
+  setViewMode: (mode: 'logs' | 'monitors' | 'dashboard') => void
   searchComponent?: ReactNode
   showExport?: boolean
   onExport?: () => void
@@ -144,13 +144,27 @@ export function Controls({
             onClick={() => setViewMode('logs')}
             className={cn(
               'h-7 rounded-sm px-3 font-normal text-xs',
-              (viewMode as string) !== 'dashboard'
+              (viewMode as string) === 'logs'
                 ? 'bg-background text-foreground'
                 : 'text-muted-foreground hover:text-foreground'
             )}
-            aria-pressed={(viewMode as string) !== 'dashboard'}
+            aria-pressed={(viewMode as string) === 'logs'}
           >
             Logs
+          </Button>
+          <Button
+            variant='ghost'
+            size='sm'
+            onClick={() => setViewMode('monitors')}
+            className={cn(
+              'h-7 rounded-sm px-3 font-normal text-xs',
+              (viewMode as string) === 'monitors'
+                ? 'bg-background text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+            aria-pressed={(viewMode as string) === 'monitors'}
+          >
+            Monitors
           </Button>
           <Button
             variant='ghost'

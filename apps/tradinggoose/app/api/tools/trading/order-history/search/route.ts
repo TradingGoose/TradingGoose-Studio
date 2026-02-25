@@ -2,9 +2,9 @@ import { db, orderHistoryTable } from '@tradinggoose/db'
 import { and, desc, eq, gte, lt, or, type SQL, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import {
+  areListingIdentitiesEqual,
   type ListingIdentity,
   type ListingResolved,
-  resolveListingKey,
   toListingValueObject,
 } from '@/lib/listing/identity'
 import { resolveListingIdentity } from '@/lib/listing/resolve'
@@ -103,20 +103,17 @@ const parseListingIdentityFromRow = (row: OrderHistoryRow): ListingIdentity | nu
 
 const resolveListingForRow = async (
   identity: ListingIdentity | null,
-  cache: Map<string, ListingResolved | null>
+  cache: Array<{ identity: ListingIdentity; resolved: ListingResolved | null }>
 ): Promise<ListingResolved | null> => {
   if (!identity) return null
 
-  const key = resolveListingKey(identity)
-  if (!key) return null
-
-  const cached = cache.get(key)
-  if (cached !== undefined) {
-    return cached
+  const cached = cache.find((entry) => areListingIdentitiesEqual(entry.identity, identity))
+  if (cached) {
+    return cached.resolved
   }
 
   const resolved = await resolveListingIdentity(identity).catch(() => null)
-  cache.set(key, resolved ?? null)
+  cache.push({ identity, resolved: resolved ?? null })
   return resolved ?? null
 }
 
@@ -149,7 +146,7 @@ const splitSymbolAndQuote = (
 
 const mapOrderRow = async (
   row: OrderHistoryRow,
-  listingCache: Map<string, ListingResolved | null>
+  listingCache: Array<{ identity: ListingIdentity; resolved: ListingResolved | null }>
 ): Promise<OrderHistorySearchResult> => {
   const requestRecord = toRecord(row.request)
   const responseRecord = toRecord(row.response)
@@ -278,7 +275,7 @@ export async function GET(request: NextRequest) {
           .orderBy(desc(orderHistoryTable.recordedAt))
           .limit(limit)
 
-    const listingCache = new Map<string, ListingResolved | null>()
+    const listingCache: Array<{ identity: ListingIdentity; resolved: ListingResolved | null }> = []
     const results = await Promise.all(rows.map((row) => mapOrderRow(row, listingCache)))
 
     return NextResponse.json(

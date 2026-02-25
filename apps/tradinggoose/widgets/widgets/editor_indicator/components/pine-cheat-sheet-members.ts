@@ -284,6 +284,9 @@ export const CHEAT_SHEET_MEMBERS = {
     "timeframe",
     "timeframe_gaps"
   ],
+  "trigger": [
+    "trigger"
+  ],
   "plotStyles": [
     "linestyle_dashed",
     "linestyle_dotted",

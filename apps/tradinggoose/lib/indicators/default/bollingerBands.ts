@@ -8,11 +8,12 @@ indicator('Bollinger Bands', { overlay: true });
 
 const length = input.int(20, 'Length');
 const mult = input.float(2, 'StdDev');
-const [upper, middle, lower] = ta.bb(close, length, mult);
+const [middle, upper, lower] = ta.bb(close, length, mult);
 
-plot(upper, 'UP');
-plot(middle, 'MID');
-plot(lower, 'DN');`,
+const upperPlot = plot(upper, 'UP', { color: '#F23645' });
+plot(middle, 'MID', { color: '#2962FF' });
+const lowerPlot = plot(lower, 'DN', { color: '#089981' });
+fill(upperPlot, lowerPlot);`,
 })
 
 export default bollingerBands

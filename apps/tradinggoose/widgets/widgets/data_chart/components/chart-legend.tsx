@@ -47,11 +47,11 @@ export const ChartLegend = ({
   return (
     <div
       ref={containerRef}
-      className='pointer-events-none absolute top-0 z-10 gap-2 py-1 text-sm'
+      className='pointer-events-none absolute top-0 right-0 overflow-hidden text-sm'
       style={{ left: `${leftInsetPx}px` }}
     >
       {showListingOverlay ? (
-        <div className='mb-1'>
+        <div className='min-w-0 max-w-full overflow-hidden'>
           <ListingOverlay
             listing={listing ?? null}
             intervalLabel={intervalLabel}
@@ -59,10 +59,12 @@ export const ChartLegend = ({
           />
         </div>
       ) : listingLabel ? (
-        <div className='font-semibold text-foreground text-sm'>{listingLabel}</div>
+        <div className='max-w-full truncate font-semibold text-foreground text-sm'>
+          {listingLabel}
+        </div>
       ) : null}
       {legend ? (
-        <div className='flex flex-wrap items-center gap-3 font-bold text-foreground text-xs'>
+        <div className='px-1 flex min-w-0 max-w-full flex-wrap items-center gap-3 overflow-hidden font-bold text-foreground text-xs'>
           <span className='text-muted-foreground'>{legend.time}</span>
           {isValueOnly ? (
             <span>

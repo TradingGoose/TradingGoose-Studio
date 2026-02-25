@@ -1,6 +1,7 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import type {
   MarketBar,
+  MarketRequestBase,
   MarketSeries,
   MarketSeriesRequest,
   MarketInterval,
@@ -63,7 +64,7 @@ function parseRangeMs(range?: string): number | null {
   return null
 }
 
-function intervalToMs(interval?: string): number | null {
+export function intervalToMs(interval?: string): number | null {
   if (!interval) return null
   const match = String(interval).trim().toLowerCase().match(/^(\d+)(mo|m|h|d|w)$/)
   if (!match) return null
@@ -118,7 +119,10 @@ function resolveAdjustment(
   return NORMALIZATION_TO_ADJUSTMENT[mode]
 }
 
-function resolveMarket(request: MarketSeriesRequest, assetClass?: string): 'stocks' | 'crypto' {
+export function resolveMarket(
+  request: MarketRequestBase,
+  assetClass?: string
+): 'stocks' | 'crypto' {
   const override = String(
     request.providerParams?.market ??
       request.providerParams?.alpacaMarket ??
@@ -134,7 +138,7 @@ function resolveMarket(request: MarketSeriesRequest, assetClass?: string): 'stoc
   return 'stocks'
 }
 
-function resolveCredentials(auth?: { apiKey?: string; apiSecret?: string }): {
+export function resolveCredentials(auth?: { apiKey?: string; apiSecret?: string }): {
   keyId?: string
   secretKey?: string
 } {

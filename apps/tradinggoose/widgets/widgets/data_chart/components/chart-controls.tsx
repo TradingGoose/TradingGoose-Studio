@@ -41,16 +41,20 @@ export const DataChartIntervalDropdown = ({
   widgetKey,
 }: DataChartIntervalDropdownProps) => {
   const handleIntervalSelect = (nextInterval: string) => {
-    const nextData = { ...(params.data ?? {}) } as Record<string, unknown>
-    nextData.window = undefined
-    nextData.fallbackWindow = undefined
-    nextData.interval = nextInterval
+    const {
+      window: _window,
+      fallbackWindow: _fallbackWindow,
+      ...nextDataBase
+    } = (params.data ?? {}) as Record<string, unknown>
+    const nextData = { ...nextDataBase }
 
-    const nextView = { ...(params.view ?? {}) } as Record<string, unknown>
-    nextView.rangePresetId = undefined
-    nextView.start = undefined
-    nextView.end = undefined
-    nextView.interval = nextInterval
+    const {
+      rangePresetId: _rangePresetId,
+      start: _start,
+      end: _end,
+      ...nextViewBase
+    } = (params.view ?? {}) as Record<string, unknown>
+    const nextView = { ...nextViewBase, interval: nextInterval }
 
     emitDataChartParamsChange({
       params: {

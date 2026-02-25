@@ -1,6 +1,6 @@
 'use client'
 
-import { type MutableRefObject, useCallback, useEffect, useRef, useState } from 'react'
+import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { MonacoEditorHandle } from '@/components/monaco-editor'
 import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
 import { Notice } from '@/components/ui/notice'
@@ -44,7 +44,7 @@ You are an expert PineTS developer writing Pine Script-style indicators in TypeS
   const length = input.int(14, 'Length');
   const sma = ta.sma(close, length);
   plot(sma, 'SMA');
-- Do NOT return { plots, signals }. PineTS uses plot calls.
+- Do NOT return { plots, triggers }. PineTS uses plot calls.
 - No imports, exports, require, or fetch.
 - Do not read future bars; assume bar-close data only.
 
@@ -94,6 +94,11 @@ export function IndicatorCodePanel({
   const indicatorSignatureRef = useRef('')
   const disallowedGlobalMessage =
     'Do not use $.pine or $.data. Use globals directly (ta, input, plot, open, high, low, close, volume).'
+  const monacoModelPath = useMemo(
+    () =>
+      `inmemory://model/pine-indicator-${encodeURIComponent(workspaceId)}-${encodeURIComponent(indicatorId)}.ts`,
+    [workspaceId, indicatorId]
+  )
 
   const validateNoDollarGlobals = (code: string) =>
     /\$\.(pine|data)\b/.test(code) ? disallowedGlobalMessage : null
@@ -361,7 +366,7 @@ export function IndicatorCodePanel({
         )}
       </div>
 
-      <div ref={codeEditorRef} className='relative mt-3 flex min-h-0 flex-1 flex-col rounded-md'>
+      <div ref={codeEditorRef} className='relative mt-2 flex min-h-0 flex-1 flex-col rounded-md'>
         <WandPromptBar
           isVisible={calcWand.isPromptVisible}
           isLoading={calcWand.isLoading}
@@ -377,8 +382,9 @@ export function IndicatorCodePanel({
           value={pineCode}
           onChange={handleCodeChange}
           language='typescript'
+          path={monacoModelPath}
           placeholder='Write PineTS code here...'
-          minHeight='360px'
+          minHeight='0px'
           className='flex-1 min-h-0'
           highlightVariables={true}
           editorHandleRef={codeEditorHandleRef}

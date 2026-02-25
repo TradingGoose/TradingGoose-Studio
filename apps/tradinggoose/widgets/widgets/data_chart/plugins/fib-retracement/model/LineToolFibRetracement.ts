@@ -65,7 +65,7 @@ export const FibRetracementOptionDefaults: LineToolOptionsInternal<'FibRetraceme
 		{ color: "#089981", coeff: 0.618, opacity: 0, distanceFromCoeffEnabled: false, distanceFromCoeff: 0 },
 		{ color: "#64b5f6", coeff: 0.786, opacity: 0, distanceFromCoeffEnabled: false, distanceFromCoeff: 0 },
 		{ color: "#787b86", coeff: 1, opacity: 0, distanceFromCoeffEnabled: false, distanceFromCoeff: 0 },
-		{ color: "#2962ff", coeff: 1.618, opacity: 0, distanceFromCoeffEnabled: false, distanceFromCoeff: 0 },
+		{ color: "#ffbb00", coeff: 1.618, opacity: 0, distanceFromCoeffEnabled: false, distanceFromCoeff: 0 },
 		{ color: "#f23645", coeff: 2.618, opacity: 0, distanceFromCoeffEnabled: false, distanceFromCoeff: 0 },
 		{ color: "#9c27b0", coeff: 3.618, opacity: 0, distanceFromCoeffEnabled: false, distanceFromCoeff: 0 },
 		{ color: "#e91e63", coeff: 4.236, opacity: 0, distanceFromCoeffEnabled: false, distanceFromCoeff: 0 },
@@ -225,7 +225,7 @@ export class LineToolFibRetracement<HorzScaleItem> extends BaseLineTool<HorzScal
 
 		const [p0, p1] = points;
 		const options = this.options();
-		
+
 		const priceDiff = p1.price - p0.price;
 
 		const tMin = Math.min(p0.timestamp, p1.timestamp);

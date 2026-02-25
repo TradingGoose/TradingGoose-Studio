@@ -4,13 +4,13 @@ import { task } from '@trigger.dev/sdk'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { checkServerSideUsageLimits } from '@/lib/billing'
-import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
+import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { processExecutionFiles } from '@/lib/execution/files'
 import { IdempotencyService, webhookIdempotency } from '@/lib/idempotency'
+import { toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
-import { decryptSecret } from '@/lib/utils'
 import { WebhookAttachmentProcessor } from '@/lib/webhooks/attachment-processor'
 import { fetchAndProcessAirtablePayloads, formatWebhookInput } from '@/lib/webhooks/utils'
 import {
@@ -96,6 +96,53 @@ export type WebhookExecutionPayload = {
   credentialId?: string
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const toTrimmedString = (value: unknown): string | null => {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+const buildIndicatorTriggerData = (
+  payload: WebhookExecutionPayload
+): Record<string, unknown> | null => {
+  if (payload.provider !== 'indicator') return null
+  if (!isRecord(payload.body)) {
+    return { source: 'indicator_trigger' }
+  }
+
+  const monitorRaw = payload.body.monitor
+  if (!isRecord(monitorRaw)) {
+    return { source: 'indicator_trigger' }
+  }
+
+  const listing = toListingValueObject(monitorRaw.listing as any)
+  const monitor = {
+    id: toTrimmedString(monitorRaw.id),
+    workflowId: toTrimmedString(monitorRaw.workflowId),
+    blockId: toTrimmedString(monitorRaw.blockId),
+    providerId: toTrimmedString(monitorRaw.providerId),
+    interval: toTrimmedString(monitorRaw.interval),
+    indicatorId: toTrimmedString(monitorRaw.indicatorId),
+  }
+
+  const monitorMetadata = Object.fromEntries(
+    Object.entries(monitor).filter(([, value]) => typeof value === 'string' && value.length > 0)
+  )
+
+  return {
+    source: 'indicator_trigger',
+    monitor: listing
+      ? {
+          ...monitorMetadata,
+          listing,
+        }
+      : monitorMetadata,
+  }
+}
+
 export async function executeWebhookJob(payload: WebhookExecutionPayload) {
   const executionId = uuidv4()
   const requestId = executionId.slice(0, 8)
@@ -144,7 +191,7 @@ async function executeWebhookJobInternal(
       )
       throw new Error(
         usageCheck.message ||
-        'Usage limit exceeded. Please upgrade your plan to continue using webhooks.'
+          'Usage limit exceeded. Please upgrade your plan to continue using webhooks.'
       )
     }
 
@@ -166,20 +213,11 @@ async function executeWebhookJobInternal(
       .limit(1)
     const workspaceId = wfRows[0]?.workspaceId || undefined
 
-    const { personalEncrypted, workspaceEncrypted } = await getPersonalAndWorkspaceEnv(
-      payload.userId,
-      workspaceId
-    )
-    const mergedEncrypted = { ...personalEncrypted, ...workspaceEncrypted }
-    const decryptedPairs = await Promise.all(
-      Object.entries(mergedEncrypted).map(async ([key, encrypted]) => {
-        const { decrypted } = await decryptSecret(encrypted)
-        return [key, decrypted] as const
-      })
-    )
-    const decryptedEnvVars: Record<string, string> = Object.fromEntries(decryptedPairs)
+    const decryptedEnvVars = await getEffectiveDecryptedEnv(payload.userId, workspaceId)
 
     // Start logging session
+    const indicatorTriggerData = buildIndicatorTriggerData(payload)
+
     await loggingSession.safeStart({
       userId: payload.userId,
       workspaceId: workspaceId || '',
@@ -187,6 +225,7 @@ async function executeWebhookJobInternal(
       triggerData: {
         isTest: payload.testMode === true,
         executionTarget: payload.executionTarget || 'deployed',
+        ...(indicatorTriggerData ?? {}),
       },
     })
 
@@ -344,10 +383,10 @@ async function executeWebhookJobInternal(
       webhookRows.length > 0
         ? webhookRows[0]
         : {
-          provider: payload.provider,
-          blockId: payload.blockId,
-          providerConfig: {},
-        }
+            provider: payload.provider,
+            blockId: payload.blockId,
+            providerConfig: {},
+          }
 
     const mockWorkflow = {
       id: payload.workflowId,

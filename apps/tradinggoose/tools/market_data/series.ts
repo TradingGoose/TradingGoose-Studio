@@ -5,7 +5,6 @@ import {
   getMarketSeriesCapabilities,
 } from '@/providers/market/providers'
 import {
-  resolveListingKey,
   toListingValueObject,
   type ListingInputValue,
 } from '@/lib/listing/identity'
@@ -285,7 +284,7 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
     } catch (error: any) {
       logger.error('Error validating market series data', {
         provider: params.provider,
-        listing: resolveListingKey(params.listing),
+        listing: toListingValueObject(params.listing),
         error: error?.message || error,
       })
       return {

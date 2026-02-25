@@ -9,8 +9,15 @@ export interface FinnhubStreamConfig {
 
 export interface FinnhubStreamHandlers {
   onBar: (payload: { symbol: string; bar: MarketBar; raw: any }) => void
+  onTrade?: (payload: { symbol: string; trade: FinnhubTrade; raw: any }) => void
   onStatus?: (payload: { state: 'connected' | 'disconnected'; info?: string }) => void
   onError?: (payload: { message: string; detail?: any }) => void
+}
+
+export interface FinnhubTrade {
+  timeStamp: string
+  price: number
+  size?: number
 }
 
 interface BarState {
@@ -79,8 +86,7 @@ export class FinnhubMarketStream {
 
     if (
       this.socket &&
-      (this.socket.readyState === WebSocket.OPEN ||
-        this.socket.readyState === WebSocket.CONNECTING)
+      (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)
     ) {
       try {
         this.socket.close()
@@ -93,7 +99,10 @@ export class FinnhubMarketStream {
   }
 
   private ensureConnection() {
-    if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
+    if (
+      this.socket &&
+      (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)
+    ) {
       return
     }
 
@@ -199,6 +208,15 @@ export class FinnhubMarketStream {
     if (timestampValue === undefined || !Number.isFinite(timestampValue)) return
 
     const volume = toNumber(trade?.v)
+    this.handlers.onTrade?.({
+      symbol,
+      trade: {
+        timeStamp: new Date(timestampValue).toISOString(),
+        price: priceValue,
+        size: volume,
+      },
+      raw: trade,
+    })
 
     const bucketStartMs = Math.floor(timestampValue / ONE_MINUTE_MS) * ONE_MINUTE_MS
     const existing = this.bars.get(symbol)
@@ -225,8 +243,8 @@ export class FinnhubMarketStream {
     bar.close = priceValue
     bar.high = Math.max(bar.high ?? priceValue, priceValue)
     bar.low = Math.min(bar.low ?? priceValue, priceValue)
-    if (Number.isFinite(volume)) {
-      bar.volume = (bar.volume ?? 0) + volume!
+    if (volume !== undefined) {
+      bar.volume = (bar.volume ?? 0) + volume
     }
   }
 
@@ -243,7 +261,7 @@ export class FinnhubMarketStream {
 
   private scheduleReconnect() {
     if (this.reconnectTimer) return
-    const delay = Math.min(30000, 1000 * Math.pow(2, this.reconnectAttempts))
+    const delay = Math.min(30000, 1000 * 2 ** this.reconnectAttempts)
     this.reconnectAttempts += 1
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null

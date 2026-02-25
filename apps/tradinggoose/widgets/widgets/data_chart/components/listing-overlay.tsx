@@ -36,13 +36,14 @@ export const ListingOverlay = ({
     : null
   const intervalText = intervalLabel ?? ''
 
-  const wrapperClass = 'flex items-center gap-1 text-sm font-semibold text-foreground'
+  const wrapperClass =
+    'flex min-w-0 max-w-full items-center gap-1 overflow-hidden text-sm font-semibold text-foreground'
 
   if (isResolving) {
     return (
       <div className={wrapperClass}>
-        <Skeleton className='h-8 w-8 rounded-sm' />
-        <div className='flex min-w-0 items-center gap-2'>
+        <Skeleton className='h-6 w-6 rounded-sm my-[3px]' />
+        <div className='flex min-w-0 max-w-full items-center gap-1'>
           <Skeleton className='h-4 w-24' />
           {intervalText ? <Skeleton className='h-4 w-10' /> : null}
         </div>
@@ -54,14 +55,14 @@ export const ListingOverlay = ({
 
   return (
     <div className={wrapperClass}>
-      <Avatar className='h-8 w-8 rounded-sm border border-border bg-secondary/60'>
+      <Avatar className='h-6 w-6 rounded-sm border border-border bg-secondary/60'>
         {listingIconUrl ? <AvatarImage src={listingIconUrl} alt={listingSymbol} /> : null}
         <AvatarFallback className='text-[10px] text-accent-foreground'>
           {avatarFallback || '??'}
         </AvatarFallback>
       </Avatar>
-      <div className='flex min-w-0 items-center gap-1'>
-        <span className='min-w-0 truncate text-lg'>
+      <div className='flex min-w-0 max-w-full items-center gap-1 overflow-hidden'>
+        <span className='min-w-0 shrink truncate text-lg'>
           <span>{listingSymbolParts.base}</span>
           {listingSymbolParts.quote ? (
             <span className='font-medium text-muted-foreground'>/{listingSymbolParts.quote}</span>

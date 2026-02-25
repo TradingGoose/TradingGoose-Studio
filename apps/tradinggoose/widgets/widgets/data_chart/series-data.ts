@@ -138,11 +138,6 @@ const coerceFiniteNumber = (value: unknown): number | null => {
   return null
 }
 
-const clampTimestampToInterval = (timestamp: number, intervalMs?: number | null): number => {
-  if (!intervalMs || !Number.isFinite(intervalMs) || intervalMs <= 0) return timestamp
-  return Math.floor(timestamp / intervalMs) * intervalMs
-}
-
 const clampTimestampToChartResolution = (timestamp: number): number => {
   // lightweight-charts numeric times are second-based.
   return Math.floor(timestamp / 1000) * 1000
@@ -207,7 +202,8 @@ export const mapMarketBarToBarMs = (
     close
   )
   if (!normalizedOhlc) return null
-  const openTime = clampTimestampToChartResolution(clampTimestampToInterval(timestamp, intervalMs))
+  // Preserve provider bar anchors across ranges/intervals; only coerce to second precision for LWC.
+  const openTime = clampTimestampToChartResolution(timestamp)
   const closeTime = intervalMs ? openTime + intervalMs : openTime
   const volume = coerceFiniteNumber(bar.volume) ?? undefined
   const turnover = coerceFiniteNumber(bar.turnover) ?? undefined
@@ -356,50 +352,6 @@ export const findFirstInvalidSeriesDatum = (
   return null
 }
 
-export const sanitizeBarsMs = (barsMs: BarMs[]): BarMs[] => {
-  if (!Array.isArray(barsMs) || barsMs.length === 0) return []
-
-  const deduped = new Map<number, BarMs>()
-
-  barsMs.forEach((bar) => {
-    if (!bar || !isFiniteNumber(bar.openTime)) return
-    const normalizedOhlc = normalizeOhlc(bar.open, bar.high, bar.low, bar.close)
-    if (!normalizedOhlc) return
-
-    const openTime = clampTimestampToChartResolution(Math.trunc(bar.openTime))
-    const closeTime = isFiniteNumber(bar.closeTime)
-      ? Math.max(Math.trunc(bar.closeTime), openTime)
-      : openTime
-    const volume = isFiniteNumber(bar.volume) ? bar.volume : undefined
-    const turnover = isFiniteNumber(bar.turnover) ? bar.turnover : undefined
-
-    const nextBar: BarMs = {
-      openTime,
-      closeTime,
-      ...normalizedOhlc,
-      ...(typeof volume === 'number' ? { volume } : null),
-      ...(typeof turnover === 'number' ? { turnover } : null),
-    }
-    const existing = deduped.get(openTime)
-    deduped.set(openTime, existing ? mergeClampedBars(existing, nextBar) : nextBar)
-  })
-
-  const sorted = Array.from(deduped.values()).sort((a, b) => a.openTime - b.openTime)
-  if (sorted.length <= 1) return sorted
-
-  const normalized = sorted.map((bar) => ({ ...bar }))
-  for (let index = 0; index < normalized.length; index += 1) {
-    const current = normalized[index]
-    const next = normalized[index + 1]
-    if (next) {
-      current.closeTime = Math.max(current.openTime, next.openTime)
-    } else {
-      current.closeTime = Math.max(current.openTime, current.closeTime)
-    }
-  }
-  return normalized
-}
-
 export const mergeBarsMs = (
   base: BarMs[],
   incoming: BarMs[],
@@ -407,6 +359,25 @@ export const mergeBarsMs = (
 ): BarMs[] => {
   if (incoming.length === 0) return base
   if (base.length === 0) return recomputeCloseTimes([...incoming], intervalMs)
+
+  const baseFirst = base[0]?.openTime
+  const baseLast = base[base.length - 1]?.openTime
+  const incomingFirst = incoming[0]?.openTime
+  const incomingLast = incoming[incoming.length - 1]?.openTime
+
+  if (
+    typeof baseFirst === 'number' &&
+    typeof baseLast === 'number' &&
+    typeof incomingFirst === 'number' &&
+    typeof incomingLast === 'number'
+  ) {
+    if (incomingLast < baseFirst) {
+      return recomputeCloseTimes([...incoming, ...base], intervalMs)
+    }
+    if (incomingFirst > baseLast) {
+      return recomputeCloseTimes([...base, ...incoming], intervalMs)
+    }
+  }
 
   const map = new Map<number, BarMs>()
   base.forEach((bar) => {

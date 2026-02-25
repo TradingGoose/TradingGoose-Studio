@@ -46,6 +46,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Webhook not found' }, { status: 404 })
     }
 
+    if (rows[0].webhook.provider === 'indicator') {
+      logger.warn(`[${requestId}] Denied test-url mint for indicator webhook ${id}`)
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const wf = rows[0].workflow
 
     // Permissions: owner OR workspace write/admin

@@ -5,6 +5,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { validateWorkflowPermissions } from '@/lib/workflows/utils'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
+import { notifyIndicatorMonitorsReconcile } from '@/app/api/indicator-monitors/reconcile'
 
 const logger = createLogger('WorkflowActivateDeploymentAPI')
 
@@ -118,6 +119,8 @@ export async function POST(
 
       await tx.update(workflow).set(updateData).where(eq(workflow.id, id))
     })
+
+    await notifyIndicatorMonitorsReconcile({ requestId, logger })
 
     return createSuccessResponse({ success: true, deployedAt: now })
   } catch (error: any) {

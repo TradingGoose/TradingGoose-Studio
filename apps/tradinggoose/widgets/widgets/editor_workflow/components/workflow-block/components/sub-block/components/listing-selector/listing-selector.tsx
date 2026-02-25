@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import type { SubBlockConfig } from '@/blocks/types'
 import { ListingSelector } from '@/components/listing-selector/selector/combo'
 import {
-  resolveListingKey,
+  areListingIdentitiesEqual,
   type ListingOption,
   toListingValue,
   toListingValueObject,
@@ -73,7 +73,7 @@ export function ListingSelectorInput({
     : hasPropValue
       ? normalizedValue
       : storeValue) ?? null
-  const currentListingKey = resolveListingKey(currentValue)
+  const currentListingIdentity = toListingValueObject(currentValue)
   const currentListing =
     currentValue && typeof currentValue === 'object'
       ? (() => {
@@ -111,10 +111,13 @@ export function ListingSelectorInput({
       return
     }
 
-    const selectedListingKey = resolveListingKey(safeInstance.selectedListingValue)
-    const currentListingValue = currentValue ? toListingValueObject(currentValue) : null
+    const selectedListingValue = toListingValueObject(safeInstance.selectedListingValue)
+    const currentListingValue = currentListingIdentity
 
-    if (currentListingKey && selectedListingKey !== currentListingKey) {
+    if (
+      currentListingValue &&
+      !areListingIdentitiesEqual(currentListingValue, selectedListingValue)
+    ) {
       updateInstance(instanceId, {
         selectedListingValue: currentListingValue,
         ...(currentListing ? { selectedListing: currentListing } : null),
@@ -125,17 +128,17 @@ export function ListingSelectorInput({
     if (
       currentListing &&
       (!safeInstance.selectedListing ||
-        safeInstance.selectedListing.id !== currentListing.id)
+        !areListingIdentitiesEqual(safeInstance.selectedListing, currentListing))
     ) {
       updateInstance(instanceId, { selectedListing: currentListing })
       return
     }
 
-    if (!currentListingKey && safeInstance.selectedListingValue) {
+    if (!currentListingValue && safeInstance.selectedListingValue) {
       updateInstance(instanceId, { selectedListingValue: null, selectedListing: null })
     }
   }, [
-    currentListingKey,
+    currentListingIdentity,
     currentListing,
     safeInstance.selectedListingValue,
     safeInstance.selectedListing,
