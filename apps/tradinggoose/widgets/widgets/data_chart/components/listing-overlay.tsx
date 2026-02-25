@@ -43,7 +43,7 @@ export const ListingOverlay = ({
     return (
       <div className={wrapperClass}>
         <Skeleton className='h-6 w-6 rounded-sm my-[3px]' />
-        <div className='flex min-w-0 max-w-full items-center gap-2'>
+        <div className='flex min-w-0 max-w-full items-center gap-1'>
           <Skeleton className='h-4 w-24' />
           {intervalText ? <Skeleton className='h-4 w-10' /> : null}
         </div>

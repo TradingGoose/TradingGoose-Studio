@@ -10,15 +10,23 @@ import {
   useRef,
   useState,
 } from 'react'
-import { BookOpen, Building2, LayoutTemplate, LibraryBig, ScrollText, Search, Shapes } from 'lucide-react'
+import {
+  BookOpen,
+  Building2,
+  LayoutTemplate,
+  LibraryBig,
+  ScrollText,
+  Search,
+  Shapes,
+} from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { useBrandConfig } from '@/lib/branding/branding'
 import {
-  toListingValueObject,
   type ListingIdentity,
   type ListingInputValue,
+  toListingValueObject,
 } from '@/lib/listing/identity'
 import { type LayoutTab, LayoutTabs } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
 import { GlobalNavbarHeader } from '@/global-navbar'
