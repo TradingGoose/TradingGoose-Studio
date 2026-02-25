@@ -20,7 +20,7 @@ import { CodeDisplay } from '../../../code-display/code-display'
 import { JSONView } from '../../../json-view/json-view'
 import { StructuredOutput } from './components/structured-output'
 import { getBlock } from '@/blocks'
-import type { ConsoleEntry as ConsoleEntryType } from '@/stores/panel/console/types'
+import type { ConsoleEntry as ConsoleEntryType } from '@/stores/console/types'
 import { useGeneralStore } from '@/stores/settings/general/store'
 
 const sanitizeHexColor = (value?: string) => {

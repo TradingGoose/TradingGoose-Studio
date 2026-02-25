@@ -5,7 +5,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { ConsoleEntry } from '..'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { useConsoleStore } from '@/stores/panel/console/store'
+import { useConsoleStore } from '@/stores/console/store'
 
 interface ConsoleProps {
   panelWidth: number

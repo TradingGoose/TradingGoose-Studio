@@ -1,4 +1,4 @@
-import type { ConsoleEntry } from '@/stores/panel/console/types'
+import type { ConsoleEntry } from '@/stores/console/types'
 
 export interface TerminalFilters {
   blockIds: Set<string>

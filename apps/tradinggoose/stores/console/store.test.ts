@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { useConsoleStore } from '@/stores/panel/console/store'
-import type { ConsoleUpdate } from '@/stores/panel/console/types'
+import type { ConsoleUpdate } from './types'
+
+vi.unmock('@/stores/console/store')
+const { useConsoleStore } = await import('./store')
 
 let uuidCounter = 0
 vi.stubGlobal('crypto', {

@@ -1,7 +1,7 @@
 import type React from 'react'
 import { RepeatIcon, SplitIcon } from 'lucide-react'
 import { getBlock } from '@/blocks'
-import type { ConsoleEntry } from '@/stores/panel/console/types'
+import type { ConsoleEntry } from '@/stores/console/types'
 import type { EntryNode, ExecutionGroup, SortConfig, TerminalFilters } from './types'
 
 const SUBFLOW_COLORS = {

@@ -5,7 +5,7 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useVariablesStore } from '@/stores/panel/variables/store'
+import { useVariablesStore } from '@/stores/variables/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 interface OperationItem {

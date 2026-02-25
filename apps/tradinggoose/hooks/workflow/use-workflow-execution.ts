@@ -11,8 +11,8 @@ import type { BlockLog, ExecutionResult, StreamingExecution } from '@/executor/t
 import { Serializer, WorkflowValidationError } from '@/serializer'
 import type { SerializedWorkflow } from '@/serializer/types'
 import { useExecutionStore } from '@/stores/execution/store'
-import { useConsoleStore } from '@/stores/panel/console/store'
-import { useVariablesStore } from '@/stores/panel/variables/store'
+import { useConsoleStore } from '@/stores/console/store'
+import { useVariablesStore } from '@/stores/variables/store'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { mergeSubblockState } from '@/stores/workflows/utils'
@@ -123,7 +123,7 @@ export function useWorkflowExecution() {
 
   const resolveSelectedOutputsForWorkflow = useCallback(
     async (workflowId: string, selectionChannelId?: string): Promise<string[]> => {
-      const chatStore = await import('@/stores/panel/chat/store').then((mod) => mod.useChatStore)
+      const chatStore = await import('@/stores/chat/store').then((mod) => mod.useChatStore)
       const state = chatStore.getState()
 
       const candidateChannels =

@@ -37,7 +37,7 @@ import { streamingResponseFormatProcessor } from '@/executor/utils'
 import { VirtualBlockUtils } from '@/executor/utils/virtual-blocks'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 import { useExecutionStore } from '@/stores/execution/store'
-import { useConsoleStore } from '@/stores/panel/console/store'
+import { useConsoleStore } from '@/stores/console/store'
 
 const logger = createLogger('Executor')
 

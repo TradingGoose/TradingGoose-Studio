@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
 import { redactApiKeys } from '@/lib/utils'
 import type { NormalizedBlockOutput } from '@/executor/types'
-import type { ConsoleEntry, ConsoleStore } from '@/stores/panel/console/types'
+import type { ConsoleEntry, ConsoleStore } from '@/stores/console/types'
 
 const MAX_ENTRIES = 500 // MAX across all workflows - allows for 100 loop iterations + other workflow logs
 const MAX_IMAGE_DATA_SIZE = 1000 // Maximum size of image data to store (in characters)
@@ -101,7 +101,7 @@ const processSafeStorage = (obj: any): any => {
 
 const applyConsoleUpdate = (
   entry: ConsoleEntry,
-  update: string | import('@/stores/panel/console/types').ConsoleUpdate
+  update: string | import('@/stores/console/types').ConsoleUpdate
 ): ConsoleEntry => {
   if (typeof update === 'string') {
     const newOutput = updateBlockOutput(entry.output, update)
@@ -372,7 +372,7 @@ export const useConsoleStore = create<ConsoleStore>()(
 
         updateConsole: (
           blockId: string,
-          update: string | import('@/stores/panel/console/types').ConsoleUpdate,
+          update: string | import('@/stores/console/types').ConsoleUpdate,
           executionId?: string
         ) => {
           set((state) => {
@@ -389,7 +389,7 @@ export const useConsoleStore = create<ConsoleStore>()(
           })
         },
 
-        updateConsoleEntry: (entryId: string, update: string | import('@/stores/panel/console/types').ConsoleUpdate) => {
+        updateConsoleEntry: (entryId: string, update: string | import('@/stores/console/types').ConsoleUpdate) => {
           set((state) => {
             const updatedEntries = state.entries.map((entry) => {
               if (entry.id !== entryId) return entry

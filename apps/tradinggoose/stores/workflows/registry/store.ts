@@ -6,7 +6,7 @@ import { generateCreativeWorkflowName } from '@/lib/naming'
 import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { API_ENDPOINTS } from '@/stores/constants'
 import { usePairColorStore } from '@/stores/dashboard/pair-store'
-import { useVariablesStore } from '@/stores/panel/variables/store'
+import { useVariablesStore } from '@/stores/variables/store'
 import type {
   DeploymentStatus,
   WorkflowMetadata,

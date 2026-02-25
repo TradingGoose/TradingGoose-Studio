@@ -17,8 +17,8 @@ import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/work
 import { useWorkflowExecution } from '@/hooks/workflow/use-workflow-execution'
 import type { BlockLog, ExecutionResult } from '@/executor/types'
 import { useExecutionStore } from '@/stores/execution/store'
-import { useChatStore } from '@/stores/panel/chat/store'
-import { useConsoleStore } from '@/stores/panel/console/store'
+import { useChatStore } from '@/stores/chat/store'
+import { useConsoleStore } from '@/stores/console/store'
 
 const logger = createLogger('ChatPanel')
 

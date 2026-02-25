@@ -17,8 +17,8 @@ import { cn } from '@/lib/utils'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
-import { useVariablesStore } from '@/stores/panel/variables/store'
-import type { Variable } from '@/stores/panel/variables/types'
+import { useVariablesStore } from '@/stores/variables/store'
+import type { Variable } from '@/stores/variables/types'
 
 interface VariableAssignment {
   id: string
