@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { getHighestPrioritySubscription } from '@/lib/billing/core/subscription'
 import { executeCompiledIndicator } from '@/lib/indicators/execution/compile-execution'
 import { mapMarketSeriesToBarsMs } from '@/lib/indicators/series-data'
 import { detectTriggerUsage } from '@/lib/indicators/trigger-detection'
@@ -12,7 +11,6 @@ import {
   getWorkspaceWritePermissionError,
   isExecutionTimeoutError,
   parseIndicatorRequestBody,
-  resolveIndicatorRuntimeConfig,
 } from '../utils'
 
 export const runtime = 'nodejs'
@@ -58,11 +56,6 @@ export async function POST(request: NextRequest) {
 
     const permissionError = await getWorkspaceWritePermissionError(auth.userId, workspaceId)
     if (permissionError) return permissionError
-
-    const userSubscription = await getHighestPrioritySubscription(auth.userId)
-    const { useE2B, e2bTemplate, e2bKeepWarmMs } = resolveIndicatorRuntimeConfig(
-      userSubscription?.plan
-    )
 
     const series = generateMockMarketSeries()
     const barsMs = mapMarketSeriesToBarsMs(series).slice(0, MAX_BARS)

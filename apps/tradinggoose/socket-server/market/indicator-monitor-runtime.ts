@@ -20,10 +20,7 @@ import {
   normalizeBarsMs,
 } from '@/lib/indicators/series-data'
 import type { BarMs, NormalizedPineSignal } from '@/lib/indicators/types'
-import {
-  type ListingIdentity,
-  toListingValueObject,
-} from '@/lib/listing/identity'
+import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { acquireMonitorRuntimeLock, getRedisClient, releaseLock } from '@/lib/redis'
 import { decryptSecret } from '@/lib/utils'
@@ -184,10 +181,10 @@ const toMarketSeries = ({
 }
 
 const chooseCandidate = ({
-  signals,
+  triggers,
   latestBarOpenTimeSec,
 }: {
-  signals: NormalizedPineSignal[]
+  triggers: NormalizedPineSignal[]
   latestBarOpenTimeSec: number | null
 }): {
   candidate: NormalizedPineSignal | null
@@ -197,7 +194,7 @@ const chooseCandidate = ({
     return { candidate: null, reason: 'no_latest_candidate' }
   }
 
-  const latestCandidates = signals.filter((signal) => signal.time === latestBarOpenTimeSec)
+  const latestCandidates = triggers.filter((signal) => signal.time === latestBarOpenTimeSec)
   if (latestCandidates.length === 0) {
     return { candidate: null, reason: 'no_latest_candidate' }
   }
@@ -751,14 +748,13 @@ export class IndicatorMonitorRuntime {
         listing: monitor.listing,
         interval: monitor.interval,
         intervalMs: monitor.intervalMs,
-        useE2B: false,
         executionTimeoutMs: 15_000,
       })
 
       if (!compiled.output) return
       const latestBarOpenTimeSec = resolveLatestBarOpenTimeSec(subscription.bars)
       const candidate = chooseCandidate({
-        signals: compiled.output.signals,
+        triggers: compiled.output.triggers,
         latestBarOpenTimeSec,
       })
 

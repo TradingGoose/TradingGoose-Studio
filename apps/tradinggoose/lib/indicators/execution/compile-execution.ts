@@ -1,6 +1,9 @@
+import { resolveExecutionRuntimeConfig } from '@/lib/execution/runtime-config'
 import { compileIndicator } from '@/lib/indicators/custom/compile'
 import type { BarMs } from '@/lib/indicators/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
+
+const INDICATOR_RUNTIME_CONFIG = resolveExecutionRuntimeConfig()
 
 const runWithExecutionTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T> =>
   Promise.race([
@@ -20,9 +23,6 @@ export const executeCompiledIndicator = async ({
   listing,
   interval,
   intervalMs,
-  useE2B,
-  e2bTemplate,
-  e2bKeepWarmMs,
   executionTimeoutMs,
 }: {
   pineCode: string
@@ -31,12 +31,11 @@ export const executeCompiledIndicator = async ({
   listing?: ListingIdentity | null
   interval?: string
   intervalMs?: number | null
-  useE2B: boolean
-  e2bTemplate?: string
-  e2bKeepWarmMs?: number
   executionTimeoutMs: number
-}) =>
-  runWithExecutionTimeout(
+}) => {
+  const useE2B = INDICATOR_RUNTIME_CONFIG.useE2B
+
+  return runWithExecutionTimeout(
     compileIndicator({
       pineCode,
       barsMs,
@@ -46,8 +45,9 @@ export const executeCompiledIndicator = async ({
       intervalMs: intervalMs ?? null,
       useE2B,
       executionTimeoutMs,
-      e2bTemplate,
-      e2bKeepWarmMs,
+      e2bTemplate: INDICATOR_RUNTIME_CONFIG.e2bTemplate,
+      e2bKeepWarmMs: INDICATOR_RUNTIME_CONFIG.e2bKeepWarmMs,
     }),
     executionTimeoutMs
   )
+}

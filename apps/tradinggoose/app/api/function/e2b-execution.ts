@@ -1,12 +1,15 @@
 import { executeInE2B } from '@/lib/execution/e2b'
 import { CodeLanguage } from '@/lib/execution/languages'
+import { resolveExecutionRuntimeConfig } from '@/lib/execution/runtime-config'
 import { DEFAULT_INDICATOR_RUNTIME_MANIFEST } from '@/lib/indicators/default/runtime'
 import { buildPineTSFunctionIndicatorRuntimePrologue } from '@/lib/indicators/execution/e2b-script-builder'
 import { FUNCTION_INDICATOR_USAGE_HINT } from '@/lib/indicators/execution/function-indicator-runtime'
 import { formatE2BError } from './error-formatting'
+import { executeFunctionInLocalVm } from './local-execution'
 import { extractJavaScriptImports } from './typescript-utils'
 
 const E2B_JS_WRAPPER_LINES = 3
+const FUNCTION_RUNTIME_CONFIG = resolveExecutionRuntimeConfig()
 
 type ExecuteFunctionInE2BArgs = {
   transpiledCode: string
@@ -14,6 +17,7 @@ type ExecuteFunctionInE2BArgs = {
   executionParams: Record<string, any>
   envVars: Record<string, string>
   contextVariables: Record<string, any>
+  isCustomTool: boolean
   timeout: number
   e2bTemplate?: string
   e2bKeepWarmMs?: number
@@ -27,6 +31,7 @@ export const executeFunctionInE2B = async ({
   executionParams,
   envVars,
   contextVariables,
+  isCustomTool,
   timeout,
   e2bTemplate,
   e2bKeepWarmMs,
@@ -48,6 +53,13 @@ export const executeFunctionInE2B = async ({
 
   prologue += `const params = JSON.parse(${JSON.stringify(JSON.stringify(executionParams))});\n`
   prologueLineCount++
+  if (isCustomTool) {
+    Object.keys(executionParams).forEach((key) => {
+      if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key)) return
+      prologue += `const ${key} = params[${JSON.stringify(key)}];\n`
+      prologueLineCount++
+    })
+  }
   prologue += `const environmentVariables = JSON.parse(${JSON.stringify(JSON.stringify(envVars))});\n`
   prologueLineCount++
 
@@ -121,5 +133,107 @@ export const executeFunctionInE2B = async ({
     result: e2bResult ?? null,
     stdout: e2bStdout,
     executionTime,
+  }
+}
+
+type ExecuteFunctionWithRuntimeGateArgs = {
+  requestId: string
+  transpiledCode: string
+  resolvedCode: string
+  executionParams: Record<string, any>
+  envVars: Record<string, string>
+  contextVariables: Record<string, any>
+  timeout: number
+  isCustomTool: boolean
+  onImportExtractionError?: (error: unknown) => void
+  onSandboxResult?: (meta: { sandboxId?: string; stdoutPreview?: string; error?: string }) => void
+  onStdout: (chunk: string) => void
+  onWarn: (message: string, meta: Record<string, unknown>) => void
+  onError: (message: string) => void
+}
+
+type RuntimeGateResult =
+  | {
+      engine: 'e2b'
+      success: boolean
+      result: unknown
+      stdout: string
+      executionTime: number
+      error?: string
+      userCodeStartLine: number
+    }
+  | {
+      engine: 'local_vm'
+      success: true
+      result: unknown
+      stdout: string
+      executionTime: number
+      userCodeStartLine: number
+    }
+
+export const executeFunctionWithRuntimeGate = async ({
+  requestId,
+  transpiledCode,
+  resolvedCode,
+  executionParams,
+  envVars,
+  contextVariables,
+  timeout,
+  isCustomTool,
+  onImportExtractionError,
+  onSandboxResult,
+  onStdout,
+  onWarn,
+  onError,
+}: ExecuteFunctionWithRuntimeGateArgs): Promise<RuntimeGateResult> => {
+  const useE2B = FUNCTION_RUNTIME_CONFIG.useE2B
+
+  if (useE2B) {
+    const e2bExecution = await executeFunctionInE2B({
+      transpiledCode,
+      resolvedCode,
+      executionParams,
+      envVars,
+      contextVariables,
+      isCustomTool,
+      timeout,
+      e2bTemplate: FUNCTION_RUNTIME_CONFIG.e2bTemplate,
+      e2bKeepWarmMs: FUNCTION_RUNTIME_CONFIG.e2bKeepWarmMs,
+      onImportExtractionError,
+      onSandboxResult,
+    })
+
+    return {
+      engine: 'e2b',
+      success: e2bExecution.success,
+      result: e2bExecution.success ? e2bExecution.result : null,
+      stdout: e2bExecution.stdout,
+      executionTime: e2bExecution.executionTime,
+      userCodeStartLine: 3,
+      ...(e2bExecution.success ? {} : { error: e2bExecution.error }),
+    }
+  }
+
+  const localStart = Date.now()
+  const localExecution = await executeFunctionInLocalVm({
+    requestId,
+    transpiledCode,
+    timeout,
+    executionParams,
+    envVars,
+    contextVariables,
+    isCustomTool,
+    onStdout,
+    onWarn,
+    onError,
+  })
+
+  return {
+    engine: 'local_vm',
+    success: true,
+    result: localExecution.result,
+    stdout: '',
+    executionTime: Date.now() - localStart,
+    userCodeStartLine: localExecution.userCodeStartLine,
   }
 }

@@ -1,10 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import type { ZodTypeAny, z } from 'zod'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
-import { resolveIndicatorRuntimeConfig } from '@/lib/indicators/runtime-config'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
-
-export { resolveIndicatorRuntimeConfig }
 
 type IndicatorErrorResponseShape = 'withSuccess' | 'errorOnly'
 

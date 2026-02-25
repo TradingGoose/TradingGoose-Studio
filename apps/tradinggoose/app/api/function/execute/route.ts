@@ -1,11 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { resolveIndicatorRuntimeConfig } from '@/lib/indicators/runtime-config'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { resolveCodeVariables } from '../code-resolution'
-import { executeFunctionInE2B } from '../e2b-execution'
+import { executeFunctionWithRuntimeGate } from '../e2b-execution'
 import { createUserFriendlyErrorMessage, extractEnhancedError } from '../error-formatting'
-import { executeFunctionInLocalVm } from '../local-execution'
 import { findFunctionPineDisallowedReason, transpileTypeScriptCode } from '../typescript-utils'
 
 export const dynamic = 'force-dynamic'
@@ -58,7 +56,6 @@ export async function POST(req: NextRequest) {
       workflowVariables = {},
       workflowId,
       isCustomTool = false,
-      useLocalVM = false,
     } = body
 
     const executionParams = { ...params }
@@ -70,7 +67,6 @@ export async function POST(req: NextRequest) {
       timeout,
       workflowId,
       isCustomTool,
-      useLocalVM,
     })
 
     const { resolvedCode: nextResolvedCode, contextVariables } = resolveCodeVariables(
@@ -89,58 +85,25 @@ export async function POST(req: NextRequest) {
     }
 
     const transpiledCode = await transpileTypeScriptCode(resolvedCode)
-    const indicatorRuntimeConfig = resolveIndicatorRuntimeConfig()
-    const useE2B = indicatorRuntimeConfig.useE2B && !isCustomTool && !useLocalVM
-
-    if (useE2B) {
-      logger.info(`[${requestId}] E2B status`, {
-        enabled: indicatorRuntimeConfig.useE2B,
-        template: indicatorRuntimeConfig.e2bTemplate,
-        keepWarmMs: indicatorRuntimeConfig.e2bKeepWarmMs,
-      })
-
-      const e2bExecution = await executeFunctionInE2B({
-        transpiledCode,
-        resolvedCode,
-        executionParams,
-        envVars,
-        contextVariables,
-        timeout,
-        e2bTemplate: indicatorRuntimeConfig.e2bTemplate,
-        e2bKeepWarmMs: indicatorRuntimeConfig.e2bKeepWarmMs,
-        onImportExtractionError: (error) => {
-          logger.error('Failed to extract JavaScript imports', { error })
-        },
-        onSandboxResult: ({ sandboxId, stdoutPreview, error }) => {
-          logger.info(`[${requestId}] E2B JS sandbox`, {
-            sandboxId,
-            stdoutPreview,
-            error,
-          })
-        },
-      })
-
-      stdout = e2bExecution.stdout
-      if (!e2bExecution.success) {
-        return respondFailure(
-          e2bExecution.error,
-          e2bExecution.executionTime,
-          500,
-          e2bExecution.stdout
-        )
-      }
-
-      return respondSuccess(e2bExecution.result ?? null, e2bExecution.executionTime)
-    }
-
-    const localExecution = await executeFunctionInLocalVm({
+    const runtimeExecution = await executeFunctionWithRuntimeGate({
       requestId,
       transpiledCode,
+      resolvedCode,
       timeout,
+      isCustomTool,
       executionParams,
       envVars,
       contextVariables,
-      isCustomTool,
+      onImportExtractionError: (error) => {
+        logger.error('Failed to extract JavaScript imports', { error })
+      },
+      onSandboxResult: ({ sandboxId, stdoutPreview, error }) => {
+        logger.info(`[${requestId}] E2B JS sandbox`, {
+          sandboxId,
+          stdoutPreview,
+          error,
+        })
+      },
       onStdout: (chunk) => {
         stdout += chunk
       },
@@ -151,14 +114,26 @@ export async function POST(req: NextRequest) {
         logger.error(`[${requestId}] Code Console Error: ${message}`)
       },
     })
-    userCodeStartLine = localExecution.userCodeStartLine
+
+    stdout = runtimeExecution.stdout || stdout
+    userCodeStartLine = runtimeExecution.userCodeStartLine
+
+    if (!runtimeExecution.success) {
+      return respondFailure(
+        runtimeExecution.error ?? 'Function execution failed',
+        runtimeExecution.executionTime,
+        500,
+        runtimeExecution.stdout
+      )
+    }
 
     const executionTime = Date.now() - startTime
-    logger.info(`[${requestId}] Function executed successfully using vm`, {
+    logger.info(`[${requestId}] Function executed successfully`, {
       executionTime,
+      engine: runtimeExecution.engine,
     })
 
-    return respondSuccess(localExecution.result, executionTime)
+    return respondSuccess(runtimeExecution.result, executionTime)
   } catch (error: any) {
     const executionTime = Date.now() - startTime
     const userLineFromError =
