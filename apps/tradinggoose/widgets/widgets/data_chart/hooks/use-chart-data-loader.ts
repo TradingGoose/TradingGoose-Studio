@@ -470,11 +470,23 @@ export const useChartDataLoader = ({
       JSON.stringify(authParams ?? null),
       refreshAt ?? 'none',
     ].join('|')
+    const previousSeriesLoadKey = lastSeriesLoadKeyRef.current
+    const seriesLoadKeyChanged = previousSeriesLoadKey !== seriesLoadKey
+    if (
+      seriesLoadKeyChanged &&
+      previousSeriesLoadKey !== null &&
+      !refreshChanged &&
+      !windowChanged
+    ) {
+      resetRescale()
+      lastWindowSpanRef.current = null
+      resetHistoryState()
+    }
     const shouldLoadSeries =
       refreshChanged ||
       windowChanged ||
       dataContext.barsMsRef.current.length === 0 ||
-      lastSeriesLoadKeyRef.current !== seriesLoadKey
+      seriesLoadKeyChanged
 
     if (shouldLoadSeries) {
       loadSeries()
