@@ -7,7 +7,7 @@ import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { getWorkflowAccessContext } from '@/lib/workflows/utils'
-import type { Variable } from '@/stores/panel/variables/types'
+import type { Variable } from '@/stores/variables/types'
 
 const logger = createLogger('WorkflowVariablesAPI')
 

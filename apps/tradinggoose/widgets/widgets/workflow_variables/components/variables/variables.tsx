@@ -27,8 +27,8 @@ import { MonacoEditor } from '@/components/monaco-editor'
 import { createLogger } from '@/lib/logs/console/logger'
 import { validateName } from '@/lib/utils'
 import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
-import { useVariablesStore } from '@/stores/panel/variables/store'
-import type { Variable, VariableType } from '@/stores/panel/variables/types'
+import { useVariablesStore } from '@/stores/variables/store'
+import type { Variable, VariableType } from '@/stores/variables/types'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('Variables')

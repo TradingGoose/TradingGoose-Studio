@@ -12,7 +12,7 @@ import type { ExecutionResult, StreamingExecution } from '@/executor/types'
 import { Serializer } from '@/serializer'
 import type { SerializedWorkflow } from '@/serializer/types'
 import { useExecutionStore } from '@/stores/execution/store'
-import { useVariablesStore } from '@/stores/panel/variables/store'
+import { useVariablesStore } from '@/stores/variables/store'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
 import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
@@ -180,7 +180,7 @@ export async function executeWorkflowWithLogging(
   let selectedOutputs: string[] | undefined
   if (isExecutingFromChat) {
     // Get selected outputs from chat store
-    const chatStore = await import('@/stores/panel/chat/store').then((mod) => mod.useChatStore)
+    const chatStore = await import('@/stores/chat/store').then((mod) => mod.useChatStore)
     selectedOutputs = chatStore.getState().getSelectedWorkflowOutput(activeWorkflowId)
   }
 
