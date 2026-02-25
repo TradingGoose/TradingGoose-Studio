@@ -122,6 +122,7 @@ export const useChartDataLoader = ({
   const lastWindowSpanRef = useRef<number | null>(null)
   const expectedBarsRef = useRef<number | null>(null)
   const lastRefreshAtRef = useRef<number | null>(null)
+  const lastSeriesLoadKeyRef = useRef<string | null>(null)
   const loaderVersionRef = useRef(0)
   const rescaleKeyRef = useRef<string | null>(null)
   const isLoadingOlderDataRef = useRef(false)
@@ -214,7 +215,11 @@ export const useChartDataLoader = ({
     const providerChanged = lastProviderRef.current !== nextProvider
     const listingChanged = lastListingSignatureRef.current !== nextListingSignature
 
-    if (providerChanged || listingChanged) {
+    const shouldReusePendingRange =
+      (providerChanged && lastProviderRef.current !== null) ||
+      (listingChanged && lastListingSignatureRef.current !== null)
+
+    if (shouldReusePendingRange) {
       const start = dataParams.view?.start
       const end = dataParams.view?.end
       if (
@@ -229,6 +234,8 @@ export const useChartDataLoader = ({
       } else {
         pendingRangeRef.current = null
       }
+    } else if (providerChanged || listingChanged) {
+      pendingRangeRef.current = null
     }
 
     if (!chart) {
@@ -437,6 +444,7 @@ export const useChartDataLoader = ({
         const nextTimezone = timezone || null
         setSeriesTimezone((prev) => (prev === nextTimezone ? prev : nextTimezone))
         setChartError(null)
+        lastSeriesLoadKeyRef.current = seriesLoadKey
       } catch (error) {
         if (isStale()) return
         console.error('Failed to load chart data', error)
@@ -448,7 +456,29 @@ export const useChartDataLoader = ({
       }
     }
 
-    loadSeries()
+    const listingLoadKey = listing
+      ? `${listing.listing_type}|${listing.listing_id}|${listing.base_id}|${listing.quote_id}`
+      : 'none'
+    const seriesLoadKey = [
+      workspaceId ?? 'none',
+      providerId ?? 'none',
+      listingLoadKey,
+      requestInterval ?? 'none',
+      normalizationMode ?? 'none',
+      seriesWindow.windowKey ?? 'none',
+      JSON.stringify(providerParams ?? null),
+      JSON.stringify(authParams ?? null),
+      refreshAt ?? 'none',
+    ].join('|')
+    const shouldLoadSeries =
+      refreshChanged ||
+      windowChanged ||
+      dataContext.barsMsRef.current.length === 0 ||
+      lastSeriesLoadKeyRef.current !== seriesLoadKey
+
+    if (shouldLoadSeries) {
+      loadSeries()
+    }
 
     let timeScale: ReturnType<IChartApi['timeScale']> | null = null
     try {
