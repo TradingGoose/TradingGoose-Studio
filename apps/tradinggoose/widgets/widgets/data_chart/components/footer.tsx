@@ -405,30 +405,6 @@ const DataChartNormalizationDropdown = ({
     })
   }
 
-  useEffect(() => {
-    if (!providerId) return
-    if (!fallbackMode) return
-    if (selectedMode === fallbackMode) return
-    if (
-      (params.data?.providerParams as Record<string, unknown> | undefined)?.normalization_mode ===
-      fallbackMode
-    ) {
-      return
-    }
-    const nextProviderParams = { ...(params.data?.providerParams ?? {}) } as Record<string, unknown>
-    nextProviderParams.normalization_mode = fallbackMode
-    emitDataChartParamsChange({
-      params: {
-        data: {
-          ...(params.data ?? {}),
-          providerParams: nextProviderParams,
-        },
-      },
-      panelId,
-      widgetKey,
-    })
-  }, [fallbackMode, panelId, params.data?.providerParams, providerId, selectedMode, widgetKey])
-
   const isDisabled = !providerId || supportedModes.length === 0
 
   return (
