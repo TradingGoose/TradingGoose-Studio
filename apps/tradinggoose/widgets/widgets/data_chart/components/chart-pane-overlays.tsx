@@ -84,7 +84,7 @@ export const ChartPaneOverlays = ({
         return (
           <div
             key={`pane-overlay-${paneIndex}`}
-            className='absolute right-0 left-0'
+            className='absolute right-0 left-0 overflow-hidden'
             style={{ top: `${layout.top}px`, height: `${layout.height}px` }}
           >
             <div className='relative h-full w-full'>

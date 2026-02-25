@@ -153,7 +153,7 @@ export function LogsList({
                               ref={isSelected ? selectedRowRef : null}
                               className={cn(
                                 'cursor-pointer border-b transition-colors hover:bg-card/30',
-                                isSelected && 'selected-row bg-accent/40'
+                                isSelected && 'selected-row bg-accent'
                               )}
                               onClick={() => onLogClick(log)}
                             >

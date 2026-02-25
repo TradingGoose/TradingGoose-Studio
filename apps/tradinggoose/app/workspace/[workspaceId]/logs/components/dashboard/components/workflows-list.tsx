@@ -89,9 +89,8 @@ export function WorkflowsList({
               return (
                 <div
                   key={workflow.workflowId}
-                  className={`flex cursor-pointer items-center gap-4 rounded-lg px-2 py-1.5 transition-colors ${
-                    isSelected ? 'bg-accent/40' : 'hover:bg-card/20'
-                  }`}
+                  className={`flex cursor-pointer items-center gap-4 rounded-lg px-2 py-1.5 transition-colors ${isSelected ? 'bg-accent' : 'hover:bg-card/20'
+                    }`}
                   onClick={() => onToggleWorkflow(workflow.workflowId)}
                 >
                   <div className='w-52 min-w-0 flex-shrink-0'>

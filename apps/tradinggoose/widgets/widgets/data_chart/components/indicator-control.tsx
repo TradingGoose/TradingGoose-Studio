@@ -92,7 +92,7 @@ export const IndicatorControl = ({
         onMouseLeave={() => setIsHoveringData(false)}
       >
         <div className='min-w-0 inline-flex shrink items-center gap-1'>
-          <div className='min-w-0 py-0.5 pl-1'>
+          <div className='min-w-0 py-0.5 px-1'>
             <span className='block max-w-full text-center truncate font-semibold text-xs text-foreground'>
               {name}
             </span>
@@ -112,7 +112,7 @@ export const IndicatorControl = ({
           )}
         </div>
 
-        <div className={cn('hidden items-center gap-1 p-0.5', isHoveringData && 'flex')}>
+        <div className={cn('hidden items-center gap-1 p-0.5 pr-1', isHoveringData && 'flex')}>
           <Tooltip>
             <TooltipTrigger asChild>
               <button

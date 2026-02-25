@@ -57,6 +57,14 @@ const getListingFallback = (listing: ListingOption): string => {
   return symbol.slice(0, 2).toUpperCase()
 }
 
+const getListingCompanyName = (listing: ListingOption): string | null => {
+  const name = listing.name?.trim()
+  if (!name) return null
+  const symbol = getListingSymbol(listing).trim()
+  if (symbol && symbol.toLowerCase() === name.toLowerCase()) return null
+  return name
+}
+
 const hasListingDetails = (listing?: ListingOption | null): boolean => {
   if (!listing) return false
   const base = listing.base?.trim()
@@ -87,8 +95,15 @@ const getFlagData = (
   }
 }
 
-const ListingSelectorRow = ({ listing }: { listing?: ListingOption | null }) => {
+const ListingSelectorRow = ({
+  listing,
+  showSecondary = false,
+}: {
+  listing?: ListingOption | null
+  showSecondary?: boolean
+}) => {
   const symbol = listing ? getListingSymbol(listing) : ''
+  const companyName = listing ? getListingCompanyName(listing) : null
   const assetClassLabel = listing?.assetClass?.toUpperCase() ?? ''
   const flagData = getFlagData(listing?.countryCode)
   const prefersFlagImage =
@@ -105,9 +120,16 @@ const ListingSelectorRow = ({ listing }: { listing?: ListingOption | null }) => 
           {listing ? getListingFallback(listing) : '??'}
         </AvatarFallback>
       </Avatar>
-      <span className='min-w-0 truncate text-sm font-medium'>
-        {listing ? symbol : 'Select listing'}
-      </span>
+      {showSecondary && companyName ? (
+        <div className='min-w-0 flex-1'>
+          <span className='block min-w-0 truncate text-sm font-medium'>{listing ? symbol : 'Select listing'}</span>
+          <span className='block min-w-0 truncate text-muted-foreground text-xs'>{companyName}</span>
+        </div>
+      ) : (
+        <span className='min-w-0 truncate text-sm font-medium'>
+          {listing ? symbol : 'Select listing'}
+        </span>
+      )}
       {prefersFlagImage && flagImageUrl ? (
         <img
           src={flagImageUrl}
@@ -415,7 +437,7 @@ export function ListingSelector({
                     isHighlighted && 'bg-accent text-accent-foreground'
                   )}
                 >
-                  <ListingSelectorRow listing={listing} />
+                  <ListingSelectorRow listing={listing} showSecondary />
                 </div>
               )
             })

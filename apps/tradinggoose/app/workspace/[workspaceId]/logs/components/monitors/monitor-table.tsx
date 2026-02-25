@@ -158,7 +158,7 @@ export function MonitorTable({
                   return (
                     <tr
                       key={monitor.monitorId}
-                      className={`border-b transition-colors ${isSelected ? 'bg-accent/40' : 'hover:bg-accent/20'
+                      className={`border-b transition-colors ${isSelected ? 'bg-accent' : 'hover:bg-accent/20'
                         }`}
                       onClick={() => onSelectMonitor(monitor.monitorId)}
                     >
