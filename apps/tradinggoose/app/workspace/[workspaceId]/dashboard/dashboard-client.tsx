@@ -224,17 +224,15 @@ export function DashboardClient({
       const normalizedPairs = normalizeColorPairsState(
         data.colorPairs ?? normalizedInitialColorPairs
       )
+      const hasLinkedPairs = hasLinkedColorPairs(normalizedPairs)
+      hydratePairStoreFromColorPairs(normalizedPairs)
 
       if (data.layout) {
-        const layoutWithPairs = hasLinkedColorPairs(normalizedPairs)
+        const layoutWithPairs = hasLinkedPairs
           ? applyColorPairsToLayout(data.layout, normalizedPairs)
           : data.layout
         setTree(layoutWithPairs)
         latestLayoutRef.current = layoutWithPairs
-      }
-
-      if (hasLinkedColorPairs(normalizedPairs)) {
-        hydratePairStoreFromColorPairs(normalizedPairs)
       }
 
       if (Array.isArray(data.layouts)) {
@@ -1145,31 +1143,28 @@ function applyPairDataToWidget(
 }
 
 function hydratePairStoreFromColorPairs(colorPairs: PersistedColorPairsState) {
-  if (!hasLinkedColorPairs(colorPairs)) {
-    return
-  }
-
-  const { setContext, resetContext } = usePairColorStore.getState()
-  const seen = new Set<LinkedPairColor>()
-
-  for (const pair of colorPairs.pairs ?? []) {
-    if (!pair || !pair.color || pair.color === 'gray') continue
-    seen.add(pair.color)
-    setContext(pair.color, {
-      workflowId: pair.workflowId ?? undefined,
-      listing: pair.listing ?? undefined,
-      copilotChatId: pair.copilotChatId ?? undefined,
-      indicatorId: pair.indicatorId ?? undefined,
-      pineIndicatorId: pair.pineIndicatorId ?? undefined,
-    })
-  }
+  const now = Date.now()
+  const currentContexts = usePairColorStore.getState().contexts
+  const nextContexts: Record<PairColor, PairColorContext> = { ...currentContexts }
 
   PAIR_COLORS.forEach((color) => {
     if (color === 'gray') return
-    const linked = color as LinkedPairColor
-    if (seen.has(linked)) return
-    resetContext(linked)
+    nextContexts[color] = {}
   })
+
+  for (const pair of colorPairs.pairs ?? []) {
+    if (!pair || !pair.color || pair.color === 'gray') continue
+    nextContexts[pair.color] = {
+      workflowId: pair.workflowId ?? undefined,
+      listing: pair.listing ?? null,
+      copilotChatId: pair.copilotChatId ?? null,
+      indicatorId: pair.indicatorId ?? null,
+      pineIndicatorId: pair.pineIndicatorId ?? null,
+      updatedAt: now,
+    }
+  }
+
+  usePairColorStore.setState({ contexts: nextContexts })
 }
 
 function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState {
