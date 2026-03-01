@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'http'
 import { env } from '@/lib/env'
-import { getRedisClient } from '@/lib/redis'
+import { getRedisClient, getRedisStorageMode } from '@/lib/redis'
 import type { RoomManager } from '@/socket-server/rooms/manager'
 
 interface Logger {
@@ -65,7 +65,7 @@ function rejectUnauthorizedRequest(
 }
 
 function getDefaultMonitorRuntimeHealth(): MonitorRuntimeHealth {
-  const redisConfigured = Boolean(env.REDIS_URL)
+  const redisConfigured = getRedisStorageMode() === 'redis'
   const redisClientAvailable = Boolean(getRedisClient())
   const degraded = redisConfigured && !redisClientAvailable
 

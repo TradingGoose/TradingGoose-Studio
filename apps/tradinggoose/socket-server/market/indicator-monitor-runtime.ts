@@ -22,7 +22,12 @@ import {
 import type { BarMs, NormalizedPineSignal } from '@/lib/indicators/types'
 import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
-import { acquireMonitorRuntimeLock, getLockValue, getRedisClient, releaseLock } from '@/lib/redis'
+import {
+  acquireMonitorRuntimeLock,
+  getRedisClient,
+  getRedisStorageMode,
+  releaseLock,
+} from '@/lib/redis'
 import { decryptSecret } from '@/lib/utils'
 import {
   checkRateLimits,
@@ -397,7 +402,7 @@ export class IndicatorMonitorRuntime {
   }
 
   getHealth(): IndicatorMonitorRuntimeHealth {
-    const redisConfigured = Boolean(process.env.REDIS_URL)
+    const redisConfigured = getRedisStorageMode() === 'redis'
     const redisClientAvailable = Boolean(getRedisClient())
     const degraded = this.status === 'degraded' || (redisConfigured && !redisClientAvailable)
 
@@ -435,7 +440,7 @@ export class IndicatorMonitorRuntime {
       if (!lockAcquired) {
         this.running = false
         this.lockHeld = false
-        this.status = process.env.REDIS_URL ? 'degraded' : 'disabled'
+        this.status = getRedisStorageMode() === 'redis' ? 'degraded' : 'disabled'
         this.logger.warn('Indicator monitor runtime disabled; lock acquisition failed.')
 
         if (!this.reconcileTimer) {
@@ -482,10 +487,7 @@ export class IndicatorMonitorRuntime {
     this.subscriptions.clear()
 
     if (this.lockHeld) {
-      const lockValue = await getLockValue(LOCK_KEY)
-      if (lockValue === this.instanceId) {
-        await releaseLock(LOCK_KEY)
-      }
+      await releaseLock(LOCK_KEY, this.instanceId)
       this.lockHeld = false
     }
 
@@ -535,9 +537,14 @@ export class IndicatorMonitorRuntime {
           )
         )
 
-      const monitors = rows.flatMap((row) => {
+      let skippedMissingWorkspace = 0
+      let skippedInvalidConfig = 0
+      const monitors: MonitorRuntimeConfig[] = []
+
+      rows.forEach((row) => {
         if (!row.workflow.workspaceId) {
-          return []
+          skippedMissingWorkspace += 1
+          return
         }
 
         const normalized = normalizeProviderConfig(
@@ -547,8 +554,22 @@ export class IndicatorMonitorRuntime {
           row.workflow.pinnedApiKeyId
         )
 
-        return normalized ? [normalized] : []
+        if (!normalized) {
+          skippedInvalidConfig += 1
+          return
+        }
+
+        monitors.push(normalized)
       })
+
+      if (rows.length > 0 && monitors.length === 0) {
+        this.logger.warn('Indicator monitor reconcile found rows but no runtime-eligible monitors', {
+          reason,
+          totalRows: rows.length,
+          skippedMissingWorkspace,
+          skippedInvalidConfig,
+        })
+      }
 
       const indicatorDefinitions = await resolveIndicatorDefinitions(monitors)
       const nextMonitorIds = new Set(monitors.map((monitor) => monitor.id))
@@ -600,6 +621,8 @@ export class IndicatorMonitorRuntime {
       this.lastReconcileAt = new Date().toISOString()
       this.logger.info('Indicator monitor reconcile completed', {
         reason,
+        totalRows: rows.length,
+        eligibleMonitors: monitors.length,
         activeSubscriptions: this.subscriptions.size,
       })
     } catch (error) {

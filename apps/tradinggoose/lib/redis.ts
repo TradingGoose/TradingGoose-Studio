@@ -6,6 +6,11 @@ const logger = createLogger('Redis')
 
 // Only use Redis if explicitly configured
 const redisUrl = env.REDIS_URL
+export type RedisStorageMode = 'redis' | 'local'
+
+export function getRedisStorageMode(): RedisStorageMode {
+  return redisUrl ? 'redis' : 'local'
+}
 
 // Global Redis client for connection pooling
 let globalRedisClient: Redis | null = null
@@ -13,6 +18,37 @@ let globalRedisClient: Redis | null = null
 // Fallback in-memory cache for when Redis is not available
 const inMemoryCache = new Map<string, { value: string; expiry: number | null }>()
 const MAX_CACHE_SIZE = 1000
+const inMemoryMonitorLocks = new Map<string, { value: string; expiry: number }>()
+
+const readInMemoryCacheEntry = (
+  key: string
+): { value: string; expiry: number | null } | null => {
+  const cacheEntry = inMemoryCache.get(key)
+  if (!cacheEntry) return null
+  if (cacheEntry.expiry && cacheEntry.expiry <= Date.now()) {
+    inMemoryCache.delete(key)
+    return null
+  }
+  return cacheEntry
+}
+
+const readInMemoryMonitorLock = (lockKey: string): { value: string; expiry: number } | null => {
+  const lock = inMemoryMonitorLocks.get(lockKey)
+  if (!lock) return null
+  if (lock.expiry <= Date.now()) {
+    inMemoryMonitorLocks.delete(lockKey)
+    return null
+  }
+  return lock
+}
+
+const RELEASE_LOCK_SCRIPT = `
+if redis.call("get", KEYS[1]) == ARGV[1] then
+  return redis.call("del", KEYS[1])
+else
+  return 0
+end
+`
 
 /**
  * Get a Redis client instance
@@ -159,6 +195,74 @@ export async function markMessageAsProcessed(
 }
 
 /**
+ * Generic key/value helpers with in-memory fallback when Redis is not configured.
+ */
+export async function hasCachedValue(key: string): Promise<boolean> {
+  try {
+    const redis = getRedisClient()
+    if (redis) {
+      return (await redis.exists(key)) === 1
+    }
+    return readInMemoryCacheEntry(key) !== null
+  } catch (error) {
+    logger.error(`Error checking cached key ${key}:`, { error })
+    return readInMemoryCacheEntry(key) !== null
+  }
+}
+
+export async function getCachedValue(key: string): Promise<string | null> {
+  try {
+    const redis = getRedisClient()
+    if (redis) {
+      return await redis.get(key)
+    }
+    return readInMemoryCacheEntry(key)?.value ?? null
+  } catch (error) {
+    logger.error(`Error getting cached key ${key}:`, { error })
+    return readInMemoryCacheEntry(key)?.value ?? null
+  }
+}
+
+export async function setCachedValue(
+  key: string,
+  value: string,
+  expirySeconds?: number
+): Promise<void> {
+  try {
+    const redis = getRedisClient()
+    if (redis) {
+      if (expirySeconds && expirySeconds > 0) {
+        await redis.set(key, value, 'EX', expirySeconds)
+      } else {
+        await redis.set(key, value)
+      }
+      return
+    }
+
+    const expiry = expirySeconds ? Date.now() + expirySeconds * 1000 : null
+    inMemoryCache.set(key, { value, expiry })
+  } catch (error) {
+    logger.error(`Error setting cached key ${key}:`, { error })
+    const expiry = expirySeconds ? Date.now() + expirySeconds * 1000 : null
+    inMemoryCache.set(key, { value, expiry })
+  }
+}
+
+export async function deleteCachedValue(key: string): Promise<void> {
+  try {
+    const redis = getRedisClient()
+    if (redis) {
+      await redis.del(key)
+      return
+    }
+    inMemoryCache.delete(key)
+  } catch (error) {
+    logger.error(`Error deleting cached key ${key}:`, { error })
+    inMemoryCache.delete(key)
+  }
+}
+
+/**
  * Attempts to acquire a lock using Redis SET NX command.
  * @param lockKey The key to use for the lock.
  * @param value The value to set (e.g., a unique identifier for the process holding the lock).
@@ -203,6 +307,18 @@ export async function acquireMonitorRuntimeLock(
   try {
     const redis = getRedisClient()
     if (!redis) {
+      if (getRedisStorageMode() === 'local') {
+        const existing = readInMemoryMonitorLock(lockKey)
+        if (existing && existing.value !== value) {
+          return false
+        }
+        inMemoryMonitorLocks.set(lockKey, {
+          value,
+          expiry: Date.now() + expirySeconds * 1000,
+        })
+        return true
+      }
+
       logger.warn('Redis client not available, monitor runtime lock acquisition denied.')
       return false
     }
@@ -216,35 +332,25 @@ export async function acquireMonitorRuntimeLock(
 }
 
 /**
- * Retrieves the value of a key from Redis.
- * @param key The key to retrieve.
- * @returns The value of the key, or null if the key doesn't exist or an error occurs.
- */
-export async function getLockValue(key: string): Promise<string | null> {
-  try {
-    const redis = getRedisClient()
-    if (!redis) {
-      logger.warn('Redis client not available, cannot get lock value.')
-      return null // Cannot determine lock value
-    }
-    return await redis.get(key)
-  } catch (error) {
-    logger.error(`Error getting value for key ${key}:`, { error })
-    return null
-  }
-}
-
-/**
- * Releases a lock by deleting the key.
- * Ideally, use Lua script for safe release (check value before deleting),
- * but simple DEL is often sufficient if lock expiry is handled well.
+ * Releases a lock key.
+ * If `value` is provided, release only happens when ownership matches.
  * @param lockKey The key of the lock to release.
+ * @param value Optional owner value to enforce safe release.
  */
-export async function releaseLock(lockKey: string): Promise<void> {
+export async function releaseLock(lockKey: string, value?: string): Promise<void> {
   try {
     const redis = getRedisClient()
     if (redis) {
-      await redis.del(lockKey)
+      if (value) {
+        await redis.eval(RELEASE_LOCK_SCRIPT, 1, lockKey, value)
+      } else {
+        await redis.del(lockKey)
+      }
+    } else if (getRedisStorageMode() === 'local') {
+      const existing = readInMemoryMonitorLock(lockKey)
+      if (!existing) return
+      if (value && existing.value !== value) return
+      inMemoryMonitorLocks.delete(lockKey)
     } else {
       logger.warn('Redis client not available, cannot release lock.')
       // No fallback needed for releasing if using in-memory cache for locking wasn't implemented
