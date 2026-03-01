@@ -1,4 +1,5 @@
 import { createContext, Script } from 'vm'
+import { withLocalVmSaturationLimit } from '@/lib/execution/local-saturation-limit'
 import { runPineTS } from '@/lib/indicators/run-pinets'
 import { createIndicatorTriggerSentinel } from '@/lib/indicators/trigger-bridge'
 import type { BarMs } from '@/lib/indicators/types'
@@ -30,6 +31,7 @@ export const executeIndicatorInLocalVm = async ({
   interval,
   code,
   codeFormat = 'pinets',
+  ownerKey,
 }: {
   barsMs: BarMs[]
   inputsMap?: Record<string, unknown>
@@ -37,17 +39,22 @@ export const executeIndicatorInLocalVm = async ({
   interval?: string
   code: string | PineVmFn
   codeFormat?: 'pinets' | 'functionExpression'
+  ownerKey?: string
 }) => {
   const runtimeCode =
     codeFormat === 'functionExpression' && typeof code === 'string'
       ? createLocalVmIndicatorFunction(code)
       : code
 
-  return runPineTS({
-    barsMs,
-    inputsMap,
-    listing,
-    interval,
-    code: runtimeCode,
+  return withLocalVmSaturationLimit({
+    ownerKey,
+    task: () =>
+      runPineTS({
+        barsMs,
+        inputsMap,
+        listing,
+        interval,
+        code: runtimeCode,
+      }),
   })
 }

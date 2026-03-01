@@ -1,4 +1,5 @@
-import { executeInE2B } from '@/lib/execution/e2b'
+import { executeInE2B, isE2BWarmSandboxLimitError } from '@/lib/execution/e2b'
+import { isLocalVmSaturationLimitError } from '@/lib/execution/local-saturation-limit'
 import { CodeLanguage } from '@/lib/execution/languages'
 import { buildPineTSE2BSingleIndicatorScript } from '@/lib/indicators/execution/e2b-script-builder'
 import { executeIndicatorInLocalVm } from '@/lib/indicators/execution/local-executor'
@@ -79,6 +80,7 @@ const executeIndicatorInE2B = async ({
   timeoutMs,
   e2bTemplate,
   e2bKeepWarmMs,
+  e2bUserScope,
 }: {
   normalizedCode: string
   barsMs: BarMs[]
@@ -88,6 +90,7 @@ const executeIndicatorInE2B = async ({
   timeoutMs: number
   e2bTemplate?: string
   e2bKeepWarmMs?: number
+  e2bUserScope?: string
 }): Promise<{
   context: any
   transpiledCode?: string
@@ -108,6 +111,7 @@ const executeIndicatorInE2B = async ({
     timeoutMs,
     template: e2bTemplate,
     keepWarmMs: e2bKeepWarmMs,
+    userScope: e2bUserScope,
   })
 
   if (error) {
@@ -285,6 +289,7 @@ export async function compileIndicator({
   executionTimeoutMs = DEFAULT_E2B_INDICATOR_TIMEOUT_MS,
   e2bTemplate,
   e2bKeepWarmMs,
+  userId,
 }: {
   pineCode: string
   barsMs: BarMs[]
@@ -296,6 +301,7 @@ export async function compileIndicator({
   executionTimeoutMs?: number
   e2bTemplate?: string
   e2bKeepWarmMs?: number
+  userId?: string
 }): Promise<PineCompileResult> {
   const triggerUsageDetected = detectTriggerUsage(pineCode)
   const inferredIndicatorOptions = inferIndicatorOptionsFromPineCode(pineCode)
@@ -385,29 +391,58 @@ export async function compileIndicator({
   let transpiledCode: string | undefined
   let triggerSignals: NormalizedPineSignal[] = []
   let triggerWarnings: PineWarning[] = []
+  let ranInE2B = false
   const executionInterval =
     shouldResample && inferredIndicatorOptions?.timeframe
       ? inferredIndicatorOptions.timeframe
       : interval
+  const executeInLocalVm = async () => {
+    const result = await executeIndicatorInLocalVm({
+      barsMs: executionBars,
+      inputsMap,
+      listing,
+      interval: executionInterval,
+      code: normalizedCode.code,
+      codeFormat: 'functionExpression',
+      ownerKey: userId ? `user:${userId}` : undefined,
+    })
+    pineContext = result.context
+    transpiledCode = typeof result.transpiledCode === 'string' ? result.transpiledCode : undefined
+    triggerSignals = Array.isArray(result.triggerSignals)
+      ? (result.triggerSignals as NormalizedPineSignal[])
+      : []
+    triggerWarnings = Array.isArray(result.triggerWarnings)
+      ? (result.triggerWarnings as PineWarning[])
+      : []
+  }
 
   try {
     if (useE2B) {
-      const result = await executeIndicatorInE2B({
-        normalizedCode: normalizedCode.code,
-        barsMs: executionBars,
-        inputsMap,
-        listing,
-        interval: executionInterval,
-        timeoutMs: executionTimeoutMs,
-        e2bTemplate,
-        e2bKeepWarmMs,
-      })
-      pineContext = result.context
-      transpiledCode = result.transpiledCode
-      triggerSignals = result.triggerSignals
-      triggerWarnings = result.triggerWarnings
+      try {
+        const result = await executeIndicatorInE2B({
+          normalizedCode: normalizedCode.code,
+          barsMs: executionBars,
+          inputsMap,
+          listing,
+          interval: executionInterval,
+          timeoutMs: executionTimeoutMs,
+          e2bTemplate,
+          e2bKeepWarmMs,
+          e2bUserScope: userId,
+        })
+        pineContext = result.context
+        transpiledCode = result.transpiledCode
+        triggerSignals = result.triggerSignals
+        triggerWarnings = result.triggerWarnings
+        ranInE2B = true
+      } catch (error) {
+        if (!isE2BWarmSandboxLimitError(error)) {
+          throw error
+        }
+        await executeInLocalVm()
+      }
 
-      if (triggerUsageDetected && triggerSignals.length === 0) {
+      if (ranInE2B && triggerUsageDetected && triggerSignals.length === 0) {
         try {
           const fallback = await executeIndicatorInLocalVm({
             barsMs: executionBars,
@@ -416,6 +451,7 @@ export async function compileIndicator({
             interval: executionInterval,
             code: normalizedCode.code,
             codeFormat: 'functionExpression',
+            ownerKey: userId ? `user:${userId}` : undefined,
           })
           const fallbackSignals = Array.isArray(fallback.triggerSignals)
             ? (fallback.triggerSignals as NormalizedPineSignal[])
@@ -434,24 +470,12 @@ export async function compileIndicator({
         }
       }
     } else {
-      const result = await executeIndicatorInLocalVm({
-        barsMs: executionBars,
-        inputsMap,
-        listing,
-        interval: executionInterval,
-        code: normalizedCode.code,
-        codeFormat: 'functionExpression',
-      })
-      pineContext = result.context
-      transpiledCode = typeof result.transpiledCode === 'string' ? result.transpiledCode : undefined
-      triggerSignals = Array.isArray(result.triggerSignals)
-        ? (result.triggerSignals as NormalizedPineSignal[])
-        : []
-      triggerWarnings = Array.isArray(result.triggerWarnings)
-        ? (result.triggerWarnings as PineWarning[])
-        : []
+      await executeInLocalVm()
     }
   } catch (error) {
+    if (isLocalVmSaturationLimitError(error)) {
+      throw error
+    }
     executionError = parseExecutionError(error, 0)
   }
 

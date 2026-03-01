@@ -1,4 +1,14 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import { checkHybridAuth } from '@/lib/auth/hybrid'
+import {
+  getCodeExecutionConcurrencyLimitMessage,
+  isCodeExecutionConcurrencyLimitError,
+  withCodeExecutionConcurrencyLimit,
+} from '@/lib/execution/concurrency-limit'
+import {
+  getLocalVmSaturationLimitMessage,
+  isLocalVmSaturationLimitError,
+} from '@/lib/execution/local-saturation-limit'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { resolveCodeVariables } from '../code-resolution'
@@ -57,6 +67,11 @@ export async function POST(req: NextRequest) {
       workflowId,
       isCustomTool = false,
     } = body
+    const auth = await checkHybridAuth(req, { requireWorkflowId: false })
+    if (!auth.success || !auth.userId) {
+      return respondFailure('Unauthorized', Date.now() - startTime, 401)
+    }
+    const e2bUserScope = auth.userId
 
     const executionParams = { ...params }
     executionParams._context = undefined
@@ -85,34 +100,39 @@ export async function POST(req: NextRequest) {
     }
 
     const transpiledCode = await transpileTypeScriptCode(resolvedCode)
-    const runtimeExecution = await executeFunctionWithRuntimeGate({
-      requestId,
-      transpiledCode,
-      resolvedCode,
-      timeout,
-      isCustomTool,
-      executionParams,
-      envVars,
-      contextVariables,
-      onImportExtractionError: (error) => {
-        logger.error('Failed to extract JavaScript imports', { error })
-      },
-      onSandboxResult: ({ sandboxId, stdoutPreview, error }) => {
-        logger.info(`[${requestId}] E2B JS sandbox`, {
-          sandboxId,
-          stdoutPreview,
-          error,
-        })
-      },
-      onStdout: (chunk) => {
-        stdout += chunk
-      },
-      onWarn: (message, meta) => {
-        logger.warn(message, meta)
-      },
-      onError: (message) => {
-        logger.error(`[${requestId}] Code Console Error: ${message}`)
-      },
+    const runtimeExecution = await withCodeExecutionConcurrencyLimit({
+      userId: auth.userId,
+      task: () =>
+        executeFunctionWithRuntimeGate({
+          requestId,
+          transpiledCode,
+          resolvedCode,
+          timeout,
+          isCustomTool,
+          e2bUserScope,
+          executionParams,
+          envVars,
+          contextVariables,
+          onImportExtractionError: (error) => {
+            logger.error('Failed to extract JavaScript imports', { error })
+          },
+          onSandboxResult: ({ sandboxId, stdoutPreview, error }) => {
+            logger.info(`[${requestId}] E2B JS sandbox`, {
+              sandboxId,
+              stdoutPreview,
+              error,
+            })
+          },
+          onStdout: (chunk) => {
+            stdout += chunk
+          },
+          onWarn: (message, meta) => {
+            logger.warn(message, meta)
+          },
+          onError: (message) => {
+            logger.error(`[${requestId}] Code Console Error: ${message}`)
+          },
+        }),
     })
 
     stdout = runtimeExecution.stdout || stdout
@@ -135,6 +155,22 @@ export async function POST(req: NextRequest) {
 
     return respondSuccess(runtimeExecution.result, executionTime)
   } catch (error: any) {
+    if (isCodeExecutionConcurrencyLimitError(error)) {
+      return respondFailure(
+        getCodeExecutionConcurrencyLimitMessage(error),
+        Date.now() - startTime,
+        error.statusCode
+      )
+    }
+
+    if (isLocalVmSaturationLimitError(error)) {
+      return respondFailure(
+        getLocalVmSaturationLimitMessage(error),
+        Date.now() - startTime,
+        error.statusCode
+      )
+    }
+
     const executionTime = Date.now() - startTime
     const userLineFromError =
       error && typeof error === 'object' && typeof error.__userCodeStartLine === 'number'

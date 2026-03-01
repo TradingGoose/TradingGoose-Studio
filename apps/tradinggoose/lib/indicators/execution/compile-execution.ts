@@ -24,6 +24,7 @@ export const executeCompiledIndicator = async ({
   interval,
   intervalMs,
   executionTimeoutMs,
+  userId,
 }: {
   pineCode: string
   barsMs: BarMs[]
@@ -32,6 +33,7 @@ export const executeCompiledIndicator = async ({
   interval?: string
   intervalMs?: number | null
   executionTimeoutMs: number
+  userId?: string
 }) => {
   const useE2B = INDICATOR_RUNTIME_CONFIG.useE2B
 
@@ -47,6 +49,7 @@ export const executeCompiledIndicator = async ({
       executionTimeoutMs,
       e2bTemplate: INDICATOR_RUNTIME_CONFIG.e2bTemplate,
       e2bKeepWarmMs: INDICATOR_RUNTIME_CONFIG.e2bKeepWarmMs,
+      userId,
     }),
     executionTimeoutMs
   )
