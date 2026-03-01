@@ -1,4 +1,4 @@
-import { createLogger } from '@sim/logger'
+import { createLogger } from '@/lib/logs/console/logger'
 import type { HubSpotListContactsParams, HubSpotListContactsResponse } from '@/tools/hubspot/types'
 import type { ToolConfig } from '@/tools/types'
 

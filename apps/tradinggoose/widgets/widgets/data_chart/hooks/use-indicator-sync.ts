@@ -18,7 +18,7 @@ import {
   type SeriesAttachedParameter,
   type SeriesMarker,
 } from 'lightweight-charts'
-import { getStableVibrantColor } from '@/lib/colors'
+import { getStableVibrantColorWithOffset } from '@/lib/colors'
 import { DEFAULT_INDICATOR_MAP } from '@/lib/indicators/default'
 import { buildInputsMapFromMeta } from '@/lib/indicators/input-meta'
 import type {
@@ -191,7 +191,8 @@ const resolveHistogramColors = () => ({
   down: DEFAULT_DOWN_COLOR,
 })
 
-const resolvePlotColor = (plotKey: string) => getStableVibrantColor(plotKey)
+const resolvePlotColor = (indicatorId: string, plotIndex: number) =>
+  getStableVibrantColorWithOffset(indicatorId, plotIndex)
 
 type ExecuteResult = {
   indicatorId: string
@@ -1142,6 +1143,10 @@ export const useIndicatorSync = ({
           const plotKey = `${indicatorId}:${seriesEntry.plot.title ?? ''}`
           const seriesKey = seriesEntry.plot.title ?? ''
           const explicitColors = collectExplicitColors(seriesEntry.plot)
+          const fallbackColor =
+            explicitColors.length === 0 && seriesType !== 'Histogram'
+              ? resolvePlotColor(indicatorId, plotIndex)
+              : undefined
           const histogramColors =
             seriesType === 'Histogram' && explicitColors.length === 0
               ? resolveHistogramColors()
@@ -1154,13 +1159,12 @@ export const useIndicatorSync = ({
                 ? 'value'
                 : 'candle'
               : null
-          const resolvedPlot =
-            explicitColors.length === 0 && seriesType !== 'Histogram'
-              ? {
-                  ...seriesEntry.plot,
-                  color: resolvePlotColor(plotKey),
-                }
-              : seriesEntry.plot
+          const resolvedPlot = fallbackColor
+            ? {
+                ...seriesEntry.plot,
+                color: fallbackColor,
+              }
+            : seriesEntry.plot
           const options = resolveSeriesOptions(
             resolvedPlot,
             indicatorOptions,

@@ -210,6 +210,7 @@ export const env = createEnv({
     REDDIT_CLIENT_SECRET: z.string().optional(),                  // Reddit OAuth client secret
     WEBFLOW_CLIENT_ID: z.string().optional(),                  // Webflow OAuth client ID
     WEBFLOW_CLIENT_SECRET: z.string().optional(),                  // Webflow OAuth client secret
+    TRELLO_API_KEY: z.string().optional(),                  // Trello API key for Trello REST requests
     ALPACA_CLIENT_ID: z.string().optional(),  // Alpaca OAuth client ID for Alpaca services
     ALPACA_CLIENT_SECRET: z.string().optional(),  // Alpaca OAuth client secret
     // E2B Remote Code Execution

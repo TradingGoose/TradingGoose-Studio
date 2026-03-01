@@ -28,6 +28,7 @@ export interface CopilotMessage {
  */
 export interface CopilotChat {
   id: string
+  conversationId?: string | null
   title: string | null
   model: string
   messages: CopilotMessage[]

@@ -509,7 +509,7 @@ export function normalizeContext({
       time: signal.time,
       position: signal.position,
       shape,
-      color: signal.color,
+      color: signal.color ?? (signal.signal === 'flat' ? '#ffab00' : undefined),
       text: signal.event,
     })
   })

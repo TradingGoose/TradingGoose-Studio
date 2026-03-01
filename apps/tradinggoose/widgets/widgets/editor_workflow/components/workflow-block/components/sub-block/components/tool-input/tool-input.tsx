@@ -39,6 +39,7 @@ import { getProviderFromModel, supportsToolUsageControl } from '@/providers/ai/u
 import { useCustomTools } from '@/hooks/queries/custom-tools'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
+import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 import {
   formatParameterLabel,
   getToolParametersConfig,
@@ -752,7 +753,9 @@ export function ToolInput({
     setToolSelectorValue(undefined)
   }
 
-  const handleAddCustomTool = (customTool: CustomTool) => {
+  const handleAddCustomTool = (
+    customTool: Pick<CustomTool, 'title' | 'schema' | 'code'> | CustomToolDefinition
+  ) => {
     if (isPreview || disabled) return
 
     const customToolId = `custom-${customTool.schema.function.name}`
@@ -832,7 +835,7 @@ export function ToolInput({
     }
   }
 
-  const handleParamChange = (toolIndex: number, paramId: string, paramValue: string) => {
+  const handleParamChange = (toolIndex: number, paramId: string, paramValue: any) => {
     if (isPreview || disabled) return
 
     const tool = selectedTools[toolIndex]
@@ -925,7 +928,7 @@ export function ToolInput({
     const newParamIds = new Set(toolParams.userInputParameters.map((p) => p.id))
 
     // Preserve any parameter that exists in both configurations and has a value
-    const preservedParams: Record<string, string> = {}
+    const preservedParams: Record<string, any> = {}
     Object.entries(tool.params).forEach(([paramId, value]) => {
       if (newParamIds.has(paramId) && value) {
         preservedParams[paramId] = value
@@ -1095,7 +1098,7 @@ export function ToolInput({
     const baseMatch = evaluateMatch(condition, fieldValue)
     const andMatch =
       andConditions.length === 0 ||
-      andConditions.every((andCondition) =>
+      andConditions.every((andCondition: { field: string; value: any; not?: boolean }) =>
         evaluateMatch(andCondition, currentValues[andCondition.field])
       )
 
@@ -1105,8 +1108,8 @@ export function ToolInput({
   // Render the appropriate UI component based on parameter configuration
   const renderParameterInput = (
     param: ToolParameterConfig,
-    value: string,
-    onChange: (value: string) => void,
+    value: any,
+    onChange: (value: any) => void,
     toolIndex?: number,
     currentToolParams?: Record<string, any>,
     toolId?: string

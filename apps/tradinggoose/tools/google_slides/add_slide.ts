@@ -1,4 +1,4 @@
-import { createLogger } from '@sim/logger'
+import { createLogger } from '@/lib/logs/console/logger'
 import type { ToolConfig } from '@/tools/types'
 
 const logger = createLogger('GoogleSlidesAddSlideTool')

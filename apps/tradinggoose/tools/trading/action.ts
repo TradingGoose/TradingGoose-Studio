@@ -42,7 +42,7 @@ const ORDER_HISTORY_OMIT_KEYS = new Set([
 
 const extractProviderParams = (params: TradingActionParams): Record<string, unknown> => {
   const extras: Record<string, unknown> = {}
-  for (const [key, value] of Object.entries(params as Record<string, unknown>)) {
+  for (const [key, value] of Object.entries(params as unknown as Record<string, unknown>)) {
     if (ORDER_HISTORY_OMIT_KEYS.has(key) || key.startsWith('_')) continue
     if (value !== undefined) {
       extras[key] = value
@@ -434,6 +434,9 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
   },
 
   transformResponse: async (response, params) => {
+    if (!params) {
+      throw new Error('Missing tool parameters for order request')
+    }
     const provider = getTradingProvider(params.provider)
     const raw = await response.json().catch(() => ({}))
     const normalized = provider.normalizeOrder ? provider.normalizeOrder(raw) : { raw }

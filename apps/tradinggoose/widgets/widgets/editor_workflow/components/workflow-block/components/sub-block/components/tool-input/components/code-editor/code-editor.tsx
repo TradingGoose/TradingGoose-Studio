@@ -279,11 +279,11 @@ export function CodeEditor({
     onKeyDown?.(event)
   }
 
-  const mergedEditorOptions = useMemo(
+  const mergedEditorOptions = useMemo<MonacoEditorProps['options']>(
     () => ({
-      lineNumbers: 'on',
+      lineNumbers: 'on' as const,
       padding: { top: 8, bottom: 8 },
-      ...editorOptions,
+      ...(editorOptions ?? {}),
     }),
     [editorOptions]
   )

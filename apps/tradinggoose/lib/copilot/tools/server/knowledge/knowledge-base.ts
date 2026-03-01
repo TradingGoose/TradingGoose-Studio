@@ -174,11 +174,7 @@ export const knowledgeBaseServerTool: BaseServerTool<KnowledgeBaseArgs, Knowledg
 
           const topK = args.topK || 5
 
-          const queryEmbedding = await generateSearchEmbedding(
-            args.query,
-            undefined,
-            kb.workspaceId
-          )
+          const queryEmbedding = await generateSearchEmbedding(args.query)
           const queryVector = JSON.stringify(queryEmbedding)
 
           // Get search strategy

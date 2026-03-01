@@ -19,7 +19,7 @@ export default defineConfig({
       // pdf-parse has native bindings, keep as external package
       additionalPackages({
         packages: ['pdf-parse'],
-      }),
+      }) as any,
     ],
   },
 })

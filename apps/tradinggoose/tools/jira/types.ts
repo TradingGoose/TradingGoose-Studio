@@ -66,6 +66,12 @@ export interface JiraWriteParams {
   description?: string
   priority?: string
   assignee?: string
+  labels?: string[]
+  duedate?: string
+  reporter?: string
+  environment?: string
+  customFieldId?: string
+  customFieldValue?: string
   cloudId?: string
   issueType: string
   parent?: { key: string }

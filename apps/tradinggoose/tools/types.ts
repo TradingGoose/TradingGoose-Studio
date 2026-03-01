@@ -34,6 +34,7 @@ export interface ToolResponse {
 export interface OAuthConfig {
   required: boolean // Whether this tool requires OAuth authentication
   provider: OAuthService // The service that needs to be authorized
+  requiredScopes?: string[] // Required scopes for this tool
   additionalScopes?: string[] // Additional scopes required for the tool
 }
 
@@ -53,8 +54,15 @@ export interface ToolConfig<P = any, R = any> {
       visibility?: ParameterVisibility
       default?: any
       description?: string
+      items?: {
+        type: string
+        description?: string
+        properties?: Record<string, OutputProperty>
+      }
     }
   >
+
+  schemaEnrichment?: Record<string, any>
 
   // Output schema - what this tool produces
   outputs?: Record<

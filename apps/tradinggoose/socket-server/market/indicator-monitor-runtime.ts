@@ -22,7 +22,7 @@ import {
 import type { BarMs, NormalizedPineSignal } from '@/lib/indicators/types'
 import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
-import { acquireMonitorRuntimeLock, getRedisClient, releaseLock } from '@/lib/redis'
+import { acquireMonitorRuntimeLock, getLockValue, getRedisClient, releaseLock } from '@/lib/redis'
 import { decryptSecret } from '@/lib/utils'
 import {
   checkRateLimits,
@@ -380,6 +380,8 @@ export class IndicatorMonitorRuntime {
   private readonly logger: LoggerLike
   private status: MonitorRuntimeStatus = 'not_initialized'
   private running = false
+  private starting = false
+  private lockHeld = false
   private instanceId = randomUUID()
   private reconcileTimer: ReturnType<typeof setInterval> | null = null
   private isReconciling = false
@@ -420,28 +422,47 @@ export class IndicatorMonitorRuntime {
   }
 
   async start() {
-    if (this.running) return
+    if (this.running || this.starting) return
 
-    const lockAcquired = await acquireMonitorRuntimeLock(
-      LOCK_KEY,
-      this.instanceId,
-      LOCK_EXPIRY_SECONDS
-    )
-    if (!lockAcquired) {
-      this.running = false
-      this.status = process.env.REDIS_URL ? 'degraded' : 'disabled'
-      this.logger.warn('Indicator monitor runtime disabled; lock acquisition failed.')
-      return
+    this.starting = true
+
+    try {
+      const lockAcquired = await acquireMonitorRuntimeLock(
+        LOCK_KEY,
+        this.instanceId,
+        LOCK_EXPIRY_SECONDS
+      )
+      if (!lockAcquired) {
+        this.running = false
+        this.lockHeld = false
+        this.status = process.env.REDIS_URL ? 'degraded' : 'disabled'
+        this.logger.warn('Indicator monitor runtime disabled; lock acquisition failed.')
+
+        if (!this.reconcileTimer) {
+          this.reconcileTimer = setInterval(() => {
+            void this.start()
+          }, RECONCILE_INTERVAL_MS)
+        }
+        return
+      }
+
+      this.lockHeld = true
+      this.running = true
+      this.status = 'running'
+
+      if (this.reconcileTimer) {
+        clearInterval(this.reconcileTimer)
+        this.reconcileTimer = null
+      }
+
+      await this.reconcile('startup')
+
+      this.reconcileTimer = setInterval(() => {
+        void this.reconcile('interval')
+      }, RECONCILE_INTERVAL_MS)
+    } finally {
+      this.starting = false
     }
-
-    this.running = true
-    this.status = 'running'
-
-    await this.reconcile('startup')
-
-    this.reconcileTimer = setInterval(() => {
-      void this.reconcile('interval')
-    }, RECONCILE_INTERVAL_MS)
   }
 
   async stop() {
@@ -460,12 +481,24 @@ export class IndicatorMonitorRuntime {
     })
     this.subscriptions.clear()
 
-    await releaseLock(LOCK_KEY)
+    if (this.lockHeld) {
+      const lockValue = await getLockValue(LOCK_KEY)
+      if (lockValue === this.instanceId) {
+        await releaseLock(LOCK_KEY)
+      }
+      this.lockHeld = false
+    }
+
     this.running = false
+    this.starting = false
     this.status = 'not_initialized'
   }
 
   async requestReconcile() {
+    if (!this.running) {
+      await this.start()
+      if (!this.running) return
+    }
     await this.reconcile('request')
   }
 

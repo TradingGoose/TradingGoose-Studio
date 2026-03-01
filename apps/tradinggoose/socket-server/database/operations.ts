@@ -340,7 +340,7 @@ export async function getWorkflowState(workflowId: string) {
     })
 
     if (!normalizedData) {
-      const legacyStateRaw = workflowData[0]?.state
+      const legacyStateRaw = (workflowData[0] as any)?.state
       const legacyState =
         legacyStateRaw && typeof legacyStateRaw === 'object'
           ? (legacyStateRaw as WorkflowState)

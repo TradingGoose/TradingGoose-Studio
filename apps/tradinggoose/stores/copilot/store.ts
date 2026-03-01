@@ -19,7 +19,7 @@ import type {
 import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store'
-import { ensureClientToolInstance } from '@/stores/copilot/tool-registry'
+import { CLASS_TOOL_METADATA, ensureClientToolInstance } from '@/stores/copilot/tool-registry'
 import {
   isBackgroundState,
   isRejectedState,
@@ -33,7 +33,7 @@ import {
   updateStreamingMessage,
 } from '@/stores/copilot/streaming'
 
-export { CLASS_TOOL_METADATA } from '@/stores/copilot/tool-registry'
+export { CLASS_TOOL_METADATA }
 
 const logger = createLogger('CopilotStore')
 
@@ -2433,11 +2433,13 @@ export function CopilotStoreProvider({
 const identitySelector = (state: CopilotStore) => state
 
 export function useCopilotStore<T = CopilotStore>(
-  selector: (state: CopilotStore) => T = identitySelector,
+  selector?: (state: CopilotStore) => T,
   equalityFn?: (a: T, b: T) => boolean
 ) {
   const store = useContext(CopilotStoreContext) ?? defaultCopilotStore
-  return useStore(store, selector, equalityFn)
+  const resolvedSelector =
+    selector ?? (identitySelector as unknown as (state: CopilotStore) => T)
+  return useStore(store, resolvedSelector, equalityFn)
 }
 
 export function useCopilotStoreApi(channelId?: string) {

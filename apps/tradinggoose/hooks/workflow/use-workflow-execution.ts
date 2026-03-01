@@ -122,30 +122,14 @@ export function useWorkflowExecution() {
   const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null)
 
   const resolveSelectedOutputsForWorkflow = useCallback(
-    async (workflowId: string, selectionChannelId?: string): Promise<string[]> => {
+    async (workflowId: string, _selectionChannelId?: string): Promise<string[]> => {
       const chatStore = await import('@/stores/chat/store').then((mod) => mod.useChatStore)
       const state = chatStore.getState()
 
-      const candidateChannels =
-        selectionChannelId && selectionChannelId.trim().length > 0
-          ? [selectionChannelId]
-          : [channelId, 'default'].filter((value): value is string => Boolean(value))
-
-      for (const candidate of candidateChannels) {
-        const outputs = state.getSelectedWorkflowOutput(workflowId, candidate)
-        if (outputs?.length) {
-          return [...new Set(outputs)]
-        }
-      }
-
-      const prefix = `${workflowId}::`
-      const fallbackEntry = Object.entries(state.selectedWorkflowOutputs).find(
-        ([key, outputs]) => key.startsWith(prefix) && outputs?.length
-      )
-
-      return fallbackEntry ? [...new Set(fallbackEntry[1])] : []
+      const outputs = state.getSelectedWorkflowOutput(workflowId)
+      return outputs?.length ? [...new Set(outputs)] : []
     },
-    [channelId]
+    []
   )
 
   /**

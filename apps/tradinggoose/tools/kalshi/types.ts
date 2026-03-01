@@ -1,5 +1,5 @@
 import crypto from 'crypto'
-import { createLogger } from '@sim/logger'
+import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('Kalshi')
 

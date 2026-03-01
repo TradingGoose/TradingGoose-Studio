@@ -28,6 +28,9 @@ export function useTriggerConfigAggregation(
   }
 
   const triggerDef = getTrigger(triggerId)
+  if (!triggerDef) {
+    return null
+  }
   const subBlockStore = useSubBlockStore.getState()
 
   const aggregatedConfig: Record<string, any> = {}
@@ -85,6 +88,9 @@ export function populateTriggerFieldsFromConfig(
   }
 
   const triggerDef = getTrigger(triggerId)
+  if (!triggerDef) {
+    return
+  }
   const subBlockStore = useSubBlockStore.getState()
 
   triggerDef.subBlocks

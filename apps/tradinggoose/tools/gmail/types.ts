@@ -13,6 +13,9 @@ export interface GmailSendParams extends BaseGmailParams {
   bcc?: string
   subject: string
   body: string
+  contentType?: string
+  threadId?: string
+  replyToMessageId?: string
   attachments?: UserFile[]
 }
 

@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
 import type { Credential } from '@/lib/oauth'
-import { fetchJson } from '@/hooks/selectors/helpers'
 
 interface CredentialListResponse {
   credentials?: Credential[]
@@ -8,6 +7,26 @@ interface CredentialListResponse {
 
 interface CredentialDetailResponse {
   credentials?: Credential[]
+}
+
+async function fetchJson<T>(
+  url: string,
+  options?: { searchParams?: Record<string, string | undefined> }
+): Promise<T> {
+  const searchParams = new URLSearchParams()
+  for (const [key, value] of Object.entries(options?.searchParams ?? {})) {
+    if (value !== undefined) {
+      searchParams.set(key, value)
+    }
+  }
+  const requestUrl = searchParams.size > 0 ? `${url}?${searchParams.toString()}` : url
+  const response = await fetch(requestUrl, {
+    method: 'GET',
+  })
+  if (!response.ok) {
+    throw new Error(`Request failed with status ${response.status}`)
+  }
+  return (await response.json()) as T
 }
 
 export const oauthCredentialKeys = {

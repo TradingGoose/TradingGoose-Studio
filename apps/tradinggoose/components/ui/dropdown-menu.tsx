@@ -84,8 +84,8 @@ const DropdownMenuContent = React.forwardRef<
   ) => {
     const usesAutoPlacement = side === 'auto' || align === 'auto'
     const resolvedAvoidCollisions = avoidCollisions ?? usesAutoPlacement
-    const resolvedAlign: AlignValue = align === 'auto' ? 'center' : align
-    const resolvedSide: SideValue = side === 'auto' ? 'bottom' : side
+    const resolvedAlign = (align === 'auto' ? 'center' : align) as AlignValue
+    const resolvedSide = (side === 'auto' ? 'bottom' : side) as SideValue
 
     const content = (
       <DropdownMenuPrimitive.Content

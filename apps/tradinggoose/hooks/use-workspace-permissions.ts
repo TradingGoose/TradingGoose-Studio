@@ -46,7 +46,7 @@ type WorkspacePermissionsRecord = {
 
 interface WorkspacePermissionsStoreState {
   records: Record<string, WorkspacePermissionsRecord>
-  inFlight: Record<string, Promise<void>>
+  inFlight: Partial<Record<string, Promise<void>>>
   setRecord: (workspaceId: string, partial: Partial<WorkspacePermissionsRecord>) => void
   fetchPermissions: (workspaceId: string, options?: { force?: boolean }) => Promise<void>
 }

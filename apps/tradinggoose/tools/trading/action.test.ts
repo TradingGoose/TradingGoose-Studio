@@ -11,8 +11,13 @@ const baseParams = {
   accessToken: 'test-token',
 }
 
+const requestBodyBuilder = tradingActionTool.request?.body
+if (!requestBodyBuilder) {
+  throw new Error('tradingActionTool request body builder is not configured')
+}
+
 const buildBody = (overrides: Record<string, unknown> = {}) =>
-  tradingActionTool.request.body({
+  requestBodyBuilder({
     ...baseParams,
     ...overrides,
   } as any) as Record<string, any>

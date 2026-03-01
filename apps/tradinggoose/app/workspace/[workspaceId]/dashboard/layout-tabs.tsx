@@ -1,14 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, type WheelEvent } from 'react'
-import { Check, Move, Pencil, Plus, X } from 'lucide-react'
-import {
-  Sortable,
-  SortableContent,
-  SortableItem,
-  SortableItemHandle,
-  SortableOverlay,
-} from '@/components/ui/sortable'
+import { KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
+import { Check, Pencil, Plus, X } from 'lucide-react'
+import { Sortable, SortableContent, SortableItem, SortableOverlay } from '@/components/ui/sortable'
 import { cn } from '@/lib/utils'
 
 export type LayoutTab = {
@@ -49,6 +45,22 @@ export function LayoutTabs({
     }))
     onReorder(ordered)
   }
+  const sensors = useSensors(
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 6,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 150,
+        tolerance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
 
   const handleHorizontalWheel = useCallback((event: WheelEvent<HTMLDivElement>) => {
     if (!tabsScrollRef.current) return
@@ -90,6 +102,7 @@ export function LayoutTabs({
       value={layouts}
       getItemValue={(item) => item.id}
       onValueChange={handleValueChange}
+      sensors={sensors}
       flatCursor
     >
       <div className='flex min-w-0 items-center gap-2'>
@@ -104,19 +117,14 @@ export function LayoutTabs({
                 <SortableItem
                   key={layout.id}
                   value={layout.id}
+                  asHandle
                   className={cn(
-                    'group relative inline-flex h-7 items-stretch gap-1 overflow-hidden rounded-sm bg-muted px-2 hover:bg-background hover:text-secondary-foreground',
+                    'group relative inline-flex h-7 min-w-0 max-w-[200px] items-stretch gap-1 overflow-hidden rounded-sm bg-muted px-2 hover:bg-background hover:text-secondary-foreground',
                     layout.isActive ? 'bg-background text-foreground' : 'text-muted-foreground'
                   )}
                 >
-                  <SortableItemHandle
-                    className='inline-flex items-center justify-center text-muted-foreground hover:text-secondary'
-                    aria-label='Drag to reorder layout'
-                  >
-                    <Move className='h-3.5 w-3.5' />
-                  </SortableItemHandle>
                   {editingId === layout.id ? (
-                    <div className='inline-flex min-w-0 flex-1 items-center px-1 pr-1'>
+                    <div className='inline-flex min-w-0 flex-1 items-center'>
                       <input
                         ref={inputRef}
                         value={editValue}
@@ -131,7 +139,7 @@ export function LayoutTabs({
                             cancelEdit()
                           }
                         }}
-                        className='h-6 w-full rounded-sm border border-border bg-background px-2 text-sm outline-none'
+                        className='h-6 w-full rounded-sm border border-border bg-muted/40 px-2 text-sm outline-none'
                         disabled={isBusy}
                         onPointerDownCapture={(event) => event.stopPropagation()}
                         autoComplete='off'
@@ -143,19 +151,20 @@ export function LayoutTabs({
                   ) : (
                     <button
                       type='button'
-                      className='inline-flex h-full items-center gap-2 px-1 font-medium text-sm outline-none transition-colors'
+                      className='inline-flex h-full min-w-0 flex-1 items-center px-1 font-medium text-sm outline-none transition-colors'
                       onClick={() => onSelect(layout.id)}
                       disabled={isBusy}
                       tabIndex={-1}
-                      onPointerDownCapture={(event) => event.stopPropagation()}
                     >
-                      <span className='truncate pb-1 font-md text-md'>{layout.name}</span>
+                      <span className='min-w-0 flex-1 truncate pr-1 pb-1 font-md text-md'>
+                        {layout.name}
+                      </span>
                     </button>
                   )}
                   {editingId === layout.id ? (
                     <button
                       type='button'
-                      className='inline-flex h-full items-center justify-center text-muted-foreground transition hover:text-secondary'
+                      className='inline-flex h-full items-center justify-center text-muted-foreground transition hover:text-foreground'
                       onClick={() => commitEdit(layout)}
                       disabled={isBusy}
                       onPointerDownCapture={(event) => event.stopPropagation()}
@@ -165,7 +174,7 @@ export function LayoutTabs({
                   ) : layout.isActive ? (
                     <button
                       type='button'
-                      className='inline-flex h-full items-center justify-center text-muted-foreground transition hover:text-secondary'
+                      className='pointer-events-none inline-flex h-full w-0 shrink-0 items-center justify-center overflow-hidden text-muted-foreground opacity-0 transition-[width,opacity,color] hover:text-foreground focus-visible:pointer-events-auto focus-visible:w-4 focus-visible:opacity-100 group-hover:pointer-events-auto group-hover:w-4 group-hover:opacity-100'
                       onClick={() => startEdit(layout)}
                       disabled={isBusy}
                       onPointerDownCapture={(event) => event.stopPropagation()}
@@ -175,7 +184,7 @@ export function LayoutTabs({
                   ) : (
                     <button
                       type='button'
-                      className='inline-flex h-full items-center justify-center text-muted-foreground transition hover:text-destructive'
+                      className='pointer-events-none inline-flex h-full w-0 shrink-0 items-center justify-center overflow-hidden text-muted-foreground opacity-0 transition-[width,opacity,color] hover:text-destructive focus-visible:pointer-events-auto focus-visible:w-4 focus-visible:opacity-100 group-hover:pointer-events-auto group-hover:w-4 group-hover:opacity-100'
                       onClick={() => onDelete(layout.id)}
                       disabled={isBusy}
                       onPointerDownCapture={(event) => event.stopPropagation()}
@@ -207,11 +216,8 @@ export function LayoutTabs({
           if (!current) return null
 
           return (
-            <div className='inline-flex items-stretch gap-1 overflow-hidden rounded-sm border border-border bg-background py-1.5 text-foreground shadow-md'>
-              <div className='inline-flex items-center justify-center pl-2 '>
-                <Move className='h-3.5 w-3.5' />
-              </div>
-              <div className='inline-flex items-center px-1 pr-3 text-sm'>
+            <div className='inline-flex items-center overflow-hidden rounded-sm border border-border bg-background px-3 py-1.5 text-foreground text-sm shadow-md'>
+              <div className='inline-flex items-center'>
                 <span className='max-w-[140px] truncate'>{current.name}</span>
               </div>
             </div>

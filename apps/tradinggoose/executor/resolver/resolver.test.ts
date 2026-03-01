@@ -2861,9 +2861,14 @@ describe('InputResolver', () => {
       }
 
       const file = {
+        id: 'file-1',
         url: 'https://example.com/file.txt',
         name: 'file.txt',
+        size: 123,
         type: 'text/plain',
+        key: 'uploads/file-1',
+        uploadedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 3600_000).toISOString(),
       }
 
       const chatContext: ExecutionContext = {

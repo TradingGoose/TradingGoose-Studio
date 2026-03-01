@@ -89,6 +89,18 @@ export function createInverseOperation(operation: Operation): Operation {
         },
       }
 
+    case 'auto-layout':
+      return {
+        ...operation,
+        data: {
+          moves: operation.data.moves.map((move) => ({
+            ...move,
+            before: move.after,
+            after: move.before,
+          })),
+        },
+      }
+
     case 'duplicate-block':
       return {
         ...operation,
@@ -210,6 +222,15 @@ export function operationToCollaborativePayload(operation: Operation): {
           parentId: operation.data.newParentId,
           x: operation.data.newPosition.x,
           y: operation.data.newPosition.y,
+        },
+      }
+
+    case 'auto-layout':
+      return {
+        operation: 'auto-layout',
+        target: 'workflow',
+        payload: {
+          moves: operation.data.moves,
         },
       }
 

@@ -59,10 +59,15 @@ export const VisionBlock: BlockConfig<VisionResponse> = {
           { label: 'claude-3-sonnet', id: 'claude-3-sonnet-20240229' },
         ]
 
-        return models.map((model) => ({
-          ...model,
-          icon: getProviderIcon(model.id),
-        }))
+        return models.map((model) => {
+          const icon = getProviderIcon(model.id)
+          return icon
+            ? {
+                ...model,
+                icon,
+              }
+            : model
+        })
       },
       value: () => 'gpt-4o',
     },

@@ -15,6 +15,8 @@ import 'reactflow/dist/style.css'
 
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
+import { getBlock } from '@/blocks'
+import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { SubflowNodeComponent } from '@/widgets/widgets/editor_workflow/components/subflows/subflow-node'
 import { WorkflowBlock } from '@/widgets/widgets/editor_workflow/components/workflow-block/workflow-block'
 import { WorkflowEdge } from '@/widgets/widgets/editor_workflow/components/workflow-edge/workflow-edge'
@@ -22,8 +24,6 @@ import {
   useOptionalWorkflowRoute,
   WorkflowRouteProvider,
 } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { getBlock } from '@/blocks'
-import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('WorkflowPreview')
 
@@ -77,7 +77,6 @@ export function WorkflowPreview({
   const resolvedWorkflowId = routeContext?.workflowId ?? workflowId
   const resolvedChannelId = routeContext?.channelId ?? channelId
   const hasRouteContext = Boolean(routeContext)
-  const hasRouteInfo = Boolean(resolvedWorkspaceId && resolvedWorkflowId)
 
   const blocksStructure = useMemo(() => {
     if (!isValidWorkflowState) return { count: 0, ids: '' }
@@ -312,24 +311,20 @@ export function WorkflowPreview({
           onNodeClick={
             onNodeClick
               ? (event, node) => {
-                logger.debug('Node clicked:', { nodeId: node.id, event })
-                onNodeClick(node.id, { x: event.clientX, y: event.clientY })
-              }
+                  logger.debug('Node clicked:', { nodeId: node.id, event })
+                  onNodeClick(node.id, { x: event.clientX, y: event.clientY })
+                }
               : undefined
           }
         >
-          <Background
-            color='hsl(var(--workflow-dots))'
-            size={4}
-            gap={40}
-          />
+          <Background color='hsl(var(--workflow-dots))' size={4} gap={40} />
         </ReactFlow>
       </div>
     </ReactFlowProvider>
   )
 
   if (!hasRouteContext) {
-    if (!hasRouteInfo) {
+    if (!resolvedWorkspaceId || !resolvedWorkflowId) {
       logger.warn('Workflow preview missing routing context', {
         workspaceId,
         workflowId,

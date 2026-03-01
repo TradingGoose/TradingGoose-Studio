@@ -526,7 +526,7 @@ export function Dropdown({
         portalled={false}
         align='start'
         className='w-[var(--radix-popper-anchor-width)] p-0'
-        onOpenAutoFocus={(event) => {
+        onCloseAutoFocus={(event: Event) => {
           if (!enableSearch) return
           event.preventDefault()
           searchInputRef.current?.focus()

@@ -496,8 +496,6 @@ export async function saveWorkflowToNormalizedTables(
         subBlocks: block.subBlocks || {},
         outputs: block.outputs || {},
         data: block.data || {},
-        parentId: block.data?.parentId || null,
-        extent: block.data?.extent || null,
       })
 
       return acc
