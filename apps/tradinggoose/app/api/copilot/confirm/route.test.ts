@@ -13,26 +13,20 @@ import {
 } from '@/app/api/__test-utils__/utils'
 
 describe('Copilot Confirm API Route', () => {
-  const mockRedisExists = vi.fn()
-  const mockRedisSet = vi.fn()
-  const mockGetRedisClient = vi.fn()
+  const mockHasCachedValue = vi.fn()
+  const mockSetCachedValue = vi.fn()
 
   beforeEach(() => {
     vi.resetModules()
     setupCommonApiMocks()
     mockCryptoUuid()
 
-    const mockRedisClient = {
-      exists: mockRedisExists,
-      set: mockRedisSet,
-    }
-
-    mockGetRedisClient.mockReturnValue(mockRedisClient)
-    mockRedisExists.mockResolvedValue(1) // Tool call exists by default
-    mockRedisSet.mockResolvedValue('OK')
+    mockHasCachedValue.mockResolvedValue(true) // Tool call exists by default
+    mockSetCachedValue.mockResolvedValue(undefined)
 
     vi.doMock('@/lib/redis', () => ({
-      getRedisClient: mockGetRedisClient,
+      hasCachedValue: mockHasCachedValue,
+      setCachedValue: mockSetCachedValue,
     }))
 
     // Mock setTimeout to control polling behavior
@@ -150,8 +144,8 @@ describe('Copilot Confirm API Route', () => {
       })
 
       // Verify Redis operations were called
-      expect(mockRedisExists).toHaveBeenCalled()
-      expect(mockRedisSet).toHaveBeenCalled()
+      expect(mockHasCachedValue).toHaveBeenCalled()
+      expect(mockSetCachedValue).toHaveBeenCalled()
     })
 
     it('should successfully confirm tool call with error status', async () => {
@@ -176,7 +170,7 @@ describe('Copilot Confirm API Route', () => {
         status: 'error',
       })
 
-      expect(mockRedisSet).toHaveBeenCalled()
+      expect(mockSetCachedValue).toHaveBeenCalled()
     })
 
     it('should successfully confirm tool call with accepted status', async () => {
@@ -200,7 +194,7 @@ describe('Copilot Confirm API Route', () => {
         status: 'accepted',
       })
 
-      expect(mockRedisSet).toHaveBeenCalled()
+      expect(mockSetCachedValue).toHaveBeenCalled()
     })
 
     it('should successfully confirm tool call with rejected status', async () => {
@@ -248,12 +242,11 @@ describe('Copilot Confirm API Route', () => {
       })
     })
 
-    it('should return 400 when Redis client is not available', async () => {
+    it('should return 400 when tool call is missing', async () => {
       const authMocks = mockAuth()
       authMocks.setAuthenticated()
 
-      // Mock Redis client as unavailable
-      mockGetRedisClient.mockReturnValue(null)
+      mockHasCachedValue.mockResolvedValue(false)
 
       const req = createMockRequest('POST', {
         toolCallId: 'tool-call-123',
@@ -273,7 +266,7 @@ describe('Copilot Confirm API Route', () => {
       authMocks.setAuthenticated()
 
       // Mock tool call as not existing in Redis
-      mockRedisExists.mockResolvedValue(0)
+      mockHasCachedValue.mockResolvedValue(false)
 
       const req = createMockRequest('POST', {
         toolCallId: 'non-existent-tool',
@@ -293,7 +286,7 @@ describe('Copilot Confirm API Route', () => {
       authMocks.setAuthenticated()
 
       // Mock Redis operations to throw an error
-      mockRedisExists.mockRejectedValue(new Error('Redis connection failed'))
+      mockHasCachedValue.mockRejectedValue(new Error('Redis connection failed'))
 
       const req = createMockRequest('POST', {
         toolCallId: 'tool-call-123',
@@ -313,8 +306,8 @@ describe('Copilot Confirm API Route', () => {
       authMocks.setAuthenticated()
 
       // Tool call exists but set operation fails
-      mockRedisExists.mockResolvedValue(1)
-      mockRedisSet.mockRejectedValue(new Error('Redis set failed'))
+      mockHasCachedValue.mockResolvedValue(true)
+      mockSetCachedValue.mockRejectedValue(new Error('Redis set failed'))
 
       const req = createMockRequest('POST', {
         toolCallId: 'tool-call-123',

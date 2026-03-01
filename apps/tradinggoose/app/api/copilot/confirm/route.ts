@@ -9,7 +9,7 @@ import {
   type NotificationStatus,
 } from '@/lib/copilot/auth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getRedisClient } from '@/lib/redis'
+import { hasCachedValue, setCachedValue } from '@/lib/redis'
 
 const logger = createLogger('CopilotConfirmAPI')
 
@@ -30,12 +30,6 @@ async function updateToolCallStatus(
   status: NotificationStatus,
   message?: string
 ): Promise<boolean> {
-  const redis = getRedisClient()
-  if (!redis) {
-    logger.warn('updateToolCallStatus: Redis client not available')
-    return false
-  }
-
   try {
     const key = `tool_call:${toolCallId}`
     const timeout = 600000 // 10 minutes timeout for user confirmation
@@ -46,7 +40,7 @@ async function updateToolCallStatus(
 
     // Poll until the key exists or timeout
     while (Date.now() - startTime < timeout) {
-      const exists = await redis.exists(key)
+      const exists = await hasCachedValue(key)
       if (exists) {
         break
       }
@@ -56,7 +50,7 @@ async function updateToolCallStatus(
     }
 
     // Final check if key exists after polling
-    const exists = await redis.exists(key)
+    const exists = await hasCachedValue(key)
     if (!exists) {
       logger.warn('Tool call not found in Redis after polling timeout', {
         toolCallId,
@@ -74,7 +68,7 @@ async function updateToolCallStatus(
       timestamp: new Date().toISOString(),
     }
 
-    await redis.set(key, JSON.stringify(toolCallData), 'EX', 86400) // Keep 24 hour expiry
+    await setCachedValue(key, JSON.stringify(toolCallData), 86400) // Keep 24 hour expiry
 
     return true
   } catch (error) {
