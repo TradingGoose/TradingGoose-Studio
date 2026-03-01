@@ -1,4 +1,4 @@
-import { executeInE2B } from '@/lib/execution/e2b'
+import { executeInE2B, isE2BWarmSandboxLimitError } from '@/lib/execution/e2b'
 import { CodeLanguage } from '@/lib/execution/languages'
 import { resolveExecutionRuntimeConfig } from '@/lib/execution/runtime-config'
 import { DEFAULT_INDICATOR_RUNTIME_MANIFEST } from '@/lib/indicators/default/runtime'
@@ -21,6 +21,7 @@ type ExecuteFunctionInE2BArgs = {
   timeout: number
   e2bTemplate?: string
   e2bKeepWarmMs?: number
+  e2bUserScope?: string
   onImportExtractionError?: (error: unknown) => void
   onSandboxResult?: (meta: { sandboxId?: string; stdoutPreview?: string; error?: string }) => void
 }
@@ -35,6 +36,7 @@ export const executeFunctionInE2B = async ({
   timeout,
   e2bTemplate,
   e2bKeepWarmMs,
+  e2bUserScope,
   onImportExtractionError,
   onSandboxResult,
 }: ExecuteFunctionInE2BArgs): Promise<
@@ -103,6 +105,7 @@ export const executeFunctionInE2B = async ({
     timeoutMs: timeout,
     template: e2bTemplate,
     keepWarmMs: e2bKeepWarmMs,
+    userScope: e2bUserScope,
   })
 
   const executionTime = Date.now() - execStart
@@ -145,6 +148,7 @@ type ExecuteFunctionWithRuntimeGateArgs = {
   contextVariables: Record<string, any>
   timeout: number
   isCustomTool: boolean
+  e2bUserScope?: string
   onImportExtractionError?: (error: unknown) => void
   onSandboxResult?: (meta: { sandboxId?: string; stdoutPreview?: string; error?: string }) => void
   onStdout: (chunk: string) => void
@@ -180,6 +184,7 @@ export const executeFunctionWithRuntimeGate = async ({
   contextVariables,
   timeout,
   isCustomTool,
+  e2bUserScope,
   onImportExtractionError,
   onSandboxResult,
   onStdout,
@@ -189,28 +194,41 @@ export const executeFunctionWithRuntimeGate = async ({
   const useE2B = FUNCTION_RUNTIME_CONFIG.useE2B
 
   if (useE2B) {
-    const e2bExecution = await executeFunctionInE2B({
-      transpiledCode,
-      resolvedCode,
-      executionParams,
-      envVars,
-      contextVariables,
-      isCustomTool,
-      timeout,
-      e2bTemplate: FUNCTION_RUNTIME_CONFIG.e2bTemplate,
-      e2bKeepWarmMs: FUNCTION_RUNTIME_CONFIG.e2bKeepWarmMs,
-      onImportExtractionError,
-      onSandboxResult,
-    })
+    try {
+      const e2bExecution = await executeFunctionInE2B({
+        transpiledCode,
+        resolvedCode,
+        executionParams,
+        envVars,
+        contextVariables,
+        isCustomTool,
+        timeout,
+        e2bTemplate: FUNCTION_RUNTIME_CONFIG.e2bTemplate,
+        e2bKeepWarmMs: FUNCTION_RUNTIME_CONFIG.e2bKeepWarmMs,
+        e2bUserScope,
+        onImportExtractionError,
+        onSandboxResult,
+      })
 
-    return {
-      engine: 'e2b',
-      success: e2bExecution.success,
-      result: e2bExecution.success ? e2bExecution.result : null,
-      stdout: e2bExecution.stdout,
-      executionTime: e2bExecution.executionTime,
-      userCodeStartLine: 3,
-      ...(e2bExecution.success ? {} : { error: e2bExecution.error }),
+      return {
+        engine: 'e2b',
+        success: e2bExecution.success,
+        result: e2bExecution.success ? e2bExecution.result : null,
+        stdout: e2bExecution.stdout,
+        executionTime: e2bExecution.executionTime,
+        userCodeStartLine: 3,
+        ...(e2bExecution.success ? {} : { error: e2bExecution.error }),
+      }
+    } catch (error) {
+      if (!isE2BWarmSandboxLimitError(error)) {
+        throw error
+      }
+      onWarn(`[${requestId}] E2B warm sandbox limit reached, falling back to local VM`, {
+        error: error.message,
+        activeWarmSandboxes: error.details?.activeWarmSandboxes,
+        pendingWarmSandboxes: error.details?.pendingWarmSandboxes,
+        maxConcurrentWarmSandboxes: error.details?.maxConcurrentWarmSandboxes,
+      })
     }
   }
 
@@ -223,6 +241,7 @@ export const executeFunctionWithRuntimeGate = async ({
     envVars,
     contextVariables,
     isCustomTool,
+    ownerKey: e2bUserScope ? `scope:${e2bUserScope}` : undefined,
     onStdout,
     onWarn,
     onError,

@@ -1,5 +1,14 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import {
+  getCodeExecutionConcurrencyLimitMessage,
+  isCodeExecutionConcurrencyLimitError,
+  withCodeExecutionConcurrencyLimit,
+} from '@/lib/execution/concurrency-limit'
+import {
+  getLocalVmSaturationLimitMessage,
+  isLocalVmSaturationLimitError,
+} from '@/lib/execution/local-saturation-limit'
 import { executeCompiledIndicator } from '@/lib/indicators/execution/compile-execution'
 import { mapMarketSeriesToBarsMs } from '@/lib/indicators/series-data'
 import { detectTriggerUsage } from '@/lib/indicators/trigger-detection'
@@ -60,14 +69,19 @@ export async function POST(request: NextRequest) {
     const series = generateMockMarketSeries()
     const barsMs = mapMarketSeriesToBarsMs(series).slice(0, MAX_BARS)
 
-    const compiled = await executeCompiledIndicator({
-      pineCode,
-      barsMs,
-      inputsMap: inputs ?? {},
-      listing: series.listing ?? null,
-      interval: '1d',
-      intervalMs: 86_400_000,
-      executionTimeoutMs: VERIFY_EXECUTION_TIMEOUT_MS,
+    const compiled = await withCodeExecutionConcurrencyLimit({
+      userId: auth.userId,
+      task: () =>
+        executeCompiledIndicator({
+          pineCode,
+          barsMs,
+          inputsMap: inputs ?? {},
+          listing: series.listing ?? null,
+          interval: '1d',
+          intervalMs: 86_400_000,
+          executionTimeoutMs: VERIFY_EXECUTION_TIMEOUT_MS,
+          userId: auth.userId,
+        }),
     })
 
     if (compiled.unsupportedFeatures && compiled.unsupportedFeatures.length > 0) {
@@ -159,6 +173,28 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
+    if (isCodeExecutionConcurrencyLimitError(error)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: getCodeExecutionConcurrencyLimitMessage(error),
+          code: 'concurrency_limit_exceeded',
+        },
+        { status: error.statusCode }
+      )
+    }
+
+    if (isLocalVmSaturationLimitError(error)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: getLocalVmSaturationLimitMessage(error),
+          code: 'engine_capacity_exceeded',
+        },
+        { status: error.statusCode }
+      )
+    }
+
     if (isExecutionTimeoutError(error)) {
       return NextResponse.json(
         { success: false, error: 'Verification timed out', code: 'runtime_error' },

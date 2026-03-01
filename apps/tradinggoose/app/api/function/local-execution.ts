@@ -1,4 +1,5 @@
 import { createContext, Script } from 'vm'
+import { withLocalVmSaturationLimit } from '@/lib/execution/local-saturation-limit'
 import { createFunctionIndicatorRuntime } from '@/lib/indicators/execution/function-indicator-runtime'
 import { validateProxyUrl } from '@/lib/security/input-validation'
 
@@ -10,6 +11,7 @@ type LocalExecutionArgs = {
   envVars: Record<string, string>
   contextVariables: Record<string, any>
   isCustomTool: boolean
+  ownerKey?: string
   onStdout: (chunk: string) => void
   onWarn: (message: string, meta: Record<string, unknown>) => void
   onError: (message: string) => void
@@ -49,6 +51,7 @@ export const executeFunctionInLocalVm = async ({
   envVars,
   contextVariables,
   isCustomTool,
+  ownerKey,
   onStdout,
   onWarn,
   onError,
@@ -105,10 +108,14 @@ export const executeFunctionInLocalVm = async ({
   })
 
   try {
-    const result = await script.runInContext(context, {
-      timeout,
-      displayErrors: true,
-      breakOnSigint: true,
+    const result = await withLocalVmSaturationLimit({
+      ownerKey,
+      task: () =>
+        script.runInContext(context, {
+          timeout,
+          displayErrors: true,
+          breakOnSigint: true,
+        }),
     })
     return { result, userCodeStartLine }
   } catch (error) {

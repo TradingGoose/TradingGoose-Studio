@@ -31,12 +31,26 @@ describe('Function Execute API Route', () => {
     vi.doMock('@/lib/logs/console/logger', () => ({
       createLogger: vi.fn().mockReturnValue(mockLogger),
     }))
+    vi.doMock('@/lib/auth/hybrid', () => ({
+      checkHybridAuth: vi.fn().mockResolvedValue({
+        success: true,
+        userId: 'test-user-id',
+        authType: 'session',
+      }),
+    }))
 
     vi.doMock('@/lib/execution/e2b', () => ({
       executeInE2B: vi.fn().mockResolvedValue({
         result: 'e2b success',
         stdout: 'e2b output',
         sandboxId: 'test-sandbox-id',
+      }),
+      isE2BWarmSandboxLimitError: vi.fn((error: unknown) => {
+        const maybeError = error as { code?: string; name?: string } | undefined
+        return (
+          maybeError?.code === 'E2B_WARM_SANDBOX_LIMIT_REACHED' ||
+          maybeError?.name === 'E2BWarmSandboxLimitError'
+        )
       }),
     }))
     vi.doMock('@/lib/execution/runtime-config', () => ({
@@ -56,6 +70,23 @@ describe('Function Execute API Route', () => {
   })
 
   describe('Security Tests', () => {
+    it('should reject unauthenticated function execution requests', async () => {
+      const { checkHybridAuth } = await import('@/lib/auth/hybrid')
+      vi.mocked(checkHybridAuth).mockResolvedValueOnce({ success: false })
+
+      const req = createMockRequest('POST', {
+        code: 'return "test"',
+      })
+
+      const { POST } = await import('@/app/api/function/execute/route')
+      const response = await POST(req)
+      const data = await response.json()
+
+      expect(response.status).toBe(401)
+      expect(data.success).toBe(false)
+      expect(data.error).toBe('Unauthorized')
+    })
+
     it('should create secure fetch in VM context', async () => {
       const req = createMockRequest('POST', {
         code: 'return "test"',
@@ -752,6 +783,48 @@ SyntaxError: Invalid or unexpected token
       expect(e2bCall.code).toContain('const indicator = (() => {')
       expect(e2bCall.code).toContain('__tg_indicator_manifest')
       expect(e2bCall.code).toContain('await indicator.RSI')
+    })
+
+    it('should fall back to local VM when E2B warm sandbox pool is at capacity', async () => {
+      vi.doMock('@/lib/execution/runtime-config', () => ({
+        resolveExecutionRuntimeConfig: vi.fn(() => ({
+          useE2B: true,
+          e2bTemplate: undefined,
+          e2bKeepWarmMs: 300_000,
+        })),
+      }))
+
+      const req = createMockRequest('POST', {
+        code: 'return "fallback local vm";',
+      })
+
+      const { POST } = await import('@/app/api/function/execute/route')
+      const { executeInE2B } = await import('@/lib/execution/e2b')
+      const executeInE2BMock = vi.mocked(executeInE2B)
+      const poolLimitError = Object.assign(new Error('warm pool limit reached'), {
+        name: 'E2BWarmSandboxLimitError',
+        code: 'E2B_WARM_SANDBOX_LIMIT_REACHED',
+        details: {
+          activeWarmSandboxes: 2,
+          pendingWarmSandboxes: 1,
+          maxConcurrentWarmSandboxes: 3,
+        },
+      })
+      executeInE2BMock.mockRejectedValueOnce(poolLimitError)
+
+      const response = await POST(req)
+      const data = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(data.success).toBe(true)
+      expect(data.output.result).toBe('vm success')
+      expect(mockRunInContext).toHaveBeenCalled()
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('falling back to local VM'),
+        expect.objectContaining({
+          maxConcurrentWarmSandboxes: 3,
+        })
+      )
     })
   })
 })

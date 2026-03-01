@@ -3,6 +3,15 @@ import { pineIndicators } from '@tradinggoose/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import {
+  getCodeExecutionConcurrencyLimitMessage,
+  isCodeExecutionConcurrencyLimitError,
+  withCodeExecutionConcurrencyLimit,
+} from '@/lib/execution/concurrency-limit'
+import {
+  getLocalVmSaturationLimitMessage,
+  isLocalVmSaturationLimitError,
+} from '@/lib/execution/local-saturation-limit'
 import { DEFAULT_INDICATOR_RUNTIME_MAP } from '@/lib/indicators/default/runtime'
 import { executeCompiledIndicator } from '@/lib/indicators/execution/compile-execution'
 import { buildInputsMapFromMeta, normalizeInputMetaMap } from '@/lib/indicators/input-meta'
@@ -109,102 +118,132 @@ export async function POST(request: NextRequest) {
 
     const indicatorMap = new Map(storedIndicators.map((indicator) => [indicator.id, indicator]))
 
-    const results = await Promise.all(
-      indicatorIds.map(async (indicatorId): Promise<ExecuteResult> => {
-        const customIndicator = indicatorMap.get(indicatorId)
-        const defaultIndicator = DEFAULT_INDICATOR_RUNTIME_MAP.get(indicatorId)
+    const results = await withCodeExecutionConcurrencyLimit({
+      userId: auth.userId,
+      task: async () =>
+        Promise.all(
+          indicatorIds.map(async (indicatorId): Promise<ExecuteResult> => {
+            const customIndicator = indicatorMap.get(indicatorId)
+            const defaultIndicator = DEFAULT_INDICATOR_RUNTIME_MAP.get(indicatorId)
 
-        if (!customIndicator && !defaultIndicator) {
-          return {
-            indicatorId,
-            output: null,
-            warnings: [{ code: 'missing_indicator', message: `${indicatorId} is missing.` }],
-            unsupported: { plots: [], styles: [] },
-            counts: { plots: 0, markers: 0, triggers: 0 },
-            executionError: { message: 'Indicator not found', code: 'missing_indicator' },
-          }
-        }
+            if (!customIndicator && !defaultIndicator) {
+              return {
+                indicatorId,
+                output: null,
+                warnings: [{ code: 'missing_indicator', message: `${indicatorId} is missing.` }],
+                unsupported: { plots: [], styles: [] },
+                counts: { plots: 0, markers: 0, triggers: 0 },
+                executionError: { message: 'Indicator not found', code: 'missing_indicator' },
+              }
+            }
 
-        const pineCode = customIndicator?.pineCode ?? defaultIndicator?.pineCode ?? ''
-        const inputMeta = customIndicator
-          ? normalizeInputMetaMap(customIndicator.inputMeta)
-          : defaultIndicator?.inputMeta
-        const inputsOverride = parsedBody.data.inputsMapById?.[indicatorId]
-        const baseInputsMap = buildInputsMapFromMeta(inputMeta)
-        const inputsMap = inputsOverride ? { ...baseInputsMap, ...inputsOverride } : baseInputsMap
+            const pineCode = customIndicator?.pineCode ?? defaultIndicator?.pineCode ?? ''
+            const inputMeta = customIndicator
+              ? normalizeInputMetaMap(customIndicator.inputMeta)
+              : defaultIndicator?.inputMeta
+            const inputsOverride = parsedBody.data.inputsMapById?.[indicatorId]
+            const baseInputsMap = buildInputsMapFromMeta(inputMeta)
+            const inputsMap = inputsOverride ? { ...baseInputsMap, ...inputsOverride } : baseInputsMap
 
-        try {
-          const compiled = await executeCompiledIndicator({
-            pineCode,
-            barsMs,
-            inputsMap,
-            listing: executionListing,
-            interval,
-            intervalMs,
-            executionTimeoutMs: EXECUTION_TIMEOUT_MS,
+            try {
+              const compiled = await executeCompiledIndicator({
+                pineCode,
+                barsMs,
+                inputsMap,
+                listing: executionListing,
+                interval,
+                intervalMs,
+                executionTimeoutMs: EXECUTION_TIMEOUT_MS,
+                userId: auth.userId,
+              })
+
+              if (compiled.unsupportedFeatures && compiled.unsupportedFeatures.length > 0) {
+                return {
+                  indicatorId,
+                  output: null,
+                  warnings: compiled.warnings,
+                  unsupported: { plots: [], styles: [] },
+                  counts: { plots: 0, markers: 0, triggers: 0 },
+                  executionError: {
+                    message: `${compiled.unsupportedFeatures[0]} is not supported`,
+                    code: 'unsupported_feature',
+                    unsupported: { features: compiled.unsupportedFeatures },
+                  },
+                }
+              }
+
+              if (!compiled.output) {
+                return {
+                  indicatorId,
+                  output: null,
+                  warnings: compiled.warnings,
+                  unsupported: compiled.unsupported ?? { plots: [], styles: [] },
+                  counts: { plots: 0, markers: 0, triggers: 0 },
+                  executionError: {
+                    message: compiled.executionError?.message ?? 'Failed to execute indicator',
+                    code: 'runtime_error',
+                  },
+                }
+              }
+
+              const output = compiled.output
+
+              return {
+                indicatorId,
+                output,
+                warnings: compiled.warnings,
+                unsupported: output.unsupported,
+                counts: {
+                  plots: output.series.length,
+                  markers: output.markers.length,
+                  triggers: output.triggers.length,
+                },
+              }
+            } catch (error) {
+              if (isLocalVmSaturationLimitError(error)) {
+                throw error
+              }
+              const timedOut = isExecutionTimeoutError(error)
+              return {
+                indicatorId,
+                output: null,
+                warnings: [],
+                unsupported: { plots: [], styles: [] },
+                counts: { plots: 0, markers: 0, triggers: 0 },
+                executionError: {
+                  message: timedOut ? 'Execution timed out' : 'Failed to execute indicator',
+                  code: timedOut ? 'timeout' : 'runtime_error',
+                },
+              }
+            }
           })
-
-          if (compiled.unsupportedFeatures && compiled.unsupportedFeatures.length > 0) {
-            return {
-              indicatorId,
-              output: null,
-              warnings: compiled.warnings,
-              unsupported: { plots: [], styles: [] },
-              counts: { plots: 0, markers: 0, triggers: 0 },
-              executionError: {
-                message: `${compiled.unsupportedFeatures[0]} is not supported`,
-                code: 'unsupported_feature',
-                unsupported: { features: compiled.unsupportedFeatures },
-              },
-            }
-          }
-
-          if (!compiled.output) {
-            return {
-              indicatorId,
-              output: null,
-              warnings: compiled.warnings,
-              unsupported: compiled.unsupported ?? { plots: [], styles: [] },
-              counts: { plots: 0, markers: 0, triggers: 0 },
-              executionError: {
-                message: compiled.executionError?.message ?? 'Failed to execute indicator',
-                code: 'runtime_error',
-              },
-            }
-          }
-
-          const output = compiled.output
-
-          return {
-            indicatorId,
-            output,
-            warnings: compiled.warnings,
-            unsupported: output.unsupported,
-            counts: {
-              plots: output.series.length,
-              markers: output.markers.length,
-              triggers: output.triggers.length,
-            },
-          }
-        } catch (error) {
-          const timedOut = isExecutionTimeoutError(error)
-          return {
-            indicatorId,
-            output: null,
-            warnings: [],
-            unsupported: { plots: [], styles: [] },
-            counts: { plots: 0, markers: 0, triggers: 0 },
-            executionError: {
-              message: timedOut ? 'Execution timed out' : 'Failed to execute indicator',
-              code: timedOut ? 'timeout' : 'runtime_error',
-            },
-          }
-        }
-      })
-    )
+        ),
+    })
 
     return NextResponse.json({ success: true, data: results })
   } catch (error) {
+    if (isCodeExecutionConcurrencyLimitError(error)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: getCodeExecutionConcurrencyLimitMessage(error),
+          code: 'concurrency_limit_exceeded',
+        },
+        { status: error.statusCode }
+      )
+    }
+
+    if (isLocalVmSaturationLimitError(error)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: getLocalVmSaturationLimitMessage(error),
+          code: 'engine_capacity_exceeded',
+        },
+        { status: error.statusCode }
+      )
+    }
+
     logger.error(`[${requestId}] Indicator execute failed`, { error })
     return NextResponse.json(
       { success: false, error: 'Failed to execute indicators' },
