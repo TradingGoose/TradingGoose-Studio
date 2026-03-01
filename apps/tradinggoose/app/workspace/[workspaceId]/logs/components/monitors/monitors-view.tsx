@@ -533,6 +533,7 @@ export function MonitorsView({
         .filter((entry): entry is [string, string] => Boolean(entry))
     )
 
+    const selectedTarget = workflowTargetByKey.get(`${editingDraft.workflowId}:${editingDraft.blockId}`)
     const payload = {
       workspaceId,
       workflowId: editingDraft.workflowId,
@@ -543,7 +544,7 @@ export function MonitorsView({
       listing: editingDraft.listing,
       ...(authPayload ? { auth: authPayload } : {}),
       ...(Object.keys(providerParams).length > 0 ? { providerParams } : {}),
-      isActive: editingDraft.isActive,
+      isActive: editingDraft.isActive && selectedTarget?.isDeployed === true,
     }
 
     setSaving(true)
@@ -605,6 +606,12 @@ export function MonitorsView({
   const toggleMonitorState = useCallback(
     async (monitor: IndicatorMonitorRecord) => {
       const nextIsActive = !monitor.isActive
+      const target = workflowTargetByKey.get(`${monitor.workflowId}:${monitor.blockId}`)
+      if (nextIsActive && target?.isDeployed !== true) {
+        setMonitorsError('Activate is disabled because this monitor workflow is not deployed.')
+        return
+      }
+
       setTogglingMonitorId(monitor.monitorId)
       setMonitorsError(null)
       setMonitors((current) =>
@@ -645,7 +652,7 @@ export function MonitorsView({
         setTogglingMonitorId(null)
       }
     },
-    [workspaceId, upsertMonitor]
+    [workspaceId, upsertMonitor, workflowTargetByKey]
   )
 
   const removeMonitor = useCallback(async (monitorId: string) => {

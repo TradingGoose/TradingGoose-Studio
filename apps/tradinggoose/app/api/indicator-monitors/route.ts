@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
     })
     if (!permission.ok) return permission.response
 
-    await ensureWorkflowInWorkspace(payload.workflowId, payload.workspaceId)
+    const workflowRow = await ensureWorkflowInWorkspace(payload.workflowId, payload.workspaceId)
     await ensureIndicatorTriggerBlock(payload.workflowId, payload.blockId)
     await ensureTriggerCapableIndicator(payload.workspaceId, payload.indicatorId)
 
@@ -112,6 +112,8 @@ export async function POST(request: NextRequest) {
     const monitorId = nanoid()
     const monitorPath = `indicator-monitor-${monitorId}`
 
+    const nextIsActive = (payload.isActive ?? true) && workflowRow.isDeployed === true
+
     const [createdMonitor] = await db
       .insert(webhook)
       .values({
@@ -124,7 +126,7 @@ export async function POST(request: NextRequest) {
           ...providerConfig,
           triggerId: INDICATOR_MONITOR_TRIGGER_ID,
         },
-        isActive: payload.isActive ?? true,
+        isActive: nextIsActive,
         createdAt: new Date(),
         updatedAt: new Date(),
       })

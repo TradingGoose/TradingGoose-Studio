@@ -15,6 +15,7 @@ export type WorkflowTargetOption = {
   blockId: string
   workflowName: string
   workflowColor: string
+  isDeployed: boolean
   blockName: string
   label: string
 }
