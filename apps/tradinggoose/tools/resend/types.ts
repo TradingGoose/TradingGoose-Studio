@@ -6,6 +6,7 @@ export interface MailSendParams {
   to: string
   subject: string
   body: string
+  contentType?: string
 }
 
 export interface MailSendResult extends ToolResponse {

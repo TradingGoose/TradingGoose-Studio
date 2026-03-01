@@ -224,7 +224,7 @@ export const createTriggerMarkerFromSignal = (
   signal: NormalizedPineSignal
 ): NormalizedPineMarker => ({
   text: signal.event,
-  color: signal.color,
+  color: signal.color ?? (signal.signal === 'flat' ? '#ffab00' : undefined),
   position: signal.position,
   shape: signal.signal === 'long' ? 'arrowUp' : signal.signal === 'short' ? 'arrowDown' : 'circle',
   time: signal.time,

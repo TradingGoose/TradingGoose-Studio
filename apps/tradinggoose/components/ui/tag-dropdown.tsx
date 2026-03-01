@@ -310,9 +310,8 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
 
   const routeContext = useOptionalWorkflowRoute()
   const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
-  const workflowId = useWorkflowRegistry((state) =>
-    state.getActiveWorkflowId(resolvedChannelId)
-  )
+  const workflowId =
+    useWorkflowRegistry((state) => state.getActiveWorkflowId(resolvedChannelId)) ?? undefined
 
   const rawAccessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 

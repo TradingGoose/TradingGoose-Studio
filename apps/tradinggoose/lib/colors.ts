@@ -1,4 +1,6 @@
 const VIBRANT_SATURATION = 100
+const VIBRANT_LIGHTNESS = 35
+const GOLDEN_ANGLE_DEGREES = 137.508
 
 // Source - https://stackoverflow.com/a
 // Posted by Juraj, modified by community. See post 'Timeline' for change history
@@ -16,13 +18,26 @@ function hslToHex(h: number, s: number, l: number): string {
   return `#${f(0)}${f(8)}${f(4)}`
 }
 
-export function getStableVibrantColor(seed: string): string {
+function hashSeed(seed: string): number {
   const safeSeed = typeof seed === 'string' ? seed : String(seed)
   let hash = 2166136261
   for (let i = 0; i < safeSeed.length; i += 1) {
     hash ^= safeSeed.charCodeAt(i)
     hash = Math.imul(hash, 16777619)
   }
-  const hue = (hash >>> 0) % 360
-  return hslToHex(hue, VIBRANT_SATURATION, 35)
+  return hash >>> 0
+}
+
+const resolveHueFromSeed = (seed: string) => hashSeed(seed) % 360
+
+export function getStableVibrantColor(seed: string): string {
+  const hue = resolveHueFromSeed(seed)
+  return hslToHex(hue, VIBRANT_SATURATION, VIBRANT_LIGHTNESS)
+}
+
+export function getStableVibrantColorWithOffset(seed: string, offsetIndex: number): string {
+  const baseHue = resolveHueFromSeed(seed)
+  const safeOffset = Number.isFinite(offsetIndex) ? Math.max(0, Math.trunc(offsetIndex)) : 0
+  const hue = (baseHue + safeOffset * GOLDEN_ANGLE_DEGREES) % 360
+  return hslToHex(hue, VIBRANT_SATURATION, VIBRANT_LIGHTNESS)
 }

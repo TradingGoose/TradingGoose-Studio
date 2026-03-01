@@ -111,7 +111,7 @@ export type BlockOutput =
 
 export type OutputFieldDefinition =
   | PrimitiveValueType
-  | { type: PrimitiveValueType; description?: string }
+  | { type: PrimitiveValueType; description?: string; condition?: SubBlockCondition }
 
 export interface ParamConfig {
   type: ParamType

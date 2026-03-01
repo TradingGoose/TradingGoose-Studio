@@ -90,7 +90,7 @@ function resolveEndpoint(
 function resolveSeriesEndpointUrl(
   endpoint: FinnhubEndpoint,
   assetClass?: string
-): string {
+): string | undefined {
   const mappedAssetClass =
     endpoint === 'forex'
       ? 'currency'

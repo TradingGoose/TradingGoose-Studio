@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { Plus, Search, Server } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { Input } from '@/components/ui'
@@ -354,7 +354,7 @@ export function McpServers() {
         workspaceId={workspaceId}
         clearTestResult={clearTestResult}
         showSaveButton={false}
-        formRef={formContainerRef}
+        formRef={formContainerRef as RefObject<HTMLDivElement>}
         className='p-5'
       />
     ) : null

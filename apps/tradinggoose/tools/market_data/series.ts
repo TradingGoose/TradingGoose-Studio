@@ -141,7 +141,9 @@ const sanitizeInterval = (provider: string, interval?: string): string | undefin
   if (!capabilities) return interval
   if (capabilities.supportsInterval === false) return undefined
   const intervals = capabilities.intervals ?? []
-  if (intervals.length > 0 && !intervals.includes(interval)) return undefined
+  if (intervals.length > 0 && !(intervals as ReadonlyArray<string>).includes(interval)) {
+    return undefined
+  }
   return interval
 }
 

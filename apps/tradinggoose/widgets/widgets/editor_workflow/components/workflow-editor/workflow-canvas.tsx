@@ -95,6 +95,7 @@ type WorkflowViewportBounds = {
 }
 
 export type WorkflowCanvasUIConfig = {
+  controlBar?: boolean
   floatingControls?: boolean
   trainingControls?: boolean
   forceTrainingControls?: boolean
@@ -103,6 +104,7 @@ export type WorkflowCanvasUIConfig = {
 }
 
 const defaultUIConfig: Required<WorkflowCanvasUIConfig> = {
+  controlBar: false,
   floatingControls: false,
   trainingControls: false,
   forceTrainingControls: false,
@@ -148,7 +150,7 @@ const WorkflowCanvas = React.memo(
     const { workspaceId, workflowId } = useWorkflowRoute()
     const resolvedChannelId = useMemo(() => channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID, [channelId])
     const reactFlowId = useMemo(() => `workflow-${resolvedChannelId}`, [resolvedChannelId])
-    const { project, getNodes, fitView, screenToFlowPosition } = useReactFlow(reactFlowId)
+    const { project, getNodes, screenToFlowPosition } = useReactFlow()
 
     const getViewportCenterCoordinates = useCallback(() => {
       if (viewportBounds) {
@@ -808,19 +810,11 @@ const WorkflowCanvas = React.memo(
         // Centralized trigger constraints
         const additionIssue = TriggerUtils.getTriggerAdditionIssue(blocks, type)
         if (additionIssue) {
-          if (additionIssue.issue === 'legacy') {
-            setTriggerWarning({
-              open: true,
-              triggerName: additionIssue.triggerName,
-              type: TriggerWarningType.LEGACY_INCOMPATIBILITY,
-            })
-          } else {
-            setTriggerWarning({
-              open: true,
-              triggerName: additionIssue.triggerName,
-              type: TriggerWarningType.DUPLICATE_TRIGGER,
-            })
-          }
+          setTriggerWarning({
+            open: true,
+            triggerName: additionIssue.triggerName,
+            type: TriggerWarningType.DUPLICATE_TRIGGER,
+          })
           return
         }
 
@@ -1082,10 +1076,7 @@ const WorkflowCanvas = React.memo(
               setTriggerWarning({
                 open: true,
                 triggerName: dropIssue.triggerName,
-                type:
-                  dropIssue.issue === 'legacy'
-                    ? TriggerWarningType.LEGACY_INCOMPATIBILITY
-                    : TriggerWarningType.DUPLICATE_TRIGGER,
+                type: TriggerWarningType.DUPLICATE_TRIGGER,
               })
               return
             }

@@ -4,7 +4,6 @@ import { createContext, type ReactNode, useContext, useMemo } from 'react'
 import type { WorkflowCanvasUIConfig } from '@/widgets/widgets/editor_workflow/components/workflow-editor/workflow-canvas'
 
 const DEFAULT_UI_CONFIG: WorkflowCanvasUIConfig = {
-  panel: false,
   controlBar: false,
   floatingControls: false,
   trainingControls: false,

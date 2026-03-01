@@ -204,7 +204,7 @@ export function FileSelectorInput({
                 credentialId={credential}
                 projectId={(projectIdValue as string) || ''}
                 isForeignCredential={isForeignCredential}
-                workflowId={activeWorkflowId || ''}
+                workflowId={workflowIdFromUrl}
               />
             </div>
           </TooltipTrigger>
@@ -231,7 +231,7 @@ export function FileSelectorInput({
                 label={subBlock.placeholder || 'Select Microsoft Excel file'}
                 disabled={finalDisabled}
                 showPreview={true}
-                workflowId={activeWorkflowId || ''}
+                workflowId={workflowIdFromUrl}
                 credentialId={credential}
                 isForeignCredential={isForeignCredential}
               />
@@ -288,7 +288,7 @@ export function FileSelectorInput({
                 label={subBlock.placeholder || 'Select OneDrive folder'}
                 disabled={finalDisabled}
                 showPreview={true}
-                workflowId={activeWorkflowId || ''}
+                workflowId={workflowIdFromUrl}
                 credentialId={credential}
                 isForeignCredential={isForeignCredential}
               />
@@ -318,7 +318,7 @@ export function FileSelectorInput({
                 label={subBlock.placeholder || 'Select SharePoint site'}
                 disabled={finalDisabled}
                 showPreview={true}
-                workflowId={activeWorkflowId || ''}
+                workflowId={workflowIdFromUrl}
                 credentialId={credential}
                 isForeignCredential={isForeignCredential}
               />
@@ -355,7 +355,7 @@ export function FileSelectorInput({
                 disabled={finalDisabled}
                 showPreview={true}
                 planId={planId}
-                workflowId={activeWorkflowId || ''}
+                workflowId={workflowIdFromUrl}
                 credentialId={credential}
                 isForeignCredential={isForeignCredential}
               />
@@ -415,7 +415,7 @@ export function FileSelectorInput({
                 credential={credential}
                 selectionType={selectionType}
                 initialTeamId={selectedTeamId}
-                workflowId={activeWorkflowId || ''}
+                workflowId={workflowIdFromUrl}
                 isForeignCredential={isForeignCredential}
               />
             </div>

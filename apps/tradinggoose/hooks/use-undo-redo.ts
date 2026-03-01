@@ -582,7 +582,7 @@ export function useUndoRedo() {
       }
       case 'add-edge': {
         // Use the snapshot captured in the inverse (remove-edge) so we can restore the connection
-        const { edgeSnapshot } = entry.inverse as RemoveEdgeOperation
+        const edgeSnapshot = (entry.inverse as any).edgeSnapshot
         // Skip if snapshot missing or already exists
         if (!edgeSnapshot || workflowStore.edges.find((e) => e.id === edgeSnapshot.id)) {
           logger.debug('Undo add-edge skipped', {

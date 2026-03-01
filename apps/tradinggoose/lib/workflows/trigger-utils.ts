@@ -30,7 +30,7 @@ export function getAllTriggerBlocks(): TriggerInfo[] {
         name: block.name,
         description: block.description,
         icon: block.icon,
-        color: block.bgColor,
+        color: block.bgColor ?? '#6B7280',
         category: 'core',
         enableTriggerMode: hasTriggerCapability(block),
       })
@@ -42,7 +42,7 @@ export function getAllTriggerBlocks(): TriggerInfo[] {
         name: block.name,
         description: block.description.replace(' or trigger workflows from ', ', trigger from '),
         icon: block.icon,
-        color: block.bgColor,
+        color: block.bgColor ?? '#6B7280',
         category: 'integration',
         enableTriggerMode: true,
       })

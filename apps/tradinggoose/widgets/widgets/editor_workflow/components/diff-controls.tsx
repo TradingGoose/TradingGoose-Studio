@@ -3,6 +3,7 @@
 import { memo, useCallback } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { getClientTool } from '@/lib/copilot/tools/client/manager'
 import { cn } from '@/lib/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
@@ -35,7 +36,7 @@ export const DiffControls = memo(function DiffControls({
     pendingEditToolCallId,
   } = useWorkflowDiffStore(
     useCallback(
-      (state) => ({
+      (state: any) => ({
         isShowingDiff: state.isShowingDiff,
         isDiffReady: state.isDiffReady,
         diffWorkflow: state.diffWorkflow,
@@ -51,7 +52,7 @@ export const DiffControls = memo(function DiffControls({
   // Optimized: Single copilot store subscription for needed values
   const { updatePreviewToolCallState, clearPreviewYaml, currentChat, messages } = useCopilotStore(
     useCallback(
-      (state) => ({
+      (state: any) => ({
         updatePreviewToolCallState: state.updatePreviewToolCallState,
         clearPreviewYaml: state.clearPreviewYaml,
         currentChat: state.currentChat,
@@ -150,7 +151,7 @@ export const DiffControls = memo(function DiffControls({
       })
 
       // Find the most recent user message ID from the current chat
-      const userMessages = messages.filter((msg) => msg.role === 'user')
+      const userMessages = messages.filter((msg: any) => msg.role === 'user')
       const lastUserMessage = userMessages[userMessages.length - 1]
       const messageId = lastUserMessage?.id
 
@@ -160,17 +161,17 @@ export const DiffControls = memo(function DiffControls({
         lastUserMessageId: messageId,
         chatId: currentChat.id,
         entireMessageArray: messages,
-        allMessageIds: messages.map((m) => ({
+        allMessageIds: messages.map((m: any) => ({
           id: m.id,
           role: m.role,
           content: m.content.substring(0, 50),
         })),
-        selectedUserMessages: userMessages.map((m) => ({
+        selectedUserMessages: userMessages.map((m: any) => ({
           id: m.id,
           content: m.content.substring(0, 100),
         })),
-        allRawMessageIds: messages.map((m) => m.id),
-        userMessageIds: userMessages.map((m) => m.id),
+        allRawMessageIds: messages.map((m: any) => m.id),
+        userMessageIds: userMessages.map((m: any) => m.id),
         checkpointData: {
           workflowId: activeWorkflowId,
           chatId: currentChat.id,
@@ -260,10 +261,10 @@ export const DiffControls = memo(function DiffControls({
     logger.info('Accepting proposed changes with backup protection')
 
     try {
-      await createCheckpoint().catch((error) => {
+      await createCheckpoint().catch((error: any) => {
         logger.warn('Failed to create checkpoint before accept:', error)
       })
-      await clearPreviewYaml().catch((error) => {
+      await clearPreviewYaml().catch((error: any) => {
         logger.warn('Failed to clear preview YAML:', error)
       })
 
@@ -287,7 +288,7 @@ export const DiffControls = memo(function DiffControls({
         logger.warn('No edit_workflow toolCallId found on accept; skipping mark-complete')
       }
 
-      acceptChanges().catch((error) => {
+      acceptChanges().catch((error: any) => {
         logger.error('Failed to accept changes (background):', error)
       })
       logger.info('Accept triggered; UI will update optimistically')
@@ -302,7 +303,7 @@ export const DiffControls = memo(function DiffControls({
   const handleReject = useCallback(async () => {
     logger.info('Rejecting proposed changes (optimistic)')
 
-    clearPreviewYaml().catch((error) => {
+    clearPreviewYaml().catch((error: any) => {
       logger.warn('Failed to clear preview YAML:', error)
     })
 
@@ -328,7 +329,7 @@ export const DiffControls = memo(function DiffControls({
       }
     } catch { }
 
-    rejectChanges().catch((error) => {
+    rejectChanges().catch((error: any) => {
       logger.error('Failed to reject changes (background):', error)
     })
   }, [clearPreviewYaml, updatePreviewToolCallState, rejectChanges])

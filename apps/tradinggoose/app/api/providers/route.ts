@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     if (namespace === 'ai') {
       return handleAIProviderRequest({
-        body,
+        body: body as AIProviderRouteBody,
         providerId,
         requestId,
         startTime,
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     if (namespace === 'market') {
       return handleMarketProviderRequest({
-        body,
+        body: body as MarketProviderRouteBody,
         providerId,
         requestId,
         startTime,

@@ -569,12 +569,12 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
 
     const safePlaceholderTop = Number.isFinite(placeholderOffset.top) ? placeholderOffset.top : 8
     const safePlaceholderLeft = Number.isFinite(placeholderOffset.left) ? placeholderOffset.left : 12
-    const baseOptions = useMemo(
+    const baseOptions = useMemo<MonacoEditorTypes.IStandaloneEditorConstructionOptions>(
       () => ({
         minimap: { enabled: false },
         scrollBeyondLastLine: false,
-        wordWrap: 'on',
-        renderLineHighlight: 'none',
+        wordWrap: 'on' as const,
+        renderLineHighlight: 'none' as const,
         glyphMargin: false,
         lineNumbersMinChars: 3,
         lineDecorationsWidth: 3,
@@ -591,7 +591,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
         parameterHints: { enabled: false },
         suggest: { showInlineDetails: true },
         suggestOnTriggerCharacters: false,
-        quickSuggestions: { other: 'inline', comments: true, strings: true },
+        quickSuggestions: { other: 'inline' as const, comments: true, strings: true },
         inlineSuggest: { enabled: true },
         scrollbar: {
           verticalScrollbarSize: 6,
@@ -602,7 +602,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
       }),
       [readOnly, disabled]
     )
-    const mergedOptions = useMemo(() => {
+    const mergedOptions = useMemo<MonacoEditorTypes.IStandaloneEditorConstructionOptions>(() => {
       if (!options) return baseOptions
       return {
         ...baseOptions,

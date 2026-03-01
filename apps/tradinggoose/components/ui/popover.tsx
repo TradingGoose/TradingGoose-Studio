@@ -5,7 +5,7 @@ import * as PopoverPrimitive from '@radix-ui/react-popover'
 import { cn } from '@/lib/utils'
 
 type PopoverEnvironment = {
-  container?: PopoverPrimitive.PortalProps['container'] | null
+  container?: React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Portal>['container'] | null
   scale?: number
   zIndex?: number
 }
@@ -24,7 +24,7 @@ const Popover = PopoverPrimitive.Root
 const PopoverTrigger = PopoverPrimitive.Trigger
 
 type PopoverContentProps = React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content> & {
-  container?: PopoverPrimitive.PortalProps['container']
+  container?: React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Portal>['container']
   scale?: number
   zIndex?: number
 }
@@ -85,4 +85,4 @@ const PopoverContent = React.forwardRef<
 )
 PopoverContent.displayName = PopoverPrimitive.Content.displayName
 
-export { Popover, PopoverTrigger, PopoverContent, PopoverEnvironmentProvider }
+export { Popover, PopoverTrigger, PopoverContent }

@@ -27,7 +27,7 @@ interface CodeProps {
   subBlockId: string
   isConnecting: boolean
   placeholder?: string
-  language?: 'javascript' | 'json' | 'python' | 'sql' | 'html' | 'plaintext'
+  language?: 'javascript' | 'json' | 'typescript' | 'python' | 'sql' | 'html' | 'plaintext'
   generationType?: GenerationType
   value?: string
   isPreview?: boolean

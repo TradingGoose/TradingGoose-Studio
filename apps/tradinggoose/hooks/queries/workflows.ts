@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateCreativeWorkflowName } from '@/lib/naming'
@@ -41,9 +40,6 @@ async function fetchWorkflows(workspaceId: string): Promise<WorkflowMetadata[]> 
 
 export function useWorkflows(workspaceId?: string, options?: { syncRegistry?: boolean }) {
   const { syncRegistry = true } = options || {}
-  const beginMetadataLoad = useWorkflowRegistry((state) => state.beginMetadataLoad)
-  const completeMetadataLoad = useWorkflowRegistry((state) => state.completeMetadataLoad)
-  const failMetadataLoad = useWorkflowRegistry((state) => state.failMetadataLoad)
 
   const query = useQuery({
     queryKey: workflowKeys.list(workspaceId),
@@ -53,25 +49,8 @@ export function useWorkflows(workspaceId?: string, options?: { syncRegistry?: bo
     staleTime: 60 * 1000,
   })
 
-  useEffect(() => {
-    if (syncRegistry && workspaceId && query.status === 'pending') {
-      beginMetadataLoad(workspaceId)
-    }
-  }, [syncRegistry, workspaceId, query.status, beginMetadataLoad])
-
-  useEffect(() => {
-    if (syncRegistry && workspaceId && query.status === 'success' && query.data) {
-      completeMetadataLoad(workspaceId, query.data)
-    }
-  }, [syncRegistry, workspaceId, query.status, query.data, completeMetadataLoad])
-
-  useEffect(() => {
-    if (syncRegistry && workspaceId && query.status === 'error') {
-      const message =
-        query.error instanceof Error ? query.error.message : 'Failed to fetch workflows'
-      failMetadataLoad(workspaceId, message)
-    }
-  }, [syncRegistry, workspaceId, query.status, query.error, failMetadataLoad])
+  // Registry hydration now comes from loadWorkflows/store actions instead of local metadata loaders.
+  void syncRegistry
 
   return query
 }

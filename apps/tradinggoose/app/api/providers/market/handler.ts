@@ -190,7 +190,8 @@ export async function handleMarketProviderRequest({
       kind: normalizedRequest.kind,
       listing: normalizedRequest.listing,
       interval: normalizedRequest.kind === 'series' ? normalizedRequest.interval : undefined,
-      normalizationMode: normalizedRequest.normalizationMode,
+      normalizationMode:
+        normalizedRequest.kind === 'series' ? normalizedRequest.normalizationMode : undefined,
     })
 
     const response = await executeProviderRequest(providerId, normalizedRequest)

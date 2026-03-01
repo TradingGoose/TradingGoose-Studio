@@ -117,19 +117,21 @@ function SortableRoot<T>(props: SortableRootProps<T>) {
     flatCursor = false,
     getItemValue: getItemValueProp,
     accessibility,
+    sensors: sensorsProp,
     ...sortableProps
   } = props
 
   const id = React.useId()
   const [activeId, setActiveId] = React.useState<UniqueIdentifier | null>(null)
 
-  const sensors = useSensors(
+  const defaultSensors = useSensors(
     useSensor(MouseSensor),
     useSensor(TouchSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   )
+  const sensors = sensorsProp ?? defaultSensors
   const config = React.useMemo(() => orientationConfig[orientation], [orientation])
 
   const getItemValue = React.useCallback(

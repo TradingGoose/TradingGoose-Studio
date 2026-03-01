@@ -191,9 +191,12 @@ export class ManageCustomToolClientTool extends BaseClientTool {
 
     const { operation, toolId, schema, code } = args
 
-    // Get workspace ID from the workflow registry
-    const { hydration } = useWorkflowRegistry.getState()
-    const workspaceId = hydration.workspaceId
+    // Resolve workspace from the currently active workflow metadata.
+    const registryState = useWorkflowRegistry.getState()
+    const activeWorkflowId = registryState.getActiveWorkflowId()
+    const workspaceId = activeWorkflowId
+      ? registryState.workflows[activeWorkflowId]?.workspaceId
+      : undefined
     if (!workspaceId) {
       throw new Error('No active workspace found')
     }

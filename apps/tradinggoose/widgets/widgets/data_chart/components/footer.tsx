@@ -193,7 +193,7 @@ const DataChartTimezoneDropdown = ({
       <DropdownMenuContent
         align='end'
         className={cn(widgetHeaderMenuContentClassName, 'w-[260px] p-0')}
-        onOpenAutoFocus={(event) => {
+        onCloseAutoFocus={(event: Event) => {
           event.preventDefault()
           searchInputRef.current?.focus()
         }}

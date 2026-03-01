@@ -23,6 +23,13 @@ import { useProfilePictureUpload } from '@/global-navbar/settings-modal/componen
 const logger = createLogger('AccountSettings')
 const DEFAULT_AVATAR_SRC = '/profile/avatar.png'
 
+const toEpochMillis = (value: string | Date | null | undefined): number | null => {
+  if (!value) return null
+  const date = value instanceof Date ? value : new Date(value)
+  const time = date.getTime()
+  return Number.isNaN(time) ? null : time
+}
+
 export function AccountSettings() {
   const { data: session } = useSession()
   const userId = session?.user?.id ?? null
@@ -125,9 +132,7 @@ export function AccountSettings() {
         setAvatarVersion(data.user.updatedAt ? new Date(data.user.updatedAt).getTime() : Date.now())
         if (typeof window !== 'undefined' && userId) {
           const version =
-            data.user.updatedAt && !Number.isNaN(Date.parse(data.user.updatedAt))
-              ? new Date(data.user.updatedAt).getTime()
-              : Date.now()
+            toEpochMillis(data.user.updatedAt) ?? Date.now()
           window.localStorage.setItem(`user-avatar-version-${userId}`, String(version))
           window.localStorage.setItem(`user-avatar-url-${userId}`, data.user.image ?? '')
           window.localStorage.setItem(`user-name-${userId}`, data.user.name ?? '')
@@ -142,9 +147,7 @@ export function AccountSettings() {
         )
         if (typeof window !== 'undefined' && userId) {
           const version =
-            session?.user?.updatedAt && !Number.isNaN(Date.parse(session.user.updatedAt))
-              ? new Date(session.user.updatedAt).getTime()
-              : Date.now()
+            toEpochMillis(session?.user?.updatedAt) ?? Date.now()
           window.localStorage.setItem(`user-avatar-version-${userId}`, String(version))
           window.localStorage.setItem(`user-avatar-url-${userId}`, session?.user?.image ?? '')
           window.localStorage.setItem(`user-name-${userId}`, session?.user?.name ?? '')

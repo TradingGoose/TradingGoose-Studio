@@ -15,7 +15,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Email is required' }, { status: 400 })
     }
 
-    await auth.api.forgetPassword({
+    const authApi = auth.api as unknown as {
+      forgetPassword: (params: {
+        body: { email: string; redirectTo?: string }
+        method: 'POST'
+      }) => Promise<unknown>
+    }
+
+    await authApi.forgetPassword({
       body: {
         email,
         redirectTo,

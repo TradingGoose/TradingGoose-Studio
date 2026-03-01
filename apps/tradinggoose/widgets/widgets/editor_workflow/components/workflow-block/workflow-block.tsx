@@ -115,6 +115,7 @@ export const WorkflowBlock = memo(
       let portal = (flow as any)[WORKFLOW_POPOVER_PORTAL_KEY] as WorkflowPopoverPortal | undefined
       if (!portal) {
         portal = document.createElement('div') as WorkflowPopoverPortal
+        const createdPortal = portal
         portal.className = 'workflow-popover-portal'
         portal.style.position = 'fixed'
         portal.style.inset = '0'
@@ -130,7 +131,7 @@ export const WorkflowBlock = memo(
           const left = Math.max(0, rect.left)
           const right = Math.max(0, window.innerWidth - rect.right)
           const bottom = Math.max(0, window.innerHeight - rect.bottom)
-          portal.style.clipPath = `inset(${top}px ${right}px ${bottom}px ${left}px)`
+          createdPortal.style.clipPath = `inset(${top}px ${right}px ${bottom}px ${left}px)`
         }
         const scheduleClipUpdate = () => {
           if (frameId) return
@@ -143,26 +144,32 @@ export const WorkflowBlock = memo(
         window.addEventListener('resize', scheduleClipUpdate)
         window.addEventListener('scroll', scheduleClipUpdate, true)
 
-        portal.__workflowPopoverCleanup = () => {
+        createdPortal.__workflowPopoverCleanup = () => {
           resizeObserver.disconnect()
           window.removeEventListener('resize', scheduleClipUpdate)
           window.removeEventListener('scroll', scheduleClipUpdate, true)
           if (frameId) {
             window.cancelAnimationFrame(frameId)
           }
-          portal.remove()
+          createdPortal.remove()
         }
 
           ; (flow as any)[WORKFLOW_POPOVER_PORTAL_KEY] = portal
       }
 
-      portal.__workflowPopoverCount = (portal.__workflowPopoverCount ?? 0) + 1
-      setPopoverContainer(portal)
+      if (!portal) return
+      const activePortal = portal
+
+      activePortal.__workflowPopoverCount = (activePortal.__workflowPopoverCount ?? 0) + 1
+      setPopoverContainer(activePortal)
 
       return () => {
-        portal.__workflowPopoverCount = Math.max(0, (portal.__workflowPopoverCount ?? 1) - 1)
-        if (portal.__workflowPopoverCount === 0) {
-          portal.__workflowPopoverCleanup?.()
+        activePortal.__workflowPopoverCount = Math.max(
+          0,
+          (activePortal.__workflowPopoverCount ?? 1) - 1
+        )
+        if (activePortal.__workflowPopoverCount === 0) {
+          activePortal.__workflowPopoverCleanup?.()
           delete (flow as any)[WORKFLOW_POPOVER_PORTAL_KEY]
         }
       }

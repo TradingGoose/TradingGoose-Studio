@@ -394,25 +394,29 @@ export function SocketProvider({
 
     if (entry) {
       // Socket already exists or is being created
-      if (entry instanceof Promise) {
+      if (entry.promise) {
         logger.info('Waiting for shared socket initialization', { userId: user.id })
         setIsConnecting(true)
-        entry.then((socket) => {
-          // Update registry with actual socket if not already
-          if (registry.get(user.id) === entry) {
-            registry.set(user.id, socket)
+        entry.promise.then((socket) => {
+          const current = registry.get(user.id)
+          if (current) {
+            registry.set(user.id, {
+              ...current,
+              connection: socket,
+              promise: null,
+            })
           }
           setupSocketCleanup = setupSocket(socket)
           attachListenersCleanup = attachListeners(socket)
-        }).catch(err => {
+        }).catch((err) => {
           logger.error('Shared socket initialization failed', err)
           setIsConnecting(false)
           registry.delete(user.id) // Allow retry
         })
-      } else {
+      } else if (entry.connection) {
         logger.info('Reusing existing shared socket connection', { userId: user.id })
-        setupSocketCleanup = setupSocket(entry as Socket)
-        attachListenersCleanup = attachListeners(entry as Socket)
+        setupSocketCleanup = setupSocket(entry.connection)
+        attachListenersCleanup = attachListeners(entry.connection)
       }
     } else {
       // Initialize new socket
@@ -455,10 +459,19 @@ export function SocketProvider({
         }
       })()
 
-      registry.set(user.id, initPromise)
+      registry.set(user.id, {
+        connection: null,
+        promise: initPromise,
+        refCount: 1,
+      })
 
       initPromise.then((socket) => {
-        registry.set(user.id, socket)
+        const current = registry.get(user.id)
+        registry.set(user.id, {
+          connection: socket,
+          promise: null,
+          refCount: current?.refCount ?? 1,
+        })
         setupSocketCleanup = setupSocket(socket)
         attachListenersCleanup = attachListeners(socket)
       }).catch((err) => {

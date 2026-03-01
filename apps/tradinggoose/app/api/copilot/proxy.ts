@@ -7,7 +7,7 @@ const COPILOT_API_URL = env.COPILOT_API_URL || COPILOT_API_URL_DEFAULT
 
 export type CopilotProxyOptions = {
   endpoint: string
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'HEAD'
   body?: Record<string, any>
   headers?: Record<string, string>
   signal?: AbortSignal

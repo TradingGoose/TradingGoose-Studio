@@ -1,4 +1,4 @@
-import { createLogger } from '@sim/logger'
+import { createLogger } from '@/lib/logs/console/logger'
 import type { SalesforceQueryParams, SalesforceQueryResponse } from '@/tools/salesforce/types'
 import { extractErrorMessage, getInstanceUrl } from '@/tools/salesforce/utils'
 import type { ToolConfig } from '@/tools/types'
