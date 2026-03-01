@@ -38,6 +38,7 @@ export async function loadWorkflowTargetOptions(
             blockId: resolvedBlockId,
             workflowName: toTrimmed(workflowRow?.name) || 'Workflow',
             workflowColor: toTrimmed(workflowRow?.color) || '#3972F6',
+            isDeployed: workflowRow?.isDeployed === true,
             blockName,
             label: `${toTrimmed(workflowRow?.name) || 'Workflow'} - ${blockName}`,
           } satisfies WorkflowTargetOption

@@ -91,6 +91,7 @@ export const ensureWorkflowInWorkspace = async (workflowId: string, workspaceId:
     .select({
       id: workflow.id,
       workspaceId: workflow.workspaceId,
+      isDeployed: workflow.isDeployed,
     })
     .from(workflow)
     .where(eq(workflow.id, workflowId))
@@ -103,6 +104,8 @@ export const ensureWorkflowInWorkspace = async (workflowId: string, workspaceId:
   if (workflowRow.workspaceId !== workspaceId) {
     throw new Error('Workflow does not belong to the provided workspace.')
   }
+
+  return workflowRow
 }
 
 export const ensureTriggerCapableIndicator = async (workspaceId: string, indicatorId: string) => {

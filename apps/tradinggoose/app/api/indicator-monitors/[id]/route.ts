@@ -126,7 +126,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'blockId is required' }, { status: 400 })
     }
 
-    await ensureWorkflowInWorkspace(nextWorkflowId, workspaceId)
+    const workflowRow = await ensureWorkflowInWorkspace(nextWorkflowId, workspaceId)
     await ensureIndicatorTriggerBlock(nextWorkflowId, nextBlockId)
     await ensureTriggerCapableIndicator(
       workspaceId,
@@ -143,6 +143,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       previousAuth: existingMonitor.auth,
     })
 
+    const nextIsActive =
+      payload.isActive === undefined ? row.webhook.isActive : payload.isActive && workflowRow.isDeployed
+
     const [updatedMonitor] = await db
       .update(webhook)
       .set({
@@ -152,7 +155,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           ...providerConfig,
           triggerId: INDICATOR_MONITOR_TRIGGER_ID,
         },
-        isActive: payload.isActive ?? row.webhook.isActive,
+        isActive: nextIsActive,
         updatedAt: new Date(),
       })
       .where(and(eq(webhook.id, id), eq(webhook.provider, 'indicator')))

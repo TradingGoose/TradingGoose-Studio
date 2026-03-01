@@ -154,6 +154,7 @@ export function MonitorTable({
                   const authConfigured = Boolean(auth?.hasEncryptedSecrets)
                   const isSelected = selectedMonitorId === monitor.monitorId
                   const listingOption = toListingOption(monitor.providerConfig.monitor.listing)
+                  const isWorkflowDeployed = target?.isDeployed === true
 
                   return (
                     <tr
@@ -263,7 +264,10 @@ export function MonitorTable({
                                 Edit
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                disabled={togglingMonitorId === monitor.monitorId}
+                                disabled={
+                                  togglingMonitorId === monitor.monitorId ||
+                                  (!monitor.isActive && !isWorkflowDeployed)
+                                }
                                 onClick={(event) => {
                                   event.preventDefault()
                                   onToggleMonitorState(monitor)
