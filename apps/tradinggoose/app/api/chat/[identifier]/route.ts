@@ -1,7 +1,8 @@
 import { db } from '@tradinggoose/db'
-import { chat, workflow, workspace } from '@tradinggoose/db/schema'
+import { chat, workflow } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
+import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
 import { createLogger } from '@/lib/logs/console/logger'
 import { ChatFiles } from '@/lib/uploads'
 import { generateRequestId } from '@/lib/utils'
@@ -94,12 +95,13 @@ export async function POST(
       return addCorsHeaders(createErrorResponse('No input provided', 400), request)
     }
 
-    // Get the workflow and workspace owner for this chat
+    // Get the workflow for this chat
     const workflowResult = await db
       .select({
         isDeployed: workflow.isDeployed,
         workspaceId: workflow.workspaceId,
         variables: workflow.variables,
+        pinnedApiKeyId: workflow.pinnedApiKeyId,
       })
       .from(workflow)
       .where(eq(workflow.id, deployment.workflowId))
@@ -110,20 +112,18 @@ export async function POST(
       return addCorsHeaders(createErrorResponse('Chat workflow is not available', 503), request)
     }
 
-    let workspaceOwnerId = deployment.userId
-    if (workflowResult[0].workspaceId) {
-      const workspaceData = await db
-        .select({ ownerId: workspace.ownerId })
-        .from(workspace)
-        .where(eq(workspace.id, workflowResult[0].workspaceId))
-        .limit(1)
-
-      if (workspaceData.length === 0) {
-        logger.error(`[${requestId}] Workspace not found for workflow ${deployment.workflowId}`)
-        return addCorsHeaders(createErrorResponse('Workspace not found', 500), request)
-      }
-
-      workspaceOwnerId = workspaceData[0].ownerId
+    const executingUserId = await getApiKeyOwnerUserId(workflowResult[0].pinnedApiKeyId)
+    if (!executingUserId) {
+      logger.warn(
+        `[${requestId}] Chat deployment missing valid pinned API key for billing attribution: ${deployment.workflowId}`
+      )
+      return addCorsHeaders(
+        createErrorResponse(
+          'API key is required. Please create or select an API key before deploying.',
+          503
+        ),
+        request
+      )
     }
 
     try {
@@ -174,7 +174,7 @@ export async function POST(
         requestId,
         workflow: workflowForExecution,
         input: workflowInput,
-        executingUserId: workspaceOwnerId,
+        executingUserId,
         streamConfig: {
           selectedOutputs,
           isSecureMode: true,

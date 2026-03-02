@@ -10,7 +10,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { encryptSecret } from '@/lib/utils'
 import { deployWorkflow } from '@/lib/workflows/db-helpers'
-import { checkWorkflowAccessForChatCreation } from '@/app/api/chat/utils'
+import { checkWorkflowAccessForChatCreation, resolveDeployApiKeyId } from '@/app/api/chat/utils'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
 
 const logger = createLogger('ChatAPI')
@@ -40,6 +40,7 @@ const chatSchema = z.object({
     )
     .optional()
     .default([]),
+  apiKey: z.string().optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -85,6 +86,7 @@ export async function POST(request: NextRequest) {
         password,
         allowedEmails = [],
         outputConfigs = [],
+        apiKey,
       } = validatedData
 
       // Perform additional validation specific to auth types
@@ -127,10 +129,28 @@ export async function POST(request: NextRequest) {
         return createErrorResponse('Workflow not found or access denied', 404)
       }
 
+      const providedApiKey = apiKey?.trim()
+      if (!providedApiKey) {
+        return createErrorResponse(
+          'API key is required. Please create or select an API key before deploying.',
+          400
+        )
+      }
+
+      const pinnedApiKeyId = await resolveDeployApiKeyId(
+        providedApiKey,
+        session.user.id,
+        workflowRecord.workspaceId
+      )
+      if (!pinnedApiKeyId) {
+        return createErrorResponse('Invalid API key provided', 400)
+      }
+
       // Always deploy/redeploy the workflow to ensure latest version
       const result = await deployWorkflow({
         workflowId,
         deployedBy: session.user.id,
+        pinnedApiKeyId,
       })
 
       if (!result.success) {

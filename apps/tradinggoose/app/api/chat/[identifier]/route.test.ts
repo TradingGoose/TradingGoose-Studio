@@ -28,6 +28,7 @@ describe('Chat Identifier API Route', () => {
   const mockValidateChatAuth = vi.fn().mockResolvedValue({ authorized: true })
   const mockSetChatAuthCookie = vi.fn()
   const mockCreateStreamingResponse = vi.fn().mockResolvedValue(createMockStream())
+  const mockGetApiKeyOwnerUserId = vi.fn().mockResolvedValue('billing-user-id')
 
   const mockChatResult = [
     {
@@ -61,11 +62,14 @@ describe('Chat Identifier API Route', () => {
         loops: {},
         parallels: {},
       },
+      pinnedApiKeyId: 'pinned-key-id' as string | null,
     },
   ]
 
   beforeEach(() => {
     vi.resetModules()
+    mockWorkflowResult[0].pinnedApiKeyId = 'pinned-key-id'
+    mockGetApiKeyOwnerUserId.mockResolvedValue('billing-user-id')
 
     vi.doMock('@/app/api/chat/utils', () => ({
       addCorsHeaders: mockAddCorsHeaders,
@@ -82,6 +86,10 @@ describe('Chat Identifier API Route', () => {
         Connection: 'keep-alive',
         'X-Accel-Buffering': 'no',
       },
+    }))
+
+    vi.doMock('@/lib/api-key/service', () => ({
+      getApiKeyOwnerUserId: mockGetApiKeyOwnerUserId,
     }))
 
     vi.doMock('@/lib/logs/console/logger', () => ({
@@ -385,6 +393,7 @@ describe('Chat Identifier API Route', () => {
             id: 'workflow-id',
             userId: 'user-id',
           }),
+          executingUserId: 'billing-user-id',
           input: expect.objectContaining({
             input: 'Hello world',
             conversationId: 'conv-123',
@@ -394,6 +403,44 @@ describe('Chat Identifier API Route', () => {
             workflowTriggerType: 'chat',
           }),
         })
+      )
+    })
+
+    it('should use pinned API key owner for chat billing attribution when available', async () => {
+      mockWorkflowResult[0].pinnedApiKeyId = 'pinned-key-id'
+      mockGetApiKeyOwnerUserId.mockResolvedValueOnce('billing-user-id-2')
+
+      const req = createMockRequest('POST', { input: 'Hello world' })
+      const params = Promise.resolve({ identifier: 'test-chat' })
+
+      const { POST } = await import('@/app/api/chat/[identifier]/route')
+
+      const response = await POST(req, { params })
+
+      expect(response.status).toBe(200)
+      expect(mockGetApiKeyOwnerUserId).toHaveBeenCalledWith('pinned-key-id')
+      expect(mockCreateStreamingResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          executingUserId: 'billing-user-id-2',
+        })
+      )
+    })
+
+    it('should return 503 when chat billing API key is missing', async () => {
+      mockWorkflowResult[0].pinnedApiKeyId = null
+      mockGetApiKeyOwnerUserId.mockResolvedValueOnce(null)
+
+      const req = createMockRequest('POST', { input: 'Hello world' })
+      const params = Promise.resolve({ identifier: 'test-chat' })
+
+      const { POST } = await import('@/app/api/chat/[identifier]/route')
+      const response = await POST(req, { params })
+
+      expect(response.status).toBe(503)
+      const data = await response.json()
+      expect(data).toHaveProperty(
+        'message',
+        'API key is required. Please create or select an API key before deploying.'
       )
     })
 
