@@ -120,104 +120,107 @@ export async function POST(request: NextRequest) {
 
     const results = await withCodeExecutionConcurrencyLimit({
       userId: auth.userId,
-      task: async () =>
-        Promise.all(
-          indicatorIds.map(async (indicatorId): Promise<ExecuteResult> => {
-            const customIndicator = indicatorMap.get(indicatorId)
-            const defaultIndicator = DEFAULT_INDICATOR_RUNTIME_MAP.get(indicatorId)
+      task: async () => {
+        const results: ExecuteResult[] = []
+        for (const indicatorId of indicatorIds) {
+          const customIndicator = indicatorMap.get(indicatorId)
+          const defaultIndicator = DEFAULT_INDICATOR_RUNTIME_MAP.get(indicatorId)
 
-            if (!customIndicator && !defaultIndicator) {
-              return {
+          if (!customIndicator && !defaultIndicator) {
+            results.push({
+              indicatorId,
+              output: null,
+              warnings: [{ code: 'missing_indicator', message: `${indicatorId} is missing.` }],
+              unsupported: { plots: [], styles: [] },
+              counts: { plots: 0, markers: 0, triggers: 0 },
+              executionError: { message: 'Indicator not found', code: 'missing_indicator' },
+            })
+            continue
+          }
+
+          const pineCode = customIndicator?.pineCode ?? defaultIndicator?.pineCode ?? ''
+          const inputMeta = customIndicator
+            ? normalizeInputMetaMap(customIndicator.inputMeta)
+            : defaultIndicator?.inputMeta
+          const inputsOverride = parsedBody.data.inputsMapById?.[indicatorId]
+          const baseInputsMap = buildInputsMapFromMeta(inputMeta)
+          const inputsMap = inputsOverride ? { ...baseInputsMap, ...inputsOverride } : baseInputsMap
+
+          try {
+            const compiled = await executeCompiledIndicator({
+              pineCode,
+              barsMs,
+              inputsMap,
+              listing: executionListing,
+              interval,
+              intervalMs,
+              executionTimeoutMs: EXECUTION_TIMEOUT_MS,
+              userId: auth.userId,
+            })
+
+            if (compiled.unsupportedFeatures && compiled.unsupportedFeatures.length > 0) {
+              results.push({
                 indicatorId,
                 output: null,
-                warnings: [{ code: 'missing_indicator', message: `${indicatorId} is missing.` }],
-                unsupported: { plots: [], styles: [] },
-                counts: { plots: 0, markers: 0, triggers: 0 },
-                executionError: { message: 'Indicator not found', code: 'missing_indicator' },
-              }
-            }
-
-            const pineCode = customIndicator?.pineCode ?? defaultIndicator?.pineCode ?? ''
-            const inputMeta = customIndicator
-              ? normalizeInputMetaMap(customIndicator.inputMeta)
-              : defaultIndicator?.inputMeta
-            const inputsOverride = parsedBody.data.inputsMapById?.[indicatorId]
-            const baseInputsMap = buildInputsMapFromMeta(inputMeta)
-            const inputsMap = inputsOverride ? { ...baseInputsMap, ...inputsOverride } : baseInputsMap
-
-            try {
-              const compiled = await executeCompiledIndicator({
-                pineCode,
-                barsMs,
-                inputsMap,
-                listing: executionListing,
-                interval,
-                intervalMs,
-                executionTimeoutMs: EXECUTION_TIMEOUT_MS,
-                userId: auth.userId,
-              })
-
-              if (compiled.unsupportedFeatures && compiled.unsupportedFeatures.length > 0) {
-                return {
-                  indicatorId,
-                  output: null,
-                  warnings: compiled.warnings,
-                  unsupported: { plots: [], styles: [] },
-                  counts: { plots: 0, markers: 0, triggers: 0 },
-                  executionError: {
-                    message: `${compiled.unsupportedFeatures[0]} is not supported`,
-                    code: 'unsupported_feature',
-                    unsupported: { features: compiled.unsupportedFeatures },
-                  },
-                }
-              }
-
-              if (!compiled.output) {
-                return {
-                  indicatorId,
-                  output: null,
-                  warnings: compiled.warnings,
-                  unsupported: compiled.unsupported ?? { plots: [], styles: [] },
-                  counts: { plots: 0, markers: 0, triggers: 0 },
-                  executionError: {
-                    message: compiled.executionError?.message ?? 'Failed to execute indicator',
-                    code: 'runtime_error',
-                  },
-                }
-              }
-
-              const output = compiled.output
-
-              return {
-                indicatorId,
-                output,
                 warnings: compiled.warnings,
-                unsupported: output.unsupported,
-                counts: {
-                  plots: output.series.length,
-                  markers: output.markers.length,
-                  triggers: output.triggers.length,
-                },
-              }
-            } catch (error) {
-              if (isLocalVmSaturationLimitError(error)) {
-                throw error
-              }
-              const timedOut = isExecutionTimeoutError(error)
-              return {
-                indicatorId,
-                output: null,
-                warnings: [],
                 unsupported: { plots: [], styles: [] },
                 counts: { plots: 0, markers: 0, triggers: 0 },
                 executionError: {
-                  message: timedOut ? 'Execution timed out' : 'Failed to execute indicator',
-                  code: timedOut ? 'timeout' : 'runtime_error',
+                  message: `${compiled.unsupportedFeatures[0]} is not supported`,
+                  code: 'unsupported_feature',
+                  unsupported: { features: compiled.unsupportedFeatures },
                 },
-              }
+              })
+              continue
             }
-          })
-        ),
+
+            if (!compiled.output) {
+              results.push({
+                indicatorId,
+                output: null,
+                warnings: compiled.warnings,
+                unsupported: compiled.unsupported ?? { plots: [], styles: [] },
+                counts: { plots: 0, markers: 0, triggers: 0 },
+                executionError: {
+                  message: compiled.executionError?.message ?? 'Failed to execute indicator',
+                  code: 'runtime_error',
+                },
+              })
+              continue
+            }
+
+            const output = compiled.output
+            results.push({
+              indicatorId,
+              output,
+              warnings: compiled.warnings,
+              unsupported: output.unsupported,
+              counts: {
+                plots: output.series.length,
+                markers: output.markers.length,
+                triggers: output.triggers.length,
+              },
+            })
+          } catch (error) {
+            if (isLocalVmSaturationLimitError(error)) {
+              throw error
+            }
+            const timedOut = isExecutionTimeoutError(error)
+            results.push({
+              indicatorId,
+              output: null,
+              warnings: [],
+              unsupported: { plots: [], styles: [] },
+              counts: { plots: 0, markers: 0, triggers: 0 },
+              executionError: {
+                message: timedOut ? 'Execution timed out' : 'Failed to execute indicator',
+                code: timedOut ? 'timeout' : 'runtime_error',
+              },
+            })
+          }
+        }
+        return results
+      },
     })
 
     return NextResponse.json({ success: true, data: results })
