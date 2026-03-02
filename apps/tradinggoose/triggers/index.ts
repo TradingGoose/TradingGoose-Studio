@@ -1,5 +1,5 @@
-import type { SubBlockConfig } from '@/blocks/types'
 import { generateMockPayloadFromOutputsDefinition } from '@/lib/workflows/triggers/trigger-utils'
+import type { SubBlockConfig } from '@/blocks/types'
 import { TRIGGER_REGISTRY } from '@/triggers/registry'
 import type { TriggerConfig } from '@/triggers/types'
 
@@ -22,6 +22,16 @@ export function getTrigger(triggerId: string): TriggerConfig | undefined {
 
     if (!samplePayloadExists && trigger.outputs) {
       const mockPayload = generateMockPayloadFromOutputsDefinition(trigger.outputs)
+      const hasSamplePayloadContent =
+        mockPayload &&
+        typeof mockPayload === 'object' &&
+        !Array.isArray(mockPayload) &&
+        Object.keys(mockPayload).length > 0
+
+      if (!hasSamplePayloadContent) {
+        return clonedTrigger
+      }
+
       const generatedPayload = JSON.stringify(mockPayload, null, 2)
 
       const samplePayloadSubBlock: SubBlockConfig = {

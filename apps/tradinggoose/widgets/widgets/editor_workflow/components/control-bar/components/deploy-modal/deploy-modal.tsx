@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Loader2, MoreVertical, X } from 'lucide-react'
 import {
   Button,
@@ -17,16 +17,21 @@ import { getEnv } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import type { WorkflowDeploymentVersionResponse } from '@/lib/workflows/db-helpers'
+import { getBlock } from '@/blocks'
+import type { SubBlockConfig } from '@/blocks/types'
+import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { useSubBlockStore } from '@/stores/workflows/subblock/store'
+import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
+import type { WorkflowState } from '@/stores/workflows/workflow/types'
+import { getTrigger } from '@/triggers'
+import { isDeployManagedTriggerSubBlock } from '@/triggers/constants'
 import {
   DeployForm,
   DeploymentInfo,
 } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components'
 import { ChatDeploy } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/chat-deploy/chat-deploy'
 import { DeployedWorkflowModal } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deployment-controls/components/deployed-workflow-modal'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
-import type { WorkflowState } from '@/stores/workflows/workflow/types'
+import { SubBlock } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/sub-block'
 
 const logger = createLogger('DeployModal')
 
@@ -64,7 +69,128 @@ interface DeployFormValues {
   newKeyName?: string
 }
 
-type TabView = 'general' | 'api' | 'versions' | 'chat'
+type TabView = string
+
+interface TriggerDeployTab {
+  key: string
+  blockId: string
+  label: string
+  triggerId: string
+  subBlocks: SubBlockConfig[]
+}
+
+function getSubBlockValue(block: WorkflowState['blocks'][string], subBlockId: string): unknown {
+  return block.subBlocks?.[subBlockId]?.value
+}
+
+function resolveTriggerIdForBlock(block: WorkflowState['blocks'][string]): string | null {
+  const blockConfig = getBlock(block.type)
+  const isPureTriggerBlock = blockConfig?.category === 'triggers'
+  if (!isPureTriggerBlock && !block.triggerMode) {
+    return null
+  }
+
+  const selectedTriggerId = getSubBlockValue(block, 'selectedTriggerId')
+  if (typeof selectedTriggerId === 'string' && getTrigger(selectedTriggerId)) {
+    return selectedTriggerId
+  }
+
+  const triggerIdValue = getSubBlockValue(block, 'triggerId')
+  if (typeof triggerIdValue === 'string' && getTrigger(triggerIdValue)) {
+    return triggerIdValue
+  }
+
+  const fallbackTriggerId = blockConfig?.triggers?.available?.[0]
+  if (!fallbackTriggerId || !getTrigger(fallbackTriggerId)) {
+    return null
+  }
+  return fallbackTriggerId
+}
+
+function shouldRenderTriggerSubBlockForTriggerId(
+  subBlock: SubBlockConfig,
+  triggerId: string
+): boolean {
+  if (!subBlock.condition) {
+    return true
+  }
+
+  const condition =
+    typeof subBlock.condition === 'function' ? subBlock.condition() : subBlock.condition
+  if (condition.field !== 'selectedTriggerId') {
+    return true
+  }
+
+  if (Array.isArray(condition.value)) {
+    const hasTriggerId = condition.value.includes(triggerId)
+    return condition.not ? !hasTriggerId : hasTriggerId
+  }
+
+  return condition.not ? condition.value !== triggerId : condition.value === triggerId
+}
+
+function getDeployManagedTriggerSubBlocks(triggerId: string): SubBlockConfig[] {
+  const triggerDef = getTrigger(triggerId)
+  if (!triggerDef) {
+    return []
+  }
+
+  return triggerDef.subBlocks.filter(
+    (subBlock) =>
+      subBlock.mode === 'trigger' &&
+      isDeployManagedTriggerSubBlock(subBlock.id) &&
+      shouldRenderTriggerSubBlockForTriggerId(subBlock, triggerId)
+  )
+}
+
+const nonConfigurableTriggerSubBlockIds = new Set([
+  'selectedTriggerId',
+  'webhookUrlDisplay',
+  'triggerSave',
+  'triggerInstructions',
+])
+
+function isConfigurableTriggerDeploySubBlock(subBlock: SubBlockConfig): boolean {
+  if (nonConfigurableTriggerSubBlockIds.has(subBlock.id)) {
+    return false
+  }
+  if (subBlock.type === 'trigger-save' || subBlock.type === 'text') {
+    return false
+  }
+  return !subBlock.readOnly
+}
+
+function isMissingConfigValue(value: unknown): boolean {
+  if (value === null || value === undefined) {
+    return true
+  }
+  if (typeof value === 'string') {
+    return value.trim() === ''
+  }
+  if (Array.isArray(value)) {
+    return value.length === 0
+  }
+  return false
+}
+
+function getSavedTriggerConfigValue(savedConfig: unknown, subBlockId: string): unknown {
+  if (!savedConfig || typeof savedConfig !== 'object' || Array.isArray(savedConfig)) {
+    return undefined
+  }
+  return (savedConfig as Record<string, unknown>)[subBlockId]
+}
+
+function areConfigValuesEqual(currentValue: unknown, savedValue: unknown): boolean {
+  if (isMissingConfigValue(currentValue) && isMissingConfigValue(savedValue)) {
+    return true
+  }
+
+  try {
+    return JSON.stringify(currentValue) === JSON.stringify(savedValue)
+  } catch {
+    return currentValue === savedValue
+  }
+}
 
 export function DeployModal({
   open,
@@ -81,12 +207,13 @@ export function DeployModal({
   )
   const isDeployed = deploymentStatus?.isDeployed || false
   const setDeploymentStatus = useWorkflowRegistry((state) => state.setDeploymentStatus)
+  const currentBlocks = useWorkflowStore((state) => state.blocks)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isUndeploying, setIsUndeploying] = useState(false)
   const [deploymentInfo, setDeploymentInfo] = useState<WorkflowDeploymentInfo | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
-  const [activeTab, setActiveTab] = useState<TabView>('general')
+  const [activeTab, setActiveTab] = useState<TabView>('versions')
   const [selectedApiKeyId, setSelectedApiKeyId] = useState<string>('')
   const [chatSubmitting, setChatSubmitting] = useState(false)
   const [apiDeployError, setApiDeployError] = useState<string | null>(null)
@@ -108,6 +235,109 @@ export function DeployModal({
   const [openDropdown, setOpenDropdown] = useState<number | null>(null)
   const [versionToActivate, setVersionToActivate] = useState<number | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const blockList = Object.values(currentBlocks)
+  const hasApiTrigger = blockList.some((block) => block.type === 'api_trigger')
+  const hasInputTrigger = blockList.some((block) => block.type === 'input_trigger')
+  const hasIndicatorTrigger = blockList.some((block) => block.type === 'indicator_trigger')
+  const hasChatTrigger = blockList.some((block) => block.type === 'chat_trigger')
+  const hasApiExecutionAccess = hasApiTrigger
+  const triggerDeployTabs: TriggerDeployTab[] = blockList
+    .map((block) => {
+      const blockConfig = getBlock(block.type)
+      const triggerId = resolveTriggerIdForBlock(block)
+      if (!triggerId) {
+        return null
+      }
+
+      const subBlocks = getDeployManagedTriggerSubBlocks(triggerId)
+      if (subBlocks.length === 0) {
+        return null
+      }
+
+      const hasConfigurableDeployFields = subBlocks.some(isConfigurableTriggerDeploySubBlock)
+      if (!hasConfigurableDeployFields) {
+        return null
+      }
+
+      return {
+        key: `trigger-${block.id}`,
+        blockId: block.id,
+        label: blockConfig?.name || getTrigger(triggerId)?.name || triggerId,
+        triggerId,
+        subBlocks,
+      }
+    })
+    .filter((tab): tab is TriggerDeployTab => tab !== null)
+
+  const hasNonChatDeployPath =
+    hasApiTrigger || hasInputTrigger || hasIndicatorTrigger || triggerDeployTabs.length > 0
+  const requiresApiKeyForDeployment = hasNonChatDeployPath || hasChatTrigger
+  const fallbackTab: TabView = requiresApiKeyForDeployment
+    ? 'api'
+    : triggerDeployTabs[0]?.key
+      ? triggerDeployTabs[0].key
+      : hasChatTrigger
+        ? 'chat'
+        : 'versions'
+  const triggerDeployValidationState = useSubBlockStore(
+    useCallback(
+      (state) => {
+        if (!workflowId) {
+          return []
+        }
+
+        return triggerDeployTabs.map((tab) => {
+          const configurableSubBlocks = tab.subBlocks.filter(isConfigurableTriggerDeploySubBlock)
+          const requiredFieldValues = configurableSubBlocks
+            .filter((subBlock) => subBlock.required)
+            .map((subBlock) => {
+              const value = state.getValue(tab.blockId, subBlock.id, workflowId)
+              if (isMissingConfigValue(value) && subBlock.defaultValue !== undefined) {
+                return subBlock.defaultValue
+              }
+              return value
+            })
+
+          const requiresSavedConfig = tab.subBlocks.some(
+            (subBlock) => subBlock.id === 'triggerSave' || subBlock.type === 'trigger-save'
+          )
+          const webhookIdValue = requiresSavedConfig
+            ? state.getValue(tab.blockId, 'webhookId', workflowId)
+            : null
+          const savedTriggerConfig = requiresSavedConfig
+            ? state.getValue(tab.blockId, 'triggerConfig', workflowId)
+            : null
+          const hasUnsavedDeployConfig =
+            requiresSavedConfig &&
+            configurableSubBlocks.some((subBlock) => {
+              if (subBlock.id === 'triggerCredentials') {
+                return false
+              }
+              const currentValue = state.getValue(tab.blockId, subBlock.id, workflowId)
+              const savedValue = getSavedTriggerConfigValue(savedTriggerConfig, subBlock.id)
+              return !areConfigValuesEqual(currentValue, savedValue)
+            })
+
+          return {
+            key: tab.key,
+            requiredFieldValues,
+            requiresSavedConfig,
+            webhookIdValue,
+            hasUnsavedDeployConfig,
+          }
+        })
+      },
+      [triggerDeployTabs, workflowId]
+    )
+  )
+  const hasIncompleteTriggerConfiguration =
+    versionToActivate === null &&
+    triggerDeployValidationState.some(
+      (tabState) =>
+        tabState.requiredFieldValues.some((value) => isMissingConfigValue(value)) ||
+        (tabState.requiresSavedConfig && isMissingConfigValue(tabState.webhookIdValue)) ||
+        tabState.hasUnsavedDeployConfig
+    )
 
   useEffect(() => {
     if (editingVersion !== null && inputRef.current) {
@@ -252,14 +482,31 @@ export function DeployModal({
     if (open) {
       setIsLoading(true)
       fetchApiKeys()
-      fetchChatDeploymentInfo()
-      setActiveTab('api')
+      if (hasChatTrigger) {
+        fetchChatDeploymentInfo()
+      } else {
+        setChatExists(false)
+      }
+      setActiveTab(fallbackTab)
       setVersionToActivate(null)
     } else {
       setSelectedApiKeyId('')
       setVersionToActivate(null)
     }
-  }, [open, workflowId])
+  }, [open, workflowId, requiresApiKeyForDeployment, hasChatTrigger, fallbackTab])
+
+  useEffect(() => {
+    const availableTabs = new Set<TabView>([
+      'versions',
+      ...(requiresApiKeyForDeployment ? ['api'] : []),
+      ...(hasChatTrigger ? ['chat'] : []),
+      ...triggerDeployTabs.map((tab) => tab.key),
+    ])
+
+    if (!availableTabs.has(activeTab)) {
+      setActiveTab(fallbackTab)
+    }
+  }, [activeTab, requiresApiKeyForDeployment, hasChatTrigger, triggerDeployTabs, fallbackTab])
 
   useEffect(() => {
     if (apiKeys.length === 0) return
@@ -330,6 +577,7 @@ export function DeployModal({
       setIsSubmitting(true)
 
       const apiKeyToUse = data.apiKey || selectedApiKeyId
+      const normalizedApiKey = apiKeyToUse?.trim() ? apiKeyToUse : undefined
 
       let deployEndpoint = `/api/workflows/${workflowId}/deploy`
       if (versionToActivate !== null) {
@@ -342,7 +590,7 @@ export function DeployModal({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          apiKey: apiKeyToUse,
+          ...(normalizedApiKey ? { apiKey: normalizedApiKey } : {}),
           deployChatEnabled: false,
         }),
       })
@@ -357,11 +605,13 @@ export function DeployModal({
       const isActivating = versionToActivate !== null
       const isDeployedStatus = isActivating ? true : (responseData.isDeployed ?? false)
       const deployedAtTime = responseData.deployedAt ? new Date(responseData.deployedAt) : undefined
-      const apiKeyFromResponse = responseData.apiKey || apiKeyToUse
+      const apiKeyFromResponse = responseData.apiKey || normalizedApiKey || ''
 
       setDeploymentStatus(workflowId, isDeployedStatus, deployedAtTime, apiKeyFromResponse)
 
-      const matchingKey = apiKeys.find((k) => k.key === apiKeyFromResponse || k.id === apiKeyToUse)
+      const matchingKey = apiKeys.find(
+        (k) => k.key === apiKeyFromResponse || k.id === normalizedApiKey
+      )
       if (matchingKey) {
         setSelectedApiKeyId(matchingKey.id)
       }
@@ -428,7 +678,7 @@ export function DeployModal({
 
   const handleActivateVersion = (version: number) => {
     setVersionToActivate(version)
-    setActiveTab('api')
+    setActiveTab(requiresApiKeyForDeployment ? 'api' : 'versions')
   }
 
   const openVersionPreview = async (version: number) => {
@@ -608,6 +858,42 @@ export function DeployModal({
     }
   }
 
+  const renderTriggerTab = (
+    blockId: string | null,
+    subBlocks: SubBlockConfig[],
+    emptyMessage = 'No deployment fields are available for this trigger.'
+  ) => {
+    if (!blockId) {
+      return (
+        <div className='rounded-md border p-4 text-muted-foreground text-sm'>
+          Trigger configuration is unavailable.
+        </div>
+      )
+    }
+
+    if (subBlocks.length === 0) {
+      return (
+        <div className='rounded-md border p-4 text-muted-foreground text-sm'>{emptyMessage}</div>
+      )
+    }
+
+    return (
+      <div className='space-y-4'>
+        <div className='text-muted-foreground text-sm'>
+          Configure deployment fields here. Keep custom trigger fields in the workflow editor.
+        </div>
+        {subBlocks.map((subBlock) => (
+          <SubBlock
+            key={`${blockId}-${subBlock.id}`}
+            blockId={blockId}
+            config={subBlock}
+            isConnecting={false}
+          />
+        ))}
+      </div>
+    )
+  }
+
   return (
     <>
       <Dialog open={open} onOpenChange={handleCloseModal}>
@@ -642,30 +928,50 @@ export function DeployModal({
           <div className='flex flex-1 flex-col overflow-hidden'>
             <div className='flex h-14 flex-none items-center border-b px-6'>
               <div className='flex gap-2'>
-                <button
-                  onClick={() => setActiveTab('api')}
-                  className={`rounded-md px-3 py-1 text-sm transition-colors ${activeTab === 'api'
-                    ? 'bg-accent text-foreground'
-                    : 'text-muted-foreground hover:bg-card hover:text-foreground'
+                {requiresApiKeyForDeployment && (
+                  <button
+                    onClick={() => setActiveTab('api')}
+                    className={`rounded-md px-3 py-1 text-sm transition-colors ${
+                      activeTab === 'api'
+                        ? 'bg-accent text-foreground'
+                        : 'text-muted-foreground hover:bg-card hover:text-foreground'
                     }`}
-                >
-                  API
-                </button>
-                <button
-                  onClick={() => setActiveTab('chat')}
-                  className={`rounded-md px-3 py-1 text-sm transition-colors ${activeTab === 'chat'
-                    ? 'bg-accent text-foreground'
-                    : 'text-muted-foreground hover:bg-card hover:text-foreground'
+                  >
+                    {hasApiExecutionAccess ? 'API' : 'Billing'}
+                  </button>
+                )}
+                {hasChatTrigger && (
+                  <button
+                    onClick={() => setActiveTab('chat')}
+                    className={`rounded-md px-3 py-1 text-sm transition-colors ${
+                      activeTab === 'chat'
+                        ? 'bg-accent text-foreground'
+                        : 'text-muted-foreground hover:bg-card hover:text-foreground'
                     }`}
-                >
-                  Chat
-                </button>
+                  >
+                    Chat
+                  </button>
+                )}
+                {triggerDeployTabs.map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`rounded-md px-3 py-1 text-sm transition-colors ${
+                      activeTab === tab.key
+                        ? 'bg-accent text-foreground'
+                        : 'text-muted-foreground hover:bg-card hover:text-foreground'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
                 <button
                   onClick={() => setActiveTab('versions')}
-                  className={`rounded-md px-3 py-1 text-sm transition-colors ${activeTab === 'versions'
-                    ? 'bg-accent text-foreground'
-                    : 'text-muted-foreground hover:bg-card hover:text-foreground'
-                    }`}
+                  className={`rounded-md px-3 py-1 text-sm transition-colors ${
+                    activeTab === 'versions'
+                      ? 'bg-accent text-foreground'
+                      : 'text-muted-foreground hover:bg-card hover:text-foreground'
+                  }`}
                 >
                   Versions
                 </button>
@@ -674,31 +980,9 @@ export function DeployModal({
 
             <div className='flex-1 overflow-y-auto'>
               <div className='p-6' key={`${activeTab}-${versionToActivate}`}>
-                {activeTab === 'api' && (
+                {requiresApiKeyForDeployment && activeTab === 'api' && (
                   <>
-                    {versionToActivate !== null ? (
-                      <>
-                        {apiDeployError && (
-                          <div className='mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-destructive text-sm'>
-                            <div className='font-semibold'>API Deployment Error</div>
-                            <div>{apiDeployError}</div>
-                          </div>
-                        )}
-
-                        <div className='-mx-1 px-1'>
-                          <DeployForm
-                            apiKeys={apiKeys}
-                            selectedApiKeyId={selectedApiKeyId}
-                            onApiKeyChange={setSelectedApiKeyId}
-                            onSubmit={onDeploy}
-                            onApiKeyCreated={fetchApiKeys}
-                            formId='deploy-api-form'
-                            isDeployed={false}
-                            deployedApiKeyDisplay={undefined}
-                          />
-                        </div>
-                      </>
-                    ) : isDeployed ? (
+                    {versionToActivate === null && isDeployed ? (
                       <>
                         <DeploymentInfo
                           isLoading={isLoading}
@@ -715,18 +999,26 @@ export function DeployModal({
                           getInputFormatExample={getInputFormatExample}
                           selectedStreamingOutputs={selectedStreamingOutputs}
                           onSelectedStreamingOutputsChange={setSelectedStreamingOutputs}
+                          showApiAccessInfo={hasApiExecutionAccess}
                         />
                       </>
                     ) : (
                       <>
                         {apiDeployError && (
                           <div className='mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-destructive text-sm'>
-                            <div className='font-semibold'>API Deployment Error</div>
+                            <div className='font-semibold'>
+                              {hasApiExecutionAccess ? 'API Deployment Error' : 'Deployment Error'}
+                            </div>
                             <div>{apiDeployError}</div>
                           </div>
                         )}
 
                         <div className='-mx-1 px-1'>
+                          {!hasApiExecutionAccess && (
+                            <div className='mb-3 rounded-md border p-3 text-muted-foreground text-sm'>
+                              Select a deployment API key for billing and usage attribution.
+                            </div>
+                          )}
                           <DeployForm
                             apiKeys={apiKeys}
                             selectedApiKeyId={selectedApiKeyId}
@@ -745,6 +1037,12 @@ export function DeployModal({
 
                 {activeTab === 'versions' && (
                   <>
+                    {!requiresApiKeyForDeployment && apiDeployError && (
+                      <div className='mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-destructive text-sm'>
+                        <div className='font-semibold'>Deployment Error</div>
+                        <div>{apiDeployError}</div>
+                      </div>
+                    )}
                     <div className='mb-3 font-medium text-sm'>Deployment Versions</div>
                     {versionsLoading ? (
                       <div className='rounded-md border p-4 text-center text-muted-foreground text-sm'>
@@ -788,8 +1086,9 @@ export function DeployModal({
                                   >
                                     <td className='px-4 py-2.5'>
                                       <div
-                                        className={`h-2 w-2 rounded-full ${v.isActive ? 'bg-green-500' : 'bg-muted-foreground/40'
-                                          }`}
+                                        className={`h-2 w-2 rounded-full ${
+                                          v.isActive ? 'bg-green-500' : 'bg-muted-foreground/40'
+                                        }`}
                                         title={v.isActive ? 'Active' : 'Inactive'}
                                       />
                                     </td>
@@ -909,11 +1208,17 @@ export function DeployModal({
                   </>
                 )}
 
-                {activeTab === 'chat' && (
+                {triggerDeployTabs
+                  .filter((tab) => tab.key === activeTab)
+                  .map((tab) => (
+                    <div key={tab.key}>{renderTriggerTab(tab.blockId, tab.subBlocks)}</div>
+                  ))}
+
+                {hasChatTrigger && activeTab === 'chat' && (
                   <>
                     <ChatDeploy
                       workflowId={workflowId || ''}
-                      deploymentInfo={deploymentInfo}
+                      deploymentInfo={selectedApiKeyId ? { apiKey: selectedApiKeyId } : null}
                       onChatExistsChange={setChatExists}
                       chatSubmitting={chatSubmitting}
                       setChatSubmitting={setChatSubmitting}
@@ -929,39 +1234,47 @@ export function DeployModal({
             </div>
           </div>
 
-          {activeTab === 'api' && (versionToActivate !== null || !isDeployed) && (
-            <div className='flex flex-shrink-0 justify-between border-t px-6 py-4'>
-              <Button variant='outline' onClick={handleCloseModal}>
-                Cancel
-              </Button>
+          {activeTab !== 'chat' &&
+            hasNonChatDeployPath &&
+            (versionToActivate !== null || !isDeployed || needsRedeployment) && (
+              <div className='flex flex-shrink-0 justify-between border-t px-6 py-4'>
+                <Button variant='outline' onClick={handleCloseModal}>
+                  Cancel
+                </Button>
 
-              <Button
-                type='submit'
-                form='deploy-api-form'
-                disabled={isSubmitting || !apiKeys.length}
-                className={cn(
-                  'gap-2 font-medium',
-                  'bg-primary-hover hover:bg-primary-hover',
-                  'shadow-[0_0_0_0_var(--primary-hover)] ',
-                  'text-white transition-all duration-200',
-                  'disabled:opacity-50 disabled:hover:bg-primary-hover disabled:hover:shadow-none'
-                )}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className='mr-1.5 h-3.5 w-3.5 animate-spin' />
-                    Deploying...
-                  </>
-                ) : versionToActivate !== null ? (
-                  `Deploy ${versions.find((v) => v.version === versionToActivate)?.name || `v${versionToActivate}`}`
-                ) : (
-                  'Deploy API'
-                )}
-              </Button>
-            </div>
-          )}
+                <Button
+                  type='button'
+                  disabled={
+                    isSubmitting ||
+                    (requiresApiKeyForDeployment && !selectedApiKeyId) ||
+                    hasIncompleteTriggerConfiguration
+                  }
+                  onClick={() => onDeploy({ apiKey: selectedApiKeyId })}
+                  className={cn(
+                    'gap-2 font-medium',
+                    'bg-primary-hover hover:bg-primary-hover',
+                    'shadow-[0_0_0_0_var(--primary-hover)] ',
+                    'transition-all duration-200',
+                    'disabled:opacity-50 disabled:hover:bg-primary-hover disabled:hover:shadow-none'
+                  )}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className='mr-1.5 h-3.5 w-3.5 animate-spin' />
+                      Deploying...
+                    </>
+                  ) : versionToActivate !== null ? (
+                    `Deploy ${versions.find((v) => v.version === versionToActivate)?.name || `v${versionToActivate}`}`
+                  ) : needsRedeployment ? (
+                    'Redeploy Workflow'
+                  ) : (
+                    'Deploy Workflow'
+                  )}
+                </Button>
+              </div>
+            )}
 
-          {activeTab === 'chat' && (
+          {hasChatTrigger && activeTab === 'chat' && (
             <div className='flex flex-shrink-0 justify-between border-t px-6 py-4'>
               <Button variant='outline' onClick={handleCloseModal}>
                 Cancel
@@ -997,7 +1310,7 @@ export function DeployModal({
                 <Button
                   type='button'
                   onClick={handleChatFormSubmit}
-                  disabled={chatSubmitting || !isChatFormValid}
+                  disabled={chatSubmitting || !isChatFormValid || !selectedApiKeyId}
                   className={cn(
                     'gap-2 font-medium',
                     'bg-primary-hover hover:bg-primary-hover',

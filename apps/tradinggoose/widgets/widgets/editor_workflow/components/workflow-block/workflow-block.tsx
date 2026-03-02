@@ -5,19 +5,21 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { PopoverEnvironmentProvider } from '@/components/ui/popover'
-import { Tooltip, TooltipContent, TooltipEnvironmentProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipEnvironmentProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { parseCronToHumanReadable } from '@/lib/schedules/utils'
 import { cn, validateName } from '@/lib/utils'
 import { type DiffStatus, hasDiffStatus } from '@/lib/workflows/diff/types'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import {
-  useOptionalWorkflowRoute,
-  useWorkflowId,
-} from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
 import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
+import { useCurrentWorkflow } from '@/hooks/workflow'
 import { useExecutionStore } from '@/stores/execution/store'
 import { useWorkflowDiffStore } from '@/stores/workflow-diff'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
@@ -28,7 +30,12 @@ import {
   DEFAULT_WORKFLOW_CHANNEL_ID,
   useWorkflowStore,
 } from '@/stores/workflows/workflow/store-client'
-import { useCurrentWorkflow } from '@/hooks/workflow'
+import { getTrigger } from '@/triggers'
+import { isDeployManagedTriggerSubBlock } from '@/triggers/constants'
+import {
+  useOptionalWorkflowRoute,
+  useWorkflowId,
+} from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { ActionBar } from './components/action-bar/action-bar'
 import { ConnectionBlocks } from './components/connection-blocks/connection-blocks'
 import { useSubBlockValue } from './components/sub-block/hooks/use-sub-block-value'
@@ -154,7 +161,7 @@ export const WorkflowBlock = memo(
           createdPortal.remove()
         }
 
-          ; (flow as any)[WORKFLOW_POPOVER_PORTAL_KEY] = portal
+        ;(flow as any)[WORKFLOW_POPOVER_PORTAL_KEY] = portal
       }
 
       if (!portal) return
@@ -607,6 +614,15 @@ export const WorkflowBlock = memo(
       const effectiveAdvanced = displayAdvancedMode
       const isPureTriggerBlock = config.category === 'triggers'
       const effectiveTrigger = displayTriggerMode || isPureTriggerBlock
+      const selectedTriggerId = stateToUse.selectedTriggerId?.value
+      const triggerIdFromState = stateToUse.triggerId?.value
+      const activeTriggerId =
+        typeof selectedTriggerId === 'string'
+          ? selectedTriggerId
+          : typeof triggerIdFromState === 'string'
+            ? triggerIdFromState
+            : config.triggers?.available?.[0]
+      const hasTriggerDefinition = !!(activeTriggerId && getTrigger(activeTriggerId))
 
       // Filter visible blocks and those that meet their conditions
       const visibleSubBlocks = config.subBlocks.filter((block) => {
@@ -629,6 +645,15 @@ export const WorkflowBlock = memo(
           return false
         }
 
+        if (
+          effectiveTrigger &&
+          block.mode === 'trigger' &&
+          hasTriggerDefinition &&
+          isDeployManagedTriggerSubBlock(block.id)
+        ) {
+          return false
+        }
+
         if (block.mode === 'basic' && effectiveAdvanced) return false
         if (block.mode === 'advanced' && !effectiveAdvanced) return false
 
@@ -642,7 +667,17 @@ export const WorkflowBlock = memo(
         // Get the values of the fields this block depends on from the appropriate state
         const normalizeValue = (value: any) =>
           value && typeof value === 'object' && 'id' in value ? (value as any).id : value
-        const normalizedFieldValue = normalizeValue(stateToUse[actualCondition.field]?.value)
+        const getConditionFieldValue = (field: string) => {
+          const normalizedValue = normalizeValue(stateToUse[field]?.value)
+          if (
+            field === 'selectedTriggerId' &&
+            (normalizedValue === undefined || normalizedValue === null || normalizedValue === '')
+          ) {
+            return activeTriggerId
+          }
+          return normalizedValue
+        }
+        const normalizedFieldValue = getConditionFieldValue(actualCondition.field)
         const andConditions = Array.isArray(actualCondition.and)
           ? actualCondition.and
           : actualCondition.and
@@ -671,7 +706,7 @@ export const WorkflowBlock = memo(
         const isAndValueMatch =
           andConditions.length === 0 ||
           andConditions.every((andCondition) => {
-            const andFieldValue = normalizeValue(stateToUse[andCondition.field]?.value)
+            const andFieldValue = getConditionFieldValue(andCondition.field)
             return evaluateMatch(andCondition, andFieldValue)
           })
 
@@ -853,7 +888,7 @@ export const WorkflowBlock = memo(
             <Card
               ref={blockRef}
               className={cn(
-                'rounded-md relative cursor-default select-none shadow-xs border border-border',
+                'relative cursor-default select-none rounded-md border border-border shadow-xs',
                 'transition-block-bg transition-ring',
                 displayIsWide ? 'w-[480px]' : 'w-[320px]',
                 !isEnabled && 'shadow-sm',
@@ -862,7 +897,7 @@ export const WorkflowBlock = memo(
                 // Diff highlighting
                 diffStatus === 'new' && 'bg-green-50/50 ring-2 ring-green-500 dark:bg-green-900/10',
                 diffStatus === 'edited' &&
-                'bg-orange-50/50 ring-2 ring-orange-500 dark:bg-orange-900/10',
+                  'bg-orange-50/50 ring-2 ring-orange-500 dark:bg-orange-900/10',
                 // Deleted block highlighting (in original workflow)
                 isDeletedBlock && 'bg-red-50/50 ring-2 ring-red-500 dark:bg-red-900/10',
                 'z-[20]'
@@ -936,9 +971,7 @@ export const WorkflowBlock = memo(
                           ? `${config.bgColor}20`
                           : undefined
                         : 'gray',
-                      color: isEnabled
-                        ? config.bgColor || undefined
-                        : 'white',
+                      color: isEnabled ? config.bgColor || undefined : 'white',
                     }}
                   >
                     <config.icon className={'h-5 w-5'} />
@@ -999,7 +1032,10 @@ export const WorkflowBlock = memo(
                     </Tooltip>
                   )}
                   {!isEnabled && (
-                    <Badge variant='secondary' className='bg-gray-100 text-gray-500 hover:bg-gray-100'>
+                    <Badge
+                      variant='secondary'
+                      className='bg-gray-100 text-gray-500 hover:bg-gray-100'
+                    >
                       Disabled
                     </Badge>
                   )}
@@ -1069,7 +1105,9 @@ export const WorkflowBlock = memo(
                       <TooltipContent side='top' className='max-w-[300px] p-4'>
                         {webhookInfo ? (
                           <>
-                            <p className='text-sm'>{getProviderName(webhookInfo.provider)} Webhook</p>
+                            <p className='text-sm'>
+                              {getProviderName(webhookInfo.provider)} Webhook
+                            </p>
                             <p className='mt-1 text-muted-foreground text-xs'>
                               Path: {webhookInfo.webhookPath}
                             </p>
@@ -1085,41 +1123,41 @@ export const WorkflowBlock = memo(
                   {config.subBlocks.some(
                     (block) => block.mode === 'advanced' || block.mode === 'basic'
                   ) && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant='ghost'
-                            size='icon'
-                            onClick={() => {
-                              if (currentWorkflow.isDiffMode) {
-                                setDiffAdvancedMode((prev) => !prev)
-                              } else if (userPermissions.canEdit) {
-                                collaborativeToggleBlockAdvancedMode(id)
-                              }
-                            }}
-                            className={cn(
-                              'h-7 p-1 text-gray-500',
-                              displayAdvancedMode && 'text-primary',
-                              !userPermissions.canEdit &&
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant='ghost'
+                          size='icon'
+                          onClick={() => {
+                            if (currentWorkflow.isDiffMode) {
+                              setDiffAdvancedMode((prev) => !prev)
+                            } else if (userPermissions.canEdit) {
+                              collaborativeToggleBlockAdvancedMode(id)
+                            }
+                          }}
+                          className={cn(
+                            'h-7 p-1 text-gray-500',
+                            displayAdvancedMode && 'text-primary',
+                            !userPermissions.canEdit &&
                               !currentWorkflow.isDiffMode &&
                               'cursor-not-allowed opacity-50'
-                            )}
-                            disabled={!userPermissions.canEdit && !currentWorkflow.isDiffMode}
-                          >
-                            <Code className='h-5 w-5' />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side='top'>
-                          {!userPermissions.canEdit && !currentWorkflow.isDiffMode
-                            ? userPermissions.isOfflineMode
-                              ? 'Connection lost - please refresh'
-                              : 'Read-only mode'
-                            : displayAdvancedMode
-                              ? 'Switch to Basic Mode'
-                              : 'Switch to Advanced Mode'}
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
+                          )}
+                          disabled={!userPermissions.canEdit && !currentWorkflow.isDiffMode}
+                        >
+                          <Code className='h-5 w-5' />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side='top'>
+                        {!userPermissions.canEdit && !currentWorkflow.isDiffMode
+                          ? userPermissions.isOfflineMode
+                            ? 'Connection lost - please refresh'
+                            : 'Read-only mode'
+                          : displayAdvancedMode
+                            ? 'Switch to Basic Mode'
+                            : 'Switch to Advanced Mode'}
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                   {/* Trigger Mode Button - Show for hybrid blocks that support triggers (not pure trigger blocks) */}
                   {config.triggers?.enabled && config.category !== 'triggers' && (
                     <Tooltip>
@@ -1139,8 +1177,8 @@ export const WorkflowBlock = memo(
                             'h-7 p-1 text-gray-500',
                             displayTriggerMode && 'text-[#22C55E]',
                             !userPermissions.canEdit &&
-                            !currentWorkflow.isDiffMode &&
-                            'cursor-not-allowed opacity-50'
+                              !currentWorkflow.isDiffMode &&
+                              'cursor-not-allowed opacity-50'
                           )}
                           disabled={!userPermissions.canEdit && !currentWorkflow.isDiffMode}
                         >
@@ -1187,7 +1225,9 @@ export const WorkflowBlock = memo(
                           <div className='space-y-3'>
                             <div>
                               <p className='mb-1 font-medium text-sm'>Description</p>
-                              <p className='text-muted-foreground text-sm'>{config.longDescription}</p>
+                              <p className='text-muted-foreground text-sm'>
+                                {config.longDescription}
+                              </p>
                             </div>
                             {config.outputs && Object.keys(config.outputs).length > 0 && (
                               <div>
@@ -1197,8 +1237,8 @@ export const WorkflowBlock = memo(
                                     <div key={key} className='mb-1'>
                                       <span className='text-muted-foreground'>{key}</span>{' '}
                                       {typeof value === 'object' &&
-                                        value !== null &&
-                                        'type' in value ? (
+                                      value !== null &&
+                                      'type' in value ? (
                                         // New format: { type: 'string', description: '...' }
                                         <span className='text-green-500'>{value.type}</span>
                                       ) : typeof value === 'object' && value !== null ? (
@@ -1245,8 +1285,8 @@ export const WorkflowBlock = memo(
                           className={cn(
                             'h-7 p-1 text-gray-500',
                             !userPermissions.canEdit &&
-                            !currentWorkflow.isDiffMode &&
-                            'cursor-not-allowed opacity-50'
+                              !currentWorkflow.isDiffMode &&
+                              'cursor-not-allowed opacity-50'
                           )}
                           disabled={!userPermissions.canEdit && !currentWorkflow.isDiffMode}
                         >
@@ -1272,134 +1312,130 @@ export const WorkflowBlock = memo(
               </div>
 
               {/* Block Content - Only render if there are subblocks */}
-              {
-                subBlockRows.length > 0 && (
-                  <div
-                    ref={contentRef}
-                    className='cursor-pointer space-y-4 px-4 pt-3 pb-4'
-                    onMouseDown={(e) => {
-                      e.stopPropagation()
-                    }}
-                  >
-                    {subBlockRows.map((row, rowIndex) => (
-                      <div key={`row-${rowIndex}`} className='flex gap-4'>
-                        {row.map((subBlock) => {
-                          const stableKey = getSubBlockStableKey(subBlock, subBlockState)
+              {subBlockRows.length > 0 && (
+                <div
+                  ref={contentRef}
+                  className='cursor-pointer space-y-4 px-4 pt-3 pb-4'
+                  onMouseDown={(e) => {
+                    e.stopPropagation()
+                  }}
+                >
+                  {subBlockRows.map((row, rowIndex) => (
+                    <div key={`row-${rowIndex}`} className='flex gap-4'>
+                      {row.map((subBlock) => {
+                        const stableKey = getSubBlockStableKey(subBlock, subBlockState)
 
-                          return (
-                            <div
-                              key={stableKey}
-                              className={cn(
-                                'space-y-1',
-                                subBlock.layout === 'half' ? 'flex-1' : 'w-full'
-                              )}
-                            >
-                              <SubBlock
-                                blockId={id}
-                                config={subBlock}
-                                isConnecting={isConnecting}
-                                isPreview={data.isPreview || currentWorkflow.isDiffMode}
-                                subBlockValues={
-                                  data.subBlockValues ||
-                                  (currentWorkflow.isDiffMode && currentBlock
-                                    ? (currentBlock as any).subBlocks
-                                    : undefined)
-                                }
-                                disabled={!userPermissions.canEdit}
-                                fieldDiffStatus={
-                                  fieldDiff?.changed_fields?.includes(subBlock.id)
-                                    ? 'changed'
-                                    : fieldDiff?.unchanged_fields?.includes(subBlock.id)
-                                      ? 'unchanged'
-                                      : undefined
-                                }
-                                allowExpandInPreview={currentWorkflow.isDiffMode}
-                                isWide={displayIsWide}
-                              />
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ))}
-                  </div>
-                )
-              }
+                        return (
+                          <div
+                            key={stableKey}
+                            className={cn(
+                              'space-y-1',
+                              subBlock.layout === 'half' ? 'flex-1' : 'w-full'
+                            )}
+                          >
+                            <SubBlock
+                              blockId={id}
+                              config={subBlock}
+                              isConnecting={isConnecting}
+                              isPreview={data.isPreview || currentWorkflow.isDiffMode}
+                              subBlockValues={
+                                data.subBlockValues ||
+                                (currentWorkflow.isDiffMode && currentBlock
+                                  ? (currentBlock as any).subBlocks
+                                  : undefined)
+                              }
+                              disabled={!userPermissions.canEdit}
+                              fieldDiffStatus={
+                                fieldDiff?.changed_fields?.includes(subBlock.id)
+                                  ? 'changed'
+                                  : fieldDiff?.unchanged_fields?.includes(subBlock.id)
+                                    ? 'unchanged'
+                                    : undefined
+                              }
+                              allowExpandInPreview={currentWorkflow.isDiffMode}
+                              isWide={displayIsWide}
+                            />
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Output Handle */}
-              {
-                type !== 'condition' && type !== 'response' && (
-                  <>
+              {type !== 'condition' && type !== 'response' && (
+                <>
+                  <Handle
+                    type='source'
+                    position={horizontalHandles ? Position.Right : Position.Bottom}
+                    id='source'
+                    className={cn(
+                      horizontalHandles ? '!w-[7px] !h-5' : '!w-5 !h-[7px]',
+                      '!bg-slate-300 dark:!bg-slate-500 !rounded-xs !border-none',
+                      '!z-[30]',
+                      'group-hover:!shadow-[0_0_0_3px_rgba(156,163,175,0.15)]',
+                      horizontalHandles
+                        ? 'hover:!w-[10px] hover:!right-[-10px] hover:!rounded-r-full hover:!rounded-l-none'
+                        : 'hover:!h-[10px] hover:!bottom-[-10px] hover:!rounded-b-full hover:!rounded-t-none',
+                      '!cursor-crosshair',
+                      'transition-[colors] duration-150',
+                      horizontalHandles ? '!right-[-7px]' : '!bottom-[-7px]'
+                    )}
+                    style={{
+                      ...(horizontalHandles
+                        ? { top: '50%', transform: 'translateY(-50%)' }
+                        : { left: '50%', transform: 'translateX(-50%)' }),
+                    }}
+                    data-nodeid={id}
+                    data-handleid='source'
+                    isConnectableStart={true}
+                    isConnectableEnd={false}
+                    isValidConnection={(connection) => connection.target !== id}
+                  />
+
+                  {/* Error Handle - Don't show for trigger blocks or blocks in trigger mode */}
+                  {config.category !== 'triggers' && !displayTriggerMode && (
                     <Handle
                       type='source'
                       position={horizontalHandles ? Position.Right : Position.Bottom}
-                      id='source'
+                      id='error'
                       className={cn(
                         horizontalHandles ? '!w-[7px] !h-5' : '!w-5 !h-[7px]',
-                        '!bg-slate-300 dark:!bg-slate-500 !rounded-xs !border-none',
+                        '!bg-red-400 dark:!bg-red-500 !rounded-xs !border-none',
                         '!z-[30]',
-                        'group-hover:!shadow-[0_0_0_3px_rgba(156,163,175,0.15)]',
+                        'group-hover:!shadow-[0_0_0_3px_rgba(248,113,113,0.15)]',
                         horizontalHandles
                           ? 'hover:!w-[10px] hover:!right-[-10px] hover:!rounded-r-full hover:!rounded-l-none'
                           : 'hover:!h-[10px] hover:!bottom-[-10px] hover:!rounded-b-full hover:!rounded-t-none',
                         '!cursor-crosshair',
-                        'transition-[colors] duration-150',
-                        horizontalHandles ? '!right-[-7px]' : '!bottom-[-7px]'
+                        'transition-[colors] duration-150'
                       )}
                       style={{
+                        position: 'absolute',
                         ...(horizontalHandles
-                          ? { top: '50%', transform: 'translateY(-50%)' }
-                          : { left: '50%', transform: 'translateX(-50%)' }),
-                      }}
-                      data-nodeid={id}
-                      data-handleid='source'
-                      isConnectableStart={true}
-                      isConnectableEnd={false}
-                      isValidConnection={(connection) => connection.target !== id}
-                    />
-
-                    {/* Error Handle - Don't show for trigger blocks or blocks in trigger mode */}
-                    {config.category !== 'triggers' && !displayTriggerMode && (
-                      <Handle
-                        type='source'
-                        position={horizontalHandles ? Position.Right : Position.Bottom}
-                        id='error'
-                        className={cn(
-                          horizontalHandles ? '!w-[7px] !h-5' : '!w-5 !h-[7px]',
-                          '!bg-red-400 dark:!bg-red-500 !rounded-xs !border-none',
-                          '!z-[30]',
-                          'group-hover:!shadow-[0_0_0_3px_rgba(248,113,113,0.15)]',
-                          horizontalHandles
-                            ? 'hover:!w-[10px] hover:!right-[-10px] hover:!rounded-r-full hover:!rounded-l-none'
-                            : 'hover:!h-[10px] hover:!bottom-[-10px] hover:!rounded-b-full hover:!rounded-t-none',
-                          '!cursor-crosshair',
-                          'transition-[colors] duration-150'
-                        )}
-                        style={{
-                          position: 'absolute',
-                          ...(horizontalHandles
-                            ? {
+                          ? {
                               right: '-8px',
                               top: 'auto',
                               bottom: '30px',
                               transform: 'translateY(0)',
                             }
-                            : {
+                          : {
                               bottom: '-7px',
                               left: 'auto',
                               right: '30px',
                               transform: 'translateX(0)',
                             }),
-                        }}
-                        data-nodeid={id}
-                        data-handleid='error'
-                        isConnectableStart={true}
-                        isConnectableEnd={false}
-                        isValidConnection={(connection) => connection.target !== id}
-                      />
-                    )}
-                  </>
-                )
-              }
+                      }}
+                      data-nodeid={id}
+                      data-handleid='error'
+                      isConnectableStart={true}
+                      isConnectableEnd={false}
+                      isValidConnection={(connection) => connection.target !== id}
+                    />
+                  )}
+                </>
+              )}
             </Card>
           </div>
         </PopoverEnvironmentProvider>
