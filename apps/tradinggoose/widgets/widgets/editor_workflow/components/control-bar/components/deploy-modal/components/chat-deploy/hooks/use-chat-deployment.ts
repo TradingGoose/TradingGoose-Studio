@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react'
 import { z } from 'zod'
 import { createLogger } from '@/lib/logs/console/logger'
-import type { ChatFormData } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/chat-deploy/hooks/use-chat-form'
 import type { OutputConfig } from '@/stores/chat/types'
+import type { ChatFormData } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/chat-deploy/hooks/use-chat-form'
 
 const logger = createLogger('ChatDeployment')
 
@@ -88,7 +88,6 @@ export function useChatDeployment() {
             formData.authType === 'email' || formData.authType === 'sso' ? formData.emails : [],
           outputConfigs,
           apiKey: deploymentInfo?.apiKey,
-          deployApiEnabled: !existingChatId,
         }
 
         // Validate with Zod

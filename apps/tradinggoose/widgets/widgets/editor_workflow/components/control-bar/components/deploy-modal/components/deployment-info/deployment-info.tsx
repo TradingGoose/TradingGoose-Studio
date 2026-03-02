@@ -15,6 +15,7 @@ import {
   Button,
   Skeleton,
 } from '@/components/ui'
+import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import {
   ApiEndpoint,
   ApiKey,
@@ -22,7 +23,6 @@ import {
   ExampleCommand,
 } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deployment-info/components'
 import { DeployedWorkflowModal } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deployment-controls/components/deployed-workflow-modal'
-import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
 interface WorkflowDeploymentInfo {
   isDeployed: boolean
@@ -46,6 +46,7 @@ interface DeploymentInfoProps {
   getInputFormatExample?: (includeStreaming?: boolean) => string
   selectedStreamingOutputs: string[]
   onSelectedStreamingOutputsChange: (outputs: string[]) => void
+  showApiAccessInfo?: boolean
 }
 
 export function DeploymentInfo({
@@ -61,6 +62,7 @@ export function DeploymentInfo({
   getInputFormatExample,
   selectedStreamingOutputs,
   onSelectedStreamingOutputsChange,
+  showApiAccessInfo = true,
 }: DeploymentInfoProps) {
   const [isViewingDeployed, setIsViewingDeployed] = useState(false)
 
@@ -79,23 +81,27 @@ export function DeploymentInfo({
   if (isLoading || !deploymentInfo) {
     return (
       <div className='space-y-4 overflow-y-auto px-1'>
-        {/* API Endpoint skeleton */}
-        <div className='space-y-3'>
-          <Skeleton className='h-5 w-28' />
-          <Skeleton className='h-10 w-full' />
-        </div>
-
         {/* API Key skeleton */}
         <div className='space-y-3'>
           <Skeleton className='h-5 w-20' />
           <Skeleton className='h-10 w-full' />
         </div>
 
-        {/* Example Command skeleton */}
-        <div className='space-y-3'>
-          <Skeleton className='h-5 w-36' />
-          <Skeleton className='h-24 w-full rounded-md' />
-        </div>
+        {showApiAccessInfo && (
+          <>
+            {/* API Endpoint skeleton */}
+            <div className='space-y-3'>
+              <Skeleton className='h-5 w-28' />
+              <Skeleton className='h-10 w-full' />
+            </div>
+
+            {/* Example Command skeleton */}
+            <div className='space-y-3'>
+              <Skeleton className='h-5 w-36' />
+              <Skeleton className='h-24 w-full rounded-md' />
+            </div>
+          </>
+        )}
 
         {/* Deploy Status and buttons skeleton */}
         <div className='mt-4 flex items-center justify-between pt-2'>
@@ -113,17 +119,25 @@ export function DeploymentInfo({
     <>
       <div className='space-y-4 overflow-y-auto px-1'>
         <div className='space-y-4'>
-          <ApiEndpoint endpoint={deploymentInfo.endpoint} />
           <ApiKey apiKey={deploymentInfo.apiKey} />
-          <ExampleCommand
-            command={deploymentInfo.exampleCommand}
-            apiKey={deploymentInfo.apiKey}
-            endpoint={deploymentInfo.endpoint}
-            getInputFormatExample={getInputFormatExample}
-            workflowId={workflowId}
-            selectedStreamingOutputs={selectedStreamingOutputs}
-            onSelectedStreamingOutputsChange={onSelectedStreamingOutputsChange}
-          />
+          {showApiAccessInfo ? (
+            <>
+              <ApiEndpoint endpoint={deploymentInfo.endpoint} />
+              <ExampleCommand
+                command={deploymentInfo.exampleCommand}
+                apiKey={deploymentInfo.apiKey}
+                endpoint={deploymentInfo.endpoint}
+                getInputFormatExample={getInputFormatExample}
+                workflowId={workflowId}
+                selectedStreamingOutputs={selectedStreamingOutputs}
+                onSelectedStreamingOutputsChange={onSelectedStreamingOutputsChange}
+              />
+            </>
+          ) : (
+            <div className='rounded-md border p-3 text-muted-foreground text-sm'>
+              The deployment API key is used for billing and usage attribution when deployed triggers execute.
+            </div>
+          )}
         </div>
 
         <div className='mt-4 flex items-center justify-between pt-2'>
@@ -148,10 +162,13 @@ export function DeploymentInfo({
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Undeploy API</AlertDialogTitle>
+                  <AlertDialogTitle>
+                    {showApiAccessInfo ? 'Undeploy API' : 'Undeploy Workflow'}
+                  </AlertDialogTitle>
                   <AlertDialogDescription>
-                    Are you sure you want to undeploy this workflow? This will remove the API
-                    endpoint and make it unavailable to external users.
+                    {showApiAccessInfo
+                      ? 'Are you sure you want to undeploy this workflow? This will remove the API endpoint and make it unavailable to external users.'
+                      : 'Are you sure you want to undeploy this workflow? This will stop deployed trigger processing for this workflow.'}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

@@ -9,12 +9,10 @@ import {
   SkipForward,
   StepForward,
   Store,
-  Webhook,
   X,
 } from 'lucide-react'
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui'
 import { useSession } from '@/lib/auth-client'
-import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import {
@@ -37,7 +35,6 @@ import {
   DeploymentControls,
   ExportControls,
   TemplateModal,
-  WebhookSettings,
 } from '@/widgets/widgets/editor_workflow/components/control-bar/components'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
@@ -118,7 +115,6 @@ export function ControlBar({
   const [mounted, setMounted] = useState(false)
   const [, forceUpdate] = useState({})
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
-  const [isWebhookSettingsOpen, setIsWebhookSettingsOpen] = useState(false)
   const [isAutoLayouting, setIsAutoLayouting] = useState(false)
 
   // Deployed state management
@@ -370,41 +366,6 @@ export function ControlBar({
       variant={variant}
     />
   )
-
-  /**
-   * Render webhook settings button
-   */
-  const renderWebhookButton = () => {
-    // Only show webhook button if Trigger.dev is enabled
-    const isTriggerEnabled = isTruthy(getEnv('NEXT_PUBLIC_TRIGGER_DEV_ENABLED'))
-    if (!isTriggerEnabled) return null
-
-    const canEdit = userPermissions.canEdit
-    const isDisabled = !canEdit
-
-    const getTooltipText = () => {
-      if (!canEdit) return 'Admin permission required to configure webhooks'
-      return 'Configure webhook notifications'
-    }
-
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant='outline'
-            size='icon'
-            disabled={isDisabled}
-            onClick={() => setIsWebhookSettingsOpen(true)}
-            className={getIconButtonClass()}
-          >
-            <Webhook className='h-5 w-5' />
-            <span className='sr-only'>Webhook Settings</span>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{getTooltipText()}</TooltipContent>
-      </Tooltip>
-    )
-  }
 
   /**
    * Render auto-layout button
@@ -753,7 +714,6 @@ export function ControlBar({
 
   return (
     <div className={containerClass}>
-      {showOptionalControls && renderWebhookButton()}
       {showOptionalControls && <ExportControls variant={variant} />}
       {showOptionalControls && renderAutoLayoutButton()}
       {showOptionalControls && renderPublishButton()}
@@ -766,15 +726,6 @@ export function ControlBar({
         <TemplateModal
           open={isTemplateModalOpen}
           onOpenChange={setIsTemplateModalOpen}
-          workflowId={activeWorkflowId}
-        />
-      )}
-
-      {/* Webhook Settings */}
-      {activeWorkflowId && (
-        <WebhookSettings
-          open={isWebhookSettingsOpen}
-          onOpenChange={setIsWebhookSettingsOpen}
           workflowId={activeWorkflowId}
         />
       )}

@@ -140,13 +140,6 @@ export class GetBlockUpstreamReferencesClientTool extends BaseClientTool {
         const accessibleIds = new Set<string>(ancestorIds)
         accessibleIds.add(blockId)
 
-        const starterBlock = Object.values(blocks).find(
-          (b) => b.type === 'starter' || b.type === 'start_trigger'
-        )
-        if (starterBlock && ancestorIds.includes(starterBlock.id)) {
-          accessibleIds.add(starterBlock.id)
-        }
-
         containingLoopIds.forEach((loopId) => {
           accessibleIds.add(loopId)
           loops[loopId]?.nodes?.forEach((nodeId) => accessibleIds.add(nodeId))

@@ -191,7 +191,7 @@ export function ChatDeploy({
         return
       }
 
-      await deployChat(workflowId, formData, null, existingChat?.id, imageUrl)
+      await deployChat(workflowId, formData, deploymentInfo, existingChat?.id, imageUrl)
 
       onChatExistsChange?.(true)
       setShowSuccessView(true)

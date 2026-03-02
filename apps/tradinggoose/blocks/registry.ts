@@ -138,8 +138,6 @@ import { SmtpBlock } from '@/blocks/blocks/smtp'
 import { SpotifyBlock } from '@/blocks/blocks/spotify'
 import { SQSBlock } from '@/blocks/blocks/sqs'
 import { SSHBlock } from '@/blocks/blocks/ssh'
-import { StarterBlock } from '@/blocks/blocks/starter'
-import { StartTriggerBlock } from '@/blocks/blocks/start_trigger'
 import { StripeBlock } from '@/blocks/blocks/stripe'
 import { SttBlock } from '@/blocks/blocks/stt'
 import { TrelloBlock } from '@/blocks/blocks/trello'
@@ -296,8 +294,6 @@ export const registry: Record<string, BlockConfig> = {
   sftp: SftpBlock,
   sqs: SQSBlock,
   ssh: SSHBlock,
-  starter: StarterBlock,
-  start_trigger: StartTriggerBlock,
   stripe: StripeBlock,
   stt: SttBlock,
   trello: TrelloBlock,
