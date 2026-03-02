@@ -3,7 +3,11 @@
 import { List } from 'lucide-react'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { WatchlistWidgetBody } from '@/widgets/widgets/watchlist/components/watchlist-body'
-import { WatchlistHeaderControls } from '@/widgets/widgets/watchlist/components/watchlist-header-controls'
+import {
+  WatchlistHeaderCenterControls,
+  WatchlistHeaderLeftControls,
+  WatchlistHeaderRightControls,
+} from '@/widgets/widgets/watchlist/components/watchlist-header-controls'
 
 export const watchlistWidget: DashboardWidgetDefinition = {
   key: 'watchlist',
@@ -13,8 +17,22 @@ export const watchlistWidget: DashboardWidgetDefinition = {
   description: 'Manage symbol watchlists with live market columns.',
   component: (props) => <WatchlistWidgetBody {...props} />,
   renderHeader: ({ context, panelId, widget }) => ({
+    left: (
+      <WatchlistHeaderLeftControls
+        workspaceId={context?.workspaceId}
+        panelId={panelId}
+        widget={widget}
+      />
+    ),
+    center: (
+      <WatchlistHeaderCenterControls
+        workspaceId={context?.workspaceId}
+        panelId={panelId}
+        widget={widget}
+      />
+    ),
     right: (
-      <WatchlistHeaderControls
+      <WatchlistHeaderRightControls
         workspaceId={context?.workspaceId}
         panelId={panelId}
         widget={widget}
