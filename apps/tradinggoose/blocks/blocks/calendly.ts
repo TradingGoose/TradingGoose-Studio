@@ -14,7 +14,7 @@ export const CalendlyBlock: BlockConfig<ToolResponse> = {
     'Integrate Calendly into your workflow. Manage event types, scheduled events, invitees, and webhooks. Can also trigger workflows based on Calendly webhook events (invitee scheduled, invitee canceled, routing form submitted). Requires Personal Access Token.',
   docsLink: 'https://docs.sim.ai/tools/calendly',
   category: 'tools',
-  bgColor: '#FFFFFF',
+  bgColor: undefined,
   icon: CalendlyIcon,
   subBlocks: [
     {
@@ -90,7 +90,7 @@ export const CalendlyBlock: BlockConfig<ToolResponse> = {
       id: 'min_start_time',
       title: 'Min Start Time',
       type: 'datetime-input',
-      placeholder: 'ISO 8601 format (e.g., 2024-01-01T00:00:00Z)',
+      placeholder: 'e.g., 2024-01-01 00:00:00',
       condition: { field: 'operation', value: 'calendly_list_scheduled_events' },
       wandConfig: {
         enabled: true,
@@ -111,7 +111,7 @@ Return ONLY the timestamp string in ISO 8601 format - no explanations, no quotes
       id: 'max_start_time',
       title: 'Max Start Time',
       type: 'datetime-input',
-      placeholder: 'ISO 8601 format (e.g., 2024-12-31T23:59:59Z)',
+      placeholder: '2024-12-31 23:59:59',
       condition: { field: 'operation', value: 'calendly_list_scheduled_events' },
       wandConfig: {
         enabled: true,
