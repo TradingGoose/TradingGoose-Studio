@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { db } from '@tradinggoose/db'
 import { pineIndicators, webhook, workflow } from '@tradinggoose/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
+import { withCodeExecutionConcurrencyLimit } from '@/lib/execution/concurrency-limit'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { DEFAULT_INDICATOR_RUNTIME_MAP } from '@/lib/indicators/default/runtime'
 import {
@@ -40,13 +41,8 @@ import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
 import type { MarketBar, MarketSeries } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
-import {
-  type AlpacaCryptoRegion,
-  type AlpacaFeed,
-  type AlpacaMarket,
-  AlpacaMarketStream,
-} from '@/socket-server/market/alpaca'
-import { FinnhubMarketStream } from '@/socket-server/market/finnhub'
+import type { AuthenticatedSocket } from '@/socket-server/middleware/auth'
+import { marketStreamManager } from '@/socket-server/market/manager'
 
 type MonitorRuntimeStatus = 'not_initialized' | 'running' | 'degraded' | 'disabled'
 
@@ -107,7 +103,7 @@ type IndicatorMonitorSubscription = {
   indicator: IndicatorDefinition
   inputsMap: Record<string, unknown>
   bars: BarMs[]
-  stream: AlpacaMarketStream | FinnhubMarketStream
+  stream: { close: () => void }
   symbol: string
   marketCode?: string
   timezone?: string
@@ -134,23 +130,6 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const normalizeSymbol = (value: string) => value.trim().toUpperCase()
-
-const resolveAlpacaMarket = (listingType?: string): AlpacaMarket =>
-  listingType === 'crypto' ? 'crypto' : 'stocks'
-
-const resolveAlpacaFeed = (providerParams?: Record<string, unknown>): AlpacaFeed | undefined => {
-  const feed = toTrimmedString(providerParams?.feed)
-  if (!feed) return 'iex'
-  return feed.toLowerCase() === 'sip' ? 'sip' : 'iex'
-}
-
-const resolveAlpacaCryptoRegion = (
-  providerParams?: Record<string, unknown>
-): AlpacaCryptoRegion => {
-  const region = toTrimmedString(providerParams?.cryptoRegion)?.toLowerCase()
-  if (region === 'eu-1' || region === 'us-1') return region
-  return 'us'
-}
 
 const toMarketSeries = ({
   bars,
@@ -220,18 +199,26 @@ const normalizeProviderConfig = (
   pinnedApiKeyId: string | null
 ): MonitorRuntimeConfig | null => {
   if (!isRecord(row.providerConfig)) return null
-  if (row.providerConfig.triggerId !== INDICATOR_MONITOR_TRIGGER_ID) return null
-  if (!isRecord(row.providerConfig.monitor)) return null
 
-  const monitor = row.providerConfig.monitor
+  const providerConfig = row.providerConfig
+  const triggerId = toTrimmedString(providerConfig.triggerId)
+  if (triggerId && triggerId !== INDICATOR_MONITOR_TRIGGER_ID) return null
+
+  if (providerConfig.monitor !== undefined && !isRecord(providerConfig.monitor)) return null
+
+  const monitor = isRecord(providerConfig.monitor) ? providerConfig.monitor : providerConfig
   const providerId = toTrimmedString(monitor.providerId)
   const interval = toTrimmedString(monitor.interval)
   const indicatorId = toTrimmedString(monitor.indicatorId)
   const listing = toListingValueObject(monitor.listing as any)
+  const triggerBlockId =
+    toTrimmedString(monitor.triggerBlockId) ??
+    toTrimmedString(monitor.blockId) ??
+    toTrimmedString(row.blockId)
 
   if (!providerId || (providerId !== 'alpaca' && providerId !== 'finnhub')) return null
   if (!interval || !indicatorId || !listing) return null
-  if (!row.blockId) return null
+  if (!triggerBlockId) return null
 
   const intervalMs = resolveDispatchIntervalMs(interval)
   const providerParams = isRecord(monitor.providerParams)
@@ -252,7 +239,7 @@ const normalizeProviderConfig = (
     workspaceId,
     userId,
     pinnedApiKeyId,
-    blockId: row.blockId,
+    blockId: triggerBlockId,
     providerId,
     interval,
     intervalMs,
@@ -612,7 +599,13 @@ export class IndicatorMonitorRuntime {
           this.logger.warn('Failed to start indicator monitor subscription', {
             monitorId: monitor.id,
             reason,
-            error,
+            error:
+              error instanceof Error
+                ? {
+                    message: error.message,
+                    stack: error.stack,
+                  }
+                : error,
           })
           this.skippedCount += 1
         }
@@ -654,16 +647,13 @@ export class IndicatorMonitorRuntime {
       throw new Error('Unable to resolve provider symbol')
     }
 
-    const stream =
-      monitor.providerId === 'alpaca'
-        ? this.createAlpacaStream(monitor, symbol, auth)
-        : this.createFinnhubStream(monitor, symbol, auth)
-
     const inputMeta = normalizeInputMetaMap(indicator.inputMeta)
     const inputsMap = buildInputsMapFromMeta(inputMeta)
 
     const initialBars = await this.fetchMonitorBars(monitor, auth)
     const cappedBars = initialBars.slice(-MONITOR_WINDOW_BARS)
+
+    const stream = await this.createManagedMarketStream(monitor, auth)
 
     return {
       config: monitor,
@@ -682,64 +672,60 @@ export class IndicatorMonitorRuntime {
     }
   }
 
-  private createAlpacaStream(
+  private async createManagedMarketStream(
     monitor: MonitorRuntimeConfig,
-    symbol: string,
     auth: { apiKey?: string; apiSecret?: string }
   ) {
-    const market = resolveAlpacaMarket(monitor.listing.listing_type)
-    const feed = resolveAlpacaFeed(monitor.providerParams)
-    const cryptoRegion = resolveAlpacaCryptoRegion(monitor.providerParams)
-
-    const stream = new AlpacaMarketStream(
-      {
-        market,
-        feed,
-        cryptoRegion,
-        keyId: auth.apiKey,
-        secretKey: auth.apiSecret,
-      },
-      {
-        onBar: ({ bar }) => {
+    const syntheticSocket = {
+      id: `indicator-monitor-runtime:${monitor.id}`,
+      userId: monitor.userId,
+      emit: (event: string, payload: any) => {
+        if (event === 'market-bar') {
+          const bar = payload?.bar as MarketBar | undefined
+          if (!bar) return
           void this.handleIncomingBar(monitor.id, bar)
-        },
-        onError: (payload) => {
-          this.logger.warn('Alpaca monitor stream error', {
-            monitorId: monitor.id,
-            message: payload.message,
-          })
-        },
-      }
-    )
+          return
+        }
 
-    stream.subscribe([symbol], 'bars')
-    return stream
-  }
-
-  private createFinnhubStream(
-    monitor: MonitorRuntimeConfig,
-    symbol: string,
-    auth: { apiKey?: string }
-  ) {
-    const stream = new FinnhubMarketStream(
-      {
-        apiKey: auth.apiKey,
+        if (event === 'market-error') {
+          const message =
+            typeof payload?.message === 'string' && payload.message.trim()
+              ? payload.message
+              : 'Market stream error'
+          this.logger.warn(
+            `${monitor.providerId === 'alpaca' ? 'Alpaca' : 'Finnhub'} monitor stream error`,
+            {
+              monitorId: monitor.id,
+              message,
+            }
+          )
+        }
       },
-      {
-        onBar: ({ bar }) => {
-          void this.handleIncomingBar(monitor.id, bar)
-        },
-        onError: (payload) => {
-          this.logger.warn('Finnhub monitor stream error', {
-            monitorId: monitor.id,
-            message: payload.message,
-          })
-        },
-      }
-    )
+    } as unknown as AuthenticatedSocket
 
-    stream.subscribe([symbol], 'bars')
-    return stream
+    await marketStreamManager.subscribe(syntheticSocket, {
+      provider: monitor.providerId,
+      workspaceId: monitor.workspaceId,
+      listing: monitor.listing,
+      channel: 'bars',
+      interval: monitor.interval,
+      providerParams: monitor.providerParams,
+      auth:
+        monitor.providerId === 'alpaca'
+          ? {
+              apiKey: auth.apiKey,
+              apiSecret: auth.apiSecret,
+            }
+          : {
+              apiKey: auth.apiKey,
+            },
+    })
+
+    return {
+      close: () => {
+        marketStreamManager.removeSocket(syntheticSocket.id)
+      },
+    }
   }
 
   private async fetchMonitorBars(
@@ -751,7 +737,10 @@ export class IndicatorMonitorRuntime {
       listing: monitor.listing,
       interval: monitor.interval,
       auth,
-      providerParams: monitor.providerParams,
+      providerParams: {
+        ...(monitor.providerParams ?? {}),
+        allowEmpty: true,
+      },
       windows: [{ mode: 'bars', barCount: MONITOR_WINDOW_BARS }],
     })
 
@@ -797,14 +786,19 @@ export class IndicatorMonitorRuntime {
     const monitor = subscription.config
 
     try {
-      const compiled = await executeCompiledIndicator({
-        pineCode: subscription.indicator.pineCode,
-        barsMs: subscription.bars,
-        inputsMap: subscription.inputsMap,
-        listing: monitor.listing,
-        interval: monitor.interval,
-        intervalMs: monitor.intervalMs,
-        executionTimeoutMs: 15_000,
+      const compiled = await withCodeExecutionConcurrencyLimit({
+        userId: monitor.userId,
+        task: () =>
+          executeCompiledIndicator({
+            pineCode: subscription.indicator.pineCode,
+            barsMs: subscription.bars,
+            inputsMap: subscription.inputsMap,
+            listing: monitor.listing,
+            interval: monitor.interval,
+            intervalMs: monitor.intervalMs,
+            executionTimeoutMs: 15_000,
+            userId: monitor.userId,
+          }),
       })
 
       if (!compiled.output) return

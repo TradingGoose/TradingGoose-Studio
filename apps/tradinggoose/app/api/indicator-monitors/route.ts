@@ -11,7 +11,7 @@ import { generateRequestId } from '@/lib/utils'
 import { notifyIndicatorMonitorsReconcile } from '@/app/api/indicator-monitors/reconcile'
 import { authenticateIndicatorRequest, checkWorkspacePermission } from '@/app/api/indicators/utils'
 import {
-  ensureIndicatorTriggerBlock,
+  ensureIndicatorTriggerBlockInDeployedState,
   ensureTriggerCapableIndicator,
   ensureWorkflowInWorkspace,
   listIndicatorMonitorRows,
@@ -97,10 +97,11 @@ export async function POST(request: NextRequest) {
     if (!permission.ok) return permission.response
 
     const workflowRow = await ensureWorkflowInWorkspace(payload.workflowId, payload.workspaceId)
-    await ensureIndicatorTriggerBlock(payload.workflowId, payload.blockId)
+    await ensureIndicatorTriggerBlockInDeployedState(payload.workflowId, payload.blockId)
     await ensureTriggerCapableIndicator(payload.workspaceId, payload.indicatorId)
 
     const providerConfig = await normalizeIndicatorMonitorConfig({
+      triggerBlockId: payload.blockId,
       providerId: payload.providerId,
       interval: payload.interval,
       listingInput: payload.listing,
@@ -119,7 +120,7 @@ export async function POST(request: NextRequest) {
       .values({
         id: monitorId,
         workflowId: payload.workflowId,
-        blockId: payload.blockId,
+        blockId: null,
         path: monitorPath,
         provider: 'indicator',
         providerConfig: {

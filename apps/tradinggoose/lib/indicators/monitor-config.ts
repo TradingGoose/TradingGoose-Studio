@@ -45,6 +45,7 @@ export type IndicatorMonitorProviderConfig = {
   triggerId: typeof INDICATOR_MONITOR_TRIGGER_ID
   version: 1
   monitor: {
+    triggerBlockId: string
     providerId: string
     interval: string
     listing: ListingIdentity
@@ -119,6 +120,7 @@ export const toPublicIndicatorMonitorProviderConfig = (
 }
 
 type NormalizeMonitorConfigInput = {
+  triggerBlockId: string
   providerId: string
   interval: string
   listingInput: unknown
@@ -186,6 +188,7 @@ export const normalizeIndicatorMonitorConfig = async (
     triggerId: INDICATOR_MONITOR_TRIGGER_ID,
     version: 1,
     monitor: {
+      triggerBlockId: input.triggerBlockId,
       providerId: input.providerId,
       interval: input.interval,
       listing,
