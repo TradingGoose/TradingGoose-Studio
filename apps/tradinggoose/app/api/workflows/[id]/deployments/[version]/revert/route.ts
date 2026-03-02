@@ -8,6 +8,7 @@ import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
 import { validateWorkflowPermissions } from '@/lib/workflows/utils'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
 import { notifyIndicatorMonitorsReconcile } from '@/app/api/indicator-monitors/reconcile'
+import { pauseMonitorsMissingDeployedIndicatorTrigger } from '@/app/api/indicator-monitors/shared'
 
 const logger = createLogger('RevertToDeploymentVersionAPI')
 
@@ -102,6 +103,7 @@ export async function POST(
       logger.error('Error sending workflow reverted event to socket server', e)
     }
 
+    await pauseMonitorsMissingDeployedIndicatorTrigger(id)
     await notifyIndicatorMonitorsReconcile({ requestId, logger })
 
     return createSuccessResponse({

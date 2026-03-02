@@ -1,6 +1,6 @@
 import * as schema from '@tradinggoose/db'
-import { workflow, workflowBlocks, workflowEdges, workflowSubflows } from '@tradinggoose/db'
-import { and, eq, or, sql } from 'drizzle-orm'
+import { webhook, workflow, workflowBlocks, workflowEdges, workflowSubflows } from '@tradinggoose/db'
+import { and, eq, inArray, or, sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { env } from '@/lib/env'
@@ -50,6 +50,27 @@ const normalizeString = (value: unknown): string | null => {
   if (typeof value !== 'string') return null
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : null
+}
+
+async function detachIndicatorMonitorsForRemovedBlocks(
+  tx: any,
+  workflowId: string,
+  removedBlockIds: string[]
+) {
+  if (removedBlockIds.length === 0) return
+  await tx
+    .update(webhook)
+    .set({
+      blockId: null,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(webhook.workflowId, workflowId),
+        eq(webhook.provider, 'indicator'),
+        inArray(webhook.blockId, removedBlockIds)
+      )
+    )
 }
 
 /**
@@ -162,6 +183,16 @@ async function handleWorkflowOperationTx(
         loopCount: Object.keys(loops || {}).length,
         parallelCount: Object.keys(parallels || {}).length,
       })
+
+      const existingBlocks = await tx
+        .select({ id: workflowBlocks.id })
+        .from(workflowBlocks)
+        .where(eq(workflowBlocks.workflowId, workflowId))
+      await detachIndicatorMonitorsForRemovedBlocks(
+        tx,
+        workflowId,
+        existingBlocks.map((entry: { id: string }) => entry.id)
+      )
 
       // Delete all existing blocks (this will cascade delete edges via ON DELETE CASCADE)
       await tx.delete(workflowBlocks).where(eq(workflowBlocks.workflowId, workflowId))
@@ -625,6 +656,8 @@ async function handleBlockOperationTx(
         throw new Error('Missing block ID for remove operation')
       }
 
+      const removedBlockIds = new Set<string>([payload.id])
+
       // Check if this is a subflow block that needs cascade deletion
       const blockToRemove = await tx
         .select({
@@ -653,6 +686,9 @@ async function handleBlockOperationTx(
         logger.debug(
           `[SERVER] Found ${childBlocks.length} child blocks to delete: [${childBlocks.map((b: any) => `${b.id} (${b.type})`).join(', ')}]`
         )
+        childBlocks.forEach((block: { id: string }) => removedBlockIds.add(block.id))
+
+        await detachIndicatorMonitorsForRemovedBlocks(tx, workflowId, Array.from(removedBlockIds))
 
         // Remove edges connected to child blocks
         for (const childBlock of childBlocks) {
@@ -686,6 +722,8 @@ async function handleBlockOperationTx(
             and(eq(workflowSubflows.id, payload.id), eq(workflowSubflows.workflowId, workflowId))
           )
       }
+
+      await detachIndicatorMonitorsForRemovedBlocks(tx, workflowId, Array.from(removedBlockIds))
 
       // Remove any edges connected to this block
       await tx

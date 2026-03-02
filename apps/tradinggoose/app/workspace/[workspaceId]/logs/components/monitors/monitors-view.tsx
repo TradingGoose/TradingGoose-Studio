@@ -145,7 +145,7 @@ export function MonitorsView({
   const addMonitorDisabledReason = useMemo(() => {
     if (referenceLoading) return 'Loading monitor requirements...'
     if (workflowTargets.length > 0 && indicatorOptions.length > 0) return null
-    return 'Please configure workflow that uses indicator as trigger and indicator that emits trigger to add monitor'
+    return 'No deployed workflow with indicator trigger is available, or no trigger-capable indicator exists.'
   }, [referenceLoading, workflowTargets.length, indicatorOptions.length])
 
   const canAddMonitor = addMonitorDisabledReason === null

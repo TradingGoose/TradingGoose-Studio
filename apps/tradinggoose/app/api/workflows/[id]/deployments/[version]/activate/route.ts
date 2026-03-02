@@ -6,6 +6,7 @@ import { generateRequestId } from '@/lib/utils'
 import { validateWorkflowPermissions } from '@/lib/workflows/utils'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
 import { notifyIndicatorMonitorsReconcile } from '@/app/api/indicator-monitors/reconcile'
+import { pauseMonitorsMissingDeployedIndicatorTrigger } from '@/app/api/indicator-monitors/shared'
 
 const logger = createLogger('WorkflowActivateDeploymentAPI')
 
@@ -120,6 +121,7 @@ export async function POST(
       await tx.update(workflow).set(updateData).where(eq(workflow.id, id))
     })
 
+    await pauseMonitorsMissingDeployedIndicatorTrigger(id)
     await notifyIndicatorMonitorsReconcile({ requestId, logger })
 
     return createSuccessResponse({ success: true, deployedAt: now })

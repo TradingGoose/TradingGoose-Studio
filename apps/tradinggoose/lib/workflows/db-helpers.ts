@@ -1,5 +1,6 @@
 import {
   db,
+  webhook,
   workflow,
   workflowBlocks,
   workflowDeploymentVersion,
@@ -551,6 +552,14 @@ export async function saveWorkflowToNormalizedTables(
       await tx.execute(
         sql`select id from "workflow" where "workflow"."id" = ${workflowId} for update`
       )
+
+      await tx
+        .update(webhook)
+        .set({
+          blockId: null,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(webhook.workflowId, workflowId), eq(webhook.provider, 'indicator')))
 
       // Clear existing data for this workflow
       await Promise.all([
