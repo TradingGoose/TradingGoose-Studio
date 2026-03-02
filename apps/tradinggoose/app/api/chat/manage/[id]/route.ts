@@ -9,7 +9,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getEmailDomain } from '@/lib/urls/utils'
 import { encryptSecret } from '@/lib/utils'
 import { deployWorkflow } from '@/lib/workflows/db-helpers'
-import { checkChatAccess } from '@/app/api/chat/utils'
+import { checkChatAccess, resolveDeployApiKeyId } from '@/app/api/chat/utils'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
 
 export const dynamic = 'force-dynamic'
@@ -43,6 +43,7 @@ const chatUpdateSchema = z.object({
       })
     )
     .optional(),
+  apiKey: z.string().optional(),
 })
 
 /**
@@ -103,7 +104,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     try {
       const validatedData = chatUpdateSchema.parse(body)
 
-      const { hasAccess, chat: existingChatRecord } = await checkChatAccess(chatId, session.user.id)
+      const {
+        hasAccess,
+        chat: existingChatRecord,
+        workspaceId,
+      } = await checkChatAccess(chatId, session.user.id)
 
       if (!hasAccess || !existingChatRecord) {
         return createErrorResponse('Chat not found or access denied', 404)
@@ -121,6 +126,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         password,
         allowedEmails,
         outputConfigs,
+        apiKey,
       } = validatedData
 
       if (identifier && identifier !== existingChat[0].identifier) {
@@ -135,10 +141,28 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         }
       }
 
+      const providedApiKey = apiKey?.trim()
+      if (!providedApiKey) {
+        return createErrorResponse(
+          'API key is required. Please create or select an API key before deploying.',
+          400
+        )
+      }
+
+      const pinnedApiKeyId = await resolveDeployApiKeyId(
+        providedApiKey,
+        session.user.id,
+        workspaceId
+      )
+      if (!pinnedApiKeyId) {
+        return createErrorResponse('Invalid API key provided', 400)
+      }
+
       // Redeploy the workflow to ensure latest version is active
       const deployResult = await deployWorkflow({
         workflowId: existingChat[0].workflowId,
         deployedBy: session.user.id,
+        pinnedApiKeyId,
       })
 
       if (!deployResult.success) {

@@ -19,9 +19,11 @@ describe('Chat Edit API Route', () => {
   const mockCreateErrorResponse = vi.fn()
   const mockEncryptSecret = vi.fn()
   const mockCheckChatAccess = vi.fn()
+  const mockResolveDeployApiKeyId = vi.fn().mockResolvedValue(null)
 
   beforeEach(() => {
     vi.resetModules()
+    mockResolveDeployApiKeyId.mockImplementation(async (keyId?: string) => (keyId ? keyId : null))
 
     mockSelect.mockReturnValue({ from: mockFrom })
     mockFrom.mockReturnValue({ where: mockWhere })
@@ -80,6 +82,7 @@ describe('Chat Edit API Route', () => {
 
     vi.doMock('@/app/api/chat/utils', () => ({
       checkChatAccess: mockCheckChatAccess,
+      resolveDeployApiKeyId: mockResolveDeployApiKeyId,
     }))
   })
 
@@ -206,11 +209,19 @@ describe('Chat Edit API Route', () => {
         authType: 'public',
       }
 
-      mockCheckChatAccess.mockResolvedValue({ hasAccess: true, chat: mockChat })
+      mockCheckChatAccess.mockResolvedValue({
+        hasAccess: true,
+        chat: mockChat,
+        workspaceId: 'workspace-1',
+      })
 
       const req = new NextRequest('http://localhost:3000/api/chat/manage/chat-123', {
         method: 'PATCH',
-        body: JSON.stringify({ title: 'Updated Chat', description: 'Updated description' }),
+        body: JSON.stringify({
+          title: 'Updated Chat',
+          description: 'Updated description',
+          apiKey: 'selected-key-id',
+        }),
       })
       const { PATCH } = await import('@/app/api/chat/manage/[id]/route')
       const response = await PATCH(req, { params: Promise.resolve({ id: 'chat-123' }) })
@@ -267,11 +278,15 @@ describe('Chat Edit API Route', () => {
         password: null,
       }
 
-      mockCheckChatAccess.mockResolvedValue({ hasAccess: true, chat: mockChat })
+      mockCheckChatAccess.mockResolvedValue({
+        hasAccess: true,
+        chat: mockChat,
+        workspaceId: 'workspace-1',
+      })
 
       const req = new NextRequest('http://localhost:3000/api/chat/manage/chat-123', {
         method: 'PATCH',
-        body: JSON.stringify({ authType: 'password' }), // No password provided
+        body: JSON.stringify({ authType: 'password', apiKey: 'selected-key-id' }), // No password provided
       })
       const { PATCH } = await import('@/app/api/chat/manage/[id]/route')
       const response = await PATCH(req, { params: Promise.resolve({ id: 'chat-123' }) })
@@ -298,17 +313,55 @@ describe('Chat Edit API Route', () => {
       }
 
       // User doesn't own chat but has workspace admin access
-      mockCheckChatAccess.mockResolvedValue({ hasAccess: true, chat: mockChat })
+      mockCheckChatAccess.mockResolvedValue({
+        hasAccess: true,
+        chat: mockChat,
+        workspaceId: 'workspace-1',
+      })
 
       const req = new NextRequest('http://localhost:3000/api/chat/manage/chat-123', {
         method: 'PATCH',
-        body: JSON.stringify({ title: 'Admin Updated Chat' }),
+        body: JSON.stringify({ title: 'Admin Updated Chat', apiKey: 'selected-key-id' }),
       })
       const { PATCH } = await import('@/app/api/chat/manage/[id]/route')
       const response = await PATCH(req, { params: Promise.resolve({ id: 'chat-123' }) })
 
       expect(response.status).toBe(200)
       expect(mockCheckChatAccess).toHaveBeenCalledWith('chat-123', 'admin-user-id')
+    })
+
+    it('should require API key when workflow has no pinned billing key', async () => {
+      vi.doMock('@/lib/auth', () => ({
+        getSession: vi.fn().mockResolvedValue({
+          user: { id: 'user-id' },
+        }),
+      }))
+
+      const mockChat = {
+        id: 'chat-123',
+        identifier: 'test-chat',
+        title: 'Test Chat',
+        authType: 'public',
+      }
+
+      mockCheckChatAccess.mockResolvedValue({
+        hasAccess: true,
+        chat: mockChat,
+        workspaceId: 'workspace-1',
+      })
+
+      const req = new NextRequest('http://localhost:3000/api/chat/manage/chat-123', {
+        method: 'PATCH',
+        body: JSON.stringify({ title: 'Updated Chat' }),
+      })
+      const { PATCH } = await import('@/app/api/chat/manage/[id]/route')
+      const response = await PATCH(req, { params: Promise.resolve({ id: 'chat-123' }) })
+
+      expect(response.status).toBe(400)
+      expect(mockCreateErrorResponse).toHaveBeenCalledWith(
+        'API key is required. Please create or select an API key before deploying.',
+        400
+      )
     })
   })
 

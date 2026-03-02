@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
-import { chat, workflow } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
+import { apiKey, chat, workflow } from '@tradinggoose/db/schema'
+import { and, eq, gte, isNull, or } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { isDev } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -46,7 +46,7 @@ export async function checkWorkflowAccessForChatCreation(
 export async function checkChatAccess(
   chatId: string,
   userId: string
-): Promise<{ hasAccess: boolean; chat?: any }> {
+): Promise<{ hasAccess: boolean; chat?: any; workspaceId?: string | null }> {
   const chatData = await db
     .select({
       chat: chat,
@@ -64,17 +64,51 @@ export async function checkChatAccess(
   const { chat: chatRecord, workflowWorkspaceId } = chatData[0]
 
   if (chatRecord.userId === userId) {
-    return { hasAccess: true, chat: chatRecord }
+    return { hasAccess: true, chat: chatRecord, workspaceId: workflowWorkspaceId }
   }
 
   if (workflowWorkspaceId) {
     const hasAdmin = await hasAdminPermission(userId, workflowWorkspaceId)
     if (hasAdmin) {
-      return { hasAccess: true, chat: chatRecord }
+      return { hasAccess: true, chat: chatRecord, workspaceId: workflowWorkspaceId }
     }
   }
 
   return { hasAccess: false }
+}
+
+/**
+ * Resolve and validate an API key id that can be pinned for workflow deployment billing.
+ * Returns null when no key is provided or key is invalid for this user/workflow workspace.
+ */
+export async function resolveDeployApiKeyId(
+  keyId: string | undefined,
+  userId: string,
+  workspaceId?: string | null
+): Promise<string | null> {
+  const trimmedKeyId = keyId?.trim()
+  if (!trimmedKeyId) return null
+
+  const accessConditions = [
+    and(eq(apiKey.userId, userId), eq(apiKey.type, 'personal')),
+    ...(workspaceId
+      ? [and(eq(apiKey.workspaceId, workspaceId), eq(apiKey.type, 'workspace'))]
+      : []),
+  ]
+
+  const [matchingKey] = await db
+    .select({ id: apiKey.id })
+    .from(apiKey)
+    .where(
+      and(
+        eq(apiKey.id, trimmedKeyId),
+        or(...accessConditions),
+        or(isNull(apiKey.expiresAt), gte(apiKey.expiresAt, new Date()))
+      )
+    )
+    .limit(1)
+
+  return matchingKey?.id ?? null
 }
 
 export const encryptAuthToken = (chatId: string, type: string): string => {
