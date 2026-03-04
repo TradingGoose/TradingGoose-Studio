@@ -1,8 +1,8 @@
 'use client'
 
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState, type KeyboardEvent } from 'react'
 import type { DragOverEvent, UniqueIdentifier } from '@dnd-kit/core'
-import { ChevronRight, GripVertical, Trash2, X } from 'lucide-react'
+import { ChevronRight, GripVertical, Pencil, Trash2, X } from 'lucide-react'
 import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import {
   AlertDialog,
@@ -49,7 +49,7 @@ import {
   resolveDraggedListingId,
   resolveDropTarget,
   type WatchlistDropTarget,
-  WATCHLIST_UNSECTIONED_SORTABLE_ID,
+  WATCHLIST_ROOT_SORTABLE_ID,
 } from '@/widgets/widgets/watchlist/components/watchlist-reorder'
 import {
   resolveWatchlistAssetClass,
@@ -65,6 +65,7 @@ type WatchlistTableProps = {
   onSortChange: (next: WatchlistSort | null) => void
   onReorderItems: (orderedItemIds: string[]) => Promise<void>
   onRemoveItem: (itemId: string) => Promise<void> | void
+  onRenameSection: (sectionId: string, label: string) => Promise<void> | void
   onRemoveSection: (sectionId: string) => Promise<void> | void
   isMutating?: boolean
 }
@@ -107,6 +108,7 @@ export const WatchlistTable = ({
   onSortChange,
   onReorderItems,
   onRemoveItem,
+  onRenameSection,
   onRemoveSection,
   isMutating = false,
 }: WatchlistTableProps) => {
@@ -114,6 +116,8 @@ export const WatchlistTable = ({
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
   const [dropTarget, setDropTarget] = useState<WatchlistDropTarget | null>(null)
   const [sectionToDelete, setSectionToDelete] = useState<WatchlistSectionItem | null>(null)
+  const [editingSectionId, setEditingSectionId] = useState<string | null>(null)
+  const [editingSectionLabel, setEditingSectionLabel] = useState('')
 
   const parsedRows = useMemo(() => {
     const unsectionedRows: ListingRowEntry[] = []
@@ -220,7 +224,7 @@ export const WatchlistTable = ({
     const next: UniqueIdentifier[] = []
 
     if (dragEnabled && hasSections) {
-      next.push(WATCHLIST_UNSECTIONED_SORTABLE_ID)
+      next.push(WATCHLIST_ROOT_SORTABLE_ID)
     }
 
     displayedUnsectionedRows.forEach((row) => {
@@ -295,6 +299,48 @@ export const WatchlistTable = ({
     setDropTarget(null)
   }
 
+  const cancelSectionRename = () => {
+    setEditingSectionId(null)
+    setEditingSectionLabel('')
+  }
+
+  const startSectionRename = (section: WatchlistSectionItem) => {
+    if (isMutating) return
+    setEditingSectionId(section.id)
+    setEditingSectionLabel(section.label)
+  }
+
+  const commitSectionRename = async (section: WatchlistSectionItem) => {
+    const nextLabel = editingSectionLabel.trim()
+    if (!nextLabel || nextLabel === section.label) {
+      cancelSectionRename()
+      return
+    }
+
+    try {
+      await onRenameSection(section.id, nextLabel)
+      cancelSectionRename()
+    } catch {
+      // Keep edit mode active so the user can retry.
+    }
+  }
+
+  const handleSectionRenameKeyDown = (
+    event: KeyboardEvent<HTMLInputElement>,
+    section: WatchlistSectionItem
+  ) => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      void commitSectionRename(section)
+      return
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      cancelSectionRename()
+    }
+  }
+
   if (!watchlist || !hasAnyListing) {
     return (
       <div className='flex h-full items-center justify-center text-muted-foreground text-xs'>
@@ -315,7 +361,7 @@ export const WatchlistTable = ({
 
     return (
       <SortableItem key={row.item.id} value={sortableId} asChild>
-        <TableRow className={isDropBefore ? 'border-primary border-t-2' : undefined}>
+        <TableRow className={isDropBefore ? 'group/listing border-primary border-t-2' : 'group/listing'}>
           <TableCell>
             <div className='flex min-w-0 items-center gap-2'>
               <SortableItemHandle asChild disabled={!dragEnabled}>
@@ -366,7 +412,7 @@ export const WatchlistTable = ({
                 <Button
                   size='icon'
                   variant='ghost'
-                  className='h-6 w-6'
+                  className='h-6 w-6 opacity-0 pointer-events-none transition-opacity group-hover/listing:opacity-100 group-hover/listing:pointer-events-auto group-focus-within/listing:opacity-100 group-focus-within/listing:pointer-events-auto'
                   onClick={() => {
                     void onRemoveItem(row.item.id)
                   }}
@@ -431,11 +477,9 @@ export const WatchlistTable = ({
           <SortableContent withoutSlot>
             <TableBody>
               {dragEnabled && hasSections ? (
-                <SortableItem value={WATCHLIST_UNSECTIONED_SORTABLE_ID} asChild>
-                  <TableRow className={dropTarget?.type === 'unsectioned' ? 'bg-muted/50' : undefined}>
-                    <TableCell colSpan={6} className='py-1 text-muted-foreground text-xs'>
-                      Drop here to move outside sections
-                    </TableCell>
+                <SortableItem value={WATCHLIST_ROOT_SORTABLE_ID} asChild>
+                  <TableRow className={dropTarget?.type === 'root' ? 'bg-muted/50' : undefined}>
+                    <TableCell colSpan={6} className='h-2 p-0' />
                   </TableRow>
                 </SortableItem>
               ) : null}
@@ -447,11 +491,12 @@ export const WatchlistTable = ({
                 const isDropSection =
                   dropTarget?.type === 'section' && dropTarget.sectionId === section.section.id
                 const sectionSortableId = createWatchlistSectionSortableId(section.section.id)
+                const isEditingSection = editingSectionId === section.section.id
 
                 return (
                   <Fragment key={section.section.id}>
                     <SortableItem value={sectionSortableId} asChild>
-                      <TableRow className={isDropSection ? 'bg-muted/60' : 'bg-muted/40'}>
+                      <TableRow className={isDropSection ? 'group/section bg-muted/60' : 'group/section bg-muted/40'}>
                         <TableCell colSpan={6} className='py-1'>
                           <div className='flex items-center gap-1'>
                             <Button
@@ -474,16 +519,56 @@ export const WatchlistTable = ({
                                 {isExpanded ? 'Collapse section' : 'Expand section'}
                               </span>
                             </Button>
-                            <span className='font-semibold text-[11px] text-muted-foreground tracking-wide'>
-                              {section.section.label}
-                            </span>
-                            <span className='ml-auto'>
+                            {isEditingSection ? (
+                              <input
+                                value={editingSectionLabel}
+                                onChange={(event) => setEditingSectionLabel(event.target.value)}
+                                onKeyDown={(event) => handleSectionRenameKeyDown(event, section.section)}
+                                onBlur={() => {
+                                  void commitSectionRename(section.section)
+                                }}
+                                onPointerDown={(event) => event.stopPropagation()}
+                                onClick={(event) => event.stopPropagation()}
+                                className='h-6 w-full max-w-56 rounded-sm border border-border bg-background px-2 text-[11px] text-foreground'
+                                maxLength={100}
+                                disabled={isMutating}
+                                autoFocus
+                              />
+                            ) : (
+                              <span className='font-semibold text-[11px] text-muted-foreground tracking-wide'>
+                                {section.section.label}
+                              </span>
+                            )}
+                            <span
+                              className={
+                                isEditingSection
+                                  ? 'ml-auto flex items-center gap-1 opacity-100 pointer-events-auto'
+                                  : 'ml-auto flex items-center gap-1 opacity-0 pointer-events-none transition-opacity group-hover/section:opacity-100 group-hover/section:pointer-events-auto group-focus-within/section:opacity-100 group-focus-within/section:pointer-events-auto'
+                              }
+                            >
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <Button
                                     size='icon'
                                     variant='ghost'
                                     className='h-6 w-6'
+                                    onPointerDown={(event) => event.stopPropagation()}
+                                    onClick={() => startSectionRename(section.section)}
+                                    disabled={isMutating || isEditingSection}
+                                  >
+                                    <Pencil className='h-3.5 w-3.5' />
+                                    <span className='sr-only'>Rename section</span>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side='top'>Rename section</TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size='icon'
+                                    variant='ghost'
+                                    className='h-6 w-6'
+                                    onPointerDown={(event) => event.stopPropagation()}
                                     onClick={() => setSectionToDelete(section.section)}
                                     disabled={isMutating}
                                   >

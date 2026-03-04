@@ -3,12 +3,13 @@ import type { WatchlistItem } from '@/lib/watchlists/types'
 export type WatchlistDropTarget =
   | { type: 'before'; itemId: string }
   | { type: 'section'; sectionId: string }
-  | { type: 'unsectioned' }
+  | { type: 'root' }
 
 const LISTING_SORTABLE_PREFIX = 'watchlist-listing:'
 const SECTION_SORTABLE_PREFIX = 'watchlist-section:'
 
 export const WATCHLIST_UNSECTIONED_SORTABLE_ID = 'watchlist-unsectioned'
+export const WATCHLIST_ROOT_SORTABLE_ID = WATCHLIST_UNSECTIONED_SORTABLE_ID
 
 export const createWatchlistListingSortableId = (itemId: string) =>
   `${LISTING_SORTABLE_PREFIX}${itemId}`
@@ -22,8 +23,8 @@ export const resolveDraggedListingId = (sortableId: string) => {
 }
 
 export const resolveDropTarget = (sortableId: string): WatchlistDropTarget | null => {
-  if (sortableId === WATCHLIST_UNSECTIONED_SORTABLE_ID) {
-    return { type: 'unsectioned' }
+  if (sortableId === WATCHLIST_ROOT_SORTABLE_ID) {
+    return { type: 'root' }
   }
 
   if (sortableId.startsWith(LISTING_SORTABLE_PREFIX)) {
@@ -51,7 +52,7 @@ const resolveSectionAppendIndex = (items: WatchlistItem[], sectionId: string) =>
   return items.length
 }
 
-const resolveUnsectionedInsertIndex = (items: WatchlistItem[]) => {
+const resolveRootInsertIndex = (items: WatchlistItem[]) => {
   const firstSectionIndex = items.findIndex((item) => item.type === 'section')
   return firstSectionIndex === -1 ? items.length : firstSectionIndex
 }
@@ -77,7 +78,7 @@ export const moveWatchlistListingItem = (
   } else if (target.type === 'section') {
     insertIndex = resolveSectionAppendIndex(remaining, target.sectionId)
   } else {
-    insertIndex = resolveUnsectionedInsertIndex(remaining)
+    insertIndex = resolveRootInsertIndex(remaining)
   }
 
   if (insertIndex == null) return null

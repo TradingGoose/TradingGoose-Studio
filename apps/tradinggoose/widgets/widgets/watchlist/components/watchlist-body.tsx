@@ -6,6 +6,7 @@ import type { WatchlistSort } from '@/lib/watchlists/types'
 import { useWatchlistQuotes } from '@/hooks/queries/watchlist-quotes'
 import {
   useRemoveWatchlistItem,
+  useRenameWatchlistSection,
   useRemoveWatchlistSection,
   useReorderWatchlistItems,
   useWatchlists,
@@ -57,6 +58,7 @@ export const WatchlistWidgetBody = ({
   } = useWatchlists(workspaceId ?? undefined)
   const reorderMutation = useReorderWatchlistItems()
   const removeItemMutation = useRemoveWatchlistItem()
+  const renameSectionMutation = useRenameWatchlistSection()
   const removeSectionMutation = useRemoveWatchlistSection()
   const lastRefreshAtRef = useRef<number | null>(null)
 
@@ -130,7 +132,10 @@ export const WatchlistWidgetBody = ({
   }, [refreshAt, refetchQuotes])
 
   const isMutating =
-    reorderMutation.isPending || removeItemMutation.isPending || removeSectionMutation.isPending
+    reorderMutation.isPending ||
+    removeItemMutation.isPending ||
+    renameSectionMutation.isPending ||
+    removeSectionMutation.isPending
   const sort: WatchlistSort | null = widgetParams?.sort ?? null
 
   const handleSortChange = (next: WatchlistSort | null) => {
@@ -158,6 +163,16 @@ export const WatchlistWidgetBody = ({
       workspaceId,
       watchlistId: selectedWatchlist.id,
       sectionId,
+    })
+  }
+
+  const handleRenameSection = async (sectionId: string, label: string) => {
+    if (!workspaceId || !selectedWatchlist) return
+    await renameSectionMutation.mutateAsync({
+      workspaceId,
+      watchlistId: selectedWatchlist.id,
+      sectionId,
+      label,
     })
   }
 
@@ -204,6 +219,7 @@ export const WatchlistWidgetBody = ({
           onSortChange={handleSortChange}
           onReorderItems={handleReorderItems}
           onRemoveItem={handleRemoveItem}
+          onRenameSection={handleRenameSection}
           onRemoveSection={handleRemoveSection}
           isMutating={isMutating}
         />

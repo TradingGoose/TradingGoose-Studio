@@ -290,6 +290,44 @@ export function useAddWatchlistSection() {
   })
 }
 
+export function useRenameWatchlistSection() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      workspaceId,
+      watchlistId,
+      sectionId,
+      label,
+    }: {
+      workspaceId: string
+      watchlistId: string
+      sectionId: string
+      label: string
+    }) => {
+      const response = await fetch(`/api/watchlists/${watchlistId}/items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspaceId,
+          action: 'renameSection',
+          sectionId,
+          label,
+        }),
+      })
+
+      const payload = await parseJson<{ watchlist?: WatchlistRecord; error?: string }>(response)
+      if (!response.ok || !payload.watchlist) {
+        throw new Error(payload.error || 'Failed to rename section')
+      }
+      return payload.watchlist
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: watchlistKeys.list(variables.workspaceId) })
+    },
+  })
+}
+
 export function useRemoveWatchlistItem() {
   const queryClient = useQueryClient()
 

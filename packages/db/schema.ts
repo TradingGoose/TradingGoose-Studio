@@ -664,17 +664,72 @@ export const watchlistTable = pgTable(
       .references(() => user.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     isSystem: boolean('is_system').notNull().default(false),
-    items: jsonb('items').notNull().default('[]'),
     settings: jsonb('settings').notNull().default('{}'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (table) => ({
-    workspaceUserIdx: index('watchlist_table_workspace_user_idx').on(table.workspaceId, table.userId),
+    workspaceUserIdx: index('watchlist_table_workspace_user_idx').on(
+      table.workspaceId,
+      table.userId
+    ),
     workspaceUserNameUnique: uniqueIndex('watchlist_table_workspace_user_name_unique').on(
       table.workspaceId,
       table.userId,
       table.name
+    ),
+  })
+)
+
+export const watchlistSection = pgTable(
+  'watchlist_section',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    watchlistId: uuid('watchlist_id')
+      .notNull()
+      .references(() => watchlistTable.id, { onDelete: 'cascade' }),
+    parentId: uuid('parent_id'),
+    label: text('label').notNull(),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    watchlistIdIdx: index('watchlist_section_watchlist_id_idx').on(table.watchlistId),
+    watchlistParentIdx: index('watchlist_section_watchlist_parent_idx').on(
+      table.watchlistId,
+      table.parentId
+    ),
+    parentSortIdx: index('watchlist_section_parent_sort_idx').on(table.parentId, table.sortOrder),
+  })
+)
+
+export const watchlistItem = pgTable(
+  'watchlist_item',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    watchlistId: uuid('watchlist_id')
+      .notNull()
+      .references(() => watchlistTable.id, { onDelete: 'cascade' }),
+    sectionId: uuid('section_id').references(() => watchlistSection.id, { onDelete: 'cascade' }),
+    listing: jsonb('listing').notNull(),
+    listingKey: text('listing_key').notNull(),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    watchlistIdx: index('watchlist_item_watchlist_idx').on(table.watchlistId),
+    watchlistSectionSortIdx: index('watchlist_item_watchlist_section_sort_idx').on(
+      table.watchlistId,
+      table.sectionId,
+      table.sortOrder
+    ),
+    sectionSortIdx: index('watchlist_item_section_sort_idx').on(table.sectionId, table.sortOrder),
+    listingKeyIdx: index('watchlist_item_listing_key_idx').on(table.listingKey),
+    watchlistListingUnique: uniqueIndex('watchlist_item_watchlist_listing_unique').on(
+      table.watchlistId,
+      table.listingKey
     ),
   })
 )

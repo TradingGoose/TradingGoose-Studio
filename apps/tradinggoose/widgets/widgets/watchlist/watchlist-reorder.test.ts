@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest'
 import type { WatchlistItem } from '@/lib/watchlists/types'
 import {
   createWatchlistListingSortableId,
+  WATCHLIST_ROOT_SORTABLE_ID,
   createWatchlistSectionSortableId,
   moveWatchlistListingItem,
   resolveDraggedListingId,
   resolveDropTarget,
-  WATCHLIST_UNSECTIONED_SORTABLE_ID,
 } from '@/widgets/widgets/watchlist/components/watchlist-reorder'
 
 const listing = (id: string): WatchlistItem => ({
@@ -43,10 +43,10 @@ describe('watchlist reorder helpers', () => {
     expect(next?.map((item) => item.id)).toEqual(['s1', 'b', 'c', 'a', 's2', 'd'])
   })
 
-  it('moves a listing to unsectioned area before first section', () => {
+  it('moves a listing to root area before first section', () => {
     const items = [section('s1'), listing('a'), listing('b'), section('s2'), listing('c')]
 
-    const next = moveWatchlistListingItem(items, 'c', { type: 'unsectioned' })
+    const next = moveWatchlistListingItem(items, 'c', { type: 'root' })
 
     expect(next?.map((item) => item.id)).toEqual(['c', 's1', 'a', 'b', 's2'])
   })
@@ -69,7 +69,7 @@ describe('watchlist reorder helpers', () => {
 
     expect(resolveDropTarget(listingSortableId)).toEqual({ type: 'before', itemId: 'l1' })
     expect(resolveDropTarget(sectionSortableId)).toEqual({ type: 'section', sectionId: 's1' })
-    expect(resolveDropTarget(WATCHLIST_UNSECTIONED_SORTABLE_ID)).toEqual({ type: 'unsectioned' })
+    expect(resolveDropTarget(WATCHLIST_ROOT_SORTABLE_ID)).toEqual({ type: 'root' })
     expect(resolveDropTarget('unknown')).toBeNull()
   })
 })
