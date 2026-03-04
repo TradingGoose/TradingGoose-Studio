@@ -43,12 +43,15 @@ describe('Watchlist quotes API route', () => {
     const request = createMockRequest('POST', {
       workspaceId: 'workspace-1',
       provider: 'alpaca',
-      listings: [
+      items: [
         {
-          listing_id: 'AAPL',
-          base_id: '',
-          quote_id: '',
-          listing_type: 'default',
+          itemId: 'item-1',
+          listing: {
+            listing_id: 'AAPL',
+            base_id: '',
+            quote_id: '',
+            listing_type: 'default',
+          },
         },
       ],
     })
@@ -81,12 +84,15 @@ describe('Watchlist quotes API route', () => {
     const request = createMockRequest('POST', {
       workspaceId: 'workspace-1',
       provider: 'alpaca',
-      listings: [
+      items: [
         {
-          listing_id: 'AAPL',
-          base_id: '',
-          quote_id: '',
-          listing_type: 'default',
+          itemId: 'item-1',
+          listing: {
+            listing_id: 'AAPL',
+            base_id: '',
+            quote_id: '',
+            listing_type: 'default',
+          },
         },
       ],
     })
@@ -95,7 +101,7 @@ describe('Watchlist quotes API route', () => {
     const payload = await response.json()
 
     expect(response.status).toBe(200)
-    expect(payload.quotes.AAPL).toEqual({
+    expect(payload.quotes['item-1']).toEqual({
       lastPrice: 110,
       change: 10,
       changePercent: 10,
@@ -134,12 +140,15 @@ describe('Watchlist quotes API route', () => {
     const request = createMockRequest('POST', {
       workspaceId: 'workspace-1',
       provider: 'alpaca',
-      listings: [
+      items: [
         {
-          listing_id: 'MSFT',
-          base_id: '',
-          quote_id: '',
-          listing_type: 'default',
+          itemId: 'item-1',
+          listing: {
+            listing_id: 'MSFT',
+            base_id: '',
+            quote_id: '',
+            listing_type: 'default',
+          },
         },
       ],
     })
@@ -148,7 +157,7 @@ describe('Watchlist quotes API route', () => {
     const payload = await response.json()
 
     expect(response.status).toBe(200)
-    expect(payload.quotes.MSFT).toEqual({
+    expect(payload.quotes['item-1']).toEqual({
       lastPrice: 210,
       change: 10,
       changePercent: 5,

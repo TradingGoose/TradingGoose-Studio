@@ -3,7 +3,6 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import {
   type ListingIdentity,
-  resolveListingKey,
   toListingValueObject,
 } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -16,10 +15,15 @@ const logger = createLogger('WatchlistQuotesAPI')
 const QuoteRequestSchema = z.object({
   workspaceId: z.string().trim().min(1, 'workspaceId is required'),
   provider: z.string().trim().min(1, 'provider is required'),
-  listings: z
-    .array(z.any())
-    .min(1, 'listings is required')
-    .max(200, 'listings supports up to 200 entries'),
+  items: z
+    .array(
+      z.object({
+        itemId: z.string().trim().min(1, 'itemId is required'),
+        listing: z.any(),
+      })
+    )
+    .min(1, 'items is required')
+    .max(200, 'items supports up to 200 entries'),
   auth: z
     .object({
       apiKey: z.string().optional(),
@@ -182,19 +186,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    const normalizedListings: ListingIdentity[] = parsed.listings
-      .map((candidate) => toListingValueObject(candidate))
-      .filter((value): value is ListingIdentity => Boolean(value))
+    const normalizedItems = parsed.items
+      .map((candidate) => ({
+        itemId: candidate.itemId.trim(),
+        listing: toListingValueObject(candidate.listing),
+      }))
+      .filter(
+        (value): value is { itemId: string; listing: ListingIdentity } =>
+          value.itemId.length > 0 && Boolean(value.listing)
+      )
 
     const quotes: Record<string, QuoteSnapshot> = {}
 
-    for (let index = 0; index < normalizedListings.length; index += BATCH_SIZE) {
-      const batch = normalizedListings.slice(index, index + BATCH_SIZE)
+    for (let index = 0; index < normalizedItems.length; index += BATCH_SIZE) {
+      const batch = normalizedItems.slice(index, index + BATCH_SIZE)
       const snapshots = await Promise.all(
-        batch.map((listing) =>
+        batch.map((entry) =>
           buildQuoteSnapshot({
             provider: parsed.provider,
-            listing,
+            listing: entry.listing,
             auth: parsed.auth,
             providerParams: parsed.providerParams,
           })
@@ -202,10 +212,9 @@ export async function POST(request: NextRequest) {
       )
 
       snapshots.forEach((snapshot, batchIndex) => {
-        const listing = batch[batchIndex]
-        const key = resolveListingKey(listing)
-        if (!key) return
-        quotes[key] = snapshot
+        const itemId = batch[batchIndex]?.itemId
+        if (!itemId) return
+        quotes[itemId] = snapshot
       })
     }
 

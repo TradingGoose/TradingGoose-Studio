@@ -32,7 +32,6 @@ import {
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { ListingIdentity, ListingOption } from '@/lib/listing/identity'
-import { resolveListingKey } from '@/lib/listing/identity'
 import type {
   WatchlistColumnKey,
   WatchlistListingItem,
@@ -73,7 +72,7 @@ type WatchlistTableProps = {
 type ListingRowEntry = {
   item: WatchlistListingItem
   listing: ListingIdentity
-  key: string
+  itemId: string
 }
 
 type SectionBlock = {
@@ -112,7 +111,7 @@ export const WatchlistTable = ({
   onRemoveSection,
   isMutating = false,
 }: WatchlistTableProps) => {
-  const [resolvedByKey, setResolvedByKey] = useState<Record<string, ListingOption | null>>({})
+  const [resolvedByItemId, setResolvedByItemId] = useState<Record<string, ListingOption | null>>({})
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
   const [dropTarget, setDropTarget] = useState<WatchlistDropTarget | null>(null)
   const [sectionToDelete, setSectionToDelete] = useState<WatchlistSectionItem | null>(null)
@@ -132,12 +131,10 @@ export const WatchlistTable = ({
         continue
       }
 
-      const key = resolveListingKey(item.listing)
-      if (!key) continue
       const row: ListingRowEntry = {
         item,
         listing: item.listing,
-        key,
+        itemId: item.id,
       }
 
       if (activeSection) {
@@ -169,23 +166,23 @@ export const WatchlistTable = ({
   }, [parsedRows.sections])
 
   useEffect(() => {
-    const pending = listingRows.filter((entry) => !(entry.key in resolvedByKey))
+    const pending = listingRows.filter((entry) => !(entry.itemId in resolvedByItemId))
     if (pending.length === 0) return
 
     let cancelled = false
     const resolveAll = async () => {
       const resolvedEntries = await Promise.all(
         pending.map(async (entry) => ({
-          key: entry.key,
+          itemId: entry.itemId,
           resolved: await requestListingResolution(entry.listing).catch(() => null),
         }))
       )
 
       if (cancelled) return
-      setResolvedByKey((current) => {
+      setResolvedByItemId((current) => {
         const next = { ...current }
         resolvedEntries.forEach((entry) => {
-          next[entry.key] = entry.resolved
+          next[entry.itemId] = entry.resolved
         })
         return next
       })
@@ -196,16 +193,16 @@ export const WatchlistTable = ({
     return () => {
       cancelled = true
     }
-  }, [listingRows, resolvedByKey])
+  }, [listingRows, resolvedByItemId])
 
   const sortRows = (rows: ListingRowEntry[]) => {
     if (!sort) return rows
-    return sortWatchlistRowsByColumn(rows, sort, quotes, resolvedByKey)
+    return sortWatchlistRowsByColumn(rows, sort, quotes, resolvedByItemId)
   }
 
   const displayedUnsectionedRows = useMemo(
     () => sortRows(parsedRows.unsectionedRows),
-    [parsedRows.unsectionedRows, sort, quotes, resolvedByKey]
+    [parsedRows.unsectionedRows, sort, quotes, resolvedByItemId]
   )
 
   const displayedSections = useMemo(
@@ -214,7 +211,7 @@ export const WatchlistTable = ({
         ...section,
         rows: sortRows(section.rows),
       })),
-    [parsedRows.sections, sort, quotes, resolvedByKey]
+    [parsedRows.sections, sort, quotes, resolvedByItemId]
   )
 
   const hasAnyListing = listingRows.length > 0
@@ -350,8 +347,8 @@ export const WatchlistTable = ({
   }
 
   const renderListingRow = (row: ListingRowEntry) => {
-    const quote = quotes[row.key]
-    const resolved = resolvedByKey[row.key]
+    const quote = quotes[row.itemId]
+    const resolved = resolvedByItemId[row.itemId]
     const listingLabel = resolveWatchlistListingLabel(row.listing, resolved)
     const listingName = resolved?.name?.trim() ?? ''
     const flag = getFlagData(resolved?.countryCode)

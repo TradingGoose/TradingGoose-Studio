@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { ListingIdentity } from '@/lib/listing/identity'
-import { resolveListingKey, toListingValueObject } from '@/lib/listing/identity'
+import { toListingValueObject } from '@/lib/listing/identity'
 
 export type WatchlistQuoteSnapshot = {
   lastPrice: number | null
@@ -13,10 +13,15 @@ export type WatchlistQuoteSnapshot = {
 
 const CHUNK_SIZE = 200
 
-const chunkListings = (listings: ListingIdentity[]) => {
-  const chunks: ListingIdentity[][] = []
-  for (let index = 0; index < listings.length; index += CHUNK_SIZE) {
-    chunks.push(listings.slice(index, index + CHUNK_SIZE))
+export type WatchlistQuoteRequestItem = {
+  itemId: string
+  listing: ListingIdentity
+}
+
+const chunkItems = (items: WatchlistQuoteRequestItem[]) => {
+  const chunks: WatchlistQuoteRequestItem[][] = []
+  for (let index = 0; index < items.length; index += CHUNK_SIZE) {
+    chunks.push(items.slice(index, index + CHUNK_SIZE))
   }
   return chunks
 }
@@ -24,7 +29,7 @@ const chunkListings = (listings: ListingIdentity[]) => {
 type FetchQuotesArgs = {
   workspaceId: string
   provider: string
-  listings: ListingIdentity[]
+  items: WatchlistQuoteRequestItem[]
   auth?: {
     apiKey?: string
     apiSecret?: string
@@ -35,11 +40,11 @@ type FetchQuotesArgs = {
 const fetchWatchlistQuotes = async ({
   workspaceId,
   provider,
-  listings,
+  items,
   auth,
   providerParams,
 }: FetchQuotesArgs): Promise<Record<string, WatchlistQuoteSnapshot>> => {
-  const chunks = chunkListings(listings)
+  const chunks = chunkItems(items)
   const merged: Record<string, WatchlistQuoteSnapshot> = {}
 
   for (const chunk of chunks) {
@@ -49,7 +54,7 @@ const fetchWatchlistQuotes = async ({
       body: JSON.stringify({
         workspaceId,
         provider,
-        listings: chunk,
+        items: chunk,
         auth,
         providerParams,
       }),
@@ -75,7 +80,10 @@ const fetchWatchlistQuotes = async ({
 type UseWatchlistQuotesArgs = {
   workspaceId?: string
   provider?: string
-  listings: Array<ListingIdentity | null | undefined>
+  items: Array<{
+    itemId: string
+    listing: ListingIdentity | null | undefined
+  }>
   auth?: {
     apiKey?: string
     apiSecret?: string
@@ -87,25 +95,29 @@ type UseWatchlistQuotesArgs = {
 export const useWatchlistQuotes = ({
   workspaceId,
   provider,
-  listings,
+  items,
   auth,
   providerParams,
   enabled = true,
 }: UseWatchlistQuotesArgs) => {
-  const normalizedListings = useMemo(
-    () =>
-      listings
-        .map((entry) => (entry ? toListingValueObject(entry) : null))
-        .filter((entry): entry is ListingIdentity => Boolean(entry)),
-    [listings]
-  )
+  const normalizedItems = useMemo(
+    () => {
+      const seen = new Set<string>()
+      const normalized: WatchlistQuoteRequestItem[] = []
 
-  const listingKeys = useMemo(
-    () =>
-      normalizedListings
-        .map((listing) => resolveListingKey(listing) ?? '')
-        .filter((value) => value.length > 0),
-    [normalizedListings]
+      for (const entry of items) {
+        const itemId = entry.itemId.trim()
+        if (!itemId || seen.has(itemId)) continue
+        const listing = toListingValueObject(entry.listing)
+        if (!listing) continue
+
+        seen.add(itemId)
+        normalized.push({ itemId, listing })
+      }
+
+      return normalized
+    },
+    [items]
   )
 
   return useQuery({
@@ -113,18 +125,18 @@ export const useWatchlistQuotes = ({
       'watchlist-quotes',
       workspaceId ?? '',
       provider ?? '',
-      listingKeys.join('|'),
+      JSON.stringify(normalizedItems),
       JSON.stringify(providerParams ?? {}),
     ],
     queryFn: () =>
       fetchWatchlistQuotes({
         workspaceId: workspaceId as string,
         provider: provider as string,
-        listings: normalizedListings,
+        items: normalizedItems,
         auth,
         providerParams,
       }),
-    enabled: enabled && Boolean(workspaceId) && Boolean(provider) && normalizedListings.length > 0,
+    enabled: enabled && Boolean(workspaceId) && Boolean(provider) && normalizedItems.length > 0,
     staleTime: Number.POSITIVE_INFINITY,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,

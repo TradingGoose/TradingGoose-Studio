@@ -107,18 +107,21 @@ export const WatchlistWidgetBody = ({
     })
   }, [fallbackWatchlist, panelId, selectedWatchlistId, shouldSyncFallbackWatchlistId, widgetKey])
 
-  const listingsForQuotes = useMemo(
+  const quoteItems = useMemo(
     () =>
       (selectedWatchlist?.items ?? [])
         .filter((item) => item.type === 'listing')
-        .map((item) => item.listing),
+        .map((item) => ({
+          itemId: item.id,
+          listing: item.listing,
+        })),
     [selectedWatchlist]
   )
 
   const { data: quotes = {}, refetch: refetchQuotes } = useWatchlistQuotes({
     workspaceId: workspaceId ?? undefined,
     provider: providerId || undefined,
-    listings: listingsForQuotes,
+    items: quoteItems,
     auth: widgetParams?.auth,
     providerParams: widgetParams?.providerParams,
     enabled: Boolean(selectedWatchlist),

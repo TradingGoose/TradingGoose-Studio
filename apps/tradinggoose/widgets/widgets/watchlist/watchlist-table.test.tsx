@@ -61,7 +61,7 @@ describe('watchlist table utils', () => {
           quote_id: '',
           listing_type: 'default' as const,
         },
-        key: 'a',
+        itemId: 'a',
       },
       {
         item: {
@@ -80,7 +80,7 @@ describe('watchlist table utils', () => {
           quote_id: '',
           listing_type: 'default' as const,
         },
-        key: 'b',
+        itemId: 'b',
       },
     ]
 
@@ -104,6 +104,6 @@ describe('watchlist table utils', () => {
     }
 
     const sorted = sortWatchlistRowsByColumn(rows, sort, quotes, {})
-    expect(sorted.map((entry) => entry.key)).toEqual(['b', 'a'])
+    expect(sorted.map((entry) => entry.itemId)).toEqual(['b', 'a'])
   })
 })

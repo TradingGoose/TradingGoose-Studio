@@ -2,7 +2,7 @@ import { db } from '@tradinggoose/db'
 import { watchlistItem, watchlistSection, watchlistTable } from '@tradinggoose/db/schema'
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
 import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
-import { resolveListingKey, toListingValueObject } from '@/lib/listing/identity'
+import { areListingIdentitiesEqual, toListingValueObject } from '@/lib/listing/identity'
 import { DEFAULT_WATCHLIST_NAME, MAX_SYMBOLS_PER_WATCHLIST } from '@/lib/watchlists/constants'
 import type { WatchlistItem, WatchlistRecord, WatchlistSettings } from '@/lib/watchlists/types'
 import {
@@ -50,7 +50,7 @@ const mapWatchlistRow = (row: WatchlistRow, items: WatchlistItem[]): WatchlistRe
 const isUniqueViolation = (error: unknown) =>
   error instanceof Error &&
   (error.message.includes('watchlist_table_workspace_user_name_unique') ||
-    error.message.includes('watchlist_item_watchlist_listing_unique') ||
+    error.message.includes('watchlist_item_watchlist_listing_identity_unique') ||
     error.message.toLowerCase().includes('duplicate key'))
 
 const ensureFound = (row: WatchlistRow | undefined) => {
@@ -282,7 +282,11 @@ const getNextSortOrderForItem = async (
   return last ? last.sortOrder + 1 : 0
 }
 
-const listingIdentityKey = (listing: ListingIdentity) => resolveListingKey(listing) ?? ''
+const hasListingIdentity = (items: WatchlistItemRow[], candidate: ListingIdentity) =>
+  items.some((entry) => {
+    const existing = toListingValueObject(entry.listing as ListingInputValue)
+    return existing ? areListingIdentitiesEqual(existing, candidate) : false
+  })
 
 const ensureDefaultWatchlistInTx = async (tx: WatchlistTx, scope: WatchlistScope) => {
   const [existingSystem] = await tx
@@ -544,16 +548,11 @@ export async function addListingToWatchlist(
     throw new WatchlistOperationError('Invalid listing payload', 400)
   }
 
-  const incomingKey = listingIdentityKey(listing)
-  if (!incomingKey) {
-    throw new WatchlistOperationError('Invalid listing identity', 400)
-  }
-
   return db.transaction(async (tx) => {
     const row = await fetchWatchlistRow(tx, watchlistId, scope)
     const { items } = await loadWatchlistRows(tx, row.id)
 
-    if (items.some((entry) => entry.listingKey === incomingKey)) {
+    if (hasListingIdentity(items, listing)) {
       return mapRecordInTx(tx, row)
     }
 
@@ -571,7 +570,6 @@ export async function addListingToWatchlist(
         watchlistId: row.id,
         sectionId: null,
         listing,
-        listingKey: incomingKey,
         sortOrder,
       })
     } catch (error) {
@@ -776,22 +774,26 @@ export async function appendListingsToWatchlist(
     const row = await fetchWatchlistRow(tx, watchlistId, scope)
     const { items } = await loadWatchlistRows(tx, row.id)
 
-    const existingKeys = new Set(items.map((entry) => entry.listingKey).filter(Boolean))
-    const additions: Array<{ listing: ListingIdentity; key: string }> = []
+    const existingListings = items
+      .map((entry) => toListingValueObject(entry.listing as ListingInputValue))
+      .filter((entry): entry is ListingIdentity => Boolean(entry))
+    const additions: ListingIdentity[] = []
 
     let skippedCount = 0
 
     for (const candidate of listings) {
       const listing = toListingValueObject(candidate)
-      const key = listing ? listingIdentityKey(listing) : ''
+      const isDuplicate =
+        listing &&
+        (existingListings.some((entry) => areListingIdentitiesEqual(entry, listing)) ||
+          additions.some((entry) => areListingIdentitiesEqual(entry, listing)))
 
-      if (!listing || !key || existingKeys.has(key)) {
+      if (!listing || isDuplicate) {
         skippedCount += 1
         continue
       }
 
-      additions.push({ listing, key })
-      existingKeys.add(key)
+      additions.push(listing)
     }
 
     if (items.length + additions.length > MAX_SYMBOLS_PER_WATCHLIST) {
@@ -805,11 +807,10 @@ export async function appendListingsToWatchlist(
       const startSortOrder = await getNextSortOrderForItem(tx, row.id, null)
 
       await tx.insert(watchlistItem).values(
-        additions.map((entry, index) => ({
+        additions.map((listing, index) => ({
           watchlistId: row.id,
           sectionId: null,
-          listing: entry.listing,
-          listingKey: entry.key,
+          listing,
           sortOrder: startSortOrder + index,
         }))
       )

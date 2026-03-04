@@ -713,7 +713,6 @@ export const watchlistItem = pgTable(
       .references(() => watchlistTable.id, { onDelete: 'cascade' }),
     sectionId: uuid('section_id').references(() => watchlistSection.id, { onDelete: 'cascade' }),
     listing: jsonb('listing').notNull(),
-    listingKey: text('listing_key').notNull(),
     sortOrder: integer('sort_order').notNull().default(0),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -726,10 +725,12 @@ export const watchlistItem = pgTable(
       table.sortOrder
     ),
     sectionSortIdx: index('watchlist_item_section_sort_idx').on(table.sectionId, table.sortOrder),
-    listingKeyIdx: index('watchlist_item_listing_key_idx').on(table.listingKey),
-    watchlistListingUnique: uniqueIndex('watchlist_item_watchlist_listing_unique').on(
+    watchlistListingIdentityUnique: uniqueIndex('watchlist_item_watchlist_listing_identity_unique').on(
       table.watchlistId,
-      table.listingKey
+      sql`coalesce(${table.listing}->>'listing_type', '')`,
+      sql`coalesce(${table.listing}->>'listing_id', '')`,
+      sql`coalesce(${table.listing}->>'base_id', '')`,
+      sql`coalesce(${table.listing}->>'quote_id', '')`
     ),
   })
 )

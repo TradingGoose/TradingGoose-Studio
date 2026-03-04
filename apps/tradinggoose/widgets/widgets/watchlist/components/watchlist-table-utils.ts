@@ -4,7 +4,7 @@ import type { WatchlistQuoteSnapshot } from '@/hooks/queries/watchlist-quotes'
 
 export type SortableListingRow = {
   listing: ListingIdentity
-  key: string
+  itemId: string
 }
 
 export const resolveWatchlistValueColorClass = (value: number | null) => {
@@ -49,8 +49,8 @@ export const sortWatchlistRowsByColumn = <TRow extends SortableListingRow>(
 ) => {
   const direction = sort.direction === 'asc' ? 1 : -1
 
-  const numeric = (key: string, column: WatchlistColumnKey) => {
-    const quote = quotes[key]
+  const numeric = (itemId: string, column: WatchlistColumnKey) => {
+    const quote = quotes[itemId]
     if (!quote) return Number.NEGATIVE_INFINITY
     if (column === 'lastPrice') return quote.lastPrice ?? Number.NEGATIVE_INFINITY
     if (column === 'change') return quote.change ?? Number.NEGATIVE_INFINITY
@@ -60,17 +60,17 @@ export const sortWatchlistRowsByColumn = <TRow extends SortableListingRow>(
 
   return [...rows].sort((a, b) => {
     if (sort.column === 'listing') {
-      const left = resolveWatchlistListingLabel(a.listing, resolved[a.key]).toLowerCase()
-      const right = resolveWatchlistListingLabel(b.listing, resolved[b.key]).toLowerCase()
+      const left = resolveWatchlistListingLabel(a.listing, resolved[a.itemId]).toLowerCase()
+      const right = resolveWatchlistListingLabel(b.listing, resolved[b.itemId]).toLowerCase()
       return left.localeCompare(right) * direction
     }
 
     if (sort.column === 'assetClass') {
-      const left = resolveWatchlistAssetClass(a.listing, resolved[a.key]).toLowerCase()
-      const right = resolveWatchlistAssetClass(b.listing, resolved[b.key]).toLowerCase()
+      const left = resolveWatchlistAssetClass(a.listing, resolved[a.itemId]).toLowerCase()
+      const right = resolveWatchlistAssetClass(b.listing, resolved[b.itemId]).toLowerCase()
       return left.localeCompare(right) * direction
     }
 
-    return (numeric(a.key, sort.column) - numeric(b.key, sort.column)) * direction
+    return (numeric(a.itemId, sort.column) - numeric(b.itemId, sort.column)) * direction
   })
 }

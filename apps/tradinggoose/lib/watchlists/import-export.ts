@@ -1,6 +1,6 @@
 import type { WatchlistItem } from '@/lib/watchlists/types'
 import { normalizeWatchlistItems } from '@/lib/watchlists/validation'
-import { resolveListingKey } from '@/lib/listing/identity'
+import type { ListingIdentity } from '@/lib/listing/identity'
 
 const cleanToken = (value: string) => value.trim().replace(/^['"]|['"]$/g, '')
 
@@ -47,11 +47,16 @@ export const exportWatchlistItemsAsText = (itemsInput: unknown): string => {
   const items = normalizeWatchlistItems(itemsInput)
   const symbols: string[] = []
 
+  const toSymbol = (listing: ListingIdentity) =>
+    listing.listing_type === 'default'
+      ? listing.listing_id
+      : `${listing.base_id}:${listing.quote_id}`
+
   for (const item of items) {
     if (item.type !== 'listing') continue
-    const key = resolveListingKey(item.listing)
-    if (!key) continue
-    symbols.push(key)
+    const symbol = toSymbol(item.listing).trim()
+    if (!symbol) continue
+    symbols.push(symbol)
   }
 
   return symbols.join(',')
