@@ -47,6 +47,28 @@ const readListingType = (record: Record<string, unknown>): ListingType | undefin
   return isListingType(raw) ? raw : undefined
 }
 
+export const resolveListingKey = (value: ListingInputValue): string | undefined => {
+  if (!value) return undefined
+  if (typeof value === 'string') return value
+
+  const record = value as Record<string, unknown>
+  const listingType = readListingType(record)
+  if (!listingType) return undefined
+  const listingId = readListingField(record, 'listing_id')
+  const baseId = readListingField(record, 'base_id')
+  const quoteId = readListingField(record, 'quote_id')
+
+  if (listingType === 'default') {
+    return listingId
+  }
+
+  if (baseId && quoteId) {
+    return `${baseId}:${quoteId}`
+  }
+
+  return undefined
+}
+
 export const toListingValue = (
   listing: ListingOption | null | undefined
 ): ListingIdentity | null => {
