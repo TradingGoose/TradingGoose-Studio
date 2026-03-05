@@ -31,7 +31,7 @@ const PermissionSelector = React.memo<PermissionSelectorProps>(
 
     return (
       <div
-        className={cn('inline-flex rounded-[12px] border border-input bg-background', className)}
+        className={cn('inline-flex rounded-lg border border-input bg-background', className)}
       >
         {permissionOptions.map((option, index) => (
           <button
