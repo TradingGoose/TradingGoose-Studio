@@ -23,11 +23,11 @@ const BADGE_STYLES: Record<ValueType, string> = {
 }
 
 const STYLES = {
-  row: 'group flex min-h-[22px] cursor-pointer items-center gap-[6px] rounded-[8px] px-[6px] -mx-[6px] hover:bg-muted/60',
+  row: 'group flex min-h-[22px] cursor-pointer items-center gap-[6px] rounded-md px-[6px] -mx-[6px] hover:bg-muted/60',
   chevron:
     'h-[8px] w-[8px] flex-shrink-0 text-muted-foreground transition-transform duration-100 group-hover:text-foreground',
   keyName: 'font-medium text-[13px] text-foreground',
-  badge: 'rounded-[4px] px-[4px] py-[0px] text-[11px]',
+  badge: 'rounded-sm px-[4px] py-[0px] text-[11px]',
   summary: 'text-[12px] text-muted-foreground',
   indent: 'mt-[2px] ml-[3px] flex min-w-0 flex-col gap-[2px] border-l border-border pl-[9px]',
   value: 'min-w-0 py-[2px] text-[13px] text-foreground',
