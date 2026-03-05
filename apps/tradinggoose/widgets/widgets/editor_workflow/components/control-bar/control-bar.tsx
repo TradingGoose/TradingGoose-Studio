@@ -94,13 +94,8 @@ export function ControlBar({
   const { data: session } = useSession()
   const { workflowId, channelId } = useWorkflowRoute()
   // Store hooks
-  const { lastSaved, setNeedsRedeploymentFlag, blocks } = useWorkflowStore()
-  const {
-    workflows,
-    updateWorkflow,
-    setDeploymentStatus,
-    isLoading: isRegistryLoading,
-  } = useWorkflowRegistry()
+  const { setNeedsRedeploymentFlag, blocks } = useWorkflowStore()
+  const isRegistryLoading = useWorkflowRegistry((state) => state.isLoading)
   const activeWorkflowId = workflowId
   const { isExecuting, handleRunWorkflow, handleCancelExecution } = useWorkflowExecution()
 
@@ -112,7 +107,6 @@ export function ControlBar({
     useWorkflowExecution()
 
   // Local state
-  const [mounted, setMounted] = useState(false)
   const [, forceUpdate] = useState({})
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
   const [isAutoLayouting, setIsAutoLayouting] = useState(false)
@@ -155,11 +149,6 @@ export function ControlBar({
     state.getWorkflowDeploymentStatus(activeWorkflowId)
   )
   const isDeployed = deploymentStatus?.isDeployed || false
-
-  // Client-side only rendering for the timestamp
-  useEffect(() => {
-    setMounted(true)
-  }, [])
 
   // Update the time display every minute
   useEffect(() => {
@@ -298,7 +287,7 @@ export function ControlBar({
 
   useEffect(() => {
     if (session?.user?.id && !isRegistryLoading) {
-      checkUserUsage(session.user.id).then((usage) => {
+      checkUserUsage().then((usage) => {
         if (usage) {
           setUsageExceeded(usage.isExceeded)
           setUsageData(usage)
@@ -310,7 +299,7 @@ export function ControlBar({
   /**
    * Check user usage limits and cache results
    */
-  async function checkUserUsage(userId: string, forceRefresh = false): Promise<any | null> {
+  async function checkUserUsage(forceRefresh = false): Promise<any | null> {
     const now = Date.now()
     const cacheAge = now - usageDataCache.timestamp
 

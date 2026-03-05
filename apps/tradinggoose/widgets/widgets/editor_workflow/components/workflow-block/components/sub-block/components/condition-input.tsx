@@ -44,6 +44,21 @@ const generateStableId = (blockId: string, suffix: string): string => {
   return `${blockId}-${suffix}`
 }
 
+const applyConditionBlockTitles = (blocks: ConditionalBlock[]): ConditionalBlock[] => {
+  return blocks.map((block, index) => ({
+    ...block,
+    title: index === 0 ? 'if' : index === blocks.length - 1 ? 'else' : 'else if',
+  }))
+}
+
+const updateConditionBlock = (
+  blocks: ConditionalBlock[],
+  targetBlockId: string,
+  updateFn: (block: ConditionalBlock) => ConditionalBlock
+): ConditionalBlock[] => {
+  return blocks.map((block) => (block.id === targetBlockId ? updateFn(block) : block))
+}
+
 export function ConditionInput({
   blockId,
   subBlockId,
@@ -157,6 +172,23 @@ export function ConditionInput({
   const [conditionalBlocks, setConditionalBlocks] = useState<ConditionalBlock[]>([])
   const [isReady, setIsReady] = useState(false)
 
+  const setConditionalBlock = (
+    targetBlockId: string,
+    updateFn: (block: ConditionalBlock) => ConditionalBlock
+  ) => {
+    setConditionalBlocks((blocks) => updateConditionBlock(blocks, targetBlockId, updateFn))
+  }
+
+  const focusEditor = (targetBlockId: string, cursorOffset?: number) => {
+    setTimeout(() => {
+      const editorHandle = editorRefs.current[targetBlockId]
+      editorHandle?.focus()
+      if (cursorOffset !== undefined) {
+        editorHandle?.setCursorOffset(cursorOffset)
+      }
+    }, 0)
+  }
+
   // Reset initialization state when blockId changes (workflow navigation)
   useEffect(() => {
     if (blockId !== previousBlockIdRef.current) {
@@ -230,12 +262,7 @@ export function ConditionInput({
       const parsedBlocks = safeParseJSON(effectiveValueStr)
 
       if (parsedBlocks) {
-        const blocksWithCorrectTitles = parsedBlocks.map((block, index) => ({
-          ...block,
-          title: index === 0 ? 'if' : index === parsedBlocks.length - 1 ? 'else' : 'else if',
-        }))
-
-        setConditionalBlocks(blocksWithCorrectTitles)
+        setConditionalBlocks(applyConditionBlockTitles(parsedBlocks))
         hasInitializedRef.current = true
         if (!isReady) setIsReady(true)
         shouldPersistRef.current = false
@@ -302,153 +329,59 @@ export function ConditionInput({
       const dropPosition = editorHandle?.getCursorOffset() ?? currentValue.length
 
       shouldPersistRef.current = true
-      setConditionalBlocks((blocks) =>
-        blocks.map((block) => {
-          if (block.id === blockId) {
-            const newValue = `${currentValue.slice(0, dropPosition)}<${currentValue.slice(dropPosition)}`
-            return {
-              ...block,
-              value: newValue,
-              showTags: true,
-              cursorPosition: dropPosition + 1,
-              activeSourceBlockId: data.connectionData?.sourceBlockId || null,
-            }
-          }
-          return block
+      setConditionalBlock(
+        blockId,
+        (block) => ({
+          ...block,
+          value: `${currentValue.slice(0, dropPosition)}<${currentValue.slice(dropPosition)}`,
+          showTags: true,
+          cursorPosition: dropPosition + 1,
+          activeSourceBlockId: data.connectionData?.sourceBlockId || null,
         })
       )
 
-      // Set cursor position after state updates
-      setTimeout(() => {
-        editorHandle?.focus()
-        editorHandle?.setCursorOffset(dropPosition + 1)
-      }, 0)
+      focusEditor(blockId, dropPosition + 1)
     } catch (error) {
       logger.error('Failed to parse drop data:', { error })
     }
   }
 
-  // Handle tag selection - updated for individual blocks
-  const handleTagSelect = (blockId: string, newValue: string) => {
+  const applyImmediateSelection = (
+    targetBlockId: string,
+    newValue: string,
+    updates: Partial<
+      Pick<ConditionalBlock, 'showTags' | 'showEnvVars' | 'searchTerm' | 'activeSourceBlockId'>
+    >
+  ) => {
     if (isPreview || disabled) return
+
+    const updatedBlocks = updateConditionBlock(conditionalBlocks, targetBlockId, (block) => ({
+      ...block,
+      value: newValue,
+      ...updates,
+    }))
+
     shouldPersistRef.current = true
-    setConditionalBlocks((blocks) =>
-      blocks.map((block) =>
-        block.id === blockId
-          ? {
-            ...block,
-            value: newValue,
-            showTags: false,
-            activeSourceBlockId: null,
-          }
-          : block
-      )
-    )
-
-    setTimeout(() => {
-      editorRefs.current[blockId]?.focus()
-    }, 0)
-  }
-
-  // Handle environment variable selection - updated for individual blocks
-  const handleEnvVarSelect = (blockId: string, newValue: string) => {
-    if (isPreview || disabled) return
-    shouldPersistRef.current = true
-    setConditionalBlocks((blocks) =>
-      blocks.map((block) =>
-        block.id === blockId
-          ? {
-            ...block,
-            value: newValue,
-            showEnvVars: false,
-            searchTerm: '',
-          }
-          : block
-      )
-    )
-
-    setTimeout(() => {
-      editorRefs.current[blockId]?.focus()
-    }, 0)
+    setConditionalBlocks(updatedBlocks)
+    emitTagSelection(JSON.stringify(updatedBlocks))
+    focusEditor(targetBlockId)
   }
 
   const handleTagSelectImmediate = (blockId: string, newValue: string) => {
-    if (isPreview || disabled) return
-
-    shouldPersistRef.current = true
-    setConditionalBlocks((blocks) =>
-      blocks.map((block) =>
-        block.id === blockId
-          ? {
-            ...block,
-            value: newValue,
-            showTags: false,
-            activeSourceBlockId: null,
-          }
-          : block
-      )
-    )
-
-    const updatedBlocks = conditionalBlocks.map((block) =>
-      block.id === blockId
-        ? {
-          ...block,
-          value: newValue,
-          showTags: false,
-          activeSourceBlockId: null,
-        }
-        : block
-    )
-    emitTagSelection(JSON.stringify(updatedBlocks))
-
-    setTimeout(() => {
-      editorRefs.current[blockId]?.focus()
-    }, 0)
+    applyImmediateSelection(blockId, newValue, {
+      showTags: false,
+      activeSourceBlockId: null,
+    })
   }
 
   const handleEnvVarSelectImmediate = (blockId: string, newValue: string) => {
-    if (isPreview || disabled) return
-
-    shouldPersistRef.current = true
-    setConditionalBlocks((blocks) =>
-      blocks.map((block) =>
-        block.id === blockId
-          ? {
-            ...block,
-            value: newValue,
-            showEnvVars: false,
-            searchTerm: '',
-          }
-          : block
-      )
-    )
-
-    const updatedBlocks = conditionalBlocks.map((block) =>
-      block.id === blockId
-        ? {
-          ...block,
-          value: newValue,
-          showEnvVars: false,
-          searchTerm: '',
-        }
-        : block
-    )
-    emitTagSelection(JSON.stringify(updatedBlocks))
-
-    setTimeout(() => {
-      editorRefs.current[blockId]?.focus()
-    }, 0)
+    applyImmediateSelection(blockId, newValue, {
+      showEnvVars: false,
+      searchTerm: '',
+    })
   }
 
-  // Update block titles based on position
-  const updateBlockTitles = (blocks: ConditionalBlock[]): ConditionalBlock[] => {
-    return blocks.map((block, index) => ({
-      ...block,
-      title: index === 0 ? 'if' : index === blocks.length - 1 ? 'else' : 'else if',
-    }))
-  }
-
-  // Update these functions to use updateBlockTitles and stable IDs
+  // Keep block IDs stable as conditions are inserted/reordered.
   const addBlock = (afterId: string) => {
     if (isPreview || disabled) return
 
@@ -471,11 +404,8 @@ export function ConditionInput({
     const newBlocks = [...conditionalBlocks]
     newBlocks.splice(blockIndex + 1, 0, newBlock)
     shouldPersistRef.current = true
-    setConditionalBlocks(updateBlockTitles(newBlocks))
-
-    setTimeout(() => {
-      editorRefs.current[newBlock.id]?.focus()
-    }, 0)
+    setConditionalBlocks(applyConditionBlockTitles(newBlocks))
+    focusEditor(newBlock.id)
   }
 
   const removeBlock = (id: string) => {
@@ -490,7 +420,9 @@ export function ConditionInput({
 
     if (conditionalBlocks.length === 1) return
     shouldPersistRef.current = true
-    setConditionalBlocks((blocks) => updateBlockTitles(blocks.filter((block) => block.id !== id)))
+    setConditionalBlocks((blocks) =>
+      applyConditionBlockTitles(blocks.filter((block) => block.id !== id))
+    )
 
     setTimeout(() => updateNodeInternals(blockId), 0)
   }
@@ -514,12 +446,12 @@ export function ConditionInput({
 
     if (direction === 'down' && newBlocks[targetIndex]?.title === 'else') return
 
-      ;[newBlocks[blockIndex], newBlocks[targetIndex]] = [
-        newBlocks[targetIndex],
-        newBlocks[blockIndex],
-      ]
+    ;[newBlocks[blockIndex], newBlocks[targetIndex]] = [
+      newBlocks[targetIndex],
+      newBlocks[blockIndex],
+    ]
     shouldPersistRef.current = true
-    setConditionalBlocks(updateBlockTitles(newBlocks))
+    setConditionalBlocks(applyConditionBlockTitles(newBlocks))
 
     setTimeout(() => updateNodeInternals(blockId), 0)
   }
@@ -645,22 +577,17 @@ export function ConditionInput({
                       const envVarTrigger = checkEnvVarTrigger(newCode, pos)
 
                       shouldPersistRef.current = true
-                      setConditionalBlocks((blocks) =>
-                        blocks.map((b) => {
-                          if (b.id === block.id) {
-                            return {
-                              ...b,
-                              value: newCode,
-                              showTags: tagTrigger.show,
-                              showEnvVars: envVarTrigger.show,
-                              searchTerm: envVarTrigger.show ? envVarTrigger.searchTerm : '',
-                              cursorPosition: pos,
-                              activeSourceBlockId: tagTrigger.show ? b.activeSourceBlockId : null,
-                            }
-                          }
-                          return b
-                        })
-                      )
+                      setConditionalBlock(block.id, (currentBlock) => ({
+                        ...currentBlock,
+                        value: newCode,
+                        showTags: tagTrigger.show,
+                        showEnvVars: envVarTrigger.show,
+                        searchTerm: envVarTrigger.show ? envVarTrigger.searchTerm : '',
+                        cursorPosition: pos,
+                        activeSourceBlockId: tagTrigger.show
+                          ? currentBlock.activeSourceBlockId
+                          : null,
+                      }))
                     }
                   }}
                   onCursorChange={(offset) => {
@@ -670,28 +597,22 @@ export function ConditionInput({
                     const tagTrigger = checkTagTrigger(currentValue, offset)
                     const envVarTrigger = checkEnvVarTrigger(currentValue, offset)
 
-                    setConditionalBlocks((blocks) =>
-                      blocks.map((b) =>
-                        b.id === block.id
-                          ? {
-                              ...b,
-                              cursorPosition: offset,
-                              showTags: tagTrigger.show,
-                              showEnvVars: envVarTrigger.show,
-                              searchTerm: envVarTrigger.show ? envVarTrigger.searchTerm : '',
-                              activeSourceBlockId: tagTrigger.show ? b.activeSourceBlockId : null,
-                            }
-                          : b
-                      )
-                    )
+                    setConditionalBlock(block.id, (currentBlock) => ({
+                      ...currentBlock,
+                      cursorPosition: offset,
+                      showTags: tagTrigger.show,
+                      showEnvVars: envVarTrigger.show,
+                      searchTerm: envVarTrigger.show ? envVarTrigger.searchTerm : '',
+                      activeSourceBlockId: tagTrigger.show ? currentBlock.activeSourceBlockId : null,
+                    }))
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Escape') {
-                      setConditionalBlocks((blocks) =>
-                        blocks.map((b) =>
-                          b.id === block.id ? { ...b, showTags: false, showEnvVars: false } : b
-                        )
-                      )
+                      setConditionalBlock(block.id, (currentBlock) => ({
+                        ...currentBlock,
+                        showTags: false,
+                        showEnvVars: false,
+                      }))
                     }
                   }}
                   language='javascript'
@@ -716,11 +637,11 @@ export function ConditionInput({
                     cursorPosition={block.cursorPosition}
                     workspaceId={workspaceId}
                     onClose={() => {
-                      setConditionalBlocks((blocks) =>
-                        blocks.map((b) =>
-                          b.id === block.id ? { ...b, showEnvVars: false, searchTerm: '' } : b
-                        )
-                      )
+                      setConditionalBlock(block.id, (currentBlock) => ({
+                        ...currentBlock,
+                        showEnvVars: false,
+                        searchTerm: '',
+                      }))
                     }}
                   />
                 )}
@@ -734,17 +655,11 @@ export function ConditionInput({
                     inputValue={block.value}
                     cursorPosition={block.cursorPosition}
                     onClose={() => {
-                      setConditionalBlocks((blocks) =>
-                        blocks.map((b) =>
-                          b.id === block.id
-                            ? {
-                              ...b,
-                              showTags: false,
-                              activeSourceBlockId: null,
-                            }
-                            : b
-                        )
-                      )
+                      setConditionalBlock(block.id, (currentBlock) => ({
+                        ...currentBlock,
+                        showTags: false,
+                        activeSourceBlockId: null,
+                      }))
                     }}
                   />
                 )}

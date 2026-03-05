@@ -16,8 +16,6 @@ interface CheckboxListProps {
 
 export function CheckboxList({
   blockId,
-  subBlockId,
-  title,
   options,
   layout,
   isPreview = false,

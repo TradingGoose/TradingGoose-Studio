@@ -35,7 +35,7 @@ export function McpToolSelector({
   const workspaceId = useWorkspaceId()
   const [open, setOpen] = useState(false)
 
-  const { mcpTools, isLoading, error, refreshTools, getToolsByServer } = useMcpTools(workspaceId)
+  const { isLoading, error, refreshTools, getToolsByServer } = useMcpTools(workspaceId)
 
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlock.id)
   const [, setSchemaCache] = useSubBlockValue(blockId, '_toolSchema')

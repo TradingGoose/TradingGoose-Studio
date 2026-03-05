@@ -88,10 +88,6 @@ export function WebhookSettings({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [webhookToDelete, setWebhookToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [operationStatus, setOperationStatus] = useState<{
-    type: 'success' | 'error' | null
-    message: string
-  }>({ type: null, message: '' })
   const [testStatus, setTestStatus] = useState<{
     webhookId: string
     type: 'success' | 'error'
@@ -152,10 +148,6 @@ export function WebhookSettings({
       }
     } catch (error) {
       logger.error('Failed to load webhooks', { error })
-      setOperationStatus({
-        type: 'error',
-        message: 'Failed to load webhook configurations',
-      })
     } finally {
       setIsLoading(false)
     }
@@ -223,10 +215,6 @@ export function WebhookSettings({
         })
         setFieldErrors({})
         setShowForm(false)
-        setOperationStatus({
-          type: 'success',
-          message: 'Webhook created successfully',
-        })
       } else {
         const error = await response.json()
         // Show detailed validation errors if available
@@ -265,22 +253,9 @@ export function WebhookSettings({
       if (response.ok) {
         // Refresh the webhooks list to ensure consistency
         await loadWebhooks()
-        setOperationStatus({
-          type: 'success',
-          message: 'Webhook deleted successfully',
-        })
-      } else {
-        setOperationStatus({
-          type: 'error',
-          message: 'Failed to delete webhook',
-        })
       }
     } catch (error) {
       logger.error('Failed to delete webhook', { error })
-      setOperationStatus({
-        type: 'error',
-        message: 'Failed to delete webhook',
-      })
     } finally {
       setIsDeleting(false)
       setShowDeleteDialog(false)
@@ -380,7 +355,6 @@ export function WebhookSettings({
     setEditingWebhookId(null)
     setOriginalWebhook(null)
     setFieldErrors({})
-    setOperationStatus({ type: null, message: '' })
     setNewWebhook({
       url: '',
       secret: '',
@@ -412,7 +386,6 @@ export function WebhookSettings({
 
   const handleCloseModal = () => {
     cancelEdit()
-    setOperationStatus({ type: null, message: '' })
     setTestStatus(null)
     setSearchTerm('')
     setShowDeleteDialog(false)
@@ -493,10 +466,6 @@ export function WebhookSettings({
       if (response.ok) {
         await loadWebhooks()
         cancelEdit()
-        setOperationStatus({
-          type: 'success',
-          message: 'Webhook updated successfully',
-        })
       } else {
         const error = await response.json()
         setFieldErrors({ general: [error.error || 'Failed to update webhook'] })

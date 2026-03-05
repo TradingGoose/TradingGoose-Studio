@@ -2,12 +2,9 @@
 
 import { useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { WorkflowPreview } from '@/app/workspace/[workspaceId]/components/workflow-preview/workflow-preview'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
-
-const logger = createLogger('DeployedWorkflowCard')
 
 interface DeployedWorkflowCardProps {
   workflowId?: string

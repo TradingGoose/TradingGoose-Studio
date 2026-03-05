@@ -102,16 +102,8 @@ export function FileSelectorInput({
     isConfluence || isJira
       ? (isPreview && previewContextValues?.domain?.value) || (domainValue as string) || ''
       : ''
-  const jiraCredential = isJira
-    ? (isPreview && previewContextValues?.credential?.value) ||
-      (connectedCredential as string) ||
-      ''
-    : ''
 
   // Discord channel selector removed; no special values used here
-
-  // Use preview value when in preview mode, otherwise use store value
-  const value = isPreview ? previewValue : storeValue
 
   // For Google Drive
   const clientId = getEnv('NEXT_PUBLIC_GOOGLE_CLIENT_ID') || ''
@@ -249,7 +241,6 @@ export function FileSelectorInput({
 
   // Microsoft Word selector
   if (isMicrosoftWord) {
-    const credential = (connectedCredential as string) || ''
     return (
       <TooltipProvider>
         <Tooltip>

@@ -51,7 +51,6 @@ export function ComboBox({
   const [storeValue, setStoreValue] = useSubBlockValue<string>(blockId, subBlockId)
   const [storeInitialized, setStoreInitialized] = useState(false)
   const [open, setOpen] = useState(false)
-  const [isFocused, setIsFocused] = useState(false)
   const [showEnvVars, setShowEnvVars] = useState(false)
   const [showTags, setShowTags] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -197,13 +196,11 @@ export function ComboBox({
   }
 
   const handleFocus = () => {
-    setIsFocused(true)
     setOpen(true)
     setHighlightedIndex(-1)
   }
 
   const handleBlur = () => {
-    setIsFocused(false)
     setShowEnvVars(false)
     setShowTags(false)
     setHasTyped(false)
@@ -301,7 +298,7 @@ export function ComboBox({
     }
   }
 
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+  const handlePaste = () => {
     setTimeout(() => {
       if (inputRef.current && overlayRef.current) {
         overlayRef.current.scrollLeft = inputRef.current.scrollLeft

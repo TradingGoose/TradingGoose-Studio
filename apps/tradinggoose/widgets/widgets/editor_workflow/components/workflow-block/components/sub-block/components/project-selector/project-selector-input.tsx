@@ -18,7 +18,6 @@ import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/w
 import { useForeignCredential } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-foreign-credential'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import type { SubBlockConfig } from '@/blocks/types'
-import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
 import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 interface ProjectSelectorInputProps {
@@ -38,7 +37,6 @@ export function ProjectSelectorInput({
   isPreview = false,
   previewValue,
 }: ProjectSelectorInputProps) {
-  const { collaborativeSetSubblockValue } = useCollaborativeWorkflow()
   const [selectedProjectId, setSelectedProjectId] = useState<string>('')
   const [_projectInfo, setProjectInfo] = useState<any | null>(null)
   // Use the proper hook to get the current value and setter

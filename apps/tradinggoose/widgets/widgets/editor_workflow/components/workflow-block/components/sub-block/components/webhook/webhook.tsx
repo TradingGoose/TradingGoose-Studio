@@ -340,7 +340,6 @@ interface WebhookConfigProps {
 
 export function WebhookConfig({
   blockId,
-  subBlockId,
   isConnecting,
   isPreview = false,
   value: propValue,
@@ -357,7 +356,7 @@ export function WebhookConfig({
   // No need to manage webhook status separately - it's determined by having provider + path
 
   // Get the webhook provider from the block state
-  const [storeWebhookProvider, setWebhookProvider] = useSubBlockValue(blockId, 'webhookProvider')
+  const [storeWebhookProvider] = useSubBlockValue(blockId, 'webhookProvider')
 
   // Store the webhook path
   const [storeWebhookPath, setWebhookPath] = useSubBlockValue(blockId, 'webhookPath')
@@ -375,12 +374,11 @@ export function WebhookConfig({
   // This prevents the "Active Webhook" badge from showing on unconfigured blocks
 
   // Store provider-specific configuration
-  const [storeProviderConfig, setProviderConfig] = useSubBlockValue(blockId, 'providerConfig')
+  const [, setProviderConfig] = useSubBlockValue(blockId, 'providerConfig')
 
   // Use prop values when available (preview mode), otherwise use store values
   const webhookProvider = propValue?.webhookProvider ?? storeWebhookProvider
   const webhookPath = propValue?.webhookPath ?? storeWebhookPath
-  const providerConfig = propValue?.providerConfig ?? storeProviderConfig
   const gmailCredentialId = storeGmailCredential || ''
   const outlookCredentialId = storeOutlookCredential || ''
 

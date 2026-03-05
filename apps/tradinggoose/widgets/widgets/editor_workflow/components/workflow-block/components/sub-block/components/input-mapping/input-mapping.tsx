@@ -177,7 +177,6 @@ export function InputMapping({
             value={valueObj[field.name] || ''}
             onChange={(value) => update(field.name, value)}
             blockId={blockId}
-            subBlockId={subBlockId}
             disabled={isPreview || disabled}
             accessiblePrefixes={accessiblePrefixes}
             isConnecting={isConnecting}
@@ -194,7 +193,6 @@ function InputMappingField({
   value,
   onChange,
   blockId,
-  subBlockId,
   disabled,
   accessiblePrefixes,
   isConnecting,
@@ -204,7 +202,6 @@ function InputMappingField({
   value: string
   onChange: (value: string) => void
   blockId: string
-  subBlockId: string
   disabled: boolean
   accessiblePrefixes: Set<string> | undefined
   isConnecting?: boolean

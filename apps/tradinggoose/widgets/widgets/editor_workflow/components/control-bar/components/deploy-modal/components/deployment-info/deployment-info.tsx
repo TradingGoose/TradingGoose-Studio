@@ -58,7 +58,6 @@ export function DeploymentInfo({
   isUndeploying,
   workflowId,
   deployedState,
-  isLoadingDeployedState,
   getInputFormatExample,
   selectedStreamingOutputs,
   onSelectedStreamingOutputsChange,

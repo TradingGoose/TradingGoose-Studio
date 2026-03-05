@@ -96,6 +96,29 @@ export function FileUpload({
   // Use preview value when in preview mode, otherwise use store value
   const value = isPreview ? previewValue : storeValue
 
+  const toFileArray = (input: UploadedFile | UploadedFile[] | null | undefined): UploadedFile[] => {
+    return Array.isArray(input) ? input : input ? [input] : []
+  }
+
+  const mergeUniqueFilesByPath = (files: UploadedFile[]): UploadedFile[] => {
+    const uniqueFiles = new Map<string, UploadedFile>()
+    files.forEach((file) => {
+      if (file?.path) {
+        uniqueFiles.set(file.path, file)
+      }
+    })
+    return Array.from(uniqueFiles.values())
+  }
+
+  const persistSelection = (files: UploadedFile[]) => {
+    if (multiple) {
+      setStoreValue(files.length > 0 ? files : null)
+    } else {
+      setStoreValue(files[0] || null)
+    }
+    useWorkflowStore.getState().triggerUpdate()
+  }
+
   // Load workspace files function
   const loadWorkspaceFiles = async () => {
     if (!workspaceId || isPreview) return
@@ -117,7 +140,7 @@ export function FileUpload({
 
   // Filter out already selected files
   const availableWorkspaceFiles = workspaceFiles.filter((workspaceFile) => {
-    const existingFiles = Array.isArray(value) ? value : value ? [value] : []
+    const existingFiles = toFileArray(value)
     // Check if this workspace file is already added (match by name or key)
     return !existingFiles.some(
       (existing) =>
@@ -173,7 +196,7 @@ export function FileUpload({
     if (!files || files.length === 0) return
 
     // Get existing files and their total size
-    const existingFiles = Array.isArray(value) ? value : value ? [value] : []
+    const existingFiles = toFileArray(value)
     const existingTotalSize = existingFiles.reduce((sum, file) => sum + file.size, 0)
 
     // Validate file sizes
@@ -330,32 +353,11 @@ export function FileUpload({
 
       // Update the file value in state based on multiple setting
       if (multiple) {
-        // For multiple files: Append to existing files if any
-        const existingFiles = Array.isArray(value) ? value : value ? [value] : []
-        // Create a map to identify duplicates by url
-        const uniqueFiles = new Map()
-
-        // Add existing files to the map
-        existingFiles.forEach((file) => {
-          if (file?.path) {
-            uniqueFiles.set(file.path, file)
-          }
-        })
-
-        // Add new files to the map (will overwrite if same path)
-        uploadedFiles.forEach((file) => {
-          uniqueFiles.set(file.path, file)
-        })
-
-        // Convert map values back to array
-        const newFiles = Array.from(uniqueFiles.values())
-
-        setStoreValue(newFiles)
-        useWorkflowStore.getState().triggerUpdate()
+        const existingFiles = toFileArray(value)
+        persistSelection(mergeUniqueFilesByPath([...existingFiles, ...uploadedFiles]))
       } else {
         // For single file: Replace with last uploaded file
-        setStoreValue(uploadedFiles[0] || null)
-        useWorkflowStore.getState().triggerUpdate()
+        persistSelection(uploadedFiles.slice(0, 1))
       }
     } catch (error) {
       logger.error(
@@ -392,26 +394,11 @@ export function FileUpload({
     }
 
     if (multiple) {
-      // For multiple files: Append to existing
-      const existingFiles = Array.isArray(value) ? value : value ? [value] : []
-      const uniqueFiles = new Map()
-
-      existingFiles.forEach((file) => {
-        if (file?.path) {
-          uniqueFiles.set(file.path, file)
-        }
-      })
-
-      uniqueFiles.set(uploadedFile.path, uploadedFile)
-      const newFiles = Array.from(uniqueFiles.values())
-
-      setStoreValue(newFiles)
+      persistSelection(mergeUniqueFilesByPath([...toFileArray(value), uploadedFile]))
     } else {
       // For single file: Replace
-      setStoreValue(uploadedFile)
+      persistSelection([uploadedFile])
     }
-
-    useWorkflowStore.getState().triggerUpdate()
     logger.info(`Selected workspace file: ${selectedFile.name}`, activeWorkflowId)
   }
 
@@ -455,15 +442,12 @@ export function FileUpload({
       // Update the UI state (remove from selection)
       if (multiple) {
         // For multiple files: Remove the specific file
-        const filesArray = Array.isArray(value) ? value : value ? [value] : []
-        const updatedFiles = filesArray.filter((f) => f.path !== file.path)
-        setStoreValue(updatedFiles.length > 0 ? updatedFiles : null)
+        const updatedFiles = toFileArray(value).filter((f) => f.path !== file.path)
+        persistSelection(updatedFiles)
       } else {
         // For single file: Clear the value
-        setStoreValue(null)
+        persistSelection([])
       }
-
-      useWorkflowStore.getState().triggerUpdate()
     } catch (error) {
       logger.error(
         error instanceof Error ? error.message : 'Failed to remove file',
@@ -477,79 +461,6 @@ export function FileUpload({
         return updated
       })
     }
-  }
-
-  /**
-   * Handles deletion of all files (for multiple mode)
-   */
-  const handleRemoveAllFiles = async (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-
-    if (!value) return
-
-    const filesToDelete = Array.isArray(value) ? value : [value]
-
-    // Mark all files as deleting
-    const deletingStatus: Record<string, boolean> = {}
-    filesToDelete.forEach((file) => {
-      deletingStatus[file.path || ''] = true
-    })
-    setDeletingFiles(deletingStatus)
-
-    // Clear input state immediately for better UX
-    setStoreValue(null)
-    useWorkflowStore.getState().triggerUpdate()
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
-
-    // Track successful and failed deletions
-    const deletionResults = {
-      success: 0,
-      failures: [] as string[],
-    }
-
-    // Delete each file
-    for (const file of filesToDelete) {
-      try {
-        const response = await fetch('/api/files/delete', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ filePath: file.path }),
-        })
-
-        if (response.ok) {
-          deletionResults.success++
-        } else {
-          const errorData = await response.json().catch(() => ({ error: response.statusText }))
-          const errorMessage = errorData.error || `Failed to delete file: ${response.status}`
-          deletionResults.failures.push(`${file.name}: ${errorMessage}`)
-        }
-      } catch (error) {
-        logger.error(`Failed to delete file ${file.name}:`, error)
-        deletionResults.failures.push(
-          `${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`
-        )
-      }
-    }
-
-    // Show error notification if any deletions failed
-    if (deletionResults.failures.length > 0) {
-      if (deletionResults.failures.length === 1) {
-        logger.error(`Failed to delete file: ${deletionResults.failures[0]}`, activeWorkflowId)
-      } else {
-        logger.error(
-          `Failed to delete ${deletionResults.failures.length} files: ${deletionResults.failures.join('; ')}`,
-          activeWorkflowId
-        )
-      }
-    }
-
-    setDeletingFiles({})
   }
 
   // Helper to render a single file item
@@ -605,7 +516,7 @@ export function FileUpload({
   }
 
   // Get files array regardless of multiple setting
-  const filesArray = Array.isArray(value) ? value : value ? [value] : []
+  const filesArray = toFileArray(value)
   const hasFiles = filesArray.length > 0
   const isUploading = uploadingFiles.length > 0
 

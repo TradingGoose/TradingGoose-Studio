@@ -344,7 +344,7 @@ export function Dropdown({
       }
 
       return []
-    } catch (error) {
+    } catch {
       return []
     }
   }

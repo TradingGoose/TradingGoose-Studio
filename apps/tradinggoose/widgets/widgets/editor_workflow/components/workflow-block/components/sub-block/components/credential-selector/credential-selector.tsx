@@ -25,7 +25,6 @@ import { OAuthRequiredModal } from '@/widgets/widgets/editor_workflow/components
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import type { SubBlockConfig } from '@/blocks/types'
-import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
 
 const logger = createLogger('CredentialSelector')
 
@@ -51,7 +50,6 @@ export function CredentialSelector({
   const [selectedId, setSelectedId] = useState('')
   const [hasForeignMeta, setHasForeignMeta] = useState(false)
   const activeWorkflowId = useWorkflowId()
-  const { collaborativeSetSubblockValue } = useCollaborativeWorkflow()
 
   // Use collaborative state management via useSubBlockValue hook
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlock.id)
@@ -212,7 +210,6 @@ export function CredentialSelector({
 
   // Handle selection
   const handleSelect = (credentialId: string) => {
-    const previousId = selectedId || (effectiveValue as string) || ''
     setSelectedId(credentialId)
     if (!isPreview) {
       setStoreValue(credentialId)

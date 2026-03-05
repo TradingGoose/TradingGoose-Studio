@@ -76,7 +76,6 @@ export function JiraProjectSelector({
   const [selectedProject, setSelectedProject] = useState<JiraProjectInfo | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [showOAuthModal, setShowOAuthModal] = useState(false)
-  const initialFetchRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
   const [cloudId, setCloudId] = useState<string | null>(null)
 

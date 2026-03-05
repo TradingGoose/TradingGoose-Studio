@@ -223,9 +223,8 @@ export function DeployModal({
 
   const [versions, setVersions] = useState<WorkflowDeploymentVersionResponse[]>([])
   const [versionsLoading, setVersionsLoading] = useState(false)
-  const [activatingVersion, setActivatingVersion] = useState<number | null>(null)
+  const activatingVersion: number | null = null
   const [previewVersion, setPreviewVersion] = useState<number | null>(null)
-  const [previewing, setPreviewing] = useState(false)
   const [previewDeployedState, setPreviewDeployedState] = useState<WorkflowState | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 5
@@ -684,7 +683,6 @@ export function DeployModal({
   const openVersionPreview = async (version: number) => {
     if (!workflowId) return
     try {
-      setPreviewing(true)
       setPreviewVersion(version)
       const res = await fetch(`/api/workflows/${workflowId}/deployments/${version}`)
       if (res.ok) {
@@ -1340,7 +1338,6 @@ export function DeployModal({
             onClose={() => {
               setPreviewVersion(null)
               setPreviewDeployedState(null)
-              setPreviewing(false)
             }}
             needsRedeployment={true}
             activeDeployedState={deployedState}
@@ -1350,7 +1347,6 @@ export function DeployModal({
               handleActivateVersion(previewVersion)
               setPreviewVersion(null)
               setPreviewDeployedState(null)
-              setPreviewing(false)
             }}
             isActivating={activatingVersion === previewVersion}
             selectedVersionLabel={

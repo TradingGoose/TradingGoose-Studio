@@ -28,13 +28,10 @@ interface GroupedCheckboxListProps {
 export function GroupedCheckboxList({
   blockId,
   subBlockId,
-  title,
   options,
-  layout = 'full',
   isPreview = false,
   subBlockValues,
   disabled = false,
-  maxHeight = 400,
 }: GroupedCheckboxListProps) {
   const [open, setOpen] = useState(false)
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlockId)

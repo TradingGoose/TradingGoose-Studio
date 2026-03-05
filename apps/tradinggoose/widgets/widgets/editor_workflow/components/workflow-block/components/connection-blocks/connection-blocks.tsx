@@ -6,7 +6,6 @@ import {
   useBlockConnections,
 } from '@/hooks/workflow/use-block-connections'
 import { getBlock } from '@/blocks'
-import { hsla } from 'framer-motion'
 
 interface ConnectionBlocksProps {
   blockId: string
@@ -67,7 +66,7 @@ export function ConnectionBlocks({
     e.dataTransfer.effectAllowed = 'copy'
   }
 
-  const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragEnd = () => {
     setIsConnecting(false)
   }
 
@@ -78,8 +77,6 @@ export function ConnectionBlocks({
   const renderConnectionCard = (connection: ConnectedBlock) => {
     // Get block configuration for icon and color
     const blockConfig = getBlock(connection.type)
-    const displayName = connection.name // Use the actual block name instead of transforming it
-
     // Handle special blocks that aren't in the registry (loop and parallel)
     let Icon = blockConfig?.icon
     let bgColor = blockConfig?.bgColor || undefined
