@@ -65,13 +65,6 @@ vi.mock('@/lib/utils', () => ({
   cn: (...classes: any[]) => classes.filter(Boolean).join(' '),
 }))
 
-vi.mock(
-  '@/widgets/widgets/editor_workflow/components/subflows/components/iteration-badges/iteration-badges',
-  () => ({
-    IterationBadges: ({ nodeId, iterationType }: any) => ({ nodeId, iterationType }),
-  })
-)
-
 describe('SubflowNodeComponent', () => {
   const defaultProps = {
     id: 'subflow-1',
@@ -353,21 +346,6 @@ describe('SubflowNodeComponent', () => {
       expect(parallelResult.endHandleId).toBe('parallel-end-source')
     })
 
-    it.concurrent('should pass correct iterationType to IterationBadges for loop', () => {
-      const loopProps = { ...defaultProps, data: { ...defaultProps.data, kind: 'loop' as const } }
-      // Mock IterationBadges should receive the kind as iterationType
-      expect(loopProps.data.kind).toBe('loop')
-    })
-
-    it.concurrent('should pass correct iterationType to IterationBadges for parallel', () => {
-      const parallelProps = {
-        ...defaultProps,
-        data: { ...defaultProps.data, kind: 'parallel' as const },
-      }
-      // Mock IterationBadges should receive the kind as iterationType
-      expect(parallelProps.data.kind).toBe('parallel')
-    })
-
     it.concurrent('should handle both kinds in configuration arrays', () => {
       const bothKinds = ['loop', 'parallel'] as const
       bothKinds.forEach((kind) => {
@@ -404,37 +382,6 @@ describe('SubflowNodeComponent', () => {
       expect(loopProps.data.isPreview).toBe(parallelProps.data.isPreview)
 
       // But different kinds
-      expect(loopProps.data.kind).toBe('loop')
-      expect(parallelProps.data.kind).toBe('parallel')
-    })
-  })
-
-  describe('Integration with IterationBadges', () => {
-    it.concurrent('should pass nodeId to IterationBadges', () => {
-      const testId = 'test-subflow-123'
-      const props = { ...defaultProps, id: testId }
-
-      // Verify the props would be passed correctly
-      expect(props.id).toBe(testId)
-    })
-
-    it.concurrent('should pass data object to IterationBadges', () => {
-      const testData = { ...defaultProps.data, customProperty: 'test' }
-      const props = { ...defaultProps, data: testData }
-
-      // Verify the data object structure
-      expect(props.data).toEqual(testData)
-      expect(props.data.kind).toBeDefined()
-    })
-
-    it.concurrent('should pass iterationType matching the kind', () => {
-      const loopProps = { ...defaultProps, data: { ...defaultProps.data, kind: 'loop' as const } }
-      const parallelProps = {
-        ...defaultProps,
-        data: { ...defaultProps.data, kind: 'parallel' as const },
-      }
-
-      // The iterationType should match the kind
       expect(loopProps.data.kind).toBe('loop')
       expect(parallelProps.data.kind).toBe('parallel')
     })
