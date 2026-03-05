@@ -54,7 +54,6 @@ export function UserAvatar({
   const backgroundStyle = useMemo(() => {
     if (color) {
       // If a color is provided, create a gradient with it
-      const baseColor = color
       const lighterShade = color.startsWith('#')
         ? `${color}dd` // Add transparency for a lighter shade effect
         : color

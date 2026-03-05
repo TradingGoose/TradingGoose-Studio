@@ -58,7 +58,7 @@ export function DeploymentControls({
 
     try {
       await refetchDeployedState()
-    } catch (error) { }
+    } catch {}
   }
 
   const canDeploy = userPermissions.canAdmin

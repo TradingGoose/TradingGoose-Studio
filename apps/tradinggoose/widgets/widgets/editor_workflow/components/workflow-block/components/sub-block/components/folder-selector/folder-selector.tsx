@@ -67,7 +67,6 @@ export function FolderSelector({
   const [selectedFolderId, setSelectedFolderId] = useState('')
   const [selectedFolder, setSelectedFolder] = useState<FolderInfo | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [isLoadingSelectedFolder, setIsLoadingSelectedFolder] = useState(false)
   const [showOAuthModal, setShowOAuthModal] = useState(false)
   const initialFetchRef = useRef(false)
 
@@ -112,13 +111,10 @@ export function FolderSelector({
 
         // Auto-select logic for credentials
         if (data.credentials.length > 0) {
-          // If we already have a selected credential ID, check if it's valid
           if (
-            selectedCredentialId &&
-            data.credentials.some((cred: Credential) => cred.id === selectedCredentialId)
+            !selectedCredentialId ||
+            !data.credentials.some((cred: Credential) => cred.id === selectedCredentialId)
           ) {
-            // Keep the current selection
-          } else {
             // Otherwise, select the default or first credential
             const defaultCred = data.credentials.find((cred: Credential) => cred.isDefault)
             if (defaultCred) {
@@ -141,7 +137,6 @@ export function FolderSelector({
     async (folderId: string) => {
       if (!selectedCredentialId || !folderId) return null
 
-      setIsLoadingSelectedFolder(true)
       try {
         if (provider === 'outlook') {
           // Resolve Outlook folder name with owner-scoped token
@@ -194,8 +189,6 @@ export function FolderSelector({
       } catch (error) {
         logger.error('Error fetching folder by ID:', { error })
         return null
-      } finally {
-        setIsLoadingSelectedFolder(false)
       }
     },
     [selectedCredentialId, onFolderInfoChange, provider, workflowId]

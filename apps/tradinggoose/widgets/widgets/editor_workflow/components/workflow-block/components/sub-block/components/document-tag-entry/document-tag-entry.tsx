@@ -267,16 +267,6 @@ export function DocumentTagEntry({
       setDropdownStates((prev) => ({ ...prev, [rowIndex]: show }))
     }
 
-    const handleDropdownClick = (e: React.MouseEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      if (!disabled && !isConnecting) {
-        if (!showDropdown) {
-          setShowDropdown(true)
-        }
-      }
-    }
-
     const handleFocus = () => {
       if (!disabled && !isConnecting) {
         setShowDropdown(true)

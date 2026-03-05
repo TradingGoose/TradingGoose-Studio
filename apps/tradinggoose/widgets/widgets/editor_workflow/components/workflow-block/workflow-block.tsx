@@ -427,7 +427,6 @@ export const WorkflowBlock = memo(
     const currentWorkflowId = useWorkflowId()
 
     // Check if this is a trigger block
-    const isTriggerBlock = config.category === 'triggers'
     const isWebhookTriggerBlock = type === 'webhook'
 
     const reactivateSchedule = async (scheduleId: string) => {

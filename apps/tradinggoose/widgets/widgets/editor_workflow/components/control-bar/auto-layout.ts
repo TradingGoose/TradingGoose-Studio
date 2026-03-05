@@ -296,10 +296,14 @@ export async function applyAutoLayoutAndUpdateStore({
       // Update the lastSaved timestamp in the store
       useWorkflowStore.getState(channelId).updateLastSaved()
 
-      // Clean up the workflow state for API validation
-      // Destructure out UI-only fields that shouldn't be persisted
-      const { deploymentStatuses, needsRedeployment, dragStartPosition, ...stateToSave } =
-        newWorkflowState
+      // Clean up the workflow state for API validation.
+      // Undefined keys are omitted during JSON serialization.
+      const stateToSave = {
+        ...newWorkflowState,
+        deploymentStatuses: undefined,
+        needsRedeployment: undefined,
+        dragStartPosition: undefined,
+      }
 
       const cleanedWorkflowState = {
         ...stateToSave,
@@ -342,7 +346,7 @@ export async function applyAutoLayoutAndUpdateStore({
           errorMessage = errorData?.error
             ? `${errorData.error}${details ? ` - ${details}` : ''}`
             : errorMessage
-        } catch (parseError) {
+        } catch {
           // Ignore JSON parse errors and fall back to generic message
         }
 

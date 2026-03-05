@@ -33,7 +33,6 @@ export const DiffControls = memo(function DiffControls({
     toggleDiffView,
     acceptChanges,
     rejectChanges,
-    pendingEditToolCallId,
     setScope,
   } = useWorkflowDiffStore(
     useCallback(
@@ -44,7 +43,6 @@ export const DiffControls = memo(function DiffControls({
         toggleDiffView: state.toggleDiffView,
         acceptChanges: state.acceptChanges,
         rejectChanges: state.rejectChanges,
-        pendingEditToolCallId: state.pendingEditToolCallId,
         setScope: state.setScope,
       }),
       []

@@ -9,12 +9,10 @@ import {
 } from '@/widgets/widgets/editor_workflow/components/workflow-editor/workflow-canvas'
 import WorkflowEditorApp from '@/widgets/widgets/editor_workflow/components/workflow-editor-app'
 import {
-  getWorkflowWidgetChannelId,
   WorkflowWidgetControlBar,
 } from '@/widgets/widgets/editor_workflow/components/workflow-controlbar'
 import { WorkflowToolbar } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
-import { isPairColor } from '@/widgets/pair-colors'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
@@ -54,7 +52,6 @@ const WorkflowEditorWidgetBody = ({
     loadError,
     isLoading,
     workflowIds,
-    activeWorkflowIdForChannel,
   } = useWorkflowWidgetState({
     workspaceId,
     pairColor,
@@ -241,9 +238,7 @@ export const workflowEditorWidget: DashboardWidgetDefinition = {
   description: 'Canvas interface to build and edit workflows.',
   component: (props) => <WorkflowEditorWidgetBody {...props} />,
   renderHeader: ({ widget, context, panelId }) => {
-    const resolvedPairColor = isPairColor(widget?.pairColor) ? widget.pairColor : 'gray'
     const widgetKey = widget?.key ?? 'workflow-editor'
-    const channelId = getWorkflowWidgetChannelId(resolvedPairColor, widgetKey, panelId)
     const toolbarScopeId = getWorkflowToolbarScopeId(widgetKey, panelId)
 
     return {

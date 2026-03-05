@@ -478,7 +478,6 @@ export function ToolInput({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const { data: customTools = [] } = useCustomTools(workspaceId)
-  const subBlockStore = useSubBlockStore()
 
   // MCP tools integration
   const { mcpTools, refreshTools } = useMcpTools(workspaceId)
@@ -615,11 +614,7 @@ export function ToolInput({
   }
 
   // Initialize tool parameters - no autofill, just return empty params
-  const initializeToolParams = (
-    toolId: string,
-    params: ToolParameterConfig[],
-    instanceId?: string
-  ): Record<string, string> => {
+  const initializeToolParams = (): Record<string, string> => {
     return {}
   }
 
@@ -651,7 +646,7 @@ export function ToolInput({
     if (!toolParams) return
 
     // Initialize parameters with auto-fill and default values
-    const initialParams = initializeToolParams(toolId, toolParams.userInputParameters, blockId)
+    const initialParams = initializeToolParams()
 
     // Add default values from UI component configurations
     toolParams.userInputParameters.forEach((param) => {
@@ -903,12 +898,10 @@ export function ToolInput({
     }
 
     // Initialize parameters for the new operation
-    const initialParams = initializeToolParams(newToolId, toolParams.userInputParameters, blockId)
+    const initialParams = initializeToolParams()
 
     // Preserve ALL existing parameters that also exist in the new tool configuration
     // This mimics how regular blocks work - each field maintains its state independently
-    const oldToolParams = getToolParametersConfig(tool.toolId, tool.type, tool.params)
-    const oldParamIds = new Set(oldToolParams?.userInputParameters.map((p) => p.id) || [])
     const newParamIds = new Set(toolParams.userInputParameters.map((p) => p.id))
 
     // Preserve any parameter that exists in both configurations and has a value
@@ -1775,7 +1768,7 @@ export function ToolInput({
                                           parsed[param.id] ? 'true' : 'false'
                                         )
                                       })
-                                    } catch (e) {
+                                    } catch {
                                       // Handle error
                                     }
                                   }}
