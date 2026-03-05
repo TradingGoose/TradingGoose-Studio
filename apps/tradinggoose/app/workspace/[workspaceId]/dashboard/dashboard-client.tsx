@@ -630,14 +630,12 @@ export function DashboardClient({
         if (!response.ok) {
           throw new Error(`Failed to delete layout (${response.status})`)
         }
-        const currentLayoutId = layoutIdRef.current
-        const data = await loadLayoutData(currentLayoutId)
-        applyLayoutData(data)
+        setLayouts((current) => current.filter((layout) => layout.id !== layoutId))
       } catch (error) {
         console.error('Failed to delete layout:', error)
       }
     },
-    [workspaceId, loadLayoutData, applyLayoutData]
+    [workspaceId]
   )
 
   const handleReorderLayouts = useCallback(
