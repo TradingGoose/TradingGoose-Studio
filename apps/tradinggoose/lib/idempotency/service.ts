@@ -4,6 +4,7 @@ import { idempotencyKey } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getRedisClient } from '@/lib/redis'
+import { getStorageMethod, type StorageMethod } from '@/lib/storage'
 
 const logger = createLogger('IdempotencyService')
 
@@ -40,7 +41,7 @@ export interface IdempotencyResult {
   /**
    * Storage method used ('redis', 'database')
    */
-  storageMethod: 'redis' | 'database'
+  storageMethod: StorageMethod
 }
 
 export interface ProcessingResult {
@@ -55,7 +56,7 @@ export interface AtomicClaimResult {
   claimed: boolean
   existingResult?: ProcessingResult
   normalizedKey: string
-  storageMethod: 'redis' | 'database'
+  storageMethod: StorageMethod
 }
 
 const DEFAULT_TTL = 60 * 60 * 24 * 7 // 7 days
@@ -69,12 +70,17 @@ const POLL_INTERVAL_MS = 1000 // Check every 1 second for completion
  */
 export class IdempotencyService {
   private config: Required<IdempotencyConfig>
+  private storageMethod: StorageMethod
 
   constructor(config: IdempotencyConfig = {}) {
     this.config = {
       ttlSeconds: config.ttlSeconds ?? DEFAULT_TTL,
       namespace: config.namespace ?? 'default',
     }
+    this.storageMethod = getStorageMethod()
+    logger.info(`IdempotencyService using ${this.storageMethod} storage`, {
+      namespace: this.config.namespace,
+    })
   }
 
   /**
@@ -106,74 +112,78 @@ export class IdempotencyService {
     additionalContext?: Record<string, any>
   ): Promise<IdempotencyResult> {
     const normalizedKey = this.normalizeKey(provider, identifier, additionalContext)
-    const redisKey = `${REDIS_KEY_PREFIX}${normalizedKey}`
+    if (this.storageMethod === 'redis') {
+      return this.checkIdempotencyRedis(normalizedKey)
+    }
+    return this.checkIdempotencyDb(normalizedKey)
+  }
 
-    try {
-      const redis = getRedisClient()
-      if (redis) {
-        const cachedResult = await redis.get(redisKey)
-        if (cachedResult) {
-          logger.debug(`Idempotency hit in Redis: ${normalizedKey}`)
-          return {
-            isFirstTime: false,
-            normalizedKey,
-            previousResult: JSON.parse(cachedResult),
-            storageMethod: 'redis',
-          }
-        }
-
-        logger.debug(`Idempotency miss in Redis: ${normalizedKey}`)
-        return {
-          isFirstTime: true,
-          normalizedKey,
-          storageMethod: 'redis',
-        }
-      }
-    } catch (error) {
-      logger.warn(`Redis idempotency check failed for ${normalizedKey}:`, error)
+  private async checkIdempotencyRedis(normalizedKey: string): Promise<IdempotencyResult> {
+    const redis = getRedisClient()
+    if (!redis) {
+      throw new Error('Redis not available for idempotency check')
     }
 
-    // Always fallback to database when Redis is not available
-    try {
-      const existing = await db
-        .select({ result: idempotencyKey.result, createdAt: idempotencyKey.createdAt })
-        .from(idempotencyKey)
+    const redisKey = `${REDIS_KEY_PREFIX}${normalizedKey}`
+    const cachedResult = await redis.get(redisKey)
+
+    if (cachedResult) {
+      logger.debug(`Idempotency hit in Redis: ${normalizedKey}`)
+      return {
+        isFirstTime: false,
+        normalizedKey,
+        previousResult: JSON.parse(cachedResult),
+        storageMethod: 'redis',
+      }
+    }
+
+    logger.debug(`Idempotency miss in Redis: ${normalizedKey}`)
+    return {
+      isFirstTime: true,
+      normalizedKey,
+      storageMethod: 'redis',
+    }
+  }
+
+  private async checkIdempotencyDb(normalizedKey: string): Promise<IdempotencyResult> {
+    const existing = await db
+      .select({ result: idempotencyKey.result, createdAt: idempotencyKey.createdAt })
+      .from(idempotencyKey)
+      .where(
+        and(eq(idempotencyKey.key, normalizedKey), eq(idempotencyKey.namespace, this.config.namespace))
+      )
+      .limit(1)
+
+    if (existing.length > 0) {
+      const item = existing[0]
+      const isExpired = Date.now() - item.createdAt.getTime() > this.config.ttlSeconds * 1000
+
+      if (!isExpired) {
+        logger.debug(`Idempotency hit in database: ${normalizedKey}`)
+        return {
+          isFirstTime: false,
+          normalizedKey,
+          previousResult: item.result,
+          storageMethod: 'database',
+        }
+      }
+
+      await db
+        .delete(idempotencyKey)
         .where(
           and(
             eq(idempotencyKey.key, normalizedKey),
             eq(idempotencyKey.namespace, this.config.namespace)
           )
         )
-        .limit(1)
+        .catch((err) => logger.warn(`Failed to clean up expired key ${normalizedKey}:`, err))
+    }
 
-      if (existing.length > 0) {
-        const item = existing[0]
-        const isExpired = Date.now() - item.createdAt.getTime() > this.config.ttlSeconds * 1000
-
-        if (!isExpired) {
-          logger.debug(`Idempotency hit in database: ${normalizedKey}`)
-          return {
-            isFirstTime: false,
-            normalizedKey,
-            previousResult: item.result,
-            storageMethod: 'database',
-          }
-        }
-        await db
-          .delete(idempotencyKey)
-          .where(eq(idempotencyKey.key, normalizedKey))
-          .catch((err) => logger.warn(`Failed to clean up expired key ${normalizedKey}:`, err))
-      }
-
-      logger.debug(`Idempotency miss in database: ${normalizedKey}`)
-      return {
-        isFirstTime: true,
-        normalizedKey,
-        storageMethod: 'database',
-      }
-    } catch (error) {
-      logger.error(`Database idempotency check failed for ${normalizedKey}:`, error)
-      throw new Error(`Failed to check idempotency: database unavailable`)
+    logger.debug(`Idempotency miss in database: ${normalizedKey}`)
+    return {
+      isFirstTime: true,
+      normalizedKey,
+      storageMethod: 'database',
     }
   }
 
@@ -187,145 +197,142 @@ export class IdempotencyService {
     additionalContext?: Record<string, any>
   ): Promise<AtomicClaimResult> {
     const normalizedKey = this.normalizeKey(provider, identifier, additionalContext)
-    const redisKey = `${REDIS_KEY_PREFIX}${normalizedKey}`
     const inProgressResult: ProcessingResult = {
       success: false,
       status: 'in-progress',
       startedAt: Date.now(),
     }
 
-    try {
-      const redis = getRedisClient()
-      if (redis) {
-        const claimed = await redis.set(
-          redisKey,
-          JSON.stringify(inProgressResult),
-          'EX',
-          this.config.ttlSeconds,
-          'NX'
-        )
+    if (this.storageMethod === 'redis') {
+      return this.atomicallyClaimRedis(normalizedKey, inProgressResult)
+    }
+    return this.atomicallyClaimDb(normalizedKey, inProgressResult)
+  }
 
-        if (claimed === 'OK') {
-          logger.debug(`Atomically claimed idempotency key in Redis: ${normalizedKey}`)
-          return {
-            claimed: true,
-            normalizedKey,
-            storageMethod: 'redis',
-          }
-        }
-        const existingData = await redis.get(redisKey)
-        const existingResult = existingData ? JSON.parse(existingData) : null
-        logger.debug(`Idempotency key already claimed in Redis: ${normalizedKey}`)
-        return {
-          claimed: false,
-          existingResult,
-          normalizedKey,
-          storageMethod: 'redis',
-        }
-      }
-    } catch (error) {
-      logger.warn(`Redis atomic claim failed for ${normalizedKey}:`, error)
+  private async atomicallyClaimRedis(
+    normalizedKey: string,
+    inProgressResult: ProcessingResult
+  ): Promise<AtomicClaimResult> {
+    const redis = getRedisClient()
+    if (!redis) {
+      throw new Error('Redis not available for atomic claim')
     }
 
-    // Always fallback to database when Redis is not available
-    try {
-      const insertResult = await db
-        .insert(idempotencyKey)
-        .values({
-          key: normalizedKey,
-          namespace: this.config.namespace,
-          result: inProgressResult,
-          createdAt: new Date(),
-        })
-        .onConflictDoNothing()
-        .returning({ key: idempotencyKey.key })
+    const redisKey = `${REDIS_KEY_PREFIX}${normalizedKey}`
+    const claimed = await redis.set(
+      redisKey,
+      JSON.stringify(inProgressResult),
+      'EX',
+      this.config.ttlSeconds,
+      'NX'
+    )
 
-      if (insertResult.length > 0) {
-        logger.debug(`Atomically claimed idempotency key in database: ${normalizedKey}`)
-        return {
-          claimed: true,
-          normalizedKey,
-          storageMethod: 'database',
-        }
-      }
-      const existing = await db
-        .select({ result: idempotencyKey.result })
-        .from(idempotencyKey)
-        .where(
-          and(
-            eq(idempotencyKey.key, normalizedKey),
-            eq(idempotencyKey.namespace, this.config.namespace)
-          )
-        )
-        .limit(1)
-
-      const existingResult =
-        existing.length > 0 ? (existing[0].result as ProcessingResult) : undefined
-      logger.debug(`Idempotency key already claimed in database: ${normalizedKey}`)
+    if (claimed === 'OK') {
+      logger.debug(`Atomically claimed idempotency key in Redis: ${normalizedKey}`)
       return {
-        claimed: false,
-        existingResult,
+        claimed: true,
+        normalizedKey,
+        storageMethod: 'redis',
+      }
+    }
+
+    const existingData = await redis.get(redisKey)
+    const existingResult = existingData ? JSON.parse(existingData) : null
+    logger.debug(`Idempotency key already claimed in Redis: ${normalizedKey}`)
+    return {
+      claimed: false,
+      existingResult,
+      normalizedKey,
+      storageMethod: 'redis',
+    }
+  }
+
+  private async atomicallyClaimDb(
+    normalizedKey: string,
+    inProgressResult: ProcessingResult
+  ): Promise<AtomicClaimResult> {
+    const insertResult = await db
+      .insert(idempotencyKey)
+      .values({
+        key: normalizedKey,
+        namespace: this.config.namespace,
+        result: inProgressResult,
+        createdAt: new Date(),
+      })
+      .onConflictDoNothing({
+        target: [idempotencyKey.key, idempotencyKey.namespace],
+      })
+      .returning({ key: idempotencyKey.key })
+
+    if (insertResult.length > 0) {
+      logger.debug(`Atomically claimed idempotency key in database: ${normalizedKey}`)
+      return {
+        claimed: true,
         normalizedKey,
         storageMethod: 'database',
       }
-    } catch (error) {
-      logger.error(`Database atomic claim failed for ${normalizedKey}:`, error)
-      throw new Error(`Failed to claim idempotency key: database unavailable`)
+    }
+
+    const existing = await db
+      .select({ result: idempotencyKey.result })
+      .from(idempotencyKey)
+      .where(
+        and(eq(idempotencyKey.key, normalizedKey), eq(idempotencyKey.namespace, this.config.namespace))
+      )
+      .limit(1)
+
+    const existingResult = existing.length > 0 ? (existing[0].result as ProcessingResult) : undefined
+    logger.debug(`Idempotency key already claimed in database: ${normalizedKey}`)
+    return {
+      claimed: false,
+      existingResult,
+      normalizedKey,
+      storageMethod: 'database',
     }
   }
 
   /**
    * Wait for an in-progress operation to complete and return its result
    */
-  async waitForResult<T>(normalizedKey: string, storageMethod: 'redis' | 'database'): Promise<T> {
+  async waitForResult<T>(normalizedKey: string, storageMethod: StorageMethod): Promise<T> {
     const startTime = Date.now()
     const redisKey = `${REDIS_KEY_PREFIX}${normalizedKey}`
 
     while (Date.now() - startTime < MAX_WAIT_TIME_MS) {
-      try {
-        let currentResult: ProcessingResult | null = null
+      let currentResult: ProcessingResult | null = null
 
-        if (storageMethod === 'redis') {
-          const redis = getRedisClient()
-          if (redis) {
-            const data = await redis.get(redisKey)
-            currentResult = data ? JSON.parse(data) : null
-          }
-        } else if (storageMethod === 'database') {
-          const existing = await db
-            .select({ result: idempotencyKey.result })
-            .from(idempotencyKey)
-            .where(
-              and(
-                eq(idempotencyKey.key, normalizedKey),
-                eq(idempotencyKey.namespace, this.config.namespace)
-              )
-            )
-            .limit(1)
-          currentResult = existing.length > 0 ? (existing[0].result as ProcessingResult) : null
+      if (storageMethod === 'redis') {
+        const redis = getRedisClient()
+        if (!redis) {
+          throw new Error('Redis not available')
         }
+        const data = await redis.get(redisKey)
+        currentResult = data ? JSON.parse(data) : null
+      } else {
+        const existing = await db
+          .select({ result: idempotencyKey.result })
+          .from(idempotencyKey)
+          .where(
+            and(eq(idempotencyKey.key, normalizedKey), eq(idempotencyKey.namespace, this.config.namespace))
+          )
+          .limit(1)
+        currentResult = existing.length > 0 ? (existing[0].result as ProcessingResult) : null
+      }
 
-        if (currentResult?.status === 'completed') {
-          logger.debug(`Operation completed, returning result: ${normalizedKey}`)
-          if (currentResult.success === false) {
-            throw new Error(currentResult.error || 'Previous operation failed')
-          }
-          return currentResult.result as T
-        }
-
-        if (currentResult?.status === 'failed') {
-          logger.debug(`Operation failed, throwing error: ${normalizedKey}`)
+      if (currentResult?.status === 'completed') {
+        logger.debug(`Operation completed, returning result: ${normalizedKey}`)
+        if (currentResult.success === false) {
           throw new Error(currentResult.error || 'Previous operation failed')
         }
-
-        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
-      } catch (error) {
-        if (error instanceof Error && error.message.includes('operation failed')) {
-          throw error
-        }
-        logger.warn(`Error while waiting for result ${normalizedKey}:`, error)
-        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
+        return currentResult.result as T
       }
+
+      if (currentResult?.status === 'failed') {
+        logger.debug(`Operation failed, throwing error: ${normalizedKey}`)
+        throw new Error(currentResult.error || 'Previous operation failed')
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
     }
 
     throw new Error(`Timeout waiting for idempotency operation to complete: ${normalizedKey}`)
@@ -337,50 +344,46 @@ export class IdempotencyService {
   async storeResult(
     normalizedKey: string,
     result: ProcessingResult,
-    storageMethod: 'redis' | 'database'
+    storageMethod: StorageMethod
   ): Promise<void> {
-    const serializedResult = JSON.stringify(result)
+    if (storageMethod === 'redis') {
+      return this.storeResultRedis(normalizedKey, result)
+    }
+    return this.storeResultDb(normalizedKey, result)
+  }
 
-    try {
-      if (storageMethod === 'redis') {
-        const redis = getRedisClient()
-        if (redis) {
-          await redis.setex(
-            `${REDIS_KEY_PREFIX}${normalizedKey}`,
-            this.config.ttlSeconds,
-            serializedResult
-          )
-          logger.debug(`Stored idempotency result in Redis: ${normalizedKey}`)
-          return
-        }
-      }
-    } catch (error) {
-      logger.warn(`Failed to store result in Redis for ${normalizedKey}:`, error)
+  private async storeResultRedis(normalizedKey: string, result: ProcessingResult): Promise<void> {
+    const redis = getRedisClient()
+    if (!redis) {
+      throw new Error('Redis not available for storing result')
     }
 
-    // Always fallback to database when Redis is not available
-    try {
-      await db
-        .insert(idempotencyKey)
-        .values({
-          key: normalizedKey,
-          namespace: this.config.namespace,
+    await redis.setex(
+      `${REDIS_KEY_PREFIX}${normalizedKey}`,
+      this.config.ttlSeconds,
+      JSON.stringify(result)
+    )
+    logger.debug(`Stored idempotency result in Redis: ${normalizedKey}`)
+  }
+
+  private async storeResultDb(normalizedKey: string, result: ProcessingResult): Promise<void> {
+    await db
+      .insert(idempotencyKey)
+      .values({
+        key: normalizedKey,
+        namespace: this.config.namespace,
+        result: result,
+        createdAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [idempotencyKey.key, idempotencyKey.namespace],
+        set: {
           result: result,
           createdAt: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: [idempotencyKey.key, idempotencyKey.namespace],
-          set: {
-            result: result,
-            createdAt: new Date(),
-          },
-        })
+        },
+      })
 
-      logger.debug(`Stored idempotency result in database: ${normalizedKey}`)
-    } catch (error) {
-      logger.error(`Failed to store result in database for ${normalizedKey}:`, error)
-      throw new Error(`Failed to store idempotency result: database unavailable`)
-    }
+    logger.debug(`Stored idempotency result in database: ${normalizedKey}`)
   }
 
   /**
