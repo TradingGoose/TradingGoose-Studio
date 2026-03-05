@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { shallow } from 'zustand/shallow'
 import { cn } from '@/lib/utils'
 import { getBlockOutputPaths, getBlockOutputType } from '@/lib/workflows/block-outputs'
-import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { getBlock } from '@/blocks'
 import type { BlockConfig } from '@/blocks/types'
+import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { useVariablesStore } from '@/stores/variables/store'
 import type { Variable } from '@/stores/variables/types'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
@@ -147,14 +147,13 @@ const getOutputTypeForPath = (
     const blockState = useWorkflowStore.getState().blocks[blockId]
     const subBlocks = mergedSubBlocksOverride ?? (blockState?.subBlocks || {})
     return getBlockOutputType(block.type, outputPath, subBlocks)
-  } else {
-    const operationValue = getSubBlockValue(blockId, 'operation', workflowId)
-    if (blockConfig && operationValue) {
-      return getToolOutputType(blockConfig, operationValue, outputPath)
-    }
-    if (blockConfig) {
-      return getBlockOutputType(block.type, outputPath, mergedSubBlocksOverride)
-    }
+  }
+  const operationValue = getSubBlockValue(blockId, 'operation', workflowId)
+  if (blockConfig && operationValue) {
+    return getToolOutputType(blockConfig, operationValue, outputPath)
+  }
+  if (blockConfig) {
+    return getBlockOutputType(block.type, outputPath, mergedSubBlocksOverride)
   }
 
   return 'any'
@@ -291,12 +290,28 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
   allowContextualTags = true,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
+  const [verticalPlacement, setVerticalPlacement] = useState<'top' | 'bottom'>('bottom')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [hoveredNested, setHoveredNested] = useState<{ tag: string; index: number } | null>(null)
   const [inSubmenu, setInSubmenu] = useState(false)
   const [submenuIndex, setSubmenuIndex] = useState(0)
   const [parentHovered, setParentHovered] = useState<string | null>(null)
   const [submenuHovered, setSubmenuHovered] = useState(false)
+
+  const updatePlacement = useCallback(() => {
+    const element = containerRef.current
+    const anchor = element?.parentElement
+    if (!element || !anchor) return
+
+    const anchorRect = anchor.getBoundingClientRect()
+    const viewportPadding = 12
+    const spaceBelow = window.innerHeight - anchorRect.bottom - viewportPadding
+    const spaceAbove = anchorRect.top - viewportPadding
+    const estimatedHeight = Math.min(element.scrollHeight || 0, 320)
+    const shouldOpenTop = spaceBelow < estimatedHeight && spaceAbove > spaceBelow
+
+    setVerticalPlacement(shouldOpenTop ? 'top' : 'bottom')
+  }, [])
 
   const { blocks, edges, loops, parallels } = useWorkflowStore(
     (state) => ({
@@ -1107,6 +1122,18 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
     }
   }, [visible, onClose])
 
+  useLayoutEffect(() => {
+    if (!visible) return
+
+    updatePlacement()
+    window.addEventListener('resize', updatePlacement)
+    window.addEventListener('scroll', updatePlacement, true)
+    return () => {
+      window.removeEventListener('resize', updatePlacement)
+      window.removeEventListener('scroll', updatePlacement, true)
+    }
+  }, [visible, orderedTags.length, updatePlacement])
+
   useEffect(() => {
     if (visible) {
       const handleKeyboardEvent = (e: KeyboardEvent) => {
@@ -1345,7 +1372,8 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
     <div
       ref={containerRef}
       className={cn(
-        'absolute z-[9999] mt-1 w-full overflow-visible rounded-md border bg-popover shadow-md',
+        'absolute left-0 z-[9999] w-full overflow-visible rounded-md border bg-popover shadow-md',
+        verticalPlacement === 'top' ? 'bottom-[calc(100%+0.25rem)]' : 'top-[calc(100%+0.25rem)]',
         className
       )}
       style={style}
@@ -1374,8 +1402,8 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                           'hover:bg-card hover:text-accent-foreground',
                           'focus:bg-accent focus:text-accent-foreground focus:outline-none',
                           tagIndex === selectedIndex &&
-                          tagIndex >= 0 &&
-                          'bg-accent text-accent-foreground'
+                            tagIndex >= 0 &&
+                            'bg-accent text-accent-foreground'
                         )}
                         {...createTagEventHandlers(
                           tag,
@@ -1656,7 +1684,10 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                                         >
                                           <div
                                             className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-sm bg-background/60 text-foreground'
-                                            style={{ backgroundColor: blockBackground, color: blockColor }}
+                                            style={{
+                                              backgroundColor: blockBackground,
+                                              color: blockColor,
+                                            }}
                                           >
                                             <span
                                               className='h-3 w-3 font-bold text-xs'
