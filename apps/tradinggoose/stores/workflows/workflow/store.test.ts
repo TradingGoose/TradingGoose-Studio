@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store'
+import { getWorkflowStoreForChannel, useWorkflowStore } from '@/stores/workflows/workflow/store'
 
 describe('workflow store', () => {
   beforeEach(() => {
@@ -702,5 +702,36 @@ describe('workflow store', () => {
       const state = useWorkflowStore.getState()
       expect(state.blocks.block2.name).toBe('Unique Name')
     })
+  })
+
+  it('uses the real channel key for workflow-bound store actions', async () => {
+    const channelId = 'regression-channel'
+    const workflowId = 'wf-1'
+    const store = getWorkflowStoreForChannel(channelId, workflowId)
+
+    const registry = useWorkflowRegistry.getState()
+    const originalGetActiveWorkflowId = registry.getActiveWorkflowId
+    const getActiveWorkflowIdMock = vi.fn((requestedChannelId?: string) =>
+      requestedChannelId === channelId ? workflowId : null
+    )
+
+    useWorkflowRegistry.setState({
+      getActiveWorkflowId: getActiveWorkflowIdMock as any,
+    } as any)
+
+    try {
+      await store.getState().revertToDeployedState({
+        blocks: {},
+        edges: [],
+        loops: {},
+        parallels: {},
+      } as any)
+    } finally {
+      useWorkflowRegistry.setState({
+        getActiveWorkflowId: originalGetActiveWorkflowId,
+      } as any)
+    }
+
+    expect(getActiveWorkflowIdMock).toHaveBeenCalledWith(channelId)
   })
 })
