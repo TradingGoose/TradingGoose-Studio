@@ -1,10 +1,9 @@
 'use client'
 
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useIndicators } from '@/hooks/queries/indicators'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import { useIndicatorsStore } from '@/stores/indicators/store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { useIndicatorEditorActions } from '@/widgets/utils/indicator-editor-actions'
@@ -31,12 +30,56 @@ export function EditorIndicatorWidgetBody({
   const setPairContext = useSetPairColorContext()
 
   const paramsIndicatorId = getIndicatorIdFromParams(params)
-  const resolvedPairIndicatorId = pairContext?.pineIndicatorId ?? paramsIndicatorId
-  const indicatorId = isLinkedToColorPair ? resolvedPairIndicatorId : paramsIndicatorId
+  const requestedIndicatorId = isLinkedToColorPair
+    ? (pairContext?.pineIndicatorId ?? paramsIndicatorId)
+    : paramsIndicatorId
 
-  const indicator = useIndicatorsStore((state) =>
-    indicatorId ? state.getIndicator(indicatorId, workspaceId ?? undefined) : undefined
-  )
+  const workspaceIndicators = workspaceId
+    ? indicators.filter((indicator) => indicator.workspaceId === workspaceId)
+    : []
+  const normalizedRequestedIndicatorId = requestedIndicatorId?.trim() ?? ''
+  const hasRequestedIndicator =
+    normalizedRequestedIndicatorId.length > 0 &&
+    workspaceIndicators.some((indicator) => indicator.id === normalizedRequestedIndicatorId)
+  const indicatorId = hasRequestedIndicator
+    ? normalizedRequestedIndicatorId
+    : (workspaceIndicators[0]?.id ?? null)
+  const indicator = indicatorId
+    ? (workspaceIndicators.find((candidate) => candidate.id === indicatorId) ?? null)
+    : null
+
+  useEffect(() => {
+    if (!indicatorId) {
+      return
+    }
+
+    if (isLinkedToColorPair) {
+      if (pairContext?.pineIndicatorId === indicatorId) {
+        return
+      }
+
+      setPairContext(resolvedPairColor, { pineIndicatorId: indicatorId })
+      return
+    }
+
+    if (!onWidgetParamsChange || paramsIndicatorId === indicatorId) {
+      return
+    }
+
+    onWidgetParamsChange({
+      ...(params ?? {}),
+      pineIndicatorId: indicatorId,
+    })
+  }, [
+    indicatorId,
+    isLinkedToColorPair,
+    onWidgetParamsChange,
+    pairContext?.pineIndicatorId,
+    params,
+    paramsIndicatorId,
+    resolvedPairColor,
+    setPairContext,
+  ])
 
   useIndicatorSelectionPersistence({
     onWidgetParamsChange,
@@ -80,7 +123,7 @@ export function EditorIndicatorWidgetBody({
     )
   }
 
-  if (isLoading && indicators.length === 0) {
+  if (isLoading && workspaceIndicators.length === 0) {
     return (
       <div className='flex h-full w-full items-center justify-center'>
         <LoadingAgent size='md' />
