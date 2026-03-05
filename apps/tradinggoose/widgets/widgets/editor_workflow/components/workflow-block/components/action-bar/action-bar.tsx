@@ -5,17 +5,26 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
+import { emitRemoveFromSubflow } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/workflow-editor-event-bus'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import { getBlock } from '@/blocks'
 
 interface ActionBarProps {
   blockId: string
   blockType: string
+  workflowId: string
+  channelId: string
   disabled?: boolean
 }
 
 export const ActionBar = memo(
-  function ActionBar({ blockId, blockType, disabled = false }: ActionBarProps) {
+  function ActionBar({
+    blockId,
+    blockType,
+    workflowId,
+    channelId,
+    disabled = false,
+  }: ActionBarProps) {
     const {
       collaborativeRemoveBlock,
       collaborativeToggleBlockEnabled,
@@ -125,13 +134,15 @@ export const ActionBar = memo(
               <Button
                 variant='ghost'
                 size='sm'
-                onClick={() => {
-                  if (!disabled && userPermissions.canEdit) {
-                    window.dispatchEvent(
-                      new CustomEvent('remove-from-subflow', { detail: { blockId } })
-                    )
-                  }
-                }}
+              onClick={() => {
+                if (!disabled && userPermissions.canEdit) {
+                  emitRemoveFromSubflow({
+                    blockId,
+                    workflowId,
+                    channelId,
+                  })
+                }
+              }}
                 className={cn(
                   'text-gray-500',
                   (disabled || !userPermissions.canEdit) && 'cursor-not-allowed opacity-50'
@@ -199,6 +210,8 @@ export const ActionBar = memo(
     return (
       prevProps.blockId === nextProps.blockId &&
       prevProps.blockType === nextProps.blockType &&
+      prevProps.workflowId === nextProps.workflowId &&
+      prevProps.channelId === nextProps.channelId &&
       prevProps.disabled === nextProps.disabled
     )
   }

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronDown, ChevronUp, Plus, Trash } from 'lucide-react'
 import { MonacoEditor } from '@/components/monaco-editor'
 import type { MonacoDecoration, MonacoEditorHandle } from '@/components/monaco-editor'
-import { Handle, Position, useUpdateNodeInternals } from 'reactflow'
+import { useUpdateNodeInternals } from 'reactflow'
 import { Button } from '@/components/ui/button'
 import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
@@ -547,39 +547,6 @@ export function ConditionInput({
             )}
           >
             <span className='font-medium text-sm'>{block.title}</span>
-            <Handle
-              type='source'
-              position={Position.Right}
-              id={`condition-${block.id}`}
-              key={`${block.id}-${index}`}
-              className={cn(
-                '!w-[7px] !h-5',
-                '!bg-slate-300 dark:!bg-slate-500 !rounded-xs !border-none',
-                '!z-[30]',
-                'group-hover:!shadow-[0_0_0_3px_rgba(156,163,175,0.15)]',
-                'hover:!w-[10px] hover:!right-[-28px] hover:!rounded-r-full hover:!rounded-l-none',
-                '!cursor-crosshair',
-                'transition-all duration-150',
-                '!right-[-25px]'
-              )}
-              data-nodeid={`${blockId}-${subBlockId}`}
-              data-handleid={`condition-${block.id}`}
-              style={{
-                top: '50%',
-                transform: 'translateY(-50%)',
-              }}
-              isConnectableStart={true}
-              isConnectableEnd={false}
-              isValidConnection={(connection) => {
-                // Prevent self-connections
-                if (connection.source === connection.target) return false
-
-                // Existing validation to prevent connections within the same parent node
-                const sourceNodeId = connection.source?.split('-')[0]
-                const targetNodeId = connection.target?.split('-')[0]
-                return sourceNodeId !== targetNodeId
-              }}
-            />
             <div className='flex items-center gap-1'>
               <Tooltip>
                 <TooltipTrigger asChild>

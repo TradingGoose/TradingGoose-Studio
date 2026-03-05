@@ -5,6 +5,7 @@ import { getBlock } from '@/blocks'
 import { populateTriggerFieldsFromConfig } from '@/hooks/use-trigger-config-aggregation'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { SubBlockStore } from '@/stores/workflows/subblock/types'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store'
 import { isTriggerValid } from '@/triggers'
 
 /**
@@ -27,7 +28,8 @@ export const useSubBlockStore = create<SubBlockStore>()(
 
     setValue: (blockId: string, subBlockId: string, value: any, workflowId?: string) => {
       const resolvedWorkflowId =
-        workflowId ?? useWorkflowRegistry.getState().getActiveWorkflowId()
+        workflowId ??
+        useWorkflowRegistry.getState().getActiveWorkflowId(DEFAULT_WORKFLOW_CHANNEL_ID)
       if (!resolvedWorkflowId) return
 
       // Validate and fix table data if needed
@@ -85,14 +87,17 @@ export const useSubBlockStore = create<SubBlockStore>()(
 
     getValue: (blockId: string, subBlockId: string, workflowId?: string) => {
       const resolvedWorkflowId =
-        workflowId ?? useWorkflowRegistry.getState().getActiveWorkflowId()
+        workflowId ??
+        useWorkflowRegistry.getState().getActiveWorkflowId(DEFAULT_WORKFLOW_CHANNEL_ID)
       if (!resolvedWorkflowId) return null
 
       return get().workflowValues[resolvedWorkflowId]?.[blockId]?.[subBlockId] ?? null
     },
 
     clear: () => {
-      const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
+      const activeWorkflowId = useWorkflowRegistry
+        .getState()
+        .getActiveWorkflowId(DEFAULT_WORKFLOW_CHANNEL_ID)
       if (!activeWorkflowId) return
 
       set((state) => ({

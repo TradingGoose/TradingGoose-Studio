@@ -19,6 +19,8 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { dispatchToolbarAddBlock } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-dispatcher'
+import { ToolbarAddBlockProvider } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-context'
 import {
   getProviderIdsForBlocks,
   isBlockAvailable,
@@ -43,7 +45,7 @@ import ParallelToolbarItem from '@/widgets/widgets/editor_workflow/components/to
 
 interface WorkflowToolbarProps {
   workspaceId?: string
-  channelId?: string
+  toolbarScopeId?: string
 }
 
 type ToolbarMode = 'blocks' | 'tools' | 'triggers'
@@ -111,7 +113,7 @@ function useToolbarList(
   }, [searchQuery, mode, providerAvailability])
 }
 
-export function WorkflowToolbar({ workspaceId, channelId }: WorkflowToolbarProps) {
+export function WorkflowToolbar({ workspaceId, toolbarScopeId }: WorkflowToolbarProps) {
   const [providerAvailability, setProviderAvailability] = useState<ProviderAvailability>(
     DEFAULT_PROVIDER_AVAILABILITY
   )
@@ -154,17 +156,21 @@ export function WorkflowToolbar({ workspaceId, channelId }: WorkflowToolbarProps
   return (
     <TooltipProvider>
       <WorkspacePermissionsProvider workspaceId={workspaceId}>
-        <ToolbarDropdownGroup channelId={channelId} providerAvailability={providerAvailability} />
+        <ToolbarAddBlockProvider
+          onAddBlock={(request) => {
+            dispatchToolbarAddBlock(request, toolbarScopeId)
+          }}
+        >
+          <ToolbarDropdownGroup providerAvailability={providerAvailability} />
+        </ToolbarAddBlockProvider>
       </WorkspacePermissionsProvider>
     </TooltipProvider>
   )
 }
 
 function ToolbarDropdownGroup({
-  channelId,
   providerAvailability,
 }: {
-  channelId?: string
   providerAvailability: ProviderAvailability
 }) {
   const [blockSearch, setBlockSearch] = useState('')
@@ -178,17 +184,17 @@ function ToolbarDropdownGroup({
   return (
     <div className={widgetHeaderButtonGroupClassName()}>
       <ToolbarDropdown label='Blocks' searchValue={blockSearch} onSearchChange={setBlockSearch}>
-        <ToolbarDropdownContent data={blockData} mode='blocks' channelId={channelId} />
+        <ToolbarDropdownContent data={blockData} mode='blocks' />
       </ToolbarDropdown>
       <ToolbarDropdown label='Tools' searchValue={toolSearch} onSearchChange={setToolSearch}>
-        <ToolbarDropdownContent data={toolData} mode='tools' channelId={channelId} />
+        <ToolbarDropdownContent data={toolData} mode='tools' />
       </ToolbarDropdown>
       <ToolbarDropdown
         label='Triggers'
         searchValue={triggerSearch}
         onSearchChange={setTriggerSearch}
       >
-        <ToolbarDropdownContent data={triggerData} mode='triggers' channelId={channelId} />
+        <ToolbarDropdownContent data={triggerData} mode='triggers' />
       </ToolbarDropdown>
     </div>
   )
@@ -270,11 +276,9 @@ function ToolbarDropdown({ label, searchValue, onSearchChange, children }: Toolb
 function ToolbarDropdownContent({
   data,
   mode,
-  channelId,
 }: {
   data: ToolbarListData
   mode: ToolbarMode
-  channelId?: string
 }) {
   const { regularBlocks, toolBlocks, triggerBlocks, includeSpecialBlocks } = data
 
@@ -299,7 +303,7 @@ function ToolbarDropdownContent({
           <SectionLabel title='Blocks' />
           {regularBlocks.map((block) => (
             <DropdownMenuItem key={block.type} className='p-0 focus:bg-transparent'>
-              <ToolbarBlock config={block} channelId={channelId} />
+              <ToolbarBlock config={block} />
             </DropdownMenuItem>
           ))}
         </div>
@@ -309,10 +313,10 @@ function ToolbarDropdownContent({
         <div className='space-y-1 pb-2'>
           <SectionLabel title='Special' />
           <DropdownMenuItem className='p-0 focus:bg-transparent'>
-            <LoopToolbarItem channelId={channelId} />
+            <LoopToolbarItem />
           </DropdownMenuItem>
           <DropdownMenuItem className='p-0 focus:bg-transparent'>
-            <ParallelToolbarItem channelId={channelId} />
+            <ParallelToolbarItem />
           </DropdownMenuItem>
         </div>
       )}
@@ -322,7 +326,7 @@ function ToolbarDropdownContent({
           <SectionLabel title='Tools' />
           {toolBlocks.map((block) => (
             <DropdownMenuItem key={block.type} className='p-0 focus:bg-transparent'>
-              <ToolbarBlock config={block} channelId={channelId} />
+              <ToolbarBlock config={block} />
             </DropdownMenuItem>
           ))}
         </div>
@@ -336,7 +340,6 @@ function ToolbarDropdownContent({
               <ToolbarBlock
                 config={block}
                 enableTriggerMode={hasTriggerCapability(block)}
-                channelId={channelId}
               />
             </DropdownMenuItem>
           ))}

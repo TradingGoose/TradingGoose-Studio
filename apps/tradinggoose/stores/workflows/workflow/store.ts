@@ -41,8 +41,9 @@ export const DEFAULT_WORKFLOW_CHANNEL_ID = 'default'
 
 type WorkflowStoreStateCreator = StateCreator<WorkflowStore, [['zustand/devtools', never]], []>
 
-const workflowStoreState: WorkflowStoreStateCreator = (set, get) => ({
-  ...initialState,
+const createWorkflowStoreState = (channelId: string): WorkflowStoreStateCreator =>
+  (set, get) => ({
+    ...initialState,
 
   setNeedsRedeploymentFlag: (needsRedeployment: boolean) => {
     set({ needsRedeployment })
@@ -171,6 +172,12 @@ const workflowStoreState: WorkflowStoreStateCreator = (set, get) => ({
     // No sync for position updates to avoid excessive syncing during drag
   },
 
+  updateBlockPositions: (updates: Array<{ id: string; position: Position }>) => {
+    updates.forEach(({ id, position }) => {
+      get().updateBlockPosition(id, position)
+    })
+  },
+
   updateNodeDimensions: (id: string, dimensions: { width: number; height: number }) => {
     set((state) => {
       // Check if the block exists before trying to update it
@@ -266,10 +273,16 @@ const workflowStoreState: WorkflowStoreStateCreator = (set, get) => ({
     // Note: Socket.IO handles real-time sync automatically
   },
 
+  updateParentIds: (updates: Array<{ id: string; parentId: string; extent: 'parent' }>) => {
+    updates.forEach(({ id, parentId, extent }) => {
+      get().updateParentId(id, parentId, extent)
+    })
+  },
+
   removeBlock: (id: string) => {
     // First, clean up any subblock values for this block
     const subBlockStore = useSubBlockStore.getState()
-    const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
+    const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId(channelId)
 
     const newState = {
       blocks: { ...get().blocks },
@@ -495,7 +508,7 @@ const workflowStoreState: WorkflowStoreStateCreator = (set, get) => ({
     const newName = getUniqueBlockName(block.name, get().blocks)
 
     // Get merged state to capture current subblock values
-    const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
+    const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId(channelId)
     const mergedBlock = activeWorkflowId
       ? mergeSubblockState(get().blocks, activeWorkflowId, id)[id]
       : get().blocks[id]
@@ -607,7 +620,7 @@ const workflowStoreState: WorkflowStoreStateCreator = (set, get) => ({
 
     // Update references in subblock store
     const subBlockStore = useSubBlockStore.getState()
-    const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
+    const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId(channelId)
     if (activeWorkflowId) {
       // Get the workflow values for the active workflow
       // workflowValues: {[block_id]:{[subblock_id]:[subblock_value]}}
@@ -869,7 +882,7 @@ const workflowStoreState: WorkflowStoreStateCreator = (set, get) => ({
   },
 
   revertToDeployedState: async (deployedState: WorkflowState) => {
-    const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
+    const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId(channelId)
 
     if (!activeWorkflowId) {
       logger.error('Cannot revert: no active workflow ID')
@@ -1007,7 +1020,7 @@ const workflowStoreState: WorkflowStoreStateCreator = (set, get) => ({
     // Handle webhook enable/disable when toggling trigger mode
     const handleWebhookToggle = async () => {
       try {
-        const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
+        const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId(channelId)
         if (!activeWorkflowId) return
 
         // Check if there's a webhook for this block
@@ -1138,11 +1151,13 @@ const workflowStoreState: WorkflowStoreStateCreator = (set, get) => ({
   getDragStartPosition: () => {
     return get().dragStartPosition || null
   },
-})
+  })
 
 const createWorkflowStore = (channelId: string): StoreApi<WorkflowStore> =>
   createStore<WorkflowStore>()(
-    devtools(workflowStoreState, { name: `workflow-store-${channelId || 'global'}` })
+    devtools(createWorkflowStoreState(channelId), {
+      name: `workflow-store-${channelId || 'global'}`,
+    })
   )
 
 const resolveChannelKey = (channelId?: string) =>
@@ -1152,14 +1167,15 @@ const workflowStoreMap = new Map<string, StoreApi<WorkflowStore>>()
 const workflowStoreByWorkflowId = new Map<string, StoreApi<WorkflowStore>>()
 const channelWorkflowBindings = new Map<string, string>()
 
-const getStoreForWorkflow = (workflowId: string) => {
-  if (!workflowStoreByWorkflowId.has(workflowId)) {
+const getStoreForWorkflow = (channelKey: string, workflowId: string) => {
+  const bindingKey = `${channelKey}::${workflowId}`
+  if (!workflowStoreByWorkflowId.has(bindingKey)) {
     workflowStoreByWorkflowId.set(
-      workflowId,
-      createWorkflowStore(`workflow-${workflowId}`)
+      bindingKey,
+      createWorkflowStore(channelKey)
     )
   }
-  return workflowStoreByWorkflowId.get(workflowId)!
+  return workflowStoreByWorkflowId.get(bindingKey)!
 }
 
 export const getWorkflowStoreForChannel = (channelId?: string, workflowId?: string) => {
@@ -1167,12 +1183,12 @@ export const getWorkflowStoreForChannel = (channelId?: string, workflowId?: stri
 
   if (workflowId) {
     channelWorkflowBindings.set(key, workflowId)
-    return getStoreForWorkflow(workflowId)
+    return getStoreForWorkflow(key, workflowId)
   }
 
   const boundWorkflow = channelWorkflowBindings.get(key)
   if (boundWorkflow) {
-    return getStoreForWorkflow(boundWorkflow)
+    return getStoreForWorkflow(key, boundWorkflow)
   }
 
   if (!workflowStoreMap.has(key)) {

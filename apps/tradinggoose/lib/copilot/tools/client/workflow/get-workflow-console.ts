@@ -6,7 +6,6 @@ import {
 } from '@/lib/copilot/tools/client/base-tool'
 import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 interface GetWorkflowConsoleArgs {
   workflowId?: string
@@ -43,13 +42,10 @@ export class GetWorkflowConsoleClientTool extends BaseClientTool {
     const logger = createLogger('GetWorkflowConsoleClientTool')
     try {
       this.setState(ClientToolCallState.executing)
+      const executionContext = this.requireExecutionContext()
 
       const params = args || {}
-      let workflowId = params.workflowId
-      if (!workflowId) {
-        const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
-        workflowId = activeWorkflowId || undefined
-      }
+      const workflowId = params.workflowId || executionContext.workflowId
       if (!workflowId) {
         logger.error('No active workflow found for console fetch')
         this.setState(ClientToolCallState.error)

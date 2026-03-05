@@ -40,12 +40,14 @@ export class GetUserWorkflowClientTool extends BaseClientTool {
   async execute(args?: GetUserWorkflowArgs): Promise<void> {
     try {
       this.setState(ClientToolCallState.executing)
+      const executionContext = this.requireExecutionContext()
 
       // Determine workflow ID (explicit or active)
       const registryState = useWorkflowRegistry.getState() as any
       let workflowId = args?.workflowId
       if (!workflowId) {
-        const activeWorkflowId = registryState.getActiveWorkflowId?.()
+        const activeWorkflowId =
+          executionContext.workflowId || registryState.getActiveWorkflowId(executionContext.channelId)
         if (!activeWorkflowId) {
           await this.markToolComplete(400, 'No active workflow found')
           this.setState(ClientToolCallState.error)
@@ -54,10 +56,9 @@ export class GetUserWorkflowClientTool extends BaseClientTool {
         workflowId = activeWorkflowId as any
       }
 
-      // Try to locate the workflow store for the channel that actually loaded this workflow
-      const channelIdForWorkflow = Object.entries(registryState?.activeWorkflowIds || {}).find(
-        ([channel, id]) => id === workflowId && registryState?.loadedWorkflowIds?.[channel]
-      )?.[0] as string | undefined
+      // Locate the loaded channel for this workflow using canonical registry selectors.
+      const channelIdForWorkflow =
+        registryState.getPrimaryLoadedChannelForWorkflow?.(workflowId) || executionContext.channelId
 
       logger.info('Fetching user workflow from stores', {
         workflowId,

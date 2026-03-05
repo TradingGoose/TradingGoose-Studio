@@ -1,9 +1,8 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateCreativeWorkflowName } from '@/lib/naming'
 import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 
 const logger = createLogger('WorkflowQueries')
@@ -12,47 +11,6 @@ export const workflowKeys = {
   all: ['workflows'] as const,
   lists: () => [...workflowKeys.all, 'list'] as const,
   list: (workspaceId: string | undefined) => [...workflowKeys.lists(), workspaceId ?? ''] as const,
-}
-
-function mapWorkflow(workflow: any): WorkflowMetadata {
-  return {
-    id: workflow.id,
-    name: workflow.name,
-    description: workflow.description,
-    color: workflow.color,
-    workspaceId: workflow.workspaceId,
-    folderId: workflow.folderId,
-    createdAt: new Date(workflow.createdAt),
-    lastModified: new Date(workflow.updatedAt || workflow.createdAt),
-  }
-}
-
-async function fetchWorkflows(workspaceId: string): Promise<WorkflowMetadata[]> {
-  const response = await fetch(`/api/workflows?workspaceId=${workspaceId}`)
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch workflows')
-  }
-
-  const { data }: { data: any[] } = await response.json()
-  return data.map(mapWorkflow)
-}
-
-export function useWorkflows(workspaceId?: string, options?: { syncRegistry?: boolean }) {
-  const { syncRegistry = true } = options || {}
-
-  const query = useQuery({
-    queryKey: workflowKeys.list(workspaceId),
-    queryFn: () => fetchWorkflows(workspaceId as string),
-    enabled: Boolean(workspaceId),
-    placeholderData: keepPreviousData,
-    staleTime: 60 * 1000,
-  })
-
-  // Registry hydration now comes from loadWorkflows/store actions instead of local metadata loaders.
-  void syncRegistry
-
-  return query
 }
 
 interface CreateWorkflowVariables {

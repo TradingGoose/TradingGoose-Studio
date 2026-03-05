@@ -1,4 +1,5 @@
 import { MARKET_API_VERSION } from '@/lib/market/client/constants'
+import type { BlockOptionLoaderContext } from '@/blocks/types'
 import {
   formatTimezoneLabel,
   isUtcOffset,
@@ -118,7 +119,7 @@ let timeZoneOptionsPromise: Promise<TimeZoneOption[]> | null = null
 export const fetchTimeZoneOptions = async (
   _blockId?: string,
   _subBlockId?: string,
-  _contextValues?: Record<string, any>
+  _context?: BlockOptionLoaderContext
 ): Promise<TimeZoneOption[]> => {
   if (cachedTimeZoneOptions) return cachedTimeZoneOptions
   if (!timeZoneOptionsPromise) {

@@ -30,6 +30,9 @@ const WORKFLOW_WIDGET_UI_CONFIG: WorkflowCanvasUIConfig = {
   forceTrainingControls: false,
 }
 
+const getWorkflowToolbarScopeId = (widgetKey: string, panelId?: string) =>
+  `${widgetKey}::${panelId ?? 'panel'}`
+
 type ViewportBounds = { x: number; y: number; width: number; height: number }
 
 const WorkflowEditorWidgetBody = ({
@@ -42,6 +45,7 @@ const WorkflowEditorWidgetBody = ({
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId
   const widgetKey = widget?.key ?? 'workflow-editor'
+  const toolbarScopeId = getWorkflowToolbarScopeId(widgetKey, panelId)
   const {
     channelId,
     resolvedPairColor,
@@ -169,6 +173,7 @@ const WorkflowEditorWidgetBody = ({
           workspaceId={workspaceId}
           workflowId={resolvedWorkflowId}
           channelId={channelId}
+          toolbarScopeId={toolbarScopeId}
           ui={WORKFLOW_WIDGET_UI_CONFIG}
           viewportBounds={widgetBounds ?? undefined}
           disableNavigation={true}
@@ -239,10 +244,11 @@ export const workflowEditorWidget: DashboardWidgetDefinition = {
     const resolvedPairColor = isPairColor(widget?.pairColor) ? widget.pairColor : 'gray'
     const widgetKey = widget?.key ?? 'workflow-editor'
     const channelId = getWorkflowWidgetChannelId(resolvedPairColor, widgetKey, panelId)
+    const toolbarScopeId = getWorkflowToolbarScopeId(widgetKey, panelId)
 
     return {
       left: (
-        <WorkflowToolbar workspaceId={context?.workspaceId} channelId={channelId} />
+        <WorkflowToolbar workspaceId={context?.workspaceId} toolbarScopeId={toolbarScopeId} />
       ),
       center: (
         <WorkflowEditorHeaderSelector

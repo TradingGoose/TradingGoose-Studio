@@ -93,11 +93,11 @@ export function getBlockWithValues(blockId: string, channelId?: string): BlockSt
  * Note: Since localStorage has been removed, this only includes the active workflow state
  * @returns An object containing workflows, with state only for the active workflow
  */
-export function getAllWorkflowsWithValues() {
+export function getAllWorkflowsWithValues(channelId?: string) {
   const { workflows } = useWorkflowRegistry.getState()
   const result: Record<string, any> = {}
-  const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
-  const currentState = useWorkflowStore.getState()
+  const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId(channelId)
+  const workflowStore = useWorkflowStore.getState(channelId)
 
   // Only sync the active workflow to ensure we always send valid state data
   if (activeWorkflowId && workflows[activeWorkflowId]) {
@@ -108,16 +108,9 @@ export function getAllWorkflowsWithValues() {
       .getState()
       .getWorkflowDeploymentStatus(activeWorkflowId)
 
-    // Ensure state has all required fields for Zod validation
+    // Use the canonical workflow state shape from store
     const workflowState: WorkflowState = {
-      // Use the main store's method to get the base workflow state with fallback values
-      ...useWorkflowStore.getState().getWorkflowState(),
-      // Ensure fallback values for safer handling
-      blocks: currentState.blocks || {},
-      edges: currentState.edges || [],
-      loops: currentState.loops || {},
-      parallels: currentState.parallels || {},
-      lastSaved: currentState.lastSaved || Date.now(),
+      ...workflowStore.getWorkflowState(),
       // Override deployment fields with registry-specific deployment status
       isDeployed: deploymentStatus?.isDeployed || false,
       deployedAt: deploymentStatus?.deployedAt,

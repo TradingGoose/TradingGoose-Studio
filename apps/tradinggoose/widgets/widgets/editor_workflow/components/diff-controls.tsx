@@ -34,6 +34,7 @@ export const DiffControls = memo(function DiffControls({
     acceptChanges,
     rejectChanges,
     pendingEditToolCallId,
+    setScope,
   } = useWorkflowDiffStore(
     useCallback(
       (state: any) => ({
@@ -44,6 +45,7 @@ export const DiffControls = memo(function DiffControls({
         acceptChanges: state.acceptChanges,
         rejectChanges: state.rejectChanges,
         pendingEditToolCallId: state.pendingEditToolCallId,
+        setScope: state.setScope,
       }),
       []
     )
@@ -87,8 +89,8 @@ export const DiffControls = memo(function DiffControls({
     try {
       logger.info('Creating checkpoint before accepting changes')
 
-      // Get current workflow state from the store and ensure it's complete
-      const rawState = useWorkflowStore.getState().getWorkflowState()
+      // Get channel-scoped workflow state to avoid cross-channel checkpoint drift
+      const rawState = useWorkflowStore.getState(resolvedChannelId).getWorkflowState()
 
       // Merge subblock values from the SubBlockStore to get complete state
       // This ensures all user inputs and subblock data are captured
@@ -226,7 +228,7 @@ export const DiffControls = memo(function DiffControls({
       logger.error('Failed to create checkpoint:', error)
       return false
     }
-  }, [activeWorkflowId, currentChat, messages])
+  }, [activeWorkflowId, currentChat, messages, resolvedChannelId])
 
   const resolveEditToolCallId = () => {
     try {
@@ -261,6 +263,7 @@ export const DiffControls = memo(function DiffControls({
     logger.info('Accepting proposed changes with backup protection')
 
     try {
+      setScope({ channelId: resolvedChannelId, workflowId: activeWorkflowId ?? null })
       await createCheckpoint().catch((error: any) => {
         logger.warn('Failed to create checkpoint before accept:', error)
       })
@@ -298,11 +301,20 @@ export const DiffControls = memo(function DiffControls({
       console.error('Workflow update failed:', errorMessage)
       alert(`Failed to save workflow changes: ${errorMessage}`)
     }
-  }, [createCheckpoint, clearPreviewYaml, updatePreviewToolCallState, acceptChanges])
+  }, [
+    setScope,
+    resolvedChannelId,
+    activeWorkflowId,
+    createCheckpoint,
+    clearPreviewYaml,
+    updatePreviewToolCallState,
+    acceptChanges,
+  ])
 
   const handleReject = useCallback(async () => {
     logger.info('Rejecting proposed changes (optimistic)')
 
+    setScope({ channelId: resolvedChannelId, workflowId: activeWorkflowId ?? null })
     clearPreviewYaml().catch((error: any) => {
       logger.warn('Failed to clear preview YAML:', error)
     })
@@ -332,7 +344,14 @@ export const DiffControls = memo(function DiffControls({
     rejectChanges().catch((error: any) => {
       logger.error('Failed to reject changes (background):', error)
     })
-  }, [clearPreviewYaml, updatePreviewToolCallState, rejectChanges])
+  }, [
+    setScope,
+    resolvedChannelId,
+    activeWorkflowId,
+    clearPreviewYaml,
+    updatePreviewToolCallState,
+    rejectChanges,
+  ])
 
   // Don't show anything if no diff is available or diff is not ready
   if (!diffWorkflow || !isDiffReady) {

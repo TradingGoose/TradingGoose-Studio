@@ -17,10 +17,17 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { WorkspaceFileRecord } from '@/lib/uploads/contexts/workspace'
-import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import { useWorkflowId, useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
+import {
+  DEFAULT_WORKFLOW_CHANNEL_ID,
+  useWorkflowStore,
+} from '@/stores/workflows/workflow/store-client'
+import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
+import {
+  useOptionalWorkflowRoute,
+  useWorkflowId,
+  useWorkspaceId,
+} from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('FileUpload')
 
@@ -55,7 +62,7 @@ export function FileUpload({
   subBlockId,
   maxSize = 10, // Default 10MB
   acceptedTypes = '*',
-  multiple = false, // Default to single file for backward compatibility
+  multiple = false,
   isPreview = false,
   previewValue,
   disabled = false,
@@ -78,7 +85,11 @@ export function FileUpload({
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Stores
-  const registryWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId())
+  const routeContext = useOptionalWorkflowRoute()
+  const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
+  const registryWorkflowId = useWorkflowRegistry((state) =>
+    state.getActiveWorkflowId(resolvedChannelId)
+  )
   const activeWorkflowId = useWorkflowId() || registryWorkflowId || null
   const workspaceId = useWorkspaceId()
 
@@ -326,7 +337,9 @@ export function FileUpload({
 
         // Add existing files to the map
         existingFiles.forEach((file) => {
-          uniqueFiles.set(file.url || file.path, file) // Use url, fallback to path for backward compatibility
+          if (file?.path) {
+            uniqueFiles.set(file.path, file)
+          }
         })
 
         // Add new files to the map (will overwrite if same path)
@@ -384,7 +397,9 @@ export function FileUpload({
       const uniqueFiles = new Map()
 
       existingFiles.forEach((file) => {
-        uniqueFiles.set(file.url || file.path, file)
+        if (file?.path) {
+          uniqueFiles.set(file.path, file)
+        }
       })
 
       uniqueFiles.set(uploadedFile.path, uploadedFile)

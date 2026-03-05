@@ -17,7 +17,6 @@ import {
   type GetBlockUpstreamReferencesResultType,
 } from '@/lib/copilot/tools/shared/schemas'
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store'
 import type { Loop, Parallel } from '@/stores/workflows/workflow/types'
 
@@ -70,6 +69,7 @@ export class GetBlockUpstreamReferencesClientTool extends BaseClientTool {
   async execute(args?: GetBlockUpstreamReferencesArgs): Promise<void> {
     try {
       this.setState(ClientToolCallState.executing)
+      const executionContext = this.requireExecutionContext()
 
       if (!args?.blockIds || args.blockIds.length === 0) {
         await this.markToolComplete(400, 'blockIds array is required')
@@ -77,14 +77,14 @@ export class GetBlockUpstreamReferencesClientTool extends BaseClientTool {
         return
       }
 
-      const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
+      const activeWorkflowId = executionContext.workflowId
       if (!activeWorkflowId) {
         await this.markToolComplete(400, 'No active workflow found')
         this.setState(ClientToolCallState.error)
         return
       }
 
-      const workflowStore = useWorkflowStore.getState()
+      const workflowStore = useWorkflowStore.getState(executionContext.channelId)
       const blocks = workflowStore.blocks || {}
       const edges = workflowStore.edges || []
       const loops = workflowStore.loops || {}

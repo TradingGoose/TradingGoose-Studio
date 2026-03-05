@@ -17,7 +17,7 @@ import { useEnvironmentStore } from '@/stores/settings/environment/store'
 import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { mergeSubblockState } from '@/stores/workflows/utils'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store'
+import { DEFAULT_WORKFLOW_CHANNEL_ID, useWorkflowStore } from '@/stores/workflows/workflow/store'
 
 const logger = createLogger('WorkflowExecutionUtils')
 
@@ -41,6 +41,7 @@ export interface WorkflowExecutionOptions {
   workflowInput?: any
   executionId?: string
   onStream?: (se: StreamingExecution) => Promise<void>
+  channelId?: string
 }
 
 export interface WorkflowExecutionContext {
@@ -54,13 +55,15 @@ export interface WorkflowExecutionContext {
 /**
  * Get the current workflow execution context from stores
  */
-export function getWorkflowExecutionContext(): WorkflowExecutionContext {
-  const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
+export function getWorkflowExecutionContext(
+  channelId = DEFAULT_WORKFLOW_CHANNEL_ID
+): WorkflowExecutionContext {
+  const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId(channelId)
   if (!activeWorkflowId) {
     throw new Error('No active workflow found')
   }
 
-  const workflowState = useWorkflowStore.getState().getWorkflowState()
+  const workflowState = useWorkflowStore.getState(channelId).getWorkflowState()
   const { isShowingDiff, isDiffReady, diffWorkflow } = useWorkflowDiffStore.getState()
 
   // Determine which workflow to use - same logic as useCurrentWorkflow
@@ -284,7 +287,7 @@ export async function persistExecutionLogs(
 export async function executeWorkflowWithFullLogging(
   options: WorkflowExecutionOptions = {}
 ): Promise<ExecutionResult | StreamingExecution> {
-  const context = getWorkflowExecutionContext()
+  const context = getWorkflowExecutionContext(options.channelId)
   const executionId = options.executionId || uuidv4()
 
   try {

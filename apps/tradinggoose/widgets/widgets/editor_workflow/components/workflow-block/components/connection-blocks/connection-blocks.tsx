@@ -6,6 +6,7 @@ import {
   useBlockConnections,
 } from '@/hooks/workflow/use-block-connections'
 import { getBlock } from '@/blocks'
+import { hsla } from 'framer-motion'
 
 interface ConnectionBlocksProps {
   blockId: string
@@ -104,24 +105,23 @@ export function ConnectionBlocks({
           !isDisabled
             ? 'cursor-grab hover:bg-card active:cursor-grabbing'
             : 'cursor-not-allowed opacity-60'
-        )}
-      >
-        {/* Block icon with color */}
-        {Icon && (
-          <div
-            className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-xs bg-secondary text-foreground'
-            style={{
-              backgroundColor: bgColor ? `${bgColor}20` : undefined,
-              color: bgColor || undefined,
-            }}
-          >
-            <Icon className='h-4 w-4' />
-          </div>
         )
         }
-        <div className='text-xs'>
-          <span className='font-medium leading-none'>{displayName}</span>
-        </div>
+      >
+        {/* Block icon with color */}
+        {
+          Icon && (
+            <div
+              className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-xs bg-secondary text-foreground'
+              style={{
+                backgroundColor: bgColor ? `${bgColor}20` : undefined,
+                color: bgColor || undefined,
+              }}
+            >
+              <Icon className='h-4 w-4' />
+            </div>
+          )
+        }
       </Card >
     )
   }

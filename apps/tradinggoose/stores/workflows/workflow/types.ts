@@ -179,8 +179,12 @@ export interface WorkflowActions {
     }
   ) => void
   updateBlockPosition: (id: string, position: Position) => void
+  updateBlockPositions: (updates: Array<{ id: string; position: Position }>) => void
   updateNodeDimensions: (id: string, dimensions: { width: number; height: number }) => void
   updateParentId: (id: string, parentId: string, extent: 'parent') => void
+  updateParentIds: (
+    updates: Array<{ id: string; parentId: string; extent: 'parent' }>
+  ) => void
   removeBlock: (id: string) => void
   addEdge: (edge: Edge) => void
   removeEdge: (edgeId: string) => void

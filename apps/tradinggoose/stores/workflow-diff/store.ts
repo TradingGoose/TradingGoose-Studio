@@ -7,7 +7,7 @@ import { validateWorkflowState } from '@/lib/workflows/validation'
 import { Serializer } from '@/serializer'
 import { useWorkflowRegistry } from '../workflows/registry/store'
 import { useSubBlockStore } from '../workflows/subblock/store'
-import { DEFAULT_WORKFLOW_CHANNEL_ID, useWorkflowStore } from '../workflows/workflow/store'
+import { useWorkflowStore } from '../workflows/workflow/store'
 import type { WorkflowState } from '../workflows/workflow/types'
 
 const logger = createLogger('WorkflowDiffStore')
@@ -24,9 +24,10 @@ const stateSelectors = {
   workflowState: null as WorkflowState | null,
   lastWorkflowStateHash: '',
 
-  getWorkflowState(): WorkflowState {
-    const current = useWorkflowStore.getState().getWorkflowState()
+  getWorkflowState(channelId?: string): WorkflowState {
+    const current = useWorkflowStore.getState(channelId).getWorkflowState()
     const currentHash = JSON.stringify({
+      channelId: channelId || '',
       blocksLength: Object.keys(current.blocks).length,
       edgesLength: current.edges.length,
       timestamp: current.lastSaved,
@@ -59,12 +60,19 @@ interface WorkflowDiffState {
   _triggerMessageId?: string | null
   // Track the toolCallId for the current edit_workflow diff so we can always send mark-complete
   pendingEditToolCallId?: string | null
+  // Channel/workflow scope for channel-safe diff operations.
+  scopeChannelId?: string | null
+  scopeWorkflowId?: string | null
 }
 
 interface WorkflowDiffActions {
-  setProposedChanges: (jsonContent: string, diffAnalysis?: DiffAnalysis) => Promise<void>
+  setProposedChanges: (
+    jsonContent: string | WorkflowState,
+    diffAnalysis?: DiffAnalysis
+  ) => Promise<void>
   mergeProposedChanges: (jsonContent: string, diffAnalysis?: DiffAnalysis) => Promise<void>
   clearDiff: () => void
+  setScope: (scope: { channelId?: string | null; workflowId?: string | null }) => void
   getCurrentWorkflowForCanvas: () => WorkflowState
   toggleDiffView: () => void
   acceptChanges: () => Promise<void>
@@ -120,8 +128,17 @@ export const useWorkflowDiffStore = create<WorkflowDiffState & WorkflowDiffActio
         _lastDisplayStateHash: undefined,
         _triggerMessageId: null,
         pendingEditToolCallId: null,
+        scopeChannelId: null,
+        scopeWorkflowId: null,
 
         _batchedStateUpdate: batchedUpdate,
+
+        setScope: ({ channelId, workflowId }) => {
+          set({
+            scopeChannelId: channelId || null,
+            scopeWorkflowId: workflowId || null,
+          })
+        },
 
         setPendingEditToolCallId: (toolCallId) => {
           batchedUpdate({ pendingEditToolCallId: toolCallId || null })
@@ -138,14 +155,19 @@ export const useWorkflowDiffStore = create<WorkflowDiffState & WorkflowDiffActio
           diffEngine.clearDiff()
 
           let result: { success: boolean; diff?: WorkflowDiff; errors?: string[] }
+          const scopeChannelId = get().scopeChannelId || undefined
 
           // Handle both JSON string and direct WorkflowState object
           if (typeof proposedContent === 'string') {
             // JSON string path (for backward compatibility)
-            result = await diffEngine.createDiff(proposedContent, diffAnalysis)
+            result = await diffEngine.createDiff(proposedContent, diffAnalysis, scopeChannelId)
           } else {
             // Direct WorkflowState path (new, more efficient)
-            result = await diffEngine.createDiffFromWorkflowState(proposedContent, diffAnalysis)
+            result = await diffEngine.createDiffFromWorkflowState(
+              proposedContent,
+              diffAnalysis,
+              scopeChannelId
+            )
           }
 
           if (result.success && result.diff) {
@@ -228,7 +250,11 @@ export const useWorkflowDiffStore = create<WorkflowDiffState & WorkflowDiffActio
           // First, set isDiffReady to false to prevent premature rendering
           batchedUpdate({ isDiffReady: false, diffError: null })
 
-          const result = await diffEngine.mergeDiff(jsonContent, diffAnalysis)
+          const result = await diffEngine.mergeDiff(
+            jsonContent,
+            diffAnalysis,
+            get().scopeChannelId || undefined
+          )
 
           if (result.success && result.diff) {
             // Validate proposed workflow using serializer round-trip to catch canvas-breaking issues
@@ -283,6 +309,8 @@ export const useWorkflowDiffStore = create<WorkflowDiffState & WorkflowDiffActio
             diffMetadata: null,
             diffError: null,
             pendingEditToolCallId: null,
+            scopeChannelId: null,
+            scopeWorkflowId: null,
           })
         },
 
@@ -299,15 +327,20 @@ export const useWorkflowDiffStore = create<WorkflowDiffState & WorkflowDiffActio
         },
 
         acceptChanges: async () => {
-          const { activeWorkflowIds } = useWorkflowRegistry.getState()
-          const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
+          const scopeChannelId = get().scopeChannelId || undefined
+          const scopeWorkflowId = get().scopeWorkflowId || null
+          const { getActiveWorkflowId, getLoadedChannelsForWorkflow } = useWorkflowRegistry.getState()
+          const activeWorkflowId = scopeWorkflowId ?? getActiveWorkflowId(scopeChannelId)
 
           if (!activeWorkflowId) {
             logger.error('No active workflow ID found when accepting diff')
             throw new Error('No active workflow found')
           }
 
-          logger.info('Accepting proposed changes')
+          logger.info('Accepting proposed changes', {
+            scopeChannelId,
+            activeWorkflowId,
+          })
 
           try {
             const cleanState = diffEngine.acceptDiff()
@@ -371,29 +404,34 @@ export const useWorkflowDiffStore = create<WorkflowDiffState & WorkflowDiffActio
               parallels: stateToApply.parallels,
             }
 
-            // Update the default workflow store (legacy/global consumers)
-            useWorkflowStore.setState(workflowStateUpdate)
+            const targetChannels = new Set<string>()
+            if (scopeChannelId) {
+              targetChannels.add(scopeChannelId)
+            }
+            getLoadedChannelsForWorkflow(activeWorkflowId).forEach((channelKey) => {
+              if (channelKey) {
+                targetChannels.add(channelKey)
+              }
+            })
 
-            // Also sync any channel-specific workflow stores that are bound to this workflow
-            Object.entries(activeWorkflowIds || {}).forEach(([channelKey, workflowId]) => {
-              if (
-                workflowId === activeWorkflowId &&
-                channelKey &&
-                channelKey !== DEFAULT_WORKFLOW_CHANNEL_ID
-              ) {
-                try {
-                  useWorkflowStore.setStateForChannel(
-                    workflowStateUpdate,
-                    channelKey,
-                    undefined,
-                    activeWorkflowId
-                  )
-                } catch (syncError) {
-                  logger.warn('Failed to sync workflow store for channel after diff accept', {
-                    channelKey,
-                    error: syncError instanceof Error ? syncError.message : String(syncError),
-                  })
-                }
+            if (targetChannels.size === 0) {
+              logger.error('No channel scope found when accepting diff', { activeWorkflowId })
+              throw new Error('No channel scope found for active workflow')
+            }
+
+            targetChannels.forEach((channelKey) => {
+              try {
+                useWorkflowStore.setStateForChannel(
+                  workflowStateUpdate,
+                  channelKey,
+                  undefined,
+                  activeWorkflowId
+                )
+              } catch (syncError) {
+                logger.warn('Failed to sync workflow store for channel after diff accept', {
+                  channelKey,
+                  error: syncError instanceof Error ? syncError.message : String(syncError),
+                })
               }
             })
 
@@ -415,7 +453,8 @@ export const useWorkflowDiffStore = create<WorkflowDiffState & WorkflowDiffActio
             }))
 
             // Trigger save and history
-            const workflowStore = useWorkflowStore.getState()
+            const [primaryChannel] = Array.from(targetChannels)
+            const workflowStore = useWorkflowStore.getState(primaryChannel)
             workflowStore.updateLastSaved()
 
             logger.info('Successfully applied diff workflow to main store')
@@ -615,7 +654,7 @@ export const useWorkflowDiffStore = create<WorkflowDiffState & WorkflowDiffActio
 
           // PERFORMANCE OPTIMIZATION: Return cached display state if available and valid
           if (isShowingDiff && isDiffReady && diffEngine.hasDiff()) {
-            const currentState = stateSelectors.getWorkflowState()
+            const currentState = stateSelectors.getWorkflowState(state.scopeChannelId || undefined)
             const currentHash = stateSelectors.lastWorkflowStateHash
 
             // Use cached display state if hash matches
@@ -637,7 +676,7 @@ export const useWorkflowDiffStore = create<WorkflowDiffState & WorkflowDiffActio
           }
 
           // PERFORMANCE OPTIMIZATION: Use cached workflow state selector
-          return stateSelectors.getWorkflowState()
+          return stateSelectors.getWorkflowState(state.scopeChannelId || undefined)
         },
       }
     },

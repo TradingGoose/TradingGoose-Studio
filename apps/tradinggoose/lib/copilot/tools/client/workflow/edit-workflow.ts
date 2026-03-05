@@ -7,7 +7,6 @@ import {
 import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { mergeSubblockState } from '@/stores/workflows/utils'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store'
 
@@ -85,30 +84,25 @@ export class EditWorkflowClientTool extends BaseClientTool {
       this.hasExecuted = true
       logger.info('execute called', { toolCallId: this.toolCallId, argsProvided: !!args })
       this.setState(ClientToolCallState.executing)
-
-      // Capture toolCallId in the diff store so accept/reject always knows what to mark complete
-      try {
-        const diffStore = useWorkflowDiffStore.getState()
-        diffStore.setPendingEditToolCallId?.(this.toolCallId)
-      } catch { }
+      const executionContext = this.requireExecutionContext()
 
       // Resolve workflowId
-      let workflowId = args?.workflowId
-      if (!workflowId) {
-        const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
-        workflowId = activeWorkflowId ?? undefined
-      }
+      const workflowId = args?.workflowId ?? executionContext.workflowId
       if (!workflowId) {
         this.setState(ClientToolCallState.error)
         await this.markToolComplete(400, 'No active workflow found')
         return
       }
 
-      // Try to locate the workflow store for the channel that actually loaded this workflow
-      const registryState = useWorkflowRegistry.getState() as any
-      const channelIdForWorkflow = Object.entries(registryState?.activeWorkflowIds || {}).find(
-        ([channel, id]) => id === workflowId && registryState?.loadedWorkflowIds?.[channel]
-      )?.[0] as string | undefined
+      // Capture channel/workflow scope and toolCallId so accept/reject stays channel-safe.
+      try {
+        const diffStore = useWorkflowDiffStore.getState()
+        diffStore.setScope?.({
+          channelId: executionContext.channelId,
+          workflowId,
+        })
+        diffStore.setPendingEditToolCallId?.(this.toolCallId)
+      } catch {}
 
       // Validate operations
       const operations = args?.operations || []
@@ -121,9 +115,16 @@ export class EditWorkflowClientTool extends BaseClientTool {
       // Prepare currentUserWorkflow JSON from stores to preserve block IDs
       let currentUserWorkflow = args?.currentUserWorkflow
       const diffStoreState = useWorkflowDiffStore.getState()
+      const canUseScopedDiff =
+        !diffStoreState.scopeChannelId || diffStoreState.scopeChannelId === executionContext.channelId
       let usedDiffWorkflow = false
 
-      if (!currentUserWorkflow && diffStoreState.isDiffReady && diffStoreState.diffWorkflow) {
+      if (
+        !currentUserWorkflow &&
+        canUseScopedDiff &&
+        diffStoreState.isDiffReady &&
+        diffStoreState.diffWorkflow
+      ) {
         try {
           const diffWorkflow = diffStoreState.diffWorkflow
           const normalizedDiffWorkflow = {
@@ -150,7 +151,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
 
       if (!currentUserWorkflow && !usedDiffWorkflow) {
         try {
-          const workflowStore = useWorkflowStore.getState(channelIdForWorkflow)
+          const workflowStore = useWorkflowStore.getState(executionContext.channelId)
           const fullState = workflowStore.getWorkflowState()
           let merged = fullState
           if (merged?.blocks) {

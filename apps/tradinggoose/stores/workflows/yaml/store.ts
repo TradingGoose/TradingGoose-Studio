@@ -13,9 +13,9 @@ interface WorkflowYamlState {
 }
 
 interface WorkflowYamlActions {
-  generateYaml: () => Promise<void>
-  getYaml: () => Promise<string>
-  refreshYaml: () => void
+  generateYaml: (channelId?: string) => Promise<void>
+  getYaml: (channelId?: string) => Promise<string>
+  refreshYaml: (channelId?: string) => void
 }
 
 type WorkflowYamlStore = WorkflowYamlState & WorkflowYamlActions
@@ -115,12 +115,12 @@ export const useWorkflowYamlStore = create<WorkflowYamlStore>()(
       yaml: '',
       lastGenerated: undefined,
 
-      generateYaml: async () => {
+      generateYaml: async (channelId?: string) => {
         // Initialize subscriptions on first use
         initializeSubscriptions()
 
         // Get the active workflow ID from registry
-        const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
+        const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId(channelId)
 
         if (!activeWorkflowId) {
           logger.warn('No active workflow to generate YAML for')
@@ -148,7 +148,7 @@ export const useWorkflowYamlStore = create<WorkflowYamlStore>()(
         }
       },
 
-      getYaml: async () => {
+      getYaml: async (channelId?: string) => {
         // Initialize subscriptions on first use
         initializeSubscriptions()
 
@@ -157,15 +157,15 @@ export const useWorkflowYamlStore = create<WorkflowYamlStore>()(
 
         // Auto-refresh if data is stale (older than 1 second) or never generated
         if (!lastGenerated || currentTime - lastGenerated > 1000) {
-          await get().generateYaml()
+          await get().generateYaml(channelId)
           return get().yaml
         }
 
         return yaml
       },
 
-      refreshYaml: () => {
-        get().generateYaml()
+      refreshYaml: (channelId?: string) => {
+        get().generateYaml(channelId)
       },
     }),
     {

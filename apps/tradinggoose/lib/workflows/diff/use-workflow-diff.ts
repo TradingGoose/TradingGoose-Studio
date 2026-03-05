@@ -6,6 +6,7 @@ import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { WorkflowDiffEngine } from './diff-engine'
 
 const logger = createLogger('WorkflowDiff')
@@ -32,8 +33,12 @@ export function useWorkflowDiff(): UseWorkflowDiffReturn {
   const [isShowingDiff, setIsShowingDiff] = useState(false)
   const diffEngineRef = useRef<WorkflowDiffEngine>(new WorkflowDiffEngine())
   const lastBackupRef = useRef<WorkflowBackup | null>(null)
+  const routeContext = useOptionalWorkflowRoute()
+  const resolvedChannelId = routeContext?.channelId
 
-  const activeWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId())
+  const activeWorkflowId = useWorkflowRegistry((state) =>
+    state.getActiveWorkflowId(resolvedChannelId)
+  )
   const workflowStore = useWorkflowStore()
   const { isDiffReady, diffWorkflow, diffMetadata } = useWorkflowDiffStore()
 
@@ -98,7 +103,7 @@ export function useWorkflowDiff(): UseWorkflowDiffReturn {
       })
 
       // Restore workflow store state
-      useWorkflowStore.setState({
+      const restoredState = {
         blocks: backup.workflowState.blocks,
         edges: backup.workflowState.edges,
         loops: backup.workflowState.loops,
@@ -107,7 +112,17 @@ export function useWorkflowDiff(): UseWorkflowDiffReturn {
         isDeployed: backup.workflowState.isDeployed,
         deployedAt: backup.workflowState.deployedAt,
         deploymentStatuses: backup.workflowState.deploymentStatuses,
-      })
+      }
+      if (resolvedChannelId) {
+        useWorkflowStore.setStateForChannel(
+          restoredState,
+          resolvedChannelId,
+          undefined,
+          activeWorkflowId || undefined
+        )
+      } else {
+        useWorkflowStore.setState(restoredState)
+      }
 
       // Restore subblock values
       useSubBlockStore.setState((state) => ({
@@ -119,7 +134,7 @@ export function useWorkflowDiff(): UseWorkflowDiffReturn {
 
       logger.info('Successfully restored workflow state from backup')
     },
-    [activeWorkflowId]
+    [activeWorkflowId, resolvedChannelId]
   )
 
   // Create checkpoint before applying changes
@@ -208,12 +223,22 @@ export function useWorkflowDiff(): UseWorkflowDiffReturn {
       }
 
       // Update workflow store with the clean state
-      useWorkflowStore.setState({
+      const nextState = {
         blocks: cleanState.blocks,
         edges: cleanState.edges,
         loops: cleanState.loops,
         parallels: cleanState.parallels,
-      })
+      }
+      if (resolvedChannelId) {
+        useWorkflowStore.setStateForChannel(
+          nextState,
+          resolvedChannelId,
+          undefined,
+          activeWorkflowId || undefined
+        )
+      } else {
+        useWorkflowStore.setState(nextState)
+      }
 
       // Update subblock store with values from diff
       const subblockValues: Record<string, Record<string, any>> = {}
@@ -284,6 +309,7 @@ export function useWorkflowDiff(): UseWorkflowDiffReturn {
     }
   }, [
     activeWorkflowId,
+    resolvedChannelId,
     workflowStore,
     createBackup,
     createCheckpoint,

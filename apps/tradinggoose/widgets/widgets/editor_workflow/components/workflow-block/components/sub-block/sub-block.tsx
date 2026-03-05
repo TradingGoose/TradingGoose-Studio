@@ -595,6 +595,7 @@ export const SubBlock = memo(
     const required = isFieldRequired()
 
     const showLabel =
+      Boolean(config.title) &&
       config.type !== 'switch' &&
       config.type !== 'market-selector' &&
       config.type !== 'order-id-selector' &&

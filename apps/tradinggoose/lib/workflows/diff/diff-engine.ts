@@ -325,7 +325,11 @@ export class WorkflowDiffEngine {
   /**
    * Create a diff from workflow state
    */
-  async createDiff(jsonContent: string, diffAnalysis?: DiffAnalysis): Promise<DiffResult> {
+  async createDiff(
+    jsonContent: string,
+    diffAnalysis?: DiffAnalysis,
+    channelId?: string
+  ): Promise<DiffResult> {
     try {
       logger.info('WorkflowDiffEngine.createDiff called with:', {
         jsonContentLength: jsonContent.length,
@@ -337,7 +341,7 @@ export class WorkflowDiffEngine {
 
       // Get current workflow state for comparison
       const { useWorkflowStore } = await import('@/stores/workflows/workflow/store')
-      const currentWorkflowState = useWorkflowStore.getState().getWorkflowState()
+      const currentWorkflowState = useWorkflowStore.getState(channelId).getWorkflowState()
 
       logger.info('WorkflowDiffEngine current workflow state:', {
         blockCount: Object.keys(currentWorkflowState.blocks || {}).length,
@@ -349,7 +353,7 @@ export class WorkflowDiffEngine {
       // Merge subblock values from subblock store to ensure manual edits are included in baseline
       let mergedBaseline: WorkflowState = currentWorkflowState
       try {
-        const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
+        const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId(channelId)
         const mergedBlocks = activeWorkflowId
           ? mergeSubblockState(currentWorkflowState.blocks, activeWorkflowId)
           : currentWorkflowState.blocks
@@ -479,7 +483,8 @@ export class WorkflowDiffEngine {
    */
   async createDiffFromWorkflowState(
     proposedState: WorkflowState,
-    diffAnalysis?: DiffAnalysis
+    diffAnalysis?: DiffAnalysis,
+    channelId?: string
   ): Promise<DiffResult & { diff?: WorkflowDiff }> {
     try {
       logger.info('WorkflowDiffEngine.createDiffFromWorkflowState called with:', {
@@ -492,7 +497,7 @@ export class WorkflowDiffEngine {
       // If we already have a diff, use it as baseline (editing on top of diff)
       // Otherwise use the current workflow state
       const { useWorkflowStore } = await import('@/stores/workflows/workflow/store')
-      const currentWorkflowState = useWorkflowStore.getState().getWorkflowState()
+      const currentWorkflowState = useWorkflowStore.getState(channelId).getWorkflowState()
 
       // Check if we're editing on top of an existing diff
       const baselineForComparison = this.currentDiff?.proposedState || currentWorkflowState
@@ -511,7 +516,7 @@ export class WorkflowDiffEngine {
       // If editing on top of diff, use the diff state as-is
       if (!isEditingOnTopOfDiff) {
         try {
-          const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
+          const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId(channelId)
           const mergedBlocks = activeWorkflowId
             ? mergeSubblockState(baselineForComparison.blocks, activeWorkflowId)
             : baselineForComparison.blocks
@@ -964,14 +969,18 @@ export class WorkflowDiffEngine {
    * Merge new workflow state into existing diff
    * Used for cumulative updates within the same message
    */
-  async mergeDiff(jsonContent: string, diffAnalysis?: DiffAnalysis): Promise<DiffResult> {
+  async mergeDiff(
+    jsonContent: string,
+    diffAnalysis?: DiffAnalysis,
+    channelId?: string
+  ): Promise<DiffResult> {
     try {
       logger.info('Merging diff from workflow state')
 
       // If no existing diff, create a new one
       if (!this.currentDiff) {
         logger.info('No existing diff, creating new diff')
-        return this.createDiff(jsonContent, diffAnalysis)
+        return this.createDiff(jsonContent, diffAnalysis, channelId)
       }
 
       // Call the API route to merge the diff

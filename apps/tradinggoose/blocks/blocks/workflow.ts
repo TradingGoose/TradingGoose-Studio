@@ -1,15 +1,15 @@
 import { WorkflowIcon } from '@/components/icons/icons'
 import { createLogger } from '@/lib/logs/console/logger'
-import type { BlockConfig } from '@/blocks/types'
+import type { BlockConfig, BlockOptionLoaderContext } from '@/blocks/types'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('WorkflowBlock')
 
 // Helper function to get available workflows for the dropdown
-const getAvailableWorkflows = (): Array<{ label: string; id: string }> => {
+const getAvailableWorkflows = (channelId: string): Array<{ label: string; id: string }> => {
   try {
     const { workflows } = useWorkflowRegistry.getState()
-    const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
+    const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId(channelId)
 
     // Filter out the current workflow to prevent recursion
     const availableWorkflows = Object.entries(workflows)
@@ -27,6 +27,12 @@ const getAvailableWorkflows = (): Array<{ label: string; id: string }> => {
   }
 }
 
+const fetchAvailableWorkflows = async (
+  _blockId: string,
+  _subBlockId: string,
+  context: BlockOptionLoaderContext
+) => getAvailableWorkflows(context.channelId)
+
 export const WorkflowBlock: BlockConfig = {
   type: 'workflow',
   name: 'Workflow',
@@ -40,7 +46,7 @@ export const WorkflowBlock: BlockConfig = {
       id: 'workflowId',
       title: 'Select Workflow',
       type: 'dropdown',
-      options: getAvailableWorkflows,
+      fetchOptions: fetchAvailableWorkflows,
       required: true,
     },
     {

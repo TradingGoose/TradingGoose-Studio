@@ -76,13 +76,9 @@ export class GetWorkflowDataClientTool extends BaseClientTool {
         return
       }
 
+      const { workflowId: activeWorkflowId } = this.requireExecutionContext()
       const registryState = useWorkflowRegistry.getState()
-      const activeWorkflowId = registryState.getActiveWorkflowId()
-      const activeWorkspaceId =
-        (activeWorkflowId ? registryState.workflows[activeWorkflowId]?.workspaceId : undefined) ??
-        Object.values(registryState.workflows).find((workflow) => workflow.workspaceId)
-          ?.workspaceId ??
-        null
+      const activeWorkspaceId = registryState.workflows[activeWorkflowId]?.workspaceId ?? null
 
       switch (dataType) {
         case 'global_variables':

@@ -10,6 +10,7 @@ import { FolderTree } from './components/folder-tree/folder-tree'
 import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { WORKSPACE_BOOTSTRAP_CHANNEL } from '@/stores/workflows/registry/types'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
 import { DashboardWorkflowCreateMenu } from '@/widgets/widgets/list_workflow/components/workflow-create-menu'
 import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
@@ -36,24 +37,28 @@ const WorkflowListWidgetBody = ({
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId ?? null
-  const { workflows, isLoading, loadWorkflows, createWorkflow, activeWorkflowId } =
+  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
+  const isLinkedToColorPair = resolvedPairColor !== 'gray'
+  const metadataChannelId = isLinkedToColorPair
+    ? `pair-${resolvedPairColor}`
+    : WORKSPACE_BOOTSTRAP_CHANNEL
+  const { workflows, metadataHydrationPhase, loadWorkflows, createWorkflow, activeWorkflowId } =
     useWorkflowRegistry(
       (state) => ({
         workflows: state.workflows,
-        isLoading: state.isLoading,
+        metadataHydrationPhase: state.getHydration(metadataChannelId).phase,
         loadWorkflows: state.loadWorkflows,
         createWorkflow: state.createWorkflow,
-        activeWorkflowId: state.getActiveWorkflowId(),
+        activeWorkflowId: state.getActiveWorkflowId(metadataChannelId),
       }),
       shallow
     )
-  const [hasInitialized, setHasInitialized] = useState(!workspaceId)
+  const [hasRequestedLoad, setHasRequestedLoad] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false)
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null)
   const setPairContext = useSetPairColorContext()
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
+  const isLoading = metadataHydrationPhase === 'metadata-loading'
   const paramsWorkflowId = useMemo(() => {
     if (isLinkedToColorPair) return null
     if (!widget || !widget.params || typeof widget.params !== 'object') return null
@@ -77,38 +82,42 @@ const WorkflowListWidgetBody = ({
 
   useEffect(() => {
     if (!workspaceId) {
-      setHasInitialized(true)
       setLoadError(null)
+      setHasRequestedLoad(false)
       return
     }
 
     if (workspaceHasWorkflows) {
-      setHasInitialized(true)
       setLoadError(null)
       return
     }
 
     let cancelled = false
-    setHasInitialized(false)
     setLoadError(null)
+    setHasRequestedLoad(true)
 
-    loadWorkflows(workspaceId)
+    loadWorkflows({ workspaceId, channelId: metadataChannelId })
       .catch((error) => {
         if (!cancelled) {
           console.error('Failed to load workflows for dashboard workflow list widget', error)
           setLoadError('Unable to load workflows for this workspace.')
         }
       })
-      .finally(() => {
-        if (!cancelled) {
-          setHasInitialized(true)
-        }
-      })
 
     return () => {
       cancelled = true
     }
-  }, [workspaceId, workspaceHasWorkflows, loadWorkflows])
+  }, [workspaceId, workspaceHasWorkflows, loadWorkflows, metadataChannelId])
+
+  const hasInitialized = useMemo(() => {
+    if (!workspaceId) {
+      return true
+    }
+    if (workspaceHasWorkflows || Boolean(loadError)) {
+      return true
+    }
+    return hasRequestedLoad && !isLoading
+  }, [workspaceId, workspaceHasWorkflows, loadError, hasRequestedLoad, isLoading])
 
   const { regularWorkflows, marketplaceWorkflows } = useMemo(() => {
     const regular: WorkflowMetadata[] = []

@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { Variable, VariablesStore } from '@/stores/variables/types'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 
 const logger = createLogger('VariablesStore')
@@ -217,44 +216,33 @@ export const useVariablesStore = create<VariablesStore>()(
           // Always update references in subblocks when name changes, even if empty
           // This ensures references are updated even when name is completely cleared
           if (uniqueName !== oldVariableName) {
-            // Update references in subblock store
             const subBlockStore = useSubBlockStore.getState()
-            const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
-
-            if (activeWorkflowId) {
-              // Get the workflow values for the active workflow
-              const workflowValues = subBlockStore.workflowValues[activeWorkflowId] || {}
+            if (workflowId) {
+              const workflowValues = subBlockStore.workflowValues[workflowId] || {}
               const updatedWorkflowValues = { ...workflowValues }
 
-              // Loop through blocks
               Object.entries(workflowValues).forEach(([blockId, blockValues]) => {
-                // Loop through subblocks and update references
                 Object.entries(blockValues as Record<string, any>).forEach(
                   ([subBlockId, value]) => {
                     const oldVarName = oldVariableName.replace(/\s+/g, '').toLowerCase()
                     const newVarName = uniqueName.replace(/\s+/g, '').toLowerCase()
                     const regex = new RegExp(`<variable\.${oldVarName}>`, 'gi')
 
-                    // Use a recursive function to handle all object types
                     updatedWorkflowValues[blockId][subBlockId] = updateReferences(
                       value,
                       regex,
                       `<variable.${newVarName}>`
                     )
 
-                    // Helper function to recursively update references in any data structure
                     function updateReferences(value: any, regex: RegExp, replacement: string): any {
-                      // Handle string values
                       if (typeof value === 'string') {
                         return regex.test(value) ? value.replace(regex, replacement) : value
                       }
 
-                      // Handle arrays
                       if (Array.isArray(value)) {
                         return value.map((item) => updateReferences(item, regex, replacement))
                       }
 
-                      // Handle objects
                       if (value !== null && typeof value === 'object') {
                         const result = { ...value }
                         for (const key in result) {
@@ -263,18 +251,16 @@ export const useVariablesStore = create<VariablesStore>()(
                         return result
                       }
 
-                      // Return unchanged for other types
                       return value
                     }
                   }
                 )
               })
 
-              // Update the subblock store with the new values
               useSubBlockStore.setState({
                 workflowValues: {
                   ...subBlockStore.workflowValues,
-                  [activeWorkflowId]: updatedWorkflowValues,
+                  [workflowId]: updatedWorkflowValues,
                 },
               })
             }

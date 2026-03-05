@@ -129,20 +129,23 @@ export function parseWorkflowJson(
       return { data: null, errors }
     }
 
-    // Handle new export format (version/exportedAt/state) or old format (blocks/edges at root)
-    let workflowData: any
-    if (data.version && data.state) {
-      // New format with versioning
-      logger.info('Parsing workflow JSON with version', {
-        version: data.version,
-        exportedAt: data.exportedAt,
-      })
-      workflowData = data.state
-    } else {
-      // Old format - blocks/edges at root level
-      logger.info('Parsing legacy workflow JSON format')
-      workflowData = data
+    // Require canonical versioned format.
+    if (
+      !Object.hasOwn(data, 'version') ||
+      !Object.hasOwn(data, 'state') ||
+      !data.state ||
+      typeof data.state !== 'object'
+    ) {
+      errors.push(
+        'Unsupported JSON format: expected a versioned workflow export with `version` and `state` fields'
+      )
+      return { data: null, errors }
     }
+    logger.info('Parsing workflow JSON with version', {
+      version: data.version,
+      exportedAt: data.exportedAt,
+    })
+    const workflowData = data.state
 
     // Validate required fields
     if (!workflowData.blocks || typeof workflowData.blocks !== 'object') {

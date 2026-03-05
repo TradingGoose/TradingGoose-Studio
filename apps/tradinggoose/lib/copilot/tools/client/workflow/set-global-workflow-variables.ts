@@ -6,7 +6,6 @@ import {
 } from '@/lib/copilot/tools/client/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useVariablesStore } from '@/stores/variables/store'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 interface OperationItem {
   operation: 'add' | 'edit' | 'delete'
@@ -59,10 +58,10 @@ export class SetGlobalWorkflowVariablesClientTool extends BaseClientTool {
     const logger = createLogger('SetGlobalWorkflowVariablesClientTool')
     try {
       this.setState(ClientToolCallState.executing)
+      const executionContext = this.requireExecutionContext()
       const payload: SetGlobalVarsArgs = { ...(args || { operations: [] }) }
       if (!payload.workflowId) {
-        const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
-        if (activeWorkflowId) payload.workflowId = activeWorkflowId
+        payload.workflowId = executionContext.workflowId
       }
       if (!payload.workflowId) {
         throw new Error('No active workflow found')
@@ -168,7 +167,7 @@ export class SetGlobalWorkflowVariablesClientTool extends BaseClientTool {
       }
 
       try {
-        const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
+        const activeWorkflowId = payload.workflowId
         if (activeWorkflowId) {
           // Fetch the updated variables from the API
           const refreshRes = await fetch(`/api/workflows/${activeWorkflowId}/variables`, {

@@ -2,6 +2,8 @@ import type { CopilotStore } from '@/stores/copilot/types'
 
 export interface StreamingContext {
   messageId: string
+  channelId?: string
+  workflowId?: string
   accumulatedContent: any
   contentBlocks: any[]
   currentTextBlock: any | null

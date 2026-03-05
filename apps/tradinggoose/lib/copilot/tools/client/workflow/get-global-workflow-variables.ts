@@ -5,7 +5,6 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('GetGlobalWorkflowVariablesClientTool')
 
@@ -35,7 +34,7 @@ export class GetGlobalWorkflowVariablesClientTool extends BaseClientTool {
   async execute(): Promise<void> {
     try {
       this.setState(ClientToolCallState.executing)
-      const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
+      const activeWorkflowId = this.requireExecutionContext().workflowId
       if (!activeWorkflowId) {
         await this.markToolComplete(400, 'No active workflow found')
         this.setState(ClientToolCallState.error)

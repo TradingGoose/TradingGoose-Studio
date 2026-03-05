@@ -8,24 +8,94 @@ import { API_ENDPOINTS } from '@/stores/constants'
 import { usePairColorStore } from '@/stores/dashboard/pair-store'
 import { useVariablesStore } from '@/stores/variables/store'
 import type {
+  ChannelHydrationState,
   DeploymentStatus,
   WorkflowMetadata,
   WorkflowRegistry,
 } from '@/stores/workflows/registry/types'
+import { WORKSPACE_BOOTSTRAP_CHANNEL } from '@/stores/workflows/registry/types'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store'
 import { isPairColor, type PAIR_COLORS, type PairColor } from '@/widgets/pair-colors'
 
 const logger = createLogger('WorkflowRegistry')
 
-let isFetching = false
-let lastFetchTimestamp = 0
-let pendingFetchPromise: Promise<void> | null = null
-
 const DEFAULT_WORKFLOW_CHANNEL_ID = 'default'
 
-const resolveChannelId = (channelId?: string) =>
+const resolveChannelKey = (channelId?: string) =>
   channelId && channelId.trim().length > 0 ? channelId : DEFAULT_WORKFLOW_CHANNEL_ID
+
+const createIdleHydrationState = (): ChannelHydrationState => ({
+  phase: 'idle',
+  workspaceId: null,
+  workflowId: null,
+  requestId: null,
+  error: null,
+})
+
+const createMetadataLoadingHydrationState = (
+  workspaceId: string,
+  requestId: string
+): ChannelHydrationState => ({
+  phase: 'metadata-loading',
+  workspaceId,
+  workflowId: null,
+  requestId,
+  error: null,
+})
+
+const createMetadataReadyHydrationState = (
+  workspaceId: string | null,
+  workflowId: string | null
+): ChannelHydrationState => ({
+  phase: 'metadata-ready',
+  workspaceId,
+  workflowId,
+  requestId: null,
+  error: null,
+})
+
+const createStateLoadingHydrationState = (
+  workspaceId: string | null,
+  workflowId: string,
+  requestId: string
+): ChannelHydrationState => ({
+  phase: 'state-loading',
+  workspaceId,
+  workflowId,
+  requestId,
+  error: null,
+})
+
+const createReadyHydrationState = (
+  workspaceId: string | null,
+  workflowId: string
+): ChannelHydrationState => ({
+  phase: 'ready',
+  workspaceId,
+  workflowId,
+  requestId: null,
+  error: null,
+})
+
+const createErrorHydrationState = (
+  workspaceId: string | null,
+  workflowId: string | null,
+  error: string
+): ChannelHydrationState => ({
+  phase: 'error',
+  workspaceId,
+  workflowId,
+  requestId: null,
+  error,
+})
+
+const deriveIsMetadataLoading = (
+  hydrationByChannel: Record<string, ChannelHydrationState>
+): boolean => Object.values(hydrationByChannel).some((hydration) => hydration.phase === 'metadata-loading')
+
+const getRealHydrationChannels = (hydrationByChannel: Record<string, ChannelHydrationState>) =>
+  Object.keys(hydrationByChannel).filter((channelKey) => channelKey !== WORKSPACE_BOOTSTRAP_CHANNEL)
 
 const getPairColorFromChannelId = (channelId?: string): PairColor | null => {
   if (!channelId) return null
@@ -65,21 +135,28 @@ const syncRegistryFromPairContexts = (
   useWorkflowRegistry.setState((state) => {
     const nextActiveWorkflowIds = { ...state.activeWorkflowIds }
     const nextLoadedWorkflowIds = { ...state.loadedWorkflowIds }
+    const nextHydrationByChannel = { ...state.hydrationByChannel }
 
     removals.forEach((chan) => {
       delete nextActiveWorkflowIds[chan]
       delete nextLoadedWorkflowIds[chan]
+      nextHydrationByChannel[chan] = createIdleHydrationState()
     })
 
     Object.entries(updates).forEach(([chan, wfId]) => {
       const previousActive = state.activeWorkflowIds[chan]
+      const previousHydration = state.hydrationByChannel[chan]
+      const workspaceId = state.workflows[wfId]?.workspaceId ?? previousHydration?.workspaceId ?? null
       nextActiveWorkflowIds[chan] = wfId
 
       // Only reset the loaded flag when the workflow changed; keep it when linking the same one
       if (previousActive === wfId && state.loadedWorkflowIds[chan]) {
         nextLoadedWorkflowIds[chan] = state.loadedWorkflowIds[chan]
+        nextHydrationByChannel[chan] =
+          previousHydration ?? createReadyHydrationState(workspaceId, wfId)
       } else {
         nextLoadedWorkflowIds[chan] = false
+        nextHydrationByChannel[chan] = createMetadataReadyHydrationState(workspaceId, wfId)
       }
     })
 
@@ -87,6 +164,8 @@ const syncRegistryFromPairContexts = (
       ...state,
       activeWorkflowIds: nextActiveWorkflowIds,
       loadedWorkflowIds: nextLoadedWorkflowIds,
+      hydrationByChannel: nextHydrationByChannel,
+      isLoading: deriveIsMetadataLoading(nextHydrationByChannel),
     }
   })
 }
@@ -95,176 +174,112 @@ const getActiveWorkflowIdFromState = (
   state: WorkflowRegistry,
   channelId?: string
 ): string | null => {
-  const channelKey = resolveChannelId(channelId)
+  const channelKey = resolveChannelKey(channelId)
   return state.loadedWorkflowIds[channelKey] ? (state.activeWorkflowIds[channelKey] ?? null) : null
 }
 
-async function fetchWorkflowsFromDB(workspaceId?: string): Promise<void> {
-  if (typeof window === 'undefined') return
+const getHydrationFromState = (state: WorkflowRegistry, channelId?: string): ChannelHydrationState =>
+  state.hydrationByChannel[resolveChannelKey(channelId)] ?? createIdleHydrationState()
 
-  // Prevent concurrent fetch operations
-  if (isFetching) {
-    logger.info('Fetch already in progress, skipping duplicate request')
-    return
+const metadataRequestCache = new Map<string, Promise<any[]>>()
+
+async function fetchWorkflowMetadata(workspaceId: string): Promise<any[]> {
+  if (typeof window === 'undefined') return []
+
+  const requestKey = workspaceId
+  if (metadataRequestCache.has(requestKey)) {
+    logger.info(`Reusing in-flight metadata request for workspace ${workspaceId}`)
+    return metadataRequestCache.get(requestKey)!
   }
 
-  const fetchStartTime = Date.now()
-  isFetching = true
-
-  try {
-    useWorkflowRegistry.getState().setLoading(true)
-
+  const requestPromise = (async () => {
     const url = new URL(API_ENDPOINTS.WORKFLOWS, window.location.origin)
-
-    if (workspaceId) {
-      url.searchParams.append('workspaceId', workspaceId)
-    }
-
+    url.searchParams.set('workspaceId', workspaceId)
     const response = await fetch(url.toString(), { method: 'GET' })
 
     if (!response.ok) {
-      if (response.status === 401) {
-        logger.warn('User not authenticated for workflow fetch')
-        useWorkflowRegistry.setState({ workflows: {}, isLoading: false })
-        return
+      if (response.status === 401 || response.status === 403) {
+        const authError = response.status === 401 ? 'Unauthorized' : 'Forbidden'
+        logger.warn(`Workflow metadata fetch authorization failure: ${authError}`, {
+          workspaceId,
+          status: response.status,
+        })
+        throw new Error(authError)
       }
       throw new Error(`Failed to fetch workflows: ${response.statusText}`)
     }
 
-    // Check if this fetch is still relevant (not superseded by a newer fetch)
-    if (fetchStartTime < lastFetchTimestamp) {
-      logger.info('Fetch superseded by newer operation, discarding results')
-      return
-    }
-
-    // Update timestamp to mark this as the most recent fetch
-    lastFetchTimestamp = fetchStartTime
-
     const { data } = await response.json()
+    return Array.isArray(data) ? data : []
+  })().finally(() => {
+    metadataRequestCache.delete(requestKey)
+  })
 
-    if (!data || !Array.isArray(data)) {
-      logger.info('No workflows found in database')
+  metadataRequestCache.set(requestKey, requestPromise)
+  return requestPromise
+}
 
-      // Only clear workflows if we're confident this is a legitimate empty state
-      const currentWorkflows = useWorkflowRegistry.getState().workflows
-      const hasExistingWorkflows = Object.keys(currentWorkflows).length > 0
+const mapRegistryMetadata = (rows: any[]) => {
+  const workflows: Record<string, WorkflowMetadata> = {}
+  const deploymentStatuses: Record<string, DeploymentStatus> = {}
 
-      if (hasExistingWorkflows) {
-        logger.warn(
-          'Received empty workflow data but local workflows exist - possible race condition, preserving local state'
-        )
-        useWorkflowRegistry.setState({ isLoading: false })
-        return
+  rows.forEach((workflow) => {
+    const {
+      id,
+      name,
+      description,
+      color,
+      variables,
+      createdAt,
+      marketplaceData,
+      workspaceId,
+      folderId,
+      isDeployed,
+      deployedAt,
+      apiKey,
+    } = workflow
+
+    workflows[id] = {
+      id,
+      name,
+      description: description || '',
+      color: color || getStableVibrantColor(id),
+      lastModified: createdAt ? new Date(createdAt) : new Date(),
+      createdAt: createdAt ? new Date(createdAt) : new Date(),
+      marketplaceData: marketplaceData || null,
+      workspaceId,
+      folderId: folderId || null,
+    }
+
+    if (isDeployed || deployedAt) {
+      deploymentStatuses[id] = {
+        isDeployed: isDeployed || false,
+        deployedAt: deployedAt ? new Date(deployedAt) : undefined,
+        apiKey: apiKey || undefined,
+        needsRedeployment: false,
       }
+    }
+  })
 
-      useWorkflowRegistry.setState({ workflows: {}, isLoading: false })
+  return { workflows, deploymentStatuses }
+}
+
+const applyRegistryVariables = (rows: any[]) => {
+  rows.forEach((workflow) => {
+    const { id, variables } = workflow
+    if (!variables || typeof variables !== 'object') {
       return
     }
 
-    // Process workflows
-    const registryWorkflows: Record<string, WorkflowMetadata> = {}
-    const deploymentStatuses: Record<string, any> = {}
-
-    data.forEach((workflow) => {
-      const {
-        id,
-        name,
-        description,
-        color,
-        variables,
-        createdAt,
-        marketplaceData,
-        workspaceId,
-        folderId,
-        isDeployed,
-        deployedAt,
-        apiKey,
-      } = workflow
-
-      // Add to registry
-      registryWorkflows[id] = {
-        id,
-        name,
-        description: description || '',
-        color: color || getStableVibrantColor(id),
-        lastModified: createdAt ? new Date(createdAt) : new Date(),
-        createdAt: createdAt ? new Date(createdAt) : new Date(),
-        marketplaceData: marketplaceData || null,
-        workspaceId,
-        folderId: folderId || null,
-      }
-
-      // Extract deployment status from database
-      if (isDeployed || deployedAt) {
-        deploymentStatuses[id] = {
-          isDeployed: isDeployed || false,
-          deployedAt: deployedAt ? new Date(deployedAt) : undefined,
-          apiKey: apiKey || undefined,
-          needsRedeployment: false,
-        }
-      }
-
-      if (variables && typeof variables === 'object') {
-        useVariablesStore.setState((state) => {
-          const withoutWorkflow = Object.fromEntries(
-            Object.entries(state.variables).filter(([, v]: any) => v.workflowId !== id)
-          )
-          return {
-            variables: { ...withoutWorkflow, ...variables },
-          }
-        })
+    useVariablesStore.setState((state) => {
+      const withoutWorkflow = Object.fromEntries(
+        Object.entries(state.variables).filter(([, v]: any) => v.workflowId !== id)
+      )
+      return {
+        variables: { ...withoutWorkflow, ...variables },
       }
     })
-
-    // Update registry with loaded workflows and deployment statuses
-    useWorkflowRegistry.setState({
-      workflows: registryWorkflows,
-      deploymentStatuses: deploymentStatuses,
-      isLoading: false,
-      error: null,
-    })
-
-    // Mark that initial load has completed
-    hasInitiallyLoaded = true
-
-    // Only set first workflow as active if no active workflow is set and we have workflows
-    const currentState = useWorkflowRegistry.getState()
-    if (
-      !currentState.activeWorkflowIds[DEFAULT_WORKFLOW_CHANNEL_ID] &&
-      Object.keys(registryWorkflows).length > 0
-    ) {
-      const firstWorkflowId = Object.keys(registryWorkflows)[0]
-      useWorkflowRegistry.setState((state) => ({
-        activeWorkflowIds: {
-          ...state.activeWorkflowIds,
-          [DEFAULT_WORKFLOW_CHANNEL_ID]: firstWorkflowId,
-        },
-        loadedWorkflowIds: {
-          ...state.loadedWorkflowIds,
-          [DEFAULT_WORKFLOW_CHANNEL_ID]: false,
-        },
-      }))
-      logger.info(`Set first workflow as active: ${firstWorkflowId}`)
-    }
-
-    logger.info(
-      `Successfully loaded ${Object.keys(registryWorkflows).length} workflows from database`
-    )
-  } catch (error) {
-    logger.error('Error fetching workflows from DB:', error)
-
-    // Mark that initial load has completed even on error
-    // This prevents indefinite waiting for workflows that failed to load
-    hasInitiallyLoaded = true
-
-    useWorkflowRegistry.setState({
-      isLoading: false,
-      error: `Failed to load workflows: ${error instanceof Error ? error.message : 'Unknown error'}`,
-    })
-    throw error
-  } finally {
-    isFetching = false
-  }
+  })
 }
 
 // Track workspace transitions to prevent race conditions
@@ -378,34 +393,182 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
       workflows: {},
       activeWorkflowIds: {},
       loadedWorkflowIds: {},
+      hydrationByChannel: {},
       isLoading: false,
       error: null,
       deploymentStatuses: {},
-
-      setLoading: (loading: boolean) => {
-        set({ isLoading: loading })
-      },
 
       getActiveWorkflowId: (channelId?: string) => {
         return getActiveWorkflowIdFromState(get(), channelId)
       },
 
-      // Simple method to load workflows (replaces sync system)
-      loadWorkflows: async (workspaceId?: string) => {
-        // Deduplicate loadWorkflows calls
-        if (isFetching && pendingFetchPromise) {
-          // If already fetching, wait for the existing promise
-          return pendingFetchPromise
-        }
-
-        pendingFetchPromise = fetchWorkflowsFromDB(workspaceId).finally(() => {
-          pendingFetchPromise = null
-        })
-
-        await pendingFetchPromise
+      getHydration: (channelId?: string) => {
+        return getHydrationFromState(get(), channelId)
       },
 
-      // Switch to workspace - just clear state, let sidebar handle workflow loading
+      isChannelHydrating: (channelId?: string) => {
+        const phase = getHydrationFromState(get(), channelId).phase
+        return phase === 'metadata-loading' || phase === 'state-loading'
+      },
+
+      getLoadedChannelsForWorkflow: (workflowId: string) => {
+        const state = get()
+        return Object.entries(state.activeWorkflowIds)
+          .filter(([channelKey, activeWorkflowId]) => {
+            return activeWorkflowId === workflowId && state.loadedWorkflowIds[channelKey] === true
+          })
+          .map(([channelKey]) => channelKey)
+      },
+
+      getPrimaryLoadedChannelForWorkflow: (workflowId: string) => {
+        const loadedChannels = get().getLoadedChannelsForWorkflow(workflowId)
+        return loadedChannels[0] ?? null
+      },
+
+      loadWorkflows: async ({ workspaceId, channelId }: { workspaceId: string; channelId?: string }) => {
+        const trimmedWorkspaceId = workspaceId.trim()
+        if (!trimmedWorkspaceId) {
+          throw new Error('workspaceId is required')
+        }
+
+        const targetChannels = (() => {
+          if (channelId) {
+            return [resolveChannelKey(channelId)]
+          }
+
+          const realChannels = getRealHydrationChannels(get().hydrationByChannel)
+          return realChannels.length > 0 ? realChannels : [WORKSPACE_BOOTSTRAP_CHANNEL]
+        })()
+
+        const requestId = crypto.randomUUID()
+
+        set((state) => {
+          const nextHydrationByChannel = { ...state.hydrationByChannel }
+          targetChannels.forEach((target) => {
+            nextHydrationByChannel[target] = createMetadataLoadingHydrationState(
+              trimmedWorkspaceId,
+              requestId
+            )
+          })
+          return {
+            hydrationByChannel: nextHydrationByChannel,
+            isLoading: deriveIsMetadataLoading(nextHydrationByChannel),
+            error: null,
+          }
+        })
+
+        try {
+          const rows = await fetchWorkflowMetadata(trimmedWorkspaceId)
+          const hasCurrentTarget = targetChannels.some((target) => {
+            const currentHydration = get().hydrationByChannel[target]
+            return currentHydration?.requestId === requestId
+          })
+
+          if (!hasCurrentTarget) {
+            logger.info('Discarded stale workflow metadata response before apply', {
+              workspaceId: trimmedWorkspaceId,
+              requestId,
+              targetChannels,
+            })
+            return
+          }
+
+          const { workflows, deploymentStatuses } = mapRegistryMetadata(rows)
+          let applied = false
+
+          set((state) => {
+            const nextHydrationByChannel = { ...state.hydrationByChannel }
+            let matchedTargets = 0
+
+            targetChannels.forEach((target) => {
+              const currentHydration = nextHydrationByChannel[target]
+              if (!currentHydration || currentHydration.requestId !== requestId) {
+                return
+              }
+
+              matchedTargets += 1
+              nextHydrationByChannel[target] = createMetadataReadyHydrationState(
+                trimmedWorkspaceId,
+                currentHydration.workflowId
+              )
+            })
+
+            if (matchedTargets === 0) {
+              return {}
+            }
+
+            applied = true
+
+            return {
+              workflows,
+              deploymentStatuses,
+              hydrationByChannel: nextHydrationByChannel,
+              isLoading: deriveIsMetadataLoading(nextHydrationByChannel),
+              error: null,
+            }
+          })
+
+          if (!applied) {
+            logger.info('Discarded stale workflow metadata response during apply', {
+              workspaceId: trimmedWorkspaceId,
+              requestId,
+              targetChannels,
+            })
+            return
+          }
+
+          applyRegistryVariables(rows)
+          hasInitiallyLoaded = true
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Unknown error'
+          let applied = false
+
+          set((state) => {
+            const nextHydrationByChannel = { ...state.hydrationByChannel }
+            let matchedTargets = 0
+
+            targetChannels.forEach((target) => {
+              const currentHydration = nextHydrationByChannel[target]
+              if (!currentHydration || currentHydration.requestId !== requestId) {
+                return
+              }
+
+              matchedTargets += 1
+              nextHydrationByChannel[target] = createErrorHydrationState(
+                trimmedWorkspaceId,
+                currentHydration.workflowId,
+                message
+              )
+            })
+
+            if (matchedTargets === 0) {
+              return {}
+            }
+
+            applied = true
+
+            return {
+              hydrationByChannel: nextHydrationByChannel,
+              isLoading: deriveIsMetadataLoading(nextHydrationByChannel),
+              error: `Failed to load workflows: ${message}`,
+            }
+          })
+
+          if (!applied) {
+            logger.info('Discarded stale workflow metadata error response', {
+              workspaceId: trimmedWorkspaceId,
+              requestId,
+              targetChannels,
+              message,
+            })
+            return
+          }
+
+          hasInitiallyLoaded = true
+          throw error
+        }
+      },
+
       switchToWorkspace: async (workspaceId: string) => {
         // Prevent multiple simultaneous transitions
         if (isWorkspaceTransitioning) {
@@ -426,15 +589,39 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
 
           // Clear current workspace state
           resetWorkflowStores()
+          workflowCache.clear()
 
-          // Update state - sidebar will load workflows when URL changes
-          set({
-            loadedWorkflowIds: {},
-            activeWorkflowIds: {},
-            workflows: {},
-            isLoading: true,
-            error: null,
+          set((state) => {
+            const existingHydration = state.hydrationByChannel
+            const realChannels = getRealHydrationChannels(existingHydration)
+            const nextHydrationByChannel: Record<string, ChannelHydrationState> = {}
+
+            if (realChannels.length > 0) {
+              realChannels.forEach((channelKey) => {
+                const currentHydration = existingHydration[channelKey]
+                nextHydrationByChannel[channelKey] = createMetadataLoadingHydrationState(
+                  workspaceId,
+                  currentHydration?.requestId ?? crypto.randomUUID()
+                )
+                nextHydrationByChannel[channelKey].workflowId = currentHydration?.workflowId ?? null
+              })
+            } else {
+              nextHydrationByChannel[WORKSPACE_BOOTSTRAP_CHANNEL] =
+                createMetadataLoadingHydrationState(workspaceId, crypto.randomUUID())
+            }
+
+            return {
+              loadedWorkflowIds: {},
+              activeWorkflowIds: {},
+              workflows: {},
+              deploymentStatuses: {},
+              hydrationByChannel: nextHydrationByChannel,
+              isLoading: deriveIsMetadataLoading(nextHydrationByChannel),
+              error: null,
+            }
           })
+
+          await get().loadWorkflows({ workspaceId })
 
           logger.info(`Successfully switched to workspace: ${workspaceId}`)
         } catch (error) {
@@ -552,52 +739,99 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
         }
       },
 
-      // Modified setActiveWorkflow to work with clean DB-only architecture
-      setActiveWorkflow: async (params: string | { workflowId: string; channelId?: string }) => {
-        const id = typeof params === 'string' ? params : params.workflowId
-        const channelId = typeof params === 'string' ? undefined : params.channelId
-        const channelKey = resolveChannelId(channelId)
+      setActiveWorkflow: async ({ workflowId, channelId }: { workflowId: string; channelId?: string }) => {
+        const channelKey = resolveChannelKey(channelId)
+        const state = get()
+        const workflowMetadata = state.workflows[workflowId]
 
-        const { workflows } = get()
+        if (!workflowMetadata) {
+          logger.error(`Workflow ${workflowId} not found in registry`)
+          set({ error: `Workflow not found: ${workflowId}` })
+          throw new Error(`Workflow not found: ${workflowId}`)
+        }
 
-        // Check if workflow is already active for this channel AND has data loaded
         const workflowStoreState = useWorkflowStore.getState(channelKey)
         const hasWorkflowData = Object.keys(workflowStoreState.blocks).length > 0
-        const activeWorkflowIdForChannel = getActiveWorkflowIdFromState(get(), channelKey)
+        const activeWorkflowIdForChannel = getActiveWorkflowIdFromState(state, channelKey)
+        const hydration = getHydrationFromState(state, channelKey)
 
         const shouldSkip =
-          channelKey === DEFAULT_WORKFLOW_CHANNEL_ID &&
-          activeWorkflowIdForChannel === id &&
-          hasWorkflowData
+          activeWorkflowIdForChannel === workflowId &&
+          hasWorkflowData &&
+          state.loadedWorkflowIds[channelKey] === true &&
+          hydration.phase === 'ready'
 
-        if (shouldSkip && get().loadedWorkflowIds[channelKey]) {
-          logger.info(`Already active workflow ${id} on channel ${channelKey}, skipping switch`)
+        if (shouldSkip) {
+          logger.info(
+            `Already active workflow ${workflowId} on channel ${channelKey}, skipping switch`
+          )
           return
         }
 
-        if (!workflows[id]) {
-          logger.error(`Workflow ${id} not found in registry`)
-          set({ error: `Workflow not found: ${id}` })
-          throw new Error(`Workflow not found: ${id}`)
-        }
+        const requestId = crypto.randomUUID()
+        const workspaceId = workflowMetadata.workspaceId ?? hydration.workspaceId ?? null
 
-        logger.info(`Switching to workflow ${id}`)
+        set((current) => {
+          const nextHydrationByChannel: Record<string, ChannelHydrationState> = {
+            ...current.hydrationByChannel,
+            [channelKey]: createStateLoadingHydrationState(workspaceId, workflowId, requestId),
+          }
 
-        // Use request deduplication and caching
+          if (
+            channelKey !== WORKSPACE_BOOTSTRAP_CHANNEL &&
+            nextHydrationByChannel[WORKSPACE_BOOTSTRAP_CHANNEL]
+          ) {
+            delete nextHydrationByChannel[WORKSPACE_BOOTSTRAP_CHANNEL]
+          }
+
+          return {
+            hydrationByChannel: nextHydrationByChannel,
+            isLoading: deriveIsMetadataLoading(nextHydrationByChannel),
+            error: null,
+          }
+        })
+
+        logger.info(`Switching to workflow ${workflowId}`)
+
         let workflowData: any
-
         try {
-          workflowData = await fetchWorkflowData(id)
+          workflowData = await fetchWorkflowData(workflowId)
         } catch (error) {
-          logger.error(`Failed to fetch workflow data for ${id}:`, error)
-          set({ error: `Failed to load workflow: ${id}` })
+          logger.error(`Failed to fetch workflow data for ${workflowId}:`, error)
+          const message =
+            error instanceof Error ? error.message : `Failed to load workflow: ${workflowId}`
+          set((current) => {
+            const currentHydration = current.hydrationByChannel[channelKey]
+            if (!currentHydration || currentHydration.requestId !== requestId) {
+              return {}
+            }
+
+            const nextHydrationByChannel = {
+              ...current.hydrationByChannel,
+              [channelKey]: createErrorHydrationState(workspaceId, workflowId, message),
+            }
+
+            return {
+              hydrationByChannel: nextHydrationByChannel,
+              isLoading: deriveIsMetadataLoading(nextHydrationByChannel),
+              error: message,
+            }
+          })
           throw error
         }
 
-        let workflowState: any
+        const latestHydration = get().hydrationByChannel[channelKey]
+        if (
+          !latestHydration ||
+          latestHydration.requestId !== requestId ||
+          latestHydration.workflowId !== workflowId
+        ) {
+          logger.info(`Discarded stale workflow state response for ${workflowId} on ${channelKey}`)
+          return
+        }
 
+        let workflowState: any
         if (workflowData?.state) {
-          // API returns normalized data in state
           workflowState = {
             blocks: workflowData.state.blocks || {},
             edges: workflowData.state.edges || [],
@@ -611,7 +845,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
             deploymentStatuses: {},
           }
         } else {
-          // If no state in DB, use empty state - server should have created start block
           workflowState = {
             blocks: {},
             edges: [],
@@ -624,47 +857,71 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           }
 
           logger.warn(
-            `Workflow ${id} has no state in DB - this should not happen with server-side start block creation`
+            `Workflow ${workflowId} has no state in DB - this should not happen with server-side start block creation`
           )
         }
 
-        if (workflowData?.isDeployed || workflowData?.deployedAt) {
-          set((state) => ({
-            deploymentStatuses: {
-              ...state.deploymentStatuses,
-              [id]: {
-                isDeployed: workflowData.isDeployed || false,
-                deployedAt: workflowData.deployedAt ? new Date(workflowData.deployedAt) : undefined,
-                apiKey: workflowData.apiKey || undefined,
-                needsRedeployment: false, // Default to false when loading from DB
-              },
-            },
-          }))
-        }
+        set((current) => {
+          const currentHydration = current.hydrationByChannel[channelKey]
+          if (
+            !currentHydration ||
+            currentHydration.requestId !== requestId ||
+            currentHydration.workflowId !== workflowId
+          ) {
+            return {}
+          }
 
-        // Update all stores atomically to prevent race conditions
-        set((state) => ({
-          activeWorkflowIds: {
-            ...state.activeWorkflowIds,
-            [channelKey]: id,
-          },
-          loadedWorkflowIds: {
-            ...state.loadedWorkflowIds,
-            [channelKey]: true,
-          },
-          error: null,
-        }))
-        syncPairContextForChannel(channelId, id)
-        useWorkflowStore.setStateForChannel(workflowState, channelKey, undefined, id)
-        useSubBlockStore.getState().initializeFromWorkflow(id, (workflowState as any).blocks || {})
+          const nextHydrationByChannel: Record<string, ChannelHydrationState> = {
+            ...current.hydrationByChannel,
+            [channelKey]: createReadyHydrationState(workspaceId, workflowId),
+          }
+
+          if (
+            channelKey !== WORKSPACE_BOOTSTRAP_CHANNEL &&
+            nextHydrationByChannel[WORKSPACE_BOOTSTRAP_CHANNEL]
+          ) {
+            delete nextHydrationByChannel[WORKSPACE_BOOTSTRAP_CHANNEL]
+          }
+
+          const nextDeploymentStatuses = { ...current.deploymentStatuses }
+          if (workflowData?.isDeployed || workflowData?.deployedAt) {
+            nextDeploymentStatuses[workflowId] = {
+              isDeployed: workflowData.isDeployed || false,
+              deployedAt: workflowData.deployedAt ? new Date(workflowData.deployedAt) : undefined,
+              apiKey: workflowData.apiKey || undefined,
+              needsRedeployment: false,
+            }
+          }
+
+          return {
+            activeWorkflowIds: {
+              ...current.activeWorkflowIds,
+              [channelKey]: workflowId,
+            },
+            loadedWorkflowIds: {
+              ...current.loadedWorkflowIds,
+              [channelKey]: true,
+            },
+            deploymentStatuses: nextDeploymentStatuses,
+            hydrationByChannel: nextHydrationByChannel,
+            isLoading: deriveIsMetadataLoading(nextHydrationByChannel),
+            error: null,
+          }
+        })
+
+        syncPairContextForChannel(channelKey, workflowId)
+        useWorkflowStore.setStateForChannel(workflowState, channelKey, undefined, workflowId)
+        useSubBlockStore
+          .getState()
+          .initializeFromWorkflow(workflowId, (workflowState as any).blocks || {})
 
         window.dispatchEvent(
           new CustomEvent('active-workflow-changed', {
-            detail: { workflowId: id, channelId: channelKey },
+            detail: { workflowId, channelId: channelKey },
           })
         )
 
-        logger.info(`Switched to workflow ${id}`)
+        logger.info(`Switched to workflow ${workflowId}`)
       },
 
       /**
@@ -824,16 +1081,32 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
         }
 
         // Set as active workflow (default channel) and update store
-        set((state) => ({
-          activeWorkflowIds: {
-            ...state.activeWorkflowIds,
-            [DEFAULT_WORKFLOW_CHANNEL_ID]: id,
-          },
-          loadedWorkflowIds: {
-            ...state.loadedWorkflowIds,
-            [DEFAULT_WORKFLOW_CHANNEL_ID]: true,
-          },
-        }))
+        set((state) => {
+          const nextHydrationByChannel: Record<string, ChannelHydrationState> = {
+            ...state.hydrationByChannel,
+            [DEFAULT_WORKFLOW_CHANNEL_ID]: createReadyHydrationState(
+              newWorkflow.workspaceId ?? null,
+              id
+            ),
+          }
+
+          if (nextHydrationByChannel[WORKSPACE_BOOTSTRAP_CHANNEL]) {
+            delete nextHydrationByChannel[WORKSPACE_BOOTSTRAP_CHANNEL]
+          }
+
+          return {
+            activeWorkflowIds: {
+              ...state.activeWorkflowIds,
+              [DEFAULT_WORKFLOW_CHANNEL_ID]: id,
+            },
+            loadedWorkflowIds: {
+              ...state.loadedWorkflowIds,
+              [DEFAULT_WORKFLOW_CHANNEL_ID]: true,
+            },
+            hydrationByChannel: nextHydrationByChannel,
+            isLoading: deriveIsMetadataLoading(nextHydrationByChannel),
+          }
+        })
         useWorkflowStore.setState(initialState)
 
         // Immediately persist the marketplace workflow to the database
@@ -1086,11 +1359,15 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           // Don't automatically switch to another workflow to prevent race conditions
           const newActiveWorkflowIds = { ...state.activeWorkflowIds }
           const newLoadedWorkflowIds = { ...state.loadedWorkflowIds }
+          const newHydrationByChannel = { ...state.hydrationByChannel }
 
           Object.entries(newActiveWorkflowIds).forEach(([channel, activeId]) => {
             if (activeId === id) {
               delete newActiveWorkflowIds[channel]
               delete newLoadedWorkflowIds[channel]
+              const idleHydration = createIdleHydrationState()
+              idleHydration.workspaceId = newHydrationByChannel[channel]?.workspaceId ?? null
+              newHydrationByChannel[channel] = idleHydration
             }
           })
 
@@ -1115,6 +1392,8 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
             workflows: newWorkflows,
             activeWorkflowIds: newActiveWorkflowIds,
             loadedWorkflowIds: newLoadedWorkflowIds,
+            hydrationByChannel: newHydrationByChannel,
+            isLoading: deriveIsMetadataLoading(newHydrationByChannel),
             error: null,
           }
         })
@@ -1225,7 +1504,10 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
         set({
           workflows: {},
           activeWorkflowIds: {},
-          isLoading: true,
+          loadedWorkflowIds: {},
+          hydrationByChannel: {},
+          deploymentStatuses: {},
+          isLoading: false,
           error: null,
         })
 
