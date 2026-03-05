@@ -24,7 +24,7 @@ import type { BarMs, NormalizedPineSignal } from '@/lib/indicators/types'
 import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
-  acquireMonitorRuntimeLock,
+  acquireLock,
   getRedisClient,
   getRedisStorageMode,
   releaseLock,
@@ -419,11 +419,13 @@ export class IndicatorMonitorRuntime {
     this.starting = true
 
     try {
-      const lockAcquired = await acquireMonitorRuntimeLock(
-        LOCK_KEY,
-        this.instanceId,
-        LOCK_EXPIRY_SECONDS
-      )
+      let lockAcquired = false
+      try {
+        lockAcquired = await acquireLock(LOCK_KEY, this.instanceId, LOCK_EXPIRY_SECONDS)
+      } catch (error) {
+        this.logger.warn('Indicator monitor runtime lock acquisition error', { error })
+      }
+
       if (!lockAcquired) {
         this.running = false
         this.lockHeld = false
