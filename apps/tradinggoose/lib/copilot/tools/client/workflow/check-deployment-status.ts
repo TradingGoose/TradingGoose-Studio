@@ -5,7 +5,6 @@ import {
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 interface CheckDeploymentStatusArgs {
   workflowId?: string
@@ -44,9 +43,9 @@ export class CheckDeploymentStatusClientTool extends BaseClientTool {
     const logger = createLogger('CheckDeploymentStatusClientTool')
     try {
       this.setState(ClientToolCallState.executing)
+      const executionContext = this.requireExecutionContext()
 
-      const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
-      const workflowId = args?.workflowId || activeWorkflowId
+      const workflowId = args?.workflowId || executionContext.workflowId
 
       if (!workflowId) {
         throw new Error('No workflow ID provided')

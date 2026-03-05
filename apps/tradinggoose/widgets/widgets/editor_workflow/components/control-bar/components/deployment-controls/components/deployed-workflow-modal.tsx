@@ -16,7 +16,6 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { createLogger } from '@/lib/logs/console/logger'
 import { DeployedWorkflowCard } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deployment-controls/components/deployed-workflow-card'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { mergeSubblockState } from '@/stores/workflows/utils'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
@@ -51,8 +50,7 @@ export function DeployedWorkflowModal({
   isSelectedVersionActive,
 }: DeployedWorkflowModalProps) {
   const [showRevertDialog, setShowRevertDialog] = useState(false)
-  const registryWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId())
-  const resolvedWorkflowId = workflowId ?? registryWorkflowId
+  const resolvedWorkflowId = workflowId
 
   // Get current workflow state to compare with deployed state
   const currentWorkflowState = useWorkflowStore((state) => ({
@@ -101,6 +99,7 @@ export function DeployedWorkflowModal({
           </DialogHeader>
         </div>
         <DeployedWorkflowCard
+          workflowId={resolvedWorkflowId}
           currentWorkflowState={currentWorkflowState}
           activeDeployedWorkflowState={activeDeployedState}
           selectedDeployedWorkflowState={selectedDeployedState}

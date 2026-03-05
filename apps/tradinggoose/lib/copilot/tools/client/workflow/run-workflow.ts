@@ -8,7 +8,6 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import { executeWorkflowWithFullLogging } from '@/lib/copilot/tools/client/workflow/workflow-execution-utils'
 import { useExecutionStore } from '@/stores/execution/store'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 interface RunWorkflowArgs {
   workflowId?: string
@@ -49,6 +48,7 @@ export class RunWorkflowClientTool extends BaseClientTool {
     const logger = createLogger('RunWorkflowClientTool')
     await this.executeWithTimeout(async () => {
       const params = args || {}
+      const executionContext = this.requireExecutionContext()
       logger.debug('handleAccept() called', {
         toolCallId: this.toolCallId,
         state: this.getState(),
@@ -68,7 +68,7 @@ export class RunWorkflowClientTool extends BaseClientTool {
         return
       }
 
-      const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
+      const activeWorkflowId = params.workflowId ?? executionContext.workflowId
       if (!activeWorkflowId) {
         logger.debug('Execution prevented: no active workflow')
         this.setState(ClientToolCallState.error)
@@ -113,6 +113,7 @@ export class RunWorkflowClientTool extends BaseClientTool {
         const result = await executeWorkflowWithFullLogging({
           workflowInput,
           executionId: this.toolCallId,
+          channelId: executionContext.channelId,
         })
 
         // Determine success for both non-streaming and streaming executions

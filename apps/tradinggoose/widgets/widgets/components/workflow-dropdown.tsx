@@ -15,6 +15,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { WORKSPACE_BOOTSTRAP_CHANNEL } from '@/stores/workflows/registry/types'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
 import type { PairColor } from '@/widgets/pair-colors'
 import {
@@ -56,24 +57,26 @@ export function WorkflowDropdown({
   const [internalValue, setInternalValue] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [hasRequestedLoad, setHasRequestedLoad] = useState(false)
-  const [isLocallyLoading, setIsLocallyLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const resolvedPairColor = pairColor && pairColor !== 'gray' ? pairColor : 'gray'
+  const isPairContextActive = resolvedPairColor !== 'gray'
+  const metadataChannelId = isPairContextActive
+    ? `pair-${resolvedPairColor}`
+    : WORKSPACE_BOOTSTRAP_CHANNEL
 
   const {
     workflows: registryWorkflows,
-    isLoading: registryLoading,
+    metadataHydrationPhase,
     loadWorkflows,
   } = useWorkflowRegistry(
     (state) => ({
       workflows: state.workflows,
-      isLoading: state.isLoading,
+      metadataHydrationPhase: state.getHydration(metadataChannelId).phase,
       loadWorkflows: state.loadWorkflows,
     }),
     shallow
   )
 
-  const resolvedPairColor = pairColor && pairColor !== 'gray' ? pairColor : 'gray'
-  const isPairContextActive = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
 
@@ -98,7 +101,7 @@ export function WorkflowDropdown({
   const isControlled = typeof value !== 'undefined'
   const selectedWorkflowId = isControlled ? (value ?? null) : internalValue
   const selectedWorkflow = workspaceWorkflows.find((workflow) => workflow.id === selectedWorkflowId)
-  const isLoading = registryLoading || isLocallyLoading
+  const isLoading = metadataHydrationPhase === 'metadata-loading'
   const isDropdownDisabled = disabled || !workspaceId
   const tooltipText = !workspaceId
     ? 'Select a workspace to choose workflows'
@@ -126,26 +129,20 @@ export function WorkflowDropdown({
 
     let cancelled = false
     setHasRequestedLoad(true)
-    setIsLocallyLoading(true)
     setLoadError(null)
 
-    loadWorkflows(workspaceId)
+    loadWorkflows({ workspaceId, channelId: metadataChannelId })
       .catch((error) => {
         if (!cancelled) {
           console.error('Failed to load workflows for workflow dropdown', error)
           setLoadError('Failed to load workflows')
         }
       })
-      .finally(() => {
-        if (!cancelled) {
-          setIsLocallyLoading(false)
-        }
-      })
 
     return () => {
       cancelled = true
     }
-  }, [workspaceId, workspaceWorkflows.length, hasRequestedLoad, loadWorkflows])
+  }, [workspaceId, workspaceWorkflows.length, hasRequestedLoad, loadWorkflows, metadataChannelId])
 
   // Keep internal selection in sync with pair context when uncontrolled
   useEffect(() => {

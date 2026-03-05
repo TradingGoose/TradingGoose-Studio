@@ -22,21 +22,43 @@ export interface WorkflowMetadata {
   folderId?: string | null
 }
 
+export type HydrationPhase =
+  | 'idle'
+  | 'metadata-loading'
+  | 'metadata-ready'
+  | 'state-loading'
+  | 'ready'
+  | 'error'
+
+export interface ChannelHydrationState {
+  phase: HydrationPhase
+  workspaceId: string | null
+  workflowId: string | null
+  requestId: string | null
+  error: string | null
+}
+
+export const WORKSPACE_BOOTSTRAP_CHANNEL = '__workspace__'
+
 export interface WorkflowRegistryState {
   workflows: Record<string, WorkflowMetadata>
   activeWorkflowIds: Record<string, string>
   loadedWorkflowIds: Record<string, boolean>
+  hydrationByChannel: Record<string, ChannelHydrationState>
   isLoading: boolean
   error: string | null
   deploymentStatuses: Record<string, DeploymentStatus>
 }
 
 export interface WorkflowRegistryActions {
-  setLoading: (loading: boolean) => void
   getActiveWorkflowId: (channelId?: string) => string | null
-  setActiveWorkflow: (params: string | { workflowId: string; channelId?: string }) => Promise<void>
+  getHydration: (channelId?: string) => ChannelHydrationState
+  isChannelHydrating: (channelId?: string) => boolean
+  getLoadedChannelsForWorkflow: (workflowId: string) => string[]
+  getPrimaryLoadedChannelForWorkflow: (workflowId: string) => string | null
+  setActiveWorkflow: (params: { workflowId: string; channelId?: string }) => Promise<void>
   switchToWorkspace: (id: string) => Promise<void>
-  loadWorkflows: (workspaceId?: string) => Promise<void>
+  loadWorkflows: (params: { workspaceId: string; channelId?: string }) => Promise<void>
   removeWorkflow: (
     id: string,
     options?: { skipApi?: boolean; templateAction?: 'keep' | 'delete' }

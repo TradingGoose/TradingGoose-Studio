@@ -4,8 +4,8 @@ import { useMemo } from 'react'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 /**
  * Centralized dependsOn gating for sub-block components.
@@ -23,9 +23,11 @@ export function useDependsOnGate(
 
   const routeContext = useOptionalWorkflowRoute()
   const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
+  const routeWorkflowId = routeContext?.workflowId ?? null
   const activeWorkflowId = useWorkflowRegistry((state) =>
     state.getActiveWorkflowId(resolvedChannelId)
   )
+  const resolvedWorkflowId = activeWorkflowId ?? routeWorkflowId
 
   // Use only explicit dependsOn from block config. No inference.
   const dependsOn: string[] = (subBlock.dependsOn as string[] | undefined) || []
@@ -51,11 +53,13 @@ export function useDependsOnGate(
     if (dependsOn.length === 0) return [] as any[]
 
     if (previewContextValues) {
-      return dependsOn.map((depKey) => normalizeDependencyValue(previewContextValues[depKey]) ?? null)
+      return dependsOn.map(
+        (depKey) => normalizeDependencyValue(previewContextValues[depKey]) ?? null
+      )
     }
 
-    if (!activeWorkflowId) return dependsOn.map(() => null)
-    const workflowValues = state.workflowValues[activeWorkflowId] || {}
+    if (!resolvedWorkflowId) return dependsOn.map(() => null)
+    const workflowValues = state.workflowValues[resolvedWorkflowId] || {}
     const blockValues = (workflowValues as any)[blockId] || {}
     return dependsOn.map((depKey) => normalizeDependencyValue((blockValues as any)[depKey]) ?? null)
   }) as any[]

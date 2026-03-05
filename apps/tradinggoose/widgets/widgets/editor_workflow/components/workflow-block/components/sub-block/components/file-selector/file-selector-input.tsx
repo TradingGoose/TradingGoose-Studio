@@ -15,10 +15,11 @@ import {
 import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-depends-on-gate'
 import { useForeignCredential } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-foreign-credential'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
 
 interface FileSelectorInputProps {
   blockId: string
@@ -38,8 +39,12 @@ export function FileSelectorInput({
   previewContextValues,
 }: FileSelectorInputProps) {
   const { collaborativeSetSubblockValue } = useCollaborativeWorkflow()
-  const registryWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId())
-  const workflowIdFromUrl = useWorkflowId() || registryWorkflowId || ''
+  const routeContext = useOptionalWorkflowRoute()
+  const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
+  const registryWorkflowId = useWorkflowRegistry((state) =>
+    state.getActiveWorkflowId(resolvedChannelId)
+  )
+  const workflowIdFromUrl = routeContext?.workflowId || registryWorkflowId || ''
   // Central dependsOn gating for this selector instance
   const { finalDisabled } = useDependsOnGate(blockId, subBlock, { disabled, isPreview })
 

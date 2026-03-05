@@ -23,7 +23,7 @@ const providerOptions = () =>
   }))
 
 const resolveContextValue = (
-  contextValues: Record<string, any> | undefined,
+  contextValues: Record<string, unknown> | undefined,
   key: string
 ): string | undefined => {
   const entry = contextValues?.[key]
@@ -256,8 +256,8 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
         ? { field: 'provider', value: providersWithIntervals }
         : undefined,
       dependsOn: ['provider'],
-      fetchOptions: async (_blockId, _subBlockId, contextValues) => {
-        const provider = resolveContextValue(contextValues, 'provider')
+      fetchOptions: async (_blockId, _subBlockId, context) => {
+        const provider = resolveContextValue(context.contextValues, 'provider')
         if (!provider) return []
         const capabilities = getMarketSeriesCapabilities(provider)
         const intervals = capabilities?.intervals ?? []
@@ -278,8 +278,8 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
         ? { field: 'provider', value: providersWithNormalization }
         : undefined,
       dependsOn: ['provider'],
-      fetchOptions: async (_blockId, _subBlockId, contextValues) => {
-        const provider = resolveContextValue(contextValues, 'provider')
+      fetchOptions: async (_blockId, _subBlockId, context) => {
+        const provider = resolveContextValue(context.contextValues, 'provider')
         if (!provider) return []
         const modes = getMarketSeriesCapabilities(provider)?.normalizationModes ?? []
         return modes.map((mode) => ({

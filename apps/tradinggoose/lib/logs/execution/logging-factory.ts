@@ -1,6 +1,9 @@
 import { BASE_EXECUTION_CHARGE } from '@/lib/billing/constants'
 import type { ExecutionEnvironment, ExecutionTrigger, WorkflowState } from '@/lib/logs/types'
-import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
+import {
+  loadDeployedWorkflowState,
+  loadWorkflowFromNormalizedTables,
+} from '@/lib/workflows/db-helpers'
 
 export function createTriggerObject(
   type: ExecutionTrigger['type'],
@@ -39,18 +42,13 @@ export function createEnvironmentObject(
 
 export async function loadWorkflowStateForExecution(workflowId: string): Promise<WorkflowState> {
   const normalizedData = await loadWorkflowFromNormalizedTables(workflowId)
-
-  if (!normalizedData) {
-    throw new Error(
-      `Workflow ${workflowId} has no normalized data available. Ensure the workflow is properly saved to normalized tables.`
-    )
-  }
+  const workflowData = normalizedData || (await loadDeployedWorkflowState(workflowId))
 
   return {
-    blocks: normalizedData.blocks || {},
-    edges: normalizedData.edges || [],
-    loops: normalizedData.loops || {},
-    parallels: normalizedData.parallels || {},
+    blocks: workflowData.blocks || {},
+    edges: workflowData.edges || [],
+    loops: workflowData.loops || {},
+    parallels: workflowData.parallels || {},
   }
 }
 

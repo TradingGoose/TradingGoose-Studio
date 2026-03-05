@@ -1,12 +1,12 @@
 import { WorkflowIcon } from '@/components/icons/icons'
-import type { BlockConfig } from '@/blocks/types'
+import type { BlockConfig, BlockOptionLoaderContext } from '@/blocks/types'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 // Helper: list workflows excluding self
-const getAvailableWorkflows = (): Array<{ label: string; id: string }> => {
+const getAvailableWorkflows = (channelId: string): Array<{ label: string; id: string }> => {
   try {
     const { workflows } = useWorkflowRegistry.getState()
-    const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
+    const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId(channelId)
     return Object.entries(workflows)
       .filter(([id]) => id !== activeWorkflowId)
       .map(([id, w]) => ({ label: w.name || `Workflow ${id.slice(0, 8)}`, id }))
@@ -15,6 +15,12 @@ const getAvailableWorkflows = (): Array<{ label: string; id: string }> => {
     return []
   }
 }
+
+const fetchAvailableWorkflows = async (
+  _blockId: string,
+  _subBlockId: string,
+  context: BlockOptionLoaderContext
+) => getAvailableWorkflows(context.channelId)
 
 // New workflow block variant that visualizes child Input Trigger schema for mapping
 export const WorkflowInputBlock: BlockConfig = {
@@ -34,7 +40,7 @@ export const WorkflowInputBlock: BlockConfig = {
       id: 'workflowId',
       title: 'Select Workflow',
       type: 'dropdown',
-      options: getAvailableWorkflows,
+      fetchOptions: fetchAvailableWorkflows,
       required: true,
     },
     // Renders dynamic mapping UI based on selected child workflow's Input Trigger inputFormat

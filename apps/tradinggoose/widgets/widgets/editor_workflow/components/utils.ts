@@ -99,7 +99,7 @@ const getBlockDimensions = (
   }
 
   return {
-    width: block.layout?.measuredWidth || (block.isWide ? 450 : block.data?.width || 350),
+    width: block.layout?.measuredWidth || block.data?.width || 350,
     height: Math.max(
       block.layout?.measuredHeight || block.height || block.data?.height || 150,
       100

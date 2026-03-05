@@ -4,23 +4,19 @@ import { useCallback } from 'react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
 import { ParallelTool } from '@/widgets/widgets/editor_workflow/components/subflows/parallel/parallel-config'
-import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useToolbarAddBlock } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-context'
 
 type ParallelToolbarItemProps = {
   disabled?: boolean
-  channelId?: string
 }
 
 // Custom component for the Parallel Tool
 export default function ParallelToolbarItem({
   disabled = false,
-  channelId,
 }: ParallelToolbarItemProps) {
   const userPermissions = useUserPermissionsContext()
-  const workflowRoute = useOptionalWorkflowRoute()
-  const resolvedChannelId = channelId ?? workflowRoute?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
+  const addBlock = useToolbarAddBlock()
   const handleDragStart = (e: React.DragEvent) => {
     if (disabled) {
       e.preventDefault()
@@ -39,19 +35,13 @@ export default function ParallelToolbarItem({
     (e: React.MouseEvent) => {
       if (disabled) return
 
-      // Dispatch a custom event to be caught by the workflow component
-      const event = new CustomEvent('add-block-from-toolbar', {
-        detail: {
-          type: 'parallel',
-          clientX: e.clientX,
-          clientY: e.clientY,
-          channelId: resolvedChannelId,
-        },
-        bubbles: true,
+      addBlock({
+        type: 'parallel',
+        clientX: e.clientX,
+        clientY: e.clientY,
       })
-      window.dispatchEvent(event)
     },
-    [disabled, resolvedChannelId]
+    [disabled, addBlock]
   )
 
   const blockContent = (

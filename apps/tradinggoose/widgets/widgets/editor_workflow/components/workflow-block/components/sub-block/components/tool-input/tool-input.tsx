@@ -1,5 +1,5 @@
 import type React from 'react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Server, WrenchIcon, XIcon } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { Toggle } from '@/components/ui/toggle'
@@ -7,6 +7,18 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { createLogger } from '@/lib/logs/console/logger'
 import type { OAuthProvider, OAuthService } from '@/lib/oauth/oauth'
 import { cn } from '@/lib/utils'
+import { getAllBlocks } from '@/blocks'
+import { useCustomTools } from '@/hooks/queries/custom-tools'
+import { useMcpTools } from '@/hooks/use-mcp-tools'
+import { getProviderFromModel, supportsToolUsageControl } from '@/providers/ai/utils'
+import type { CustomToolDefinition } from '@/stores/custom-tools/types'
+import { useSubBlockStore } from '@/stores/workflows/subblock/store'
+import {
+  formatParameterLabel,
+  getToolParametersConfig,
+  isPasswordParameter,
+  type ToolParameterConfig,
+} from '@/tools/params'
 import {
   ChannelSelectorInput,
   CheckboxList,
@@ -16,8 +28,8 @@ import {
   Dropdown,
   FileSelectorInput,
   FileUpload,
-  LongInput,
   ListingSelectorInput,
+  LongInput,
   OrderIdSelectorInput,
   ProjectSelectorInput,
   ShortInput,
@@ -32,20 +44,10 @@ import {
 import { McpServerModal } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/mcp-server-modal/mcp-server-modal'
 import { ToolCredentialSelector } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/tool-credential-selector'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import { useWorkflowId, useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { getAllBlocks } from '@/blocks'
-import { useMcpTools } from '@/hooks/use-mcp-tools'
-import { getProviderFromModel, supportsToolUsageControl } from '@/providers/ai/utils'
-import { useCustomTools } from '@/hooks/queries/custom-tools'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
-import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 import {
-  formatParameterLabel,
-  getToolParametersConfig,
-  isPasswordParameter,
-  type ToolParameterConfig,
-} from '@/tools/params'
+  useWorkflowId,
+  useWorkspaceId,
+} from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('ToolInput')
 
@@ -243,7 +245,6 @@ function DateTimeInputSyncWrapper({
     </GenericSyncWrapper>
   )
 }
-
 
 function SliderInputSyncWrapper({
   blockId,
@@ -476,15 +477,11 @@ export function ToolInput({
   const [toolSelectorValue, setToolSelectorValue] = useState<string | undefined>()
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
-  const isWide = useWorkflowStore((state) => state.blocks[blockId]?.isWide)
   const { data: customTools = [] } = useCustomTools(workspaceId)
   const subBlockStore = useSubBlockStore()
 
   // MCP tools integration
-  const {
-    mcpTools,
-    refreshTools,
-  } = useMcpTools(workspaceId)
+  const { mcpTools, refreshTools } = useMcpTools(workspaceId)
 
   // Get the current model from the 'model' subblock
   const model = typeof modelValue === 'string' ? modelValue : ''
@@ -503,45 +500,42 @@ export function ToolInput({
       ? (value as unknown as StoredTool[])
       : []
 
-  const toolSelectorOptions = useMemo(
-    () => {
-      const baseOptions: Array<{
-        label: string
-        id: string
-        icon?: React.ComponentType<{ className?: string }>
-        group?: string
-      }> = [
-          { id: 'action:create', label: 'Create Tool', icon: WrenchIcon, group: 'Actions' },
-          { id: 'action:add-mcp', label: 'Add MCP Server', icon: Server, group: 'Actions' },
-        ]
+  const toolSelectorOptions = useMemo(() => {
+    const baseOptions: Array<{
+      label: string
+      id: string
+      icon?: React.ComponentType<{ className?: string }>
+      group?: string
+    }> = [
+        { id: 'action:create', label: 'Create Tool', icon: WrenchIcon, group: 'Actions' },
+        { id: 'action:add-mcp', label: 'Add MCP Server', icon: Server, group: 'Actions' },
+      ]
 
-      const customToolOptions =
-        customTools?.map((tool) => ({
-          id: `custom:${tool.id}`,
-          label: tool.title,
-          icon: WrenchIcon,
-          group: 'Custom Tools',
-        })) || []
+    const customToolOptions =
+      customTools?.map((tool) => ({
+        id: `custom:${tool.id}`,
+        label: tool.title,
+        icon: WrenchIcon,
+        group: 'Custom Tools',
+      })) || []
 
-      const mcpToolOptions =
-        mcpTools?.map((tool) => ({
-          id: `mcp:${tool.id}`,
-          label: `${tool.name} (${tool.serverName})`,
-          icon: tool.icon,
-          group: 'MCP Tools',
-        })) || []
+    const mcpToolOptions =
+      mcpTools?.map((tool) => ({
+        id: `mcp:${tool.id}`,
+        label: `${tool.name} (${tool.serverName})`,
+        icon: tool.icon,
+        group: 'MCP Tools',
+      })) || []
 
-      const builtInOptions = toolBlocks.map((block) => ({
-        id: `builtin:${block.type}`,
-        label: block.name,
-        icon: block.icon,
-        group: 'Built-in Tools',
-      }))
+    const builtInOptions = toolBlocks.map((block) => ({
+      id: `builtin:${block.type}`,
+      label: block.name,
+      icon: block.icon,
+      group: 'Built-in Tools',
+    }))
 
-      return [...baseOptions, ...customToolOptions, ...mcpToolOptions, ...builtInOptions]
-    },
-    [customTools, mcpTools, toolBlocks]
-  )
+    return [...baseOptions, ...customToolOptions, ...mcpToolOptions, ...builtInOptions]
+  }, [customTools, mcpTools, toolBlocks])
 
   // Check if a tool is already selected (allowing multiple instances for multi-operation tools)
   const isToolAlreadySelected = (toolId: string, blockType: string) => {
@@ -630,23 +624,13 @@ export function ToolInput({
   }
 
   const addToolToStore = (newTool: StoredTool) => {
-    if (isWide) {
-      setStoreValue([
-        ...selectedTools.map((tool, index) => ({
-          ...tool,
-          isExpanded: Math.floor(selectedTools.length / 2) === Math.floor(index / 2),
-        })),
-        newTool,
-      ])
-    } else {
-      setStoreValue([
-        ...selectedTools.map((tool) => ({
-          ...tool,
-          isExpanded: false,
-        })),
-        newTool,
-      ])
-    }
+    setStoreValue([
+      ...selectedTools.map((tool) => ({
+        ...tool,
+        isExpanded: false,
+      })),
+      newTool,
+    ])
   }
 
   const handleSelectTool = (toolBlock: (typeof toolBlocks)[0]) => {
@@ -1404,7 +1388,6 @@ export function ToolInput({
           />
         )
 
-
       case 'file-upload':
         return (
           <FileUploadSyncWrapper
@@ -1531,7 +1514,7 @@ export function ToolInput({
                 key={`${tool.toolId}-${toolIndex}`}
                 className={cn(
                   'group relative flex flex-col transition-all duration-200 ease-in-out',
-                  isWide ? 'w-[calc(50%-0.25rem)]' : 'w-full',
+                  'w-full',
                   draggedIndex === toolIndex ? 'scale-95 opacity-40' : '',
                   dragOverIndex === toolIndex && draggedIndex !== toolIndex && draggedIndex !== null
                     ? 'translate-y-1 transform'
@@ -1574,7 +1557,7 @@ export function ToolInput({
                         const toolColor = isCustomTool
                           ? sanitizeHexColor('#3B82F6')
                           : isMcpTool
-                            ? sanitizeHexColor(mcpTool?.bgColor) ?? sanitizeHexColor('#6366F1')
+                            ? (sanitizeHexColor(mcpTool?.bgColor) ?? sanitizeHexColor('#6366F1'))
                             : sanitizeHexColor(toolBlock?.bgColor)
                         const iconColor = toolColor || 'undefined'
                         return (
@@ -1586,17 +1569,17 @@ export function ToolInput({
                             }}
                           >
                             {isCustomTool ? (
-                              <WrenchIcon className='h-4 w-4' style={{ color: iconColor }} />
+                              <WrenchIcon className='h-3 w-3' style={{ color: iconColor }} />
                             ) : isMcpTool ? (
                               <IconComponent
                                 icon={Server}
-                                className='h-4 w-4'
+                                className='h-3 w-3'
                                 style={{ color: iconColor }}
                               />
                             ) : (
                               <IconComponent
                                 icon={toolBlock?.icon}
-                                className='h-4 w-4'
+                                className='h-3 w-3'
                                 style={{ color: iconColor }}
                               />
                             )}

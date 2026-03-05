@@ -31,6 +31,7 @@ type UseWorkflowWidgetStateResult = {
 }
 
 const DEFAULT_LOAD_ERROR_MESSAGE = 'Unable to load workflows'
+const MAX_METADATA_LOAD_ATTEMPTS = 2
 
 export const useWorkflowWidgetState = ({
   workspaceId,
@@ -51,10 +52,9 @@ export const useWorkflowWidgetState = ({
   })
   const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
-  const { workflows, isLoading, loadWorkflows, setActiveWorkflow } = useWorkflowRegistry(
+  const { workflows, loadWorkflows, setActiveWorkflow } = useWorkflowRegistry(
     (state) => ({
       workflows: state.workflows,
-      isLoading: state.isLoading,
       loadWorkflows: state.loadWorkflows,
       setActiveWorkflow: state.setActiveWorkflow,
     }),
@@ -62,10 +62,9 @@ export const useWorkflowWidgetState = ({
   )
 
   const workflowMap = workflows ?? {}
-  const [hasLoadedWorkflows, setHasLoadedWorkflows] = useState(false)
+  const [hasRequestedLoad, setHasRequestedLoad] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [isActivating, setIsActivating] = useState(false)
-  const [activatedWorkflowId, setActivatedWorkflowId] = useState<string | null>(null)
+  const [loadAttempts, setLoadAttempts] = useState(0)
 
   const requestedWorkflowId = useMemo(() => {
     if (resolvedPairColor !== 'gray' || !params || typeof params !== 'object') {
@@ -78,56 +77,83 @@ export const useWorkflowWidgetState = ({
   const rawActiveWorkflowIdForChannel = useWorkflowRegistry((state) =>
     state.getActiveWorkflowId(channelId)
   )
+  const hydration = useWorkflowRegistry((state) => state.getHydration(channelId))
+  const isChannelHydrating = useWorkflowRegistry((state) => state.isChannelHydrating(channelId))
 
-  const workspaceHasWorkflows = useMemo(() => {
+  const workspaceWorkflowMap = useMemo(() => {
     if (!workspaceId) {
-      return false
+      return {}
     }
-    return Object.values(workflowMap).some((workflow) => workflow?.workspaceId === workspaceId)
+
+    return Object.fromEntries(
+      Object.entries(workflowMap).filter(([, workflow]) => workflow?.workspaceId === workspaceId)
+    )
   }, [workflowMap, workspaceId])
+
+  const workflowIds = useMemo(() => Object.keys(workspaceWorkflowMap), [workspaceWorkflowMap])
+
+  const workspaceHasWorkflows = workflowIds.length > 0
 
   useEffect(() => {
     setLoadError(null)
+    setHasRequestedLoad(false)
+    setLoadAttempts(0)
+  }, [workspaceId, channelId])
 
+  useEffect(() => {
     if (!workspaceId) {
-      setHasLoadedWorkflows(true)
       return
     }
 
     if (workspaceHasWorkflows) {
-      setHasLoadedWorkflows(true)
+      return
+    }
+
+    if (hydration.phase === 'metadata-loading' || hydration.phase === 'state-loading') {
+      return
+    }
+
+    if (
+      hydration.phase !== 'idle' &&
+      hydration.phase !== 'error' &&
+      hydration.phase !== 'metadata-ready'
+    ) {
+      return
+    }
+
+    if (loadAttempts >= MAX_METADATA_LOAD_ATTEMPTS) {
       return
     }
 
     let cancelled = false
-    setHasLoadedWorkflows(false)
-
-    loadWorkflows(workspaceId)
+    setHasRequestedLoad(true)
+    setLoadAttempts((previous) => previous + 1)
+    loadWorkflows({ workspaceId, channelId })
       .catch((error) => {
-        if (!cancelled) {
-          console.error(`Failed to load workflows for ${loggerScope}`, error)
-          setLoadError(DEFAULT_LOAD_ERROR_MESSAGE)
+        if (cancelled) {
+          return
         }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setHasLoadedWorkflows(true)
-        }
+
+        console.error(`Failed to load workflows for ${loggerScope}`, error)
+        setLoadError(
+          error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')
+            ? 'Authentication required to load workflows'
+            : DEFAULT_LOAD_ERROR_MESSAGE
+        )
       })
 
     return () => {
       cancelled = true
     }
-  }, [workspaceId, workspaceHasWorkflows, loadWorkflows, loggerScope])
-
-  const workflowIds = useMemo(() => Object.keys(workflowMap), [workflowMap])
-
-  useEffect(() => {
-    // If workflows arrive through some other mechanism, ensure we mark them as loaded
-    if (workspaceId && workflowIds.length > 0 && !hasLoadedWorkflows) {
-      setHasLoadedWorkflows(true)
-    }
-  }, [workspaceId, workflowIds.length, hasLoadedWorkflows])
+  }, [
+    workspaceId,
+    workspaceHasWorkflows,
+    hydration.phase,
+    loadAttempts,
+    loadWorkflows,
+    loggerScope,
+    channelId,
+  ])
 
   const resolvedWorkflowId = useMemo(() => {
     if (workflowIds.length === 0) {
@@ -135,7 +161,9 @@ export const useWorkflowWidgetState = ({
     }
 
     const pairWorkflowId =
-      resolvedPairColor !== 'gray' && pairContext.workflowId && workflowMap[pairContext.workflowId]
+      resolvedPairColor !== 'gray' &&
+      pairContext.workflowId &&
+      workspaceWorkflowMap[pairContext.workflowId]
         ? pairContext.workflowId
         : null
 
@@ -143,28 +171,20 @@ export const useWorkflowWidgetState = ({
       return pairWorkflowId
     }
 
-    if (requestedWorkflowId && workflowMap[requestedWorkflowId]) {
+    if (requestedWorkflowId && workspaceWorkflowMap[requestedWorkflowId]) {
       return requestedWorkflowId
     }
 
     return workflowIds[0]
   }, [
-    hasLoadedWorkflows,
     workflowIds,
     pairContext.workflowId,
-    workflowMap,
+    workspaceWorkflowMap,
     requestedWorkflowId,
     resolvedPairColor,
   ])
 
-  const activeWorkflowIdForChannel = activateWorkflow
-    ? (rawActiveWorkflowIdForChannel ?? activatedWorkflowId)
-    : resolvedWorkflowId
-
-  useEffect(() => {
-    // Reset activation marker when switching channels or workflows
-    setActivatedWorkflowId(null)
-  }, [channelId, resolvedWorkflowId])
+  const activeWorkflowIdForChannel = activateWorkflow ? rawActiveWorkflowIdForChannel : resolvedWorkflowId
 
   useEffect(() => {
     if (!activateWorkflow) {
@@ -175,30 +195,10 @@ export const useWorkflowWidgetState = ({
       return
     }
 
-    let cancelled = false
-    setIsActivating(true)
-
     setActiveWorkflow({ workflowId: resolvedWorkflowId, channelId })
-      .then(() => {
-        if (!cancelled) {
-          setActivatedWorkflowId(resolvedWorkflowId)
-        }
-      })
       .catch((error) => {
-        if (!cancelled) {
-          console.error(`Failed to activate workflow for ${loggerScope}`, error)
-        }
+        console.error(`Failed to activate workflow for ${loggerScope}`, error)
       })
-      .finally(() => {
-        if (!cancelled) {
-          setIsActivating(false)
-        }
-      })
-
-    return () => {
-      cancelled = true
-      setIsActivating(false)
-    }
   }, [
     activateWorkflow,
     resolvedWorkflowId,
@@ -207,6 +207,16 @@ export const useWorkflowWidgetState = ({
     channelId,
     loggerScope,
   ])
+
+  const hasLoadedWorkflows = useMemo(() => {
+    if (!workspaceId) {
+      return true
+    }
+    if (workspaceHasWorkflows || Boolean(loadError)) {
+      return true
+    }
+    return hasRequestedLoad && hydration.phase !== 'metadata-loading'
+  }, [workspaceId, workspaceHasWorkflows, loadError, hasRequestedLoad, hydration.phase])
 
   useEffect(() => {
     if (resolvedPairColor === 'gray' || !resolvedWorkflowId) {
@@ -257,7 +267,7 @@ export const useWorkflowWidgetState = ({
     resolvedWorkflowId,
     hasLoadedWorkflows,
     loadError,
-    isLoading: isLoading || isActivating,
+    isLoading: isChannelHydrating,
     workflowIds,
     activeWorkflowIdForChannel: activeWorkflowIdForChannel ?? null,
   }

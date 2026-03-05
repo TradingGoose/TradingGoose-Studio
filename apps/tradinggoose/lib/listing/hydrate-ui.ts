@@ -80,7 +80,7 @@ const resolveListingValue = async (
   cache: ListingHydrationCache
 ): Promise<unknown> => {
   if (!value) return value
-  if (typeof value === 'string') return null
+  if (typeof value === 'string') return value
   if (typeof value !== 'object') return value
 
   const record = value as ListingRecord

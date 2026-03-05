@@ -8,15 +8,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
-import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import { ResponseBlockHandler } from '@/executor/handlers/response/response-handler'
-import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-depends-on-gate'
-import type { SubBlockConfig } from '@/blocks/types'
 import { cn } from '@/lib/utils'
+import type { SubBlockConfig } from '@/blocks/types'
+import { ResponseBlockHandler } from '@/executor/handlers/response/response-handler'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
+import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-depends-on-gate'
+import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 type DropdownOptionObject = {
   label: string
@@ -105,12 +105,14 @@ export function Dropdown({
 
   const routeContext = useOptionalWorkflowRoute()
   const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
+  const routeWorkflowId = routeContext?.workflowId ?? null
   const activeWorkflowId = useWorkflowRegistry((state) =>
     state.getActiveWorkflowId(resolvedChannelId)
   )
+  const resolvedWorkflowId = activeWorkflowId ?? routeWorkflowId
   const blockContextValues = useSubBlockStore((state) => {
-    if (!activeWorkflowId) return undefined
-    return (state.workflowValues[activeWorkflowId] as Record<string, any> | undefined)?.[blockId]
+    if (!resolvedWorkflowId) return undefined
+    return (state.workflowValues[resolvedWorkflowId] as Record<string, any> | undefined)?.[blockId]
   })
 
   const { finalDisabled, dependencyValues, dependsOn } = useDependsOnGate(blockId, resolvedConfig, {
@@ -129,7 +131,6 @@ export function Dropdown({
         ? propValue
         : storeValue
 
-
   const fetchOptions = resolvedConfig.fetchOptions
   const [fetchedOptions, setFetchedOptions] = useState<DropdownOptionObject[]>([])
   const [isLoadingOptions, setIsLoadingOptions] = useState(false)
@@ -145,7 +146,11 @@ export function Dropdown({
     setFetchError(null)
     try {
       const contextValues = previewContextValues ?? blockContextValues
-      const options = await fetchOptions(blockId, subBlockId, contextValues)
+      const options = await fetchOptions(blockId, subBlockId, {
+        channelId: resolvedChannelId,
+        workflowId: resolvedWorkflowId ?? null,
+        contextValues: contextValues as Record<string, unknown> | undefined,
+      })
       setFetchedOptions(options)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch options'
@@ -163,6 +168,8 @@ export function Dropdown({
     finalDisabled,
     previewContextValues,
     blockContextValues,
+    resolvedChannelId,
+    resolvedWorkflowId,
   ])
 
   const evaluatedOptions = useMemo(() => {
@@ -195,12 +202,12 @@ export function Dropdown({
     option:
       | string
       | {
-        label: string
-        id: string
-        icon?: React.ComponentType<{ className?: string }>
-        group?: string
-        disabled?: boolean
-      }
+          label: string
+          id: string
+          icon?: React.ComponentType<{ className?: string }>
+          group?: string
+          disabled?: boolean
+        }
   ) => {
     return typeof option === 'string' ? option : option.id
   }
@@ -224,9 +231,7 @@ export function Dropdown({
   useEffect(() => {
     if (isPreview || !optionsReady || !hasValue) return
     if (fetchOptions && dependsOn.length > 0) return
-    const isValid = availableOptions.some(
-      (option) => getOptionValue(option as any) === value
-    )
+    const isValid = availableOptions.some((option) => getOptionValue(option as any) === value)
     if (!isValid) {
       blockAutoDefaultRef.current = true
       if (useStore) {
@@ -284,7 +289,7 @@ export function Dropdown({
       useStore &&
       storeInitialized &&
       (value === null || value === undefined || value === '') &&
-      activeWorkflowId &&
+      resolvedWorkflowId &&
       defaultOptionValue !== undefined
     ) {
       if (blockAutoDefaultRef.current) {
@@ -292,16 +297,10 @@ export function Dropdown({
       }
       setStoreValue(defaultOptionValue)
     }
-  }, [useStore, storeInitialized, value, defaultOptionValue, setStoreValue, activeWorkflowId])
+  }, [useStore, storeInitialized, value, defaultOptionValue, setStoreValue, resolvedWorkflowId])
 
   useEffect(() => {
-    if (
-      fetchOptions &&
-      !isPreview &&
-      !finalDisabled &&
-      !hasFetchedOptions &&
-      !isLoadingOptions
-    ) {
+    if (fetchOptions && !isPreview && !finalDisabled && !hasFetchedOptions && !isLoadingOptions) {
       fetchOptionsIfNeeded()
     }
   }, [
@@ -475,18 +474,16 @@ export function Dropdown({
     return { groupOrder, grouped }
   }, [filteredOptions])
 
-  const handleDropdownMenuOpenChange = useCallback(
-    (nextOpen: boolean) => {
-      if (nextOpen) {
-        return
-      }
-      setSearchTerm('')
-    },
-    []
-  )
+  const handleDropdownMenuOpenChange = useCallback((nextOpen: boolean) => {
+    if (nextOpen) {
+      return
+    }
+    setSearchTerm('')
+  }, [])
 
   const hasOptions = filteredOptions.length > 0
-  const emptyMessage = fetchError || (shouldFilter ? 'No matching options.' : 'No options available.')
+  const emptyMessage =
+    fetchError || (shouldFilter ? 'No matching options.' : 'No options available.')
   const triggerLabel = selectedOption?.label ?? ''
   const triggerRightLabel = selectedOption?.rightLabel
 
@@ -503,14 +500,9 @@ export function Dropdown({
           )}
           disabled={finalDisabled}
         >
-          {selectedOption?.icon ? (
-            <selectedOption.icon className='mr-2 h-3 w-3' />
-          ) : null}
+          {selectedOption?.icon ? <selectedOption.icon className='mr-2 h-3 w-3' /> : null}
           <span
-            className={cn(
-              'flex-1 truncate text-left',
-              !triggerLabel && 'text-muted-foreground'
-            )}
+            className={cn('flex-1 truncate text-left', !triggerLabel && 'text-muted-foreground')}
           >
             {triggerLabel || placeholder}
           </span>
@@ -543,7 +535,10 @@ export function Dropdown({
             />
           </div>
         )}
-        <div className='allow-scroll max-h-48 overflow-y-auto p-1' style={{ scrollbarWidth: 'thin' }}>
+        <div
+          className='allow-scroll max-h-48 overflow-y-auto p-1'
+          style={{ scrollbarWidth: 'thin' }}
+        >
           {isLoadingOptions ? (
             <DropdownMenuItem disabled className='justify-center text-muted-foreground'>
               Loading...

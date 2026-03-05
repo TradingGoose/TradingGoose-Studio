@@ -447,7 +447,7 @@ export function ComboBox({
         />
         {SelectedIcon && (
           <div className='pointer-events-none absolute top-0 bottom-0 left-0 flex items-center bg-transparent pl-3 text-sm'>
-            <SelectedIcon className='h-3 w-3 opacity-60' />
+            <SelectedIcon className='h-3 w-3' />
           </div>
         )}
         <div
@@ -524,7 +524,7 @@ export function ComboBox({
                         isHighlighted && 'bg-accent text-accent-foreground'
                       )}
                     >
-                      {OptionIcon && <OptionIcon className='mr-2 h-3 w-3 opacity-60' />}
+                      {OptionIcon && <OptionIcon className='mr-2 h-3 w-3' />}
                       <span className='flex-1 truncate'>{optionLabel}</span>
                       {isSelected && <Check className='ml-2 h-4 w-4 flex-shrink-0' />}
                     </div>

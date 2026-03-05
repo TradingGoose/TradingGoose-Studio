@@ -7,7 +7,6 @@ import {
 import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { mergeSubblockState } from '@/stores/workflows/utils'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store'
 
@@ -51,13 +50,10 @@ export class PreviewEditWorkflowClientTool extends BaseClientTool {
       }
       this.hasExecuted = true
       this.setState(ClientToolCallState.executing)
+      const executionContext = this.requireExecutionContext()
 
       // Resolve workflowId
-      let workflowId = args?.workflowId
-      if (!workflowId) {
-        const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
-        workflowId = activeWorkflowId ?? undefined
-      }
+      const workflowId = args?.workflowId ?? executionContext.workflowId
       if (!workflowId) {
         this.setState(ClientToolCallState.error)
         await this.markToolComplete(400, 'No active workflow found')
@@ -74,9 +70,16 @@ export class PreviewEditWorkflowClientTool extends BaseClientTool {
       // Prepare currentUserWorkflow JSON from stores to preserve block IDs
       let currentUserWorkflow = args?.currentUserWorkflow
       const diffStoreState = useWorkflowDiffStore.getState()
+      const canUseScopedDiff =
+        !diffStoreState.scopeChannelId || diffStoreState.scopeChannelId === executionContext.channelId
       let usedDiffWorkflow = false
 
-      if (!currentUserWorkflow && diffStoreState.isDiffReady && diffStoreState.diffWorkflow) {
+      if (
+        !currentUserWorkflow &&
+        canUseScopedDiff &&
+        diffStoreState.isDiffReady &&
+        diffStoreState.diffWorkflow
+      ) {
         try {
           const diffWorkflow = diffStoreState.diffWorkflow
           const normalizedDiffWorkflow = {
@@ -100,12 +103,7 @@ export class PreviewEditWorkflowClientTool extends BaseClientTool {
 
       if (!currentUserWorkflow && !usedDiffWorkflow) {
         try {
-          const registryState = useWorkflowRegistry.getState() as any
-          const channelIdForWorkflow = Object.entries(registryState?.activeWorkflowIds || {}).find(
-            ([channel, id]) => id === workflowId && registryState?.loadedWorkflowIds?.[channel]
-          )?.[0] as string | undefined
-
-          const workflowStore = useWorkflowStore.getState(channelIdForWorkflow)
+          const workflowStore = useWorkflowStore.getState(executionContext.channelId)
           const fullState = workflowStore.getWorkflowState()
           let merged = fullState
           if (merged?.blocks) {

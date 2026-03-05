@@ -235,6 +235,8 @@ export const resetAllStores = () => {
     workflows: {},
     activeWorkflowIds: {},
     loadedWorkflowIds: {},
+    hydrationByChannel: {},
+    deploymentStatuses: {},
     isLoading: false,
     error: null,
   })

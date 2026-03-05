@@ -169,11 +169,9 @@ export class ManageMcpToolClientTool extends BaseClientTool {
 
     const { operation, serverId, config } = args
 
+    const { workflowId: activeWorkflowId } = this.requireExecutionContext()
     const registryState = useWorkflowRegistry.getState()
-    const activeWorkflowId = registryState.getActiveWorkflowId()
-    const workspaceId = activeWorkflowId
-      ? registryState.workflows[activeWorkflowId]?.workspaceId
-      : undefined
+    const workspaceId = registryState.workflows[activeWorkflowId]?.workspaceId
     if (!workspaceId) {
       throw new Error('No active workspace found')
     }
