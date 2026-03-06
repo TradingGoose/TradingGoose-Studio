@@ -416,6 +416,16 @@ export function ShortInput({
     }
   }
 
+  const handleTagSelect = (newValue: string) => {
+    if (onChange) {
+      onChange(newValue)
+      return
+    }
+    if (!isPreview) {
+      emitTagSelection(newValue)
+    }
+  }
+
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
   const handleCopy = async () => {
@@ -564,7 +574,7 @@ export function ShortInput({
             {enableTags && (
               <TagDropdown
                 visible={showTags}
-                onSelect={handleEnvVarSelect}
+                onSelect={handleTagSelect}
                 blockId={blockId}
                 activeSourceBlockId={activeSourceBlockId}
                 inputValue={value?.toString() ?? ''}
