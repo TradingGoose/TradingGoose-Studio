@@ -1,4 +1,5 @@
 import type { BlockState } from '@/stores/workflows/workflow/types'
+import { isBlockProtected } from '@/stores/workflows/workflow/utils'
 import {
   calculateRelativePosition,
   getNodeAbsolutePosition,
@@ -176,6 +177,10 @@ export function findBestContainerForDraggedNode({
       }
 
       if (candidate.id === currentParentId) {
+        return false
+      }
+
+      if (isBlockProtected(candidate.id, blocks)) {
         return false
       }
 

@@ -76,6 +76,7 @@ export interface BlockState {
   subBlocks: Record<string, SubBlockState>
   outputs: Record<string, BlockOutput>
   enabled: boolean
+  locked?: boolean
   horizontalHandles?: boolean
   isWide?: boolean
   height?: number
@@ -171,6 +172,7 @@ export interface WorkflowActions {
     extent?: 'parent',
     blockProperties?: {
       enabled?: boolean
+      locked?: boolean
       horizontalHandles?: boolean
       isWide?: boolean
       advancedMode?: boolean
@@ -191,6 +193,7 @@ export interface WorkflowActions {
   clear: () => Partial<WorkflowState>
   updateLastSaved: () => void
   toggleBlockEnabled: (id: string) => void
+  toggleBlockLocked: (id: string) => void
   duplicateBlock: (id: string) => void
   toggleBlockHandles: (id: string) => void
   updateBlockName: (id: string, name: string) => boolean

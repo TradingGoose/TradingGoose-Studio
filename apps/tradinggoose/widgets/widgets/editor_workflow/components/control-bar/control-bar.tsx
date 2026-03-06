@@ -54,6 +54,7 @@ let usageDataCache: {
 
 interface ControlBarProps {
   hasValidationErrors?: boolean
+  hasLockedBlocks?: boolean
   className?: string
   variant?: 'widget'
 }
@@ -88,6 +89,7 @@ const getDangerButtonClass = (extra?: string) => cn(WIDGET_DANGER_BUTTON_CLASS, 
  */
 export function ControlBar({
   hasValidationErrors = false,
+  hasLockedBlocks = false,
   className,
   variant = 'widget',
 }: ControlBarProps) {
@@ -361,7 +363,7 @@ export function ControlBar({
    */
   const renderAutoLayoutButton = () => {
     const handleAutoLayoutClick = async () => {
-      if (isExecuting || isDebugging || !userPermissions.canEdit || isAutoLayouting) {
+      if (isExecuting || isDebugging || !userPermissions.canEdit || isAutoLayouting || hasLockedBlocks) {
         return
       }
 
@@ -393,10 +395,11 @@ export function ControlBar({
     }
 
     const canEdit = userPermissions.canEdit
-    const isDisabled = isExecuting || isDebugging || !canEdit || isAutoLayouting
+    const isDisabled = isExecuting || isDebugging || !canEdit || isAutoLayouting || hasLockedBlocks
 
     const getTooltipText = () => {
       if (!canEdit) return 'Admin permission required to use auto-layout'
+      if (hasLockedBlocks) return 'Auto-layout is disabled when blocks are locked'
       if (isDebugging) return 'Cannot auto-layout while debugging'
       if (isExecuting) return 'Cannot auto-layout while workflow is running'
       if (isAutoLayouting) return 'Applying auto-layout...'
@@ -687,7 +690,7 @@ export function ControlBar({
             onClick={handleRunClick}
             disabled={isButtonDisabled}
           >
-            <Play className={cn('h-3.5 w-3.5', 'fill-current stroke-none')} />
+            <Play className={cn('h-3.5 w-3.5', 'fill-current stroke-current')} />
           </Button>
         </TooltipTrigger>
         <TooltipContent command={getKeyboardShortcutText('Enter', true)}>

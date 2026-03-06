@@ -18,6 +18,32 @@ import { SUBFLOW_TYPES } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('WorkflowDBHelpers')
 
+const resolveLockedFromBlockData = (data: unknown): boolean => {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return false
+  }
+  return Boolean((data as Record<string, unknown>).locked)
+}
+
+const upsertLockedInBlockData = (data: unknown, locked: boolean): Record<string, unknown> => {
+  const next: Record<string, unknown> =
+    data && typeof data === 'object' && !Array.isArray(data)
+      ? { ...(data as Record<string, unknown>) }
+      : {}
+
+  if (locked) {
+    next.locked = true
+    return next
+  }
+
+  if (!('locked' in next)) {
+    return next
+  }
+
+  const { locked: _locked, ...rest } = next
+  return rest
+}
+
 export async function ensureUniqueBlockIds(
   workflowId: string,
   state: WorkflowState
@@ -344,7 +370,8 @@ export async function loadWorkflowFromNormalizedTables(
     // Convert blocks to the expected format
     const blocksMap: Record<string, BlockState> = {}
     blocks.forEach((block) => {
-      const blockData = block.data || {}
+      const blockLocked = resolveLockedFromBlockData(block.data)
+      const blockData = upsertLockedInBlockData(block.data || {}, blockLocked)
 
       const assembled: BlockState = {
         id: block.id,
@@ -360,6 +387,7 @@ export async function loadWorkflowFromNormalizedTables(
         advancedMode: block.advancedMode,
         triggerMode: block.triggerMode,
         height: Number(block.height),
+        locked: blockLocked,
         subBlocks: (block.subBlocks as BlockState['subBlocks']) || {},
         outputs: (block.outputs as BlockState['outputs']) || {},
         data: blockData,
@@ -496,7 +524,7 @@ export async function saveWorkflowToNormalizedTables(
         height: sanitizeNumberForDecimal(block.height ?? 0),
         subBlocks: block.subBlocks || {},
         outputs: block.outputs || {},
-        data: block.data || {},
+        data: upsertLockedInBlockData(block.data || {}, Boolean(block.locked)),
       })
 
       return acc

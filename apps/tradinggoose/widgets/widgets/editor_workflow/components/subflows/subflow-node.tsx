@@ -89,6 +89,7 @@ export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<Subf
 
   const isPreview = data?.isPreview || false
   const isEnabled = currentBlock?.enabled ?? true
+  const isLocked = currentBlock?.locked ?? false
 
   const nestingLevel = useMemo(() => {
     let level = 0
@@ -205,6 +206,11 @@ export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<Subf
             </div>
 
             <div className='flex items-center gap-2'>
+              {isLocked && (
+                <Badge variant='secondary' className='bg-gray-100 text-gray-500 hover:bg-gray-100'>
+                  Locked
+                </Badge>
+              )}
               {!isEnabled && (
                 <Badge variant='secondary' className='bg-gray-100 text-gray-500 hover:bg-gray-100'>
                   Disabled

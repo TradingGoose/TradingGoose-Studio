@@ -24,6 +24,7 @@ import {
   DEFAULT_WORKFLOW_CHANNEL_ID,
   useWorkflowStore,
 } from '@/stores/workflows/workflow/store-client'
+import { isBlockProtected } from '@/stores/workflows/workflow/utils'
 import { LoopTool } from '@/widgets/widgets/editor_workflow/components/subflows/loop/loop-config'
 import { ParallelTool } from '@/widgets/widgets/editor_workflow/components/subflows/parallel/parallel-config'
 import { SubBlock } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/sub-block'
@@ -141,6 +142,11 @@ export function NodeEditorPanel({ selectedNodeId, readOnly = false }: NodeEditor
     [selectedBlock]
   )
 
+  const isSelectedBlockProtected = useMemo(() => {
+    if (!selectedNodeId) return false
+    return isBlockProtected(selectedNodeId, storeBlockState.blocks)
+  }, [selectedNodeId, storeBlockState.blocks])
+
   const isSubflow = selectedBlock?.type === 'loop' || selectedBlock?.type === 'parallel'
   const subflowConfig = useMemo(() => {
     if (!selectedBlock) return null
@@ -149,7 +155,8 @@ export function NodeEditorPanel({ selectedNodeId, readOnly = false }: NodeEditor
     return null
   }, [selectedBlock])
 
-  const shouldDisableWrite = readOnly || !userPermissions.canEdit || currentWorkflow.isDiffMode
+  const shouldDisableWrite =
+    readOnly || !userPermissions.canEdit || currentWorkflow.isDiffMode || isSelectedBlockProtected
   const {
     collaborativeToggleBlockAdvancedMode,
     collaborativeUpdateBlockName,
@@ -199,6 +206,14 @@ export function NodeEditorPanel({ selectedNodeId, readOnly = false }: NodeEditor
   const stopPanelEvent = useCallback((event: { stopPropagation: () => void }) => {
     event.stopPropagation()
   }, [])
+  const handleToggleAdvancedFields = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation()
+      if (!selectedBlock) return
+      collaborativeToggleBlockAdvancedMode(selectedBlock.id)
+    },
+    [collaborativeToggleBlockAdvancedMode, selectedBlock]
+  )
 
   useEffect(() => {
     if (!isRenaming) return
@@ -401,8 +416,8 @@ export function NodeEditorPanel({ selectedNodeId, readOnly = false }: NodeEditor
       } else {
         const mergedBlock = resolvedWorkflowId
           ? mergeSubblockState(storeBlockState.blocks, resolvedWorkflowId, selectedBlock.id)[
-              selectedBlock.id
-            ]
+          selectedBlock.id
+          ]
           : storeBlockState.blocks[selectedBlock.id]
         blockStateForConditions = mergedBlock?.subBlocks || selectedBlock.subBlocks || {}
       }
@@ -588,7 +603,7 @@ export function NodeEditorPanel({ selectedNodeId, readOnly = false }: NodeEditor
           </div>
         </div>
       </div>
-      <div className='space-y-4 mt-4'>
+      <div className='space-y-4 mt-3'>
         {isSubflow ? (
           <div className='space-y-4'>
             <div className='space-y-1'>
@@ -694,7 +709,9 @@ export function NodeEditorPanel({ selectedNodeId, readOnly = false }: NodeEditor
                 <div className='h-px flex-1 border-border border-t border-dashed' />
                 <button
                   type='button'
-                  onClick={() => collaborativeToggleBlockAdvancedMode(selectedBlock.id)}
+                  onPointerDown={stopPanelEvent}
+                  onMouseDown={stopPanelEvent}
+                  onClick={handleToggleAdvancedFields}
                   className='flex items-center gap-[6px] whitespace-nowrap font-medium text-[13px] text-muted-foreground hover:text-foreground'
                 >
                   {displayAdvancedOptions ? 'Hide additional fields' : 'Show additional fields'}

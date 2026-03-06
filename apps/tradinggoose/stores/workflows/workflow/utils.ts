@@ -129,6 +129,33 @@ export function findAllDescendantNodes(
 }
 
 /**
+ * Checks if any ancestor container of a block is locked.
+ * Unlike {@link isBlockProtected}, this ignores the block's own locked state.
+ */
+export function isAncestorProtected(blockId: string, blocks: Record<string, BlockState>): boolean {
+  const visited = new Set<string>()
+  let parentId = blocks[blockId]?.data?.parentId
+
+  while (parentId && !visited.has(parentId)) {
+    visited.add(parentId)
+    if (blocks[parentId]?.locked) return true
+    parentId = blocks[parentId]?.data?.parentId
+  }
+
+  return false
+}
+
+/**
+ * A block is protected if it is locked or inside a locked ancestor container.
+ */
+export function isBlockProtected(blockId: string, blocks: Record<string, BlockState>): boolean {
+  const block = blocks[blockId]
+  if (!block) return false
+  if (block.locked) return true
+  return isAncestorProtected(blockId, blocks)
+}
+
+/**
  * Builds a complete collection of loops from the UI blocks
  *
  * @param blocks - Record of all blocks in the workflow

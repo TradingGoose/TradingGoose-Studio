@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { getSmoothStepPath, type ConnectionLineComponentProps } from 'reactflow'
+import { getBezierPath, type ConnectionLineComponentProps } from 'reactflow'
 
 /**
  * Custom connection line so the preview matches WorkflowEdge's geometry.
@@ -14,17 +14,13 @@ export const WorkflowConnectionLine = ({
   connectionLineStyle,
   connectionStatus,
 }: ConnectionLineComponentProps) => {
-  const isHorizontal = fromPosition === 'right' || fromPosition === 'left'
-
-  const [path] = getSmoothStepPath({
+  const [path] = getBezierPath({
     sourceX: fromX,
     sourceY: fromY,
     sourcePosition: fromPosition,
     targetX: toX,
     targetY: toY,
     targetPosition: toPosition,
-    borderRadius: Infinity,
-    offset: isHorizontal ? 30 : 20,
   })
 
   const defaultStyle: CSSProperties = {
