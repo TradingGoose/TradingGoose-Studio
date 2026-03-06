@@ -21,10 +21,10 @@ import { getBlock } from '@/blocks'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
+import { mergeSubblockState } from '@/stores/workflows/utils'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { getTrigger } from '@/triggers'
-import { isDeployManagedTriggerSubBlock } from '@/triggers/constants'
 import {
   DeployForm,
   DeploymentInfo,
@@ -32,6 +32,7 @@ import {
 import { ChatDeploy } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/chat-deploy/chat-deploy'
 import { DeployedWorkflowModal } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deployment-controls/components/deployed-workflow-modal'
 import { SubBlock } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/sub-block'
+import { buildSubBlockRows } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/sub-block-layout'
 
 const logger = createLogger('DeployModal')
 
@@ -129,18 +130,36 @@ function shouldRenderTriggerSubBlockForTriggerId(
   return condition.not ? condition.value !== triggerId : condition.value === triggerId
 }
 
-function getDeployManagedTriggerSubBlocks(triggerId: string): SubBlockConfig[] {
+function getDeployManagedTriggerSubBlocks({
+  triggerId,
+  stateToUse,
+  isPureTriggerBlock,
+  availableTriggerIds,
+}: {
+  triggerId: string
+  stateToUse: Record<string, any>
+  isPureTriggerBlock: boolean
+  availableTriggerIds?: string[]
+}): SubBlockConfig[] {
   const triggerDef = getTrigger(triggerId)
   if (!triggerDef) {
     return []
   }
 
-  return triggerDef.subBlocks.filter(
-    (subBlock) =>
-      subBlock.mode === 'trigger' &&
-      isDeployManagedTriggerSubBlock(subBlock.id) &&
-      shouldRenderTriggerSubBlockForTriggerId(subBlock, triggerId)
-  )
+  const rows = buildSubBlockRows({
+    subBlocks: triggerDef.subBlocks,
+    stateToUse,
+    isAdvancedMode: false,
+    isTriggerMode: true,
+    isPureTriggerBlock,
+    availableTriggerIds,
+    hideFromPreview: false,
+    triggerSubBlockOwner: 'deploy',
+  })
+
+  return rows
+    .flat()
+    .filter((subBlock) => shouldRenderTriggerSubBlockForTriggerId(subBlock, triggerId))
 }
 
 const nonConfigurableTriggerSubBlockIds = new Set([
@@ -234,7 +253,8 @@ export function DeployModal({
   const [openDropdown, setOpenDropdown] = useState<number | null>(null)
   const [versionToActivate, setVersionToActivate] = useState<number | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const blockList = Object.values(currentBlocks)
+  const mergedBlocks = workflowId ? mergeSubblockState(currentBlocks, workflowId) : currentBlocks
+  const blockList = Object.values(mergedBlocks)
   const hasApiTrigger = blockList.some((block) => block.type === 'api_trigger')
   const hasInputTrigger = blockList.some((block) => block.type === 'input_trigger')
   const hasIndicatorTrigger = blockList.some((block) => block.type === 'indicator_trigger')
@@ -248,7 +268,12 @@ export function DeployModal({
         return null
       }
 
-      const subBlocks = getDeployManagedTriggerSubBlocks(triggerId)
+      const subBlocks = getDeployManagedTriggerSubBlocks({
+        triggerId,
+        stateToUse: block.subBlocks || {},
+        isPureTriggerBlock: blockConfig?.category === 'triggers',
+        availableTriggerIds: blockConfig?.triggers?.available,
+      })
       if (subBlocks.length === 0) {
         return null
       }
