@@ -192,6 +192,7 @@ export function useCollaborativeWorkflow() {
                 payload.extent,
                 {
                   enabled: payload.enabled,
+                  locked: payload.locked,
                   horizontalHandles: payload.horizontalHandles,
                   isWide: payload.isWide,
                   advancedMode: payload.advancedMode,
@@ -285,6 +286,9 @@ export function useCollaborativeWorkflow() {
             case 'toggle-enabled':
               workflowStore.toggleBlockEnabled(payload.id)
               break
+            case 'toggle-locked':
+              workflowStore.toggleBlockLocked(payload.id)
+              break
             case 'update-parent':
               workflowStore.updateParentId(payload.id, payload.parentId, payload.extent)
               break
@@ -315,6 +319,7 @@ export function useCollaborativeWorkflow() {
                 payload.extent,
                 {
                   enabled: payload.enabled,
+                  locked: payload.locked,
                   horizontalHandles: payload.horizontalHandles,
                   isWide: payload.isWide,
                   advancedMode: payload.advancedMode,
@@ -776,6 +781,7 @@ export function useCollaborativeWorkflow() {
           subBlocks: {},
           outputs: {},
           enabled: true,
+          locked: false,
           horizontalHandles: true,
           isWide: false,
           advancedMode: false,
@@ -789,6 +795,7 @@ export function useCollaborativeWorkflow() {
         // Skip if applying remote changes
         if (isApplyingRemoteChange.current) {
           workflowStore.addBlock(id, type, name, position, data, parentId, extent, {
+            locked: false,
             triggerMode: triggerMode || false,
           })
           if (autoConnectEdge) {
@@ -814,6 +821,7 @@ export function useCollaborativeWorkflow() {
 
         // Apply locally first (immediate UI feedback)
         workflowStore.addBlock(id, type, name, position, data, parentId, extent, {
+          locked: false,
           triggerMode: triggerMode || false,
         })
         if (autoConnectEdge) {
@@ -860,6 +868,7 @@ export function useCollaborativeWorkflow() {
         subBlocks,
         outputs,
         enabled: true,
+        locked: false,
         horizontalHandles: true,
         isWide: false,
         advancedMode: false,
@@ -890,6 +899,7 @@ export function useCollaborativeWorkflow() {
 
       // Apply locally
       workflowStore.addBlock(id, type, name, position, data, parentId, extent, {
+        locked: false,
         triggerMode: triggerMode || false,
       })
       if (autoConnectEdge) {
@@ -1075,6 +1085,15 @@ export function useCollaborativeWorkflow() {
         'block',
         { id, horizontalHandles: newHorizontalHandles },
         () => workflowStore.toggleBlockHandles(id)
+      )
+    },
+    [executeQueuedOperation, workflowStore]
+  )
+
+  const collaborativeToggleBlockLocked = useCallback(
+    (id: string) => {
+      executeQueuedOperation('toggle-locked', 'block', { id }, () =>
+        workflowStore.toggleBlockLocked(id)
       )
     },
     [executeQueuedOperation, workflowStore]
@@ -1312,6 +1331,7 @@ export function useCollaborativeWorkflow() {
         parentId: sourceBlock.data?.parentId || null,
         extent: sourceBlock.data?.extent || null,
         enabled: sourceBlock.enabled ?? true,
+        locked: false,
         horizontalHandles: sourceBlock.horizontalHandles ?? true,
         isWide: sourceBlock.isWide ?? false,
         advancedMode: sourceBlock.advancedMode ?? false,
@@ -1329,6 +1349,7 @@ export function useCollaborativeWorkflow() {
         sourceBlock.data?.extent,
         {
           enabled: sourceBlock.enabled,
+          locked: false,
           horizontalHandles: sourceBlock.horizontalHandles,
           isWide: sourceBlock.isWide,
           advancedMode: sourceBlock.advancedMode,
@@ -1348,6 +1369,7 @@ export function useCollaborativeWorkflow() {
           sourceBlock.data?.extent,
           {
             enabled: sourceBlock.enabled,
+            locked: false,
             horizontalHandles: sourceBlock.horizontalHandles,
             isWide: sourceBlock.isWide,
             advancedMode: sourceBlock.advancedMode,
@@ -1644,6 +1666,7 @@ export function useCollaborativeWorkflow() {
     collaborativeToggleBlockAdvancedMode,
     collaborativeToggleBlockTriggerMode,
     collaborativeToggleBlockHandles,
+    collaborativeToggleBlockLocked,
     collaborativeDuplicateBlock,
     collaborativeAddEdge,
     collaborativeRemoveEdge,

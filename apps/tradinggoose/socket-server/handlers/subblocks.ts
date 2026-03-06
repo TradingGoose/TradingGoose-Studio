@@ -9,6 +9,13 @@ import type { RoomManager } from '@/socket-server/rooms/manager'
 
 const logger = createLogger('SubblocksHandlers')
 
+const resolveLockedFromData = (data: unknown): boolean => {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return false
+  }
+  return Boolean((data as Record<string, unknown>).locked)
+}
+
 type PendingSubblock = {
   latest: { blockId: string; subblockId: string; value: any; timestamp: number }
   timeout: NodeJS.Timeout
@@ -138,15 +145,48 @@ async function flushSubblockUpdate(
     }
 
     let updateSuccessful = false
+    let blockLocked = false
     await db.transaction(async (tx) => {
       const [block] = await tx
-        .select({ subBlocks: workflowBlocks.subBlocks, type: workflowBlocks.type })
+        .select({ subBlocks: workflowBlocks.subBlocks, type: workflowBlocks.type, data: workflowBlocks.data })
         .from(workflowBlocks)
         .where(and(eq(workflowBlocks.id, blockId), eq(workflowBlocks.workflowId, workflowId)))
         .limit(1)
 
       if (!block) {
         return
+      }
+
+      if (resolveLockedFromData(block.data)) {
+        blockLocked = true
+        return
+      }
+
+      let parentId =
+        block.data && typeof block.data === 'object'
+          ? ((block.data as Record<string, unknown>).parentId as string | undefined)
+          : undefined
+
+      while (parentId) {
+        const [parentBlock] = await tx
+          .select({ data: workflowBlocks.data })
+          .from(workflowBlocks)
+          .where(and(eq(workflowBlocks.id, parentId), eq(workflowBlocks.workflowId, workflowId)))
+          .limit(1)
+
+        if (!parentBlock) {
+          break
+        }
+
+        if (resolveLockedFromData(parentBlock.data)) {
+          blockLocked = true
+          return
+        }
+
+        parentId =
+          parentBlock.data && typeof parentBlock.data === 'object'
+            ? ((parentBlock.data as Record<string, unknown>).parentId as string | undefined)
+            : undefined
       }
 
       const subBlocks = (block.subBlocks as any) || {}
@@ -211,7 +251,7 @@ async function flushSubblockUpdate(
         if (sock) {
           sock.emit('operation-failed', {
             operationId: opId,
-            error: 'Block no longer exists',
+            error: blockLocked ? 'Block is locked' : 'Block no longer exists',
             retryable: false,
           })
         }

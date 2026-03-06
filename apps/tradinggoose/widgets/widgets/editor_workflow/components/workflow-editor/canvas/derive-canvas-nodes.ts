@@ -2,6 +2,7 @@ import type { MutableRefObject } from 'react'
 import type { Node } from 'reactflow'
 import type { BlockConfig } from '@/blocks/types'
 import type { BlockState } from '@/stores/workflows/workflow/types'
+import { isBlockProtected } from '@/stores/workflows/workflow/utils'
 import type {
   CanvasNodeDescriptor,
   ResolveCanvasNodeDescriptorParams,
@@ -75,6 +76,7 @@ export function deriveCanvasNodes({
       type: nodeDescriptor.nodeType,
       position: block.position,
       parentId: block.data?.parentId,
+      draggable: !isBlockProtected(block.id, blocks),
       dragHandle: '.workflow-drag-handle',
       extent: block.data?.extent || undefined,
       data: nodeDescriptor.data,

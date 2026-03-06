@@ -42,7 +42,7 @@ vi.mock('reactflow', () => {
         'data-gap': String(props.gap),
       }),
     ConnectionLineType: {
-      SmoothStep: 'smoothstep',
+      Bezier: 'default',
     },
   }
 })
@@ -98,7 +98,7 @@ describe('PreviewWorkflow', () => {
     expect(mockAdaptPreviewPayloadToCanvas).toHaveBeenCalledWith(workflowState)
     expect(lastReactFlowProps?.nodes).toEqual([{ id: 'agent_1', type: 'previewNode', data: {} }])
     expect(lastReactFlowProps?.edges).toEqual([{ id: 'edge_1', source: 'a', target: 'b' }])
-    expect(lastReactFlowProps?.connectionLineType).toBe('smoothstep')
+    expect(lastReactFlowProps?.connectionLineType).toBe('default')
     expect(lastReactFlowProps?.fitViewOptions).toEqual({ padding: 0.25 })
     expect(lastReactFlowProps?.defaultViewport).toEqual({ x: 0, y: 0, zoom: 0.8 })
 

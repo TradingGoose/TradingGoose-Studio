@@ -1,8 +1,6 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { BookOpen, Info } from 'lucide-react'
+import { type CSSProperties, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Handle, type NodeProps, Position, useStore, useUpdateNodeInternals } from 'reactflow'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { PopoverEnvironmentProvider } from '@/components/ui/popover'
 import {
@@ -12,7 +10,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
-import { parseCronToHumanReadable } from '@/lib/schedules/utils'
 import { cn, validateName } from '@/lib/utils'
 import { type DiffStatus, hasDiffStatus } from '@/lib/workflows/diff/types'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
@@ -30,6 +27,7 @@ import {
   DEFAULT_WORKFLOW_CHANNEL_ID,
   useWorkflowStore,
 } from '@/stores/workflows/workflow/store-client'
+import { isBlockProtected } from '@/stores/workflows/workflow/utils'
 import { subscribeScheduleUpdated } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/workflow-editor-event-bus'
 import {
   useOptionalWorkflowRoute,
@@ -122,6 +120,109 @@ function formatSubBlockValue(value: unknown): string {
   }
 }
 
+function parseJsonDetailValue(value: unknown): unknown {
+  if (typeof value !== 'string') {
+    return value
+  }
+
+  const trimmed = value.trim()
+  if (!trimmed || (trimmed[0] !== '{' && trimmed[0] !== '[')) {
+    return value
+  }
+
+  try {
+    return JSON.parse(trimmed)
+  } catch {
+    return value
+  }
+}
+
+interface JsonPreviewFieldRow {
+  title: string
+  value: string
+}
+
+const JSON_PREVIEW_ROW_LIMIT = 8
+
+function buildJsonPreviewFieldRows(value: unknown): JsonPreviewFieldRow[] {
+  const parsedValue = parseJsonDetailValue(value)
+
+  if (parsedValue === null || parsedValue === undefined || parsedValue === '') {
+    return [{ title: 'value', value: '-' }]
+  }
+
+  if (Array.isArray(parsedValue)) {
+    if (parsedValue.length === 0) {
+      return [{ title: 'items', value: '0' }]
+    }
+
+    const firstItem = parsedValue[0]
+    if (firstItem && typeof firstItem === 'object' && !Array.isArray(firstItem)) {
+      const entries = Object.entries(firstItem)
+      const rows = entries
+        .slice(0, JSON_PREVIEW_ROW_LIMIT)
+        .map(([key, entryValue]) => ({
+          title: key,
+          value: formatSubBlockValue(entryValue),
+        }))
+
+      if (entries.length > JSON_PREVIEW_ROW_LIMIT) {
+        rows.push({
+          title: 'fields',
+          value: `+${entries.length - JSON_PREVIEW_ROW_LIMIT} more`,
+        })
+      }
+
+      if (parsedValue.length > 1) {
+        rows.push({
+          title: 'items',
+          value: String(parsedValue.length),
+        })
+      }
+
+      return rows
+    }
+
+    const rows = parsedValue
+      .slice(0, JSON_PREVIEW_ROW_LIMIT)
+      .map((item, index) => ({ title: `[${index}]`, value: formatSubBlockValue(item) }))
+
+    if (parsedValue.length > JSON_PREVIEW_ROW_LIMIT) {
+      rows.push({
+        title: 'items',
+        value: `+${parsedValue.length - JSON_PREVIEW_ROW_LIMIT} more`,
+      })
+    }
+
+    return rows
+  }
+
+  if (typeof parsedValue === 'object') {
+    const entries = Object.entries(parsedValue)
+    if (entries.length === 0) {
+      return [{ title: 'object', value: '{}' }]
+    }
+
+    const rows = entries
+      .slice(0, JSON_PREVIEW_ROW_LIMIT)
+      .map(([key, entryValue]) => ({
+        title: key,
+        value: formatSubBlockValue(entryValue),
+      }))
+
+    if (entries.length > JSON_PREVIEW_ROW_LIMIT) {
+      rows.push({
+        title: 'fields',
+        value: `+${entries.length - JSON_PREVIEW_ROW_LIMIT} more`,
+      })
+    }
+
+    return rows
+  }
+
+  return [{ title: 'value', value: formatSubBlockValue(parsedValue) }]
+}
+
 interface WorkflowBlockProps {
   type: string
   config: BlockConfig
@@ -145,15 +246,9 @@ export const WorkflowBlock = memo(
     const [isEditing, setIsEditing] = useState(false)
     const [editedName, setEditedName] = useState('')
     const [isLoadingScheduleInfo, setIsLoadingScheduleInfo] = useState(false)
-    const [scheduleInfo, setScheduleInfo] = useState<{
-      scheduleTiming: string
-      nextRunAt: string | null
-      lastRanAt: string | null
-      timezone: string
-      status?: string
-      isDisabled?: boolean
-      id?: string
-    } | null>(null)
+    const [scheduleInfo, setScheduleInfo] = useState<{ isDisabled: boolean; id?: string } | null>(
+      null
+    )
 
     // Refs
     const blockRef = useRef<HTMLDivElement>(null)
@@ -261,8 +356,16 @@ export const WorkflowBlock = memo(
     const userPermissions = useUserPermissionsContext()
     const currentBlock = currentWorkflow.getBlockById(id)
     const isReadOnlyBlock = Boolean(data.isPreview || data.readOnly)
+    const isLocked = data.isPreview
+      ? (data.blockState?.locked ?? false)
+      : (currentBlock?.locked ?? false)
+    const isProtectedByLock =
+      data.isPreview || !currentBlock
+        ? isLocked
+        : isBlockProtected(currentBlock.id, currentWorkflow.blocks)
     const disableInNodeEditing =
-      CANONICAL_SIDE_PANEL_TYPES.has(type) && !isReadOnlyBlock && !currentWorkflow.isDiffMode
+      (CANONICAL_SIDE_PANEL_TYPES.has(type) && !isReadOnlyBlock && !currentWorkflow.isDiffMode) ||
+      isProtectedByLock
 
     // In preview mode, use the blockState provided; otherwise use current workflow state
     const isEnabled = data.isPreview
@@ -365,7 +468,16 @@ export const WorkflowBlock = memo(
       useCallback(
         (state) => {
           const blockValues = resolvedWorkflowId ? state.workflowValues[resolvedWorkflowId]?.[id] : null
-          return !!(blockValues?.webhookProvider && blockValues?.webhookPath)
+          if (!blockValues) return false
+
+          const hasLegacyWebhookConfig = Boolean(
+            blockValues.webhookProvider && (blockValues.webhookPath || blockValues.triggerPath)
+          )
+          const hasTriggerManagedWebhookConfig = Boolean(
+            blockValues.triggerPath && (blockValues.webhookId || blockValues.triggerId)
+          )
+
+          return hasLegacyWebhookConfig || hasTriggerManagedWebhookConfig
         },
         [resolvedWorkflowId, id]
       )
@@ -426,8 +538,8 @@ export const WorkflowBlock = memo(
 
     const currentWorkflowId = useWorkflowId()
 
-    // Check if this is a trigger block
-    const isWebhookTriggerBlock = type === 'webhook'
+    // Check if this is a webhook-capable trigger block
+    const isWebhookTriggerBlock = type === 'webhook' || type === 'generic_webhook'
 
     const reactivateSchedule = async (scheduleId: string) => {
       try {
@@ -506,16 +618,7 @@ export const WorkflowBlock = memo(
           }
 
           const schedule = data.schedule
-          const scheduleTimezone = schedule.timezone || 'UTC'
-
           setScheduleInfo({
-            scheduleTiming: schedule.cronExpression
-              ? parseCronToHumanReadable(schedule.cronExpression, scheduleTimezone)
-              : 'Unknown schedule',
-            nextRunAt: schedule.nextRunAt,
-            lastRanAt: schedule.lastRanAt,
-            timezone: scheduleTimezone,
-            status: schedule.status,
             isDisabled: schedule.status === 'disabled',
             id: schedule.id,
           })
@@ -794,8 +897,16 @@ export const WorkflowBlock = memo(
     // Check webhook indicator
     const showWebhookIndicator = isWebhookTriggerBlock && blockWebhookStatus
 
-    const shouldShowScheduleBadge =
-      type === 'schedule' && !isLoadingScheduleInfo && scheduleInfo !== null
+    const shouldShowScheduleBadge = type === 'schedule' && !isLoadingScheduleInfo
+    const hasScheduleInfo = scheduleInfo !== null
+    let onScheduleToggle: (() => void) | undefined
+    if (userPermissions.canEdit && scheduleInfo?.id) {
+      const scheduleId = scheduleInfo.id
+      onScheduleToggle = scheduleInfo.isDisabled
+        ? () => reactivateSchedule(scheduleId)
+        : () => disableSchedule(scheduleId)
+    }
+
     const [childActiveVersion, setChildActiveVersion] = useState<number | null>(null)
     const [childIsDeployed, setChildIsDeployed] = useState<boolean>(false)
     const [isLoadingChildVersion, setIsLoadingChildVersion] = useState(false)
@@ -868,6 +979,14 @@ export const WorkflowBlock = memo(
       }
     }, [childWorkflowId])
 
+    const blockAccentColor = config.bgColor || 'hsl(var(--foreground))'
+    const hasPriorityRing =
+      isActive ||
+      isPending ||
+      diffStatus === 'new' ||
+      diffStatus === 'edited' ||
+      isDeletedBlock
+
     return (
       <TooltipEnvironmentProvider value={tooltipEnvironmentValue}>
         <PopoverEnvironmentProvider value={popoverEnvironmentValue}>
@@ -887,12 +1006,14 @@ export const WorkflowBlock = memo(
                 'bg-orange-50/50 ring-2 ring-orange-500 dark:bg-orange-900/10',
                 // Deleted block highlighting (in original workflow)
                 isDeletedBlock && 'bg-red-50/50 ring-2 ring-red-500 dark:bg-red-900/10',
+                !hasPriorityRing && 'hover:ring-1 hover:ring-[var(--block-hover-color)]',
                 'z-[20]'
               )}
               style={
-                selected
-                  ? { borderColor: config.bgColor || 'hsl(var(--foreground))', borderWidth: '1px' }
-                  : undefined
+                {
+                  '--block-hover-color': blockAccentColor,
+                  ...(selected ? { borderColor: blockAccentColor, borderWidth: '1px' } : {}),
+                } as CSSProperties & Record<'--block-hover-color', string>
               }
             >
               {/* Show debug indicator for pending blocks */}
@@ -902,15 +1023,18 @@ export const WorkflowBlock = memo(
                 </div>
               )}
 
-              {!isReadOnlyBlock && (
-                <ActionBar
-                  blockId={id}
-                  blockType={type}
-                  workflowId={currentWorkflowId}
-                  channelId={workflowChannelId}
-                  disabled={!userPermissions.canEdit}
-                />
-              )}
+              <ActionBar
+                blockId={id}
+                blockType={type}
+                workflowId={currentWorkflowId}
+                channelId={workflowChannelId}
+                disabled={!userPermissions.canEdit || isReadOnlyBlock}
+                showWebhookIndicator={showWebhookIndicator}
+                showScheduleBadge={shouldShowScheduleBadge}
+                hasScheduleInfo={hasScheduleInfo}
+                isScheduleDisabled={Boolean(scheduleInfo?.isDisabled)}
+                onScheduleToggle={onScheduleToggle}
+              />
               {/* Connection Blocks - Don't show for trigger blocks or blocks in trigger mode */}
               {config.category !== 'triggers' && !displayTriggerMode && !isReadOnlyBlock && (
                 <ConnectionBlocks
@@ -937,7 +1061,7 @@ export const WorkflowBlock = memo(
                       : 'hover:!h-[10px] hover:!top-[-10px]',
                     '!cursor-crosshair',
                     'transition-[colors] duration-150',
-                    horizontalHandles ? '!left-[-7px]' : '!top-[-7px]'
+                    horizontalHandles ? '!left-[-8px]' : '!top-[-8px]'
                   )}
                   style={{
                     ...(horizontalHandles
@@ -947,7 +1071,7 @@ export const WorkflowBlock = memo(
                   data-nodeid={id}
                   data-handleid='target'
                   isConnectableStart={false}
-                  isConnectableEnd={!isReadOnlyBlock}
+                  isConnectableEnd={!isReadOnlyBlock && !isProtectedByLock}
                   isValidConnection={(connection) => connection.source !== id}
                 />
               )}
@@ -1008,6 +1132,14 @@ export const WorkflowBlock = memo(
                   </div>
                 </div>
                 <div className='flex flex-shrink-0 items-center gap-2'>
+                  {isLocked && (
+                    <Badge
+                      variant='secondary'
+                      className='bg-gray-100 text-gray-500 hover:bg-gray-100'
+                    >
+                      Locked
+                    </Badge>
+                  )}
                   {isWorkflowSelector && childWorkflowId && (
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -1041,134 +1173,6 @@ export const WorkflowBlock = memo(
                       Disabled
                     </Badge>
                   )}
-                  {/* Schedule indicator badge - displayed for schedule trigger blocks with active schedules */}
-                  {shouldShowScheduleBadge && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge
-                          variant='outline'
-                          className={cn(
-                            'flex items-center gap-1 font-normal text-xs',
-                            !isReadOnlyBlock && 'cursor-pointer',
-                            scheduleInfo?.isDisabled
-                              ? 'border-yellow-200 bg-yellow-50 text-yellow-600 hover:bg-yellow-100 dark:bg-yellow-900/20 dark:text-yellow-400'
-                              : 'border-green-200 bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400'
-                          )}
-                          onClick={
-                            !isReadOnlyBlock && userPermissions.canEdit && scheduleInfo?.id
-                              ? scheduleInfo.isDisabled
-                                ? () => reactivateSchedule(scheduleInfo.id!)
-                                : () => disableSchedule(scheduleInfo.id!)
-                              : undefined
-                          }
-                        >
-                          <div className='relative mr-0.5 flex items-center justify-center'>
-                            <div
-                              className={cn(
-                                'absolute h-3 w-3 rounded-full',
-                                scheduleInfo?.isDisabled ? 'bg-yellow-500/20' : 'bg-green-500/20'
-                              )}
-                            />
-                            <div
-                              className={cn(
-                                'relative h-2 w-2 rounded-full',
-                                scheduleInfo?.isDisabled ? 'bg-yellow-500' : 'bg-green-500'
-                              )}
-                            />
-                          </div>
-                          {scheduleInfo?.isDisabled ? 'Disabled' : 'Scheduled'}
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent side='top' className='max-w-[300px] p-4'>
-                        {isReadOnlyBlock ? (
-                          <p className='text-sm'>Schedules are view-only in preview mode.</p>
-                        ) : scheduleInfo?.isDisabled ? (
-                          <p className='text-sm'>
-                            This schedule is currently disabled. Click the badge to reactivate it.
-                          </p>
-                        ) : (
-                          <p className='text-sm'>Click the badge to disable this schedule.</p>
-                        )}
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                  {/* Webhook indicator badge - displayed for webhook trigger blocks */}
-                  {showWebhookIndicator && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge
-                          variant='outline'
-                          className='flex items-center gap-1 border-green-200 bg-green-50 font-normal text-green-600 text-xs hover:bg-green-50 dark:bg-green-900/20 dark:text-green-400'
-                        >
-                          <div className='relative mr-0.5 flex items-center justify-center'>
-                            <div className='absolute h-3 w-3 rounded-full bg-green-500/20' />
-                            <div className='relative h-2 w-2 rounded-full bg-green-500' />
-                          </div>
-                          Webhook
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent side='top' className='max-w-[300px] p-4'>
-                        <p className='text-muted-foreground text-sm'>
-                          This workflow is triggered by a webhook.
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                  {config.docsLink ? (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant='ghost'
-                          size='icon'
-                          className='h-7 p-1 text-gray-500'
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            window.open(config.docsLink, '_target', 'noopener,noreferrer')
-                          }}
-                        >
-                          <BookOpen className='h-5 w-5' />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side='top'>See Docs</TooltipContent>
-                    </Tooltip>
-                  ) : (
-                    config.longDescription && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button variant='ghost' size='icon' className='h-7 p-1 text-gray-500'>
-                            <Info className='h-5 w-5' />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side='top' className='max-w-[300px] p-4'>
-                          <div className='space-y-3'>
-                            <div>
-                              <p className='mb-1 font-medium text-sm'>Description</p>
-                              <p className='text-muted-foreground text-sm'>
-                                {config.longDescription}
-                              </p>
-                            </div>
-                            {config.outputs && Object.keys(config.outputs).length > 0 && (
-                              <div>
-                                <p className='mb-1 font-medium text-sm'>Output</p>
-                                <div className='text-sm'>
-                                  {Object.entries(config.outputs).map(([key, value]) => (
-                                    <div key={key} className='mb-1'>
-                                      <span className='text-muted-foreground'>{key}</span>{' '}
-                                      <span className='text-green-500'>
-                                        {typeof value === 'object' && value !== null && 'type' in value
-                                          ? value.type
-                                          : value}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    )
-                  )}
                 </div>
               </div>
 
@@ -1176,7 +1180,7 @@ export const WorkflowBlock = memo(
               {shouldRenderInNodeSubBlocks && (
                 <div
                   ref={contentRef}
-                  className='cursor-pointer p-2'
+                  className='cursor-pointer p-3 text-sm'
                   onMouseDown={(e) => {
                     e.stopPropagation()
                   }}
@@ -1186,13 +1190,13 @@ export const WorkflowBlock = memo(
                       ? conditionRows.map((conditionRow) => (
                         <div key={conditionRow.id} className='flex items-center gap-2'>
                           <p
-                            className='min-w-0 truncate text-[14px] text-muted-foreground capitalize'
+                            className='min-w-0 truncate text-muted-foreground capitalize'
                             title={conditionRow.title}
                           >
                             {conditionRow.title}
                           </p>
                           <p
-                            className='min-w-0 flex-1 truncate text-right text-[14px]'
+                            className='min-w-0 flex-1 truncate text-right'
                             title={conditionRow.value}
                           >
                             {formatSubBlockValue(conditionRow.value)}
@@ -1201,19 +1205,60 @@ export const WorkflowBlock = memo(
                       ))
                       : flattenedSubBlocks.map((subBlock, index) => {
                         const stableKey = `${getSubBlockStableKey(subBlock, subBlockState)}-${index}`
-                        const rawValue = subBlockState[subBlock.id]?.value
+                        const rawValue =
+                          subBlockState[subBlock.id]?.value ??
+                          (typeof subBlock.defaultValue === 'function'
+                            ? undefined
+                            : subBlock.defaultValue)
+                        const isJsonCodeSubBlock =
+                          subBlock.type === 'code' && subBlock.language === 'json'
+                        const jsonPreviewRows = isJsonCodeSubBlock
+                          ? buildJsonPreviewFieldRows(rawValue)
+                          : null
                         const displayValue = formatSubBlockValue(rawValue)
+
+                        if (isJsonCodeSubBlock) {
+                          const jsonTitle = subBlock.title ?? subBlock.id
+                          return (
+                            <div key={stableKey} className='flex flex-col gap-1'>
+                              <p
+                                className='min-w-0 truncate text-muted-foreground capitalize'
+                                title={jsonTitle}
+                              >
+                                {jsonTitle}:
+                              </p>
+                              <div className='ml-3 overflow-hidden bg-background rounded-md border border-border'>
+                                {(jsonPreviewRows ?? []).map((jsonRow, jsonRowIndex) => (
+                                  <div
+                                    key={`${stableKey}-json-row-${jsonRowIndex}`}
+                                    className={cn(
+                                      'flex items-center gap-2 px-3 py-1.5',
+                                      jsonRowIndex > 0 && 'border-t border-border'
+                                    )}
+                                  >
+                                    <p className='min-w-0 truncate text-muted-foreground' title={jsonRow.title}>
+                                      {jsonRow.title}
+                                    </p>
+                                    <p className='min-w-0 flex-1 truncate text-right' title={jsonRow.value}>
+                                      {jsonRow.value}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )
+                        }
 
                         return (
                           <div key={stableKey} className='flex items-center gap-2'>
                             <p
-                              className='min-w-0 truncate text-[14px] text-muted-foreground capitalize'
+                              className='min-w-0 truncate text-muted-foreground capitalize'
                               title={subBlock.title ?? subBlock.id}
                             >
                               {subBlock.title ?? subBlock.id}
                             </p>
                             <p
-                              className='min-w-0 flex-1 truncate text-right text-[14px]'
+                              className='min-w-0 flex-1 truncate text-right'
                               title={displayValue}
                             >
                               {displayValue}
@@ -1224,12 +1269,12 @@ export const WorkflowBlock = memo(
                     {type === 'condition' && shouldShowErrorHandle && (
                       <div className='flex items-center gap-2'>
                         <p
-                          className='min-w-0 truncate text-[14px] text-muted-foreground capitalize'
+                          className='min-w-0 truncate text-muted-foreground capitalize'
                           title='error'
                         >
                           error
                         </p>
-                        <p className='min-w-0 flex-1 truncate text-right text-[14px]' title='-'>
+                        <p className='min-w-0 flex-1 truncate text-right' title='-'>
                           -
                         </p>
                       </div>
@@ -1255,7 +1300,7 @@ export const WorkflowBlock = memo(
                         'hover:!w-[10px] hover:!right-[-10px]',
                         '!cursor-crosshair',
                         'transition-[colors] duration-150',
-                        '!right-[-7px]'
+                        '!right-[-8px]'
                       )}
                       style={{
                         top: `${60 + rowIndex * 29}px`,
@@ -1285,7 +1330,7 @@ export const WorkflowBlock = memo(
                         : 'hover:!h-[10px] hover:!bottom-[-10px]',
                       '!cursor-crosshair',
                       'transition-[colors] duration-150',
-                      horizontalHandles ? '!right-[-7px]' : '!bottom-[-7px]'
+                      horizontalHandles ? '!right-[-8px]' : '!bottom-[-8px]'
                     )}
                     style={{
                       ...(horizontalHandles
@@ -1321,20 +1366,20 @@ export const WorkflowBlock = memo(
                     position: 'absolute',
                     ...(type === 'condition'
                       ? {
-                        right: '-7px',
+                        right: '-8px',
                         top: `${60 + conditionRows.length * 29}px`,
                         bottom: 'auto',
                         transform: 'translateY(-50%)',
                       }
                       : useHorizontalErrorHandle
                         ? {
-                          right: '-7px',
+                          right: '-8px',
                           top: 'auto',
                           bottom: '30px',
                           transform: 'translateY(0)',
                         }
                         : {
-                          bottom: '-7px',
+                          bottom: '-8px',
                           left: 'auto',
                           right: '30px',
                           transform: 'translateX(0)',

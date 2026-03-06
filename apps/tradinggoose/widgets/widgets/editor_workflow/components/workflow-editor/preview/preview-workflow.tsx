@@ -75,7 +75,7 @@ export function PreviewWorkflow({
             edges={edges}
             nodeTypes={previewNodeTypes}
             edgeTypes={previewEdgeTypes}
-            connectionLineType={ConnectionLineType.SmoothStep}
+            connectionLineType={ConnectionLineType.Bezier}
             fitView
             fitViewOptions={{ padding: fitPadding }}
             panOnScroll={false}

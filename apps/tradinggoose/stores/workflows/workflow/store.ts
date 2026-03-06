@@ -19,7 +19,11 @@ import type {
   WorkflowState,
   WorkflowStore,
 } from '@/stores/workflows/workflow/types'
-import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/workflow/utils'
+import {
+  findAllDescendantNodes,
+  generateLoopBlocks,
+  generateParallelBlocks,
+} from '@/stores/workflows/workflow/utils'
 
 const logger = createLogger('WorkflowStore')
 
@@ -59,6 +63,7 @@ const createWorkflowStoreState = (channelId: string): WorkflowStoreStateCreator 
     extent?: 'parent',
     blockProperties?: {
       enabled?: boolean
+      locked?: boolean
       horizontalHandles?: boolean
       isWide?: boolean
       advancedMode?: boolean
@@ -86,6 +91,7 @@ const createWorkflowStoreState = (channelId: string): WorkflowStoreStateCreator 
             subBlocks: {},
             outputs: {},
             enabled: blockProperties?.enabled ?? true,
+            locked: blockProperties?.locked ?? false,
             horizontalHandles: blockProperties?.horizontalHandles ?? true,
             isWide: blockProperties?.isWide ?? false,
             advancedMode: blockProperties?.advancedMode ?? false,
@@ -139,6 +145,7 @@ const createWorkflowStoreState = (channelId: string): WorkflowStoreStateCreator 
           subBlocks,
           outputs,
           enabled: blockProperties?.enabled ?? true,
+          locked: blockProperties?.locked ?? false,
           horizontalHandles: blockProperties?.horizontalHandles ?? true,
           isWide: blockProperties?.isWide ?? false,
           advancedMode: blockProperties?.advancedMode ?? false,
@@ -495,6 +502,39 @@ const createWorkflowStoreState = (channelId: string): WorkflowStoreStateCreator 
     // Note: Socket.IO handles real-time sync automatically
   },
 
+  toggleBlockLocked: (id: string) => {
+    const currentBlocks = get().blocks
+    const targetBlock = currentBlocks[id]
+    if (!targetBlock) return
+
+    const targetLocked = !Boolean(targetBlock.locked)
+    const newBlocks = { ...currentBlocks }
+    const blockIdsToToggle = new Set<string>([id])
+
+    if (targetBlock.type === 'loop' || targetBlock.type === 'parallel') {
+      findAllDescendantNodes(id, currentBlocks).forEach((descId) => {
+        blockIdsToToggle.add(descId)
+      })
+    }
+
+    for (const blockId of blockIdsToToggle) {
+      const block = newBlocks[blockId]
+      if (!block) continue
+      newBlocks[blockId] = {
+        ...block,
+        locked: targetLocked,
+      }
+    }
+
+    set({
+      blocks: newBlocks,
+      edges: [...get().edges],
+      loops: { ...get().loops },
+      parallels: { ...get().parallels },
+    })
+    get().updateLastSaved()
+  },
+
   duplicateBlock: (id: string) => {
     const block = get().blocks[id]
     if (!block) return
@@ -534,6 +574,7 @@ const createWorkflowStoreState = (channelId: string): WorkflowStoreStateCreator 
           name: newName,
           position: offsetPosition,
           subBlocks: newSubBlocks,
+          locked: false,
         },
       },
       edges: [...get().edges],

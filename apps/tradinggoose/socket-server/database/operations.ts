@@ -52,6 +52,60 @@ const normalizeString = (value: unknown): string | null => {
   return trimmed.length > 0 ? trimmed : null
 }
 
+const resolveLockedFromData = (data: unknown): boolean => {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return false
+  return Boolean((data as Record<string, unknown>).locked)
+}
+
+const upsertLockedInData = (data: unknown, locked: boolean): Record<string, unknown> => {
+  const next: Record<string, unknown> =
+    data && typeof data === 'object' && !Array.isArray(data)
+      ? { ...(data as Record<string, unknown>) }
+      : {}
+
+  if (locked) {
+    next.locked = true
+    return next
+  }
+
+  if (!('locked' in next)) {
+    return next
+  }
+
+  const { locked: _locked, ...rest } = next
+  return rest
+}
+
+type DbBlockRecord = {
+  id: string
+  type: string
+  data: unknown
+}
+
+const findDbDescendants = (containerId: string, blocks: DbBlockRecord[]): string[] => {
+  const descendants: string[] = []
+  const visited = new Set<string>()
+  const stack = [containerId]
+
+  while (stack.length > 0) {
+    const currentId = stack.pop()!
+    if (visited.has(currentId)) continue
+    visited.add(currentId)
+
+    for (const block of blocks) {
+      const parentId =
+        block.data && typeof block.data === 'object'
+          ? (block.data as Record<string, unknown>).parentId
+          : undefined
+      if (parentId !== currentId) continue
+      descendants.push(block.id)
+      stack.push(block.id)
+    }
+  }
+
+  return descendants
+}
+
 async function detachIndicatorMonitorsForRemovedBlocks(
   tx: any,
   workflowId: string,
@@ -231,6 +285,10 @@ async function handleWorkflowOperationTx(
               }
 
               const blockName = normalizeString(block.name) ?? blockType
+              const normalizedData = upsertLockedInData(
+                block.data ?? {},
+                Boolean(block.locked ?? resolveLockedFromData(block.data))
+              )
 
               acc.push({
                 id: blockId,
@@ -239,7 +297,7 @@ async function handleWorkflowOperationTx(
                 name: blockName,
                 positionX: sanitizeNumberForDecimal(block.position?.x),
                 positionY: sanitizeNumberForDecimal(block.position?.y),
-                data: block.data ?? {},
+                data: normalizedData,
                 subBlocks: block.subBlocks ?? {},
                 outputs: block.outputs ?? {},
                 enabled: block.enabled ?? true,
@@ -545,6 +603,16 @@ async function handleBlockOperationTx(
       })
 
       try {
+        const blockLocked = Boolean(payload.locked ?? resolveLockedFromData(payload.data))
+        const blockData = upsertLockedInData(
+          {
+            ...(payload.data || {}),
+            ...(parentId ? { parentId } : {}),
+            ...(extent ? { extent } : {}),
+          },
+          blockLocked
+        )
+
         const insertData = {
           id: payload.id,
           workflowId,
@@ -552,11 +620,7 @@ async function handleBlockOperationTx(
           name: payload.name,
           positionX: payload.position.x,
           positionY: payload.position.y,
-          data: {
-            ...(payload.data || {}),
-            ...(parentId ? { parentId } : {}),
-            ...(extent ? { extent } : {}),
-          },
+          data: blockData,
           subBlocks: payload.subBlocks || {},
           outputs: payload.outputs || {},
           enabled: payload.enabled ?? true,
@@ -804,6 +868,54 @@ async function handleBlockOperationTx(
       break
     }
 
+    case 'toggle-locked': {
+      if (!payload.id) {
+        throw new Error('Missing block ID for toggle locked operation')
+      }
+
+      const allBlocks = await tx
+        .select({
+          id: workflowBlocks.id,
+          type: workflowBlocks.type,
+          data: workflowBlocks.data,
+        })
+        .from(workflowBlocks)
+        .where(eq(workflowBlocks.workflowId, workflowId))
+
+      const blocksById = Object.fromEntries(allBlocks.map((block: DbBlockRecord) => [block.id, block]))
+      const targetBlock = blocksById[payload.id]
+      if (!targetBlock) {
+        throw new Error(`Block ${payload.id} not found in workflow ${workflowId}`)
+      }
+
+      const blockIdsToToggle = new Set<string>([payload.id])
+      if (targetBlock.type === 'loop' || targetBlock.type === 'parallel') {
+        findDbDescendants(payload.id, allBlocks as DbBlockRecord[]).forEach((id) => {
+          blockIdsToToggle.add(id)
+        })
+      }
+
+      const targetLocked = !resolveLockedFromData(targetBlock.data)
+
+      for (const blockId of blockIdsToToggle) {
+        const existingBlock = blocksById[blockId]
+        if (!existingBlock) continue
+
+        await tx
+          .update(workflowBlocks)
+          .set({
+            data: upsertLockedInData(existingBlock.data, targetLocked),
+            updatedAt: new Date(),
+          })
+          .where(and(eq(workflowBlocks.id, blockId), eq(workflowBlocks.workflowId, workflowId)))
+      }
+
+      logger.debug(
+        `Toggled block lock: ${payload.id} -> ${targetLocked} (${blockIdsToToggle.size} block(s) affected)`
+      )
+      break
+    }
+
     case 'update-parent': {
       if (!payload.id) {
         throw new Error('Missing block ID for update parent operation')
@@ -829,15 +941,19 @@ async function handleBlockOperationTx(
         .limit(1)
 
       const currentData = currentBlock?.data || {}
+      const currentLocked = resolveLockedFromData(currentData)
 
       // Update data with parentId and extent
       const updatedData = isRemovingFromParent
-        ? {} // Clear data entirely when removing from parent
-        : {
-          ...currentData,
-          ...(payload.parentId ? { parentId: payload.parentId } : {}),
-          ...(payload.extent ? { extent: payload.extent } : {}),
-        }
+        ? upsertLockedInData({}, currentLocked)
+        : upsertLockedInData(
+          {
+            ...currentData,
+            ...(payload.parentId ? { parentId: payload.parentId } : {}),
+            ...(payload.extent ? { extent: payload.extent } : {}),
+          },
+          currentLocked
+        )
 
       const updateResult = await tx
         .update(workflowBlocks)
@@ -977,6 +1093,16 @@ async function handleBlockOperationTx(
       const extent = payload.extent || null
 
       try {
+        const blockLocked = Boolean(payload.locked ?? resolveLockedFromData(payload.data))
+        const blockData = upsertLockedInData(
+          {
+            ...(payload.data || {}),
+            ...(parentId ? { parentId } : {}),
+            ...(extent ? { extent } : {}),
+          },
+          blockLocked
+        )
+
         const insertData = {
           id: payload.id,
           workflowId,
@@ -984,11 +1110,7 @@ async function handleBlockOperationTx(
           name: payload.name,
           positionX: payload.position.x,
           positionY: payload.position.y,
-          data: {
-            ...(payload.data || {}),
-            ...(parentId ? { parentId } : {}),
-            ...(extent ? { extent } : {}),
-          },
+          data: blockData,
           subBlocks: payload.subBlocks || {},
           outputs: payload.outputs || {},
           enabled: payload.enabled ?? true,
@@ -1153,6 +1275,13 @@ async function handleSubflowOperationTx(
 
       logger.debug(`[SERVER] Successfully updated subflow ${payload.id} in database`)
 
+      const [currentBlock] = await tx
+        .select({ data: workflowBlocks.data })
+        .from(workflowBlocks)
+        .where(and(eq(workflowBlocks.id, payload.id), eq(workflowBlocks.workflowId, workflowId)))
+        .limit(1)
+      const currentLocked = resolveLockedFromData(currentBlock?.data)
+
       // Also update the corresponding block's data to keep UI in sync
       if (payload.type === 'loop' && payload.config.iterations !== undefined) {
         // Update the loop block's data.count property
@@ -1176,7 +1305,7 @@ async function handleSubflowOperationTx(
         await tx
           .update(workflowBlocks)
           .set({
-            data: blockData,
+            data: upsertLockedInData(blockData, currentLocked),
             updatedAt: new Date(),
           })
           .where(and(eq(workflowBlocks.id, payload.id), eq(workflowBlocks.workflowId, workflowId)))
@@ -1207,7 +1336,7 @@ async function handleSubflowOperationTx(
         await tx
           .update(workflowBlocks)
           .set({
-            data: blockData,
+            data: upsertLockedInData(blockData, currentLocked),
             updatedAt: new Date(),
           })
           .where(and(eq(workflowBlocks.id, payload.id), eq(workflowBlocks.workflowId, workflowId)))

@@ -1,6 +1,6 @@
 'use client';
 import { X } from 'lucide-react'
-import { BaseEdge, EdgeLabelRenderer, type EdgeProps, getSmoothStepPath } from 'reactflow'
+import { BaseEdge, EdgeLabelRenderer, type EdgeProps, getBezierPath } from 'reactflow'
 import type { EdgeDiffStatus } from '@/lib/workflows/diff/types'
 import { useWorkflowDiffStore } from '@/stores/workflow-diff'
 interface WorkflowEdgeProps extends EdgeProps {
@@ -23,17 +23,13 @@ export const WorkflowEdge = ({
   sourceHandle,
   targetHandle,
 }: WorkflowEdgeProps) => {
-  const isHorizontal = sourcePosition === 'right' || sourcePosition === 'left'
-
-  const [edgePath, labelX, labelY] = getSmoothStepPath({
+  const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
     sourceY,
     sourcePosition,
     targetX,
     targetY,
     targetPosition,
-    borderRadius: Infinity,
-    offset: isHorizontal ? 30 : 20,
   })
 
   const isSelected = data?.isSelected ?? false
