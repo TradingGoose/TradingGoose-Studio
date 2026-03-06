@@ -447,12 +447,12 @@ export function StockSelector({
           visible={showTags}
           onSelect={handleTagSelect}
           blockId={blockId}
-          activeSourceBlockId={blockId}
+          activeSourceBlockId={null}
           inputValue={query}
           cursorPosition={cursorPosition}
           allowVariables={false}
           allowContextualTags={false}
-          allowedOutputTypes={['json', 'object']}
+          requiredOutputShape='listingIdentity'
           onClose={() => {
             setShowTags(false)
           }}
