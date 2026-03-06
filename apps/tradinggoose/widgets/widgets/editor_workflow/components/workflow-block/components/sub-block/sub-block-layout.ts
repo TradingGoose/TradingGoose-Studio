@@ -11,6 +11,7 @@ interface BuildSubBlockRowsParams {
   isPureTriggerBlock: boolean
   availableTriggerIds?: string[]
   hideFromPreview?: boolean
+  triggerSubBlockOwner?: 'editor' | 'deploy'
 }
 
 type ConditionValue = string | number | boolean | Array<string | number | boolean>
@@ -58,6 +59,7 @@ export function buildSubBlockRows({
   isPureTriggerBlock,
   availableTriggerIds,
   hideFromPreview = false,
+  triggerSubBlockOwner = 'editor',
 }: BuildSubBlockRowsParams): SubBlockConfig[][] {
   const selectedTriggerId = stateToUse.selectedTriggerId?.value
   const triggerIdFromState = stateToUse.triggerId?.value
@@ -100,13 +102,14 @@ export function buildSubBlockRows({
       return false
     }
 
-    if (
-      isTriggerMode &&
-      subBlock.mode === 'trigger' &&
-      hasTriggerDefinition &&
-      isDeployManagedTriggerSubBlock(subBlock.id)
-    ) {
-      return false
+    if (isTriggerMode && subBlock.mode === 'trigger' && hasTriggerDefinition) {
+      const isDeployManaged = isDeployManagedTriggerSubBlock(subBlock.id)
+      if (triggerSubBlockOwner === 'editor' && isDeployManaged) {
+        return false
+      }
+      if (triggerSubBlockOwner === 'deploy' && !isDeployManaged) {
+        return false
+      }
     }
 
     if (subBlock.mode === 'basic' && isAdvancedMode) return false
