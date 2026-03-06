@@ -393,13 +393,9 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
       type: 'json',
       description: 'Structured listing identifier payload',
     },
-    bars: {
-      type: 'array',
-      description: 'OHLCV bars with timestamps',
+    marketSeries: {
+      type: 'json',
+      description: 'Normalized market series payload (MarketSeries).',
     },
-    start: { type: 'string', description: 'Start of the returned series' },
-    end: { type: 'string', description: 'End of the returned series' },
-    timezone: { type: 'string', description: 'Exchange timezone' },
-    normalizationMode: { type: 'string', description: 'Normalization mode used' },
   },
 }

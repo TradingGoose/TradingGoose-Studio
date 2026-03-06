@@ -282,7 +282,14 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
       if ('primaryMicCode' in seriesOutput) {
         delete seriesOutput.primaryMicCode
       }
-      return { success: true, output: { ...seriesOutput, listing } }
+      const normalizedSeries = { ...seriesOutput, listing }
+      return {
+        success: true,
+        output: {
+          ...normalizedSeries,
+          marketSeries: normalizedSeries,
+        },
+      }
     } catch (error: any) {
       logger.error('Error validating market series data', {
         provider: params.provider,

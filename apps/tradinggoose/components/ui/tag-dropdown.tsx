@@ -47,6 +47,7 @@ interface TagDropdownProps {
   style?: React.CSSProperties
   allowVariables?: boolean
   allowedOutputTypes?: string[]
+  requiredOutputShape?: 'listingIdentity'
   allowContextualTags?: boolean
 }
 
@@ -80,6 +81,25 @@ const sanitizeHexColor = (value?: string) => {
   const trimmed = value.trim()
   if (!trimmed) return undefined
   return trimmed.startsWith('#') ? trimmed : `#${trimmed}`
+}
+
+const hasClippingOverflow = (element: HTMLElement) => {
+  const style = window.getComputedStyle(element)
+  const overflowValues = [style.overflow, style.overflowX, style.overflowY]
+  return overflowValues.some((value) =>
+    value === 'auto' || value === 'scroll' || value === 'hidden' || value === 'clip'
+  )
+}
+
+const getBoundaryRect = (anchor: HTMLElement): DOMRect | null => {
+  let current = anchor.parentElement
+  while (current) {
+    if (hasClippingOverflow(current)) {
+      return current.getBoundingClientRect()
+    }
+    current = current.parentElement
+  }
+  return null
 }
 
 const normalizeBlockName = (blockName: string): string => {
@@ -287,16 +307,22 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
   style,
   allowVariables = true,
   allowedOutputTypes,
+  requiredOutputShape,
   allowContextualTags = true,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
+  const submenuParentRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const [verticalPlacement, setVerticalPlacement] = useState<'top' | 'bottom'>('bottom')
+  const [submenuVerticalPlacement, setSubmenuVerticalPlacement] = useState<'top' | 'bottom'>(
+    'bottom'
+  )
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [hoveredNested, setHoveredNested] = useState<{ tag: string; index: number } | null>(null)
   const [inSubmenu, setInSubmenu] = useState(false)
   const [submenuIndex, setSubmenuIndex] = useState(0)
   const [parentHovered, setParentHovered] = useState<string | null>(null)
   const [submenuHovered, setSubmenuHovered] = useState(false)
+  const [menuMaxHeight, setMenuMaxHeight] = useState<number | null>(null)
 
   const updatePlacement = useCallback(() => {
     const element = containerRef.current
@@ -304,14 +330,44 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
     if (!element || !anchor) return
 
     const anchorRect = anchor.getBoundingClientRect()
+    const boundaryRect = getBoundaryRect(anchor)
     const viewportPadding = 12
-    const spaceBelow = window.innerHeight - anchorRect.bottom - viewportPadding
-    const spaceAbove = anchorRect.top - viewportPadding
+    const dropdownOffset = 4
+    const viewportSpaceBelow = window.innerHeight - anchorRect.bottom - viewportPadding
+    const viewportSpaceAbove = anchorRect.top - viewportPadding
+    const boundarySpaceBelow = boundaryRect
+      ? boundaryRect.bottom - anchorRect.bottom - dropdownOffset
+      : viewportSpaceBelow
+    const boundarySpaceAbove = boundaryRect
+      ? anchorRect.top - boundaryRect.top - dropdownOffset
+      : viewportSpaceAbove
+    const spaceBelow = Math.max(0, Math.min(viewportSpaceBelow, boundarySpaceBelow))
+    const spaceAbove = Math.max(0, Math.min(viewportSpaceAbove, boundarySpaceAbove))
     const estimatedHeight = Math.min(element.scrollHeight || 0, 320)
     const shouldOpenTop = spaceBelow < estimatedHeight && spaceAbove > spaceBelow
+    const boundedHeight = shouldOpenTop ? spaceAbove : spaceBelow
+    const viewportHeight = shouldOpenTop ? viewportSpaceAbove : viewportSpaceBelow
+    const availableHeight = boundedHeight > 0 ? boundedHeight : viewportHeight
 
     setVerticalPlacement(shouldOpenTop ? 'top' : 'bottom')
+    setMenuMaxHeight(availableHeight > 0 ? Math.floor(availableHeight) : null)
   }, [])
+
+  const updateSubmenuPlacement = useCallback(
+    (anchorElement: HTMLElement | null, childrenCount = 0) => {
+      if (!anchorElement) return
+
+      const viewportPadding = 12
+      const anchorRect = anchorElement.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - anchorRect.bottom - viewportPadding
+      const spaceAbove = anchorRect.top - viewportPadding
+      const estimatedHeight = Math.min(Math.max(childrenCount * 32 + 8, 120), 260)
+      const shouldOpenTop = spaceBelow < estimatedHeight && spaceAbove > spaceBelow
+
+      setSubmenuVerticalPlacement(shouldOpenTop ? 'top' : 'bottom')
+    },
+    []
+  )
 
   const { blocks, edges, loops, parallels } = useWorkflowStore(
     (state) => ({
@@ -361,6 +417,70 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
     const match = textBeforeCursor.match(/<([^>]*)$/)
     return match ? match[1].toLowerCase() : ''
   }, [inputValue, cursorPosition])
+
+  const matchesOutputConstraints = useCallback(
+    (
+      tag: string,
+      normalizedBlockName: string,
+      block: BlockState,
+      blockConfig: BlockConfig | null,
+      targetBlockId: string,
+      mergedSubBlocks?: Record<string, any>
+    ) => {
+      const outputPath = tag.startsWith(`${normalizedBlockName}.`)
+        ? tag.slice(normalizedBlockName.length + 1)
+        : ''
+      if (!outputPath) return false
+
+      if (allowedOutputTypes && allowedOutputTypes.length > 0) {
+        const allowedSet = new Set(allowedOutputTypes)
+        const outputType = getOutputTypeForPath(
+          block,
+          blockConfig,
+          targetBlockId,
+          outputPath,
+          workflowId,
+          mergedSubBlocks
+        )
+        if (!allowedSet.has(outputType)) return false
+      }
+
+      if (requiredOutputShape === 'listingIdentity') {
+        if (outputPath !== 'listing') return false
+
+        const listingType = getOutputTypeForPath(
+          block,
+          blockConfig,
+          targetBlockId,
+          'listing',
+          workflowId,
+          mergedSubBlocks
+        )
+        if (listingType !== 'json' && listingType !== 'object') return false
+
+        const baseType = getOutputTypeForPath(
+          block,
+          blockConfig,
+          targetBlockId,
+          'listingBase',
+          workflowId,
+          mergedSubBlocks
+        )
+        const quoteType = getOutputTypeForPath(
+          block,
+          blockConfig,
+          targetBlockId,
+          'listingQuote',
+          workflowId,
+          mergedSubBlocks
+        )
+        return baseType === 'string' && quoteType === 'string'
+      }
+
+      return true
+    },
+    [allowedOutputTypes, requiredOutputShape, workflowId]
+  )
 
   const {
     tags,
@@ -496,6 +616,19 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
             blockTags = outputPaths.map((path) => `${normalizedBlockName}.${path}`)
           }
         }
+      }
+
+      if ((allowedOutputTypes && allowedOutputTypes.length > 0) || requiredOutputShape) {
+        blockTags = blockTags.filter((tag) =>
+          matchesOutputConstraints(
+            tag,
+            normalizedBlockName,
+            sourceBlock,
+            blockConfig,
+            activeSourceBlockId,
+            mergedSubBlocks
+          )
+        )
       }
 
       blockTags = ensureRootTag(blockTags, normalizedBlockName)
@@ -799,22 +932,16 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
         blockTags = blockTags.filter((tag) => tag !== normalizedBlockName)
       }
 
-      if (allowedOutputTypes && allowedOutputTypes.length > 0) {
-        const allowedSet = new Set(allowedOutputTypes)
+      if ((allowedOutputTypes && allowedOutputTypes.length > 0) || requiredOutputShape) {
         blockTags = blockTags.filter((tag) => {
-          const outputPath = tag.startsWith(`${normalizedBlockName}.`)
-            ? tag.slice(normalizedBlockName.length + 1)
-            : ''
-          if (!outputPath) return false
-          const outputType = getOutputTypeForPath(
-            blockState,
+          return matchesOutputConstraints(
+            tag,
+            normalizedBlockName,
+            accessibleBlock,
             blockConfig,
             accessibleBlockId,
-            outputPath,
-            workflowId,
             mergedSubBlocks
           )
-          return allowedSet.has(outputType)
         })
       }
 
@@ -864,9 +991,11 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
     parallels,
     allowVariables,
     allowedOutputTypes,
+    requiredOutputShape,
     allowContextualTags,
     workflowVariables,
     workflowId,
+    matchesOutputConstraints,
   ])
 
   const filteredTags = useMemo(() => {
@@ -1134,6 +1263,31 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
     }
   }, [visible, orderedTags.length, updatePlacement])
 
+  useLayoutEffect(() => {
+    if (!visible || !hoveredNested) return
+
+    const syncSubmenuPlacement = () => {
+      const anchorElement = submenuParentRefs.current[hoveredNested.tag] ?? null
+      const group = nestedBlockTagGroups.find((candidateGroup: NestedBlockTagGroup) =>
+        candidateGroup.nestedTags.some(
+          (tag: any, tagIndex: number) =>
+            `${candidateGroup.blockId}-${tag.key}` === hoveredNested.tag &&
+            tagIndex === hoveredNested.index
+        )
+      )
+      const nestedTag = group?.nestedTags[hoveredNested.index]
+      updateSubmenuPlacement(anchorElement, nestedTag?.children?.length ?? 0)
+    }
+
+    syncSubmenuPlacement()
+    window.addEventListener('resize', syncSubmenuPlacement)
+    window.addEventListener('scroll', syncSubmenuPlacement, true)
+    return () => {
+      window.removeEventListener('resize', syncSubmenuPlacement)
+      window.removeEventListener('scroll', syncSubmenuPlacement, true)
+    }
+  }, [visible, hoveredNested, nestedBlockTagGroups, updateSubmenuPlacement])
+
   useEffect(() => {
     if (visible) {
       const handleKeyboardEvent = (e: KeyboardEvent) => {
@@ -1298,47 +1452,46 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                 e.stopPropagation()
                 const group = nestedBlockTagGroups[targetLocation.groupIndex]
                 const nestedTag = group.nestedTags[targetLocation.nestedTagIndex]
+                const parentKey = `${group.blockId}-${nestedTag.key}`
                 setInSubmenu(true)
                 setSubmenuIndex(0)
                 setHoveredNested({
-                  tag: `${group.blockId}-${nestedTag.key}`,
+                  tag: parentKey,
                   index: targetLocation.nestedTagIndex,
                 })
+                updateSubmenuPlacement(
+                  submenuParentRefs.current[parentKey] ?? null,
+                  nestedTag.children?.length ?? 0
+                )
               }
               break
             case 'Enter':
               e.preventDefault()
               e.stopPropagation()
               if (selectedIndex >= 0 && selectedIndex < orderedTags.length) {
-                const selectedTag = orderedTags[selectedIndex]
-
-                let isParentItem = false
-                let parentTag = ''
-                let parentGroup: BlockTagGroup | undefined
-
-                for (const group of nestedBlockTagGroups) {
-                  for (const nestedTag of group.nestedTags) {
-                    if (nestedTag.children && nestedTag.children.length > 0) {
-                      const firstChild = nestedTag.children[0]
-                      if (firstChild.fullTag === selectedTag) {
-                        isParentItem = true
-                        parentTag = `${normalizeBlockName(group.blockName)}.${nestedTag.key}`
-                        parentGroup = group
-                        break
-                      }
-                    }
-                  }
-                  if (isParentItem) break
-                }
-
-                if (isParentItem && parentTag) {
-                  handleTagSelect(parentTag, parentGroup)
-                } else {
-                  const belongsToGroup = filteredBlockTagGroups.find((group) =>
-                    group.tags.includes(selectedTag)
+                const targetLocation = canEnterSubmenuForSelected()
+                if (targetLocation) {
+                  const group = nestedBlockTagGroups[targetLocation.groupIndex]
+                  const nestedTag = group.nestedTags[targetLocation.nestedTagIndex]
+                  const parentKey = `${group.blockId}-${nestedTag.key}`
+                  setInSubmenu(true)
+                  setSubmenuIndex(0)
+                  setHoveredNested({
+                    tag: parentKey,
+                    index: targetLocation.nestedTagIndex,
+                  })
+                  updateSubmenuPlacement(
+                    submenuParentRefs.current[parentKey] ?? null,
+                    nestedTag.children?.length ?? 0
                   )
-                  handleTagSelect(selectedTag, belongsToGroup)
+                  break
                 }
+
+                const selectedTag = orderedTags[selectedIndex]
+                const belongsToGroup = filteredBlockTagGroups.find((group) =>
+                  group.tags.includes(selectedTag)
+                )
+                handleTagSelect(selectedTag, belongsToGroup)
               }
               break
             case 'Escape':
@@ -1364,6 +1517,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
     inSubmenu,
     submenuIndex,
     hoveredNested,
+    updateSubmenuPlacement,
   ])
 
   if (!visible || tags.length === 0 || orderedTags.length === 0) return null
@@ -1372,11 +1526,14 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
     <div
       ref={containerRef}
       className={cn(
-        'absolute left-0 z-[9999] w-full overflow-visible rounded-md border bg-popover shadow-md',
+        'absolute left-0 z-[9999] w-full overflow-x-hidden overflow-y-auto rounded-md border bg-popover shadow-md',
         verticalPlacement === 'top' ? 'bottom-[calc(100%+0.25rem)]' : 'top-[calc(100%+0.25rem)]',
         className
       )}
-      style={style}
+      style={{
+        ...style,
+        maxHeight: menuMaxHeight ? `${menuMaxHeight}px` : style?.maxHeight,
+      }}
     >
       <div className='py-1'>
         {orderedTags.length === 0 ? (
@@ -1464,9 +1621,9 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                             ? (tagIndexMap.get(nestedTag.fullTag) ?? -1)
                             : -1
                           const hasChildren = nestedTag.children && nestedTag.children.length > 0
+                          const parentKey = `${group.blockId}-${nestedTag.key}`
                           const isHovered =
-                            hoveredNested?.tag === `${group.blockId}-${nestedTag.key}` &&
-                            hoveredNested?.index === index
+                            hoveredNested?.tag === parentKey && hoveredNested?.index === index
 
                           const displayText = nestedTag.display
                           let tagDescription = ''
@@ -1529,24 +1686,31 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                               className='relative'
                             >
                               <button
+                                ref={(el) => {
+                                  if (!hasChildren) return
+                                  submenuParentRefs.current[parentKey] = el
+                                }}
                                 className={cn(
                                   'flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm',
                                   'hover:bg-card hover:text-accent-foreground',
                                   'focus:bg-accent focus:text-accent-foreground focus:outline-none',
                                   isKeyboardSelected && 'bg-accent text-accent-foreground'
                                 )}
-                                onMouseEnter={() => {
+                                onMouseEnter={(e) => {
                                   if (tagIndex >= 0) {
                                     setSelectedIndex(tagIndex)
                                   }
 
                                   if (hasChildren) {
-                                    const parentKey = `${group.blockId}-${nestedTag.key}`
                                     setParentHovered(parentKey)
                                     setHoveredNested({
                                       tag: parentKey,
                                       index,
                                     })
+                                    updateSubmenuPlacement(
+                                      e.currentTarget,
+                                      nestedTag.children?.length ?? 0
+                                    )
                                   }
                                 }}
                                 onMouseLeave={() => {
@@ -1566,8 +1730,15 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                                   } else if (hasChildren) {
                                     e.preventDefault()
                                     e.stopPropagation()
-                                    const parentTag = `${normalizeBlockName(group.blockName)}.${nestedTag.key}`
-                                    handleTagSelect(parentTag, group)
+                                    setParentHovered(parentKey)
+                                    setHoveredNested({
+                                      tag: parentKey,
+                                      index,
+                                    })
+                                    updateSubmenuPlacement(
+                                      e.currentTarget,
+                                      nestedTag.children?.length ?? 0
+                                    )
                                   }
                                 }}
                                 onClick={(e) => {
@@ -1578,8 +1749,15 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                                   } else if (hasChildren) {
                                     e.preventDefault()
                                     e.stopPropagation()
-                                    const parentTag = `${normalizeBlockName(group.blockName)}.${nestedTag.key}`
-                                    handleTagSelect(parentTag, group)
+                                    setParentHovered(parentKey)
+                                    setHoveredNested({
+                                      tag: parentKey,
+                                      index,
+                                    })
+                                    updateSubmenuPlacement(
+                                      e.currentTarget,
+                                      nestedTag.children?.length ?? 0
+                                    )
                                   }
                                 }}
                                 disabled={false}
@@ -1609,10 +1787,14 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                               {/* Nested submenu */}
                               {hasChildren && isHovered && (
                                 <div
-                                  className='absolute top-0 left-full z-[10000] ml-0.5 min-w-[200px] max-w-[300px] rounded-md border border-border bg-background shadow-lg'
+                                  className={cn(
+                                    'absolute left-0 right-0 z-[10000] max-h-[260px] overflow-y-auto rounded-md border border-border bg-background shadow-lg',
+                                    submenuVerticalPlacement === 'top'
+                                      ? 'bottom-full mb-0.5'
+                                      : 'top-full mt-0.5'
+                                  )}
                                   onMouseEnter={() => {
                                     setSubmenuHovered(true)
-                                    const parentKey = `${group.blockId}-${nestedTag.key}`
                                     setHoveredNested({
                                       tag: parentKey,
                                       index,
@@ -1621,7 +1803,6 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                                   }}
                                   onMouseLeave={() => {
                                     setSubmenuHovered(false)
-                                    const parentKey = `${group.blockId}-${nestedTag.key}`
                                     if (parentHovered !== parentKey) {
                                       setHoveredNested(null)
                                     }

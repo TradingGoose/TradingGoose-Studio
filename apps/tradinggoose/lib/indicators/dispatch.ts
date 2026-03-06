@@ -61,8 +61,11 @@ export type IndicatorTriggerDispatchPayload = {
   eventId: string
   time: number
   signal: 'long' | 'short' | 'flat'
+  listingBase?: string
+  listingQuote?: string
   triggerMarker: NormalizedPineMarker
   marketSeries: MarketSeries
+  listing: ListingIdentity
   indicator: {
     id: string
     name: string
@@ -410,6 +413,8 @@ export const buildIndicatorTriggerDispatchPayload = ({
     markers: dedupeMarker(output.markers, triggerMarker),
   }
   const listingParts = resolveListingParts(marketSeries.listing ?? undefined)
+  const listingBase = marketSeries.listingBase ?? listingParts.listingBase
+  const listingQuote = marketSeries.listingQuote ?? listingParts.listingQuote
 
   return {
     input: triggerSignal.input,
@@ -417,12 +422,15 @@ export const buildIndicatorTriggerDispatchPayload = ({
     eventId,
     time: triggerSignal.time,
     signal: triggerSignal.signal,
+    listingBase,
+    listingQuote,
     triggerMarker,
     marketSeries: {
       ...marketSeries,
-      listingBase: marketSeries.listingBase ?? listingParts.listingBase,
-      listingQuote: marketSeries.listingQuote ?? listingParts.listingQuote,
+      listingBase,
+      listingQuote,
     },
+    listing: monitor.listing,
     indicator: {
       id: indicatorId,
       name: indicatorName,
