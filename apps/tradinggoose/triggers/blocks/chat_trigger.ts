@@ -2,6 +2,7 @@ import type { SVGProps } from 'react'
 import { createElement } from 'react'
 import { MessageCircle } from 'lucide-react'
 import type { BlockConfig } from '@/blocks/types'
+import { getTrigger } from '@/triggers'
 
 const ChatTriggerIcon = (props: SVGProps<SVGSVGElement>) => createElement(MessageCircle, props)
 
@@ -17,7 +18,7 @@ export const ChatTriggerBlock: BlockConfig = {
   category: 'triggers',
   bgColor: '#6F3DFA',
   icon: ChatTriggerIcon,
-  subBlocks: [],
+  subBlocks: [...(getTrigger('chat')?.subBlocks ?? [])],
   tools: {
     access: [],
   },

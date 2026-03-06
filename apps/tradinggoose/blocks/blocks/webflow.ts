@@ -1,8 +1,8 @@
 import { WebflowIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
-import { getTrigger } from '@/triggers'
 import { AuthMode } from '@/blocks/types'
 import type { WebflowResponse } from '@/tools/webflow/types'
+import { getTrigger } from '@/triggers'
 
 export const WebflowBlock: BlockConfig<WebflowResponse> = {
   type: 'webflow',
@@ -89,6 +89,7 @@ export const WebflowBlock: BlockConfig<WebflowResponse> = {
     ...(getTrigger('webflow_collection_item_created')?.subBlocks ?? []),
     ...(getTrigger('webflow_collection_item_changed')?.subBlocks ?? []),
     ...(getTrigger('webflow_collection_item_deleted')?.subBlocks ?? []),
+    ...(getTrigger('webflow_form_submission')?.subBlocks ?? []),
   ],
   tools: {
     access: [

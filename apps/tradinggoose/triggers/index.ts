@@ -16,7 +16,12 @@ export function getTrigger(triggerId: string): TriggerConfig | undefined {
 
   if (
     clonedTrigger.subBlocks &&
-    (trigger.webhook || trigger.id.includes('webhook') || trigger.id.includes('poller'))
+    (
+      trigger.webhook ||
+      trigger.id.includes('webhook') ||
+      trigger.id.includes('poller') ||
+      trigger.id === 'indicator_trigger'
+    )
   ) {
     const samplePayloadExists = clonedTrigger.subBlocks.some((sb) => sb.id === 'samplePayload')
 

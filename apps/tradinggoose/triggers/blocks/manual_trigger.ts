@@ -2,6 +2,7 @@ import type { SVGProps } from 'react'
 import { createElement } from 'react'
 import { Play } from 'lucide-react'
 import type { BlockConfig } from '@/blocks/types'
+import { getTrigger } from '@/triggers'
 
 const ManualTriggerIcon = (props: SVGProps<SVGSVGElement>) => createElement(Play, props)
 
@@ -19,7 +20,7 @@ export const ManualTriggerBlock: BlockConfig = {
   category: 'triggers',
   bgColor: '#2563EB',
   icon: ManualTriggerIcon,
-  subBlocks: [],
+  subBlocks: [...(getTrigger('manual')?.subBlocks ?? [])],
   tools: {
     access: [],
   },

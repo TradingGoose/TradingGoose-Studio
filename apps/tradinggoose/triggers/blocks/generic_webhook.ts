@@ -19,9 +19,7 @@ export const GenericWebhookBlock: BlockConfig = {
   - Continuing example above, the body can be accessed in downstream block using dot notation. E.g. <webhook1.message> and <webhook1.data.key>
   - Only use when there's no existing integration for the service with triggerAllowed flag set to true.
   `,
-  subBlocks: [
-    ...(getTrigger('generic_webhook')?.subBlocks ?? []),
-  ],
+  subBlocks: [...(getTrigger('generic_webhook')?.subBlocks ?? [])],
 
   tools: {
     access: [], // No external tools needed for triggers

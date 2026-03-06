@@ -1,5 +1,6 @@
 import { ApiIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
+import { getTrigger } from '@/triggers'
 
 export const ApiTriggerBlock: BlockConfig = {
   type: 'api_trigger',
@@ -16,15 +17,7 @@ export const ApiTriggerBlock: BlockConfig = {
   category: 'triggers',
   bgColor: '#2F55FF',
   icon: ApiIcon,
-  subBlocks: [
-    {
-      id: 'inputFormat',
-      title: 'Input Format',
-      type: 'input-format',
-      layout: 'full',
-      description: 'Define the JSON input schema accepted by the API endpoint.',
-    },
-  ],
+  subBlocks: [...(getTrigger('api')?.subBlocks ?? [])],
   tools: {
     access: [],
   },
