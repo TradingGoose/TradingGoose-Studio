@@ -2,6 +2,7 @@ import type { SVGProps } from 'react'
 import { createElement } from 'react'
 import { FormInput } from 'lucide-react'
 import type { BlockConfig } from '@/blocks/types'
+import { getTrigger } from '@/triggers'
 
 const InputTriggerIcon = (props: SVGProps<SVGSVGElement>) => createElement(FormInput, props)
 
@@ -21,6 +22,7 @@ export const InputTriggerBlock: BlockConfig = {
   bgColor: '#3B82F6',
   icon: InputTriggerIcon,
   subBlocks: [
+    ...(getTrigger('manual')?.subBlocks ?? []),
     {
       id: 'inputFormat',
       title: 'Input Format',
