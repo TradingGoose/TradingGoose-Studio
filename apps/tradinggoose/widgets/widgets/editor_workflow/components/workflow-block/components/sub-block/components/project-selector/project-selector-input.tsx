@@ -25,8 +25,6 @@ interface ProjectSelectorInputProps {
   subBlock: SubBlockConfig
   disabled?: boolean
   onProjectSelect?: (projectId: string) => void
-  isPreview?: boolean
-  previewValue?: any | null
 }
 
 export function ProjectSelectorInput({
@@ -34,8 +32,6 @@ export function ProjectSelectorInput({
   subBlock,
   disabled = false,
   onProjectSelect,
-  isPreview = false,
-  previewValue,
 }: ProjectSelectorInputProps) {
   const [selectedProjectId, setSelectedProjectId] = useState<string>('')
   const [_projectInfo, setProjectInfo] = useState<any | null>(null)
@@ -50,7 +46,7 @@ export function ProjectSelectorInput({
   const [linearCredential] = useSubBlockValue(blockId, 'credential')
   const [linearTeamId] = useSubBlockValue(blockId, 'teamId')
   const workflowId = useWorkflowId()
-  const { finalDisabled } = useDependsOnGate(blockId, subBlock, { disabled, isPreview })
+  const { finalDisabled } = useDependsOnGate(blockId, subBlock, { disabled })
 
   // Get provider-specific values
   const provider = subBlock.provider || 'jira'
@@ -63,16 +59,13 @@ export function ProjectSelectorInput({
 
   // Verify Jira credential belongs to current user; if not, treat as absent
 
-  // Get the current value from the store or prop value if in preview mode
   useEffect(() => {
-    if (isPreview && previewValue !== undefined) {
-      setSelectedProjectId(previewValue)
-    } else if (typeof storeValue === 'string') {
+    if (typeof storeValue === 'string') {
       setSelectedProjectId(storeValue)
     } else {
       setSelectedProjectId('')
     }
-  }, [isPreview, previewValue, storeValue])
+  }, [storeValue])
 
   // Handle project selection
   const handleProjectChange = (

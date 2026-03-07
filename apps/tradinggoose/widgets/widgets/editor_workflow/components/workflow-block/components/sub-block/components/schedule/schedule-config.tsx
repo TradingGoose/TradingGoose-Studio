@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { resolveTimezoneOffset } from '@/components/timezone-selector/fetchers'
 import { Button } from '@/components/ui/button'
 import { createLogger } from '@/lib/logs/console/logger'
-import { resolveTimezoneOffset } from '@/components/timezone-selector/fetchers'
 import { parseCronToHumanReadable } from '@/lib/schedules/utils'
 import { formatDateTime } from '@/lib/utils'
+import { getWorkflowWithValues } from '@/stores/workflows'
+import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import { useWorkflowChannelId, useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import {
   emitScheduleUpdated,
   subscribeScheduleUpdated,
 } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/workflow-editor-event-bus'
-import { getWorkflowWithValues } from '@/stores/workflows'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
+import {
+  useWorkflowChannelId,
+  useWorkflowId,
+} from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('ScheduleConfig')
 
@@ -19,8 +22,6 @@ interface ScheduleConfigProps {
   blockId: string
   subBlockId: string
   isConnecting: boolean
-  isPreview?: boolean
-  previewValue?: any | null
   disabled?: boolean
 }
 
@@ -28,8 +29,6 @@ export function ScheduleConfig({
   blockId,
   subBlockId: _subBlockId,
   isConnecting,
-  isPreview = false,
-  previewValue: _previewValue,
   disabled = false,
 }: ScheduleConfigProps) {
   const [error, setError] = useState<string | null>(null)
@@ -57,15 +56,16 @@ export function ScheduleConfig({
   // Get workflow state from store
 
   // Get schedule fields from the block state
-  const [scheduleType] = useSubBlockValue(blockId, 'scheduleType')
-  const [minutesInterval] = useSubBlockValue(blockId, 'minutesInterval')
-  const [hourlyMinute] = useSubBlockValue(blockId, 'hourlyMinute')
-  const [dailyTime] = useSubBlockValue(blockId, 'dailyTime')
-  const [weeklyDay] = useSubBlockValue(blockId, 'weeklyDay')
-  const [weeklyDayTime] = useSubBlockValue(blockId, 'weeklyDayTime')
-  const [monthlyDay] = useSubBlockValue(blockId, 'monthlyDay')
-  const [monthlyTime] = useSubBlockValue(blockId, 'monthlyTime')
-  const [cronExpression] = useSubBlockValue(blockId, 'cronExpression')
+  const [scheduleType, setScheduleType] = useSubBlockValue(blockId, 'scheduleType')
+  const [minutesInterval, setMinutesInterval] = useSubBlockValue(blockId, 'minutesInterval')
+  const [hourlyMinute, setHourlyMinute] = useSubBlockValue(blockId, 'hourlyMinute')
+  const [dailyTime, setDailyTime] = useSubBlockValue(blockId, 'dailyTime')
+  const [weeklyDay, setWeeklyDay] = useSubBlockValue(blockId, 'weeklyDay')
+  const [weeklyDayTime, setWeeklyDayTime] = useSubBlockValue(blockId, 'weeklyDayTime')
+  const [monthlyDay, setMonthlyDay] = useSubBlockValue(blockId, 'monthlyDay')
+  const [monthlyTime, setMonthlyTime] = useSubBlockValue(blockId, 'monthlyTime')
+  const [cronExpression, setCronExpression] = useSubBlockValue(blockId, 'cronExpression')
+  const [, setTimezone] = useSubBlockValue(blockId, 'timezone')
 
   // Fetch schedule data from API
   const fetchSchedule = useCallback(async () => {
@@ -229,7 +229,7 @@ export function ScheduleConfig({
   }
 
   const handleSaveSchedule = useCallback(async (): Promise<boolean> => {
-    if (isPreview || disabled) return false
+    if (disabled) return false
 
     setIsSaving(true)
     setError(null)
@@ -321,16 +321,10 @@ export function ScheduleConfig({
     } finally {
       setIsSaving(false)
     }
-  }, [
-    workflowId,
-    blockId,
-    fetchSchedule,
-    channelId,
-    validateScheduleValues,
-  ])
+  }, [workflowId, blockId, fetchSchedule, channelId, validateScheduleValues, disabled])
 
   const handleDeleteSchedule = useCallback(async (): Promise<boolean> => {
-    if (isPreview || !scheduleData.id || disabled) return false
+    if (!scheduleData.id || disabled) return false
 
     setIsDeleting(true)
     try {
@@ -353,6 +347,17 @@ export function ScheduleConfig({
         cronExpression: null,
         timezone: 'UTC',
       })
+      setScheduleType('daily')
+      setMinutesInterval('')
+      setHourlyMinute('')
+      setDailyTime('')
+      setWeeklyDay('')
+      setWeeklyDayTime('')
+      setMonthlyDay('')
+      setMonthlyTime('')
+      setCronExpression('')
+      setTimezone('UTC')
+      setError(null)
 
       // Dispatch custom event to notify parent workflow-block component
       emitScheduleUpdated({ channelId, workflowId, blockId })
@@ -368,11 +373,20 @@ export function ScheduleConfig({
     }
   }, [
     scheduleData.id,
-    isPreview,
     disabled,
     workflowId,
     channelId,
     blockId,
+    setCronExpression,
+    setDailyTime,
+    setHourlyMinute,
+    setMinutesInterval,
+    setMonthlyDay,
+    setMonthlyTime,
+    setScheduleType,
+    setTimezone,
+    setWeeklyDay,
+    setWeeklyDayTime,
   ])
 
   // Check if the schedule is active
@@ -394,7 +408,7 @@ export function ScheduleConfig({
           variant='default'
           className='flex-1'
           onClick={handleSaveSchedule}
-          disabled={isPreview || isConnecting || isSaving || isDeleting || disabled || isLoading}
+          disabled={isConnecting || isSaving || isDeleting || disabled || isLoading}
         >
           {isSaving ? 'Saving...' : isScheduleActive ? 'Update Schedule' : 'Save Schedule'}
         </Button>
@@ -404,7 +418,7 @@ export function ScheduleConfig({
             type='button'
             variant='outline'
             onClick={handleDeleteSchedule}
-            disabled={isPreview || isConnecting || isSaving || isDeleting || disabled}
+            disabled={isConnecting || isSaving || isDeleting || disabled}
           >
             {isDeleting ? 'Deleting...' : 'Delete'}
           </Button>

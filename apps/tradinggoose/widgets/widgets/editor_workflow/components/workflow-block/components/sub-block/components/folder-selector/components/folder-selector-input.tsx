@@ -16,16 +16,12 @@ interface FolderSelectorInputProps {
   blockId: string
   subBlock: SubBlockConfig
   disabled?: boolean
-  isPreview?: boolean
-  previewValue?: any | null
 }
 
 export function FolderSelectorInput({
   blockId,
   subBlock,
   disabled = false,
-  isPreview = false,
-  previewValue,
 }: FolderSelectorInputProps) {
   const [storeValue, _setStoreValue] = useSubBlockValue(blockId, subBlock.id)
   const [connectedCredential] = useSubBlockValue(blockId, 'credential')
@@ -39,16 +35,11 @@ export function FolderSelectorInput({
   )
 
   // Central dependsOn gating
-  const { finalDisabled } = useDependsOnGate(blockId, subBlock, { disabled, isPreview })
+  const { finalDisabled } = useDependsOnGate(blockId, subBlock, { disabled })
 
-  // Get the current value from the store or prop value if in preview mode
   useEffect(() => {
     // When gated/disabled, do not set defaults or write to store
     if (finalDisabled) return
-    if (isPreview && previewValue !== undefined) {
-      setSelectedFolderId(previewValue)
-      return
-    }
     const current = storeValue as string | undefined
     if (current && typeof current === 'string') {
       setSelectedFolderId(current)
@@ -57,16 +48,12 @@ export function FolderSelectorInput({
     // Set default INBOX if empty
     const defaultValue = 'INBOX'
     setSelectedFolderId(defaultValue)
-    if (!isPreview) {
-      collaborativeSetSubblockValue(blockId, subBlock.id, defaultValue)
-    }
+    collaborativeSetSubblockValue(blockId, subBlock.id, defaultValue)
   }, [
     blockId,
     subBlock.id,
     storeValue,
     collaborativeSetSubblockValue,
-    isPreview,
-    previewValue,
     finalDisabled,
   ])
 
@@ -74,9 +61,7 @@ export function FolderSelectorInput({
   const handleFolderChange = (folderId: string, info?: FolderInfo) => {
     setSelectedFolderId(folderId)
     setFolderInfo(info || null)
-    if (!isPreview) {
-      collaborativeSetSubblockValue(blockId, subBlock.id, folderId)
-    }
+    collaborativeSetSubblockValue(blockId, subBlock.id, folderId)
   }
 
   return (

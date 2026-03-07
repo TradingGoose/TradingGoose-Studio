@@ -37,10 +37,7 @@ interface FileUploadProps {
   maxSize?: number // in MB
   acceptedTypes?: string // comma separated MIME types
   multiple?: boolean // whether to allow multiple file uploads
-  isPreview?: boolean
-  previewValue?: any | null
   disabled?: boolean
-  isWide?: boolean
 }
 
 interface UploadedFile {
@@ -63,10 +60,7 @@ export function FileUpload({
   maxSize = 10, // Default 10MB
   acceptedTypes = '*',
   multiple = false,
-  isPreview = false,
-  previewValue,
   disabled = false,
-  isWide = false,
 }: FileUploadProps) {
   // State management - handle both single file and array of files
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlockId)
@@ -93,8 +87,7 @@ export function FileUpload({
   const activeWorkflowId = useWorkflowId() || registryWorkflowId || null
   const workspaceId = useWorkspaceId()
 
-  // Use preview value when in preview mode, otherwise use store value
-  const value = isPreview ? previewValue : storeValue
+  const value = storeValue
 
   const toFileArray = (input: UploadedFile | UploadedFile[] | null | undefined): UploadedFile[] => {
     return Array.isArray(input) ? input : input ? [input] : []
@@ -121,7 +114,7 @@ export function FileUpload({
 
   // Load workspace files function
   const loadWorkspaceFiles = async () => {
-    if (!workspaceId || isPreview) return
+    if (!workspaceId) return
 
     try {
       setLoadingWorkspaceFiles(true)
@@ -188,7 +181,7 @@ export function FileUpload({
    * Handles file upload when new file(s) are selected
    */
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (isPreview || disabled) return
+    if (disabled) return
 
     e.stopPropagation()
 
@@ -587,7 +580,7 @@ export function FileUpload({
                   <ChevronDown className='absolute right-3 h-4 w-4 shrink-0 opacity-50' />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className={isWide ? 'w-[420px] p-0' : 'w-[320px] p-0'} align='start'>
+              <PopoverContent className='w-[320px] p-0' align='start'>
                 <Command>
                   <CommandInput
                     placeholder='Search files...'
@@ -663,7 +656,7 @@ export function FileUpload({
                 <ChevronDown className='absolute right-3 h-4 w-4 shrink-0 opacity-50' />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className={isWide ? 'w-[420px] p-0' : 'w-[320px] p-0'} align='start'>
+            <PopoverContent className='w-[320px] p-0' align='start'>
               <Command>
                 <CommandInput
                   placeholder='Search files...'

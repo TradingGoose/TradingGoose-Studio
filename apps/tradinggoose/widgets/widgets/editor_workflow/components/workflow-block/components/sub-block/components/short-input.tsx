@@ -43,8 +43,6 @@ interface ShortInputProps {
   config: SubBlockConfig
   value?: string
   onChange?: (value: string) => void
-  isPreview?: boolean
-  previewValue?: string | null
   disabled?: boolean
   readOnly?: boolean
   showCopyButton?: boolean
@@ -64,8 +62,6 @@ export function ShortInput({
   config,
   onChange,
   value: propValue,
-  isPreview = false,
-  previewValue,
   disabled = false,
   readOnly = false,
   showCopyButton = false,
@@ -85,7 +81,6 @@ export function ShortInput({
   const webhookManagement = useWebhookManagement({
     blockId,
     triggerId: undefined,
-    isPreview,
     useWebhookUrl,
   })
 
@@ -105,7 +100,7 @@ export function ShortInput({
         onGeneratedContent: (content) => {
           // Final content update
           setLocalContent(content)
-          if (!isPreview && !disabled) {
+          if (!disabled) {
             // Persist the generated content to the store after streaming
             setStoreValueRef.current?.(content)
           }
@@ -135,8 +130,7 @@ export function ShortInput({
   // Get ReactFlow instance for zoom control (optional outside ReactFlow providers)
   const reactFlowInstance = useOptionalReactFlow()
 
-  // Use preview value when in preview mode, otherwise use store value or prop value
-  const baseValue = isPreview ? previewValue : propValue !== undefined ? propValue : storeValue
+  const baseValue = propValue !== undefined ? propValue : storeValue
 
   // During streaming, use local content; otherwise use base value
   const value = wandHook?.isStreaming ? localContent : baseValue
@@ -164,11 +158,11 @@ export function ShortInput({
   // Update store value during streaming (but won't persist until streaming ends)
   useEffect(() => {
     if (wandHook?.isStreaming && localContent !== '') {
-      if (!isPreview && !disabled) {
+      if (!disabled) {
         setStoreValue(localContent)
       }
     }
-  }, [localContent, wandHook?.isStreaming, isPreview, disabled, setStoreValue])
+  }, [localContent, wandHook?.isStreaming, disabled, setStoreValue])
 
   // Check if this input is API key related
   const isApiKeyField = useMemo(() => {
@@ -213,8 +207,7 @@ export function ShortInput({
 
     if (onChange) {
       onChange(newValue)
-    } else if (!isPreview) {
-      // Only update store when not in preview mode
+    } else {
       setStoreValue(newValue)
     }
 
@@ -348,7 +341,7 @@ export function ShortInput({
         // Update value through onChange if provided, otherwise use store
         if (onChange) {
           onChange(newValue)
-        } else if (!isPreview) {
+        } else {
           setStoreValue(newValue)
         }
 
@@ -411,7 +404,7 @@ export function ShortInput({
 
     if (onChange) {
       onChange(newValue)
-    } else if (!isPreview) {
+    } else {
       emitTagSelection(newValue)
     }
   }
@@ -421,9 +414,7 @@ export function ShortInput({
       onChange(newValue)
       return
     }
-    if (!isPreview) {
-      emitTagSelection(newValue)
-    }
+    emitTagSelection(newValue)
   }
 
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
@@ -541,7 +532,7 @@ export function ShortInput({
           )}
 
           {/* Wand Button */}
-          {wandHook && !isPreview && !wandHook.isStreaming && !readOnly && (
+          {wandHook && !wandHook.isStreaming && !readOnly && (
             <Button
               variant='ghost'
               size='icon'

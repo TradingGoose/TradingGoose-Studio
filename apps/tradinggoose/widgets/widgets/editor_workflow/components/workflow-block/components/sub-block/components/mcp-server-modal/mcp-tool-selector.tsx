@@ -21,16 +21,12 @@ interface McpToolSelectorProps {
   blockId: string
   subBlock: SubBlockConfig
   disabled?: boolean
-  isPreview?: boolean
-  previewValue?: string | null
 }
 
 export function McpToolSelector({
   blockId,
   subBlock,
   disabled = false,
-  isPreview = false,
-  previewValue,
 }: McpToolSelectorProps) {
   const workspaceId = useWorkspaceId()
   const [open, setOpen] = useState(false)
@@ -44,8 +40,7 @@ export function McpToolSelector({
 
   const label = subBlock.placeholder || 'Select tool'
 
-  const effectiveValue = isPreview && previewValue !== undefined ? previewValue : storeValue
-  const selectedToolId = effectiveValue || ''
+  const selectedToolId = storeValue || ''
 
   const availableTools = useMemo(() => {
     if (!serverValue) return []
@@ -66,11 +61,11 @@ export function McpToolSelector({
       availableTools.length > 0 &&
       !availableTools.find((tool) => tool.id === storeValue)
     ) {
-      if (!isPreview && !disabled) {
+      if (!disabled) {
         setStoreValue('')
       }
     }
-  }, [serverValue, availableTools, storeValue, setStoreValue, isPreview, disabled])
+  }, [serverValue, availableTools, storeValue, setStoreValue, disabled])
 
   const handleOpenChange = (isOpen: boolean) => {
     setOpen((prev) => (prev === isOpen ? prev : isOpen))
@@ -80,13 +75,11 @@ export function McpToolSelector({
   }
 
   const handleSelect = (toolId: string) => {
-    if (!isPreview) {
-      setStoreValue(toolId)
+    setStoreValue(toolId)
 
-      const tool = availableTools.find((t) => t.id === toolId)
-      if (tool?.inputSchema) {
-        setSchemaCache(tool.inputSchema)
-      }
+    const tool = availableTools.find((t) => t.id === toolId)
+    if (tool?.inputSchema) {
+      setSchemaCache(tool.inputSchema)
     }
     setOpen(false)
   }

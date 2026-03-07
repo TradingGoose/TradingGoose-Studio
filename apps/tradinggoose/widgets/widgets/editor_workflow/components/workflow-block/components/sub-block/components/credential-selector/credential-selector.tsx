@@ -32,16 +32,12 @@ interface CredentialSelectorProps {
   blockId: string
   subBlock: SubBlockConfig
   disabled?: boolean
-  isPreview?: boolean
-  previewValue?: any | null
 }
 
 export function CredentialSelector({
   blockId,
   subBlock,
   disabled = false,
-  isPreview = false,
-  previewValue,
 }: CredentialSelectorProps) {
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState<Credential[]>([])
@@ -60,13 +56,10 @@ export function CredentialSelector({
   const label = subBlock.placeholder || 'Select credential'
   const serviceId = subBlock.serviceId
 
-  // Get the effective value (preview or store value)
-  const effectiveValue = isPreview && previewValue !== undefined ? previewValue : storeValue
-
-  // Initialize selectedId with the effective value
+  // Initialize selectedId with the current store value
   useEffect(() => {
-    setSelectedId(effectiveValue || '')
-  }, [effectiveValue])
+    setSelectedId(storeValue || '')
+  }, [storeValue])
 
   // Derive service and provider IDs using useMemo
   const effectiveServiceId = useMemo(() => {
@@ -124,7 +117,7 @@ export function CredentialSelector({
   // Fetch credentials on initial mount and whenever the subblock value changes externally
   useEffect(() => {
     fetchCredentials()
-  }, [fetchCredentials, effectiveValue])
+  }, [fetchCredentials, storeValue])
 
   // When the selectedId changes (e.g., collaborator saved a credential), determine if it's foreign
   useEffect(() => {
@@ -211,9 +204,7 @@ export function CredentialSelector({
   // Handle selection
   const handleSelect = (credentialId: string) => {
     setSelectedId(credentialId)
-    if (!isPreview) {
-      setStoreValue(credentialId)
-    }
+    setStoreValue(credentialId)
     setOpen(false)
   }
 

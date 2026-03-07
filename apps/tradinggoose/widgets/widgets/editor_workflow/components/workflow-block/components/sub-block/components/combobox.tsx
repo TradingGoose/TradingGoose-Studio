@@ -24,13 +24,10 @@ interface ComboBoxProps {
   blockId: string
   subBlockId: string
   value?: string
-  isPreview?: boolean
-  previewValue?: string | null
   disabled?: boolean
   placeholder?: string
   isConnecting: boolean
   config: SubBlockConfig
-  isWide?: boolean
 }
 
 export function ComboBox({
@@ -39,13 +36,10 @@ export function ComboBox({
   blockId,
   subBlockId,
   value: propValue,
-  isPreview = false,
-  previewValue,
   disabled,
   placeholder = 'Type or select an option...',
   isConnecting,
   config,
-  isWide = false,
 }: ComboBoxProps) {
   const workspaceId = useWorkspaceId()
   const [storeValue, setStoreValue] = useSubBlockValue<string>(blockId, subBlockId)
@@ -67,8 +61,7 @@ export function ComboBox({
   const dropdownRef = useRef<HTMLDivElement>(null)
   const reactFlowInstance = useReactFlow()
 
-  // Use preview value when in preview mode, otherwise use store value or prop value
-  const value = isPreview ? previewValue : propValue !== undefined ? propValue : storeValue
+  const value = propValue !== undefined ? propValue : storeValue
 
   // Evaluate options if it's a function
   const evaluatedOptions = useMemo(() => {
@@ -158,9 +151,7 @@ export function ComboBox({
     setHasTyped(true)
 
     // Update store value immediately (allow free text)
-    if (!isPreview) {
-      setStoreValue(newValue)
-    }
+    setStoreValue(newValue)
 
     setCursorPosition(newCursorPosition)
 
@@ -175,7 +166,7 @@ export function ComboBox({
   }
 
   const handleSelect = (selectedValue: string) => {
-    if (!isPreview && !disabled) {
+    if (!disabled) {
       setStoreValue(selectedValue)
     }
     setHasTyped(false)
@@ -339,9 +330,7 @@ export function ComboBox({
 
   // Environment variable and tag selection handler
   const handleEnvVarSelect = (newValue: string) => {
-    if (!isPreview) {
-      emitTagSelection(newValue)
-    }
+    emitTagSelection(newValue)
   }
 
   // Effects
@@ -479,10 +468,7 @@ export function ComboBox({
       {/* Dropdown */}
       {open && (
         <div
-          className={cn(
-            'absolute top-full left-0 z-[100] mt-1 w-full overflow-visible',
-            isWide ? 'min-w-[350px]' : 'min-w-[286px]'
-          )}
+          className='absolute top-full left-0 z-[100] mt-1 w-full min-w-[286px] overflow-visible'
         >
           <div className='allow-scroll fade-in-0 zoom-in-95 animate-in rounded-md border bg-popover text-popover-foreground shadow-lg'>
             <div
