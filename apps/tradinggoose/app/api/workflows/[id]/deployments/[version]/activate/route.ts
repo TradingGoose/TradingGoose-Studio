@@ -1,12 +1,13 @@
 import { apiKey, db, workflow, workflowDeploymentVersion } from '@tradinggoose/db'
 import { and, eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
+import { reconcilePublishedChatsForDeploymentTx } from '@/lib/chat/published-deployment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { validateWorkflowPermissions } from '@/lib/workflows/utils'
-import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
 import { notifyIndicatorMonitorsReconcile } from '@/app/api/indicator-monitors/reconcile'
 import { pauseMonitorsMissingDeployedIndicatorTrigger } from '@/app/api/indicator-monitors/shared'
+import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
 
 const logger = createLogger('WorkflowActivateDeploymentAPI')
 
@@ -41,7 +42,7 @@ export async function POST(
       if (parsed && typeof parsed.apiKey === 'string' && parsed.apiKey.trim().length > 0) {
         providedApiKey = parsed.apiKey.trim()
       }
-    } catch (_err) { }
+    } catch (_err) {}
 
     let pinnedApiKeyId: string | null = null
     if (providedApiKey) {
@@ -103,7 +104,10 @@ export async function POST(
             eq(workflowDeploymentVersion.version, versionNum)
           )
         )
-        .returning({ id: workflowDeploymentVersion.id })
+        .returning({
+          id: workflowDeploymentVersion.id,
+          state: workflowDeploymentVersion.state,
+        })
 
       if (updated.length === 0) {
         throw new Error('Deployment version not found')
@@ -112,6 +116,7 @@ export async function POST(
       const updateData: Record<string, unknown> = {
         isDeployed: true,
         deployedAt: now,
+        deployedState: updated[0].state,
       }
 
       if (pinnedApiKeyId) {
@@ -119,6 +124,15 @@ export async function POST(
       }
 
       await tx.update(workflow).set(updateData).where(eq(workflow.id, id))
+
+      await reconcilePublishedChatsForDeploymentTx({
+        tx,
+        workflowId: id,
+        workflowOwnerId: workflowData!.userId,
+        deploymentVersionId: updated[0].id,
+        state: updated[0].state as any,
+        previousState: workflowData!.deployedState,
+      })
     })
 
     await pauseMonitorsMissingDeployedIndicatorTrigger(id)
@@ -127,6 +141,8 @@ export async function POST(
     return createSuccessResponse({ success: true, deployedAt: now })
   } catch (error: any) {
     logger.error(`[${requestId}] Error activating deployment for workflow: ${id}`, error)
-    return createErrorResponse(error.message || 'Failed to activate deployment', 500)
+    const errorMessage = error.message || 'Failed to activate deployment'
+    const status = errorMessage.includes('identifier') ? 400 : 500
+    return createErrorResponse(errorMessage, status)
   }
 }

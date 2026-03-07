@@ -699,6 +699,11 @@ export const chat = pgTable(
     workflowId: text('workflow_id')
       .notNull()
       .references(() => workflow.id, { onDelete: 'cascade' }),
+    triggerBlockId: text('trigger_block_id'),
+    deploymentVersionId: text('deployment_version_id').references(
+      () => workflowDeploymentVersion.id,
+      { onDelete: 'set null' }
+    ),
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
@@ -723,6 +728,11 @@ export const chat = pgTable(
     return {
       // Ensure identifiers are unique
       identifierIdx: uniqueIndex('identifier_idx').on(table.identifier),
+      workflowTriggerUnique: uniqueIndex('chat_workflow_trigger_unique').on(
+        table.workflowId,
+        table.triggerBlockId
+      ),
+      deploymentVersionIdx: index('chat_deployment_version_idx').on(table.deploymentVersionId),
     }
   }
 )

@@ -1,13 +1,17 @@
 import { apiKey, db, workflow, workflowDeploymentVersion } from '@tradinggoose/db'
 import { and, desc, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
+import {
+  hasChatTriggerBlocks,
+  removePublishedChatsForWorkflowTx,
+} from '@/lib/chat/published-deployment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { deployWorkflow } from '@/lib/workflows/db-helpers'
 import { validateWorkflowPermissions } from '@/lib/workflows/utils'
-import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
 import { notifyIndicatorMonitorsReconcile } from '@/app/api/indicator-monitors/reconcile'
 import { pauseMonitorsMissingDeployedIndicatorTrigger } from '@/app/api/indicator-monitors/shared'
+import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
 
 const logger = createLogger('WorkflowDeployAPI')
 
@@ -36,21 +40,33 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         isDeployed: false,
         deployedAt: null,
         apiKey: null,
+        pinnedApiKeyId: null,
         needsRedeployment: false,
+        hasReusableApiKey: false,
       })
     }
 
     let keyInfo: { name: string; type: 'personal' | 'workspace' } | null = null
+    let hasReusableApiKey = false
 
     if (workflowData.pinnedApiKeyId) {
       const pinnedKey = await db
-        .select({ key: apiKey.key, name: apiKey.name, type: apiKey.type })
+        .select({
+          key: apiKey.key,
+          name: apiKey.name,
+          type: apiKey.type,
+          expiresAt: apiKey.expiresAt,
+        })
         .from(apiKey)
         .where(eq(apiKey.id, workflowData.pinnedApiKeyId))
         .limit(1)
 
-      if (pinnedKey.length > 0) {
+      if (
+        pinnedKey.length > 0 &&
+        (!pinnedKey[0].expiresAt || pinnedKey[0].expiresAt >= new Date())
+      ) {
         keyInfo = { name: pinnedKey[0].name, type: pinnedKey[0].type as 'personal' | 'workspace' }
+        hasReusableApiKey = true
       }
     } else {
       const userApiKey = await db
@@ -103,9 +119,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     return createSuccessResponse({
       apiKey: responseApiKeyInfo,
+      pinnedApiKeyId: workflowData.pinnedApiKeyId,
       isDeployed: workflowData.isDeployed,
       deployedAt: workflowData.deployedAt,
       needsRedeployment,
+      hasReusableApiKey,
     })
   } catch (error: any) {
     logger.error(`[${requestId}] Error fetching deployment info: ${id}`, error)
@@ -137,7 +155,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (parsed && typeof parsed.apiKey === 'string' && parsed.apiKey.trim().length > 0) {
         providedApiKey = parsed.apiKey.trim()
       }
-    } catch (_err) { }
+    } catch (_err) {}
 
     logger.debug(`[${requestId}] Validating API key for deployment`)
 
@@ -237,10 +255,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       pinnedApiKeyId: matchedKey?.id,
       includeDeployedState: true,
       workflowName: workflowData!.name,
+      workflowOwnerId: workflowData!.userId,
+      previousDeployedState: workflowData!.deployedState,
     })
 
     if (!deployResult.success) {
-      return createErrorResponse(deployResult.error || 'Failed to deploy workflow', 500)
+      const errorMessage = deployResult.error || 'Failed to deploy workflow'
+      const status = errorMessage.includes('identifier') ? 400 : 500
+      return createErrorResponse(errorMessage, status)
     }
 
     const deployedAt = deployResult.deployedAt!
@@ -290,12 +312,20 @@ export async function DELETE(
   try {
     logger.debug(`[${requestId}] Undeploying workflow: ${id}`)
 
-    const { error } = await validateWorkflowPermissions(id, requestId, 'admin')
+    const { error, workflow: workflowData } = await validateWorkflowPermissions(
+      id,
+      requestId,
+      'admin'
+    )
     if (error) {
       return createErrorResponse(error.message, error.status)
     }
 
     await db.transaction(async (tx) => {
+      if (hasChatTriggerBlocks(workflowData?.deployedState)) {
+        await removePublishedChatsForWorkflowTx(tx, id)
+      }
+
       await tx
         .update(workflowDeploymentVersion)
         .set({ isActive: false })
