@@ -1,500 +1,443 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import {
   Alert,
   AlertDescription,
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
   Card,
   CardContent,
   ImageUpload,
   Input,
   Label,
-  Skeleton,
   Textarea,
 } from '@/components/ui'
+import {
+  CHAT_TRIGGER_SUBBLOCK_IDS,
+  type ChatAuthType,
+  type ChatDeploymentDraftConfig,
+  DEFAULT_CHAT_WELCOME_MESSAGE,
+  hasAnyChatDeploymentDraftValue,
+} from '@/lib/chat/deployment-config'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getEmailDomain } from '@/lib/urls/utils'
 import { AuthSelector } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/chat-deploy/components/auth-selector'
 import { IdentifierInput } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/chat-deploy/components/identifier-input'
-import { SuccessView } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/chat-deploy/components/success-view'
-import { useChatDeployment } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/chat-deploy/hooks/use-chat-deployment'
-import { useChatForm } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/chat-deploy/hooks/use-chat-form'
+import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { OutputSelect } from '@/widgets/widgets/workflow_chat/components/output-select/output-select'
 
 const logger = createLogger('ChatDeploy')
 
-interface ChatDeployProps {
-  workflowId: string
-  deploymentInfo: {
-    apiKey: string
-  } | null
-  onChatExistsChange?: (exists: boolean) => void
-  chatSubmitting: boolean
-  setChatSubmitting: (submitting: boolean) => void
-  onValidationChange?: (isValid: boolean) => void
-  showDeleteConfirmation?: boolean
-  setShowDeleteConfirmation?: (show: boolean) => void
-  onDeploymentComplete?: () => void
-  onDeployed?: () => void
-  onUndeploy?: () => Promise<void>
-  onVersionActivated?: () => void
-}
-
 interface ExistingChat {
-  id: string
   identifier: string
   title: string
   description: string
-  authType: 'public' | 'password' | 'email'
+  authType: ChatAuthType
   allowedEmails: string[]
   outputConfigs: Array<{ blockId: string; path: string }>
   customizations?: {
     welcomeMessage?: string
+    imageUrl?: string
   }
-  isActive: boolean
+  hasPassword?: boolean
+  chatUrl?: string
 }
 
-export function ChatDeploy({
-  workflowId,
-  deploymentInfo,
-  onChatExistsChange,
-  chatSubmitting,
-  setChatSubmitting,
-  onValidationChange,
-  showDeleteConfirmation: externalShowDeleteConfirmation,
-  setShowDeleteConfirmation: externalSetShowDeleteConfirmation,
-  onDeploymentComplete,
-  onDeployed,
-  onUndeploy,
-  onVersionActivated,
-}: ChatDeployProps) {
-  const [isLoading, setIsLoading] = useState(false)
-  const [existingChat, setExistingChat] = useState<ExistingChat | null>(null)
-  const [imageUrl, setImageUrl] = useState<string | null>(null)
-  const [imageUploadError, setImageUploadError] = useState<string | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
+interface ChatDeployProps {
+  workflowId: string
+  blockId: string
+  publishedChat: ExistingChat | null
+  onBusyChange?: (busy: boolean) => void
+}
+
+const normalizeStringValue = (value: unknown, fallback = ''): string => {
+  return typeof value === 'string' ? value : fallback
+}
+
+const normalizeStringArray = (value: unknown): string[] => {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.filter((entry): entry is string => typeof entry === 'string')
+}
+
+const buildDraftConfig = (params: {
+  identifier: unknown
+  title: unknown
+  description: unknown
+  authType: unknown
+  encryptedPassword: unknown
+  allowedEmails: unknown
+  welcomeMessage: unknown
+  selectedOutputBlocks: unknown
+  imageUrl: unknown
+}): ChatDeploymentDraftConfig => {
+  return {
+    identifier: normalizeStringValue(params.identifier).trim(),
+    title: normalizeStringValue(params.title).trim(),
+    description: normalizeStringValue(params.description).trim(),
+    authType:
+      params.authType === 'password' || params.authType === 'email' || params.authType === 'sso'
+        ? params.authType
+        : 'public',
+    encryptedPassword: normalizeStringValue(params.encryptedPassword).trim() || null,
+    allowedEmails: normalizeStringArray(params.allowedEmails).map((value) => value.trim()),
+    welcomeMessage:
+      normalizeStringValue(params.welcomeMessage).trim() || DEFAULT_CHAT_WELCOME_MESSAGE,
+    selectedOutputBlocks: normalizeStringArray(params.selectedOutputBlocks),
+    imageUrl: normalizeStringValue(params.imageUrl).trim() || null,
+  }
+}
+
+export function ChatDeploy({ workflowId, blockId, publishedChat, onBusyChange }: ChatDeployProps) {
+  const [identifierValue, setIdentifierValue] = useSubBlockValue<string>(
+    blockId,
+    CHAT_TRIGGER_SUBBLOCK_IDS.identifier
+  )
+  const [titleValue, setTitleValue] = useSubBlockValue<string>(
+    blockId,
+    CHAT_TRIGGER_SUBBLOCK_IDS.title
+  )
+  const [descriptionValue, setDescriptionValue] = useSubBlockValue<string>(
+    blockId,
+    CHAT_TRIGGER_SUBBLOCK_IDS.description
+  )
+  const [authTypeValue, setAuthTypeValue] = useSubBlockValue<ChatAuthType>(
+    blockId,
+    CHAT_TRIGGER_SUBBLOCK_IDS.authType
+  )
+  const [encryptedPasswordValue, setEncryptedPasswordValue] = useSubBlockValue<string>(
+    blockId,
+    CHAT_TRIGGER_SUBBLOCK_IDS.password
+  )
+  const [allowedEmailsValue, setAllowedEmailsValue] = useSubBlockValue<string[]>(
+    blockId,
+    CHAT_TRIGGER_SUBBLOCK_IDS.allowedEmails
+  )
+  const [welcomeMessageValue, setWelcomeMessageValue] = useSubBlockValue<string>(
+    blockId,
+    CHAT_TRIGGER_SUBBLOCK_IDS.welcomeMessage
+  )
+  const [selectedOutputBlocksValue, setSelectedOutputBlocksValue] = useSubBlockValue<string[]>(
+    blockId,
+    CHAT_TRIGGER_SUBBLOCK_IDS.selectedOutputBlocks
+  )
+  const [imageUrlValue, setImageUrlValue] = useSubBlockValue<string>(
+    blockId,
+    CHAT_TRIGGER_SUBBLOCK_IDS.imageUrl
+  )
+
+  const [passwordInput, setPasswordInput] = useState('')
+  const [generalError, setGeneralError] = useState<string | null>(null)
+  const [isSavingPassword, setIsSavingPassword] = useState(false)
   const [isImageUploading, setIsImageUploading] = useState(false)
-  const [internalShowDeleteConfirmation, setInternalShowDeleteConfirmation] = useState(false)
-  const [showSuccessView, setShowSuccessView] = useState(false)
+  const initialEncryptedPasswordRef = useRef<string | null | undefined>(undefined)
+  const didHydrateFromPublishedRef = useRef(false)
 
-  // Use external state for delete confirmation if provided
-  const showDeleteConfirmation =
-    externalShowDeleteConfirmation !== undefined
-      ? externalShowDeleteConfirmation
-      : internalShowDeleteConfirmation
-
-  const setShowDeleteConfirmation =
-    externalSetShowDeleteConfirmation || setInternalShowDeleteConfirmation
-
-  const { formData, errors, updateField, setError, validateForm, setFormData } = useChatForm()
-  const { deployedUrl, deployChat } = useChatDeployment()
-  const formRef = useRef<HTMLFormElement>(null)
-  const [isIdentifierValid, setIsIdentifierValid] = useState(false)
-
-  const isFormValid =
-    isIdentifierValid &&
-    Boolean(formData.title.trim()) &&
-    formData.selectedOutputBlocks.length > 0 &&
-    (formData.authType !== 'password' ||
-      Boolean(formData.password.trim()) ||
-      Boolean(existingChat)) &&
-    ((formData.authType !== 'email' && formData.authType !== 'sso') || formData.emails.length > 0)
+  const draftConfig = useMemo(
+    () =>
+      buildDraftConfig({
+        identifier: identifierValue,
+        title: titleValue,
+        description: descriptionValue,
+        authType: authTypeValue,
+        encryptedPassword: encryptedPasswordValue,
+        allowedEmails: allowedEmailsValue,
+        welcomeMessage: welcomeMessageValue,
+        selectedOutputBlocks: selectedOutputBlocksValue,
+        imageUrl: imageUrlValue,
+      }),
+    [
+      allowedEmailsValue,
+      authTypeValue,
+      descriptionValue,
+      encryptedPasswordValue,
+      identifierValue,
+      imageUrlValue,
+      selectedOutputBlocksValue,
+      titleValue,
+      welcomeMessageValue,
+    ]
+  )
 
   useEffect(() => {
-    onValidationChange?.(isFormValid)
-  }, [isFormValid, onValidationChange])
-
-  useEffect(() => {
-    if (workflowId) {
-      fetchExistingChat()
+    if (initialEncryptedPasswordRef.current === undefined) {
+      initialEncryptedPasswordRef.current = draftConfig.encryptedPassword
     }
-  }, [workflowId])
+  }, [draftConfig.encryptedPassword])
 
-  const fetchExistingChat = async () => {
-    try {
-      setIsLoading(true)
-      const response = await fetch(`/api/workflows/${workflowId}/chat/status`)
+  useEffect(() => {
+    onBusyChange?.(isSavingPassword || isImageUploading)
+  }, [isImageUploading, isSavingPassword, onBusyChange])
 
-      if (response.ok) {
+  useEffect(() => {
+    return () => {
+      onBusyChange?.(false)
+    }
+  }, [onBusyChange])
+
+  useEffect(() => {
+    if (!publishedChat || didHydrateFromPublishedRef.current) {
+      return
+    }
+
+    if (hasAnyChatDeploymentDraftValue(draftConfig)) {
+      didHydrateFromPublishedRef.current = true
+      return
+    }
+
+    setIdentifierValue(publishedChat.identifier || '')
+    setTitleValue(publishedChat.title || '')
+    setDescriptionValue(publishedChat.description || '')
+    setAuthTypeValue(publishedChat.authType || 'public')
+    setAllowedEmailsValue(
+      Array.isArray(publishedChat.allowedEmails) ? [...publishedChat.allowedEmails] : []
+    )
+    setWelcomeMessageValue(
+      publishedChat.customizations?.welcomeMessage || DEFAULT_CHAT_WELCOME_MESSAGE
+    )
+    setSelectedOutputBlocksValue(
+      Array.isArray(publishedChat.outputConfigs)
+        ? publishedChat.outputConfigs.map((config) => `${config.blockId}_${config.path}`)
+        : []
+    )
+    setImageUrlValue(publishedChat.customizations?.imageUrl || '')
+    didHydrateFromPublishedRef.current = true
+  }, [
+    draftConfig,
+    publishedChat,
+    setAllowedEmailsValue,
+    setAuthTypeValue,
+    setDescriptionValue,
+    setIdentifierValue,
+    setImageUrlValue,
+    setSelectedOutputBlocksValue,
+    setTitleValue,
+    setWelcomeMessageValue,
+  ])
+
+  useEffect(() => {
+    if (draftConfig.authType !== 'password') {
+      setIsSavingPassword(false)
+      return
+    }
+
+    const trimmedPassword = passwordInput.trim()
+    if (!trimmedPassword) {
+      return
+    }
+
+    setIsSavingPassword(true)
+    setGeneralError(null)
+
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/workflows/${workflowId}/chat/password`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ password: trimmedPassword }),
+        })
+
         const data = await response.json()
-
-        if (data.isDeployed && data.deployment) {
-          const detailResponse = await fetch(`/api/chat/manage/${data.deployment.id}`)
-
-          if (detailResponse.ok) {
-            const chatDetail = await detailResponse.json()
-            setExistingChat(chatDetail)
-
-            setFormData({
-              identifier: chatDetail.identifier || '',
-              title: chatDetail.title || '',
-              description: chatDetail.description || '',
-              authType: chatDetail.authType || 'public',
-              password: '',
-              emails: Array.isArray(chatDetail.allowedEmails) ? [...chatDetail.allowedEmails] : [],
-              welcomeMessage:
-                chatDetail.customizations?.welcomeMessage || 'Hi there! How can I help you today?',
-              selectedOutputBlocks: Array.isArray(chatDetail.outputConfigs)
-                ? chatDetail.outputConfigs.map(
-                    (config: { blockId: string; path: string }) =>
-                      `${config.blockId}_${config.path}`
-                  )
-                : [],
-            })
-
-            if (chatDetail.customizations?.imageUrl) {
-              setImageUrl(chatDetail.customizations.imageUrl)
-            }
-            setImageUploadError(null)
-
-            onChatExistsChange?.(true)
-          }
-        } else {
-          setExistingChat(null)
-          setImageUrl(null)
-          setImageUploadError(null)
-          onChatExistsChange?.(false)
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to save chat password')
         }
+
+        setEncryptedPasswordValue(data.encryptedPassword)
+      } catch (error: any) {
+        logger.error('Failed to encrypt chat password:', error)
+        setGeneralError(error.message || 'Failed to save chat password')
+      } finally {
+        setIsSavingPassword(false)
       }
-    } catch (error) {
-      logger.error('Error fetching chat status:', error)
-    } finally {
-      setIsLoading(false)
+    }, 350)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [draftConfig.authType, passwordInput, setEncryptedPasswordValue, workflowId])
+
+  const handlePasswordChange = (nextPassword: string) => {
+    setPasswordInput(nextPassword)
+    setGeneralError(null)
+
+    if (nextPassword.trim()) {
+      return
+    }
+
+    const initialEncryptedPassword = initialEncryptedPasswordRef.current
+    setEncryptedPasswordValue(initialEncryptedPassword || '')
+  }
+
+  const handleAuthTypeChange = (nextAuthType: ChatAuthType) => {
+    setAuthTypeValue(nextAuthType)
+    setGeneralError(null)
+
+    if (nextAuthType !== 'password') {
+      setPasswordInput('')
+      setEncryptedPasswordValue('')
+    }
+
+    if (nextAuthType !== 'email' && nextAuthType !== 'sso') {
+      setAllowedEmailsValue([])
     }
   }
 
-  const handleSubmit = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault()
+  const publishedUrl = publishedChat?.chatUrl
+  const hasSavedPassword = Boolean(draftConfig.encryptedPassword || publishedChat?.hasPassword)
+  const isPasswordConfigured = draftConfig.authType !== 'password' || hasSavedPassword
 
-    if (chatSubmitting) return
+  return (
+    <div className='space-y-4'>
+      {publishedUrl ? (
+        <div className='rounded-md border bg-muted/20 p-3 text-sm'>
+          <div className='font-medium'>Published Chat</div>
+          <a
+            href={publishedUrl}
+            target='_blank'
+            rel='noopener noreferrer'
+            className='mt-1 block break-all text-foreground underline-offset-4 hover:underline'
+          >
+            {publishedUrl}
+          </a>
+          <div className='mt-1 text-muted-foreground'>
+            Changes here stay in draft until you deploy the workflow again.
+          </div>
+        </div>
+      ) : (
+        <div className='rounded-md border bg-muted/20 p-3 text-muted-foreground text-sm'>
+          Configure the chat draft here. Deploying the workflow will publish this chat trigger.
+        </div>
+      )}
 
-    setChatSubmitting(true)
+      {generalError && (
+        <Alert variant='destructive'>
+          <AlertTriangle className='h-4 w-4' />
+          <AlertDescription>{generalError}</AlertDescription>
+        </Alert>
+      )}
 
-    try {
-      if (!validateForm()) {
-        setChatSubmitting(false)
-        return
-      }
+      <div className='space-y-4'>
+        <IdentifierInput
+          value={draftConfig.identifier}
+          onChange={setIdentifierValue}
+          originalIdentifier={publishedChat?.identifier}
+          isEditingExisting={Boolean(publishedChat)}
+        />
 
-      if (!isIdentifierValid && formData.identifier !== existingChat?.identifier) {
-        setError('identifier', 'Please wait for identifier validation to complete')
-        setChatSubmitting(false)
-        return
-      }
-
-      await deployChat(workflowId, formData, deploymentInfo, existingChat?.id, imageUrl)
-
-      onChatExistsChange?.(true)
-      setShowSuccessView(true)
-      onDeployed?.()
-      onVersionActivated?.()
-
-      await fetchExistingChat()
-    } catch (error: any) {
-      if (error.message?.includes('identifier')) {
-        setError('identifier', error.message)
-      } else {
-        setError('general', error.message)
-      }
-    } finally {
-      setChatSubmitting(false)
-    }
-  }
-
-  const handleDelete = async () => {
-    if (!existingChat || !existingChat.id) return
-
-    try {
-      setIsDeleting(true)
-
-      const response = await fetch(`/api/chat/manage/${existingChat.id}`, {
-        method: 'DELETE',
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to delete chat')
-      }
-
-      if (onUndeploy) {
-        await onUndeploy()
-      }
-
-      setExistingChat(null)
-      setImageUrl(null)
-      setImageUploadError(null)
-      onChatExistsChange?.(false)
-
-      onDeploymentComplete?.()
-    } catch (error: any) {
-      logger.error('Failed to delete chat:', error)
-      setError('general', error.message || 'An unexpected error occurred while deleting')
-    } finally {
-      setIsDeleting(false)
-      setShowDeleteConfirmation(false)
-    }
-  }
-
-  if (isLoading) {
-    return <LoadingSkeleton />
-  }
-
-  if (deployedUrl && showSuccessView) {
-    return (
-      <>
-        <div id='chat-deploy-form'>
-          <SuccessView
-            deployedUrl={deployedUrl}
-            existingChat={existingChat}
-            onDelete={() => setShowDeleteConfirmation(true)}
-            onUpdate={() => setShowSuccessView(false)}
+        <div className='space-y-2'>
+          <Label htmlFor='chat-title' className='font-medium text-sm'>
+            Chat Title
+          </Label>
+          <Input
+            id='chat-title'
+            placeholder='Customer Support Assistant'
+            value={draftConfig.title}
+            onChange={(event) => setTitleValue(event.target.value)}
+            className='h-10 rounded-sm'
           />
         </div>
 
-        {/* Delete Confirmation Dialog */}
-        <AlertDialog open={showDeleteConfirmation} onOpenChange={setShowDeleteConfirmation}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete Chat?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will permanently delete your chat deployment at{' '}
-                <span className='font-mono text-destructive'>
-                  {getEmailDomain()}/chat/{existingChat?.identifier}
-                </span>{' '}
-                and undeploy the workflow.
-                <span className='mt-2 block'>
-                  All users will lose access immediately, and this action cannot be undone.
-                </span>
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter className='flex'>
-              <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={isDeleting}>
-                Cancel
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleDelete}
-                disabled={isDeleting}
-                className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
-              >
-                {isDeleting ? (
-                  <span className='flex items-center'>
-                    <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                    Deleting...
-                  </span>
-                ) : (
-                  'Delete'
-                )}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </>
-    )
-  }
+        <div className='space-y-2'>
+          <Label htmlFor='chat-description' className='font-medium text-sm'>
+            Description
+          </Label>
+          <Textarea
+            id='chat-description'
+            placeholder='A brief description of what this chat does'
+            value={draftConfig.description}
+            onChange={(event) => setDescriptionValue(event.target.value)}
+            rows={3}
+            className='min-h-[80px] resize-none rounded-sm'
+          />
+        </div>
 
-  return (
-    <>
-      <form
-        id='chat-deploy-form'
-        ref={formRef}
-        onSubmit={handleSubmit}
-        className='-mx-1 space-y-4 overflow-y-auto px-1'
-      >
-        {errors.general && (
-          <Alert variant='destructive'>
-            <AlertTriangle className='h-4 w-4' />
-            <AlertDescription>{errors.general}</AlertDescription>
-          </Alert>
+        <div className='space-y-2'>
+          <Label className='font-medium text-sm'>Chat Output</Label>
+          <Card className='rounded-sm border-input shadow-none'>
+            <CardContent className='p-1'>
+              <OutputSelect
+                workflowId={workflowId}
+                selectedOutputs={draftConfig.selectedOutputBlocks}
+                onOutputSelect={setSelectedOutputBlocksValue}
+                placeholder='Select which block outputs to use'
+              />
+            </CardContent>
+          </Card>
+          <p className='text-muted-foreground text-xs'>
+            Select which block outputs should be returned to the user in the chat interface.
+          </p>
+        </div>
+
+        <AuthSelector
+          authType={draftConfig.authType}
+          password={passwordInput}
+          emails={draftConfig.allowedEmails}
+          onAuthTypeChange={handleAuthTypeChange}
+          onPasswordChange={handlePasswordChange}
+          onEmailsChange={setAllowedEmailsValue}
+          isExistingChat={hasSavedPassword}
+          error={
+            !isPasswordConfigured
+              ? 'Password is required when using password protection'
+              : undefined
+          }
+        />
+
+        {draftConfig.authType === 'password' && (
+          <div className='rounded-md border bg-muted/20 px-3 py-2 text-muted-foreground text-xs'>
+            <div className='flex items-center gap-2'>
+              {isSavingPassword && <Loader2 className='h-3.5 w-3.5 animate-spin' />}
+              <span>
+                {isSavingPassword
+                  ? 'Saving password securely...'
+                  : hasSavedPassword
+                    ? 'A password is already configured. Leave the field blank to keep the saved password.'
+                    : 'Set a password to publish this chat.'}
+              </span>
+            </div>
+          </div>
         )}
 
-        <div className='space-y-4'>
-          <IdentifierInput
-            value={formData.identifier}
-            onChange={(value) => updateField('identifier', value)}
-            originalIdentifier={existingChat?.identifier || undefined}
-            disabled={chatSubmitting}
-            onValidationChange={setIsIdentifierValid}
-            isEditingExisting={!!existingChat}
+        <div className='space-y-2'>
+          <Label htmlFor='chat-welcome-message' className='font-medium text-sm'>
+            Welcome Message
+          </Label>
+          <Textarea
+            id='chat-welcome-message'
+            placeholder='Enter a welcome message for your chat'
+            value={draftConfig.welcomeMessage}
+            onChange={(event) => setWelcomeMessageValue(event.target.value)}
+            rows={3}
+            className='min-h-[80px] resize-none rounded-sm'
           />
-
-          <div className='space-y-2'>
-            <Label htmlFor='title' className='font-medium text-sm'>
-              Chat Title
-            </Label>
-            <Input
-              id='title'
-              placeholder='Customer Support Assistant'
-              value={formData.title}
-              onChange={(e) => updateField('title', e.target.value)}
-              required
-              disabled={chatSubmitting}
-              className='h-10 rounded-sm'
-            />
-            {errors.title && <p className='text-destructive text-sm'>{errors.title}</p>}
-          </div>
-          <div className='space-y-2'>
-            <Label htmlFor='description' className='font-medium text-sm'>
-              Description (Optional)
-            </Label>
-            <Textarea
-              id='description'
-              placeholder='A brief description of what this chat does'
-              value={formData.description}
-              onChange={(e) => updateField('description', e.target.value)}
-              rows={3}
-              disabled={chatSubmitting}
-              className='min-h-[80px] resize-none rounded-sm'
-            />
-          </div>
-          <div className='space-y-2'>
-            <Label className='font-medium text-sm'>Chat Output</Label>
-            <Card className='rounded-sm border-input shadow-none'>
-              <CardContent className='p-1'>
-                <OutputSelect
-                  workflowId={workflowId}
-                  selectedOutputs={formData.selectedOutputBlocks}
-                  onOutputSelect={(values) => updateField('selectedOutputBlocks', values)}
-                  placeholder='Select which block outputs to use'
-                  disabled={chatSubmitting}
-                />
-              </CardContent>
-            </Card>
-            {errors.outputBlocks && (
-              <p className='text-destructive text-sm'>{errors.outputBlocks}</p>
-            )}
-            <p className='mt-2 text-muted-foreground text-xs'>
-              Select which block's output to return to the user in the chat interface
-            </p>
-          </div>
-
-          <AuthSelector
-            authType={formData.authType}
-            password={formData.password}
-            emails={formData.emails}
-            onAuthTypeChange={(type) => updateField('authType', type)}
-            onPasswordChange={(password) => updateField('password', password)}
-            onEmailsChange={(emails) => updateField('emails', emails)}
-            disabled={chatSubmitting}
-            isExistingChat={!!existingChat}
-            error={errors.password || errors.emails}
-          />
-          <div className='space-y-2'>
-            <Label htmlFor='welcomeMessage' className='font-medium text-sm'>
-              Welcome Message
-            </Label>
-            <Textarea
-              id='welcomeMessage'
-              placeholder='Enter a welcome message for your chat'
-              value={formData.welcomeMessage}
-              onChange={(e) => updateField('welcomeMessage', e.target.value)}
-              rows={3}
-              disabled={chatSubmitting}
-              className='min-h-[80px] resize-none rounded-sm'
-            />
-            <p className='text-muted-foreground text-xs'>
-              This message will be displayed when users first open the chat
-            </p>
-          </div>
-
-          <div className='space-y-2'>
-            <Label className='font-medium text-sm'>Chat Logo</Label>
-            <ImageUpload
-              value={imageUrl}
-              onUpload={(url) => {
-                setImageUrl(url)
-                setImageUploadError(null)
-              }}
-              onError={setImageUploadError}
-              onUploadStart={setIsImageUploading}
-              disabled={chatSubmitting}
-              uploadToServer={true}
-              height='h-32'
-              hideHeader={true}
-            />
-            {imageUploadError && <p className='text-destructive text-sm'>{imageUploadError}</p>}
-            {!imageUrl && !isImageUploading && (
-              <p className='text-muted-foreground text-xs'>
-                Upload a logo for your chat (PNG, JPEG - max 5MB)
-              </p>
-            )}
-          </div>
-
-          <button
-            type='button'
-            data-delete-trigger
-            onClick={() => setShowDeleteConfirmation(true)}
-            style={{ display: 'none' }}
-          />
+          <p className='text-muted-foreground text-xs'>
+            This message is shown when users open the published chat for the first time.
+          </p>
         </div>
-      </form>
 
-      <AlertDialog open={showDeleteConfirmation} onOpenChange={setShowDeleteConfirmation}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Chat?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete your chat deployment at{' '}
-              <span className='font-mono text-destructive'>
-                {getEmailDomain()}/chat/{existingChat?.identifier}
-              </span>{' '}
-              and undeploy the workflow.
-              <span className='mt-2 block'>
-                All users will lose access immediately, and this action cannot be undone.
-              </span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className='flex'>
-            <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={isDeleting}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              disabled={isDeleting}
-              className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
-            >
-              {isDeleting ? (
-                <span className='flex items-center'>
-                  <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                  Deleting...
-                </span>
-              ) : (
-                'Delete'
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
-  )
-}
-
-function LoadingSkeleton() {
-  return (
-    <div className='space-y-4 py-3'>
-      <div className='space-y-2'>
-        <Skeleton className='h-5 w-24' />
-        <Skeleton className='h-10 w-full' />
-      </div>
-      <div className='space-y-2'>
-        <Skeleton className='h-5 w-20' />
-        <Skeleton className='h-10 w-full' />
-      </div>
-      <div className='space-y-2'>
-        <Skeleton className='h-5 w-32' />
-        <Skeleton className='h-24 w-full' />
-      </div>
-      <div className='space-y-2'>
-        <Skeleton className='h-5 w-40' />
-        <Skeleton className='h-32 w-full rounded-lg' />
+        <div className='space-y-2'>
+          <Label className='font-medium text-sm'>Chat Logo</Label>
+          <ImageUpload
+            value={draftConfig.imageUrl}
+            onUpload={(url) => {
+              setImageUrlValue(url || '')
+              setGeneralError(null)
+            }}
+            onError={setGeneralError}
+            onUploadStart={setIsImageUploading}
+            uploadToServer={true}
+            height='h-32'
+            hideHeader={true}
+          />
+          {!draftConfig.imageUrl && !isImageUploading && (
+            <p className='text-muted-foreground text-xs'>
+              Upload a logo for your chat (PNG or JPEG, up to 5MB).
+            </p>
+          )}
+        </div>
       </div>
     </div>
   )

@@ -26,11 +26,11 @@ import { useGeneralStore } from '@/stores/settings/general/store'
 import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
 import { hasWorkflowsInitiallyLoaded, useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { getUniqueBlockName } from '@/stores/workflows/utils'
-import { isBlockProtected } from '@/stores/workflows/workflow/utils'
 import {
   DEFAULT_WORKFLOW_CHANNEL_ID,
   useWorkflowStore,
 } from '@/stores/workflows/workflow/store-client'
+import { isBlockProtected } from '@/stores/workflows/workflow/utils'
 import { ControlBar } from '@/widgets/widgets/editor_workflow/components/control-bar/control-bar'
 import { DiffControls } from '@/widgets/widgets/editor_workflow/components/diff-controls'
 import { FloatingControls } from '@/widgets/widgets/editor_workflow/components/floating-controls/floating-controls'
@@ -1584,7 +1584,12 @@ const WorkflowCanvas = React.memo(
 
     return (
       <div className={`${containerHeightClass} w-full overflow-hidden`}>
-        <div className='relative h-full min-w-0 flex-1 transition-all duration-200'>
+        <div
+          id={
+            effectiveWorkflowId ? `workflow-editor-overlay-root-${effectiveWorkflowId}` : undefined
+          }
+          className='relative h-full min-w-0 flex-1 transition-all duration-200'
+        >
           {/* Floating Control Bar */}
           {uiConfig.controlBar && (
             <ControlBar

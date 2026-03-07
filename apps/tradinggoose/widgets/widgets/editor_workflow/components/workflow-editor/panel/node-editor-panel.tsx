@@ -25,6 +25,7 @@ import {
   useWorkflowStore,
 } from '@/stores/workflows/workflow/store-client'
 import { isBlockProtected } from '@/stores/workflows/workflow/utils'
+import { isConfigurableTriggerDeploySubBlock } from '@/triggers/constants'
 import { LoopTool } from '@/widgets/widgets/editor_workflow/components/subflows/loop/loop-config'
 import { ParallelTool } from '@/widgets/widgets/editor_workflow/components/subflows/parallel/parallel-config'
 import { SubBlock } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/sub-block'
@@ -33,7 +34,6 @@ import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/cont
 
 interface NodeEditorPanelProps {
   selectedNodeId: string | null
-  readOnly?: boolean
 }
 
 type LoopType = 'for' | 'forEach' | 'while' | 'doWhile'
@@ -71,7 +71,7 @@ function getSubBlockStableKey(
   return `${blockId}-${subBlock.id}`
 }
 
-export function NodeEditorPanel({ selectedNodeId, readOnly = false }: NodeEditorPanelProps) {
+export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
   const currentWorkflow = useCurrentWorkflow()
   const userPermissions = useUserPermissionsContext()
   const workflowRoute = useOptionalWorkflowRoute()
@@ -156,7 +156,7 @@ export function NodeEditorPanel({ selectedNodeId, readOnly = false }: NodeEditor
   }, [selectedBlock])
 
   const shouldDisableWrite =
-    readOnly || !userPermissions.canEdit || currentWorkflow.isDiffMode || isSelectedBlockProtected
+    !userPermissions.canEdit || currentWorkflow.isDiffMode || isSelectedBlockProtected
   const {
     collaborativeToggleBlockAdvancedMode,
     collaborativeUpdateBlockName,
@@ -396,92 +396,141 @@ export function NodeEditorPanel({ selectedNodeId, readOnly = false }: NodeEditor
     setTempIterationValue(null)
   }, [selectedBlock?.id, subflowCurrentType])
 
-  const { regularRows, advancedRows, stateToUse, displayAdvancedOptions, hasAdvancedOnlyFields } =
-    useMemo(() => {
-      if (!selectedBlock || !blockConfig?.subBlocks) {
-        return {
-          regularRows: [] as SubBlockConfig[][],
-          advancedRows: [] as SubBlockConfig[][],
-          stateToUse: {},
-          displayAdvancedOptions: false,
-          hasAdvancedOnlyFields: false,
-        }
-      }
-
-      let blockStateForConditions: Record<string, any> = {}
-      const blockFromCurrentWorkflow = currentWorkflow.getBlockById(selectedBlock.id)
-
-      if (currentWorkflow.isDiffMode && blockFromCurrentWorkflow) {
-        blockStateForConditions = blockFromCurrentWorkflow.subBlocks || {}
-      } else {
-        const mergedBlock = resolvedWorkflowId
-          ? mergeSubblockState(storeBlockState.blocks, resolvedWorkflowId, selectedBlock.id)[
-          selectedBlock.id
-          ]
-          : storeBlockState.blocks[selectedBlock.id]
-        blockStateForConditions = mergedBlock?.subBlocks || selectedBlock.subBlocks || {}
-      }
-
-      const effectiveTrigger =
-        (currentWorkflow.isDiffMode
-          ? Boolean(blockFromCurrentWorkflow?.triggerMode)
-          : storeBlockState.triggerMode) || blockConfig.category === 'triggers'
-      const effectiveAdvanced = currentWorkflow.isDiffMode
-        ? Boolean(blockFromCurrentWorkflow?.advancedMode)
-        : storeBlockState.advancedMode
-      const advancedValuesPresent = blockConfig.subBlocks.some((subBlock) => {
-        if (subBlock.mode !== 'advanced') return false
-        const value = blockStateForConditions[subBlock.id]?.value
-        if (value === undefined || value === null) return false
-        if (typeof value === 'string') return value.trim().length > 0
-        if (Array.isArray(value)) return value.length > 0
-        if (typeof value === 'object') return Object.keys(value).length > 0
-        return true
-      })
-      const advancedVisibility = shouldDisableWrite
-        ? effectiveAdvanced || advancedValuesPresent
-        : effectiveAdvanced
-      const advancedOnlySubBlocks = blockConfig.subBlocks.filter(
-        (subBlock) => subBlock.mode === 'advanced'
-      )
-
-      const regularRowsAccumulator = buildSubBlockRows({
-        subBlocks: blockConfig.subBlocks,
-        stateToUse: blockStateForConditions,
-        isAdvancedMode: false,
-        isTriggerMode: effectiveTrigger,
-        isPureTriggerBlock: blockConfig.category === 'triggers',
-        availableTriggerIds: blockConfig.triggers?.available,
-        hideFromPreview: readOnly,
-      })
-      const advancedRowsAccumulator = buildSubBlockRows({
-        subBlocks: advancedOnlySubBlocks,
-        stateToUse: blockStateForConditions,
-        isAdvancedMode: true,
-        isTriggerMode: effectiveTrigger,
-        isPureTriggerBlock: blockConfig.category === 'triggers',
-        availableTriggerIds: blockConfig.triggers?.available,
-        hideFromPreview: readOnly,
-      })
-
+  const {
+    regularRows,
+    advancedRows,
+    stateToUse,
+    displayAdvancedOptions,
+    hasAdvancedOnlyFields,
+    isTriggerConfigurationView,
+    hasDeploymentManagedTriggerConfiguration,
+  } = useMemo(() => {
+    if (!selectedBlock || !blockConfig?.subBlocks) {
       return {
-        regularRows: regularRowsAccumulator,
-        advancedRows: advancedRowsAccumulator,
-        stateToUse: blockStateForConditions,
-        displayAdvancedOptions: advancedVisibility,
-        hasAdvancedOnlyFields: advancedRowsAccumulator.length > 0,
+        regularRows: [] as SubBlockConfig[][],
+        advancedRows: [] as SubBlockConfig[][],
+        stateToUse: {},
+        displayAdvancedOptions: false,
+        hasAdvancedOnlyFields: false,
+        isTriggerConfigurationView: false,
+        hasDeploymentManagedTriggerConfiguration: false,
       }
-    }, [
-      resolvedWorkflowId,
-      blockConfig,
-      currentWorkflow,
-      readOnly,
-      selectedBlock,
-      shouldDisableWrite,
-      storeBlockState.advancedMode,
-      storeBlockState.blocks,
-      storeBlockState.triggerMode,
-    ])
+    }
+
+    let blockStateForConditions: Record<string, any> = {}
+    const blockFromCurrentWorkflow = currentWorkflow.getBlockById(selectedBlock.id)
+
+    if (currentWorkflow.isDiffMode && blockFromCurrentWorkflow) {
+      blockStateForConditions = blockFromCurrentWorkflow.subBlocks || {}
+    } else {
+      const mergedBlock = resolvedWorkflowId
+        ? mergeSubblockState(storeBlockState.blocks, resolvedWorkflowId, selectedBlock.id)[
+            selectedBlock.id
+          ]
+        : storeBlockState.blocks[selectedBlock.id]
+      blockStateForConditions = mergedBlock?.subBlocks || selectedBlock.subBlocks || {}
+    }
+
+    const isPureTriggerBlock = blockConfig.category === 'triggers'
+    const effectiveTrigger =
+      (currentWorkflow.isDiffMode
+        ? Boolean(blockFromCurrentWorkflow?.triggerMode)
+        : storeBlockState.triggerMode) || isPureTriggerBlock
+    const effectiveAdvanced = currentWorkflow.isDiffMode
+      ? Boolean(blockFromCurrentWorkflow?.advancedMode)
+      : storeBlockState.advancedMode
+    const advancedValuesPresent = blockConfig.subBlocks.some((subBlock) => {
+      if (subBlock.mode !== 'advanced') return false
+      const value = blockStateForConditions[subBlock.id]?.value
+      if (value === undefined || value === null) return false
+      if (typeof value === 'string') return value.trim().length > 0
+      if (Array.isArray(value)) return value.length > 0
+      if (typeof value === 'object') return Object.keys(value).length > 0
+      return true
+    })
+    const advancedVisibility = shouldDisableWrite
+      ? effectiveAdvanced || advancedValuesPresent
+      : effectiveAdvanced
+    const advancedOnlySubBlocks = blockConfig.subBlocks.filter(
+      (subBlock) => subBlock.mode === 'advanced'
+    )
+    const hasConfigurableDeployTriggerFields = buildSubBlockRows({
+      subBlocks: blockConfig.subBlocks,
+      stateToUse: blockStateForConditions,
+      isAdvancedMode: false,
+      isTriggerMode: effectiveTrigger,
+      isPureTriggerBlock,
+      availableTriggerIds: blockConfig.triggers?.available,
+      hideFromPreview: false,
+      triggerSubBlockOwner: 'deploy',
+    }).some((row) => row.some(isConfigurableTriggerDeploySubBlock))
+    const hasCustomDeployTriggerFlow = blockConfig.triggers?.available?.includes('chat') ?? false
+
+    const regularRowsAccumulator = buildSubBlockRows({
+      subBlocks: blockConfig.subBlocks,
+      stateToUse: blockStateForConditions,
+      isAdvancedMode: false,
+      isTriggerMode: effectiveTrigger,
+      isPureTriggerBlock,
+      availableTriggerIds: blockConfig.triggers?.available,
+      hideFromPreview: false,
+    })
+    const advancedRowsAccumulator = buildSubBlockRows({
+      subBlocks: advancedOnlySubBlocks,
+      stateToUse: blockStateForConditions,
+      isAdvancedMode: true,
+      isTriggerMode: effectiveTrigger,
+      isPureTriggerBlock,
+      availableTriggerIds: blockConfig.triggers?.available,
+      hideFromPreview: false,
+    })
+
+    return {
+      regularRows: regularRowsAccumulator,
+      advancedRows: advancedRowsAccumulator,
+      stateToUse: blockStateForConditions,
+      displayAdvancedOptions: advancedVisibility,
+      hasAdvancedOnlyFields: advancedRowsAccumulator.length > 0,
+      isTriggerConfigurationView: effectiveTrigger,
+      hasDeploymentManagedTriggerConfiguration:
+        hasConfigurableDeployTriggerFields || hasCustomDeployTriggerFlow,
+    }
+  }, [
+    resolvedWorkflowId,
+    blockConfig,
+    currentWorkflow,
+    selectedBlock,
+    shouldDisableWrite,
+    storeBlockState.advancedMode,
+    storeBlockState.blocks,
+    storeBlockState.triggerMode,
+  ])
+
+  const emptyStateMessage = useMemo(() => {
+    if (isTriggerConfigurationView && hasDeploymentManagedTriggerConfiguration) {
+      if (userPermissions.canAdmin && !currentWorkflow.isDiffMode) {
+        return 'This trigger is configured in Deployment Settings. Use Deploy in the control bar to edit it.'
+      }
+
+      if (!userPermissions.canAdmin && userPermissions.canEdit && !currentWorkflow.isDiffMode) {
+        return 'This trigger is configured in Deployment Settings. A workspace admin can update it there.'
+      }
+
+      return 'This trigger is configured in Deployment Settings.'
+    }
+
+    if (isTriggerConfigurationView) {
+      return 'This trigger has no editable fields in the panel.'
+    }
+
+    return 'No editable fields for this block.'
+  }, [
+    currentWorkflow.isDiffMode,
+    hasDeploymentManagedTriggerConfiguration,
+    isTriggerConfigurationView,
+    userPermissions.canAdmin,
+    userPermissions.canEdit,
+  ])
 
   if (!selectedNodeId) return null
 
@@ -676,7 +725,9 @@ export function NodeEditorPanel({ selectedNodeId, readOnly = false }: NodeEditor
             )}
           </div>
         ) : regularRows.length === 0 && (!displayAdvancedOptions || advancedRows.length === 0) ? (
-          <p className='text-muted-foreground text-xs'>No editable fields for this block.</p>
+          <div className='rounded-md border border-dashed p-3 text-muted-foreground text-xs'>
+            {emptyStateMessage}
+          </div>
         ) : (
           <>
             {regularRows.map((row, rowIndex) => (
@@ -694,10 +745,7 @@ export function NodeEditorPanel({ selectedNodeId, readOnly = false }: NodeEditor
                         blockId={selectedBlock.id}
                         config={subBlock}
                         isConnecting={false}
-                        isPreview={readOnly}
-                        subBlockValues={readOnly ? stateToUse : undefined}
                         disabled={shouldDisableWrite}
-                        allowExpandInPreview={readOnly}
                       />
                     </div>
                   )
@@ -747,10 +795,7 @@ export function NodeEditorPanel({ selectedNodeId, readOnly = false }: NodeEditor
                           blockId={selectedBlock.id}
                           config={subBlock}
                           isConnecting={false}
-                          isPreview={readOnly}
-                          subBlockValues={readOnly ? stateToUse : undefined}
                           disabled={shouldDisableWrite}
-                          allowExpandInPreview={readOnly}
                         />
                       </div>
                     )

@@ -1,18 +1,33 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type WheelEvent } from 'react'
 import { Loader2, MoreVertical, X } from 'lucide-react'
+import { createPortal } from 'react-dom'
 import {
   Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  Tabs,
+  TabsList,
+  TabsTrigger,
 } from '@/components/ui'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  type ChatAuthType,
+  getChatDeploymentDraftFromBlock,
+  isChatDeploymentDraftConfigured,
+} from '@/lib/chat/deployment-config'
 import { getEnv } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
@@ -24,15 +39,18 @@ import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { mergeSubblockState } from '@/stores/workflows/utils'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
-import { getTrigger } from '@/triggers'
+import { getTrigger, isNativeTrigger } from '@/triggers'
+import { isConfigurableTriggerDeploySubBlock } from '@/triggers/constants'
 import {
   DeployForm,
   DeploymentInfo,
 } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components'
 import { ChatDeploy } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/chat-deploy/chat-deploy'
+import { DeployStatus } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deployment-info/components'
 import { DeployedWorkflowModal } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deployment-controls/components/deployed-workflow-modal'
 import { SubBlock } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/sub-block'
 import { buildSubBlockRows } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/sub-block-layout'
+import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('DeployModal')
 
@@ -42,7 +60,7 @@ interface DeployModalProps {
   workflowId: string | null
   needsRedeployment: boolean
   setNeedsRedeployment: (value: boolean) => void
-  deployedState: WorkflowState
+  deployedState: WorkflowState | null
   isLoadingDeployedState: boolean
   refetchDeployedState: () => Promise<void>
 }
@@ -60,9 +78,11 @@ interface WorkflowDeploymentInfo {
   isDeployed: boolean
   deployedAt?: string
   apiKey: string
+  pinnedApiKeyId?: string | null
   endpoint: string
   exampleCommand: string
   needsRedeployment: boolean
+  hasReusableApiKey: boolean
 }
 
 interface DeployFormValues {
@@ -70,7 +90,27 @@ interface DeployFormValues {
   newKeyName?: string
 }
 
+interface PublishedChatDeployment {
+  id: string
+  identifier: string
+  title: string
+  description: string
+  authType: ChatAuthType
+  allowedEmails: string[]
+  outputConfigs: Array<{ blockId: string; path: string }>
+  customizations?: {
+    welcomeMessage?: string
+    imageUrl?: string
+  }
+  hasPassword?: boolean
+  isActive: boolean
+  chatUrl?: string
+}
+
 type TabView = string
+
+const BILLING_TAB_KEY = 'billing'
+const API_TRIGGER_TAB_KEY = 'api-trigger'
 
 interface TriggerDeployTab {
   key: string
@@ -78,7 +118,34 @@ interface TriggerDeployTab {
   label: string
   triggerId: string
   subBlocks: SubBlockConfig[]
+  hasConfigurableFields: boolean
 }
+
+interface TriggerDeployValidationState {
+  key: string
+  requiredFieldValues: unknown[]
+  requiresSavedConfig: boolean
+  webhookIdValue: unknown
+  hasUnsavedDeployConfig: boolean
+}
+
+interface DeployableTriggerState {
+  key: string
+  isConfigured: boolean
+}
+
+interface TriggerTabItem {
+  key: string
+  label: string
+}
+
+const NON_DEPLOYABLE_TRIGGER_IDS = new Set(['manual'])
+const deployNavGroupLabelClass =
+  'flex h-8 shrink-0 items-center rounded-md px-2 font-medium text-sidebar-foreground/70 text-xs'
+const deployNavButtonClass =
+  'flex h-8 w-full items-center gap-2 overflow-hidden rounded-md bg-background px-2 text-left text-sm text-muted-foreground outline-none transition-colors hover:bg-secondary/60 hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring disabled:pointer-events-none disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground'
+const deployInlineNavButtonClass =
+  'inline-flex h-8 items-center rounded-md bg-background px-3 text-sm text-muted-foreground outline-none transition-colors hover:bg-secondary/60 hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground'
 
 function getSubBlockValue(block: WorkflowState['blocks'][string], subBlockId: string): unknown {
   return block.subBlocks?.[subBlockId]?.value
@@ -162,23 +229,6 @@ function getDeployManagedTriggerSubBlocks({
     .filter((subBlock) => shouldRenderTriggerSubBlockForTriggerId(subBlock, triggerId))
 }
 
-const nonConfigurableTriggerSubBlockIds = new Set([
-  'selectedTriggerId',
-  'webhookUrlDisplay',
-  'triggerSave',
-  'triggerInstructions',
-])
-
-function isConfigurableTriggerDeploySubBlock(subBlock: SubBlockConfig): boolean {
-  if (nonConfigurableTriggerSubBlockIds.has(subBlock.id)) {
-    return false
-  }
-  if (subBlock.type === 'trigger-save' || subBlock.type === 'text') {
-    return false
-  }
-  return !subBlock.readOnly
-}
-
 function isMissingConfigValue(value: unknown): boolean {
   if (value === null || value === undefined) {
     return true
@@ -211,6 +261,22 @@ function areConfigValuesEqual(currentValue: unknown, savedValue: unknown): boole
   }
 }
 
+function isDeployableTriggerId(triggerId: string): boolean {
+  return !NON_DEPLOYABLE_TRIGGER_IDS.has(triggerId)
+}
+
+function isTriggerDeployTabConfigured(tabState: TriggerDeployValidationState): boolean {
+  return (
+    !tabState.requiredFieldValues.some((value) => isMissingConfigValue(value)) &&
+    (!tabState.requiresSavedConfig || !isMissingConfigValue(tabState.webhookIdValue)) &&
+    !tabState.hasUnsavedDeployConfig
+  )
+}
+
+function formatTriggerCountLabel(configuredCount: number, totalCount: number): string {
+  return `${configuredCount}/${totalCount} ${totalCount === 1 ? 'trigger' : 'triggers'}`
+}
+
 export function DeployModal({
   open,
   onOpenChange,
@@ -221,10 +287,10 @@ export function DeployModal({
   isLoadingDeployedState,
   refetchDeployedState,
 }: DeployModalProps) {
+  const workspaceId = useWorkspaceId()
   const deploymentStatus = useWorkflowRegistry((state) =>
     state.getWorkflowDeploymentStatus(workflowId)
   )
-  const isDeployed = deploymentStatus?.isDeployed || false
   const setDeploymentStatus = useWorkflowRegistry((state) => state.setDeploymentStatus)
   const currentBlocks = useWorkflowStore((state) => state.blocks)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -234,11 +300,12 @@ export function DeployModal({
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
   const [activeTab, setActiveTab] = useState<TabView>('versions')
   const [selectedApiKeyId, setSelectedApiKeyId] = useState<string>('')
-  const [chatSubmitting, setChatSubmitting] = useState(false)
   const [apiDeployError, setApiDeployError] = useState<string | null>(null)
-  const [chatExists, setChatExists] = useState(false)
-  const [isChatFormValid, setIsChatFormValid] = useState(false)
+  const [publishedChat, setPublishedChat] = useState<PublishedChatDeployment | null>(null)
+  const [isChatConfigBusy, setIsChatConfigBusy] = useState(false)
   const [selectedStreamingOutputs, setSelectedStreamingOutputs] = useState<string[]>([])
+  const [isViewingActiveDeployment, setIsViewingActiveDeployment] = useState(false)
+  const [showUndeployConfirm, setShowUndeployConfirm] = useState(false)
 
   const [versions, setVersions] = useState<WorkflowDeploymentVersionResponse[]>([])
   const [versionsLoading, setVersionsLoading] = useState(false)
@@ -253,18 +320,32 @@ export function DeployModal({
   const [openDropdown, setOpenDropdown] = useState<number | null>(null)
   const [versionToActivate, setVersionToActivate] = useState<number | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const overlayRootId = workflowId ? `workflow-editor-overlay-root-${workflowId}` : null
+  const overlayContainer =
+    open && overlayRootId && typeof document !== 'undefined'
+      ? document.getElementById(overlayRootId)
+      : null
+  const isWorkflowDeployed =
+    Boolean(deploymentStatus?.isDeployed) ||
+    Boolean(deploymentInfo?.isDeployed) ||
+    Boolean(deployedState)
   const mergedBlocks = workflowId ? mergeSubblockState(currentBlocks, workflowId) : currentBlocks
   const blockList = Object.values(mergedBlocks)
   const hasApiTrigger = blockList.some((block) => block.type === 'api_trigger')
   const hasInputTrigger = blockList.some((block) => block.type === 'input_trigger')
   const hasIndicatorTrigger = blockList.some((block) => block.type === 'indicator_trigger')
-  const hasChatTrigger = blockList.some((block) => block.type === 'chat_trigger')
-  const hasApiExecutionAccess = hasApiTrigger
+  const chatTriggerBlock =
+    blockList.find((block) => resolveTriggerIdForBlock(block) === 'chat') ?? null
+  const hasChatTrigger = Boolean(chatTriggerBlock)
+  const hasApiTriggerTab = hasApiTrigger
   const triggerDeployTabs: TriggerDeployTab[] = blockList
     .map((block) => {
       const blockConfig = getBlock(block.type)
       const triggerId = resolveTriggerIdForBlock(block)
       if (!triggerId) {
+        return null
+      }
+      if (triggerId === 'chat' || triggerId === 'api' || !isDeployableTriggerId(triggerId)) {
         return null
       }
 
@@ -274,14 +355,7 @@ export function DeployModal({
         isPureTriggerBlock: blockConfig?.category === 'triggers',
         availableTriggerIds: blockConfig?.triggers?.available,
       })
-      if (subBlocks.length === 0) {
-        return null
-      }
-
-      const hasConfigurableDeployFields = subBlocks.some(isConfigurableTriggerDeploySubBlock)
-      if (!hasConfigurableDeployFields) {
-        return null
-      }
+      const hasConfigurableFields = subBlocks.some(isConfigurableTriggerDeploySubBlock)
 
       return {
         key: `trigger-${block.id}`,
@@ -289,6 +363,7 @@ export function DeployModal({
         label: blockConfig?.name || getTrigger(triggerId)?.name || triggerId,
         triggerId,
         subBlocks,
+        hasConfigurableFields,
       }
     })
     .filter((tab): tab is TriggerDeployTab => tab !== null)
@@ -296,13 +371,21 @@ export function DeployModal({
   const hasNonChatDeployPath =
     hasApiTrigger || hasInputTrigger || hasIndicatorTrigger || triggerDeployTabs.length > 0
   const requiresApiKeyForDeployment = hasNonChatDeployPath || hasChatTrigger
-  const fallbackTab: TabView = requiresApiKeyForDeployment
-    ? 'api'
-    : triggerDeployTabs[0]?.key
-      ? triggerDeployTabs[0].key
-      : hasChatTrigger
-        ? 'chat'
-        : 'versions'
+  const showBillingTab = requiresApiKeyForDeployment
+  const hasSelectedSharedApiKey = Boolean(
+    selectedApiKeyId || deploymentInfo?.pinnedApiKeyId || deploymentInfo?.hasReusableApiKey
+  )
+  const fallbackTab: TabView = hasApiTriggerTab
+    ? !isWorkflowDeployed && !hasSelectedSharedApiKey
+      ? BILLING_TAB_KEY
+      : API_TRIGGER_TAB_KEY
+    : showBillingTab
+      ? BILLING_TAB_KEY
+      : triggerDeployTabs[0]?.key
+        ? triggerDeployTabs[0].key
+        : hasChatTrigger
+          ? 'chat'
+          : 'versions'
   const triggerDeployValidationState = useSubBlockStore(
     useCallback(
       (state) => {
@@ -354,14 +437,201 @@ export function DeployModal({
       [triggerDeployTabs, workflowId]
     )
   )
+  const triggerValidationStateByKey = new Map(
+    triggerDeployValidationState.map((tabState) => [tabState.key, tabState])
+  )
+  const infoTabItems: TriggerTabItem[] = [
+    ...(showBillingTab
+      ? [
+        {
+          key: BILLING_TAB_KEY,
+          label: 'Billing',
+        },
+      ]
+      : []),
+    {
+      key: 'versions',
+      label: 'Versions',
+    },
+  ]
+  const nativeTriggerTabItems: TriggerTabItem[] = [
+    ...(hasChatTrigger
+      ? [
+        {
+          key: 'chat',
+          label: 'Chat',
+        },
+      ]
+      : []),
+    ...(hasApiTriggerTab
+      ? [
+        {
+          key: API_TRIGGER_TAB_KEY,
+          label: 'API Trigger',
+        },
+      ]
+      : []),
+    ...triggerDeployTabs
+      .filter((tab) => isNativeTrigger(tab.triggerId))
+      .map((tab) => ({
+        key: tab.key,
+        label: tab.label,
+      })),
+  ]
+  const integrationTriggerTabItems: TriggerTabItem[] = triggerDeployTabs
+    .filter((tab) => !isNativeTrigger(tab.triggerId))
+    .map((tab) => ({
+      key: tab.key,
+      label: tab.label,
+    }))
+  const triggerTabItems: TriggerTabItem[] = [
+    ...nativeTriggerTabItems,
+    ...integrationTriggerTabItems,
+  ]
+  const activeNativeTriggerTabValue = nativeTriggerTabItems.some((tab) => tab.key === activeTab)
+    ? activeTab
+    : ''
+  const activeIntegrationTriggerTabValue = integrationTriggerTabItems.some(
+    (tab) => tab.key === activeTab
+  )
+    ? activeTab
+    : ''
+  const activeTriggerDeployTab = triggerDeployTabs.find((tab) => tab.key === activeTab)
+  const activeTabMeta =
+    activeTab === BILLING_TAB_KEY
+      ? {
+        title: 'Billing',
+        description:
+          'Choose the shared API key used for workflow deployment, billing attribution, and API trigger authentication.',
+      }
+      : activeTab === API_TRIGGER_TAB_KEY
+        ? {
+          title: 'API Trigger Deployment',
+          description:
+            'Review the API trigger endpoint and payload contract. This trigger uses the same shared API key selected in Billing.',
+        }
+        : activeTab === 'versions'
+          ? {
+            title: 'Deployment Versions',
+            description:
+              'Inspect previous deployments, rename versions, or activate an older snapshot.',
+          }
+          : activeTab === 'chat'
+            ? {
+              title: 'Chat Deployment',
+              description:
+                'Configure chat publishing details here. Deploying the workflow publishes the chat trigger with these settings.',
+            }
+            : activeTriggerDeployTab
+              ? {
+                title: activeTriggerDeployTab.label,
+                description:
+                  activeTriggerDeployTab.triggerId === 'indicator_trigger'
+                    ? 'Indicator monitors are managed from Logs -> Monitors. This trigger deploys with the workflow and does not need extra deployment fields here.'
+                    : activeTriggerDeployTab.hasConfigurableFields
+                      ? 'Configure deploy-time trigger settings here. Keep workflow logic and non-deploy fields in the editor.'
+                      : 'This trigger deploys with the workflow. No additional deployment fields are required here.',
+              }
+              : null
+  const sharedApiKeyDisplay =
+    deploymentInfo?.apiKey && deploymentInfo.apiKey !== 'No API key found'
+      ? deploymentInfo.apiKey
+      : null
+  const apiTriggerSharedKeyMessage = isWorkflowDeployed
+    ? sharedApiKeyDisplay
+      ? `This API trigger uses the shared deployment API key ${sharedApiKeyDisplay}.`
+      : 'This API trigger uses the shared deployment API key selected in Billing.'
+    : hasSelectedSharedApiKey
+      ? 'This API trigger will use the shared deployment API key currently selected in Billing.'
+      : 'Select a shared deployment API key in Billing before deploying this API trigger.'
+  const deployableTriggerStates: DeployableTriggerState[] = blockList
+    .map((block) => {
+      const triggerId = resolveTriggerIdForBlock(block)
+      if (!triggerId || !isDeployableTriggerId(triggerId)) {
+        return null
+      }
+
+      const key = `trigger-${block.id}`
+      const validationState = triggerValidationStateByKey.get(key)
+      if (validationState) {
+        return {
+          key,
+          isConfigured: isTriggerDeployTabConfigured(validationState),
+        }
+      }
+
+      if (triggerId === 'chat') {
+        return {
+          key,
+          isConfigured: isChatDeploymentDraftConfigured(getChatDeploymentDraftFromBlock(block), {
+            hasPasswordFallback: Boolean(publishedChat?.hasPassword),
+          }),
+        }
+      }
+
+      if (triggerId === 'api') {
+        return {
+          key,
+          isConfigured: Boolean(selectedApiKeyId || deploymentInfo?.apiKey || isWorkflowDeployed),
+        }
+      }
+
+      return {
+        key,
+        isConfigured: true,
+      }
+    })
+    .filter((triggerState): triggerState is DeployableTriggerState => triggerState !== null)
+  const configuredTriggerDeployCount = deployableTriggerStates.filter(
+    (triggerState) => triggerState.isConfigured
+  ).length
+  const totalTriggerDeployCount = deployableTriggerStates.length
   const hasIncompleteTriggerConfiguration =
-    versionToActivate === null &&
-    triggerDeployValidationState.some(
-      (tabState) =>
-        tabState.requiredFieldValues.some((value) => isMissingConfigValue(value)) ||
-        (tabState.requiresSavedConfig && isMissingConfigValue(tabState.webhookIdValue)) ||
-        tabState.hasUnsavedDeployConfig
-    )
+    versionToActivate === null && configuredTriggerDeployCount < totalTriggerDeployCount
+  const deployButtonLabel =
+    versionToActivate !== null
+      ? `Deploy ${versions.find((v) => v.version === versionToActivate)?.name || `v${versionToActivate}`}`
+      : hasIncompleteTriggerConfiguration
+        ? `${needsRedeployment ? 'Redeploy' : 'Deploy'} with ${formatTriggerCountLabel(
+          configuredTriggerDeployCount,
+          totalTriggerDeployCount
+        )}`
+        : needsRedeployment
+          ? 'Redeploy Workflow'
+          : 'Deploy Workflow'
+  const isTriggerTab = triggerTabItems.some((tab) => tab.key === activeTab)
+  const isVersionActivationAction = versionToActivate !== null
+  const isInitialWorkflowDeployAction =
+    !isVersionActivationAction && isTriggerTab && !isWorkflowDeployed
+  const isWorkflowRedeployAction =
+    !isVersionActivationAction && isTriggerTab && isWorkflowDeployed && needsRedeployment
+  const hasReusableApiKey = Boolean(deploymentInfo?.hasReusableApiKey)
+  const hasConfiguredTriggerToDeploy = configuredTriggerDeployCount > 0
+  const showFooter = versionToActivate !== null || hasNonChatDeployPath || hasChatTrigger
+  const showFooterStatus = isWorkflowDeployed && versionToActivate === null
+  const canViewActiveDeployment = !isLoadingDeployedState && !!deployedState
+  const showFooterPrimaryAction =
+    isVersionActivationAction || isInitialWorkflowDeployAction || isWorkflowRedeployAction
+  const footerPrimaryLabel = deployButtonLabel
+  const footerPrimaryMissingApiKey =
+    requiresApiKeyForDeployment &&
+    ((isInitialWorkflowDeployAction && !selectedApiKeyId) ||
+      (isWorkflowRedeployAction && !hasReusableApiKey && !selectedApiKeyId))
+  const footerPrimaryMissingConfiguredTrigger =
+    !isVersionActivationAction && totalTriggerDeployCount > 0 && !hasConfiguredTriggerToDeploy
+  const footerPrimaryDisabled =
+    isSubmitting ||
+    isChatConfigBusy ||
+    footerPrimaryMissingApiKey ||
+    footerPrimaryMissingConfiguredTrigger
+  const showViewDeploymentButton = isWorkflowDeployed && versionToActivate === null
+  const showUndeployButton = isWorkflowDeployed && versionToActivate === null
+
+  const handleTriggerTabsWheel = useCallback((event: WheelEvent<HTMLDivElement>) => {
+    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
+    event.preventDefault()
+    event.currentTarget.scrollLeft += event.deltaY
+  }, [])
 
   useEffect(() => {
     if (editingVersion !== null && inputRef.current) {
@@ -466,18 +736,21 @@ export function DeployModal({
     if (!open) return
 
     try {
-      const response = await fetch('/api/users/me/api-keys')
+      const [workspaceResponse, personalResponse] = await Promise.all([
+        fetch(`/api/workspaces/${workspaceId}/api-keys`),
+        fetch('/api/users/me/api-keys'),
+      ])
 
-      if (response.ok) {
-        const data = await response.json()
-        setApiKeys(data.keys || [])
-      }
+      const workspaceData = workspaceResponse.ok ? await workspaceResponse.json() : { keys: [] }
+      const personalData = personalResponse.ok ? await personalResponse.json() : { keys: [] }
+
+      setApiKeys([...(workspaceData.keys || []), ...(personalData.keys || [])])
     } catch (error) {
       logger.error('Error fetching API keys:', { error })
     }
   }
 
-  const fetchChatDeploymentInfo = async () => {
+  const fetchPublishedChatInfo = async () => {
     if (!open || !workflowId) return
 
     try {
@@ -487,16 +760,22 @@ export function DeployModal({
       if (response.ok) {
         const data = await response.json()
         if (data.isDeployed && data.deployment) {
-          setChatExists(true)
+          const detailResponse = await fetch(`/api/chat/manage/${data.deployment.id}`)
+          if (detailResponse.ok) {
+            const detailData = await detailResponse.json()
+            setPublishedChat(detailData)
+          } else {
+            setPublishedChat(null)
+          }
         } else {
-          setChatExists(false)
+          setPublishedChat(null)
         }
       } else {
-        setChatExists(false)
+        setPublishedChat(null)
       }
     } catch (error) {
-      logger.error('Error fetching chat deployment info:', { error })
-      setChatExists(false)
+      logger.error('Error fetching published chat info:', { error })
+      setPublishedChat(null)
     } finally {
       setIsLoading(false)
     }
@@ -507,14 +786,16 @@ export function DeployModal({
       setIsLoading(true)
       fetchApiKeys()
       if (hasChatTrigger) {
-        fetchChatDeploymentInfo()
+        fetchPublishedChatInfo()
       } else {
-        setChatExists(false)
+        setPublishedChat(null)
       }
       setActiveTab(fallbackTab)
       setVersionToActivate(null)
     } else {
       setSelectedApiKeyId('')
+      setDeploymentInfo(null)
+      setPublishedChat(null)
       setVersionToActivate(null)
     }
   }, [open, workflowId, requiresApiKeyForDeployment, hasChatTrigger, fallbackTab])
@@ -522,35 +803,37 @@ export function DeployModal({
   useEffect(() => {
     const availableTabs = new Set<TabView>([
       'versions',
-      ...(requiresApiKeyForDeployment ? ['api'] : []),
-      ...(hasChatTrigger ? ['chat'] : []),
-      ...triggerDeployTabs.map((tab) => tab.key),
+      ...(showBillingTab ? [BILLING_TAB_KEY] : []),
+      ...triggerTabItems.map((tab) => tab.key),
     ])
 
     if (!availableTabs.has(activeTab)) {
       setActiveTab(fallbackTab)
     }
-  }, [activeTab, requiresApiKeyForDeployment, hasChatTrigger, triggerDeployTabs, fallbackTab])
+  }, [activeTab, showBillingTab, triggerTabItems, fallbackTab])
 
   useEffect(() => {
-    if (apiKeys.length === 0) return
-
-    if (deploymentInfo?.apiKey) {
-      const matchingKey = apiKeys.find((k) => k.key === deploymentInfo.apiKey)
+    if (deploymentInfo?.pinnedApiKeyId) {
+      const matchingKey = apiKeys.find((k) => k.id === deploymentInfo.pinnedApiKeyId)
       if (matchingKey) {
         setSelectedApiKeyId(matchingKey.id)
         return
       }
+
+      setSelectedApiKeyId(deploymentInfo.pinnedApiKeyId)
+      return
     }
+
+    if (apiKeys.length === 0) return
 
     if (!selectedApiKeyId) {
       setSelectedApiKeyId(apiKeys[0].id)
     }
-  }, [deploymentInfo, apiKeys])
+  }, [deploymentInfo?.pinnedApiKeyId, apiKeys, selectedApiKeyId])
 
   useEffect(() => {
     async function fetchDeploymentInfo() {
-      if (!open || !workflowId || !isDeployed) {
+      if (!open || !workflowId) {
         setDeploymentInfo(null)
         if (!open) {
           setIsLoading(false)
@@ -573,6 +856,11 @@ export function DeployModal({
         }
 
         const data = await response.json()
+        if (!data.isDeployed) {
+          setDeploymentInfo(null)
+          return
+        }
+
         const endpoint = `${getEnv('NEXT_PUBLIC_APP_URL')}/api/workflows/${workflowId}/execute`
         const inputFormatExample = getInputFormatExample(selectedStreamingOutputs.length > 0)
 
@@ -580,9 +868,11 @@ export function DeployModal({
           isDeployed: data.isDeployed,
           deployedAt: data.deployedAt,
           apiKey: data.apiKey,
+          pinnedApiKeyId: data.pinnedApiKeyId ?? null,
           endpoint,
           exampleCommand: `curl -X POST -H "X-API-Key: ${data.apiKey}" -H "Content-Type: application/json"${inputFormatExample} ${endpoint}`,
           needsRedeployment,
+          hasReusableApiKey: Boolean(data.hasReusableApiKey),
         })
       } catch (error) {
         logger.error('Error fetching deployment info:', { error })
@@ -592,7 +882,7 @@ export function DeployModal({
     }
 
     fetchDeploymentInfo()
-  }, [open, workflowId, isDeployed, needsRedeployment, deploymentInfo?.isDeployed])
+  }, [open, workflowId, needsRedeployment, deploymentInfo?.isDeployed])
 
   const onDeploy = async (data: DeployFormValues) => {
     setApiDeployError(null)
@@ -615,7 +905,6 @@ export function DeployModal({
         },
         body: JSON.stringify({
           ...(normalizedApiKey ? { apiKey: normalizedApiKey } : {}),
-          deployChatEnabled: false,
         }),
       })
 
@@ -659,9 +948,11 @@ export function DeployModal({
           isDeployed: deploymentData.isDeployed,
           deployedAt: deploymentData.deployedAt,
           apiKey: deploymentData.apiKey,
+          pinnedApiKeyId: deploymentData.pinnedApiKeyId ?? null,
           endpoint: apiEndpoint,
           exampleCommand: `curl -X POST -H "X-API-Key: ${deploymentData.apiKey}" -H "Content-Type: application/json"${inputFormatExample} ${apiEndpoint}`,
           needsRedeployment: isActivatingVersion,
+          hasReusableApiKey: Boolean(deploymentData.hasReusableApiKey),
         })
       }
 
@@ -702,7 +993,9 @@ export function DeployModal({
 
   const handleActivateVersion = (version: number) => {
     setVersionToActivate(version)
-    setActiveTab(requiresApiKeyForDeployment ? 'api' : 'versions')
+    setActiveTab(
+      hasApiTriggerTab ? API_TRIGGER_TAB_KEY : showBillingTab ? BILLING_TAB_KEY : 'versions'
+    )
   }
 
   const openVersionPreview = async (version: number) => {
@@ -770,6 +1063,7 @@ export function DeployModal({
   const handleUndeploy = async () => {
     try {
       setIsUndeploying(true)
+      setShowUndeployConfirm(false)
 
       const response = await fetch(`/api/workflows/${workflowId}/deploy`, {
         method: 'DELETE',
@@ -781,7 +1075,7 @@ export function DeployModal({
       }
 
       setDeploymentStatus(workflowId, false)
-      setChatExists(false)
+      setPublishedChat(null)
       onOpenChange(false)
     } catch (error: unknown) {
       logger.error('Error undeploying workflow:', { error })
@@ -793,15 +1087,14 @@ export function DeployModal({
   const handleRedeploy = async () => {
     try {
       setIsSubmitting(true)
+      const apiKeyToUse = selectedApiKeyId?.trim() ? selectedApiKeyId : undefined
 
       const response = await fetch(`/api/workflows/${workflowId}/deploy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          deployChatEnabled: false,
-        }),
+        body: JSON.stringify(apiKeyToUse ? { apiKey: apiKeyToUse } : {}),
       })
 
       if (!response.ok) {
@@ -826,7 +1119,16 @@ export function DeployModal({
       await refetchDeployedState()
       await fetchVersions()
 
-      setDeploymentInfo((prev) => (prev ? { ...prev, needsRedeployment: false } : prev))
+      setDeploymentInfo((prev) =>
+        prev
+          ? {
+            ...prev,
+            needsRedeployment: false,
+            pinnedApiKeyId: apiKeyToUse ?? prev.pinnedApiKeyId ?? null,
+            hasReusableApiKey: prev.hasReusableApiKey || Boolean(apiKeyToUse),
+          }
+          : prev
+      )
     } catch (error: unknown) {
       logger.error('Error redeploying workflow:', { error })
     } finally {
@@ -836,55 +1138,52 @@ export function DeployModal({
 
   const handleCloseModal = () => {
     setIsSubmitting(false)
-    setChatSubmitting(false)
+    setIsViewingActiveDeployment(false)
+    setShowUndeployConfirm(false)
     onOpenChange(false)
   }
 
-  const handlePostDeploymentUpdate = async () => {
-    if (!workflowId) return
-
-    const isActivating = versionToActivate !== null
-
-    setDeploymentStatus(workflowId, true, new Date())
-
-    const deploymentInfoResponse = await fetch(`/api/workflows/${workflowId}/deploy`)
-    if (deploymentInfoResponse.ok) {
-      const deploymentData = await deploymentInfoResponse.json()
-      const apiEndpoint = `${getEnv('NEXT_PUBLIC_APP_URL')}/api/workflows/${workflowId}/execute`
-      const inputFormatExample = getInputFormatExample(selectedStreamingOutputs.length > 0)
-
-      setDeploymentInfo({
-        isDeployed: deploymentData.isDeployed,
-        deployedAt: deploymentData.deployedAt,
-        apiKey: deploymentData.apiKey,
-        endpoint: apiEndpoint,
-        exampleCommand: `curl -X POST -H "X-API-Key: ${deploymentData.apiKey}" -H "Content-Type: application/json"${inputFormatExample} ${apiEndpoint}`,
-        needsRedeployment: isActivating,
-      })
+  useEffect(() => {
+    if (!open) {
+      return
     }
 
-    await refetchDeployedState()
-    await fetchVersions()
-    useWorkflowRegistry.getState().setWorkflowNeedsRedeployment(workflowId, isActivating)
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key !== 'Escape' ||
+        event.defaultPrevented ||
+        showUndeployConfirm ||
+        isViewingActiveDeployment ||
+        previewVersion !== null
+      ) {
+        return
+      }
+
+      event.preventDefault()
+      handleCloseModal()
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [open, showUndeployConfirm, isViewingActiveDeployment, previewVersion, onOpenChange])
+
+  const handleFooterPrimaryAction = () => {
+    if (versionToActivate === null && isWorkflowDeployed && needsRedeployment) {
+      void handleRedeploy()
+      return
+    }
+
+    void onDeploy({ apiKey: selectedApiKeyId })
   }
 
-  const handleChatFormSubmit = () => {
-    const form = document.getElementById('chat-deploy-form') as HTMLFormElement
-    if (form) {
-      // Check if we're in success view and need to trigger update
-      const updateTrigger = form.querySelector('[data-update-trigger]') as HTMLButtonElement
-      if (updateTrigger) {
-        updateTrigger.click()
-      } else {
-        form.requestSubmit()
-      }
-    }
+  const handleFooterUndeploy = () => {
+    void handleUndeploy()
   }
 
   const renderTriggerTab = (
     blockId: string | null,
     subBlocks: SubBlockConfig[],
-    emptyMessage = 'No deployment fields are available for this trigger.'
+    emptyMessage = 'This trigger deploys with the workflow. No additional deployment fields are required here.'
   ) => {
     if (!blockId) {
       return (
@@ -902,9 +1201,11 @@ export function DeployModal({
 
     return (
       <div className='space-y-4'>
-        <div className='text-muted-foreground text-sm'>
-          Configure deployment fields here. Keep custom trigger fields in the workflow editor.
-        </div>
+        {subBlocks.some(isConfigurableTriggerDeploySubBlock) && (
+          <div className='text-muted-foreground text-sm'>
+            Configure deployment fields here. Keep custom trigger fields in the workflow editor.
+          </div>
+        )}
         {subBlocks.map((subBlock) => (
           <SubBlock
             key={`${blockId}-${subBlock.id}`}
@@ -919,469 +1220,594 @@ export function DeployModal({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={handleCloseModal}>
-        <DialogContent
-          className='flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[700px]'
-          hideCloseButton
-        >
-          <DialogHeader className='flex-shrink-0 border-b px-6 py-4'>
-            <div className='flex items-center justify-between'>
-              <div className='flex items-center gap-1'>
-                <DialogTitle className='font-medium text-lg'>Deploy Workflow</DialogTitle>
-                {needsRedeployment && versions.length > 0 && versionToActivate === null && (
-                  <span className='inline-flex items-center rounded-md bg-amber-500/10 px-2 py-1 font-medium text-amber-600 text-xs dark:text-amber-400'>
-                    {versions.find((v) => v.isActive)?.name ||
-                      `v${versions.find((v) => v.isActive)?.version}`}{' '}
-                    active
-                  </span>
+      {open &&
+        overlayContainer &&
+        createPortal(
+          <div className='pointer-events-none absolute inset-0 z-999 flex items-center justify-center p-4 sm:p-6'>
+            <div
+              aria-hidden='true'
+              className='pointer-events-auto absolute inset-0 bg-background/60 backdrop-blur-[1.5px]'
+              onClick={handleCloseModal}
+            />
+
+            <div
+              role='dialog'
+              aria-modal='true'
+              aria-labelledby='deploy-workflow-title'
+              className='pointer-events-auto relative flex h-full max-h-full w-full max-w-[920px] flex-col overflow-hidden rounded-xl border border-border bg-background/95 shadow-2xl'
+            >
+              <div className='justify-center border-b gap-3 space-y-3 p-3'>
+                <div className='flex flex-shrink-0 items-center justify-between'>
+                  <div className='flex items-center gap-1'>
+                    <h2 id='deploy-workflow-title' className='font-medium text-lg'>
+                      Deploy Workflow
+                    </h2>
+                    {needsRedeployment && versions.length > 0 && versionToActivate === null && (
+                      <span className='inline-flex items-center rounded-md bg-amber-500/10 px-2 py-1 font-medium text-amber-600 text-xs dark:text-amber-400'>
+                        {versions.find((v) => v.isActive)?.name ||
+                          `v${versions.find((v) => v.isActive)?.version}`}{' '}
+                        active
+                      </span>
+                    )}
+                  </div>
+                  <Button
+                    variant='ghost'
+                    size='icon'
+                    className='h-8 w-8 p-0'
+                    onClick={handleCloseModal}
+                  >
+                    <X className='h-4 w-4' />
+                    <span className='sr-only'>Close</span>
+                  </Button>
+                </div>
+                {apiDeployError && (
+                  <div className='border border-destructive/20 bg-destructive/10 p-3 rounded-md text-destructive text-sm'>
+                    <div className='font-semibold'>Deployment Error</div>
+                    <div>{apiDeployError}</div>
+                  </div>
                 )}
               </div>
-              <Button
-                variant='ghost'
-                size='icon'
-                className='h-8 w-8 p-0'
-                onClick={handleCloseModal}
-              >
-                <X className='h-4 w-4' />
-                <span className='sr-only'>Close</span>
-              </Button>
-            </div>
-          </DialogHeader>
 
-          <div className='flex flex-1 flex-col overflow-hidden'>
-            <div className='flex h-14 flex-none items-center border-b px-6'>
-              <div className='flex gap-2'>
-                {requiresApiKeyForDeployment && (
-                  <button
-                    onClick={() => setActiveTab('api')}
-                    className={`rounded-md px-3 py-1 text-sm transition-colors ${
-                      activeTab === 'api'
-                        ? 'bg-accent text-foreground'
-                        : 'text-muted-foreground hover:bg-card hover:text-foreground'
-                    }`}
-                  >
-                    {hasApiExecutionAccess ? 'API' : 'Billing'}
-                  </button>
-                )}
-                {hasChatTrigger && (
-                  <button
-                    onClick={() => setActiveTab('chat')}
-                    className={`rounded-md px-3 py-1 text-sm transition-colors ${
-                      activeTab === 'chat'
-                        ? 'bg-accent text-foreground'
-                        : 'text-muted-foreground hover:bg-card hover:text-foreground'
-                    }`}
-                  >
-                    Chat
-                  </button>
-                )}
-                {triggerDeployTabs.map((tab) => (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActiveTab(tab.key)}
-                    className={`rounded-md px-3 py-1 text-sm transition-colors ${
-                      activeTab === tab.key
-                        ? 'bg-accent text-foreground'
-                        : 'text-muted-foreground hover:bg-card hover:text-foreground'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-                <button
-                  onClick={() => setActiveTab('versions')}
-                  className={`rounded-md px-3 py-1 text-sm transition-colors ${
-                    activeTab === 'versions'
-                      ? 'bg-accent text-foreground'
-                      : 'text-muted-foreground hover:bg-card hover:text-foreground'
-                  }`}
-                >
-                  Versions
-                </button>
-              </div>
-            </div>
 
-            <div className='flex-1 overflow-y-auto'>
-              <div className='p-6' key={`${activeTab}-${versionToActivate}`}>
-                {requiresApiKeyForDeployment && activeTab === 'api' && (
-                  <>
-                    {versionToActivate === null && isDeployed ? (
-                      <>
-                        <DeploymentInfo
-                          isLoading={isLoading}
-                          deploymentInfo={
-                            deploymentInfo ? { ...deploymentInfo, needsRedeployment } : null
-                          }
-                          onRedeploy={handleRedeploy}
-                          onUndeploy={handleUndeploy}
-                          isSubmitting={isSubmitting}
-                          isUndeploying={isUndeploying}
-                          workflowId={workflowId}
-                          deployedState={deployedState}
-                          isLoadingDeployedState={isLoadingDeployedState}
-                          getInputFormatExample={getInputFormatExample}
-                          selectedStreamingOutputs={selectedStreamingOutputs}
-                          onSelectedStreamingOutputsChange={setSelectedStreamingOutputs}
-                          showApiAccessInfo={hasApiExecutionAccess}
-                        />
-                      </>
-                    ) : (
-                      <>
-                        {apiDeployError && (
-                          <div className='mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-destructive text-sm'>
-                            <div className='font-semibold'>
-                              {hasApiExecutionAccess ? 'API Deployment Error' : 'Deployment Error'}
-                            </div>
-                            <div>{apiDeployError}</div>
+              <div className='flex flex-1 overflow-hidden'>
+                <div className='hidden w-64 flex-shrink-0 border-border border-r bg-background py-1 sm:flex'>
+                  <div className='flex min-h-0 flex-1 flex-col overflow-y-auto px-2'>
+                    <div className='space-y-3 py-1'>
+                      <div className='space-y-2'>
+                        <div className={deployNavGroupLabelClass}>Info</div>
+                        <div className='space-y-1'>
+                          {infoTabItems.map((tab) => (
+                            <button
+                              key={tab.key}
+                              type='button'
+                              onClick={() => setActiveTab(tab.key)}
+                              data-active={activeTab === tab.key}
+                              aria-current={activeTab === tab.key ? 'page' : undefined}
+                              className={deployNavButtonClass}
+                            >
+                              <span className='truncate'>{tab.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {nativeTriggerTabItems.length > 0 && (
+                        <div className='space-y-2'>
+                          <div className={deployNavGroupLabelClass}>Native</div>
+                          <div className='space-y-1'>
+                            {nativeTriggerTabItems.map((tab) => (
+                              <button
+                                key={tab.key}
+                                type='button'
+                                onClick={() => setActiveTab(tab.key)}
+                                data-active={activeTab === tab.key}
+                                aria-current={activeTab === tab.key ? 'page' : undefined}
+                                className={deployNavButtonClass}
+                              >
+                                <span className='truncate'>{tab.label}</span>
+                              </button>
+                            ))}
                           </div>
-                        )}
+                        </div>
+                      )}
 
-                        <div className='-mx-1 px-1'>
-                          {!hasApiExecutionAccess && (
-                            <div className='mb-3 rounded-md border p-3 text-muted-foreground text-sm'>
-                              Select a deployment API key for billing and usage attribution.
+                      {integrationTriggerTabItems.length > 0 && (
+                        <div className='space-y-2'>
+                          <div className={deployNavGroupLabelClass}>Integration</div>
+                          <div className='space-y-1'>
+                            {integrationTriggerTabItems.map((tab) => (
+                              <button
+                                key={tab.key}
+                                type='button'
+                                onClick={() => setActiveTab(tab.key)}
+                                data-active={activeTab === tab.key}
+                                aria-current={activeTab === tab.key ? 'page' : undefined}
+                                className={deployNavButtonClass}
+                              >
+                                <span className='truncate'>{tab.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className='flex min-w-0 flex-1 flex-col overflow-hidden'>
+                  <div className='flex flex-none flex-col gap-3 border-b px-6 py-4 sm:hidden'>
+                    <div className='flex flex-wrap items-center gap-2'>
+                      <span className={cn(deployNavGroupLabelClass, 'mr-1 h-auto px-0')}>Info</span>
+                      {showBillingTab && (
+                        <button
+                          onClick={() => setActiveTab(BILLING_TAB_KEY)}
+                          data-active={activeTab === BILLING_TAB_KEY}
+                          className={deployInlineNavButtonClass}
+                        >
+                          Billing
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setActiveTab('versions')}
+                        data-active={activeTab === 'versions'}
+                        className={deployInlineNavButtonClass}
+                      >
+                        Versions
+                      </button>
+                    </div>
+
+                    {nativeTriggerTabItems.length > 0 && (
+                      <div className='rounded-lg border border-border bg-background p-2'>
+                        <div className={cn(deployNavGroupLabelClass, 'mb-2 h-auto')}>Native</div>
+                        <Tabs value={activeNativeTriggerTabValue} onValueChange={setActiveTab}>
+                          <div
+                            onWheel={handleTriggerTabsWheel}
+                            className='overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+                          >
+                            <TabsList className='h-auto w-max min-w-full justify-start gap-1 rounded-md bg-transparent p-0'>
+                              {nativeTriggerTabItems.map((tab) => (
+                                <TabsTrigger
+                                  key={tab.key}
+                                  value={tab.key}
+                                  className='h-8 rounded-md bg-background px-3 text-muted-foreground data-[state=active]:bg-sidebar-accent data-[state=active]:font-medium data-[state=active]:text-sidebar-accent-foreground'
+                                >
+                                  {tab.label}
+                                </TabsTrigger>
+                              ))}
+                            </TabsList>
+                          </div>
+                        </Tabs>
+                      </div>
+                    )}
+
+                    {integrationTriggerTabItems.length > 0 && (
+                      <div className='rounded-lg border border-border bg-background p-2'>
+                        <div className={cn(deployNavGroupLabelClass, 'mb-2 h-auto')}>
+                          Integration
+                        </div>
+                        <Tabs value={activeIntegrationTriggerTabValue} onValueChange={setActiveTab}>
+                          <div
+                            onWheel={handleTriggerTabsWheel}
+                            className='overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+                          >
+                            <TabsList className='h-auto w-max min-w-full justify-start gap-1 rounded-md bg-transparent p-0'>
+                              {integrationTriggerTabItems.map((tab) => (
+                                <TabsTrigger
+                                  key={tab.key}
+                                  value={tab.key}
+                                  className='h-8 rounded-md bg-background px-3 text-muted-foreground data-[state=active]:bg-sidebar-accent data-[state=active]:font-medium data-[state=active]:text-sidebar-accent-foreground'
+                                >
+                                  {tab.label}
+                                </TabsTrigger>
+                              ))}
+                            </TabsList>
+                          </div>
+                        </Tabs>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className='flex-1 overflow-y-auto'>
+                    <div className='p-6' key={`${activeTab}-${versionToActivate}`}>
+                      {activeTabMeta && (
+                        <div className='mb-5 rounded-lg border bg-muted/20 px-4 py-3'>
+                          <div className='font-medium text-sm'>{activeTabMeta.title}</div>
+                          <div className='mt-1 text-muted-foreground text-sm leading-6'>
+                            {activeTabMeta.description}
+                          </div>
+                        </div>
+                      )}
+
+                      {showBillingTab && activeTab === BILLING_TAB_KEY && (
+                        <>
+                          {isWorkflowDeployed && (
+                            <div className='mb-4'>
+                              <DeploymentInfo
+                                isLoading={isLoading}
+                                deploymentInfo={deploymentInfo}
+                                workflowId={workflowId}
+                                getInputFormatExample={getInputFormatExample}
+                                selectedStreamingOutputs={selectedStreamingOutputs}
+                                onSelectedStreamingOutputsChange={setSelectedStreamingOutputs}
+                                showApiKeyInfo={true}
+                                showApiAccessInfo={false}
+                              />
                             </div>
                           )}
-                          <DeployForm
-                            apiKeys={apiKeys}
-                            selectedApiKeyId={selectedApiKeyId}
-                            onApiKeyChange={setSelectedApiKeyId}
-                            onSubmit={onDeploy}
-                            onApiKeyCreated={fetchApiKeys}
-                            formId='deploy-api-form'
-                            isDeployed={false}
-                            deployedApiKeyDisplay={undefined}
-                          />
-                        </div>
-                      </>
-                    )}
-                  </>
-                )}
 
-                {activeTab === 'versions' && (
-                  <>
-                    {!requiresApiKeyForDeployment && apiDeployError && (
-                      <div className='mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-destructive text-sm'>
-                        <div className='font-semibold'>Deployment Error</div>
-                        <div>{apiDeployError}</div>
-                      </div>
-                    )}
-                    <div className='mb-3 font-medium text-sm'>Deployment Versions</div>
-                    {versionsLoading ? (
-                      <div className='rounded-md border p-4 text-center text-muted-foreground text-sm'>
-                        Loading deployments...
-                      </div>
-                    ) : versions.length === 0 ? (
-                      <div className='rounded-md border p-4 text-center text-muted-foreground text-sm'>
-                        No deployments yet
-                      </div>
-                    ) : (
-                      <>
-                        <div className='overflow-hidden rounded-md border'>
-                          <table className='w-full'>
-                            <thead className='border-b bg-muted/50'>
-                              <tr>
-                                <th className='w-10' />
-                                <th className='w-[200px] whitespace-nowrap px-4 py-2 text-left font-medium text-muted-foreground text-xs'>
-                                  Version
-                                </th>
-                                <th className='whitespace-nowrap px-4 py-2 text-left font-medium text-muted-foreground text-xs'>
-                                  Deployed By
-                                </th>
-                                <th className='whitespace-nowrap px-4 py-2 text-left font-medium text-muted-foreground text-xs'>
-                                  Created
-                                </th>
-                                <th className='w-10' />
-                              </tr>
-                            </thead>
-                            <tbody className='divide-y'>
-                              {versions
-                                .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-                                .map((v) => (
-                                  <tr
-                                    key={v.id}
-                                    className='cursor-pointer transition-colors hover:bg-card/30'
-                                    onClick={() => {
-                                      if (editingVersion !== v.version) {
-                                        openVersionPreview(v.version)
-                                      }
-                                    }}
-                                  >
-                                    <td className='px-4 py-2.5'>
-                                      <div
-                                        className={`h-2 w-2 rounded-full ${
-                                          v.isActive ? 'bg-green-500' : 'bg-muted-foreground/40'
-                                        }`}
-                                        title={v.isActive ? 'Active' : 'Inactive'}
-                                      />
-                                    </td>
-                                    <td className='w-[220px] max-w-[220px] px-4 py-2.5'>
-                                      {editingVersion === v.version ? (
-                                        <input
-                                          ref={inputRef}
-                                          value={editValue}
-                                          onChange={(e) => setEditValue(e.target.value)}
-                                          onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                              e.preventDefault()
-                                              handleSaveRename(v.version)
-                                            } else if (e.key === 'Escape') {
-                                              e.preventDefault()
-                                              handleCancelRename()
-                                            }
-                                          }}
-                                          onBlur={() => handleSaveRename(v.version)}
-                                          className='w-full border-0 bg-transparent p-0 font-medium text-sm leading-5 outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
-                                          maxLength={100}
-                                          disabled={isRenaming}
-                                          autoComplete='off'
-                                          autoCorrect='off'
-                                          autoCapitalize='off'
-                                          spellCheck='false'
-                                        />
-                                      ) : (
-                                        <span className='block whitespace-pre-wrap break-words break-all font-medium text-sm leading-5'>
-                                          {v.name || `v${v.version}`}
-                                        </span>
-                                      )}
-                                    </td>
-                                    <td className='whitespace-nowrap px-4 py-2.5'>
-                                      <span className='text-muted-foreground text-sm'>
-                                        {v.deployedBy || 'Unknown'}
-                                      </span>
-                                    </td>
-                                    <td className='whitespace-nowrap px-4 py-2.5'>
-                                      <span className='text-muted-foreground text-sm'>
-                                        {new Date(v.createdAt).toLocaleDateString()}{' '}
-                                        {new Date(v.createdAt).toLocaleTimeString()}
-                                      </span>
-                                    </td>
-                                    <td
-                                      className='px-4 py-2.5'
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <DropdownMenu
-                                        open={openDropdown === v.version}
-                                        onOpenChange={(open) =>
-                                          setOpenDropdown(open ? v.version : null)
-                                        }
-                                      >
-                                        <DropdownMenuTrigger asChild>
-                                          <Button
-                                            variant='ghost'
-                                            size='icon'
-                                            className='h-8 w-8'
-                                            disabled={activatingVersion === v.version}
-                                          >
-                                            <MoreVertical className='h-4 w-4' />
-                                          </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent
-                                          align='end'
-                                          onCloseAutoFocus={(event) => event.preventDefault()}
-                                        >
-                                          <DropdownMenuItem
-                                            onClick={() => openVersionPreview(v.version)}
-                                          >
-                                            {v.isActive ? 'View Active' : 'Inspect'}
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem
-                                            onClick={() => handleStartRename(v.version, v.name)}
-                                          >
-                                            Rename
-                                          </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                      </DropdownMenu>
-                                    </td>
-                                  </tr>
-                                ))}
-                            </tbody>
-                          </table>
-                        </div>
-                        {versions.length > itemsPerPage && (
-                          <div className='mt-3 flex items-center justify-between'>
-                            <span className='text-muted-foreground text-sm'>
-                              Showing{' '}
-                              {Math.min((currentPage - 1) * itemsPerPage + 1, versions.length)} -{' '}
-                              {Math.min(currentPage * itemsPerPage, versions.length)} of{' '}
-                              {versions.length}
-                            </span>
-                            <div className='flex gap-2'>
+                          <div className='-mx-1 px-1'>
+                            <div className='mb-3 rounded-md border p-3 text-muted-foreground text-sm'>
+                              Select the shared API key used for workflow deployment, billing
+                              attribution, and API trigger authentication.
+                            </div>
+                            <DeployForm
+                              apiKeys={apiKeys}
+                              selectedApiKeyId={selectedApiKeyId}
+                              onApiKeyChange={setSelectedApiKeyId}
+                              onSubmit={onDeploy}
+                              onApiKeyCreated={fetchApiKeys}
+                              formId='deploy-api-form'
+                              isDeployed={false}
+                              deployedApiKeyDisplay={deploymentInfo?.apiKey}
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      {hasApiTriggerTab && activeTab === API_TRIGGER_TAB_KEY && (
+                        <>
+                          <div className='mb-4 rounded-md border bg-muted/20 p-4 text-sm'>
+                            <div className='font-medium'>Shared API Key</div>
+                            <div className='mt-1 text-muted-foreground'>
+                              {apiTriggerSharedKeyMessage}
+                            </div>
+                            <div className='mt-3'>
                               <Button
+                                type='button'
                                 variant='outline'
                                 size='sm'
-                                onClick={() => setCurrentPage(currentPage - 1)}
-                                disabled={currentPage === 1}
+                                onClick={() => setActiveTab(BILLING_TAB_KEY)}
                               >
-                                Previous
-                              </Button>
-                              <Button
-                                variant='outline'
-                                size='sm'
-                                onClick={() => setCurrentPage(currentPage + 1)}
-                                disabled={currentPage * itemsPerPage >= versions.length}
-                              >
-                                Next
+                                Manage in Billing
                               </Button>
                             </div>
                           </div>
+
+                          {versionToActivate === null && isWorkflowDeployed ? (
+                            <DeploymentInfo
+                              isLoading={isLoading}
+                              deploymentInfo={deploymentInfo}
+                              workflowId={workflowId}
+                              getInputFormatExample={getInputFormatExample}
+                              selectedStreamingOutputs={selectedStreamingOutputs}
+                              onSelectedStreamingOutputsChange={setSelectedStreamingOutputs}
+                              showApiKeyInfo={false}
+                              showApiAccessInfo={true}
+                            />
+                          ) : (
+                            <>
+                              <div className='rounded-md border p-4 text-muted-foreground text-sm'>
+                                {versionToActivate !== null
+                                  ? 'Activate the selected deployment version to update the API trigger endpoint.'
+                                  : 'Deploy the workflow to create the API trigger endpoint.'}
+                              </div>
+                            </>
+                          )}
+                        </>
+                      )}
+
+                      {activeTab === 'versions' && (
+                        <>
+                          {versionsLoading ? (
+                            <div className='rounded-md border p-4 text-center text-muted-foreground text-sm'>
+                              Loading deployments...
+                            </div>
+                          ) : versions.length === 0 ? (
+                            <div className='rounded-md border p-4 text-center text-muted-foreground text-sm'>
+                              No deployments yet
+                            </div>
+                          ) : (
+                            <>
+                              <div className='overflow-hidden rounded-md border'>
+                                <table className='w-full'>
+                                  <thead className='border-b bg-muted/50'>
+                                    <tr>
+                                      <th className='w-10' />
+                                      <th className='w-[200px] whitespace-nowrap px-4 py-2 text-left font-medium text-muted-foreground text-xs'>
+                                        Version
+                                      </th>
+                                      <th className='whitespace-nowrap px-4 py-2 text-left font-medium text-muted-foreground text-xs'>
+                                        Deployed By
+                                      </th>
+                                      <th className='whitespace-nowrap px-4 py-2 text-left font-medium text-muted-foreground text-xs'>
+                                        Created
+                                      </th>
+                                      <th className='w-10' />
+                                    </tr>
+                                  </thead>
+                                  <tbody className='divide-y'>
+                                    {versions
+                                      .slice(
+                                        (currentPage - 1) * itemsPerPage,
+                                        currentPage * itemsPerPage
+                                      )
+                                      .map((v) => (
+                                        <tr
+                                          key={v.id}
+                                          className='cursor-pointer transition-colors hover:bg-card/30'
+                                          onClick={() => {
+                                            if (editingVersion !== v.version) {
+                                              openVersionPreview(v.version)
+                                            }
+                                          }}
+                                        >
+                                          <td className='px-4 py-2.5'>
+                                            <div
+                                              className={`h-2 w-2 rounded-full ${v.isActive
+                                                ? 'bg-green-500'
+                                                : 'bg-muted-foreground/40'
+                                                }`}
+                                              title={v.isActive ? 'Active' : 'Inactive'}
+                                            />
+                                          </td>
+                                          <td className='w-[220px] max-w-[220px] px-4 py-2.5'>
+                                            {editingVersion === v.version ? (
+                                              <input
+                                                ref={inputRef}
+                                                value={editValue}
+                                                onChange={(e) => setEditValue(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                  if (e.key === 'Enter') {
+                                                    e.preventDefault()
+                                                    handleSaveRename(v.version)
+                                                  } else if (e.key === 'Escape') {
+                                                    e.preventDefault()
+                                                    handleCancelRename()
+                                                  }
+                                                }}
+                                                onBlur={() => handleSaveRename(v.version)}
+                                                className='w-full border-0 bg-transparent p-0 font-medium text-sm leading-5 outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
+                                                maxLength={100}
+                                                disabled={isRenaming}
+                                                autoComplete='off'
+                                                autoCorrect='off'
+                                                autoCapitalize='off'
+                                                spellCheck='false'
+                                              />
+                                            ) : (
+                                              <span className='block whitespace-pre-wrap break-words break-all font-medium text-sm leading-5'>
+                                                {v.name || `v${v.version}`}
+                                              </span>
+                                            )}
+                                          </td>
+                                          <td className='whitespace-nowrap px-4 py-2.5'>
+                                            <span className='text-muted-foreground text-sm'>
+                                              {v.deployedBy || 'Unknown'}
+                                            </span>
+                                          </td>
+                                          <td className='whitespace-nowrap px-4 py-2.5'>
+                                            <span className='text-muted-foreground text-sm'>
+                                              {new Date(v.createdAt).toLocaleDateString()}{' '}
+                                              {new Date(v.createdAt).toLocaleTimeString()}
+                                            </span>
+                                          </td>
+                                          <td
+                                            className='px-4 py-2.5'
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <DropdownMenu
+                                              open={openDropdown === v.version}
+                                              onOpenChange={(open) =>
+                                                setOpenDropdown(open ? v.version : null)
+                                              }
+                                            >
+                                              <DropdownMenuTrigger asChild>
+                                                <Button
+                                                  variant='ghost'
+                                                  size='icon'
+                                                  className='h-8 w-8'
+                                                  disabled={activatingVersion === v.version}
+                                                >
+                                                  <MoreVertical className='h-4 w-4' />
+                                                </Button>
+                                              </DropdownMenuTrigger>
+                                              <DropdownMenuContent
+                                                align='end'
+                                                onCloseAutoFocus={(event) => event.preventDefault()}
+                                              >
+                                                <DropdownMenuItem
+                                                  onClick={() => openVersionPreview(v.version)}
+                                                >
+                                                  {v.isActive ? 'View Active' : 'Inspect'}
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem
+                                                  onClick={() =>
+                                                    handleStartRename(v.version, v.name)
+                                                  }
+                                                >
+                                                  Rename
+                                                </DropdownMenuItem>
+                                              </DropdownMenuContent>
+                                            </DropdownMenu>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                              {versions.length > itemsPerPage && (
+                                <div className='mt-3 flex items-center justify-between'>
+                                  <span className='text-muted-foreground text-sm'>
+                                    Showing{' '}
+                                    {Math.min(
+                                      (currentPage - 1) * itemsPerPage + 1,
+                                      versions.length
+                                    )}{' '}
+                                    - {Math.min(currentPage * itemsPerPage, versions.length)} of{' '}
+                                    {versions.length}
+                                  </span>
+                                  <div className='flex gap-2'>
+                                    <Button
+                                      variant='outline'
+                                      size='sm'
+                                      onClick={() => setCurrentPage(currentPage - 1)}
+                                      disabled={currentPage === 1}
+                                    >
+                                      Previous
+                                    </Button>
+                                    <Button
+                                      variant='outline'
+                                      size='sm'
+                                      onClick={() => setCurrentPage(currentPage + 1)}
+                                      disabled={currentPage * itemsPerPage >= versions.length}
+                                    >
+                                      Next
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </>
+                      )}
+
+                      {triggerDeployTabs
+                        .filter((tab) => tab.key === activeTab)
+                        .map((tab) => (
+                          <div key={tab.key}>{renderTriggerTab(tab.blockId, tab.subBlocks)}</div>
+                        ))}
+
+                      {hasChatTrigger && activeTab === 'chat' && chatTriggerBlock && (
+                        <ChatDeploy
+                          workflowId={workflowId || ''}
+                          blockId={chatTriggerBlock.id}
+                          publishedChat={publishedChat}
+                          onBusyChange={setIsChatConfigBusy}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {showFooter && (
+                <div className='flex flex-shrink-0 items-center justify-between border-t px-6 py-4'>
+                  {showFooterStatus ? (
+                    <DeployStatus needsRedeployment={needsRedeployment} />
+                  ) : (
+                    <div />
+                  )}
+
+                  <div className='flex items-center gap-2'>
+                    {showViewDeploymentButton && (
+                      <Button
+                        variant='outline'
+                        size='sm'
+                        disabled={!canViewActiveDeployment}
+                        onClick={() => setIsViewingActiveDeployment(true)}
+                      >
+                        View Deployment
+                      </Button>
+                    )}
+                    {showUndeployButton && (
+                      <Button
+                        variant='outline'
+                        size='sm'
+                        onClick={() => setShowUndeployConfirm(true)}
+                        disabled={isUndeploying}
+                      >
+                        {isUndeploying ? 'Undeploying...' : 'Undeploy'}
+                      </Button>
+                    )}
+
+                    {showFooterPrimaryAction && (
+                      <Button
+                        type='button'
+                        disabled={footerPrimaryDisabled}
+                        onClick={handleFooterPrimaryAction}
+                        className={cn(
+                          'gap-2 font-medium',
+                          'bg-primary hover:bg-primary-hover',
+                          'shadow-[0_0_0_0_var(--primary-hover)]',
+                          'transition-all duration-200',
+                          'disabled:opacity-50 disabled:hover:bg-primary-hover disabled:hover:shadow-none'
                         )}
-                      </>
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className='mr-1.5 h-3.5 w-3.5 animate-spin' />
+                            Deploying...
+                          </>
+                        ) : (
+                          footerPrimaryLabel
+                        )}
+                      </Button>
                     )}
-                  </>
-                )}
-
-                {triggerDeployTabs
-                  .filter((tab) => tab.key === activeTab)
-                  .map((tab) => (
-                    <div key={tab.key}>{renderTriggerTab(tab.blockId, tab.subBlocks)}</div>
-                  ))}
-
-                {hasChatTrigger && activeTab === 'chat' && (
-                  <>
-                    <ChatDeploy
-                      workflowId={workflowId || ''}
-                      deploymentInfo={selectedApiKeyId ? { apiKey: selectedApiKeyId } : null}
-                      onChatExistsChange={setChatExists}
-                      chatSubmitting={chatSubmitting}
-                      setChatSubmitting={setChatSubmitting}
-                      onValidationChange={setIsChatFormValid}
-                      onDeploymentComplete={handleCloseModal}
-                      onDeployed={handlePostDeploymentUpdate}
-                      onUndeploy={handleUndeploy}
-                      onVersionActivated={() => setVersionToActivate(null)}
-                    />
-                  </>
-                )}
-              </div>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-
-          {activeTab !== 'chat' &&
-            hasNonChatDeployPath &&
-            (versionToActivate !== null || !isDeployed || needsRedeployment) && (
-              <div className='flex flex-shrink-0 justify-between border-t px-6 py-4'>
-                <Button variant='outline' onClick={handleCloseModal}>
-                  Cancel
-                </Button>
-
-                <Button
-                  type='button'
-                  disabled={
-                    isSubmitting ||
-                    (requiresApiKeyForDeployment && !selectedApiKeyId) ||
-                    hasIncompleteTriggerConfiguration
-                  }
-                  onClick={() => onDeploy({ apiKey: selectedApiKeyId })}
-                  className={cn(
-                    'gap-2 font-medium',
-                    'bg-primary-hover hover:bg-primary-hover',
-                    'shadow-[0_0_0_0_var(--primary-hover)] ',
-                    'transition-all duration-200',
-                    'disabled:opacity-50 disabled:hover:bg-primary-hover disabled:hover:shadow-none'
-                  )}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className='mr-1.5 h-3.5 w-3.5 animate-spin' />
-                      Deploying...
-                    </>
-                  ) : versionToActivate !== null ? (
-                    `Deploy ${versions.find((v) => v.version === versionToActivate)?.name || `v${versionToActivate}`}`
-                  ) : needsRedeployment ? (
-                    'Redeploy Workflow'
-                  ) : (
-                    'Deploy Workflow'
-                  )}
-                </Button>
-              </div>
-            )}
-
-          {hasChatTrigger && activeTab === 'chat' && (
-            <div className='flex flex-shrink-0 justify-between border-t px-6 py-4'>
-              <Button variant='outline' onClick={handleCloseModal}>
-                Cancel
-              </Button>
-
-              <div className='flex gap-2'>
-                {chatExists && (
-                  <Button
-                    type='button'
-                    onClick={() => {
-                      const form = document.getElementById('chat-deploy-form') as HTMLFormElement
-                      if (form) {
-                        const deleteButton = form.querySelector(
-                          '[data-delete-trigger]'
-                        ) as HTMLButtonElement
-                        if (deleteButton) {
-                          deleteButton.click()
-                        }
-                      }
-                    }}
-                    disabled={chatSubmitting}
-                    className={cn(
-                      'gap-2 font-medium',
-                      'bg-red-500 hover:bg-red-600',
-                      'shadow-[0_0_0_0_rgb(239,68,68)] hover:shadow-[0_0_0_4px_rgba(239,68,68,0.15)]',
-                      'text-white transition-all duration-200',
-                      'disabled:opacity-50 disabled:hover:bg-red-500 disabled:hover:shadow-none'
-                    )}
-                  >
-                    Delete
-                  </Button>
-                )}
-                <Button
-                  type='button'
-                  onClick={handleChatFormSubmit}
-                  disabled={chatSubmitting || !isChatFormValid || !selectedApiKeyId}
-                  className={cn(
-                    'gap-2 font-medium',
-                    'bg-primary-hover hover:bg-primary-hover',
-                    'shadow-[0_0_0_0_var(--primary-hover)] ',
-                    'text-white transition-all duration-200',
-                    'disabled:opacity-50 disabled:hover:bg-primary-hover disabled:hover:shadow-none'
-                  )}
-                >
-                  {chatSubmitting ? (
-                    <>
-                      <Loader2 className='mr-1.5 h-3.5 w-3.5 animate-spin' />
-                      Deploying...
-                    </>
-                  ) : chatExists ? (
-                    'Update'
-                  ) : (
-                    'Deploy Chat'
-                  )}
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-        {previewVersion !== null && previewDeployedState && workflowId && (
-          <DeployedWorkflowModal
-            isOpen={true}
-            onClose={() => {
-              setPreviewVersion(null)
-              setPreviewDeployedState(null)
-            }}
-            needsRedeployment={true}
-            activeDeployedState={deployedState}
-            selectedDeployedState={previewDeployedState as WorkflowState}
-            selectedVersion={previewVersion}
-            onActivateVersion={() => {
-              handleActivateVersion(previewVersion)
-              setPreviewVersion(null)
-              setPreviewDeployedState(null)
-            }}
-            isActivating={activatingVersion === previewVersion}
-            selectedVersionLabel={
-              versions.find((v) => v.version === previewVersion)?.name || `v${previewVersion}`
-            }
-            workflowId={workflowId}
-            isSelectedVersionActive={versions.find((v) => v.version === previewVersion)?.isActive}
-          />
+          </div>,
+          overlayContainer
         )}
-      </Dialog>
+
+      <AlertDialog open={showUndeployConfirm} onOpenChange={setShowUndeployConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {hasApiTriggerTab ? 'Undeploy API' : 'Undeploy Workflow'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {hasApiTriggerTab
+                ? 'Are you sure you want to undeploy this workflow? This will remove the API endpoint and make it unavailable to external users.'
+                : 'Are you sure you want to undeploy this workflow? This will stop deployed trigger processing for this workflow.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isUndeploying}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleFooterUndeploy}
+              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              disabled={isUndeploying}
+            >
+              {isUndeploying ? 'Undeploying...' : 'Undeploy'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {isViewingActiveDeployment && deployedState && workflowId && (
+        <DeployedWorkflowModal
+          isOpen={true}
+          onClose={() => setIsViewingActiveDeployment(false)}
+          needsRedeployment={needsRedeployment}
+          activeDeployedState={deployedState}
+          workflowId={workflowId}
+        />
+      )}
+      {previewVersion !== null && previewDeployedState && workflowId && (
+        <DeployedWorkflowModal
+          isOpen={true}
+          onClose={() => {
+            setPreviewVersion(null)
+            setPreviewDeployedState(null)
+          }}
+          needsRedeployment={true}
+          activeDeployedState={deployedState ?? undefined}
+          selectedDeployedState={previewDeployedState as WorkflowState}
+          selectedVersion={previewVersion}
+          onActivateVersion={() => {
+            handleActivateVersion(previewVersion)
+            setPreviewVersion(null)
+            setPreviewDeployedState(null)
+          }}
+          isActivating={activatingVersion === previewVersion}
+          selectedVersionLabel={
+            versions.find((v) => v.version === previewVersion)?.name || `v${previewVersion}`
+          }
+          workflowId={workflowId}
+          isSelectedVersionActive={versions.find((v) => v.version === previewVersion)?.isActive}
+        />
+      )}
     </>
   )
 }
