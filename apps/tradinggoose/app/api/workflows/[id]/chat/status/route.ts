@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
-import { chat } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
+import { chat, workflowDeploymentVersion } from '@tradinggoose/db/schema'
+import { and, desc, eq } from 'drizzle-orm'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
@@ -17,7 +17,25 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   try {
     logger.debug(`[${requestId}] Checking chat deployment status for workflow: ${id}`)
 
-    // Find any active chat deployments for this workflow
+    const [activeDeployment] = await db
+      .select({ id: workflowDeploymentVersion.id })
+      .from(workflowDeploymentVersion)
+      .where(
+        and(
+          eq(workflowDeploymentVersion.workflowId, id),
+          eq(workflowDeploymentVersion.isActive, true)
+        )
+      )
+      .orderBy(desc(workflowDeploymentVersion.createdAt))
+      .limit(1)
+
+    if (!activeDeployment) {
+      return createSuccessResponse({
+        isDeployed: false,
+        deployment: null,
+      })
+    }
+
     const deploymentResults = await db
       .select({
         id: chat.id,
@@ -25,16 +43,35 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         isActive: chat.isActive,
       })
       .from(chat)
-      .where(eq(chat.workflowId, id))
+      .where(
+        and(
+          eq(chat.workflowId, id),
+          eq(chat.deploymentVersionId, activeDeployment.id),
+          eq(chat.isActive, true)
+        )
+      )
       .limit(1)
 
-    const isDeployed = deploymentResults.length > 0 && deploymentResults[0].isActive
-    const deploymentInfo =
+    const legacyDeploymentResults =
       deploymentResults.length > 0
+        ? deploymentResults
+        : await db
+            .select({
+              id: chat.id,
+              identifier: chat.identifier,
+              isActive: chat.isActive,
+            })
+            .from(chat)
+            .where(and(eq(chat.workflowId, id), eq(chat.isActive, true)))
+            .limit(1)
+
+    const isDeployed = legacyDeploymentResults.length > 0
+    const deploymentInfo =
+      legacyDeploymentResults.length > 0
         ? {
-          id: deploymentResults[0].id,
-          identifier: deploymentResults[0].identifier,
-        }
+            id: legacyDeploymentResults[0].id,
+            identifier: legacyDeploymentResults[0].identifier,
+          }
         : null
 
     return createSuccessResponse({
