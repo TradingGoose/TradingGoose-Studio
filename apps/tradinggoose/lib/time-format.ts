@@ -72,6 +72,49 @@ export const formatUtcDateTime = (date: Date): string =>
 export const formatUtcDate = (date: Date): string =>
   `${date.getUTCFullYear()}-${pad2(date.getUTCMonth() + 1)}-${pad2(date.getUTCDate())}`
 
+export const resolveStoredDateValue = (raw: unknown): Date | undefined => {
+  if (!raw) return undefined
+  if (raw instanceof Date) return Number.isNaN(raw.getTime()) ? undefined : raw
+  if (typeof raw === 'number') {
+    const date = new Date(raw)
+    return Number.isNaN(date.getTime()) ? undefined : date
+  }
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim()
+    if (!trimmed) return undefined
+    if (/^\d+$/.test(trimmed)) {
+      const numeric = Number(trimmed)
+      if (!Number.isNaN(numeric)) {
+        const ms = trimmed.length <= 10 ? numeric * 1000 : numeric
+        const date = new Date(ms)
+        return Number.isNaN(date.getTime()) ? undefined : date
+      }
+    }
+    const date = new Date(trimmed)
+    return Number.isNaN(date.getTime()) ? undefined : date
+  }
+  return undefined
+}
+
+export const parseStoredTimeValue = (raw: string | null | undefined): Date => {
+  const now = new Date()
+  if (!raw) return now
+  const [hours, minutes, seconds] = raw.split(':')
+  const hour = Number.parseInt(hours, 10)
+  const minute = Number.parseInt(minutes, 10)
+  const second = Number.parseInt(seconds ?? '0', 10)
+  if (Number.isNaN(hour) || Number.isNaN(minute) || Number.isNaN(second)) return now
+  return new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    hour,
+    minute,
+    second,
+    0
+  )
+}
+
 export const shouldSkipTimeValidation = (value: string): boolean => {
   if (!value) return true
   return /<[^>]*>/.test(value) || /\{\{[^}]*\}\}/.test(value)

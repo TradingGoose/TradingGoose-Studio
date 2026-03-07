@@ -36,8 +36,6 @@ interface FolderSelectorProps {
   disabled?: boolean
   serviceId?: string
   onFolderInfoChange?: (folderInfo: FolderInfo | null) => void
-  isPreview?: boolean
-  previewValue?: any | null
   credentialId?: string
   workflowId?: string
   isForeignCredential?: boolean
@@ -52,8 +50,6 @@ export function FolderSelector({
   disabled = false,
   serviceId,
   onFolderInfoChange,
-  isPreview = false,
-  previewValue,
   credentialId,
   workflowId,
   isForeignCredential = false,
@@ -72,12 +68,8 @@ export function FolderSelector({
 
   // Initialize selectedFolderId with the effective value
   useEffect(() => {
-    if (isPreview && previewValue !== undefined) {
-      setSelectedFolderId(previewValue || '')
-    } else {
-      setSelectedFolderId(value)
-    }
-  }, [value, isPreview, previewValue])
+    setSelectedFolderId(value)
+  }, [value])
 
   // Keep internal credential in sync with prop
   useEffect(() => {
@@ -292,30 +284,26 @@ export function FolderSelector({
   // Keep internal selectedFolderId in sync with the value prop
   useEffect(() => {
     if (disabled) return
-    const currentValue = isPreview ? previewValue : value
-    if (currentValue !== selectedFolderId) {
-      setSelectedFolderId(currentValue || '')
+    if (value !== selectedFolderId) {
+      setSelectedFolderId(value || '')
     }
-  }, [value, isPreview, previewValue, disabled])
+  }, [value, selectedFolderId, disabled])
 
   // Fetch the selected folder metadata once credentials are ready or value changes
   useEffect(() => {
     if (disabled) return
-    const currentValue = isPreview ? (previewValue as string) : (value as string)
     if (
-      currentValue &&
+      value &&
       selectedCredentialId &&
-      (!selectedFolder || selectedFolder.id !== currentValue)
+      (!selectedFolder || selectedFolder.id !== value)
     ) {
-      fetchFolderById(currentValue)
+      fetchFolderById(value)
     }
   }, [
     value,
     selectedCredentialId,
     selectedFolder,
     fetchFolderById,
-    isPreview,
-    previewValue,
     disabled,
   ])
 
@@ -323,9 +311,7 @@ export function FolderSelector({
   const handleSelectFolder = (folder: FolderInfo) => {
     setSelectedFolderId(folder.id)
     setSelectedFolder(folder)
-    if (!isPreview) {
-      onChange(folder.id, folder)
-    }
+    onChange(folder.id, folder)
     onFolderInfoChange?.(folder)
     setOpen(false)
   }

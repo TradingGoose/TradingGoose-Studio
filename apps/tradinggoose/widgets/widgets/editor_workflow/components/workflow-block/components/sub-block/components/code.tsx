@@ -30,8 +30,6 @@ interface CodeProps {
   language?: 'javascript' | 'json' | 'typescript' | 'python' | 'sql' | 'html' | 'plaintext'
   generationType?: GenerationType
   value?: string
-  isPreview?: boolean
-  previewValue?: string | null
   disabled?: boolean
   readOnly?: boolean
   collapsible?: boolean
@@ -58,8 +56,6 @@ export function Code({
   language = 'javascript',
   generationType = 'javascript-function-body',
   value: propValue,
-  isPreview = false,
-  previewValue,
   disabled = false,
   readOnly = false,
   collapsible,
@@ -238,14 +234,10 @@ IMPORTANT FORMATTING RULES:
   )
 
   const shouldUseStoreValue = propValue === undefined
-  const rawValue = isPreview
-    ? previewValue
-    : shouldUseStoreValue
-      ? storeValue
-      : propValue ?? code
+  const rawValue = shouldUseStoreValue ? storeValue : propValue ?? code
   const value = rawValue ?? defaultValue ?? ''
 
-  const isReadOnly = readOnly || disabled || isPreview
+  const isReadOnly = readOnly || disabled
 
   useEffect(() => {
     handleStreamStartRef.current = () => {
@@ -254,11 +246,11 @@ IMPORTANT FORMATTING RULES:
 
     handleGeneratedContentRef.current = (generatedCode: string) => {
       setCode(generatedCode)
-      if (!isPreview && !disabled && !readOnly) {
+      if (!disabled && !readOnly) {
         persistValue(generatedCode)
       }
     }
-  }, [isPreview, disabled, readOnly, persistValue])
+  }, [disabled, readOnly, persistValue])
 
   useEffect(() => {
     if (isAiStreaming) return
@@ -311,7 +303,7 @@ IMPORTANT FORMATTING RULES:
 
 
   const handleDrop = (e: React.DragEvent) => {
-    if (isPreview) return
+    if (isReadOnly) return
     e.preventDefault()
     try {
       const data = JSON.parse(e.dataTransfer.getData('application/json'))
@@ -337,7 +329,7 @@ IMPORTANT FORMATTING RULES:
   }
 
   const handleTagSelect = (newValue: string) => {
-    if (!isPreview) {
+    if (!isReadOnly) {
       setCode(newValue)
       persistValue(newValue, true)
     }
@@ -350,7 +342,7 @@ IMPORTANT FORMATTING RULES:
   }
 
   const handleEnvVarSelect = (newValue: string) => {
-    if (!isPreview) {
+    if (!isReadOnly) {
       setCode(newValue)
       persistValue(newValue, true)
     }
@@ -449,7 +441,7 @@ IMPORTANT FORMATTING RULES:
               {copied ? <Check className='h-4 w-4' /> : <Copy className='h-4 w-4' />}
             </Button>
           )}
-          {wandConfig?.enabled && !isCollapsed && !isAiStreaming && !isPreview && !readOnly && (
+          {wandConfig?.enabled && !isCollapsed && !isAiStreaming && !readOnly && (
             <Button
               variant='ghost'
               size='icon'
@@ -462,7 +454,7 @@ IMPORTANT FORMATTING RULES:
             </Button>
           )}
 
-          {showCollapseButton && !isAiStreaming && !isPreview && (
+          {showCollapseButton && !isAiStreaming && (
             <Button
               variant='ghost'
               size='sm'

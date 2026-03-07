@@ -18,8 +18,6 @@ import { useTagSelection } from '@/hooks/use-tag-selection'
 interface ListingSelectorInputProps {
   blockId: string
   subBlockId: string
-  isPreview?: boolean
-  previewValue?: ListingInputValue
   value?: ListingInputValue
   onChange?: (value: ListingInputValue) => void
   disabled?: boolean
@@ -38,8 +36,6 @@ function isVariableListingInput(value: string): boolean {
 export function ListingSelectorInput({
   blockId,
   subBlockId,
-  isPreview = false,
-  previewValue,
   value,
   onChange,
   disabled = false,
@@ -65,14 +61,9 @@ export function ListingSelectorInput({
   }, [ensureInstance, instanceId])
 
   const safeInstance = instance ?? createEmptyListingSelectorInstance()
-  const normalizedPreviewValue = previewValue === '' ? null : previewValue
   const normalizedValue = value === '' ? null : value
   const hasPropValue = value !== undefined
-  const currentValue = (isPreview
-    ? normalizedPreviewValue
-    : hasPropValue
-      ? normalizedValue
-      : storeValue) ?? null
+  const currentValue = (hasPropValue ? normalizedValue : storeValue) ?? null
   const currentListingIdentity = toListingValueObject(currentValue)
   const currentListing =
     currentValue && typeof currentValue === 'object'
@@ -151,7 +142,7 @@ export function ListingSelectorInput({
   ])
 
   useEffect(() => {
-    if (isPreview || disabled) return
+    if (disabled) return
     const normalizedProvider = providerValue ?? undefined
     const prevProvider = previousProviderRef.current
     const hasPreviousProvider = previousProviderRef.current !== undefined
@@ -190,7 +181,6 @@ export function ListingSelectorInput({
     safeInstance.providerId,
     instanceId,
     updateInstance,
-    isPreview,
     disabled,
     onChange,
     setStoreValue,
@@ -200,11 +190,11 @@ export function ListingSelectorInput({
     <ListingSelector
       instanceId={instanceId}
       blockId={blockId}
-      disabled={disabled || isPreview}
+      disabled={disabled}
       providerType={providerType ?? config?.providerType ?? 'market'}
       listingRequired={config?.required === true}
       onListingChange={(listing) => {
-        if (isPreview || disabled) return
+        if (disabled) return
         const normalizedListing = toListingValue(listing)
         if (onChange) {
           onChange(normalizedListing ?? null)
@@ -213,7 +203,7 @@ export function ListingSelectorInput({
         setStoreValue(normalizedListing ?? null)
       }}
       onListingValueChange={(value) => {
-        if (isPreview || disabled) return
+        if (disabled) return
         if (onChange) {
           onChange(value ?? null)
           return
@@ -221,7 +211,7 @@ export function ListingSelectorInput({
         setStoreValue(value ?? null)
       }}
       onListingTagSelect={(value) => {
-        if (isPreview || disabled) return
+        if (disabled) return
         emitTagSelection(value)
       }}
     />

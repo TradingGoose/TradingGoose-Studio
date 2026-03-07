@@ -15,7 +15,6 @@ const CREDENTIAL_SET_PREFIX = 'credentialSet:'
 interface UseWebhookManagementProps {
   blockId: string
   triggerId?: string
-  isPreview?: boolean
   useWebhookUrl?: boolean
 }
 
@@ -85,7 +84,6 @@ function resolveEffectiveTriggerId(
 export function useWebhookManagement({
   blockId,
   triggerId,
-  isPreview = false,
   useWebhookUrl = false,
 }: UseWebhookManagementProps): WebhookManagementState {
   const workflowId = useOptionalWorkflowRoute()?.workflowId
@@ -118,16 +116,16 @@ export function useWebhookManagement({
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
-    if (triggerId && !isPreview) {
+    if (triggerId) {
       const storedTriggerId = useSubBlockStore.getState().getValue(blockId, 'triggerId', workflowId)
       if (storedTriggerId !== triggerId) {
         useSubBlockStore.getState().setValue(blockId, 'triggerId', triggerId, workflowId)
       }
     }
-  }, [triggerId, blockId, isPreview, workflowId])
+  }, [triggerId, blockId, workflowId])
 
   useEffect(() => {
-    if (isPreview || !workflowId) {
+    if (!workflowId) {
       return
     }
 
@@ -234,7 +232,7 @@ export function useWebhookManagement({
     if (useWebhookUrl) {
       loadWebhookOrGenerateUrl()
     }
-  }, [isPreview, triggerId, workflowId, blockId, useWebhookUrl])
+  }, [triggerId, workflowId, blockId, useWebhookUrl])
 
   const createWebhook = async (
     effectiveTriggerId: string | undefined,
@@ -365,7 +363,7 @@ export function useWebhookManagement({
   }
 
   const saveConfig = async (): Promise<boolean> => {
-    if (isPreview || !triggerDef || !workflowId) {
+    if (!triggerDef || !workflowId) {
       return false
     }
 
@@ -393,7 +391,7 @@ export function useWebhookManagement({
   }
 
   const deleteConfig = async (): Promise<boolean> => {
-    if (isPreview || !webhookId) {
+    if (!webhookId) {
       return false
     }
 

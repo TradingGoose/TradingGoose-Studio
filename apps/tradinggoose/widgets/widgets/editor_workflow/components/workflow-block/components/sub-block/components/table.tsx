@@ -14,8 +14,6 @@ interface TableProps {
   blockId: string
   subBlockId: string
   columns: string[]
-  isPreview?: boolean
-  previewValue?: TableRow[] | null
   disabled?: boolean
 }
 
@@ -28,23 +26,18 @@ export function Table({
   blockId,
   subBlockId,
   columns,
-  isPreview = false,
-  previewValue,
   disabled = false,
 }: TableProps) {
   const workspaceId = useWorkspaceId()
   const [storeValue, setStoreValue] = useSubBlockValue<TableRow[]>(blockId, subBlockId)
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
-  // Use preview value when in preview mode, otherwise use store value
-  const value = isPreview ? previewValue : storeValue
-
   // Create refs for input elements
   const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map())
 
   // Ensure value is properly typed and initialized
   const rows = useMemo(() => {
-    if (!Array.isArray(value)) {
+    if (!Array.isArray(storeValue)) {
       return [
         {
           id: crypto.randomUUID(),
@@ -54,7 +47,7 @@ export function Table({
     }
 
     // Validate and fix each row to ensure proper structure
-    const validatedRows = value.map((row) => {
+    const validatedRows = storeValue.map((row) => {
       // Ensure row has an id
       if (!row.id) {
         row.id = crypto.randomUUID()
@@ -77,7 +70,7 @@ export function Table({
     })
 
     return validatedRows as TableRow[]
-  }, [value, columns])
+  }, [storeValue, columns])
 
   // Add state for managing dropdowns
   const [activeCell, setActiveCell] = useState<{
@@ -112,7 +105,7 @@ export function Table({
   }, [activeCell])
 
   const handleCellChange = (rowIndex: number, column: string, value: string) => {
-    if (isPreview || disabled) return
+    if (disabled) return
 
     const updatedRows = [...rows].map((row, idx) => {
       if (idx === rowIndex) {
@@ -141,7 +134,7 @@ export function Table({
   }
 
   const handleDeleteRow = (rowIndex: number) => {
-    if (isPreview || disabled || rows.length === 1) return
+    if (disabled || rows.length === 1) return
     setStoreValue(rows.filter((_, index) => index !== rowIndex))
   }
 
@@ -234,7 +227,7 @@ export function Table({
                 setActiveCell(null)
               }
             }}
-            disabled={isPreview || disabled}
+            disabled={disabled}
             className='w-full border-0 text-transparent caret-foreground placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0'
           />
           <div
@@ -255,7 +248,6 @@ export function Table({
 
   const renderDeleteButton = (rowIndex: number) =>
     rows.length > 1 &&
-    !isPreview &&
     !disabled && (
       <td className='w-0 p-0'>
         <Button

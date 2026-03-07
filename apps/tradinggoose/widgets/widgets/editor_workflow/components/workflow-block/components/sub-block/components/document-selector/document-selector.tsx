@@ -39,8 +39,6 @@ interface DocumentSelectorProps {
   subBlock: SubBlockConfig
   disabled?: boolean
   onDocumentSelect?: (documentId: string) => void
-  isPreview?: boolean
-  previewValue?: string | null
 }
 
 export function DocumentSelector({
@@ -48,8 +46,6 @@ export function DocumentSelector({
   subBlock,
   disabled = false,
   onDocumentSelect,
-  isPreview = false,
-  previewValue,
 }: DocumentSelectorProps) {
   const [documents, setDocuments] = useState<DocumentData[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -63,10 +59,7 @@ export function DocumentSelector({
   // Get the knowledge base ID from the same block's knowledgeBaseId subblock
   const [knowledgeBaseId] = useSubBlockValue(blockId, 'knowledgeBaseId')
 
-  // Use preview value when in preview mode, otherwise use store value
-  const value = isPreview ? previewValue : storeValue
-
-  const { finalDisabled } = useDependsOnGate(blockId, subBlock, { disabled, isPreview })
+  const { finalDisabled } = useDependsOnGate(blockId, subBlock, { disabled })
   const isDisabled = finalDisabled
 
   // Fetch documents for the selected knowledge base
@@ -106,7 +99,6 @@ export function DocumentSelector({
 
   // Handle dropdown open/close - fetch documents when opening
   const handleOpenChange = (isOpen: boolean) => {
-    if (isPreview) return
     if (isDisabled) return
 
     setOpen((prev) => (prev === isOpen ? prev : isOpen))
@@ -119,8 +111,6 @@ export function DocumentSelector({
 
   // Handle document selection
   const handleSelectDocument = (document: DocumentData) => {
-    if (isPreview) return
-
     setSelectedDocument(document)
     setStoreValue(document.id)
     onDocumentSelect?.(document.id)
@@ -130,13 +120,13 @@ export function DocumentSelector({
   // Sync selected document with value prop
   useEffect(() => {
     if (isDisabled) return
-    if (value && documents.length > 0) {
-      const docInfo = documents.find((doc) => doc.id === value)
+    if (storeValue && documents.length > 0) {
+      const docInfo = documents.find((doc) => doc.id === storeValue)
       setSelectedDocument(docInfo || null)
     } else {
       setSelectedDocument(null)
     }
-  }, [value, documents, isDisabled])
+  }, [storeValue, documents, isDisabled])
 
   // Reset documents when knowledge base changes
   useEffect(() => {
@@ -147,10 +137,10 @@ export function DocumentSelector({
 
   // Fetch documents when knowledge base is available
   useEffect(() => {
-    if (knowledgeBaseId && !isPreview && !isDisabled) {
+    if (knowledgeBaseId && !isDisabled) {
       fetchDocuments()
     }
-  }, [knowledgeBaseId, isPreview, isDisabled, fetchDocuments])
+  }, [knowledgeBaseId, isDisabled, fetchDocuments])
 
   const formatDocumentName = (document: DocumentData) => {
     return document.filename
@@ -246,7 +236,7 @@ export function DocumentSelector({
                           </div>
                         </div>
                       </div>
-                      {document.id === value && <Check className='ml-auto h-4 w-4' />}
+                      {document.id === storeValue && <Check className='ml-auto h-4 w-4' />}
                     </CommandItem>
                   ))}
                 </CommandGroup>

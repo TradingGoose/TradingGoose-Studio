@@ -15,11 +15,10 @@ import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/cont
 export function useDependsOnGate(
   blockId: string,
   subBlock: SubBlockConfig,
-  opts?: { disabled?: boolean; isPreview?: boolean; previewContextValues?: Record<string, any> }
+  opts?: { disabled?: boolean; contextValues?: Record<string, any> }
 ) {
   const disabledProp = opts?.disabled ?? false
-  const isPreview = opts?.isPreview ?? false
-  const previewContextValues = opts?.previewContextValues
+  const contextValues = opts?.contextValues
 
   const routeContext = useOptionalWorkflowRoute()
   const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
@@ -52,10 +51,8 @@ export function useDependsOnGate(
   const dependencyValues = useSubBlockStore((state) => {
     if (dependsOn.length === 0) return [] as any[]
 
-    if (previewContextValues) {
-      return dependsOn.map(
-        (depKey) => normalizeDependencyValue(previewContextValues[depKey]) ?? null
-      )
+    if (contextValues) {
+      return dependsOn.map((depKey) => normalizeDependencyValue(contextValues[depKey]) ?? null)
     }
 
     if (!resolvedWorkflowId) return dependsOn.map(() => null)
@@ -72,10 +69,9 @@ export function useDependsOnGate(
   }, [dependencyValues, dependsOn])
 
   // Block everything except the credential field itself until dependencies are set
-  const blocked =
-    !isPreview && dependsOn.length > 0 && !depsSatisfied && subBlock.type !== 'oauth-input'
+  const blocked = dependsOn.length > 0 && !depsSatisfied && subBlock.type !== 'oauth-input'
 
-  const finalDisabled = disabledProp || isPreview || blocked
+  const finalDisabled = disabledProp || blocked
 
   return {
     dependsOn,

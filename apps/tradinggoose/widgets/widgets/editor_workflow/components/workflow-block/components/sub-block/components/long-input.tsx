@@ -25,8 +25,6 @@ interface LongInputProps {
   isConnecting: boolean
   config: SubBlockConfig
   rows?: number
-  isPreview?: boolean
-  previewValue?: string | null
   value?: string
   onChange?: (value: string) => void
   disabled?: boolean
@@ -44,11 +42,9 @@ export function LongInput({
   isConnecting,
   config,
   rows,
-  isPreview = false,
-  previewValue,
   value: propValue,
   onChange,
-  disabled,
+  disabled = false,
 }: LongInputProps) {
   const workspaceId = useWorkspaceId()
   const setStoreValueRef = useRef<((value: string) => void) | null>(null)
@@ -71,7 +67,7 @@ export function LongInput({
       onGeneratedContent: (content) => {
         // Final content update (fallback)
         setLocalContent(content)
-        if (!isPreview && !disabled) {
+        if (!disabled) {
           // Persist the generated content to the store after streaming
           setStoreValueRef.current?.(content)
         }
@@ -100,8 +96,7 @@ export function LongInput({
   const containerRef = useRef<HTMLDivElement>(null)
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
-  // Use preview value when in preview mode, otherwise use store value or prop value
-  const baseValue = isPreview ? previewValue : propValue !== undefined ? propValue : storeValue
+  const baseValue = propValue !== undefined ? propValue : storeValue
 
   // During streaming, use local content; otherwise use base value
   const value = wandHook?.isStreaming ? localContent : baseValue
@@ -119,11 +114,11 @@ export function LongInput({
   // Update store value during streaming (but won't persist until streaming ends)
   useEffect(() => {
     if (wandHook?.isStreaming && localContent !== '') {
-      if (!isPreview && !disabled) {
+      if (!disabled) {
         setStoreValue(localContent)
       }
     }
-  }, [localContent, wandHook?.isStreaming, isPreview, disabled, setStoreValue])
+  }, [localContent, wandHook?.isStreaming, disabled, setStoreValue])
 
   // Calculate initial height based on rows prop with reasonable defaults
   const getInitialHeight = () => {
@@ -162,8 +157,7 @@ export function LongInput({
 
     if (onChange) {
       onChange(newValue)
-    } else if (!isPreview) {
-      // Only update store when not in preview mode
+    } else {
       setStoreValue(newValue)
     }
 
@@ -266,7 +260,7 @@ export function LongInput({
 
         if (onChange) {
           onChange(newValue)
-        } else if (!isPreview) {
+        } else {
           setStoreValue(newValue)
         }
         setCursorPosition(dropPosition + 1)
@@ -393,7 +387,7 @@ export function LongInput({
             setShowTags(false)
             setSearchTerm('')
           }}
-          disabled={isPreview || disabled}
+          disabled={disabled}
           style={{
             fontFamily: 'inherit',
             lineHeight: 'inherit',
@@ -419,7 +413,7 @@ export function LongInput({
         </div>
 
         {/* Wand Button */}
-        {wandHook && !isPreview && !wandHook.isStreaming && (
+        {wandHook && !wandHook.isStreaming && (
           <div className='absolute top-2 right-1 z-10 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100'>
             <Button
               variant='ghost'
@@ -456,7 +450,7 @@ export function LongInput({
               onSelect={(newValue) => {
                 if (onChange) {
                   onChange(newValue)
-                } else if (!isPreview) {
+                } else {
                   emitTagSelection(newValue)
                 }
               }}
@@ -474,7 +468,7 @@ export function LongInput({
               onSelect={(newValue) => {
                 if (onChange) {
                   onChange(newValue)
-                } else if (!isPreview) {
+                } else {
                   emitTagSelection(newValue)
                 }
               }}

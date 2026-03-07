@@ -46,8 +46,6 @@ interface DropdownProps {
   blockId: string
   subBlockId: string
   value?: string
-  isPreview?: boolean
-  previewValue?: string | null
   disabled?: boolean
   placeholder?: string
   config?: SubBlockConfig
@@ -56,7 +54,7 @@ interface DropdownProps {
   onChange?: (value: string) => void
   enableSearch?: boolean
   searchPlaceholder?: string
-  previewContextValues?: Record<string, any>
+  contextValues?: Record<string, any>
 }
 
 export function Dropdown({
@@ -65,8 +63,6 @@ export function Dropdown({
   blockId,
   subBlockId,
   value: propValue,
-  isPreview = false,
-  previewValue,
   disabled,
   placeholder = 'Select an option...',
   config,
@@ -76,7 +72,7 @@ export function Dropdown({
   className,
   enableSearch = false,
   searchPlaceholder = 'Search...',
-  previewContextValues,
+  contextValues,
 }: DropdownProps & { className?: string }) {
   const [storeValue, setStoreValue] = useSubBlockValue<string>(blockId, subBlockId)
   const [storeInitialized, setStoreInitialized] = useState(false)
@@ -117,19 +113,15 @@ export function Dropdown({
 
   const { finalDisabled, dependencyValues, dependsOn } = useDependsOnGate(blockId, resolvedConfig, {
     disabled: disabled ?? false,
-    isPreview,
-    previewContextValues,
+    contextValues,
   })
 
   const isControlled = !useStore
-  // Use preview value when in preview mode, otherwise use store value or prop value or controlled value
-  const value = isPreview
-    ? previewValue
-    : isControlled
-      ? valueOverride
-      : propValue !== undefined
-        ? propValue
-        : storeValue
+  const value = isControlled
+    ? valueOverride
+    : propValue !== undefined
+      ? propValue
+      : storeValue
 
   const fetchOptions = resolvedConfig.fetchOptions
   const [fetchedOptions, setFetchedOptions] = useState<DropdownOptionObject[]>([])
@@ -140,16 +132,16 @@ export function Dropdown({
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   const fetchOptionsIfNeeded = useCallback(async () => {
-    if (!fetchOptions || isPreview || finalDisabled) return
+    if (!fetchOptions || finalDisabled) return
 
     setIsLoadingOptions(true)
     setFetchError(null)
     try {
-      const contextValues = previewContextValues ?? blockContextValues
+      const resolvedContextValues = contextValues ?? blockContextValues
       const options = await fetchOptions(blockId, subBlockId, {
         channelId: resolvedChannelId,
         workflowId: resolvedWorkflowId ?? null,
-        contextValues: contextValues as Record<string, unknown> | undefined,
+        contextValues: resolvedContextValues as Record<string, unknown> | undefined,
       })
       setFetchedOptions(options)
     } catch (error) {
@@ -164,9 +156,8 @@ export function Dropdown({
     fetchOptions,
     blockId,
     subBlockId,
-    isPreview,
     finalDisabled,
-    previewContextValues,
+    contextValues,
     blockContextValues,
     resolvedChannelId,
     resolvedWorkflowId,
@@ -229,7 +220,7 @@ export function Dropdown({
   }, [defaultValue, availableOptions, getOptionValue])
 
   useEffect(() => {
-    if (isPreview || !optionsReady || !hasValue) return
+    if (!optionsReady || !hasValue) return
     if (fetchOptions && dependsOn.length > 0) return
     const isValid = availableOptions.some((option) => getOptionValue(option as any) === value)
     if (!isValid) {
@@ -242,7 +233,6 @@ export function Dropdown({
       }
     }
   }, [
-    isPreview,
     optionsReady,
     hasValue,
     availableOptions,
@@ -300,12 +290,11 @@ export function Dropdown({
   }, [useStore, storeInitialized, value, defaultOptionValue, setStoreValue, resolvedWorkflowId])
 
   useEffect(() => {
-    if (fetchOptions && !isPreview && !finalDisabled && !hasFetchedOptions && !isLoadingOptions) {
+    if (fetchOptions && !finalDisabled && !hasFetchedOptions && !isLoadingOptions) {
       fetchOptionsIfNeeded()
     }
   }, [
     fetchOptions,
-    isPreview,
     finalDisabled,
     hasFetchedOptions,
     isLoadingOptions,
@@ -360,7 +349,7 @@ export function Dropdown({
 
   // Handle data conversion when dataMode changes
   useEffect(() => {
-    if (subBlockId !== 'dataMode' || isPreview || disabled) return
+    if (subBlockId !== 'dataMode' || disabled) return
 
     const currentMode = storeValue
     const previousMode = previousModeRef.current
@@ -391,11 +380,11 @@ export function Dropdown({
 
     // Update the previous mode ref
     previousModeRef.current = currentMode
-  }, [storeValue, subBlockId, isPreview, disabled, setData, setBuilderData])
+  }, [storeValue, subBlockId, disabled, setData, setBuilderData])
 
   // Event handlers
   const handleSelect = (selectedValue: string) => {
-    if (!isPreview && !finalDisabled && useStore) {
+    if (!finalDisabled && useStore) {
       setStoreValue(selectedValue)
     }
     if (onChange) {
