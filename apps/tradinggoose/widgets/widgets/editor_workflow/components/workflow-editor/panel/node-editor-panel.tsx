@@ -582,10 +582,10 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
       onWheel={stopPanelEvent}
       onTouchStart={stopPanelEvent}
     >
-      <div className='sticky top-0 z-40 -mx-4 w-[calc(100%+2rem)] bg-background border-b border-border'>
+      <div className='-mx-4 sticky top-0 z-40 w-[calc(100%+2rem)] border-border border-b bg-background'>
         <div className='p-4'>
           <div className='flex min-w-0 items-center justify-between '>
-            <div className='flex min-w-0 flex-1 gap-2 items-center'>
+            <div className='flex min-w-0 flex-1 items-center gap-2'>
               <div
                 className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-secondary text-foreground'
                 style={{
@@ -638,7 +638,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
             <Button
               variant='ghost'
               size='icon'
-              className='w-6 h-6 bg-transparent'
+              className='h-6 w-6 bg-transparent'
               onClick={isRenaming ? handleSaveRename : handleStartRename}
               disabled={shouldDisableWrite}
               aria-label={isRenaming ? 'Save name' : 'Rename node'}
@@ -652,11 +652,11 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
           </div>
         </div>
       </div>
-      <div className='space-y-4 mt-3'>
+      <div className='mt-3 space-y-4'>
         {isSubflow ? (
           <div className='space-y-4'>
             <div className='space-y-1'>
-              <Label className='font-medium text-xs text-muted-foreground'>
+              <Label className='font-medium text-muted-foreground text-xs'>
                 {selectedBlock.type === 'loop' ? 'Loop Type' : 'Parallel Type'}
               </Label>
               <Select
@@ -681,7 +681,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
 
             {isSubflowCountMode ? (
               <div className='space-y-1'>
-                <Label className='font-medium text-xs text-muted-foreground'>
+                <Label className='font-medium text-muted-foreground text-xs'>
                   {selectedBlock.type === 'loop' ? 'Loop Iterations' : 'Parallel Executions'}
                 </Label>
                 <Input
@@ -704,7 +704,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
               </div>
             ) : (
               <div className='space-y-1'>
-                <Label className='font-medium text-xs text-muted-foreground'>
+                <Label className='font-medium text-muted-foreground text-xs'>
                   {isSubflowConditionMode
                     ? 'While Condition'
                     : selectedBlock.type === 'loop'
