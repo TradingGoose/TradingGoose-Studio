@@ -44,5 +44,4 @@ export type WatchlistRecord = {
 export type WatchlistImportOutcome = {
   addedCount: number
   skippedCount: number
-  unresolvedSymbols: string[]
 }

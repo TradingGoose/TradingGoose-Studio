@@ -1,5 +1,5 @@
 import { db } from '@tradinggoose/db'
-import { watchlistItem, watchlistSection, watchlistTable } from '@tradinggoose/db/schema'
+import { watchlistItem, watchlistTable } from '@tradinggoose/db/schema'
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
 import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
 import { areListingIdentitiesEqual, toListingValueObject } from '@/lib/listing/identity'
@@ -17,12 +17,10 @@ type WatchlistScope = {
 }
 
 type WatchlistRow = typeof watchlistTable.$inferSelect
-type WatchlistSectionRow = typeof watchlistSection.$inferSelect
 type WatchlistItemRow = typeof watchlistItem.$inferSelect
 
 type WatchlistTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
-const ROOT_PARENT = '__root__'
 const UNSECTIONED = '__unsectioned__'
 
 export class WatchlistOperationError extends Error {
@@ -72,7 +70,8 @@ const fetchWatchlistRow = async (
       and(
         eq(watchlistTable.id, watchlistId),
         eq(watchlistTable.workspaceId, scope.workspaceId),
-        eq(watchlistTable.userId, scope.userId)
+        eq(watchlistTable.userId, scope.userId),
+        isNull(watchlistTable.parentId)
       )
     )
     .limit(1)
@@ -80,17 +79,23 @@ const fetchWatchlistRow = async (
   return ensureFound(row)
 }
 
-const loadWatchlistRows = async (tx: WatchlistTx, watchlistId: string) => {
+const loadWatchlistRows = async (tx: WatchlistTx, row: WatchlistRow) => {
   const [sections, items] = await Promise.all([
     tx
       .select()
-      .from(watchlistSection)
-      .where(eq(watchlistSection.watchlistId, watchlistId))
-      .orderBy(asc(watchlistSection.sortOrder), asc(watchlistSection.createdAt)),
+      .from(watchlistTable)
+      .where(
+        and(
+          eq(watchlistTable.workspaceId, row.workspaceId),
+          eq(watchlistTable.userId, row.userId),
+          eq(watchlistTable.parentId, row.id)
+        )
+      )
+      .orderBy(asc(watchlistTable.sortOrder), asc(watchlistTable.createdAt)),
     tx
       .select()
       .from(watchlistItem)
-      .where(eq(watchlistItem.watchlistId, watchlistId))
+      .where(eq(watchlistItem.watchlistId, row.id))
       .orderBy(asc(watchlistItem.sortOrder), asc(watchlistItem.createdAt)),
   ])
 
@@ -108,41 +113,19 @@ const mapListingRow = (row: WatchlistItemRow): WatchlistItem | null => {
   }
 }
 
-const buildChildrenMap = (sections: WatchlistSectionRow[]) => {
-  const byParent = new Map<string, WatchlistSectionRow[]>()
-
-  for (const section of sections) {
-    const key = section.parentId ?? ROOT_PARENT
-    const bucket = byParent.get(key) ?? []
-    bucket.push(section)
-    byParent.set(key, bucket)
-  }
-
-  byParent.forEach((bucket) => {
-    bucket.sort((a, b) => {
-      if (a.sortOrder !== b.sortOrder) {
-        return a.sortOrder - b.sortOrder
-      }
-      return a.createdAt.getTime() - b.createdAt.getTime()
-    })
-  })
-
-  return byParent
-}
-
 const buildItemsBySectionMap = (items: WatchlistItemRow[]) => {
   const bySection = new Map<string, WatchlistItemRow[]>()
   const unsectioned: WatchlistItemRow[] = []
 
   for (const item of items) {
-    if (!item.sectionId) {
+    if (!item.containerId) {
       unsectioned.push(item)
       continue
     }
 
-    const bucket = bySection.get(item.sectionId) ?? []
+    const bucket = bySection.get(item.containerId) ?? []
     bucket.push(item)
-    bySection.set(item.sectionId, bucket)
+    bySection.set(item.containerId, bucket)
   }
 
   bySection.forEach((bucket) => {
@@ -164,12 +147,14 @@ const buildItemsBySectionMap = (items: WatchlistItemRow[]) => {
   return { bySection, unsectioned }
 }
 
-const composeWatchlistItems = (
-  sections: WatchlistSectionRow[],
-  items: WatchlistItemRow[]
-): WatchlistItem[] => {
+const composeWatchlistItems = (sections: WatchlistRow[], items: WatchlistItemRow[]): WatchlistItem[] => {
   const output: WatchlistItem[] = []
-  const childrenByParent = buildChildrenMap(sections)
+  const sortedSections = [...sections].sort((a, b) => {
+    if (a.sortOrder !== b.sortOrder) {
+      return a.sortOrder - b.sortOrder
+    }
+    return a.createdAt.getTime() - b.createdAt.getTime()
+  })
   const { bySection: itemsBySection, unsectioned } = buildItemsBySectionMap(items)
 
   for (const row of unsectioned) {
@@ -179,11 +164,11 @@ const composeWatchlistItems = (
     }
   }
 
-  const visitSection = (section: WatchlistSectionRow) => {
+  for (const section of sortedSections) {
     output.push({
       id: section.id,
       type: 'section',
-      label: section.label,
+      label: section.name,
     })
 
     for (const row of itemsBySection.get(section.id) ?? []) {
@@ -192,37 +177,9 @@ const composeWatchlistItems = (
         output.push(listingItem)
       }
     }
-
-    for (const child of childrenByParent.get(section.id) ?? []) {
-      visitSection(child)
-    }
-  }
-
-  for (const root of childrenByParent.get(ROOT_PARENT) ?? []) {
-    visitSection(root)
   }
 
   return output
-}
-
-const collectDescendantSectionIds = (
-  sections: WatchlistSectionRow[],
-  sectionId: string
-): string[] => {
-  const childrenByParent = buildChildrenMap(sections)
-  const descendants: string[] = []
-  const stack = [sectionId]
-
-  while (stack.length > 0) {
-    const current = stack.pop()
-    if (!current) continue
-    descendants.push(current)
-    for (const child of childrenByParent.get(current) ?? []) {
-      stack.push(child.id)
-    }
-  }
-
-  return descendants
 }
 
 const touchWatchlist = async (tx: WatchlistTx, watchlistId: string): Promise<WatchlistRow> => {
@@ -231,32 +188,46 @@ const touchWatchlist = async (tx: WatchlistTx, watchlistId: string): Promise<Wat
     .set({
       updatedAt: new Date(),
     })
-    .where(eq(watchlistTable.id, watchlistId))
+    .where(and(eq(watchlistTable.id, watchlistId), isNull(watchlistTable.parentId)))
     .returning()
 
   return ensureFound(updated)
 }
 
 const mapRecordInTx = async (tx: WatchlistTx, row: WatchlistRow): Promise<WatchlistRecord> => {
-  const { sections, items } = await loadWatchlistRows(tx, row.id)
+  const { sections, items } = await loadWatchlistRows(tx, row)
   return mapWatchlistRow(row, composeWatchlistItems(sections, items))
 }
 
-const getNextSortOrderForSection = async (
-  tx: WatchlistTx,
-  watchlistId: string,
-  parentId: string | null
-) => {
+const getNextRootSortOrder = async (tx: WatchlistTx, scope: WatchlistScope) => {
   const [last] = await tx
-    .select({ sortOrder: watchlistSection.sortOrder })
-    .from(watchlistSection)
+    .select({ sortOrder: watchlistTable.sortOrder })
+    .from(watchlistTable)
     .where(
       and(
-        eq(watchlistSection.watchlistId, watchlistId),
-        parentId ? eq(watchlistSection.parentId, parentId) : isNull(watchlistSection.parentId)
+        eq(watchlistTable.workspaceId, scope.workspaceId),
+        eq(watchlistTable.userId, scope.userId),
+        isNull(watchlistTable.parentId)
       )
     )
-    .orderBy(desc(watchlistSection.sortOrder))
+    .orderBy(desc(watchlistTable.sortOrder))
+    .limit(1)
+
+  return last ? last.sortOrder + 1 : 0
+}
+
+const getNextSortOrderForSection = async (tx: WatchlistTx, row: WatchlistRow) => {
+  const [last] = await tx
+    .select({ sortOrder: watchlistTable.sortOrder })
+    .from(watchlistTable)
+    .where(
+      and(
+        eq(watchlistTable.workspaceId, row.workspaceId),
+        eq(watchlistTable.userId, row.userId),
+        eq(watchlistTable.parentId, row.id)
+      )
+    )
+    .orderBy(desc(watchlistTable.sortOrder))
     .limit(1)
 
   return last ? last.sortOrder + 1 : 0
@@ -265,7 +236,7 @@ const getNextSortOrderForSection = async (
 const getNextSortOrderForItem = async (
   tx: WatchlistTx,
   watchlistId: string,
-  sectionId: string | null
+  containerId: string | null
 ) => {
   const [last] = await tx
     .select({ sortOrder: watchlistItem.sortOrder })
@@ -273,7 +244,7 @@ const getNextSortOrderForItem = async (
     .where(
       and(
         eq(watchlistItem.watchlistId, watchlistId),
-        sectionId ? eq(watchlistItem.sectionId, sectionId) : isNull(watchlistItem.sectionId)
+        containerId ? eq(watchlistItem.containerId, containerId) : isNull(watchlistItem.containerId)
       )
     )
     .orderBy(desc(watchlistItem.sortOrder))
@@ -296,7 +267,8 @@ const ensureDefaultWatchlistInTx = async (tx: WatchlistTx, scope: WatchlistScope
       and(
         eq(watchlistTable.workspaceId, scope.workspaceId),
         eq(watchlistTable.userId, scope.userId),
-        eq(watchlistTable.isSystem, true)
+        eq(watchlistTable.isSystem, true),
+        isNull(watchlistTable.parentId)
       )
     )
     .orderBy(asc(watchlistTable.createdAt))
@@ -314,7 +286,7 @@ const ensureDefaultWatchlistInTx = async (tx: WatchlistTx, scope: WatchlistScope
           name: DEFAULT_WATCHLIST_NAME,
           updatedAt: new Date(),
         })
-        .where(eq(watchlistTable.id, existingSystem.id))
+        .where(and(eq(watchlistTable.id, existingSystem.id), isNull(watchlistTable.parentId)))
         .returning()
       return ensureFound(renamed)
     } catch (error) {
@@ -325,12 +297,15 @@ const ensureDefaultWatchlistInTx = async (tx: WatchlistTx, scope: WatchlistScope
     }
   }
 
+  const sortOrder = await getNextRootSortOrder(tx, scope)
   const [created] = await tx
     .insert(watchlistTable)
     .values({
       workspaceId: scope.workspaceId,
       userId: scope.userId,
+      parentId: null,
       name: DEFAULT_WATCHLIST_NAME,
+      sortOrder,
       isSystem: true,
       settings: {},
       updatedAt: new Date(),
@@ -359,7 +334,8 @@ export async function listWatchlists(scope: WatchlistScope): Promise<WatchlistRe
       .where(
         and(
           eq(watchlistTable.workspaceId, scope.workspaceId),
-          eq(watchlistTable.userId, scope.userId)
+          eq(watchlistTable.userId, scope.userId),
+          isNull(watchlistTable.parentId)
         )
       )
       .orderBy(
@@ -376,9 +352,15 @@ export async function listWatchlists(scope: WatchlistScope): Promise<WatchlistRe
     const [sections, items] = await Promise.all([
       tx
         .select()
-        .from(watchlistSection)
-        .where(inArray(watchlistSection.watchlistId, ids))
-        .orderBy(asc(watchlistSection.sortOrder), asc(watchlistSection.createdAt)),
+        .from(watchlistTable)
+        .where(
+          and(
+            eq(watchlistTable.workspaceId, scope.workspaceId),
+            eq(watchlistTable.userId, scope.userId),
+            inArray(watchlistTable.parentId, ids)
+          )
+        )
+        .orderBy(asc(watchlistTable.sortOrder), asc(watchlistTable.createdAt)),
       tx
         .select()
         .from(watchlistItem)
@@ -386,13 +368,14 @@ export async function listWatchlists(scope: WatchlistScope): Promise<WatchlistRe
         .orderBy(asc(watchlistItem.sortOrder), asc(watchlistItem.createdAt)),
     ])
 
-    const sectionsByWatchlist = new Map<string, WatchlistSectionRow[]>()
+    const sectionsByWatchlist = new Map<string, WatchlistRow[]>()
     const itemsByWatchlist = new Map<string, WatchlistItemRow[]>()
 
     for (const section of sections) {
-      const bucket = sectionsByWatchlist.get(section.watchlistId) ?? []
+      if (!section.parentId) continue
+      const bucket = sectionsByWatchlist.get(section.parentId) ?? []
       bucket.push(section)
-      sectionsByWatchlist.set(section.watchlistId, bucket)
+      sectionsByWatchlist.set(section.parentId, bucket)
     }
 
     for (const item of items) {
@@ -433,12 +416,15 @@ export async function createWatchlist(
   }
 
   try {
+    const sortOrder = await db.transaction((tx) => getNextRootSortOrder(tx, scope))
     const [created] = await db
       .insert(watchlistTable)
       .values({
         workspaceId: scope.workspaceId,
         userId: scope.userId,
+        parentId: null,
         name,
+        sortOrder,
         isSystem: false,
         settings: {},
         updatedAt: new Date(),
@@ -475,7 +461,7 @@ export async function renameWatchlist(
           name,
           updatedAt: new Date(),
         })
-        .where(eq(watchlistTable.id, row.id))
+        .where(and(eq(watchlistTable.id, row.id), isNull(watchlistTable.parentId)))
         .returning()
 
       return mapRecordInTx(tx, ensureFound(updated))
@@ -497,7 +483,15 @@ export async function clearWatchlist(
     ensureMutableList(row, 'clear')
 
     await tx.delete(watchlistItem).where(eq(watchlistItem.watchlistId, row.id))
-    await tx.delete(watchlistSection).where(eq(watchlistSection.watchlistId, row.id))
+    await tx
+      .delete(watchlistTable)
+      .where(
+        and(
+          eq(watchlistTable.workspaceId, row.workspaceId),
+          eq(watchlistTable.userId, row.userId),
+          eq(watchlistTable.parentId, row.id)
+        )
+      )
 
     const updated = await touchWatchlist(tx, row.id)
     return mapRecordInTx(tx, updated)
@@ -508,7 +502,7 @@ export async function deleteWatchlist(scope: WatchlistScope, watchlistId: string
   await db.transaction(async (tx) => {
     const row = await fetchWatchlistRow(tx, watchlistId, scope)
     ensureMutableList(row, 'delete')
-    await tx.delete(watchlistTable).where(eq(watchlistTable.id, row.id))
+    await tx.delete(watchlistTable).where(and(eq(watchlistTable.id, row.id), isNull(watchlistTable.parentId)))
   })
 }
 
@@ -531,7 +525,7 @@ export async function updateWatchlistSettings(
         settings: nextSettings,
         updatedAt: new Date(),
       })
-      .where(eq(watchlistTable.id, row.id))
+      .where(and(eq(watchlistTable.id, row.id), isNull(watchlistTable.parentId)))
       .returning()
 
     return mapRecordInTx(tx, ensureFound(updated))
@@ -550,7 +544,7 @@ export async function addListingToWatchlist(
 
   return db.transaction(async (tx) => {
     const row = await fetchWatchlistRow(tx, watchlistId, scope)
-    const { items } = await loadWatchlistRows(tx, row.id)
+    const { items } = await loadWatchlistRows(tx, row)
 
     if (hasListingIdentity(items, listing)) {
       return mapRecordInTx(tx, row)
@@ -568,7 +562,7 @@ export async function addListingToWatchlist(
     try {
       await tx.insert(watchlistItem).values({
         watchlistId: row.id,
-        sectionId: null,
+        containerId: null,
         listing,
         sortOrder,
       })
@@ -592,13 +586,17 @@ export async function addSectionToWatchlist(
 
   return db.transaction(async (tx) => {
     const row = await fetchWatchlistRow(tx, watchlistId, scope)
-    const sortOrder = await getNextSortOrderForSection(tx, row.id, null)
+    const sortOrder = await getNextSortOrderForSection(tx, row)
 
-    await tx.insert(watchlistSection).values({
-      watchlistId: row.id,
-      parentId: null,
-      label,
+    await tx.insert(watchlistTable).values({
+      workspaceId: row.workspaceId,
+      userId: row.userId,
+      parentId: row.id,
+      name: label,
       sortOrder,
+      isSystem: false,
+      settings: {},
+      updatedAt: new Date(),
     })
 
     const updated = await touchWatchlist(tx, row.id)
@@ -616,24 +614,31 @@ export async function renameWatchlistSection(
 
   return db.transaction(async (tx) => {
     const row = await fetchWatchlistRow(tx, watchlistId, scope)
-    const { sections } = await loadWatchlistRows(tx, row.id)
+    const { sections } = await loadWatchlistRows(tx, row)
 
     const target = sections.find((section) => section.id === sectionId)
     if (!target) {
       return mapRecordInTx(tx, row)
     }
 
-    if (target.label === label) {
+    if (target.name === label) {
       return mapRecordInTx(tx, row)
     }
 
     await tx
-      .update(watchlistSection)
+      .update(watchlistTable)
       .set({
-        label,
+        name: label,
         updatedAt: new Date(),
       })
-      .where(and(eq(watchlistSection.id, sectionId), eq(watchlistSection.watchlistId, row.id)))
+      .where(
+        and(
+          eq(watchlistTable.id, sectionId),
+          eq(watchlistTable.workspaceId, row.workspaceId),
+          eq(watchlistTable.userId, row.userId),
+          eq(watchlistTable.parentId, row.id)
+        )
+      )
 
     const updated = await touchWatchlist(tx, row.id)
     return mapRecordInTx(tx, updated)
@@ -664,31 +669,29 @@ export async function removeWatchlistSection(
 ): Promise<WatchlistRecord> {
   return db.transaction(async (tx) => {
     const row = await fetchWatchlistRow(tx, watchlistId, scope)
-    const { sections } = await loadWatchlistRows(tx, row.id)
+    const { sections } = await loadWatchlistRows(tx, row)
 
     const target = sections.find((section) => section.id === sectionId)
     if (!target) {
       return mapRecordInTx(tx, row)
     }
 
-    const descendantIds = collectDescendantSectionIds(sections, sectionId)
+    await tx
+      .delete(watchlistItem)
+      .where(
+        and(eq(watchlistItem.watchlistId, row.id), eq(watchlistItem.containerId, sectionId))
+      )
 
-    if (descendantIds.length > 0) {
-      await tx
-        .delete(watchlistItem)
-        .where(
-          and(
-            eq(watchlistItem.watchlistId, row.id),
-            inArray(watchlistItem.sectionId, descendantIds)
-          )
+    await tx
+      .delete(watchlistTable)
+      .where(
+        and(
+          eq(watchlistTable.id, sectionId),
+          eq(watchlistTable.workspaceId, row.workspaceId),
+          eq(watchlistTable.userId, row.userId),
+          eq(watchlistTable.parentId, row.id)
         )
-
-      await tx
-        .delete(watchlistSection)
-        .where(
-          and(eq(watchlistSection.watchlistId, row.id), inArray(watchlistSection.id, descendantIds))
-        )
-    }
+      )
 
     const updated = await touchWatchlist(tx, row.id)
     return mapRecordInTx(tx, updated)
@@ -702,7 +705,7 @@ export async function reorderWatchlistItems(
 ): Promise<WatchlistRecord> {
   return db.transaction(async (tx) => {
     const row = await fetchWatchlistRow(tx, watchlistId, scope)
-    const { sections, items } = await loadWatchlistRows(tx, row.id)
+    const { sections, items } = await loadWatchlistRows(tx, row)
 
     const expectedSize = sections.length + items.length
     if (orderedItemIds.length !== expectedSize) {
@@ -737,12 +740,19 @@ export async function reorderWatchlistItems(
       if (sectionById.has(id)) {
         currentSectionId = id
         await tx
-          .update(watchlistSection)
+          .update(watchlistTable)
           .set({
             sortOrder: sectionOrder,
             updatedAt: new Date(),
           })
-          .where(and(eq(watchlistSection.id, id), eq(watchlistSection.watchlistId, row.id)))
+          .where(
+            and(
+              eq(watchlistTable.id, id),
+              eq(watchlistTable.workspaceId, row.workspaceId),
+              eq(watchlistTable.userId, row.userId),
+              eq(watchlistTable.parentId, row.id)
+            )
+          )
         sectionOrder += 1
         continue
       }
@@ -753,7 +763,7 @@ export async function reorderWatchlistItems(
       await tx
         .update(watchlistItem)
         .set({
-          sectionId: currentSectionId,
+          containerId: currentSectionId,
           sortOrder: nextSortOrder,
           updatedAt: new Date(),
         })
@@ -772,7 +782,7 @@ export async function appendListingsToWatchlist(
 ): Promise<{ watchlist: WatchlistRecord; addedCount: number; skippedCount: number }> {
   return db.transaction(async (tx) => {
     const row = await fetchWatchlistRow(tx, watchlistId, scope)
-    const { items } = await loadWatchlistRows(tx, row.id)
+    const { items } = await loadWatchlistRows(tx, row)
 
     const existingListings = items
       .map((entry) => toListingValueObject(entry.listing as ListingInputValue))
@@ -809,7 +819,7 @@ export async function appendListingsToWatchlist(
       await tx.insert(watchlistItem).values(
         additions.map((listing, index) => ({
           watchlistId: row.id,
-          sectionId: null,
+          containerId: null,
           listing,
           sortOrder: startSortOrder + index,
         }))

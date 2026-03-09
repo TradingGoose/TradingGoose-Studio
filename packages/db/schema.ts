@@ -1,5 +1,6 @@
 import { type SQL, sql } from 'drizzle-orm'
 import {
+  type AnyPgColumn,
   bigint,
   boolean,
   check,
@@ -662,7 +663,11 @@ export const watchlistTable = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
+    parentId: uuid('parent_id').references((): AnyPgColumn => watchlistTable.id, {
+      onDelete: 'cascade',
+    }),
     name: text('name').notNull(),
+    sortOrder: integer('sort_order').notNull().default(0),
     isSystem: boolean('is_system').notNull().default(false),
     settings: jsonb('settings').notNull().default('{}'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -673,34 +678,17 @@ export const watchlistTable = pgTable(
       table.workspaceId,
       table.userId
     ),
+    workspaceUserParentIdx: index('watchlist_table_workspace_user_parent_idx').on(
+      table.workspaceId,
+      table.userId,
+      table.parentId
+    ),
+    parentSortIdx: index('watchlist_table_parent_sort_idx').on(table.parentId, table.sortOrder),
     workspaceUserNameUnique: uniqueIndex('watchlist_table_workspace_user_name_unique').on(
       table.workspaceId,
       table.userId,
       table.name
-    ),
-  })
-)
-
-export const watchlistSection = pgTable(
-  'watchlist_section',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    watchlistId: uuid('watchlist_id')
-      .notNull()
-      .references(() => watchlistTable.id, { onDelete: 'cascade' }),
-    parentId: uuid('parent_id'),
-    label: text('label').notNull(),
-    sortOrder: integer('sort_order').notNull().default(0),
-    createdAt: timestamp('created_at').notNull().defaultNow(),
-    updatedAt: timestamp('updated_at').notNull().defaultNow(),
-  },
-  (table) => ({
-    watchlistIdIdx: index('watchlist_section_watchlist_id_idx').on(table.watchlistId),
-    watchlistParentIdx: index('watchlist_section_watchlist_parent_idx').on(
-      table.watchlistId,
-      table.parentId
-    ),
-    parentSortIdx: index('watchlist_section_parent_sort_idx').on(table.parentId, table.sortOrder),
+    ).where(sql`${table.parentId} is null`),
   })
 )
 
@@ -711,7 +699,7 @@ export const watchlistItem = pgTable(
     watchlistId: uuid('watchlist_id')
       .notNull()
       .references(() => watchlistTable.id, { onDelete: 'cascade' }),
-    sectionId: uuid('section_id').references(() => watchlistSection.id, { onDelete: 'cascade' }),
+    containerId: uuid('container_id').references(() => watchlistTable.id, { onDelete: 'cascade' }),
     listing: jsonb('listing').notNull(),
     sortOrder: integer('sort_order').notNull().default(0),
     createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -719,12 +707,15 @@ export const watchlistItem = pgTable(
   },
   (table) => ({
     watchlistIdx: index('watchlist_item_watchlist_idx').on(table.watchlistId),
-    watchlistSectionSortIdx: index('watchlist_item_watchlist_section_sort_idx').on(
+    watchlistContainerSortIdx: index('watchlist_item_watchlist_container_sort_idx').on(
       table.watchlistId,
-      table.sectionId,
+      table.containerId,
       table.sortOrder
     ),
-    sectionSortIdx: index('watchlist_item_section_sort_idx').on(table.sectionId, table.sortOrder),
+    containerSortIdx: index('watchlist_item_container_sort_idx').on(
+      table.containerId,
+      table.sortOrder
+    ),
     watchlistListingIdentityUnique: uniqueIndex('watchlist_item_watchlist_listing_identity_unique').on(
       table.watchlistId,
       sql`coalesce(${table.listing}->>'listing_type', '')`,

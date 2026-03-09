@@ -405,24 +405,24 @@ export function useImportWatchlist() {
     mutationFn: async ({
       workspaceId,
       watchlistId,
-      content,
+      listings,
     }: {
       workspaceId: string
       watchlistId: string
-      content: string
+      listings: ListingIdentity[]
     }) => {
       const response = await fetch(`/api/watchlists/${watchlistId}/import`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workspaceId,
-          content,
+          listings,
         }),
       })
 
       const payload = await parseJson<{
         watchlist?: WatchlistRecord
-        import?: { addedCount: number; skippedCount: number; unresolvedSymbols: string[] }
+        import?: { addedCount: number; skippedCount: number }
         error?: string
       }>(response)
       if (!response.ok || !payload.watchlist || !payload.import) {
@@ -437,10 +437,10 @@ export function useImportWatchlist() {
 }
 
 const parseExportFileName = (value: string | null): string => {
-  if (!value) return 'watchlist.txt'
+  if (!value) return 'watchlist.json'
   const match = value.match(/filename="([^"]+)"/i)
   if (match?.[1]) return match[1]
-  return 'watchlist.txt'
+  return 'watchlist.json'
 }
 
 export function useExportWatchlist() {

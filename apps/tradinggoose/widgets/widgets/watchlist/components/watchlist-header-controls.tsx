@@ -11,7 +11,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import type { ListingIdentity } from '@/lib/listing/identity'
+import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
+import { toListingValueObject } from '@/lib/listing/identity'
 import {
   useAddWatchlistListing,
   useAddWatchlistSection,
@@ -316,6 +317,7 @@ export const WatchlistHeaderRightControls = ({
   widget,
 }: WatchlistHeaderControlsSlotProps) => {
   const [listActionsOpen, setListActionsOpen] = useState(false)
+  const [clearDialogOpen, setClearDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -353,10 +355,21 @@ export const WatchlistHeaderRightControls = ({
 
     try {
       const content = await file.text()
+      const parsed = JSON.parse(content) as unknown
+      if (!Array.isArray(parsed)) {
+        throw new Error('Invalid watchlist import file')
+      }
+      const listings = parsed
+        .map((entry) => toListingValueObject(entry as ListingInputValue))
+        .filter((entry): entry is ListingIdentity => Boolean(entry))
+
+      if (listings.length !== parsed.length) {
+        throw new Error('Invalid watchlist import file')
+      }
       await importMutation.mutateAsync({
         workspaceId,
         watchlistId: selectedWatchlist.id,
-        content,
+        listings,
       })
     } catch {
       // Request errors are surfaced through mutation state and existing data refresh behavior.
@@ -373,7 +386,7 @@ export const WatchlistHeaderRightControls = ({
         watchlistId: selectedWatchlist.id,
       })
 
-      const blob = new Blob([result.content], { type: 'text/plain;charset=utf-8;' })
+      const blob = new Blob([result.content], { type: 'application/json;charset=utf-8;' })
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
@@ -397,14 +410,12 @@ export const WatchlistHeaderRightControls = ({
       return
     }
 
-    const confirmed = window.confirm(`Clear all symbols from "${selectedWatchlist.name}"?`)
-    if (!confirmed) return
-
     try {
       await clearMutation.mutateAsync({
         workspaceId,
         watchlistId: selectedWatchlist.id,
       })
+      setClearDialogOpen(false)
     } catch {
       // Request errors are surfaced through mutation state and existing data refresh behavior.
     }
@@ -449,13 +460,40 @@ export const WatchlistHeaderRightControls = ({
           void handleExport()
         }}
         onClearList={() => {
-          void handleClearWatchlist()
+          setDeleteDialogOpen(false)
+          setClearDialogOpen(true)
         }}
         onResetOrder={handleResetOrder}
         onDeleteWatchlist={() => {
+          setClearDialogOpen(false)
           setDeleteDialogOpen(true)
         }}
       />
+
+      <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear list?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedWatchlist
+                ? `This action will remove all symbols from "${selectedWatchlist.name}".`
+                : 'This action will remove all symbols from this watchlist.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isMutating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isMutating}
+              onClick={(event) => {
+                event.preventDefault()
+                void handleClearWatchlist()
+              }}
+            >
+              Clear list
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
@@ -485,7 +523,7 @@ export const WatchlistHeaderRightControls = ({
       <input
         ref={fileInputRef}
         type='file'
-        accept='.txt,text/plain'
+        accept='.json,application/json'
         className='hidden'
         onChange={handleImportChange}
       />

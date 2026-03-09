@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
-import { exportWatchlistItemsAsText } from '@/lib/watchlists/import-export'
+import { exportWatchlistItemsAsJson } from '@/lib/watchlists/import-export'
 import { getWatchlist, WatchlistOperationError } from '@/lib/watchlists/operations'
 
 const logger = createLogger('WatchlistExportAPI')
@@ -52,13 +52,13 @@ export async function GET(
       watchlistId
     )
 
-    const body = exportWatchlistItemsAsText(watchlist.items)
-    const fileName = `${watchlist.name.replace(/\s+/g, '_').toLowerCase() || 'watchlist'}.txt`
+    const body = exportWatchlistItemsAsJson(watchlist.items)
+    const fileName = `${watchlist.name.replace(/\s+/g, '_').toLowerCase() || 'watchlist'}.json`
 
     return new NextResponse(body, {
       status: 200,
       headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
+        'Content-Type': 'application/json; charset=utf-8',
         'Content-Disposition': `attachment; filename="${fileName}"`,
       },
     })

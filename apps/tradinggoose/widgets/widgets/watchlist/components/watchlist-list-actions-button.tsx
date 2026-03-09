@@ -63,7 +63,11 @@ export const WatchlistListActionsButton = ({
         </TooltipTrigger>
         <TooltipContent side='top'>List actions</TooltipContent>
       </Tooltip>
-      <PopoverContent align='end' className='w-52 p-1'>
+      <PopoverContent
+        align='end'
+        className='w-52 p-1'
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
         <button
           type='button'
           className={widgetHeaderMenuItemClassName}

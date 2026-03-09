@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockRequest } from '@/app/api/__test-utils__/utils'
 
 const mockGetSession = vi.fn()
@@ -53,47 +53,20 @@ describe('Watchlist import API route', () => {
       addedCount: 1,
       skippedCount: 0,
     })
-
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url = String(input)
-        if (url.includes('AAPL')) {
-          return new Response(
-            JSON.stringify({
-              data: [
-                {
-                  listing_id: 'aapl-id',
-                  base_id: '',
-                  quote_id: '',
-                  listing_type: 'default',
-                },
-              ],
-            }),
-            {
-              status: 200,
-              headers: { 'content-type': 'application/json' },
-            }
-          )
-        }
-
-        return new Response(JSON.stringify({ data: [] }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        })
-      })
-    )
   })
 
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
-  it('imports symbols and reports unresolved entries', async () => {
+  it('imports listing identity JSON payload', async () => {
     const { POST } = await import('@/app/api/watchlists/[watchlistId]/import/route')
     const request = createMockRequest('POST', {
       workspaceId: 'workspace-1',
-      content: 'NASDAQ:AAPL,UNKNOWN:ZZZ',
+      listings: [
+        {
+          listing_id: 'aapl-id',
+          base_id: '',
+          quote_id: '',
+          listing_type: 'default',
+        },
+      ],
     })
 
     const response = await POST(request, {
@@ -103,7 +76,45 @@ describe('Watchlist import API route', () => {
 
     expect(response.status).toBe(200)
     expect(payload.import.addedCount).toBe(1)
-    expect(payload.import.unresolvedSymbols).toContain('UNKNOWN:ZZZ')
-    expect(mockAppendListingsToWatchlist).toHaveBeenCalled()
+    expect(payload.import.skippedCount).toBe(0)
+    expect(mockAppendListingsToWatchlist).toHaveBeenCalledWith(
+      {
+        workspaceId: 'workspace-1',
+        userId: 'user-1',
+      },
+      'watchlist-1',
+      [
+        {
+          listing_id: 'aapl-id',
+          base_id: '',
+          quote_id: '',
+          listing_type: 'default',
+        },
+      ]
+    )
+  })
+
+  it('returns 400 when any listing identity is invalid', async () => {
+    const { POST } = await import('@/app/api/watchlists/[watchlistId]/import/route')
+    const request = createMockRequest('POST', {
+      workspaceId: 'workspace-1',
+      listings: [
+        {
+          listing_id: '',
+          base_id: '',
+          quote_id: '',
+          listing_type: 'default',
+        },
+      ],
+    })
+
+    const response = await POST(request, {
+      params: Promise.resolve({ watchlistId: 'watchlist-1' }),
+    })
+    const payload = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(payload.error).toBe('Invalid listing identities payload')
+    expect(mockAppendListingsToWatchlist).not.toHaveBeenCalled()
   })
 })

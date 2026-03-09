@@ -98,15 +98,15 @@ export const ListingSelectorAddButton = ({
       </Tooltip>
       <PopoverContent
         align='end'
-        className='w-[320px] p-2'
+        className='w-[min(380px,calc(100vw-2rem))] p-2.5'
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
-        <div className='flex items-center gap-2'>
+        <div className='flex items-center gap-2.5'>
           <StockSelector
             instanceId={instanceId}
             providerType='market'
             disabled={disabled}
-            className='min-w-0 flex-1 [&>div>button]:h-5 [&>div>button]:w-5 [&>div>input]:h-8 [&>div>input]:rounded-sm [&>div>input]:px-2 [&>div>input]:pr-8 [&>div>input]:text-xs'
+            className='min-w-0 flex-1 [&>div>button]:h-6 [&>div>button]:w-6 [&>div>input]:h-10 [&>div>input]:rounded-sm [&>div>input]:pr-9 [&>div>input]:text-xs'
             onListingChange={handleListingChange}
           />
           <button
