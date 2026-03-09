@@ -1,5 +1,6 @@
 import { type SQL, sql } from 'drizzle-orm'
 import {
+  type AnyPgColumn,
   bigint,
   boolean,
   check,
@@ -649,6 +650,79 @@ export const pineIndicators = pgTable(
   },
   (table) => ({
     workspaceIdIdx: index('custom_indicators_workspace_id_idx').on(table.workspaceId),
+  })
+)
+
+export const watchlistTable = pgTable(
+  'watchlist_table',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspace.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    parentId: uuid('parent_id').references((): AnyPgColumn => watchlistTable.id, {
+      onDelete: 'cascade',
+    }),
+    name: text('name').notNull(),
+    sortOrder: integer('sort_order').notNull().default(0),
+    isSystem: boolean('is_system').notNull().default(false),
+    settings: jsonb('settings').notNull().default('{}'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    workspaceUserIdx: index('watchlist_table_workspace_user_idx').on(
+      table.workspaceId,
+      table.userId
+    ),
+    workspaceUserParentIdx: index('watchlist_table_workspace_user_parent_idx').on(
+      table.workspaceId,
+      table.userId,
+      table.parentId
+    ),
+    parentSortIdx: index('watchlist_table_parent_sort_idx').on(table.parentId, table.sortOrder),
+    workspaceUserNameUnique: uniqueIndex('watchlist_table_workspace_user_name_unique').on(
+      table.workspaceId,
+      table.userId,
+      table.name
+    ).where(sql`${table.parentId} is null`),
+  })
+)
+
+export const watchlistItem = pgTable(
+  'watchlist_item',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    watchlistId: uuid('watchlist_id')
+      .notNull()
+      .references(() => watchlistTable.id, { onDelete: 'cascade' }),
+    containerId: uuid('container_id').references(() => watchlistTable.id, { onDelete: 'cascade' }),
+    listing: jsonb('listing').notNull(),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    watchlistIdx: index('watchlist_item_watchlist_idx').on(table.watchlistId),
+    watchlistContainerSortIdx: index('watchlist_item_watchlist_container_sort_idx').on(
+      table.watchlistId,
+      table.containerId,
+      table.sortOrder
+    ),
+    containerSortIdx: index('watchlist_item_container_sort_idx').on(
+      table.containerId,
+      table.sortOrder
+    ),
+    watchlistListingIdentityUnique: uniqueIndex('watchlist_item_watchlist_listing_identity_unique').on(
+      table.watchlistId,
+      sql`coalesce(${table.listing}->>'listing_type', '')`,
+      sql`coalesce(${table.listing}->>'listing_id', '')`,
+      sql`coalesce(${table.listing}->>'base_id', '')`,
+      sql`coalesce(${table.listing}->>'quote_id', '')`
+    ),
   })
 )
 
