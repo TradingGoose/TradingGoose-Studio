@@ -15,33 +15,34 @@ import {
 import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-depends-on-gate'
 import { useForeignCredential } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-foreign-credential'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
 
 interface FileSelectorInputProps {
   blockId: string
   subBlock: SubBlockConfig
   disabled: boolean
-  isPreview?: boolean
-  previewValue?: any | null
-  previewContextValues?: Record<string, any>
+  contextValues?: Record<string, any>
 }
 
 export function FileSelectorInput({
   blockId,
   subBlock,
   disabled,
-  isPreview = false,
-  previewValue,
-  previewContextValues,
+  contextValues,
 }: FileSelectorInputProps) {
   const { collaborativeSetSubblockValue } = useCollaborativeWorkflow()
-  const registryWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId())
-  const workflowIdFromUrl = useWorkflowId() || registryWorkflowId || ''
+  const routeContext = useOptionalWorkflowRoute()
+  const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
+  const registryWorkflowId = useWorkflowRegistry((state) =>
+    state.getActiveWorkflowId(resolvedChannelId)
+  )
+  const workflowIdFromUrl = routeContext?.workflowId || registryWorkflowId || ''
   // Central dependsOn gating for this selector instance
-  const { finalDisabled } = useDependsOnGate(blockId, subBlock, { disabled, isPreview })
+  const { finalDisabled } = useDependsOnGate(blockId, subBlock, { disabled, contextValues })
 
   // Helper to coerce various preview value shapes into a string ID
   const coerceToIdString = (val: unknown): string => {
@@ -95,18 +96,10 @@ export function FileSelectorInput({
   // For Confluence and Jira, we need the domain and credentials
   const domain =
     isConfluence || isJira
-      ? (isPreview && previewContextValues?.domain?.value) || (domainValue as string) || ''
+      ? (contextValues?.domain?.value as string | undefined) || (domainValue as string) || ''
       : ''
-  const jiraCredential = isJira
-    ? (isPreview && previewContextValues?.credential?.value) ||
-      (connectedCredential as string) ||
-      ''
-    : ''
 
   // Discord channel selector removed; no special values used here
-
-  // Use preview value when in preview mode, otherwise use store value
-  const value = isPreview ? previewValue : storeValue
 
   // For Google Drive
   const clientId = getEnv('NEXT_PUBLIC_GOOGLE_CLIENT_ID') || ''
@@ -122,11 +115,7 @@ export function FileSelectorInput({
           <TooltipTrigger asChild>
             <div className='w-full'>
               <GoogleCalendarSelector
-                value={
-                  (isPreview && previewValue !== undefined
-                    ? (previewValue as string)
-                    : (storeValue as string)) || ''
-                }
+                value={(storeValue as string) || ''}
                 onChange={(val) => {
                   collaborativeSetSubblockValue(blockId, subBlock.id, val)
                 }}
@@ -152,11 +141,7 @@ export function FileSelectorInput({
           <TooltipTrigger asChild>
             <div className='w-full'>
               <ConfluenceFileSelector
-                value={
-                  (isPreview && previewValue !== undefined
-                    ? (previewValue as string)
-                    : (storeValue as string)) || ''
-                }
+                value={(storeValue as string) || ''}
                 onChange={(val) => {
                   collaborativeSetSubblockValue(blockId, subBlock.id, val)
                 }}
@@ -186,11 +171,7 @@ export function FileSelectorInput({
           <TooltipTrigger asChild>
             <div className='w-full'>
               <JiraIssueSelector
-                value={
-                  (isPreview && previewValue !== undefined
-                    ? (previewValue as string)
-                    : (storeValue as string)) || ''
-                }
+                value={(storeValue as string) || ''}
                 onChange={(issueKey) => {
                   collaborativeSetSubblockValue(blockId, subBlock.id, issueKey)
                 }}
@@ -204,7 +185,7 @@ export function FileSelectorInput({
                 credentialId={credential}
                 projectId={(projectIdValue as string) || ''}
                 isForeignCredential={isForeignCredential}
-                workflowId={activeWorkflowId || ''}
+                workflowId={workflowIdFromUrl}
               />
             </div>
           </TooltipTrigger>
@@ -221,9 +202,7 @@ export function FileSelectorInput({
           <TooltipTrigger asChild>
             <div className='w-full'>
               <MicrosoftFileSelector
-                value={coerceToIdString(
-                  (isPreview && previewValue !== undefined ? previewValue : storeValue) as any
-                )}
+                value={coerceToIdString(storeValue as any)}
                 onChange={(fileId) => setStoreValue(fileId)}
                 provider='microsoft-excel'
                 requiredScopes={subBlock.requiredScopes || []}
@@ -231,7 +210,7 @@ export function FileSelectorInput({
                 label={subBlock.placeholder || 'Select Microsoft Excel file'}
                 disabled={finalDisabled}
                 showPreview={true}
-                workflowId={activeWorkflowId || ''}
+                workflowId={workflowIdFromUrl}
                 credentialId={credential}
                 isForeignCredential={isForeignCredential}
               />
@@ -244,16 +223,13 @@ export function FileSelectorInput({
 
   // Microsoft Word selector
   if (isMicrosoftWord) {
-    const credential = (connectedCredential as string) || ''
     return (
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
             <div className='w-full'>
               <MicrosoftFileSelector
-                value={coerceToIdString(
-                  (isPreview && previewValue !== undefined ? previewValue : storeValue) as any
-                )}
+                value={coerceToIdString(storeValue as any)}
                 onChange={(fileId) => setStoreValue(fileId)}
                 provider='microsoft-word'
                 requiredScopes={subBlock.requiredScopes || []}
@@ -278,9 +254,7 @@ export function FileSelectorInput({
           <TooltipTrigger asChild>
             <div className='w-full'>
               <MicrosoftFileSelector
-                value={coerceToIdString(
-                  (isPreview && previewValue !== undefined ? previewValue : storeValue) as any
-                )}
+                value={coerceToIdString(storeValue as any)}
                 onChange={(fileId) => setStoreValue(fileId)}
                 provider='microsoft'
                 requiredScopes={subBlock.requiredScopes || []}
@@ -288,7 +262,7 @@ export function FileSelectorInput({
                 label={subBlock.placeholder || 'Select OneDrive folder'}
                 disabled={finalDisabled}
                 showPreview={true}
-                workflowId={activeWorkflowId || ''}
+                workflowId={workflowIdFromUrl}
                 credentialId={credential}
                 isForeignCredential={isForeignCredential}
               />
@@ -308,9 +282,7 @@ export function FileSelectorInput({
           <TooltipTrigger asChild>
             <div className='w-full'>
               <MicrosoftFileSelector
-                value={coerceToIdString(
-                  (isPreview && previewValue !== undefined ? previewValue : storeValue) as any
-                )}
+                value={coerceToIdString(storeValue as any)}
                 onChange={(fileId) => setStoreValue(fileId)}
                 provider='microsoft'
                 requiredScopes={subBlock.requiredScopes || []}
@@ -318,7 +290,7 @@ export function FileSelectorInput({
                 label={subBlock.placeholder || 'Select SharePoint site'}
                 disabled={finalDisabled}
                 showPreview={true}
-                workflowId={activeWorkflowId || ''}
+                workflowId={workflowIdFromUrl}
                 credentialId={credential}
                 isForeignCredential={isForeignCredential}
               />
@@ -344,9 +316,7 @@ export function FileSelectorInput({
           <TooltipTrigger asChild>
             <div className='w-full'>
               <MicrosoftFileSelector
-                value={coerceToIdString(
-                  (isPreview && previewValue !== undefined ? previewValue : storeValue) as any
-                )}
+                value={coerceToIdString(storeValue as any)}
                 onChange={(fileId) => setStoreValue(fileId)}
                 provider='microsoft-planner'
                 requiredScopes={subBlock.requiredScopes || []}
@@ -355,7 +325,7 @@ export function FileSelectorInput({
                 disabled={finalDisabled}
                 showPreview={true}
                 planId={planId}
-                workflowId={activeWorkflowId || ''}
+                workflowId={workflowIdFromUrl}
                 credentialId={credential}
                 isForeignCredential={isForeignCredential}
               />
@@ -398,11 +368,7 @@ export function FileSelectorInput({
           <TooltipTrigger asChild>
             <div className='w-full'>
               <TeamsMessageSelector
-                value={
-                  (isPreview && previewValue !== undefined
-                    ? (previewValue as string)
-                    : (storeValue as string)) || ''
-                }
+                value={(storeValue as string) || ''}
                 onChange={(val) => {
                   collaborativeSetSubblockValue(blockId, subBlock.id, val)
                 }}
@@ -415,7 +381,7 @@ export function FileSelectorInput({
                 credential={credential}
                 selectionType={selectionType}
                 initialTeamId={selectedTeamId}
-                workflowId={activeWorkflowId || ''}
+                workflowId={workflowIdFromUrl}
                 isForeignCredential={isForeignCredential}
               />
             </div>
@@ -441,11 +407,7 @@ export function FileSelectorInput({
             <TooltipTrigger asChild>
               <div className='w-full'>
                 <WealthboxFileSelector
-                  value={
-                    (isPreview && previewValue !== undefined
-                      ? (previewValue as string)
-                      : (storeValue as string)) || ''
-                  }
+                  value={(storeValue as string) || ''}
                   onChange={(val) => {
                     collaborativeSetSubblockValue(blockId, subBlock.id, val)
                   }}
@@ -475,7 +437,7 @@ export function FileSelectorInput({
 
   // Default to Google Drive picker
   {
-    const credential = ((isPreview && previewContextValues?.credential?.value) ||
+    const credential = ((contextValues?.credential?.value as string | undefined) ||
       (connectedCredential as string) ||
       '') as string
 
@@ -485,9 +447,7 @@ export function FileSelectorInput({
           <TooltipTrigger asChild>
             <div className='w-full'>
               <GoogleDrivePicker
-                value={coerceToIdString(
-                  (isPreview && previewValue !== undefined ? previewValue : storeValue) as any
-                )}
+                value={coerceToIdString(storeValue as any)}
                 onChange={(val) => {
                   collaborativeSetSubblockValue(blockId, subBlock.id, val)
                 }}

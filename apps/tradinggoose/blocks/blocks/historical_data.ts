@@ -23,7 +23,7 @@ const providerOptions = () =>
   }))
 
 const resolveContextValue = (
-  contextValues: Record<string, any> | undefined,
+  contextValues: Record<string, unknown> | undefined,
   key: string
 ): string | undefined => {
   const entry = contextValues?.[key]
@@ -116,7 +116,9 @@ const sanitizeInterval = (provider: string | undefined, interval?: string): stri
   if (!capabilities) return interval
   if (capabilities.supportsInterval === false) return undefined
   const intervals = capabilities.intervals ?? []
-  if (intervals.length > 0 && !intervals.includes(interval)) return undefined
+  if (intervals.length > 0 && !(intervals as ReadonlyArray<string>).includes(interval)) {
+    return undefined
+  }
   return interval
 }
 
@@ -254,8 +256,8 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
         ? { field: 'provider', value: providersWithIntervals }
         : undefined,
       dependsOn: ['provider'],
-      fetchOptions: async (_blockId, _subBlockId, contextValues) => {
-        const provider = resolveContextValue(contextValues, 'provider')
+      fetchOptions: async (_blockId, _subBlockId, context) => {
+        const provider = resolveContextValue(context.contextValues, 'provider')
         if (!provider) return []
         const capabilities = getMarketSeriesCapabilities(provider)
         const intervals = capabilities?.intervals ?? []
@@ -276,8 +278,8 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
         ? { field: 'provider', value: providersWithNormalization }
         : undefined,
       dependsOn: ['provider'],
-      fetchOptions: async (_blockId, _subBlockId, contextValues) => {
-        const provider = resolveContextValue(contextValues, 'provider')
+      fetchOptions: async (_blockId, _subBlockId, context) => {
+        const provider = resolveContextValue(context.contextValues, 'provider')
         if (!provider) return []
         const modes = getMarketSeriesCapabilities(provider)?.normalizationModes ?? []
         return modes.map((mode) => ({
@@ -391,13 +393,9 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
       type: 'json',
       description: 'Structured listing identifier payload',
     },
-    bars: {
-      type: 'array',
-      description: 'OHLCV bars with timestamps',
+    marketSeries: {
+      type: 'json',
+      description: 'Normalized market series payload (MarketSeries).',
     },
-    start: { type: 'string', description: 'Start of the returned series' },
-    end: { type: 'string', description: 'End of the returned series' },
-    timezone: { type: 'string', description: 'Exchange timezone' },
-    normalizationMode: { type: 'string', description: 'Normalization mode used' },
   },
 }

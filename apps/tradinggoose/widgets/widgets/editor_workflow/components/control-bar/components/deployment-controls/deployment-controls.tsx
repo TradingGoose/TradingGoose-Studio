@@ -58,7 +58,7 @@ export function DeploymentControls({
 
     try {
       await refetchDeployedState()
-    } catch (error) { }
+    } catch {}
   }
 
   const canDeploy = userPermissions.canAdmin
@@ -106,7 +106,7 @@ export function DeploymentControls({
                 'transition-all duration-200',
                 isDeployed && !isPreviousVersionActive && 'text-primary-hover',
                 isPreviousVersionActive &&
-                'border-amber-500 bg-amber-500/10 text-amber-600 dark:text-amber-400',
+                'border-primary bg-primary-hover/5 text-primary',
                 isDisabled &&
                 'cursor-not-allowed opacity-50 hover:border hover:bg-card hover:text-card-foreground hover:shadow-xs'
               )}
@@ -120,7 +120,7 @@ export function DeploymentControls({
             </Button>
 
             {isDeployed && workflowNeedsRedeployment && (
-              <div className='pointer-events-none absolute right-2 bottom-2 flex items-center justify-center'>
+              <div className='pointer-events-none absolute right-1 bottom-1 flex items-center justify-center'>
                 <div className='relative'>
                   <div className='absolute inset-0 h-[6px] w-[6px] animate-ping rounded-full bg-yellow-500/50' />
                   <div className='zoom-in fade-in relative h-[6px] w-[6px] animate-in rounded-full bg-yellow-500/80 duration-300' />

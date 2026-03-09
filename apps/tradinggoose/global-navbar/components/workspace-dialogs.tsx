@@ -133,7 +133,7 @@ const PermissionSelector = React.memo<{
 
   return (
     <div
-      className={cn('inline-flex rounded-[12px] border border-input bg-background', className)}
+      className={cn('inline-flex rounded-lg border border-input bg-background', className)}
     >
       {permissionOptions.map((option, index) => (
         <button
@@ -166,7 +166,7 @@ const PermissionsTableSkeleton = React.memo(() => (
       <div key={idx} className='flex items-center justify-between gap-2 py-2'>
         <Skeleton className='h-5 w-40' />
         <div className='flex items-center gap-2'>
-          <Skeleton className='h-[30px] w-32 flex-shrink-0 rounded-[12px]' />
+          <Skeleton className='h-[30px] w-32 flex-shrink-0 rounded-lg' />
           <div className='flex w-10 items-center gap-1 sm:w-12'>
             <Skeleton className='h-4 w-4 rounded' />
             <Skeleton className='h-4 w-4 rounded' />
@@ -220,10 +220,10 @@ const PermissionsTable = ({
     () =>
       session?.user?.email
         ? existingUsers.find((user) => user.isCurrentUser) || {
-            email: session.user.email,
-            permissionType: 'admin',
-            isCurrentUser: true,
-          }
+          email: session.user.email,
+          permissionType: 'admin',
+          isCurrentUser: true,
+        }
         : null,
     [session?.user?.email, existingUsers]
   )
@@ -318,8 +318,8 @@ const PermissionsTable = ({
                     {isPendingInvitation && (
                       <span className='inline-flex items-center gap-1 rounded-sm bg-gray-100 px-2 py-1 font-medium text-gray-700 text-xs dark:bg-gray-800 dark:text-gray-300'>
                         {resendingInvitationIds &&
-                        user.invitationId &&
-                        resendingInvitationIds[user.invitationId] ? (
+                          user.invitationId &&
+                          resendingInvitationIds[user.invitationId] ? (
                           <>
                             <Loader2 className='h-3.5 w-3.5 animate-spin' />
                             <span>Sending...</span>
@@ -397,36 +397,36 @@ const PermissionsTable = ({
                         currentUserIsAdmin &&
                         user.invitationId &&
                         onRemoveInvitation)) && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant='ghost'
-                            size='icon'
-                            onClick={() => {
-                              if (canShowRemoveButton && onRemoveMember) {
-                                onRemoveMember(user.userId!, user.email)
-                              } else if (
-                                isPendingInvitation &&
-                                user.invitationId &&
-                                onRemoveInvitation
-                              ) {
-                                onRemoveInvitation(user.invitationId, user.email)
-                              }
-                            }}
-                            disabled={disabled || isSaving}
-                            className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
-                          >
-                            <X className='h-3.5 w-3.5' />
-                            <span className='sr-only'>
-                              {isPendingInvitation ? 'Revoke invite' : 'Remove member'}
-                            </span>
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{isPendingInvitation ? 'Revoke invite' : 'Remove member'}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant='ghost'
+                              size='icon'
+                              onClick={() => {
+                                if (canShowRemoveButton && onRemoveMember) {
+                                  onRemoveMember(user.userId!, user.email)
+                                } else if (
+                                  isPendingInvitation &&
+                                  user.invitationId &&
+                                  onRemoveInvitation
+                                ) {
+                                  onRemoveInvitation(user.invitationId, user.email)
+                                }
+                              }}
+                              disabled={disabled || isSaving}
+                              className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
+                            >
+                              <X className='h-3.5 w-3.5' />
+                              <span className='sr-only'>
+                                {isPendingInvitation ? 'Revoke invite' : 'Remove member'}
+                              </span>
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{isPendingInvitation ? 'Revoke invite' : 'Remove member'}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                   </div>
                 </div>
               </div>
@@ -1099,8 +1099,8 @@ export function WorkspaceInviteModal({
 
             <div className='mt-6 mb-4 border-t' />
 
-          <PermissionsTable
-            userPermissions={userPermissions}
+            <PermissionsTable
+              userPermissions={userPermissions}
               onPermissionChange={handlePermissionChange}
               onRemoveMember={handleRemoveMemberClick}
               onRemoveInvitation={handleRemoveInvitationClick}
@@ -1115,11 +1115,11 @@ export function WorkspaceInviteModal({
               resendingInvitationIds={resendingInvitationIds}
               resentInvitationIds={resentInvitationIds}
               resendCooldowns={resendCooldowns}
-          />
-          {successMessage && (
-            <p className='mt-2 text-green-600 text-xs dark:text-green-400'>{successMessage}</p>
-          )}
-        </form>
+            />
+            {successMessage && (
+              <p className='mt-2 text-green-600 text-xs dark:text-green-400'>{successMessage}</p>
+            )}
+          </form>
 
           <div className='mb-4' />
 

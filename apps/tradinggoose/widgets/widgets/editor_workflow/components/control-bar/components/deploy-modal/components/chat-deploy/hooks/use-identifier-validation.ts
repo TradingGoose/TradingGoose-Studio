@@ -64,7 +64,7 @@ export function useIdentifierValidation(
           setError(null)
           setIsValid(true)
         }
-      } catch (error) {
+      } catch {
         setError('Error checking identifier availability')
         setIsValid(false)
       } finally {

@@ -175,13 +175,11 @@ const DropdownMenuShortcut = React.forwardRef<
 ));
 DropdownMenuShortcut.displayName = "DropdownMenuShortcut";
 
-const DropdownMenuSub = React.forwardRef<
-  React.ElementRef<typeof DropdownMenuPrimitive.Sub>,
-  React.ComponentProps<typeof DropdownMenuPrimitive.Sub>
->(({ ...props }, ref) => (
-  <DropdownMenuPrimitive.Sub ref={ref} data-slot="dropdown-menu-sub" {...props} />
-));
-DropdownMenuSub.displayName = DropdownMenuPrimitive.Sub.displayName;
+function DropdownMenuSub({
+  ...props
+}: React.ComponentProps<typeof DropdownMenuPrimitive.Sub>) {
+  return <DropdownMenuPrimitive.Sub data-slot="dropdown-menu-sub" {...props} />
+}
 
 const DropdownMenuSubTrigger = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.SubTrigger>,

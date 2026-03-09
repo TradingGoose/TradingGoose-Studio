@@ -111,7 +111,7 @@ export type BlockOutput =
 
 export type OutputFieldDefinition =
   | PrimitiveValueType
-  | { type: PrimitiveValueType; description?: string }
+  | { type: PrimitiveValueType; description?: string; condition?: SubBlockCondition }
 
 export interface ParamConfig {
   type: ParamType
@@ -128,6 +128,12 @@ export interface ParamConfig {
       additionalProperties?: boolean
     }
   }
+}
+
+export interface BlockOptionLoaderContext {
+  channelId: string
+  workflowId: string | null
+  contextValues?: Record<string, unknown>
 }
 
 export interface SubBlockConfig {
@@ -179,7 +185,7 @@ export interface SubBlockConfig {
   fetchOptions?: (
     blockId: string,
     subBlockId: string,
-    contextValues?: Record<string, any>
+    context: BlockOptionLoaderContext
   ) => Promise<Array<{ label: string; id: string }>>
   optionsStore?: 'marketProviders'
   min?: number

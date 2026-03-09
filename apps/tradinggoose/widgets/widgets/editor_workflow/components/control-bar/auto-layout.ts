@@ -191,6 +191,7 @@ export async function applyAutoLayoutAndUpdateStore({
     const { createOperationEntry } = await import('@/stores/undo-redo/utils')
     const prevBlocks = workflowStore.blocks
     const { blocks, edges, loops = {}, parallels = {} } = workflowStore
+    const hasLockedBlocks = Object.values(blocks).some((block) => Boolean(block.locked))
 
     logger.info('Auto layout store data:', {
       workflowId: resolvedWorkflowId,
@@ -203,6 +204,16 @@ export async function applyAutoLayoutAndUpdateStore({
     if (Object.keys(blocks).length === 0) {
       logger.warn('No blocks to layout', { workflowId: resolvedWorkflowId })
       return { success: false, error: 'No blocks to layout' }
+    }
+
+    if (hasLockedBlocks) {
+      logger.info('Auto layout skipped: workflow contains locked blocks', {
+        workflowId: resolvedWorkflowId,
+      })
+      return {
+        success: false,
+        error: 'Auto-layout is disabled when blocks are locked. Unlock blocks to use auto-layout.',
+      }
     }
 
     // Apply auto layout
@@ -296,10 +307,14 @@ export async function applyAutoLayoutAndUpdateStore({
       // Update the lastSaved timestamp in the store
       useWorkflowStore.getState(channelId).updateLastSaved()
 
-      // Clean up the workflow state for API validation
-      // Destructure out UI-only fields that shouldn't be persisted
-      const { deploymentStatuses, needsRedeployment, dragStartPosition, ...stateToSave } =
-        newWorkflowState
+      // Clean up the workflow state for API validation.
+      // Undefined keys are omitted during JSON serialization.
+      const stateToSave = {
+        ...newWorkflowState,
+        deploymentStatuses: undefined,
+        needsRedeployment: undefined,
+        dragStartPosition: undefined,
+      }
 
       const cleanedWorkflowState = {
         ...stateToSave,
@@ -342,7 +357,7 @@ export async function applyAutoLayoutAndUpdateStore({
           errorMessage = errorData?.error
             ? `${errorData.error}${details ? ` - ${details}` : ''}`
             : errorMessage
-        } catch (parseError) {
+        } catch {
           // Ignore JSON parse errors and fall back to generic message
         }
 

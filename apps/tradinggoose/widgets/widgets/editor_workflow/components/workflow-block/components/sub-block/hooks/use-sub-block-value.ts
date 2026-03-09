@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { isEqual } from 'lodash'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
 import { getProviderFromModel } from '@/providers/ai/utils'
 import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
@@ -11,6 +10,7 @@ import {
   DEFAULT_WORKFLOW_CHANNEL_ID,
   useWorkflowStore,
 } from '@/stores/workflows/workflow/store-client'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('SubBlockValue')
 
@@ -41,12 +41,14 @@ export function useSubBlockValue<T = any>(
   const { collaborativeSetSubblockValue } = useCollaborativeWorkflow()
   const routeContext = useOptionalWorkflowRoute()
   const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
+  const routeWorkflowId = routeContext?.workflowId ?? null
 
   // Subscribe to active workflow id to avoid races where the workflow id is set after mount.
   // This ensures our selector recomputes when the active workflow changes.
   const activeWorkflowId = useWorkflowRegistry((state) =>
     state.getActiveWorkflowId(resolvedChannelId)
   )
+  const resolvedWorkflowId = activeWorkflowId ?? routeWorkflowId
 
   const blockType = useWorkflowStore(
     useCallback((state) => state.blocks?.[blockId]?.type, [blockId])
@@ -73,10 +75,10 @@ export function useSubBlockValue<T = any>(
     useCallback(
       (state) => {
         // If the active workflow ID isn't available yet, return undefined so we can fall back to initialValue
-        if (!activeWorkflowId) return undefined
-        return state.workflowValues[activeWorkflowId]?.[blockId]?.[subBlockId] ?? null
+        if (!resolvedWorkflowId) return undefined
+        return state.workflowValues[resolvedWorkflowId]?.[blockId]?.[subBlockId] ?? null
       },
-      [activeWorkflowId, blockId, subBlockId]
+      [resolvedWorkflowId, blockId, subBlockId]
     ),
     (a, b) => isEqual(a, b) // Use deep equality to prevent re-renders for same values
   )
@@ -96,9 +98,11 @@ export function useSubBlockValue<T = any>(
   // Optimized: only re-render if model value actually changes
   const modelSubBlockValue = useSubBlockStore(
     useCallback(() => {
-      if (!activeWorkflowId) return null
-      return useSubBlockStore.getState().workflowValues[activeWorkflowId]?.[blockId]?.model ?? null
-    }, [activeWorkflowId, blockId]),
+      if (!resolvedWorkflowId) return null
+      return (
+        useSubBlockStore.getState().workflowValues[resolvedWorkflowId]?.[blockId]?.model ?? null
+      )
+    }, [resolvedWorkflowId, blockId]),
     (a, b) => a === b
   )
 
@@ -141,8 +145,9 @@ export function useSubBlockValue<T = any>(
 
       const registryState = useWorkflowRegistry.getState()
       const currentActiveWorkflowId = registryState.getActiveWorkflowId(resolvedChannelId)
-      if (!currentActiveWorkflowId) {
-        logger.warn('No active workflow ID when setting value', { blockId, subBlockId })
+      const targetWorkflowId = currentActiveWorkflowId ?? routeWorkflowId
+      if (!targetWorkflowId) {
+        logger.warn('No workflow ID when setting value', { blockId, subBlockId })
         return
       }
 
@@ -168,10 +173,10 @@ export function useSubBlockValue<T = any>(
         useSubBlockStore.setState((state) => ({
           workflowValues: {
             ...state.workflowValues,
-            [currentActiveWorkflowId]: {
-              ...state.workflowValues[currentActiveWorkflowId],
+            [targetWorkflowId]: {
+              ...state.workflowValues[targetWorkflowId],
               [blockId]: {
-                ...state.workflowValues[currentActiveWorkflowId]?.[blockId],
+                ...state.workflowValues[targetWorkflowId]?.[blockId],
                 [subBlockId]: newValue,
               },
             },
@@ -186,9 +191,9 @@ export function useSubBlockValue<T = any>(
           typeof newValue === 'string'
         ) {
           const currentApiKeyValue =
-            currentActiveWorkflowId != null
-              ? (useSubBlockStore.getState().workflowValues[currentActiveWorkflowId]?.[blockId]
-                  ?.apiKey ?? null)
+            targetWorkflowId != null
+              ? (useSubBlockStore.getState().workflowValues[targetWorkflowId]?.[blockId]?.apiKey ??
+                null)
               : null
           if (currentApiKeyValue && currentApiKeyValue !== '') {
             const oldModelValue = storeValue as string
@@ -219,6 +224,8 @@ export function useSubBlockValue<T = any>(
       isStreaming,
       emitValue,
       isShowingDiff,
+      resolvedChannelId,
+      routeWorkflowId,
     ]
   )
 

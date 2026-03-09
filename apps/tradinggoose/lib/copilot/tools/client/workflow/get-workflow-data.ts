@@ -1,10 +1,10 @@
-import { createLogger } from '@/lib/logs/console/logger'
 import { Database, Loader2, X, XCircle } from 'lucide-react'
 import {
   BaseClientTool,
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
+import { createLogger } from '@/lib/logs/console/logger'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('GetWorkflowDataClientTool')
@@ -76,9 +76,9 @@ export class GetWorkflowDataClientTool extends BaseClientTool {
         return
       }
 
-      const { hydration } = useWorkflowRegistry.getState()
-      const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
-      const activeWorkspaceId = hydration.workspaceId
+      const { workflowId: activeWorkflowId } = this.requireExecutionContext()
+      const registryState = useWorkflowRegistry.getState()
+      const activeWorkspaceId = registryState.workflows[activeWorkflowId]?.workspaceId ?? null
 
       switch (dataType) {
         case 'global_variables':

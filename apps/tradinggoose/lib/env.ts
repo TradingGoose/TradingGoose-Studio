@@ -210,15 +210,18 @@ export const env = createEnv({
     REDDIT_CLIENT_SECRET: z.string().optional(),                  // Reddit OAuth client secret
     WEBFLOW_CLIENT_ID: z.string().optional(),                  // Webflow OAuth client ID
     WEBFLOW_CLIENT_SECRET: z.string().optional(),                  // Webflow OAuth client secret
+    TRELLO_API_KEY: z.string().optional(),                  // Trello API key for Trello REST requests
     ALPACA_CLIENT_ID: z.string().optional(),  // Alpaca OAuth client ID for Alpaca services
     ALPACA_CLIENT_SECRET: z.string().optional(),  // Alpaca OAuth client secret
     // E2B Remote Code Execution
     E2B_ENABLED: z.string().optional(),                  // Enable E2B remote code execution
     E2B_API_KEY: z.string().optional(),                  // E2B API key for sandbox creation
     E2B_INDICATOR_TEMPLATE_ID: z.string().optional(),                  // E2B template id for indicator/function sandbox creation
-    MAX_E2B_KEEP_WARM_MS: z.string().optional(),                  // Max allowed E2B sandbox keep-warm duration in milliseconds (default 1 hour)
-    E2B_KEEP_WARM_MS: z.string().optional(),                  // Default E2B sandbox keep-warm duration in milliseconds
-    E2B_INDICATOR_KEEP_WARM_MS: z.string().optional(),                  // Indicator-specific keep-warm duration in milliseconds
+    E2B_KEEP_WARM_CAP_MS: z.string().optional(),                  // Hard cap for E2B keep-warm in milliseconds (default 1 hour)
+    E2B_MAX_CONCURRENT_SANDBOX: z.string().optional(),                  // Max number of process-local warm E2B sandboxes before local fallback
+    E2B_KEEP_WARM_TARGET_MS: z.string().optional(),                  // Requested E2B keep-warm in milliseconds
+    LOCAL_VM_MAX_CONCURRENT_EXECUTIONS: z.string().optional(),                  // Max concurrent local VM executions per process
+    LOCAL_VM_MAX_ACTIVE_PER_OWNER: z.string().optional(),                  // Max concurrent local VM executions per owner key
 
     // SSO Configuration (for script-based registration)
     SSO_ENABLED: z.boolean().optional(),                 // Enable SSO functionality

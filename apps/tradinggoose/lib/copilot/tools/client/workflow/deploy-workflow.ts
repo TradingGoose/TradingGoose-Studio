@@ -1,10 +1,10 @@
-import { createLogger } from '@/lib/logs/console/logger'
 import { Loader2, Rocket, X, XCircle } from 'lucide-react'
 import {
   BaseClientTool,
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
+import { createLogger } from '@/lib/logs/console/logger'
 import { getInputFormatExample } from '@/lib/workflows/operations/deployment-utils'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
@@ -33,9 +33,10 @@ export class DeployWorkflowClientTool extends BaseClientTool {
 
     const action = params?.action || 'deploy'
     const deployType = params?.deployType || 'api'
+    const executionContext = this.getExecutionContext()
 
     // Check if workflow is already deployed
-    const workflowId = params?.workflowId || useWorkflowRegistry.getState().getActiveWorkflowId()
+    const workflowId = params?.workflowId || executionContext?.workflowId
     const isAlreadyDeployed = workflowId
       ? useWorkflowRegistry.getState().getWorkflowDeploymentStatus(workflowId)?.isDeployed
       : false
@@ -83,7 +84,7 @@ export class DeployWorkflowClientTool extends BaseClientTool {
       const deployType = params?.deployType || 'api'
 
       // Check if workflow is already deployed
-      const workflowId = params?.workflowId || useWorkflowRegistry.getState().getActiveWorkflowId()
+      const workflowId = params?.workflowId
       const isAlreadyDeployed = workflowId
         ? useWorkflowRegistry.getState().getWorkflowDeploymentStatus(workflowId)?.isDeployed
         : false
@@ -185,10 +186,11 @@ export class DeployWorkflowClientTool extends BaseClientTool {
   async handleAccept(args?: DeployWorkflowArgs): Promise<void> {
     const logger = createLogger('DeployWorkflowClientTool')
     try {
+      const executionContext = this.requireExecutionContext()
       const action = args?.action || 'deploy'
       const deployType = args?.deployType || 'api'
       const registryState = useWorkflowRegistry.getState()
-      const workflowId = args?.workflowId || registryState.getActiveWorkflowId()
+      const workflowId = args?.workflowId || executionContext.workflowId
       const { workflows } = registryState
 
       if (!workflowId) {
@@ -251,7 +253,7 @@ export class DeployWorkflowClientTool extends BaseClientTool {
       const res = await fetch(endpoint, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: action === 'deploy' ? JSON.stringify({ deployChatEnabled: false }) : undefined,
+        body: action === 'deploy' ? JSON.stringify({}) : undefined,
       })
 
       if (!res.ok) {

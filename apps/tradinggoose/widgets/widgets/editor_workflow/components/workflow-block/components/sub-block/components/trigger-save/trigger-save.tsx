@@ -27,7 +27,6 @@ interface TriggerSaveProps {
   blockId: string
   subBlockId: string
   triggerId?: string
-  isPreview?: boolean
   disabled?: boolean
 }
 
@@ -39,7 +38,6 @@ export function TriggerSave({
   blockId,
   subBlockId,
   triggerId,
-  isPreview = false,
   disabled = false,
 }: TriggerSaveProps) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
@@ -66,7 +64,6 @@ export function TriggerSave({
   const { webhookId, saveConfig, deleteConfig, isLoading } = useWebhookManagement({
     blockId,
     triggerId: effectiveTriggerId,
-    isPreview,
     useWebhookUrl: true,
   })
 
@@ -206,7 +203,7 @@ export function TriggerSave({
   ])
 
   const handleSave = async () => {
-    if (isPreview || disabled) return
+    if (disabled) return
 
     setSaveStatus('saving')
     setErrorMessage(null)
@@ -277,7 +274,7 @@ export function TriggerSave({
   }
 
   const handleDeleteClick = () => {
-    if (isPreview || disabled || !webhookId) return
+    if (disabled || !webhookId) return
     setShowDeleteDialog(true)
   }
 
@@ -312,10 +309,6 @@ export function TriggerSave({
       setErrorMessage(error?.message || 'An error occurred while deleting.')
       logger.error('Error deleting trigger configuration', { error })
     }
-  }
-
-  if (isPreview) {
-    return null
   }
 
   const isProcessing = saveStatus === 'saving' || deleteStatus === 'deleting' || isLoading

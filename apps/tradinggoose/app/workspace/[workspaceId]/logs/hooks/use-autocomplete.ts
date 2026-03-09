@@ -39,7 +39,7 @@ interface AutocompleteState {
   // Dropdown state
   isOpen: boolean
   suggestions: Suggestion[]
-  suggestionType: 'filter-keys' | 'filter-values' | null
+  suggestionType: 'filter-keys' | 'filter-values' | 'multi-section' | null
   highlightedIndex: number
 
   // Preview state

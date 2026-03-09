@@ -225,9 +225,6 @@ export function TrainingModal({ channelId, isOpen, onClose }: TrainingModalProps
     try {
       const results = await Promise.allSettled(datasets.map((dataset) => sendToIndexer(dataset)))
 
-      const successes = results.filter((r) => r.status === 'fulfilled')
-      const failures = results.filter((r) => r.status === 'rejected')
-
       // Mark successes and failures visually
       const successfulIds = datasets
         .filter((_, i) => results[i].status === 'fulfilled')

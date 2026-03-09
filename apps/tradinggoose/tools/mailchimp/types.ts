@@ -1,4 +1,4 @@
-import { createLogger } from '@sim/logger'
+import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('Mailchimp')
 
@@ -334,17 +334,17 @@ export interface MailchimpMergeField {
   tag: string
   name: string
   type:
-    | 'text'
-    | 'number'
-    | 'address'
-    | 'phone'
-    | 'date'
-    | 'url'
-    | 'imageurl'
-    | 'radio'
-    | 'dropdown'
-    | 'birthday'
-    | 'zip'
+  | 'text'
+  | 'number'
+  | 'address'
+  | 'phone'
+  | 'date'
+  | 'url'
+  | 'imageurl'
+  | 'radio'
+  | 'dropdown'
+  | 'birthday'
+  | 'zip'
   required?: boolean
   default_value?: string
   public?: boolean

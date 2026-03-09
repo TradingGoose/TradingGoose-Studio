@@ -766,7 +766,7 @@ export async function POST(
           streamConfig: {
             selectedOutputs: resolvedSelectedOutputs,
             isSecureMode: finalIsSecureMode,
-            workflowTriggerType,
+            workflowTriggerType: workflowTriggerType === 'chat' ? 'chat' : 'api',
           },
           createFilteredResult,
           executionId,

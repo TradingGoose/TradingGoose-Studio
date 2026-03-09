@@ -1,7 +1,16 @@
-import type { SubBlockConfig } from '@/blocks/types'
 import { generateMockPayloadFromOutputsDefinition } from '@/lib/workflows/triggers/trigger-utils'
+import type { SubBlockConfig } from '@/blocks/types'
 import { TRIGGER_REGISTRY } from '@/triggers/registry'
 import type { TriggerConfig } from '@/triggers/types'
+
+const NATIVE_TRIGGER_PROVIDERS = new Set([
+  'core',
+  'schedule',
+  'indicator',
+  'generic',
+  'imap',
+  'rss',
+])
 
 export function getTrigger(triggerId: string): TriggerConfig | undefined {
   const trigger = TRIGGER_REGISTRY[triggerId]
@@ -16,12 +25,25 @@ export function getTrigger(triggerId: string): TriggerConfig | undefined {
 
   if (
     clonedTrigger.subBlocks &&
-    (trigger.webhook || trigger.id.includes('webhook') || trigger.id.includes('poller'))
+    (trigger.webhook ||
+      trigger.id.includes('webhook') ||
+      trigger.id.includes('poller') ||
+      trigger.id === 'indicator_trigger')
   ) {
     const samplePayloadExists = clonedTrigger.subBlocks.some((sb) => sb.id === 'samplePayload')
 
     if (!samplePayloadExists && trigger.outputs) {
       const mockPayload = generateMockPayloadFromOutputsDefinition(trigger.outputs)
+      const hasSamplePayloadContent =
+        mockPayload &&
+        typeof mockPayload === 'object' &&
+        !Array.isArray(mockPayload) &&
+        Object.keys(mockPayload).length > 0
+
+      if (!hasSamplePayloadContent) {
+        return clonedTrigger
+      }
+
       const generatedPayload = JSON.stringify(mockPayload, null, 2)
 
       const samplePayloadSubBlock: SubBlockConfig = {
@@ -56,6 +78,11 @@ export function getTriggersByProvider(provider: string): TriggerConfig[] {
 
 export function getAllTriggers(): TriggerConfig[] {
   return Object.keys(TRIGGER_REGISTRY).map((triggerId) => getTrigger(triggerId)!)
+}
+
+export function isNativeTrigger(triggerId: string): boolean {
+  const trigger = TRIGGER_REGISTRY[triggerId]
+  return trigger ? NATIVE_TRIGGER_PROVIDERS.has(trigger.provider) : false
 }
 
 export function getTriggerIds(): string[] {

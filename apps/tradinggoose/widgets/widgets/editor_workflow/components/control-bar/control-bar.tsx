@@ -9,12 +9,10 @@ import {
   SkipForward,
   StepForward,
   Store,
-  Webhook,
   X,
 } from 'lucide-react'
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui'
 import { useSession } from '@/lib/auth-client'
-import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import {
@@ -25,7 +23,6 @@ import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/provide
 import { getBlock } from '@/blocks'
 import { useWorkflowExecution } from '@/hooks/workflow/use-workflow-execution'
 import { useOperationQueueStore } from '@/stores/operation-queue/store'
-import { usePanelStore } from '@/stores/panel/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
@@ -38,7 +35,6 @@ import {
   DeploymentControls,
   ExportControls,
   TemplateModal,
-  WebhookSettings,
 } from '@/widgets/widgets/editor_workflow/components/control-bar/components'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
@@ -58,6 +54,7 @@ let usageDataCache: {
 
 interface ControlBarProps {
   hasValidationErrors?: boolean
+  hasLockedBlocks?: boolean
   className?: string
   variant?: 'widget'
 }
@@ -92,22 +89,17 @@ const getDangerButtonClass = (extra?: string) => cn(WIDGET_DANGER_BUTTON_CLASS, 
  */
 export function ControlBar({
   hasValidationErrors = false,
+  hasLockedBlocks = false,
   className,
   variant = 'widget',
 }: ControlBarProps) {
   const { data: session } = useSession()
   const { workflowId, channelId } = useWorkflowRoute()
   // Store hooks
-  const { lastSaved, setNeedsRedeploymentFlag, blocks } = useWorkflowStore()
-  const {
-    workflows,
-    updateWorkflow,
-    setDeploymentStatus,
-    isLoading: isRegistryLoading,
-  } = useWorkflowRegistry()
+  const { setNeedsRedeploymentFlag, blocks } = useWorkflowStore()
+  const isRegistryLoading = useWorkflowRegistry((state) => state.isLoading)
   const activeWorkflowId = workflowId
   const { isExecuting, handleRunWorkflow, handleCancelExecution } = useWorkflowExecution()
-  const { setActiveTab, togglePanel, isOpen } = usePanelStore()
 
   // User permissions - use stable activeWorkspaceId from registry instead of deriving from currentWorkflow
   const userPermissions = useUserPermissionsContext()
@@ -117,10 +109,8 @@ export function ControlBar({
     useWorkflowExecution()
 
   // Local state
-  const [mounted, setMounted] = useState(false)
   const [, forceUpdate] = useState({})
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
-  const [isWebhookSettingsOpen, setIsWebhookSettingsOpen] = useState(false)
   const [isAutoLayouting, setIsAutoLayouting] = useState(false)
 
   // Deployed state management
@@ -140,21 +130,12 @@ export function ControlBar({
     limit: number
   } | null>(null)
 
-  // Helper function to open console panel
-  const openConsolePanel = useCallback(() => {
-    setActiveTab('console')
-    if (!isOpen) {
-      togglePanel()
-    }
-  }, [setActiveTab, isOpen, togglePanel])
-
   // Shared condition for keyboard shortcut and button disabled state
   const isWorkflowBlocked = isExecuting || hasValidationErrors
 
   // Register keyboard shortcut for running workflow
   useKeyboardShortcuts(() => {
     if (!isWorkflowBlocked) {
-      openConsolePanel()
       handleRunWorkflow()
     }
   }, isWorkflowBlocked)
@@ -170,11 +151,6 @@ export function ControlBar({
     state.getWorkflowDeploymentStatus(activeWorkflowId)
   )
   const isDeployed = deploymentStatus?.isDeployed || false
-
-  // Client-side only rendering for the timestamp
-  useEffect(() => {
-    setMounted(true)
-  }, [])
 
   // Update the time display every minute
   useEffect(() => {
@@ -313,7 +289,7 @@ export function ControlBar({
 
   useEffect(() => {
     if (session?.user?.id && !isRegistryLoading) {
-      checkUserUsage(session.user.id).then((usage) => {
+      checkUserUsage().then((usage) => {
         if (usage) {
           setUsageExceeded(usage.isExceeded)
           setUsageData(usage)
@@ -325,7 +301,7 @@ export function ControlBar({
   /**
    * Check user usage limits and cache results
    */
-  async function checkUserUsage(userId: string, forceRefresh = false): Promise<any | null> {
+  async function checkUserUsage(forceRefresh = false): Promise<any | null> {
     const now = Date.now()
     const cacheAge = now - usageDataCache.timestamp
 
@@ -383,46 +359,11 @@ export function ControlBar({
   )
 
   /**
-   * Render webhook settings button
-   */
-  const renderWebhookButton = () => {
-    // Only show webhook button if Trigger.dev is enabled
-    const isTriggerEnabled = isTruthy(getEnv('NEXT_PUBLIC_TRIGGER_DEV_ENABLED'))
-    if (!isTriggerEnabled) return null
-
-    const canEdit = userPermissions.canEdit
-    const isDisabled = !canEdit
-
-    const getTooltipText = () => {
-      if (!canEdit) return 'Admin permission required to configure webhooks'
-      return 'Configure webhook notifications'
-    }
-
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant='outline'
-            size='icon'
-            disabled={isDisabled}
-            onClick={() => setIsWebhookSettingsOpen(true)}
-            className={getIconButtonClass()}
-          >
-            <Webhook className='h-5 w-5' />
-            <span className='sr-only'>Webhook Settings</span>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{getTooltipText()}</TooltipContent>
-      </Tooltip>
-    )
-  }
-
-  /**
    * Render auto-layout button
    */
   const renderAutoLayoutButton = () => {
     const handleAutoLayoutClick = async () => {
-      if (isExecuting || isDebugging || !userPermissions.canEdit || isAutoLayouting) {
+      if (isExecuting || isDebugging || !userPermissions.canEdit || isAutoLayouting || hasLockedBlocks) {
         return
       }
 
@@ -454,10 +395,11 @@ export function ControlBar({
     }
 
     const canEdit = userPermissions.canEdit
-    const isDisabled = isExecuting || isDebugging || !canEdit || isAutoLayouting
+    const isDisabled = isExecuting || isDebugging || !canEdit || isAutoLayouting || hasLockedBlocks
 
     const getTooltipText = () => {
       if (!canEdit) return 'Admin permission required to use auto-layout'
+      if (hasLockedBlocks) return 'Auto-layout is disabled when blocks are locked'
       if (isDebugging) return 'Cannot auto-layout while debugging'
       if (isExecuting) return 'Cannot auto-layout while workflow is running'
       if (isAutoLayouting) return 'Applying auto-layout...'
@@ -522,7 +464,6 @@ export function ControlBar({
       if (usageExceeded) {
         openSubscriptionSettings()
       } else {
-        openConsolePanel()
         handleRunWorkflow(undefined, true) // Start in debug mode
       }
     }
@@ -533,7 +474,6 @@ export function ControlBar({
     blocks,
     handleCancelDebug,
     handleRunWorkflow,
-    openConsolePanel,
   ])
 
   /**
@@ -555,7 +495,6 @@ export function ControlBar({
           <TooltipTrigger asChild>
             <Button
               onClick={() => {
-                openConsolePanel()
                 handleStepDebug()
               }}
               className={debugButtonClass}
@@ -572,7 +511,6 @@ export function ControlBar({
           <TooltipTrigger asChild>
             <Button
               onClick={() => {
-                openConsolePanel()
                 handleResumeDebug()
               }}
               className={debugButtonClass}
@@ -737,8 +675,6 @@ export function ControlBar({
     }
 
     const handleRunClick = () => {
-      openConsolePanel()
-
       if (usageExceeded) {
         openSubscriptionSettings()
       } else {
@@ -754,7 +690,7 @@ export function ControlBar({
             onClick={handleRunClick}
             disabled={isButtonDisabled}
           >
-            <Play className={cn('h-3.5 w-3.5', 'fill-current stroke-none')} />
+            <Play className={cn('h-3.5 w-3.5', 'fill-current stroke-current')} />
           </Button>
         </TooltipTrigger>
         <TooltipContent command={getKeyboardShortcutText('Enter', true)}>
@@ -770,7 +706,6 @@ export function ControlBar({
 
   return (
     <div className={containerClass}>
-      {showOptionalControls && renderWebhookButton()}
       {showOptionalControls && <ExportControls variant={variant} />}
       {showOptionalControls && renderAutoLayoutButton()}
       {showOptionalControls && renderPublishButton()}
@@ -783,15 +718,6 @@ export function ControlBar({
         <TemplateModal
           open={isTemplateModalOpen}
           onOpenChange={setIsTemplateModalOpen}
-          workflowId={activeWorkflowId}
-        />
-      )}
-
-      {/* Webhook Settings */}
-      {activeWorkflowId && (
-        <WebhookSettings
-          open={isWebhookSettingsOpen}
-          onOpenChange={setIsWebhookSettingsOpen}
           workflowId={activeWorkflowId}
         />
       )}

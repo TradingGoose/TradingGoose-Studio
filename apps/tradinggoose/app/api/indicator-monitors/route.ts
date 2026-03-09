@@ -11,7 +11,7 @@ import { generateRequestId } from '@/lib/utils'
 import { notifyIndicatorMonitorsReconcile } from '@/app/api/indicator-monitors/reconcile'
 import { authenticateIndicatorRequest, checkWorkspacePermission } from '@/app/api/indicators/utils'
 import {
-  ensureIndicatorTriggerBlock,
+  ensureIndicatorTriggerBlockInDeployedState,
   ensureTriggerCapableIndicator,
   ensureWorkflowInWorkspace,
   listIndicatorMonitorRows,
@@ -96,11 +96,12 @@ export async function POST(request: NextRequest) {
     })
     if (!permission.ok) return permission.response
 
-    await ensureWorkflowInWorkspace(payload.workflowId, payload.workspaceId)
-    await ensureIndicatorTriggerBlock(payload.workflowId, payload.blockId)
+    const workflowRow = await ensureWorkflowInWorkspace(payload.workflowId, payload.workspaceId)
+    await ensureIndicatorTriggerBlockInDeployedState(payload.workflowId, payload.blockId)
     await ensureTriggerCapableIndicator(payload.workspaceId, payload.indicatorId)
 
     const providerConfig = await normalizeIndicatorMonitorConfig({
+      triggerBlockId: payload.blockId,
       providerId: payload.providerId,
       interval: payload.interval,
       listingInput: payload.listing,
@@ -112,19 +113,21 @@ export async function POST(request: NextRequest) {
     const monitorId = nanoid()
     const monitorPath = `indicator-monitor-${monitorId}`
 
+    const nextIsActive = (payload.isActive ?? true) && workflowRow.isDeployed === true
+
     const [createdMonitor] = await db
       .insert(webhook)
       .values({
         id: monitorId,
         workflowId: payload.workflowId,
-        blockId: payload.blockId,
+        blockId: null,
         path: monitorPath,
         provider: 'indicator',
         providerConfig: {
           ...providerConfig,
           triggerId: INDICATOR_MONITOR_TRIGGER_ID,
         },
-        isActive: payload.isActive ?? true,
+        isActive: nextIsActive,
         createdAt: new Date(),
         updatedAt: new Date(),
       })

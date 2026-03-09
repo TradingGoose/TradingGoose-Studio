@@ -21,6 +21,10 @@ const PROVIDER_CONFIGS: Record<ProviderName, ProviderConfig> = {
     dedupeModels: true,
     updateFunction: updateOpenRouterProviderModels,
   },
+  vllm: {
+    apiEndpoint: '/api/providers/vllm/models',
+    updateFunction: () => {},
+  },
 }
 
 const resolveApiEndpoint = (endpoint: string): string => {
@@ -70,6 +74,7 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
     base: { models: [], isLoading: false },
     ollama: { models: [], isLoading: false },
     openrouter: { models: [], isLoading: false },
+    vllm: { models: [], isLoading: false },
   },
 
   setModels: (provider, models) => {
@@ -153,5 +158,6 @@ if (typeof window !== 'undefined') {
     store.fetchModels('base')
     store.fetchModels('ollama')
     store.fetchModels('openrouter')
+    store.fetchModels('vllm')
   }, 1000)
 }

@@ -13,7 +13,7 @@ import { generateRequestId } from '@/lib/utils'
 import { notifyIndicatorMonitorsReconcile } from '@/app/api/indicator-monitors/reconcile'
 import { authenticateIndicatorRequest, checkWorkspacePermission } from '@/app/api/indicators/utils'
 import {
-  ensureIndicatorTriggerBlock,
+  ensureIndicatorTriggerBlockInDeployedState,
   ensureTriggerCapableIndicator,
   ensureWorkflowInWorkspace,
   getIndicatorMonitorRowById,
@@ -121,19 +121,22 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     const nextWorkflowId = payload.workflowId ?? row.webhook.workflowId
-    const nextBlockId = payload.blockId ?? row.webhook.blockId
-    if (!nextBlockId) {
+    const nextTriggerBlockId = payload.blockId ?? existingMonitor.triggerBlockId
+    if (!nextTriggerBlockId) {
       return NextResponse.json({ error: 'blockId is required' }, { status: 400 })
     }
 
-    await ensureWorkflowInWorkspace(nextWorkflowId, workspaceId)
-    await ensureIndicatorTriggerBlock(nextWorkflowId, nextBlockId)
+    const workflowRow = await ensureWorkflowInWorkspace(nextWorkflowId, workspaceId)
+    if (payload.blockId !== undefined || payload.workflowId !== undefined || payload.isActive === true) {
+      await ensureIndicatorTriggerBlockInDeployedState(nextWorkflowId, nextTriggerBlockId)
+    }
     await ensureTriggerCapableIndicator(
       workspaceId,
       payload.indicatorId ?? existingMonitor.indicatorId
     )
 
     const providerConfig = await normalizeIndicatorMonitorConfig({
+      triggerBlockId: nextTriggerBlockId,
       providerId: payload.providerId ?? existingMonitor.providerId,
       interval: payload.interval ?? existingMonitor.interval,
       listingInput: payload.listing ?? existingMonitor.listing,
@@ -143,16 +146,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       previousAuth: existingMonitor.auth,
     })
 
+    const nextIsActive =
+      payload.isActive === undefined ? row.webhook.isActive : payload.isActive && workflowRow.isDeployed
+
     const [updatedMonitor] = await db
       .update(webhook)
       .set({
         workflowId: nextWorkflowId,
-        blockId: nextBlockId,
+        blockId: null,
         providerConfig: {
           ...providerConfig,
           triggerId: INDICATOR_MONITOR_TRIGGER_ID,
         },
-        isActive: payload.isActive ?? row.webhook.isActive,
+        isActive: nextIsActive,
         updatedAt: new Date(),
       })
       .where(and(eq(webhook.id, id), eq(webhook.provider, 'indicator')))

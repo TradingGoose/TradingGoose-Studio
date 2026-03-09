@@ -25,7 +25,6 @@ import { OAuthRequiredModal } from '@/widgets/widgets/editor_workflow/components
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import type { SubBlockConfig } from '@/blocks/types'
-import { useCollaborativeWorkflow } from '@/hooks/use-collaborative-workflow'
 
 const logger = createLogger('CredentialSelector')
 
@@ -33,16 +32,12 @@ interface CredentialSelectorProps {
   blockId: string
   subBlock: SubBlockConfig
   disabled?: boolean
-  isPreview?: boolean
-  previewValue?: any | null
 }
 
 export function CredentialSelector({
   blockId,
   subBlock,
   disabled = false,
-  isPreview = false,
-  previewValue,
 }: CredentialSelectorProps) {
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState<Credential[]>([])
@@ -51,7 +46,6 @@ export function CredentialSelector({
   const [selectedId, setSelectedId] = useState('')
   const [hasForeignMeta, setHasForeignMeta] = useState(false)
   const activeWorkflowId = useWorkflowId()
-  const { collaborativeSetSubblockValue } = useCollaborativeWorkflow()
 
   // Use collaborative state management via useSubBlockValue hook
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlock.id)
@@ -62,13 +56,10 @@ export function CredentialSelector({
   const label = subBlock.placeholder || 'Select credential'
   const serviceId = subBlock.serviceId
 
-  // Get the effective value (preview or store value)
-  const effectiveValue = isPreview && previewValue !== undefined ? previewValue : storeValue
-
-  // Initialize selectedId with the effective value
+  // Initialize selectedId with the current store value
   useEffect(() => {
-    setSelectedId(effectiveValue || '')
-  }, [effectiveValue])
+    setSelectedId(storeValue || '')
+  }, [storeValue])
 
   // Derive service and provider IDs using useMemo
   const effectiveServiceId = useMemo(() => {
@@ -126,7 +117,7 @@ export function CredentialSelector({
   // Fetch credentials on initial mount and whenever the subblock value changes externally
   useEffect(() => {
     fetchCredentials()
-  }, [fetchCredentials, effectiveValue])
+  }, [fetchCredentials, storeValue])
 
   // When the selectedId changes (e.g., collaborator saved a credential), determine if it's foreign
   useEffect(() => {
@@ -212,11 +203,8 @@ export function CredentialSelector({
 
   // Handle selection
   const handleSelect = (credentialId: string) => {
-    const previousId = selectedId || (effectiveValue as string) || ''
     setSelectedId(credentialId)
-    if (!isPreview) {
-      setStoreValue(credentialId)
-    }
+    setStoreValue(credentialId)
     setOpen(false)
   }
 

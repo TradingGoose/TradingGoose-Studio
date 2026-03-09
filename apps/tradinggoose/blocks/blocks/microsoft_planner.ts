@@ -111,7 +111,7 @@ export const MicrosoftPlannerBlock: BlockConfig<MicrosoftPlannerResponse> = {
       title: 'Due Date',
       type: 'datetime-input',
       layout: 'full',
-      placeholder: 'Enter due date in ISO 8601 format (e.g., 2024-12-31T23:59:59Z)',
+      placeholder: 'Enter due date in 2024-12-31 23:59:59',
       condition: { field: 'operation', value: ['create_task'] },
     },
     {

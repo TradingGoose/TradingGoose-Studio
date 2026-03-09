@@ -1,9 +1,11 @@
-import { createLogger } from '@sim/logger'
-import { convertSquareBracketsToTwiML } from '@/lib/webhooks/utils'
+import { createLogger } from '@/lib/logs/console/logger'
 import type { TwilioCallOutput, TwilioMakeCallParams } from '@/tools/twilio_voice/types'
 import type { ToolConfig } from '@/tools/types'
 
 const logger = createLogger('TwilioVoiceMakeCallTool')
+
+const convertSquareBracketsToTwiML = (value: string): string =>
+  value.replace(/\[/g, '<').replace(/\]/g, '>')
 
 export const makeCallTool: ToolConfig<TwilioMakeCallParams, TwilioCallOutput> = {
   id: 'twilio_voice_make_call',

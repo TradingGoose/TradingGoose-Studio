@@ -36,8 +36,6 @@ interface FolderSelectorProps {
   disabled?: boolean
   serviceId?: string
   onFolderInfoChange?: (folderInfo: FolderInfo | null) => void
-  isPreview?: boolean
-  previewValue?: any | null
   credentialId?: string
   workflowId?: string
   isForeignCredential?: boolean
@@ -52,8 +50,6 @@ export function FolderSelector({
   disabled = false,
   serviceId,
   onFolderInfoChange,
-  isPreview = false,
-  previewValue,
   credentialId,
   workflowId,
   isForeignCredential = false,
@@ -67,18 +63,13 @@ export function FolderSelector({
   const [selectedFolderId, setSelectedFolderId] = useState('')
   const [selectedFolder, setSelectedFolder] = useState<FolderInfo | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [isLoadingSelectedFolder, setIsLoadingSelectedFolder] = useState(false)
   const [showOAuthModal, setShowOAuthModal] = useState(false)
   const initialFetchRef = useRef(false)
 
   // Initialize selectedFolderId with the effective value
   useEffect(() => {
-    if (isPreview && previewValue !== undefined) {
-      setSelectedFolderId(previewValue || '')
-    } else {
-      setSelectedFolderId(value)
-    }
-  }, [value, isPreview, previewValue])
+    setSelectedFolderId(value)
+  }, [value])
 
   // Keep internal credential in sync with prop
   useEffect(() => {
@@ -112,13 +103,10 @@ export function FolderSelector({
 
         // Auto-select logic for credentials
         if (data.credentials.length > 0) {
-          // If we already have a selected credential ID, check if it's valid
           if (
-            selectedCredentialId &&
-            data.credentials.some((cred: Credential) => cred.id === selectedCredentialId)
+            !selectedCredentialId ||
+            !data.credentials.some((cred: Credential) => cred.id === selectedCredentialId)
           ) {
-            // Keep the current selection
-          } else {
             // Otherwise, select the default or first credential
             const defaultCred = data.credentials.find((cred: Credential) => cred.isDefault)
             if (defaultCred) {
@@ -141,7 +129,6 @@ export function FolderSelector({
     async (folderId: string) => {
       if (!selectedCredentialId || !folderId) return null
 
-      setIsLoadingSelectedFolder(true)
       try {
         if (provider === 'outlook') {
           // Resolve Outlook folder name with owner-scoped token
@@ -194,8 +181,6 @@ export function FolderSelector({
       } catch (error) {
         logger.error('Error fetching folder by ID:', { error })
         return null
-      } finally {
-        setIsLoadingSelectedFolder(false)
       }
     },
     [selectedCredentialId, onFolderInfoChange, provider, workflowId]
@@ -299,30 +284,26 @@ export function FolderSelector({
   // Keep internal selectedFolderId in sync with the value prop
   useEffect(() => {
     if (disabled) return
-    const currentValue = isPreview ? previewValue : value
-    if (currentValue !== selectedFolderId) {
-      setSelectedFolderId(currentValue || '')
+    if (value !== selectedFolderId) {
+      setSelectedFolderId(value || '')
     }
-  }, [value, isPreview, previewValue, disabled])
+  }, [value, selectedFolderId, disabled])
 
   // Fetch the selected folder metadata once credentials are ready or value changes
   useEffect(() => {
     if (disabled) return
-    const currentValue = isPreview ? (previewValue as string) : (value as string)
     if (
-      currentValue &&
+      value &&
       selectedCredentialId &&
-      (!selectedFolder || selectedFolder.id !== currentValue)
+      (!selectedFolder || selectedFolder.id !== value)
     ) {
-      fetchFolderById(currentValue)
+      fetchFolderById(value)
     }
   }, [
     value,
     selectedCredentialId,
     selectedFolder,
     fetchFolderById,
-    isPreview,
-    previewValue,
     disabled,
   ])
 
@@ -330,9 +311,7 @@ export function FolderSelector({
   const handleSelectFolder = (folder: FolderInfo) => {
     setSelectedFolderId(folder.id)
     setSelectedFolder(folder)
-    if (!isPreview) {
-      onChange(folder.id, folder)
-    }
+    onChange(folder.id, folder)
     onFolderInfoChange?.(folder)
     setOpen(false)
   }

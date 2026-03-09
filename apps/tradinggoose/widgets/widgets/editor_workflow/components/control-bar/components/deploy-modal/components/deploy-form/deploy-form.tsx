@@ -5,13 +5,10 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { Form, FormField, FormItem, FormMessage } from '@/components/ui/form'
-import { createLogger } from '@/lib/logs/console/logger'
 import {
   type ApiKey,
   ApiKeySelector,
 } from '@/widgets/widgets/editor_workflow/components/control-bar/components/api-key-selector/api-key-selector'
-
-const logger = createLogger('DeployForm')
 
 // Form schema for API key selection or creation
 const deployFormSchema = z.object({

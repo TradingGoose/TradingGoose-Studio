@@ -1,5 +1,6 @@
 import {
   db,
+  webhook,
   workflow,
   workflowBlocks,
   workflowDeploymentVersion,
@@ -10,12 +11,39 @@ import type { InferSelectModel } from 'drizzle-orm'
 import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm'
 import type { Edge } from 'reactflow'
 import { v4 as uuidv4 } from 'uuid'
+import { reconcilePublishedChatsForDeploymentTx } from '@/lib/chat/published-deployment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
 import type { BlockState, Loop, Parallel, WorkflowState } from '@/stores/workflows/workflow/types'
 import { SUBFLOW_TYPES } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('WorkflowDBHelpers')
+
+const resolveLockedFromBlockData = (data: unknown): boolean => {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return false
+  }
+  return Boolean((data as Record<string, unknown>).locked)
+}
+
+const upsertLockedInBlockData = (data: unknown, locked: boolean): Record<string, unknown> => {
+  const next: Record<string, unknown> =
+    data && typeof data === 'object' && !Array.isArray(data)
+      ? { ...(data as Record<string, unknown>) }
+      : {}
+
+  if (locked) {
+    next.locked = true
+    return next
+  }
+
+  if (!('locked' in next)) {
+    return next
+  }
+
+  const { locked: _locked, ...rest } = next
+  return rest
+}
 
 export async function ensureUniqueBlockIds(
   workflowId: string,
@@ -32,11 +60,11 @@ export async function ensureUniqueBlockIds(
     blockIds.length === 0
       ? []
       : await db
-        .select({ id: workflowBlocks.id })
-        .from(workflowBlocks)
-        .where(
-          and(inArray(workflowBlocks.id, blockIds), ne(workflowBlocks.workflowId, workflowId))
-        )
+          .select({ id: workflowBlocks.id })
+          .from(workflowBlocks)
+          .where(
+            and(inArray(workflowBlocks.id, blockIds), ne(workflowBlocks.workflowId, workflowId))
+          )
 
   const conflictingIds = new Set(conflictingIdsResult.map((row) => row.id))
   const remap = new Map<string, string>()
@@ -200,7 +228,10 @@ export function regenerateWorkflowStateIds(state: WorkflowState): WorkflowState 
       Object.entries(nextBlock.subBlocks).forEach(([subId, subBlock]) => {
         if (!subBlock) return
         const updatedSubBlock = { ...subBlock }
-        if (typeof updatedSubBlock.value === 'string' && blockIdMapping.has(updatedSubBlock.value)) {
+        if (
+          typeof updatedSubBlock.value === 'string' &&
+          blockIdMapping.has(updatedSubBlock.value)
+        ) {
           updatedSubBlock.value = blockIdMapping.get(updatedSubBlock.value) as string
         }
         updatedSubBlocks[subId] = updatedSubBlock
@@ -343,7 +374,8 @@ export async function loadWorkflowFromNormalizedTables(
     // Convert blocks to the expected format
     const blocksMap: Record<string, BlockState> = {}
     blocks.forEach((block) => {
-      const blockData = block.data || {}
+      const blockLocked = resolveLockedFromBlockData(block.data)
+      const blockData = upsertLockedInBlockData(block.data || {}, blockLocked)
 
       const assembled: BlockState = {
         id: block.id,
@@ -359,6 +391,7 @@ export async function loadWorkflowFromNormalizedTables(
         advancedMode: block.advancedMode,
         triggerMode: block.triggerMode,
         height: Number(block.height),
+        locked: blockLocked,
         subBlocks: (block.subBlocks as BlockState['subBlocks']) || {},
         outputs: (block.outputs as BlockState['outputs']) || {},
         data: blockData,
@@ -396,9 +429,9 @@ export async function loadWorkflowFromNormalizedTables(
             typeof (config as Loop).iterations === 'number' ? (config as Loop).iterations : 1,
           loopType:
             (config as Loop).loopType === 'for' ||
-              (config as Loop).loopType === 'forEach' ||
-              (config as Loop).loopType === 'while' ||
-              (config as Loop).loopType === 'doWhile'
+            (config as Loop).loopType === 'forEach' ||
+            (config as Loop).loopType === 'while' ||
+            (config as Loop).loopType === 'doWhile'
               ? (config as Loop).loopType
               : 'for',
           forEachItems: (config as Loop).forEachItems ?? '',
@@ -413,7 +446,7 @@ export async function loadWorkflowFromNormalizedTables(
           distribution: (config as Parallel).distribution ?? '',
           parallelType:
             (config as Parallel).parallelType === 'count' ||
-              (config as Parallel).parallelType === 'collection'
+            (config as Parallel).parallelType === 'collection'
               ? (config as Parallel).parallelType
               : 'count',
         }
@@ -495,9 +528,7 @@ export async function saveWorkflowToNormalizedTables(
         height: sanitizeNumberForDecimal(block.height ?? 0),
         subBlocks: block.subBlocks || {},
         outputs: block.outputs || {},
-        data: block.data || {},
-        parentId: block.data?.parentId || null,
-        extent: block.data?.extent || null,
+        data: upsertLockedInBlockData(block.data || {}, Boolean(block.locked)),
       })
 
       return acc
@@ -553,6 +584,14 @@ export async function saveWorkflowToNormalizedTables(
       await tx.execute(
         sql`select id from "workflow" where "workflow"."id" = ${workflowId} for update`
       )
+
+      await tx
+        .update(webhook)
+        .set({
+          blockId: null,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(webhook.workflowId, workflowId), eq(webhook.provider, 'indicator')))
 
       // Clear existing data for this workflow
       await Promise.all([
@@ -674,9 +713,12 @@ export async function deployWorkflow(params: {
   pinnedApiKeyId?: string
   includeDeployedState?: boolean
   workflowName?: string
+  workflowOwnerId?: string
+  previousDeployedState?: unknown
 }): Promise<{
   success: boolean
   version?: number
+  deploymentVersionId?: string
   deployedAt?: Date
   currentState?: any
   error?: string
@@ -687,6 +729,8 @@ export async function deployWorkflow(params: {
     pinnedApiKeyId,
     includeDeployedState = false,
     workflowName,
+    workflowOwnerId,
+    previousDeployedState,
   } = params
 
   try {
@@ -705,7 +749,7 @@ export async function deployWorkflow(params: {
 
     const now = new Date()
 
-    const deployedVersion = await db.transaction(async (tx) => {
+    const deploymentRecord = await db.transaction(async (tx) => {
       // Get next version number
       const [{ maxVersion }] = await tx
         .select({ maxVersion: sql`COALESCE(MAX("version"), 0)` })
@@ -721,8 +765,9 @@ export async function deployWorkflow(params: {
         .where(eq(workflowDeploymentVersion.workflowId, workflowId))
 
       // Create new deployment version
+      const deploymentVersionId = uuidv4()
       await tx.insert(workflowDeploymentVersion).values({
-        id: uuidv4(),
+        id: deploymentVersionId,
         workflowId,
         version: nextVersion,
         state: currentState,
@@ -747,10 +792,37 @@ export async function deployWorkflow(params: {
 
       await tx.update(workflow).set(updateData).where(eq(workflow.id, workflowId))
 
-      return nextVersion
+      let resolvedWorkflowOwnerId = workflowOwnerId
+      if (!resolvedWorkflowOwnerId) {
+        const [workflowRecord] = await tx
+          .select({ userId: workflow.userId })
+          .from(workflow)
+          .where(eq(workflow.id, workflowId))
+          .limit(1)
+
+        resolvedWorkflowOwnerId = workflowRecord?.userId
+      }
+
+      if (!resolvedWorkflowOwnerId) {
+        throw new Error('Workflow owner not found')
+      }
+
+      await reconcilePublishedChatsForDeploymentTx({
+        tx,
+        workflowId,
+        workflowOwnerId: resolvedWorkflowOwnerId,
+        deploymentVersionId,
+        state: currentState,
+        previousState: previousDeployedState,
+      })
+
+      return {
+        deploymentVersionId,
+        version: nextVersion,
+      }
     })
 
-    logger.info(`Deployed workflow ${workflowId} as v${deployedVersion}`)
+    logger.info(`Deployed workflow ${workflowId} as v${deploymentRecord.version}`)
 
     // Track deployment telemetry if workflow name is provided
     if (workflowName) {
@@ -771,7 +843,7 @@ export async function deployWorkflow(params: {
           'workflow.loops_count': Object.keys(currentState.loops).length,
           'workflow.parallels_count': Object.keys(currentState.parallels).length,
           'workflow.block_types': JSON.stringify(blockTypeCounts),
-          'deployment.version': deployedVersion,
+          'deployment.version': deploymentRecord.version,
         })
       } catch (telemetryError) {
         logger.warn(`Failed to track deployment telemetry for ${workflowId}`, telemetryError)
@@ -780,7 +852,8 @@ export async function deployWorkflow(params: {
 
     return {
       success: true,
-      version: deployedVersion,
+      version: deploymentRecord.version,
+      deploymentVersionId: deploymentRecord.deploymentVersionId,
       deployedAt: now,
       currentState,
     }

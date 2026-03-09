@@ -1,9 +1,19 @@
 import type React from 'react'
-import { memo, useState } from 'react'
+import { format } from 'date-fns'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Info } from 'lucide-react'
 import { Label, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui'
+import { DateTimePicker } from '@/components/ui/datetime-picker'
+import { SimpleTimePicker } from '@/components/ui/simple-time-picker'
+import { Slider } from '@/components/ui/slider'
+import { Switch as UISwitch } from '@/components/ui/switch'
+import {
+  formatUtcDate,
+  formatUtcDateTime,
+  parseStoredTimeValue,
+  resolveStoredDateValue,
+} from '@/lib/time-format'
 import { cn } from '@/lib/utils'
-import type { FieldDiffStatus } from '@/lib/workflows/diff/types'
 import {
   ChannelSelectorInput,
   CheckboxList,
@@ -11,7 +21,6 @@ import {
   ComboBox,
   ConditionInput,
   CredentialSelector,
-  DateTimeInputField,
   DocumentSelector,
   Dropdown,
   EvalInput,
@@ -32,17 +41,15 @@ import {
   ResponseFormat,
   ScheduleConfig,
   ShortInput,
-  SliderInput,
-  Switch,
   Table,
   Text,
-  TimeInput,
   ToolInput,
   TriggerSave,
   VariablesInput,
   WebhookConfig,
 } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components'
 import type { SubBlockConfig } from '@/blocks/types'
+import { useSubBlockValue } from './hooks/use-sub-block-value'
 import { DocumentTagEntry } from './components/document-tag-entry/document-tag-entry'
 import { KnowledgeTagFilters } from './components/knowledge-tag-filters/knowledge-tag-filters'
 
@@ -50,12 +57,183 @@ interface SubBlockProps {
   blockId: string
   config: SubBlockConfig
   isConnecting: boolean
-  isPreview?: boolean
-  subBlockValues?: Record<string, any>
   disabled?: boolean
-  fieldDiffStatus?: FieldDiffStatus
-  allowExpandInPreview?: boolean
-  isWide?: boolean
+}
+
+function SubBlockSwitchField({
+  blockId,
+  subBlockId,
+  title,
+  disabled = false,
+}: {
+  blockId: string
+  subBlockId: string
+  title: string
+  disabled?: boolean
+}) {
+  const [value, setValue] = useSubBlockValue<boolean>(blockId, subBlockId)
+  const inputId = `${blockId}-${subBlockId}`
+
+  return (
+    <div className='flex items-center space-x-3'>
+      <UISwitch
+        id={inputId}
+        checked={Boolean(value)}
+        onCheckedChange={(checked) => {
+          if (!disabled) {
+            setValue(checked)
+          }
+        }}
+        disabled={disabled}
+      />
+      <Label
+        htmlFor={inputId}
+        className='cursor-pointer font-normal text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70'
+      >
+        {title}
+      </Label>
+    </div>
+  )
+}
+
+function SubBlockSliderField({
+  blockId,
+  subBlockId,
+  min = 0,
+  max = 100,
+  defaultValue,
+  step = 0.1,
+  integer = false,
+  disabled = false,
+}: {
+  blockId: string
+  subBlockId: string
+  min?: number
+  max?: number
+  defaultValue?: number
+  step?: number
+  integer?: boolean
+  disabled?: boolean
+}) {
+  const [storeValue, setStoreValue] = useSubBlockValue<number>(blockId, subBlockId)
+  const computedDefaultValue = defaultValue ?? (max <= 1 ? 0.7 : (min + max) / 2)
+  const normalizedValue =
+    storeValue !== null && storeValue !== undefined
+      ? Math.max(min, Math.min(max, storeValue))
+      : computedDefaultValue
+  const range = max - min || 1
+
+  useEffect(() => {
+    if (storeValue !== null && storeValue !== undefined && storeValue !== normalizedValue) {
+      setStoreValue(normalizedValue)
+    }
+  }, [normalizedValue, setStoreValue, storeValue])
+
+  return (
+    <div className='relative pt-2 pb-6'>
+      <Slider
+        value={[normalizedValue]}
+        min={min}
+        max={max}
+        step={integer ? 1 : step}
+        onValueChange={(newValue) => {
+          if (!disabled) {
+            setStoreValue(integer ? Math.round(newValue[0]) : newValue[0])
+          }
+        }}
+        disabled={disabled}
+        className='[&_[class*=SliderTrack]]:h-1 [&_[role=slider]]:h-4 [&_[role=slider]]:w-4'
+      />
+      <div
+        className='absolute text-muted-foreground text-sm'
+        style={{
+          left: `clamp(0%, ${((normalizedValue - min) / range) * 100}%, 100%)`,
+          transform: `translateX(-${(() => {
+            const percentage = ((normalizedValue - min) / range) * 100
+            const bias = -25 * Math.sin((percentage * Math.PI) / 50)
+            return percentage === 0 ? 0 : percentage === 100 ? 100 : 50 + bias
+          })()}%)`,
+          top: '24px',
+        }}
+      >
+        {integer ? Math.round(normalizedValue).toString() : Number(normalizedValue).toFixed(1)}
+      </div>
+    </div>
+  )
+}
+
+function SubBlockTimeField({
+  blockId,
+  subBlockId,
+  disabled = false,
+}: {
+  blockId: string
+  subBlockId: string
+  disabled?: boolean
+}) {
+  const [storeValue, setStoreValue] = useSubBlockValue<string>(blockId, subBlockId)
+  const initialSkipRef = useRef(!storeValue)
+  const dateValue = useMemo(() => parseStoredTimeValue(storeValue ?? undefined), [storeValue])
+
+  useEffect(() => {
+    initialSkipRef.current = !storeValue
+  }, [storeValue])
+
+  return (
+    <SimpleTimePicker
+      value={dateValue}
+      onChange={(nextDate) => {
+        if (disabled) return
+        if (initialSkipRef.current) {
+          initialSkipRef.current = false
+          return
+        }
+        initialSkipRef.current = false
+        setStoreValue(format(nextDate, 'HH:mm:ss'))
+      }}
+      use12HourFormat
+      timePicker={{ hour: true, minute: true, second: false }}
+      disabled={disabled}
+    />
+  )
+}
+
+function SubBlockDateTimeField({
+  blockId,
+  subBlockId,
+  disabled = false,
+  config,
+}: {
+  blockId: string
+  subBlockId: string
+  disabled?: boolean
+  config?: SubBlockConfig
+}) {
+  const [storeValue, setStoreValue] = useSubBlockValue<string>(blockId, subBlockId)
+  const dateValue = useMemo(() => resolveStoredDateValue(storeValue), [storeValue])
+
+  return (
+    <DateTimePicker
+      value={dateValue}
+      onChange={(nextDate) => {
+        if (disabled) return
+        if (!nextDate) {
+          setStoreValue('')
+          return
+        }
+        setStoreValue(config?.hideTime ? formatUtcDate(nextDate) : formatUtcDateTime(nextDate))
+      }}
+      min={resolveStoredDateValue(config?.minDate)}
+      max={resolveStoredDateValue(config?.maxDate)}
+      timezone={config?.timezone}
+      hideTime={config?.hideTime}
+      use12HourFormat={config?.use12HourFormat}
+      clearable={config?.clearable}
+      timePicker={config?.timePicker}
+      placeholder={config?.placeholder}
+      disabled={disabled}
+    />
+  )
 }
 
 export const SubBlock = memo(
@@ -63,12 +241,7 @@ export const SubBlock = memo(
     blockId,
     config,
     isConnecting,
-    isPreview = false,
-    subBlockValues,
     disabled = false,
-    fieldDiffStatus,
-    allowExpandInPreview,
-    isWide = false,
   }: SubBlockProps) {
     const [isValidJson, setIsValidJson] = useState(true)
 
@@ -87,20 +260,12 @@ export const SubBlock = memo(
       return Boolean(config.required)
     }
 
-    if (config.hidden || (isPreview && config.hideFromPreview)) {
+    if (config.hidden) {
       return null
     }
 
-    // Get preview value for this specific sub-block
-    const getPreviewValue = () => {
-      if (!isPreview || !subBlockValues) return undefined
-      return subBlockValues[config.id]?.value ?? null
-    }
-
     const renderInput = () => {
-      const previewValue = getPreviewValue()
-      // Disable input if explicitly disabled or in preview mode
-      const isDisabled = disabled || isPreview
+      const isDisabled = disabled
 
       switch (config.type) {
         case 'short-input':
@@ -112,8 +277,6 @@ export const SubBlock = memo(
               password={config.password}
               isConnecting={isConnecting}
               config={config}
-              isPreview={isPreview}
-              previewValue={previewValue}
               disabled={isDisabled}
               readOnly={config.readOnly}
               showCopyButton={config.showCopyButton}
@@ -129,8 +292,6 @@ export const SubBlock = memo(
               isConnecting={isConnecting}
               rows={config.rows}
               config={config}
-              isPreview={isPreview}
-              previewValue={previewValue}
               disabled={isDisabled}
             />
           )
@@ -145,8 +306,6 @@ export const SubBlock = memo(
                 placeholder={config.placeholder}
                 enableSearch={config.enableSearch}
                 searchPlaceholder={config.searchPlaceholder}
-                isPreview={isPreview}
-                previewValue={previewValue}
                 disabled={isDisabled}
                 config={config}
               />
@@ -161,18 +320,15 @@ export const SubBlock = memo(
                 options={config.options as { label: string; id: string }[]}
                 defaultValue={typeof config.value === 'function' ? config.value({}) : config.value}
                 placeholder={config.placeholder}
-                isPreview={isPreview}
-                previewValue={previewValue}
                 disabled={isDisabled}
                 isConnecting={isConnecting}
                 config={config}
-                isWide={isWide}
               />
             </div>
           )
         case 'slider':
           return (
-            <SliderInput
+            <SubBlockSliderField
               blockId={blockId}
               subBlockId={config.id}
               min={config.min}
@@ -180,8 +336,6 @@ export const SubBlock = memo(
               defaultValue={(config.min || 0) + ((config.max || 100) - (config.min || 0)) / 2}
               step={config.step}
               integer={config.integer}
-              isPreview={isPreview}
-              previewValue={previewValue}
               disabled={isDisabled}
             />
           )
@@ -191,8 +345,6 @@ export const SubBlock = memo(
               blockId={blockId}
               subBlockId={config.id}
               columns={config.columns ?? []}
-              isPreview={isPreview}
-              previewValue={previewValue}
               disabled={isDisabled}
             />
           )
@@ -207,11 +359,9 @@ export const SubBlock = memo(
               generationType={config.generationType}
               value={
                 typeof config.value === 'function'
-                  ? config.value(subBlockValues || {})
+                  ? config.value({})
                   : undefined
               }
-              isPreview={isPreview}
-              previewValue={previewValue}
               disabled={isDisabled}
               onValidationChange={handleValidationChange}
               readOnly={config.readOnly}
@@ -230,12 +380,10 @@ export const SubBlock = memo(
           )
         case 'switch':
           return (
-            <Switch
+            <SubBlockSwitchField
               blockId={blockId}
               subBlockId={config.id}
               title={config.title ?? ''}
-              isPreview={isPreview}
-              previewValue={previewValue}
               disabled={isDisabled}
             />
           )
@@ -245,10 +393,7 @@ export const SubBlock = memo(
               blockId={blockId}
               subBlockId={config.id}
               isConnecting={isConnecting}
-              isPreview={isPreview}
-              previewValue={previewValue}
-              disabled={allowExpandInPreview ? false : isDisabled}
-              allowExpandInPreview={allowExpandInPreview}
+              disabled={isDisabled}
             />
           )
         case 'market-selector':
@@ -256,8 +401,6 @@ export const SubBlock = memo(
             <ListingSelectorInput
               blockId={blockId}
               subBlockId={config.id}
-              isPreview={isPreview}
-              previewValue={previewValue as string | null | undefined}
               disabled={isDisabled}
               config={config}
             />
@@ -267,8 +410,6 @@ export const SubBlock = memo(
             <OrderIdSelectorInput
               blockId={blockId}
               subBlockId={config.id}
-              isPreview={isPreview}
-              previewValue={previewValue as string | null | undefined}
               disabled={isDisabled}
               config={config}
             />
@@ -278,11 +419,8 @@ export const SubBlock = memo(
             <CheckboxList
               blockId={blockId}
               subBlockId={config.id}
-              title={config.title ?? ''}
               options={config.options as { label: string; id: string }[]}
               layout={config.layout}
-              isPreview={isPreview}
-              subBlockValues={subBlockValues}
               disabled={isDisabled}
             />
           )
@@ -291,13 +429,8 @@ export const SubBlock = memo(
             <GroupedCheckboxList
               blockId={blockId}
               subBlockId={config.id}
-              title={config.title ?? ''}
               options={config.options as { label: string; id: string; group?: string }[]}
-              layout={config.layout}
-              isPreview={isPreview}
-              subBlockValues={subBlockValues ?? {}}
               disabled={isDisabled}
-              maxHeight={config.maxHeight}
             />
           )
         case 'condition-input':
@@ -306,8 +439,6 @@ export const SubBlock = memo(
               blockId={blockId}
               subBlockId={config.id}
               isConnecting={isConnecting}
-              isPreview={isPreview}
-              previewValue={previewValue}
               disabled={isDisabled}
             />
           )
@@ -316,29 +447,22 @@ export const SubBlock = memo(
             <EvalInput
               blockId={blockId}
               subBlockId={config.id}
-              isPreview={isPreview}
-              previewValue={previewValue}
               disabled={isDisabled}
             />
           )
         case 'time-input':
           return (
-            <TimeInput
+            <SubBlockTimeField
               blockId={blockId}
               subBlockId={config.id}
-              placeholder={config.placeholder}
-              isPreview={isPreview}
-              previewValue={previewValue}
               disabled={isDisabled}
             />
           )
         case 'datetime-input':
           return (
-            <DateTimeInputField
+            <SubBlockDateTimeField
               blockId={blockId}
               subBlockId={config.id}
-              isPreview={isPreview}
-              previewValue={previewValue as string | null}
               disabled={isDisabled}
               config={config}
             />
@@ -351,30 +475,15 @@ export const SubBlock = memo(
               acceptedTypes={config.acceptedTypes || '*'}
               multiple={config.multiple === true}
               maxSize={config.maxSize}
-              isPreview={isPreview}
-              previewValue={previewValue}
               disabled={isDisabled}
-              isWide={isWide}
             />
           )
         case 'webhook-config': {
-          // For webhook config, we need to construct the value from multiple subblock values
-          const webhookValue =
-            isPreview && subBlockValues
-              ? {
-                  webhookProvider: subBlockValues.webhookProvider?.value,
-                  webhookPath: subBlockValues.webhookPath?.value,
-                  providerConfig: subBlockValues.providerConfig?.value,
-                }
-              : previewValue
-
           return (
             <WebhookConfig
               blockId={blockId}
               subBlockId={config.id}
               isConnecting={isConnecting}
-              isPreview={isPreview}
-              value={webhookValue}
               disabled={isDisabled}
             />
           )
@@ -385,8 +494,6 @@ export const SubBlock = memo(
               blockId={blockId}
               subBlockId={config.id}
               isConnecting={isConnecting}
-              isPreview={isPreview}
-              previewValue={previewValue}
               disabled={isDisabled}
             />
           )
@@ -396,8 +503,6 @@ export const SubBlock = memo(
               blockId={blockId}
               subBlock={config}
               disabled={isDisabled}
-              isPreview={isPreview}
-              previewValue={previewValue}
             />
           )
         case 'file-selector':
@@ -406,9 +511,6 @@ export const SubBlock = memo(
               blockId={blockId}
               subBlock={config}
               disabled={isDisabled}
-              isPreview={isPreview}
-              previewValue={previewValue}
-              previewContextValues={subBlockValues}
             />
           )
         case 'project-selector':
@@ -417,8 +519,6 @@ export const SubBlock = memo(
               blockId={blockId}
               subBlock={config}
               disabled={isDisabled}
-              isPreview={isPreview}
-              previewValue={previewValue}
             />
           )
         case 'folder-selector':
@@ -427,8 +527,6 @@ export const SubBlock = memo(
               blockId={blockId}
               subBlock={config}
               disabled={isDisabled}
-              isPreview={isPreview}
-              previewValue={previewValue}
             />
           )
         case 'knowledge-base-selector':
@@ -437,8 +535,6 @@ export const SubBlock = memo(
               blockId={blockId}
               subBlock={config}
               disabled={isDisabled}
-              isPreview={isPreview}
-              previewValue={previewValue}
             />
           )
         case 'knowledge-tag-filters':
@@ -447,8 +543,6 @@ export const SubBlock = memo(
               blockId={blockId}
               subBlock={config}
               disabled={isDisabled}
-              isPreview={isPreview}
-              previewValue={previewValue}
               isConnecting={isConnecting}
             />
           )
@@ -459,8 +553,6 @@ export const SubBlock = memo(
               blockId={blockId}
               subBlock={config}
               disabled={isDisabled}
-              isPreview={isPreview}
-              previewValue={previewValue}
               isConnecting={isConnecting}
             />
           )
@@ -470,8 +562,6 @@ export const SubBlock = memo(
               blockId={blockId}
               subBlock={config}
               disabled={isDisabled}
-              isPreview={isPreview}
-              previewValue={previewValue}
             />
           )
         case 'input-format': {
@@ -479,8 +569,6 @@ export const SubBlock = memo(
             <InputFormat
               blockId={blockId}
               subBlockId={config.id}
-              isPreview={isPreview}
-              previewValue={previewValue}
               disabled={isDisabled}
               isConnecting={isConnecting}
               config={config}
@@ -493,8 +581,6 @@ export const SubBlock = memo(
             <InputMapping
               blockId={blockId}
               subBlockId={config.id}
-              isPreview={isPreview}
-              previewValue={previewValue}
               disabled={isDisabled}
               isConnecting={isConnecting}
             />
@@ -505,8 +591,6 @@ export const SubBlock = memo(
             <VariablesInput
               blockId={blockId}
               subBlockId={config.id}
-              isPreview={isPreview}
-              previewValue={previewValue}
               disabled={isDisabled}
               isConnecting={isConnecting}
             />
@@ -517,8 +601,6 @@ export const SubBlock = memo(
             <ResponseFormat
               blockId={blockId}
               subBlockId={config.id}
-              isPreview={isPreview}
-              previewValue={previewValue}
               isConnecting={isConnecting}
               config={config}
               disabled={isDisabled}
@@ -530,8 +612,6 @@ export const SubBlock = memo(
               blockId={blockId}
               subBlock={config}
               disabled={isDisabled}
-              isPreview={isPreview}
-              previewValue={previewValue}
             />
           )
         case 'mcp-server-selector':
@@ -540,8 +620,6 @@ export const SubBlock = memo(
               blockId={blockId}
               subBlock={config}
               disabled={isDisabled}
-              isPreview={isPreview}
-              previewValue={previewValue}
             />
           )
         case 'mcp-tool-selector':
@@ -550,8 +628,6 @@ export const SubBlock = memo(
               blockId={blockId}
               subBlock={config}
               disabled={isDisabled}
-              isPreview={isPreview}
-              previewValue={previewValue}
             />
           )
         case 'mcp-dynamic-args':
@@ -560,8 +636,6 @@ export const SubBlock = memo(
               blockId={blockId}
               subBlockId={config.id}
               disabled={isDisabled}
-              isPreview={isPreview}
-              previewValue={previewValue}
               isConnecting={isConnecting}
             />
           )
@@ -572,7 +646,7 @@ export const SubBlock = memo(
               subBlockId={config.id}
               content={
                 typeof config.value === 'function'
-                  ? config.value(subBlockValues || {})
+                  ? config.value({})
                   : (config.defaultValue as string) || ''
               }
             />
@@ -583,8 +657,7 @@ export const SubBlock = memo(
               blockId={blockId}
               subBlockId={config.id}
               triggerId={config.triggerId}
-              isPreview={isPreview}
-              disabled={disabled}
+              disabled={isDisabled}
             />
           )
         default:
@@ -595,6 +668,7 @@ export const SubBlock = memo(
     const required = isFieldRequired()
 
     const showLabel =
+      Boolean(config.title) &&
       config.type !== 'switch' &&
       config.type !== 'market-selector' &&
       config.type !== 'order-id-selector' &&
@@ -602,12 +676,7 @@ export const SubBlock = memo(
 
     return (
       <div
-        className={cn(
-          'space-y-[6px] pt-[2px]',
-          // Field-level diff highlighting - make it more prominent for testing
-          fieldDiffStatus === 'changed' &&
-            '-m-1 rounded-lg border border-orange-200 bg-orange-100 p-3 ring-2 ring-orange-500 dark:border-orange-800 dark:bg-orange-900/40'
-        )}
+        className={cn('space-y-[6px] pt-[2px]')}
         onMouseDown={handleMouseDown}
       >
         {showLabel && (
@@ -672,12 +741,7 @@ export const SubBlock = memo(
       prevProps.blockId === nextProps.blockId &&
       prevProps.config === nextProps.config &&
       prevProps.isConnecting === nextProps.isConnecting &&
-      prevProps.isPreview === nextProps.isPreview &&
-      prevProps.subBlockValues === nextProps.subBlockValues &&
-      prevProps.disabled === nextProps.disabled &&
-      prevProps.fieldDiffStatus === nextProps.fieldDiffStatus &&
-      prevProps.allowExpandInPreview === nextProps.allowExpandInPreview &&
-      prevProps.isWide === nextProps.isWide
+      prevProps.disabled === nextProps.disabled
     )
   }
 )

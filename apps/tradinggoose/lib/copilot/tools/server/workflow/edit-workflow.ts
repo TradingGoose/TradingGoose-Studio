@@ -946,9 +946,15 @@ export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
     // Extract and persist custom tools to database
     if (context?.userId) {
       try {
+        const [workflowRecord] = await db
+          .select({ workspaceId: workflowTable.workspaceId })
+          .from(workflowTable)
+          .where(eq(workflowTable.id, workflowId))
+          .limit(1)
         const finalWorkflowState = validation.sanitizedState || modifiedWorkflowState
         const { saved, errors } = await extractAndPersistCustomTools(
           finalWorkflowState,
+          workflowRecord?.workspaceId ?? null,
           context.userId
         )
 

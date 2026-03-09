@@ -12,7 +12,8 @@ const logger = createLogger('ToolsParams')
 
 export interface Option {
   label: string
-  value: string
+  id: string
+  value?: string
 }
 
 export interface ComponentCondition {
@@ -44,6 +45,7 @@ export interface UIComponentConfig {
   max?: number
   step?: number
   integer?: boolean
+  rows?: number
   timezone?: string
   clearable?: boolean
   hideCalendarIcon?: boolean

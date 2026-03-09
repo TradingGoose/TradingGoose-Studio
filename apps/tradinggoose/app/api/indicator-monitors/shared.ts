@@ -1,5 +1,10 @@
 import { db } from '@tradinggoose/db'
-import { pineIndicators, webhook, workflow, workflowBlocks } from '@tradinggoose/db/schema'
+import {
+  pineIndicators,
+  webhook,
+  workflow,
+  workflowDeploymentVersion,
+} from '@tradinggoose/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
 import { DEFAULT_INDICATOR_RUNTIME_MAP } from '@/lib/indicators/default/runtime'
 import {
@@ -32,11 +37,7 @@ export const listIndicatorMonitorRows = async ({
   if (workflowId) {
     conditions.push(eq(webhook.workflowId, workflowId))
   }
-  if (blockId) {
-    conditions.push(eq(webhook.blockId, blockId))
-  }
-
-  return db
+  const rows = await db
     .select({
       webhook: webhook,
       workflow: {
@@ -48,6 +49,15 @@ export const listIndicatorMonitorRows = async ({
     .innerJoin(workflow, eq(webhook.workflowId, workflow.id))
     .where(and(...conditions))
     .orderBy(desc(webhook.updatedAt))
+
+  if (!blockId) return rows
+  return rows.filter((row) => {
+    try {
+      return parseIndicatorProviderConfig(row.webhook.providerConfig).monitor.triggerBlockId === blockId
+    } catch {
+      return false
+    }
+  })
 }
 
 export const getIndicatorMonitorRowById = async (id: string) => {
@@ -67,22 +77,56 @@ export const getIndicatorMonitorRowById = async (id: string) => {
   return rows[0] ?? null
 }
 
-export const ensureIndicatorTriggerBlock = async (workflowId: string, blockId: string) => {
-  const rows = await db
-    .select({
-      id: workflowBlocks.id,
-      type: workflowBlocks.type,
-    })
-    .from(workflowBlocks)
-    .where(and(eq(workflowBlocks.id, blockId), eq(workflowBlocks.workflowId, workflowId)))
-    .limit(1)
+const toTrimmedString = (value: unknown): string | null => {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
 
-  const block = rows[0]
-  if (!block) {
-    throw new Error('Target block not found in workflow.')
+const getActiveDeployedState = async (workflowId: string) => {
+  const rows = await db
+    .select({ state: workflowDeploymentVersion.state })
+    .from(workflowDeploymentVersion)
+    .where(
+      and(
+        eq(workflowDeploymentVersion.workflowId, workflowId),
+        eq(workflowDeploymentVersion.isActive, true)
+      )
+    )
+    .limit(1)
+  return rows[0]?.state as Record<string, unknown> | undefined
+}
+
+const getDeployedIndicatorTriggerBlockIds = (deployedState: Record<string, unknown> | undefined) => {
+  const blocks =
+    deployedState && typeof deployedState === 'object'
+      ? ((deployedState.blocks as Record<string, unknown> | undefined) ?? undefined)
+      : undefined
+  if (!blocks || typeof blocks !== 'object') return new Set<string>()
+
+  const ids = Object.entries(blocks)
+    .map(([blockId, blockData]) => {
+      const block = blockData as { id?: unknown; type?: unknown } | undefined
+      if (block?.type !== 'indicator_trigger') return null
+      return toTrimmedString(block?.id) ?? toTrimmedString(blockId)
+    })
+    .filter((value): value is string => Boolean(value))
+
+  return new Set(ids)
+}
+
+export const ensureIndicatorTriggerBlockInDeployedState = async (
+  workflowId: string,
+  blockId: string
+) => {
+  const deployedState = await getActiveDeployedState(workflowId)
+  if (!deployedState) {
+    throw new Error('Target workflow has no active deployment.')
   }
-  if (block.type !== 'indicator_trigger') {
-    throw new Error('Target block must be of type indicator_trigger.')
+
+  const triggerBlockIds = getDeployedIndicatorTriggerBlockIds(deployedState)
+  if (!triggerBlockIds.has(blockId)) {
+    throw new Error('Target block must be an indicator_trigger block in the active deployment.')
   }
 }
 
@@ -91,6 +135,7 @@ export const ensureWorkflowInWorkspace = async (workflowId: string, workspaceId:
     .select({
       id: workflow.id,
       workspaceId: workflow.workspaceId,
+      isDeployed: workflow.isDeployed,
     })
     .from(workflow)
     .where(eq(workflow.id, workflowId))
@@ -103,6 +148,8 @@ export const ensureWorkflowInWorkspace = async (workflowId: string, workspaceId:
   if (workflowRow.workspaceId !== workspaceId) {
     throw new Error('Workflow does not belong to the provided workspace.')
   }
+
+  return workflowRow
 }
 
 export const ensureTriggerCapableIndicator = async (workspaceId: string, indicatorId: string) => {
@@ -179,7 +226,7 @@ export const toIndicatorMonitorRecord = async (webhookRow: WebhookRow) => {
   return {
     monitorId: webhookRow.id,
     workflowId: webhookRow.workflowId,
-    blockId: webhookRow.blockId,
+    blockId: providerConfig.monitor.triggerBlockId,
     isActive: webhookRow.isActive,
     providerConfig: {
       ...publicProviderConfig,
@@ -198,5 +245,42 @@ export const toIndicatorMonitorRecord = async (webhookRow: WebhookRow) => {
     },
     createdAt: webhookRow.createdAt.toISOString(),
     updatedAt: webhookRow.updatedAt.toISOString(),
+  }
+}
+
+export const pauseMonitorsMissingDeployedIndicatorTrigger = async (workflowId: string) => {
+  const deployedState = await getActiveDeployedState(workflowId)
+  const deployedTriggerBlockIds = getDeployedIndicatorTriggerBlockIds(deployedState)
+  const rows = await db
+    .select({
+      id: webhook.id,
+      blockId: webhook.blockId,
+      isActive: webhook.isActive,
+      providerConfig: webhook.providerConfig,
+    })
+    .from(webhook)
+    .where(and(eq(webhook.workflowId, workflowId), eq(webhook.provider, INDICATOR_PROVIDER)))
+
+  const now = new Date()
+  for (const row of rows) {
+    let providerConfig: IndicatorMonitorProviderConfig
+    try {
+      providerConfig = parseIndicatorProviderConfig(row.providerConfig)
+    } catch {
+      continue
+    }
+    const triggerBlockId = toTrimmedString(providerConfig.monitor.triggerBlockId)
+    if (!triggerBlockId) continue
+    if (deployedTriggerBlockIds.has(triggerBlockId)) continue
+    if (!row.isActive && row.blockId === null) continue
+
+    await db
+      .update(webhook)
+      .set({
+        isActive: false,
+        blockId: null,
+        updatedAt: now,
+      })
+      .where(eq(webhook.id, row.id))
   }
 }

@@ -19,10 +19,12 @@ describe('Chat API Route', () => {
   const mockCreateErrorResponse = vi.fn()
   const mockEncryptSecret = vi.fn()
   const mockCheckWorkflowAccessForChatCreation = vi.fn()
+  const mockResolveDeployApiKeyId = vi.fn().mockResolvedValue(null)
   const mockDeployWorkflow = vi.fn()
 
   beforeEach(() => {
     vi.resetModules()
+    mockResolveDeployApiKeyId.mockImplementation(async (keyId?: string) => (keyId ? keyId : null))
 
     mockSelect.mockReturnValue({ from: mockFrom })
     mockFrom.mockReturnValue({ where: mockWhere })
@@ -76,6 +78,7 @@ describe('Chat API Route', () => {
 
     vi.doMock('@/app/api/chat/utils', () => ({
       checkWorkflowAccessForChatCreation: mockCheckWorkflowAccessForChatCreation,
+      resolveDeployApiKeyId: mockResolveDeployApiKeyId,
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
@@ -189,6 +192,7 @@ describe('Chat API Route', () => {
         workflowId: 'workflow-123',
         identifier: 'test-chat',
         title: 'Test Chat',
+        apiKey: 'selected-key-id',
         customizations: {
           primaryColor: '#000000',
           welcomeMessage: 'Hello',
@@ -219,6 +223,7 @@ describe('Chat API Route', () => {
         workflowId: 'workflow-123',
         identifier: 'test-chat',
         title: 'Test Chat',
+        apiKey: 'selected-key-id',
         customizations: {
           primaryColor: '#000000',
           welcomeMessage: 'Hello',
@@ -265,6 +270,7 @@ describe('Chat API Route', () => {
         workflowId: 'workflow-123',
         identifier: 'test-chat',
         title: 'Test Chat',
+        apiKey: 'selected-key-id',
         customizations: {
           primaryColor: '#000000',
           welcomeMessage: 'Hello',
@@ -274,7 +280,12 @@ describe('Chat API Route', () => {
       mockLimit.mockResolvedValueOnce([]) // Identifier is available
       mockCheckWorkflowAccessForChatCreation.mockResolvedValue({
         hasAccess: true,
-        workflow: { userId: 'user-id', workspaceId: null, isDeployed: true },
+        workflow: {
+          userId: 'user-id',
+          workspaceId: null,
+          isDeployed: true,
+          pinnedApiKeyId: null,
+        },
       })
       mockReturning.mockResolvedValue([{ id: 'test-uuid' }])
 
@@ -310,6 +321,7 @@ describe('Chat API Route', () => {
         workflowId: 'workflow-123',
         identifier: 'test-chat',
         title: 'Test Chat',
+        apiKey: 'selected-key-id',
         customizations: {
           primaryColor: '#000000',
           welcomeMessage: 'Hello',
@@ -319,7 +331,12 @@ describe('Chat API Route', () => {
       mockLimit.mockResolvedValueOnce([]) // Identifier is available
       mockCheckWorkflowAccessForChatCreation.mockResolvedValue({
         hasAccess: true,
-        workflow: { userId: 'other-user-id', workspaceId: 'workspace-123', isDeployed: true },
+        workflow: {
+          userId: 'other-user-id',
+          workspaceId: 'workspace-123',
+          isDeployed: true,
+          pinnedApiKeyId: null,
+        },
       })
       mockReturning.mockResolvedValue([{ id: 'test-uuid' }])
 
@@ -345,6 +362,7 @@ describe('Chat API Route', () => {
         workflowId: 'workflow-123',
         identifier: 'test-chat',
         title: 'Test Chat',
+        apiKey: 'selected-key-id',
         customizations: {
           primaryColor: '#000000',
           welcomeMessage: 'Hello',
@@ -382,6 +400,7 @@ describe('Chat API Route', () => {
         workflowId: 'workflow-123',
         identifier: 'test-chat',
         title: 'Test Chat',
+        apiKey: 'selected-key-id',
         customizations: {
           primaryColor: '#000000',
           welcomeMessage: 'Hello',
@@ -413,6 +432,7 @@ describe('Chat API Route', () => {
         workflowId: 'workflow-123',
         identifier: 'test-chat',
         title: 'Test Chat',
+        apiKey: 'selected-key-id',
         customizations: {
           primaryColor: '#000000',
           welcomeMessage: 'Hello',
@@ -422,7 +442,12 @@ describe('Chat API Route', () => {
       mockLimit.mockResolvedValueOnce([]) // Identifier is available
       mockCheckWorkflowAccessForChatCreation.mockResolvedValue({
         hasAccess: true,
-        workflow: { userId: 'user-id', workspaceId: null, isDeployed: false },
+        workflow: {
+          userId: 'user-id',
+          workspaceId: null,
+          isDeployed: false,
+          pinnedApiKeyId: null,
+        },
       })
       mockReturning.mockResolvedValue([{ id: 'test-uuid' }])
 
@@ -437,7 +462,45 @@ describe('Chat API Route', () => {
       expect(mockDeployWorkflow).toHaveBeenCalledWith({
         workflowId: 'workflow-123',
         deployedBy: 'user-id',
+        pinnedApiKeyId: 'selected-key-id',
       })
+    })
+
+    it('should require API key when workflow has no pinned billing key', async () => {
+      vi.doMock('@/lib/auth', () => ({
+        getSession: vi.fn().mockResolvedValue({
+          user: { id: 'user-id' },
+        }),
+      }))
+
+      const validData = {
+        workflowId: 'workflow-123',
+        identifier: 'test-chat',
+        title: 'Test Chat',
+        customizations: {
+          primaryColor: '#000000',
+          welcomeMessage: 'Hello',
+        },
+      }
+
+      mockLimit.mockResolvedValueOnce([])
+      mockCheckWorkflowAccessForChatCreation.mockResolvedValue({
+        hasAccess: true,
+        workflow: { userId: 'user-id', workspaceId: null, isDeployed: true, pinnedApiKeyId: null },
+      })
+
+      const req = new NextRequest('http://localhost:3000/api/chat', {
+        method: 'POST',
+        body: JSON.stringify(validData),
+      })
+      const { POST } = await import('@/app/api/chat/route')
+      const response = await POST(req)
+
+      expect(response.status).toBe(400)
+      expect(mockCreateErrorResponse).toHaveBeenCalledWith(
+        'API key is required. Please create or select an API key before deploying.',
+        400
+      )
     })
   })
 })

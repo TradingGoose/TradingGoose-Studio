@@ -21,16 +21,12 @@ interface McpServerSelectorProps {
   blockId: string
   subBlock: SubBlockConfig
   disabled?: boolean
-  isPreview?: boolean
-  previewValue?: string | null
 }
 
 export function McpServerSelector({
   blockId,
   subBlock,
   disabled = false,
-  isPreview = false,
-  previewValue,
 }: McpServerSelectorProps) {
   const workspaceId = useWorkspaceId()
   const [open, setOpen] = useState(false)
@@ -42,8 +38,7 @@ export function McpServerSelector({
 
   const label = subBlock.placeholder || 'Select MCP server'
 
-  const effectiveValue = isPreview && previewValue !== undefined ? previewValue : storeValue
-  const selectedServerId = effectiveValue || ''
+  const selectedServerId = storeValue || ''
 
   const selectedServer = enabledServers.find((server) => server.id === selectedServerId)
 
@@ -59,9 +54,7 @@ export function McpServerSelector({
   }
 
   const handleSelect = (serverId: string) => {
-    if (!isPreview) {
-      setStoreValue(serverId)
-    }
+    setStoreValue(serverId)
     setOpen(false)
   }
 

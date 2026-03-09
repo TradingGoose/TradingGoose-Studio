@@ -71,7 +71,7 @@ const DateTimeInput = React.forwardRef<HTMLInputElement, DateTimeInputProps>((op
     const value = useMemo(() => _value ? new TZDate(_value, timezone) : undefined, [_value, timezone]);
     const form = useFormContext();
     const formatStr = React.useMemo(() => formatProp || 'dd/MM/yyyy-hh:mm aa', [formatProp]);
-    const inputRef = useRef<HTMLInputElement>();
+    const inputRef = useRef<HTMLInputElement>(null);
 
     const [segments, setSegments] = useState<Segment[]>([]);
     const [selectedSegmentAt, setSelectedSegmentAt] = useState<number | undefined>(undefined);
@@ -370,7 +370,7 @@ const safeDate = (timezone?: string) => {
 
 const isAndroid = () => /Android/i.test(navigator.userAgent);
 
-function setSelection(ref: React.MutableRefObject<HTMLInputElement | undefined>, segment?: Segment) {
+function setSelection(ref: React.MutableRefObject<HTMLInputElement | null>, segment?: Segment) {
     if (!ref.current || !segment) return;
     safeSetSelection(ref.current, segment.index, segment.index + segment.symbols.length);
 }

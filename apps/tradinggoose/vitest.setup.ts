@@ -69,16 +69,49 @@ vi.mock('@/stores/execution/store', () => ({
   },
 }))
 
-vi.mock('@/blocks/registry', () => ({
-  getBlock: vi.fn(() => ({
+vi.mock('@/blocks/registry', () => {
+  const fallbackBlock = {
     name: 'Mock Block',
     description: 'Mock block description',
     icon: () => null,
+    category: 'blocks',
     subBlocks: [],
     outputs: {},
-  })),
-  getAllBlocks: vi.fn(() => ({})),
-}))
+  }
+
+  const registry = {
+    agent: { ...fallbackBlock, name: 'Mock Agent' },
+    condition: { ...fallbackBlock, name: 'Mock Condition' },
+    generic_webhook: { ...fallbackBlock, name: 'Mock Webhook', category: 'triggers' },
+  }
+
+  const getBlock = vi.fn((type: string) => {
+    const candidate = (registry as Record<string, any>)[type]
+    if (candidate) {
+      return candidate
+    }
+
+    return { ...fallbackBlock, name: `Mock ${type}` }
+  })
+
+  const getAllBlocks = vi.fn(() => Object.values(registry))
+  const getBlocksByCategory = vi.fn((category: string) =>
+    Object.values(registry).filter((block) => block.category === category)
+  )
+  const getAllBlockTypes = vi.fn(() => Object.keys(registry))
+  const isValidBlockType = vi.fn((type: string) =>
+    Object.prototype.hasOwnProperty.call(registry, type)
+  )
+
+  return {
+    registry,
+    getBlock,
+    getAllBlocks,
+    getBlocksByCategory,
+    getAllBlockTypes,
+    isValidBlockType,
+  }
+})
 
 const originalConsoleError = console.error
 const originalConsoleWarn = console.warn

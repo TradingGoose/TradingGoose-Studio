@@ -1,6 +1,6 @@
 import * as schema from '@tradinggoose/db'
-import { workflow, workflowBlocks, workflowEdges, workflowSubflows } from '@tradinggoose/db'
-import { and, eq, or, sql } from 'drizzle-orm'
+import { webhook, workflow, workflowBlocks, workflowEdges, workflowSubflows } from '@tradinggoose/db'
+import { and, eq, inArray, or, sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { env } from '@/lib/env'
@@ -50,6 +50,81 @@ const normalizeString = (value: unknown): string | null => {
   if (typeof value !== 'string') return null
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : null
+}
+
+const resolveLockedFromData = (data: unknown): boolean => {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return false
+  return Boolean((data as Record<string, unknown>).locked)
+}
+
+const upsertLockedInData = (data: unknown, locked: boolean): Record<string, unknown> => {
+  const next: Record<string, unknown> =
+    data && typeof data === 'object' && !Array.isArray(data)
+      ? { ...(data as Record<string, unknown>) }
+      : {}
+
+  if (locked) {
+    next.locked = true
+    return next
+  }
+
+  if (!('locked' in next)) {
+    return next
+  }
+
+  const { locked: _locked, ...rest } = next
+  return rest
+}
+
+type DbBlockRecord = {
+  id: string
+  type: string
+  data: unknown
+}
+
+const findDbDescendants = (containerId: string, blocks: DbBlockRecord[]): string[] => {
+  const descendants: string[] = []
+  const visited = new Set<string>()
+  const stack = [containerId]
+
+  while (stack.length > 0) {
+    const currentId = stack.pop()!
+    if (visited.has(currentId)) continue
+    visited.add(currentId)
+
+    for (const block of blocks) {
+      const parentId =
+        block.data && typeof block.data === 'object'
+          ? (block.data as Record<string, unknown>).parentId
+          : undefined
+      if (parentId !== currentId) continue
+      descendants.push(block.id)
+      stack.push(block.id)
+    }
+  }
+
+  return descendants
+}
+
+async function detachIndicatorMonitorsForRemovedBlocks(
+  tx: any,
+  workflowId: string,
+  removedBlockIds: string[]
+) {
+  if (removedBlockIds.length === 0) return
+  await tx
+    .update(webhook)
+    .set({
+      blockId: null,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(webhook.workflowId, workflowId),
+        eq(webhook.provider, 'indicator'),
+        inArray(webhook.blockId, removedBlockIds)
+      )
+    )
 }
 
 /**
@@ -163,6 +238,16 @@ async function handleWorkflowOperationTx(
         parallelCount: Object.keys(parallels || {}).length,
       })
 
+      const existingBlocks = await tx
+        .select({ id: workflowBlocks.id })
+        .from(workflowBlocks)
+        .where(eq(workflowBlocks.workflowId, workflowId))
+      await detachIndicatorMonitorsForRemovedBlocks(
+        tx,
+        workflowId,
+        existingBlocks.map((entry: { id: string }) => entry.id)
+      )
+
       // Delete all existing blocks (this will cascade delete edges via ON DELETE CASCADE)
       await tx.delete(workflowBlocks).where(eq(workflowBlocks.workflowId, workflowId))
 
@@ -200,6 +285,10 @@ async function handleWorkflowOperationTx(
               }
 
               const blockName = normalizeString(block.name) ?? blockType
+              const normalizedData = upsertLockedInData(
+                block.data ?? {},
+                Boolean(block.locked ?? resolveLockedFromData(block.data))
+              )
 
               acc.push({
                 id: blockId,
@@ -208,7 +297,7 @@ async function handleWorkflowOperationTx(
                 name: blockName,
                 positionX: sanitizeNumberForDecimal(block.position?.x),
                 positionY: sanitizeNumberForDecimal(block.position?.y),
-                data: block.data ?? {},
+                data: normalizedData,
                 subBlocks: block.subBlocks ?? {},
                 outputs: block.outputs ?? {},
                 enabled: block.enabled ?? true,
@@ -340,7 +429,7 @@ export async function getWorkflowState(workflowId: string) {
     })
 
     if (!normalizedData) {
-      const legacyStateRaw = workflowData[0]?.state
+      const legacyStateRaw = (workflowData[0] as any)?.state
       const legacyState =
         legacyStateRaw && typeof legacyStateRaw === 'object'
           ? (legacyStateRaw as WorkflowState)
@@ -514,6 +603,16 @@ async function handleBlockOperationTx(
       })
 
       try {
+        const blockLocked = Boolean(payload.locked ?? resolveLockedFromData(payload.data))
+        const blockData = upsertLockedInData(
+          {
+            ...(payload.data || {}),
+            ...(parentId ? { parentId } : {}),
+            ...(extent ? { extent } : {}),
+          },
+          blockLocked
+        )
+
         const insertData = {
           id: payload.id,
           workflowId,
@@ -521,11 +620,7 @@ async function handleBlockOperationTx(
           name: payload.name,
           positionX: payload.position.x,
           positionY: payload.position.y,
-          data: {
-            ...(payload.data || {}),
-            ...(parentId ? { parentId } : {}),
-            ...(extent ? { extent } : {}),
-          },
+          data: blockData,
           subBlocks: payload.subBlocks || {},
           outputs: payload.outputs || {},
           enabled: payload.enabled ?? true,
@@ -625,6 +720,8 @@ async function handleBlockOperationTx(
         throw new Error('Missing block ID for remove operation')
       }
 
+      const removedBlockIds = new Set<string>([payload.id])
+
       // Check if this is a subflow block that needs cascade deletion
       const blockToRemove = await tx
         .select({
@@ -653,6 +750,9 @@ async function handleBlockOperationTx(
         logger.debug(
           `[SERVER] Found ${childBlocks.length} child blocks to delete: [${childBlocks.map((b: any) => `${b.id} (${b.type})`).join(', ')}]`
         )
+        childBlocks.forEach((block: { id: string }) => removedBlockIds.add(block.id))
+
+        await detachIndicatorMonitorsForRemovedBlocks(tx, workflowId, Array.from(removedBlockIds))
 
         // Remove edges connected to child blocks
         for (const childBlock of childBlocks) {
@@ -686,6 +786,8 @@ async function handleBlockOperationTx(
             and(eq(workflowSubflows.id, payload.id), eq(workflowSubflows.workflowId, workflowId))
           )
       }
+
+      await detachIndicatorMonitorsForRemovedBlocks(tx, workflowId, Array.from(removedBlockIds))
 
       // Remove any edges connected to this block
       await tx
@@ -766,6 +868,54 @@ async function handleBlockOperationTx(
       break
     }
 
+    case 'toggle-locked': {
+      if (!payload.id) {
+        throw new Error('Missing block ID for toggle locked operation')
+      }
+
+      const allBlocks = await tx
+        .select({
+          id: workflowBlocks.id,
+          type: workflowBlocks.type,
+          data: workflowBlocks.data,
+        })
+        .from(workflowBlocks)
+        .where(eq(workflowBlocks.workflowId, workflowId))
+
+      const blocksById = Object.fromEntries(allBlocks.map((block: DbBlockRecord) => [block.id, block]))
+      const targetBlock = blocksById[payload.id]
+      if (!targetBlock) {
+        throw new Error(`Block ${payload.id} not found in workflow ${workflowId}`)
+      }
+
+      const blockIdsToToggle = new Set<string>([payload.id])
+      if (targetBlock.type === 'loop' || targetBlock.type === 'parallel') {
+        findDbDescendants(payload.id, allBlocks as DbBlockRecord[]).forEach((id) => {
+          blockIdsToToggle.add(id)
+        })
+      }
+
+      const targetLocked = !resolveLockedFromData(targetBlock.data)
+
+      for (const blockId of blockIdsToToggle) {
+        const existingBlock = blocksById[blockId]
+        if (!existingBlock) continue
+
+        await tx
+          .update(workflowBlocks)
+          .set({
+            data: upsertLockedInData(existingBlock.data, targetLocked),
+            updatedAt: new Date(),
+          })
+          .where(and(eq(workflowBlocks.id, blockId), eq(workflowBlocks.workflowId, workflowId)))
+      }
+
+      logger.debug(
+        `Toggled block lock: ${payload.id} -> ${targetLocked} (${blockIdsToToggle.size} block(s) affected)`
+      )
+      break
+    }
+
     case 'update-parent': {
       if (!payload.id) {
         throw new Error('Missing block ID for update parent operation')
@@ -791,15 +941,19 @@ async function handleBlockOperationTx(
         .limit(1)
 
       const currentData = currentBlock?.data || {}
+      const currentLocked = resolveLockedFromData(currentData)
 
       // Update data with parentId and extent
       const updatedData = isRemovingFromParent
-        ? {} // Clear data entirely when removing from parent
-        : {
-          ...currentData,
-          ...(payload.parentId ? { parentId: payload.parentId } : {}),
-          ...(payload.extent ? { extent: payload.extent } : {}),
-        }
+        ? upsertLockedInData({}, currentLocked)
+        : upsertLockedInData(
+          {
+            ...currentData,
+            ...(payload.parentId ? { parentId: payload.parentId } : {}),
+            ...(payload.extent ? { extent: payload.extent } : {}),
+          },
+          currentLocked
+        )
 
       const updateResult = await tx
         .update(workflowBlocks)
@@ -939,6 +1093,16 @@ async function handleBlockOperationTx(
       const extent = payload.extent || null
 
       try {
+        const blockLocked = Boolean(payload.locked ?? resolveLockedFromData(payload.data))
+        const blockData = upsertLockedInData(
+          {
+            ...(payload.data || {}),
+            ...(parentId ? { parentId } : {}),
+            ...(extent ? { extent } : {}),
+          },
+          blockLocked
+        )
+
         const insertData = {
           id: payload.id,
           workflowId,
@@ -946,11 +1110,7 @@ async function handleBlockOperationTx(
           name: payload.name,
           positionX: payload.position.x,
           positionY: payload.position.y,
-          data: {
-            ...(payload.data || {}),
-            ...(parentId ? { parentId } : {}),
-            ...(extent ? { extent } : {}),
-          },
+          data: blockData,
           subBlocks: payload.subBlocks || {},
           outputs: payload.outputs || {},
           enabled: payload.enabled ?? true,
@@ -1115,6 +1275,13 @@ async function handleSubflowOperationTx(
 
       logger.debug(`[SERVER] Successfully updated subflow ${payload.id} in database`)
 
+      const [currentBlock] = await tx
+        .select({ data: workflowBlocks.data })
+        .from(workflowBlocks)
+        .where(and(eq(workflowBlocks.id, payload.id), eq(workflowBlocks.workflowId, workflowId)))
+        .limit(1)
+      const currentLocked = resolveLockedFromData(currentBlock?.data)
+
       // Also update the corresponding block's data to keep UI in sync
       if (payload.type === 'loop' && payload.config.iterations !== undefined) {
         // Update the loop block's data.count property
@@ -1138,7 +1305,7 @@ async function handleSubflowOperationTx(
         await tx
           .update(workflowBlocks)
           .set({
-            data: blockData,
+            data: upsertLockedInData(blockData, currentLocked),
             updatedAt: new Date(),
           })
           .where(and(eq(workflowBlocks.id, payload.id), eq(workflowBlocks.workflowId, workflowId)))
@@ -1169,7 +1336,7 @@ async function handleSubflowOperationTx(
         await tx
           .update(workflowBlocks)
           .set({
-            data: blockData,
+            data: upsertLockedInData(blockData, currentLocked),
             updatedAt: new Date(),
           })
           .where(and(eq(workflowBlocks.id, payload.id), eq(workflowBlocks.workflowId, workflowId)))

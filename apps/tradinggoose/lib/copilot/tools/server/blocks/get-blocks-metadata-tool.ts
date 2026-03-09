@@ -10,7 +10,7 @@ import { registry as blockRegistry } from '@/blocks/registry'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import { tools as toolsRegistry } from '@/tools/registry'
-import { TRIGGER_REGISTRY } from '@/triggers'
+import { TRIGGER_REGISTRY } from '@/triggers/registry'
 
 export interface CopilotSubblockMetadata {
   id: string

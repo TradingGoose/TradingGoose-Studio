@@ -15,6 +15,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'update-position',
     'update-name',
     'toggle-enabled',
+    'toggle-locked',
     'update-parent',
     'update-wide',
     'update-advanced-mode',

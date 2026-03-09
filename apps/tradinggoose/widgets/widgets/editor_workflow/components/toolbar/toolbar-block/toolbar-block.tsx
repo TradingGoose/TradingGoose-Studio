@@ -5,25 +5,21 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import type { BlockConfig } from '@/blocks/types'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
-import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useToolbarAddBlock } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-context'
 
 export type ToolbarBlockProps = {
   config: BlockConfig
   disabled?: boolean
   enableTriggerMode?: boolean
-  channelId?: string
 }
 
 export function ToolbarBlock({
   config,
   disabled = false,
   enableTriggerMode = false,
-  channelId,
 }: ToolbarBlockProps) {
   const userPermissions = useUserPermissionsContext()
-  const workflowRoute = useOptionalWorkflowRoute()
-  const resolvedChannelId = channelId ?? workflowRoute?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
+  const addBlock = useToolbarAddBlock()
 
   const handleDragStart = (e: React.DragEvent) => {
     if (disabled) {
@@ -44,16 +40,11 @@ export function ToolbarBlock({
   const handleClick = useCallback(() => {
     if (config.type === 'connectionBlock' || disabled) return
 
-    // Dispatch a custom event to be caught by the workflow component
-    const event = new CustomEvent('add-block-from-toolbar', {
-      detail: {
-        type: config.type,
-        enableTriggerMode,
-        channelId: resolvedChannelId,
-      },
+    addBlock({
+      type: config.type,
+      enableTriggerMode,
     })
-    window.dispatchEvent(event)
-  }, [config.type, disabled, enableTriggerMode, resolvedChannelId])
+  }, [config.type, disabled, enableTriggerMode, addBlock])
 
   const blockContent = (
     <div

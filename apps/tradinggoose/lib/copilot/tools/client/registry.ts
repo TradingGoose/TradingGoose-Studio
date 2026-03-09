@@ -16,14 +16,19 @@ export function getTool(name: string): ClientToolDefinition<any> | undefined {
 export function createExecutionContext(params: {
   toolCallId: string
   toolName: string
+  channelId: string
+  workflowId: string
 }): ToolExecutionContext {
-  const { toolCallId, toolName } = params
+  const { toolCallId, toolName, channelId, workflowId } = params
+
   return {
     toolCallId,
     toolName,
+    channelId,
+    workflowId,
     log: (level, message, extra) => {
       try {
-        logger[level](message, { toolCallId, toolName, ...(extra || {}) })
+        logger[level](message, { toolCallId, toolName, channelId, workflowId, ...(extra || {}) })
       } catch {}
     },
   }

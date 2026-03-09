@@ -53,6 +53,18 @@ export interface BaseClientToolMetadata {
   getDynamicText?: DynamicTextFormatter
 }
 
+export interface ClientToolExecutionContext {
+  toolCallId: string
+  toolName: string
+  channelId: string
+  workflowId: string
+  log?: (
+    level: 'debug' | 'info' | 'warn' | 'error',
+    message: string,
+    extra?: Record<string, any>
+  ) => void
+}
+
 export class BaseClientTool {
   readonly toolCallId: string
   readonly name: string
@@ -60,6 +72,7 @@ export class BaseClientTool {
   protected metadata: BaseClientToolMetadata
   protected isMarkedComplete = false
   protected timeoutMs: number = DEFAULT_TOOL_TIMEOUT_MS
+  private executionContext: ClientToolExecutionContext | null = null
 
   constructor(toolCallId: string, name: string, metadata: BaseClientToolMetadata) {
     this.toolCallId = toolCallId
@@ -140,6 +153,21 @@ export class BaseClientTool {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async execute(_args?: Record<string, any>): Promise<void> {
     return
+  }
+
+  setExecutionContext(context: ClientToolExecutionContext): void {
+    this.executionContext = context
+  }
+
+  protected getExecutionContext(): ClientToolExecutionContext | null {
+    return this.executionContext
+  }
+
+  protected requireExecutionContext(): ClientToolExecutionContext {
+    if (!this.executionContext) {
+      throw new Error(`Missing execution context for tool call ${this.toolCallId}`)
+    }
+    return this.executionContext
   }
 
   /**

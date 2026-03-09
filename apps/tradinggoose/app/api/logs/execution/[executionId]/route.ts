@@ -3,6 +3,7 @@ import { workflowExecutionLogs, workflowExecutionSnapshots } from '@tradinggoose
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
+import { loadDeployedWorkflowState } from '@/lib/workflows/db-helpers'
 
 const logger = createLogger('LogsByExecutionIdAPI')
 
@@ -37,10 +38,35 @@ export async function GET(
       return NextResponse.json({ error: 'Workflow state snapshot not found' }, { status: 404 })
     }
 
+    let workflowState = snapshot.stateData
+    const snapshotBlockCount = Object.keys((workflowState as any)?.blocks || {}).length
+
+    if (snapshotBlockCount === 0) {
+      try {
+        const deployedData = await loadDeployedWorkflowState(workflowLog.workflowId)
+        if (Object.keys(deployedData.blocks || {}).length > 0) {
+          workflowState = {
+            blocks: deployedData.blocks || {},
+            edges: deployedData.edges || [],
+            loops: deployedData.loops || {},
+            parallels: deployedData.parallels || {},
+          }
+          logger.warn(
+            `Snapshot for execution ${executionId} had no blocks, using deployed state fallback`
+          )
+        }
+      } catch (fallbackError) {
+        logger.warn(
+          `Failed deployed-state fallback for execution ${executionId}; using stored snapshot`,
+          fallbackError
+        )
+      }
+    }
+
     const response = {
       executionId,
       workflowId: workflowLog.workflowId,
-      workflowState: snapshot.stateData,
+      workflowState,
       executionMetadata: {
         trigger: workflowLog.trigger,
         startedAt: workflowLog.startedAt.toISOString(),
@@ -52,7 +78,7 @@ export async function GET(
 
     logger.debug(`Successfully fetched execution data for: ${executionId}`)
     logger.debug(
-      `Workflow state contains ${Object.keys((snapshot.stateData as any)?.blocks || {}).length} blocks`
+      `Workflow state contains ${Object.keys((workflowState as any)?.blocks || {}).length} blocks`
     )
 
     return NextResponse.json(response)

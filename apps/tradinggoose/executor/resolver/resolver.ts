@@ -3,6 +3,7 @@ import { VariableManager } from '@/lib/variables/variable-manager'
 import { extractReferencePrefixes, SYSTEM_REFERENCE_PREFIXES } from '@/lib/workflows/references'
 import { TRIGGER_REFERENCE_ALIAS_MAP } from '@/lib/workflows/triggers'
 import { getBlock } from '@/blocks/index'
+import type { SubBlockCondition } from '@/blocks/types'
 import type { LoopManager } from '@/executor/loops/loops'
 import type { ExecutionContext } from '@/executor/types'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
@@ -79,20 +80,7 @@ export class InputResolver {
    * @returns True if the sub-block should be active
    */
   private evaluateSubBlockCondition(
-    condition:
-      | {
-          field: string
-          value: any
-          not?: boolean
-          and?: { field: string; value: any; not?: boolean }
-        }
-      | (() => {
-          field: string
-          value: any
-          not?: boolean
-          and?: { field: string; value: any; not?: boolean }
-        })
-      | undefined,
+    condition: SubBlockCondition | (() => SubBlockCondition) | undefined,
     currentValues: Record<string, any>
   ): boolean {
     if (!condition) return true
@@ -100,35 +88,26 @@ export class InputResolver {
     // If condition is a function, call it to get the actual condition object
     const actualCondition = typeof condition === 'function' ? condition() : condition
 
-    // Get the field value
-    const fieldValue = currentValues[actualCondition.field]
+    const evaluateMatch = (subCondition: SubBlockCondition): boolean => {
+      const fieldValue = currentValues[subCondition.field]
+      const isValueMatch = Array.isArray(subCondition.value)
+        ? fieldValue != null &&
+          (subCondition.not
+            ? !subCondition.value.includes(fieldValue)
+            : subCondition.value.includes(fieldValue))
+        : subCondition.not
+          ? fieldValue !== subCondition.value
+          : fieldValue === subCondition.value
+      return isValueMatch
+    }
 
-    // Check if the condition value is an array
-    const isValueMatch = Array.isArray(actualCondition.value)
-      ? fieldValue != null &&
-        (actualCondition.not
-          ? !actualCondition.value.includes(fieldValue)
-          : actualCondition.value.includes(fieldValue))
-      : actualCondition.not
-        ? fieldValue !== actualCondition.value
-        : fieldValue === actualCondition.value
+    const andConditions = Array.isArray(actualCondition.and)
+      ? actualCondition.and
+      : actualCondition.and
+        ? [actualCondition.and]
+        : []
 
-    // Check both conditions if 'and' is present
-    const isAndValueMatch =
-      !actualCondition.and ||
-      (() => {
-        const andFieldValue = currentValues[actualCondition.and!.field]
-        return Array.isArray(actualCondition.and!.value)
-          ? andFieldValue != null &&
-              (actualCondition.and!.not
-                ? !actualCondition.and!.value.includes(andFieldValue)
-                : actualCondition.and!.value.includes(andFieldValue))
-          : actualCondition.and!.not
-            ? andFieldValue !== actualCondition.and!.value
-            : andFieldValue === actualCondition.and!.value
-      })()
-
-    return isValueMatch && isAndValueMatch
+    return evaluateMatch(actualCondition) && andConditions.every((entry) => evaluateMatch(entry))
   }
 
   /**

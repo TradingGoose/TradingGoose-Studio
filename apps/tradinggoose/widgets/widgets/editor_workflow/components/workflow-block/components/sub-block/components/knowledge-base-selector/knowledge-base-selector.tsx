@@ -23,8 +23,6 @@ interface KnowledgeBaseSelectorProps {
   subBlock: SubBlockConfig
   disabled?: boolean
   onKnowledgeBaseSelect?: (knowledgeBaseId: string | string[]) => void
-  isPreview?: boolean
-  previewValue?: string | null
 }
 
 export function KnowledgeBaseSelector({
@@ -32,8 +30,6 @@ export function KnowledgeBaseSelector({
   subBlock,
   disabled = false,
   onKnowledgeBaseSelect,
-  isPreview = false,
-  previewValue,
 }: KnowledgeBaseSelectorProps) {
   const workspaceId = useWorkspaceId()
 
@@ -48,28 +44,25 @@ export function KnowledgeBaseSelector({
   // Use the proper hook to get the current value and setter - this prevents infinite loops
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlock.id)
 
-  // Use preview value when in preview mode, otherwise use store value
-  const value = isPreview ? previewValue : storeValue
-
   const isMultiSelect = subBlock.multiSelect === true
 
   // Compute selected knowledge bases directly from value - no local state to avoid loops
   const selectedKnowledgeBases = useMemo(() => {
-    if (value && knowledgeBases.length > 0) {
+    if (storeValue && knowledgeBases.length > 0) {
       const selectedIds =
-        typeof value === 'string'
-          ? value.includes(',')
-            ? value
+        typeof storeValue === 'string'
+          ? storeValue.includes(',')
+            ? storeValue
               .split(',')
               .map((id) => id.trim())
               .filter((id) => id.length > 0)
-            : [value]
+            : [storeValue]
           : []
 
       return knowledgeBases.filter((kb) => selectedIds.includes(kb.id))
     }
     return []
-  }, [value, knowledgeBases])
+  }, [storeValue, knowledgeBases])
 
   // Fetch knowledge bases directly from API
   const fetchKnowledgeBases = useCallback(async () => {
@@ -110,8 +103,6 @@ export function KnowledgeBaseSelector({
 
   // Handle dropdown open/close - fetch knowledge bases when opening
   const handleOpenChange = (isOpen: boolean) => {
-    if (isPreview) return
-
     setOpen((prev) => (prev === isOpen ? prev : isOpen))
 
     // Always fetch fresh knowledge bases when opening the dropdown
@@ -122,8 +113,6 @@ export function KnowledgeBaseSelector({
 
   // Handle single knowledge base selection (for backward compatibility)
   const handleSelectSingleKnowledgeBase = (knowledgeBase: KnowledgeBaseData) => {
-    if (isPreview) return
-
     // Use the hook's setter which handles collaborative updates
     setStoreValue(knowledgeBase.id)
 
@@ -133,8 +122,6 @@ export function KnowledgeBaseSelector({
 
   // Handle multi-select knowledge base selection
   const handleToggleKnowledgeBase = (knowledgeBase: KnowledgeBaseData) => {
-    if (isPreview) return
-
     const isCurrentlySelected = selectedKnowledgeBases.some((kb) => kb.id === knowledgeBase.id)
     let newSelected: KnowledgeBaseData[]
 
@@ -157,8 +144,6 @@ export function KnowledgeBaseSelector({
 
   // Remove selected knowledge base (for multi-select tags)
   const handleRemoveKnowledgeBase = (knowledgeBaseId: string) => {
-    if (isPreview) return
-
     const newSelected = selectedKnowledgeBases.filter((kb) => kb.id !== knowledgeBaseId)
     const selectedIds = newSelected.map((kb) => kb.id)
     const valueToStore = selectedIds.length === 1 ? selectedIds[0] : selectedIds.join(',')
@@ -172,23 +157,21 @@ export function KnowledgeBaseSelector({
   // If we have a value but no knowledge base info and haven't fetched yet, fetch
   useEffect(() => {
     if (
-      value &&
+      storeValue &&
       selectedKnowledgeBases.length === 0 &&
       knowledgeBases.length === 0 &&
       !loading &&
-      !initialFetchDone &&
-      !isPreview
+      !initialFetchDone
     ) {
       fetchKnowledgeBases()
     }
   }, [
-    value,
+    storeValue,
     selectedKnowledgeBases.length,
     knowledgeBases.length,
     loading,
     initialFetchDone,
     fetchKnowledgeBases,
-    isPreview,
   ])
 
   const formatKnowledgeBaseName = (knowledgeBase: KnowledgeBaseData) => {
@@ -222,7 +205,7 @@ export function KnowledgeBaseSelector({
             >
               <PackageSearchIcon className='mr-1 h-3 w-3 text-[#00B0B0]' />
               <span className='font-medium text-[#00B0B0]'>{formatKnowledgeBaseName(kb)}</span>
-              {!disabled && !isPreview && (
+              {!disabled && (
                 <button
                   onClick={() => handleRemoveKnowledgeBase(kb.id)}
                   className='ml-1 text-[#00B0B0]/60 hover:text-[#00B0B0]'
@@ -242,7 +225,7 @@ export function KnowledgeBaseSelector({
             role='combobox'
             aria-expanded={open}
             className='relative w-full justify-between'
-            disabled={disabled || isPreview}
+            disabled={disabled}
           >
             <div className='flex max-w-[calc(100%-20px)] items-center gap-2 overflow-hidden'>
               <PackageSearchIcon className='h-4 w-4 text-[#00B0B0]' />

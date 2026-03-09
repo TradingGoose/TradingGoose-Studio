@@ -2,15 +2,12 @@
 
 import { useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { WorkflowPreview } from '@/app/workspace/[workspaceId]/components/workflow-preview/workflow-preview'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
-const logger = createLogger('DeployedWorkflowCard')
-
 interface DeployedWorkflowCardProps {
+  workflowId?: string
   currentWorkflowState?: WorkflowState
   activeDeployedWorkflowState?: WorkflowState
   selectedDeployedWorkflowState?: WorkflowState
@@ -19,6 +16,7 @@ interface DeployedWorkflowCardProps {
 }
 
 export function DeployedWorkflowCard({
+  workflowId,
   currentWorkflowState,
   activeDeployedWorkflowState,
   selectedDeployedWorkflowState,
@@ -37,11 +35,10 @@ export function DeployedWorkflowCard({
       : view === 'active'
         ? activeDeployedWorkflowState
         : selectedDeployedWorkflowState
-  const activeWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId())
 
   const previewKey = useMemo(() => {
-    return `${view}-preview-${activeWorkflowId}`
-  }, [view, activeWorkflowId])
+    return `${view}-preview-${workflowId ?? 'unknown'}`
+  }, [view, workflowId])
 
   return (
     <Card className={cn('relative overflow-hidden', className)}>

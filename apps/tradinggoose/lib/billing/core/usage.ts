@@ -135,7 +135,7 @@ export async function getUserUsageData(userId: string): Promise<UsageData> {
     // Gracefully return a default usage snapshot so UI can render instead of throwing
     const fallbackLimit = getFreeTierLimit()
     return {
-      current: 0,
+      currentUsage: 0,
       limit: fallbackLimit,
       percentUsed: 0,
       isWarning: false,
@@ -143,9 +143,6 @@ export async function getUserUsageData(userId: string): Promise<UsageData> {
       billingPeriodStart: null,
       billingPeriodEnd: null,
       lastPeriodCost: 0,
-      lastPeriodCopilotCost: 0,
-      daysRemaining: 0,
-      copilotCost: 0,
     }
   }
 }

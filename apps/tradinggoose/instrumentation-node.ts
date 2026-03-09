@@ -60,14 +60,14 @@ async function initializeOpenTelemetry() {
       url: telemetryConfig.endpoint,
       headers: {},
       timeoutMillis: telemetryConfig.batchSettings.exportTimeoutMillis,
-    })
+    }) as any
 
     const spanProcessor = new BatchSpanProcessor(exporter, {
       maxQueueSize: telemetryConfig.batchSettings.maxQueueSize,
       maxExportBatchSize: telemetryConfig.batchSettings.maxExportBatchSize,
       scheduledDelayMillis: telemetryConfig.batchSettings.scheduledDelayMillis,
       exportTimeoutMillis: telemetryConfig.batchSettings.exportTimeoutMillis,
-    })
+    }) as any
 
     const resource = defaultResource().merge(
       resourceFromAttributes({

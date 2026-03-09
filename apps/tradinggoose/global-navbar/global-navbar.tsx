@@ -563,8 +563,6 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
             <SidebarFooter className='flex flex-col gap-2 px-2 py-3'>
               <SidebarUsageIndicator
                 onOpenSubscriptionSettings={() => openSettings('subscription')}
-                userId={userId}
-                userEmail={userEmail}
               />
               <UserMenu
                 userId={userId}

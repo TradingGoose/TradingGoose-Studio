@@ -1,11 +1,8 @@
 import { RepeatIcon, SplitIcon } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import {
-  type ConnectedBlock,
-  useBlockConnections,
-} from '@/hooks/workflow/use-block-connections'
 import { getBlock } from '@/blocks'
+import { type ConnectedBlock, useBlockConnections } from '@/hooks/workflow/use-block-connections'
 
 interface ConnectionBlocksProps {
   blockId: string
@@ -66,7 +63,7 @@ export function ConnectionBlocks({
     e.dataTransfer.effectAllowed = 'copy'
   }
 
-  const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragEnd = () => {
     setIsConnecting(false)
   }
 
@@ -77,8 +74,6 @@ export function ConnectionBlocks({
   const renderConnectionCard = (connection: ConnectedBlock) => {
     // Get block configuration for icon and color
     const blockConfig = getBlock(connection.type)
-    const displayName = connection.name // Use the actual block name instead of transforming it
-
     // Handle special blocks that aren't in the registry (loop and parallel)
     let Icon = blockConfig?.icon
     let bgColor = blockConfig?.bgColor || undefined
@@ -117,12 +112,8 @@ export function ConnectionBlocks({
           >
             <Icon className='h-4 w-4' />
           </div>
-        )
-        }
-        <div className='text-xs'>
-          <span className='font-medium leading-none'>{displayName}</span>
-        </div>
-      </Card >
+        )}
+      </Card>
     )
   }
 
@@ -133,11 +124,11 @@ export function ConnectionBlocks({
     connectionCards.push(renderConnectionCard(connection))
   })
 
-  // Position and layout based on handle orientation - reverse of ports
-  // When ports are horizontal: connection blocks on top, aligned to left, closest blocks on bottom row
-  // When ports are vertical (default): connection blocks on left, stack vertically, aligned to right
+  // Position and layout based on handle orientation.
+  // When ports are horizontal: connection blocks on bottom, aligned to left.
+  // When ports are vertical (default): connection blocks on left, stack vertically, aligned to right.
   const containerClasses = horizontalHandles
-    ? 'absolute bottom-full left-0 flex max-w-[600px] flex-wrap-reverse gap-2 pb-2'
+    ? 'absolute top-full left-0 flex max-w-[600px] flex-wrap gap-2 pt-2'
     : 'absolute top-0 right-full flex max-h-[400px] max-w-[200px] flex-col items-end gap-2 overflow-y-auto pr-3'
 
   return <div className={containerClasses}>{connectionCards}</div>

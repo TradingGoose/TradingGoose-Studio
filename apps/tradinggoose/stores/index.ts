@@ -6,8 +6,8 @@ import { getCopilotStore, useCopilotStore } from '@/stores/copilot/store'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import { useIndicatorsStore } from '@/stores/indicators/store'
 import { useExecutionStore } from '@/stores/execution/store'
-import { useConsoleStore } from '@/stores/panel/console/store'
-import { useVariablesStore } from '@/stores/panel/variables/store'
+import { useConsoleStore } from '@/stores/console/store'
+import { useVariablesStore } from '@/stores/variables/store'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
 import { useSubscriptionStore } from '@/stores/subscription/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
@@ -235,6 +235,8 @@ export const resetAllStores = () => {
     workflows: {},
     activeWorkflowIds: {},
     loadedWorkflowIds: {},
+    hydrationByChannel: {},
+    deploymentStatuses: {},
     isLoading: false,
     error: null,
   })

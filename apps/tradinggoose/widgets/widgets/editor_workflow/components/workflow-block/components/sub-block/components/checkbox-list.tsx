@@ -6,22 +6,15 @@ import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/w
 interface CheckboxListProps {
   blockId: string
   subBlockId: string
-  title: string
   options: { label: string; id: string }[]
   layout?: 'full' | 'half'
-  isPreview?: boolean
-  subBlockValues?: Record<string, any>
   disabled?: boolean
 }
 
 export function CheckboxList({
   blockId,
-  subBlockId,
-  title,
   options,
   layout,
-  isPreview = false,
-  subBlockValues,
   disabled = false,
 }: CheckboxListProps) {
   return (
@@ -29,16 +22,8 @@ export function CheckboxList({
       {options.map((option) => {
         const [storeValue, setStoreValue] = useSubBlockValue(blockId, option.id)
 
-        // Get preview value for this specific option
-        const previewValue =
-          isPreview && subBlockValues ? subBlockValues[option.id]?.value : undefined
-
-        // Use preview value when in preview mode, otherwise use store value
-        const value = isPreview ? previewValue : storeValue
-
         const handleChange = (checked: boolean) => {
-          // Only update store when not in preview mode or disabled
-          if (!isPreview && !disabled) {
+          if (!disabled) {
             setStoreValue(checked)
           }
         }
@@ -47,9 +32,9 @@ export function CheckboxList({
           <div key={option.id} className='flex items-center space-x-2'>
             <Checkbox
               id={`${blockId}-${option.id}`}
-              checked={Boolean(value)}
+              checked={Boolean(storeValue)}
               onCheckedChange={handleChange}
-              disabled={isPreview || disabled}
+              disabled={disabled}
             />
             <Label
               htmlFor={`${blockId}-${option.id}`}

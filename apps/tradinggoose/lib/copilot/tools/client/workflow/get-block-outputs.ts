@@ -16,7 +16,6 @@ import {
   GetBlockOutputsResult,
   type GetBlockOutputsResultType,
 } from '@/lib/copilot/tools/shared/schemas'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store'
 
 const logger = createLogger('GetBlockOutputsClientTool')
@@ -64,15 +63,16 @@ export class GetBlockOutputsClientTool extends BaseClientTool {
   async execute(args?: GetBlockOutputsArgs): Promise<void> {
     try {
       this.setState(ClientToolCallState.executing)
+      const executionContext = this.requireExecutionContext()
 
-      const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
+      const activeWorkflowId = executionContext.workflowId
       if (!activeWorkflowId) {
         await this.markToolComplete(400, 'No active workflow found')
         this.setState(ClientToolCallState.error)
         return
       }
 
-      const workflowStore = useWorkflowStore.getState()
+      const workflowStore = useWorkflowStore.getState(executionContext.channelId)
       const blocks = workflowStore.blocks || {}
       const loops = workflowStore.loops || {}
       const parallels = workflowStore.parallels || {}

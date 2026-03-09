@@ -54,17 +54,7 @@ export const orderHistoryTool: ToolConfig<OrderHistoryParams, OrderHistoryRespon
       const workflowId = params.workflowId || params._context?.workflowId
 
       if (!startDate || !endDate) {
-        return {
-          _errorResponse: {
-            status: 400,
-            data: {
-              success: false,
-              error: {
-                message: 'startDate and endDate are required',
-              },
-            },
-          },
-        }
+        throw new Error('startDate and endDate are required')
       }
 
       const searchParams = new URLSearchParams()

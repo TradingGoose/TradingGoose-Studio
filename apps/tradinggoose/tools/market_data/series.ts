@@ -141,7 +141,9 @@ const sanitizeInterval = (provider: string, interval?: string): string | undefin
   if (!capabilities) return interval
   if (capabilities.supportsInterval === false) return undefined
   const intervals = capabilities.intervals ?? []
-  if (intervals.length > 0 && !intervals.includes(interval)) return undefined
+  if (intervals.length > 0 && !(intervals as ReadonlyArray<string>).includes(interval)) {
+    return undefined
+  }
   return interval
 }
 
@@ -280,7 +282,14 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
       if ('primaryMicCode' in seriesOutput) {
         delete seriesOutput.primaryMicCode
       }
-      return { success: true, output: { ...seriesOutput, listing } }
+      const normalizedSeries = { ...seriesOutput, listing }
+      return {
+        success: true,
+        output: {
+          ...normalizedSeries,
+          marketSeries: normalizedSeries,
+        },
+      }
     } catch (error: any) {
       logger.error('Error validating market series data', {
         provider: params.provider,

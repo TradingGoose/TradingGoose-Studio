@@ -132,11 +132,11 @@ export const useCopilotTrainingStore = create<CopilotTrainingState>()(
 
       ensureChannel: (channelId) => {
         const key = resolveChannelKey(channelId)
+        if (get().channels[key]) {
+          return
+        }
         set((state) => {
-          const { channels, hasExistingState } = getChannelMap(state)
-          if (channels[key] && hasExistingState) {
-            return undefined
-          }
+          const { channels } = getChannelMap(state)
           return {
             channels: {
               ...channels,

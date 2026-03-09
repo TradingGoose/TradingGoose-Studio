@@ -1,13 +1,11 @@
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store'
 
 /**
  * Build workflow state in the same format as the deployment process
  * This utility ensures consistent state format between template creation and deployment
  */
-export function buildWorkflowStateForTemplate(workflowId: string) {
+export function buildWorkflowStateForTemplate(_workflowId: string) {
   const workflowStore = useWorkflowStore.getState()
-  const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
 
   // Get current workflow state
   const { blocks, edges } = workflowStore

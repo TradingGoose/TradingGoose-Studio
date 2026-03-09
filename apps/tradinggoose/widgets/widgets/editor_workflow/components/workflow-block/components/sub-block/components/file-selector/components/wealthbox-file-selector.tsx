@@ -64,7 +64,6 @@ export function WealthboxFileSelector({
   const [selectedCredentialId, setSelectedCredentialId] = useState<string>(credentialId || '')
   const [selectedItemId, setSelectedItemId] = useState(value)
   const [selectedItem, setSelectedItem] = useState<WealthboxItemInfo | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
   const [isLoadingSelectedItem, setIsLoadingSelectedItem] = useState(false)
   const [isLoadingItems, setIsLoadingItems] = useState(false)
   const [availableItems, setAvailableItems] = useState<WealthboxItemInfo[]>([])
@@ -87,7 +86,6 @@ export function WealthboxFileSelector({
 
   // Fetch available credentials for this provider
   const fetchCredentials = useCallback(async () => {
-    setIsLoading(true)
     setCredentialsLoaded(false)
     try {
       const providerId = getProviderId()
@@ -100,10 +98,9 @@ export function WealthboxFileSelector({
     } catch (error) {
       logger.error('Error fetching credentials:', { error })
     } finally {
-      setIsLoading(false)
       setCredentialsLoaded(true)
     }
-  }, [provider, getProviderId, selectedCredentialId])
+  }, [getProviderId])
 
   // Keep local credential state in sync with persisted credential
   useEffect(() => {

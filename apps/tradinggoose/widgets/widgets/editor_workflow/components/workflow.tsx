@@ -14,6 +14,7 @@ interface WorkflowProps {
   ui?: WorkflowCanvasUIConfig
   disableNavigation?: boolean
   channelId?: string
+  toolbarScopeId?: string
   viewportBounds?: { x: number; y: number; width: number; height: number }
 }
 
@@ -24,7 +25,7 @@ export const WorkflowEditorProvider = ({ children }: { children: React.ReactNode
 )
 
 const Workflow = React.memo(
-  ({ ui, disableNavigation, channelId, viewportBounds }: WorkflowProps) => {
+  ({ ui, disableNavigation, channelId, toolbarScopeId, viewportBounds }: WorkflowProps) => {
     const layoutUI = useWorkflowUIConfig()
     const mergedUI = useMemo<WorkflowCanvasUIConfig | undefined>(() => {
       if (!ui && !layoutUI) return ui
@@ -35,6 +36,7 @@ const Workflow = React.memo(
       <WorkflowEditorProvider>
         <WorkflowCanvas
           channelId={channelId}
+          toolbarScopeId={toolbarScopeId}
           ui={mergedUI}
           disableNavigation={disableNavigation}
           viewportBounds={viewportBounds}

@@ -86,6 +86,7 @@ export type OAuthService =
   | 'webflow'
   | 'tradier'
   | 'robinhood'
+  | string
 export interface OAuthProviderConfig {
   id: OAuthProvider
   name: string

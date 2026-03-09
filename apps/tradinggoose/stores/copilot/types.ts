@@ -8,6 +8,8 @@ export interface CopilotToolCall {
   state: ClientToolCallState
   params?: Record<string, any>
   display?: ClientToolDisplay
+  // Immutable execution provenance captured when the tool call is created.
+  provenance?: CopilotToolExecutionProvenance
 }
 
 export interface MessageFileAttachment {
@@ -66,6 +68,11 @@ export interface CopilotChat {
 }
 
 export type CopilotMode = 'ask' | 'build'
+
+export interface CopilotToolExecutionProvenance {
+  channelId: string
+  workflowId: string
+}
 
 export interface CopilotState {
   mode: CopilotMode

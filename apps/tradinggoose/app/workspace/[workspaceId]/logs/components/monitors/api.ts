@@ -20,10 +20,10 @@ export async function loadWorkflowTargetOptions(
       const id = toTrimmed(workflowRow?.id)
       if (!id) return []
 
-      const detailResponse = await fetch(`/api/workflows/${encodeURIComponent(id)}`)
+      const detailResponse = await fetch(`/api/workflows/${encodeURIComponent(id)}/deployed`)
       if (!detailResponse.ok) return []
       const detailPayload = await detailResponse.json().catch(() => ({}))
-      const blocks = detailPayload?.data?.state?.blocks
+      const blocks = detailPayload?.deployedState?.blocks
       if (!blocks || typeof blocks !== 'object') return []
 
       return Object.entries(blocks)
@@ -38,11 +38,12 @@ export async function loadWorkflowTargetOptions(
             blockId: resolvedBlockId,
             workflowName: toTrimmed(workflowRow?.name) || 'Workflow',
             workflowColor: toTrimmed(workflowRow?.color) || '#3972F6',
+            isDeployed: true,
             blockName,
             label: `${toTrimmed(workflowRow?.name) || 'Workflow'} - ${blockName}`,
           } satisfies WorkflowTargetOption
         })
-        .filter((entry): entry is WorkflowTargetOption => Boolean(entry))
+        .filter(Boolean) as WorkflowTargetOption[]
     })
   )
 

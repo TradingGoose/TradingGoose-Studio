@@ -129,7 +129,7 @@ vi.mock('@/stores/workflows/registry/store', () => ({
   }),
 }))
 
-vi.mock('@/stores/panel/variables/store', () => ({
+vi.mock('@/stores/variables/store', () => ({
   useVariablesStore: vi.fn(() => ({
     getVariablesByWorkflowId: vi.fn(() => []),
     loadVariables: vi.fn(),

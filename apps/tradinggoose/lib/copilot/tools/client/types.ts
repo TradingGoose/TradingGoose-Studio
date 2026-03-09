@@ -4,6 +4,8 @@ import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 export interface ToolExecutionContext {
   toolCallId: string
   toolName: string
+  channelId: string
+  workflowId: string
   // Logging only; tools must not mutate store state directly
   log: (
     level: 'debug' | 'info' | 'warn' | 'error',

@@ -1,3 +1,5 @@
+import type { SubBlockConfig } from '@/blocks/types'
+
 /**
  * System subblock IDs that are part of the trigger UI infrastructure
  * and should NOT be aggregated into triggerConfig or validated as user fields.
@@ -30,6 +32,45 @@ export const TRIGGER_PERSISTED_SUBBLOCK_IDS: string[] = [
  * Trigger-related subblock IDs that represent runtime metadata.
  */
 export const TRIGGER_RUNTIME_SUBBLOCK_IDS: string[] = ['webhookId', 'triggerPath', 'triggerConfig']
+
+/**
+ * Trigger subblock IDs that remain editable in the workflow canvas.
+ * Everything else should be configured in the deploy dialog.
+ */
+export const EDITOR_MANAGED_TRIGGER_SUBBLOCK_IDS: string[] = [
+  'inputFormat',
+  'samplePayload',
+  'monitorGuidance',
+]
+
+const editorManagedTriggerSubBlockSet = new Set(EDITOR_MANAGED_TRIGGER_SUBBLOCK_IDS)
+
+export function isEditorManagedTriggerSubBlock(subBlockId: string): boolean {
+  return editorManagedTriggerSubBlockSet.has(subBlockId)
+}
+
+export function isDeployManagedTriggerSubBlock(subBlockId: string): boolean {
+  return !isEditorManagedTriggerSubBlock(subBlockId)
+}
+
+export const NON_CONFIGURABLE_TRIGGER_SUBBLOCK_IDS: string[] = [
+  'selectedTriggerId',
+  'webhookUrlDisplay',
+  'triggerSave',
+  'triggerInstructions',
+]
+
+const nonConfigurableTriggerSubBlockSet = new Set(NON_CONFIGURABLE_TRIGGER_SUBBLOCK_IDS)
+
+export function isConfigurableTriggerDeploySubBlock(subBlock: SubBlockConfig): boolean {
+  if (nonConfigurableTriggerSubBlockSet.has(subBlock.id)) {
+    return false
+  }
+  if (subBlock.type === 'trigger-save' || subBlock.type === 'text') {
+    return false
+  }
+  return !subBlock.readOnly
+}
 
 /**
  * Maximum number of consecutive failures before a trigger is auto-disabled.

@@ -93,6 +93,9 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldi
   },
 
   transformResponse: async (response, params) => {
+    if (!params) {
+      throw new Error('Missing tool parameters for holdings request')
+    }
     const provider = getTradingProvider(params.provider)
     const raw = await response.json().catch(() => ({}))
     const normalized = provider.normalizeHoldings

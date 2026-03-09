@@ -4,8 +4,8 @@ import { useMemo } from 'react'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 /**
  * Centralized dependsOn gating for sub-block components.
@@ -15,17 +15,18 @@ import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-c
 export function useDependsOnGate(
   blockId: string,
   subBlock: SubBlockConfig,
-  opts?: { disabled?: boolean; isPreview?: boolean; previewContextValues?: Record<string, any> }
+  opts?: { disabled?: boolean; contextValues?: Record<string, any> }
 ) {
   const disabledProp = opts?.disabled ?? false
-  const isPreview = opts?.isPreview ?? false
-  const previewContextValues = opts?.previewContextValues
+  const contextValues = opts?.contextValues
 
   const routeContext = useOptionalWorkflowRoute()
   const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
+  const routeWorkflowId = routeContext?.workflowId ?? null
   const activeWorkflowId = useWorkflowRegistry((state) =>
     state.getActiveWorkflowId(resolvedChannelId)
   )
+  const resolvedWorkflowId = activeWorkflowId ?? routeWorkflowId
 
   // Use only explicit dependsOn from block config. No inference.
   const dependsOn: string[] = (subBlock.dependsOn as string[] | undefined) || []
@@ -50,12 +51,12 @@ export function useDependsOnGate(
   const dependencyValues = useSubBlockStore((state) => {
     if (dependsOn.length === 0) return [] as any[]
 
-    if (previewContextValues) {
-      return dependsOn.map((depKey) => normalizeDependencyValue(previewContextValues[depKey]) ?? null)
+    if (contextValues) {
+      return dependsOn.map((depKey) => normalizeDependencyValue(contextValues[depKey]) ?? null)
     }
 
-    if (!activeWorkflowId) return dependsOn.map(() => null)
-    const workflowValues = state.workflowValues[activeWorkflowId] || {}
+    if (!resolvedWorkflowId) return dependsOn.map(() => null)
+    const workflowValues = state.workflowValues[resolvedWorkflowId] || {}
     const blockValues = (workflowValues as any)[blockId] || {}
     return dependsOn.map((depKey) => normalizeDependencyValue((blockValues as any)[depKey]) ?? null)
   }) as any[]
@@ -68,10 +69,9 @@ export function useDependsOnGate(
   }, [dependencyValues, dependsOn])
 
   // Block everything except the credential field itself until dependencies are set
-  const blocked =
-    !isPreview && dependsOn.length > 0 && !depsSatisfied && subBlock.type !== 'oauth-input'
+  const blocked = dependsOn.length > 0 && !depsSatisfied && subBlock.type !== 'oauth-input'
 
-  const finalDisabled = disabledProp || isPreview || blocked
+  const finalDisabled = disabledProp || blocked
 
   return {
     dependsOn,

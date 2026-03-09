@@ -36,7 +36,7 @@ describe('Forget Password API Route', () => {
     expect(data.success).toBe(true)
 
     const auth = await import('@/lib/auth')
-    expect(auth.auth.api.forgetPassword).toHaveBeenCalledWith({
+    expect((auth.auth.api as any).forgetPassword).toHaveBeenCalledWith({
       body: {
         email: 'test@example.com',
         redirectTo: 'https://example.com/reset',
@@ -65,7 +65,7 @@ describe('Forget Password API Route', () => {
     expect(data.success).toBe(true)
 
     const auth = await import('@/lib/auth')
-    expect(auth.auth.api.forgetPassword).toHaveBeenCalledWith({
+    expect((auth.auth.api as any).forgetPassword).toHaveBeenCalledWith({
       body: {
         email: 'test@example.com',
         redirectTo: undefined,
@@ -88,7 +88,7 @@ describe('Forget Password API Route', () => {
     expect(data.message).toBe('Email is required')
 
     const auth = await import('@/lib/auth')
-    expect(auth.auth.api.forgetPassword).not.toHaveBeenCalled()
+    expect((auth.auth.api as any).forgetPassword).not.toHaveBeenCalled()
   })
 
   it('should handle empty email', async () => {
@@ -107,7 +107,7 @@ describe('Forget Password API Route', () => {
     expect(data.message).toBe('Email is required')
 
     const auth = await import('@/lib/auth')
-    expect(auth.auth.api.forgetPassword).not.toHaveBeenCalled()
+    expect((auth.auth.api as any).forgetPassword).not.toHaveBeenCalled()
   })
 
   it('should handle auth service error with message', async () => {

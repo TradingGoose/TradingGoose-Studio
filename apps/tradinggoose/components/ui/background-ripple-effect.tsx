@@ -72,7 +72,7 @@ const BackgroundRippleEffect = ({
     <div
       ref={ref}
       className={cn(
-        'fixed z-[-1] inset-0 h-full w-full object-center'
+        'absolute z-[-1] inset-0 h-full w-full object-center'
       )}
     >
       <div className='relative flex h-auto w-auto justify-center overflow-hidden'>

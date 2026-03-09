@@ -10,9 +10,23 @@ import {
   circlebackMeetingNotesTrigger,
   circlebackWebhookTrigger,
 } from '@/triggers/circleback'
+import { apiTrigger, chatTrigger, manualTrigger } from '@/triggers/core'
 import { firefliesTranscriptionCompleteTrigger } from '@/triggers/fireflies'
 import { genericWebhookTrigger } from '@/triggers/generic'
-import { githubWebhookTrigger } from '@/triggers/github'
+import {
+  githubIssueClosedTrigger,
+  githubIssueCommentTrigger,
+  githubIssueOpenedTrigger,
+  githubPRClosedTrigger,
+  githubPRCommentTrigger,
+  githubPRMergedTrigger,
+  githubPROpenedTrigger,
+  githubPRReviewedTrigger,
+  githubPushTrigger,
+  githubReleasePublishedTrigger,
+  githubWebhookTrigger,
+  githubWorkflowRunTrigger,
+} from '@/triggers/github'
 import { gmailPollingTrigger } from '@/triggers/gmail'
 import { googleFormsWebhookTrigger } from '@/triggers/googleforms'
 import {
@@ -43,14 +57,15 @@ import {
   hubspotTicketDeletedTrigger,
   hubspotTicketPropertyChangedTrigger,
 } from '@/triggers/hubspot'
-import { indicatorTrigger } from '@/triggers/indicator'
 import { imapPollingTrigger } from '@/triggers/imap'
+import { indicatorTrigger } from '@/triggers/indicator'
 import {
   microsoftTeamsChatSubscriptionTrigger,
   microsoftTeamsWebhookTrigger,
 } from '@/triggers/microsoftteams'
 import { outlookPollingTrigger } from '@/triggers/outlook'
 import { rssPollingTrigger } from '@/triggers/rss'
+import { scheduleTrigger } from '@/triggers/schedule'
 import { slackWebhookTrigger } from '@/triggers/slack'
 import { stripeWebhookTrigger } from '@/triggers/stripe'
 import { telegramWebhookTrigger } from '@/triggers/telegram'
@@ -65,6 +80,9 @@ import {
 import { whatsappWebhookTrigger } from '@/triggers/whatsapp'
 
 export const TRIGGER_REGISTRY: TriggerRegistry = {
+  api: apiTrigger,
+  chat: chatTrigger,
+  manual: manualTrigger,
   slack_webhook: slackWebhookTrigger,
   airtable_webhook: airtableWebhookTrigger,
   calendly_webhook: calendlyWebhookTrigger,
@@ -73,6 +91,17 @@ export const TRIGGER_REGISTRY: TriggerRegistry = {
   calendly_routing_form_submitted: calendlyRoutingFormSubmittedTrigger,
   generic_webhook: genericWebhookTrigger,
   github_webhook: githubWebhookTrigger,
+  github_issue_opened: githubIssueOpenedTrigger,
+  github_issue_closed: githubIssueClosedTrigger,
+  github_issue_comment: githubIssueCommentTrigger,
+  github_pr_opened: githubPROpenedTrigger,
+  github_pr_closed: githubPRClosedTrigger,
+  github_pr_merged: githubPRMergedTrigger,
+  github_pr_comment: githubPRCommentTrigger,
+  github_pr_reviewed: githubPRReviewedTrigger,
+  github_push: githubPushTrigger,
+  github_release_published: githubReleasePublishedTrigger,
+  github_workflow_run: githubWorkflowRunTrigger,
   fireflies_transcription_complete: firefliesTranscriptionCompleteTrigger,
   gmail_poller: gmailPollingTrigger,
   grain_webhook: grainWebhookTrigger,
@@ -88,6 +117,7 @@ export const TRIGGER_REGISTRY: TriggerRegistry = {
   microsoftteams_chat_subscription: microsoftTeamsChatSubscriptionTrigger,
   outlook_poller: outlookPollingTrigger,
   rss_poller: rssPollingTrigger,
+  schedule: scheduleTrigger,
   stripe_webhook: stripeWebhookTrigger,
   telegram_webhook: telegramWebhookTrigger,
   whatsapp_webhook: whatsappWebhookTrigger,

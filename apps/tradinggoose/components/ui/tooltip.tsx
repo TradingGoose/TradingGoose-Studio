@@ -5,7 +5,7 @@ import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 import { cn } from '@/lib/utils'
 
 type TooltipEnvironment = {
-  container?: TooltipPrimitive.PortalProps['container'] | null
+  container?: React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Portal>['container'] | null
   scale?: number
 }
 
@@ -27,7 +27,7 @@ const TooltipTrigger = TooltipPrimitive.Trigger
 type TooltipContentProps = React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content> & {
   command?: string
   commandPosition?: 'inline' | 'below'
-  container?: TooltipPrimitive.PortalProps['container']
+  container?: React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Portal>['container']
   scale?: number
 }
 
@@ -80,4 +80,4 @@ const TooltipContent = React.forwardRef<React.ElementRef<typeof TooltipPrimitive
 )
 TooltipContent.displayName = TooltipPrimitive.Content.displayName
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, TooltipEnvironmentProvider }
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }

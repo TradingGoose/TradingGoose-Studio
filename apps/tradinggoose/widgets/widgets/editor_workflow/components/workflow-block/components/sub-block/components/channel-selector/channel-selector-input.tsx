@@ -17,9 +17,7 @@ interface ChannelSelectorInputProps {
   subBlock: SubBlockConfig
   disabled?: boolean
   onChannelSelect?: (channelId: string) => void
-  isPreview?: boolean
-  previewValue?: any | null
-  previewContextValues?: Record<string, any>
+  contextValues?: Record<string, any>
 }
 
 export function ChannelSelectorInput({
@@ -27,9 +25,7 @@ export function ChannelSelectorInput({
   subBlock,
   disabled = false,
   onChannelSelect,
-  isPreview = false,
-  previewValue,
-  previewContextValues,
+  contextValues,
 }: ChannelSelectorInputProps) {
   const workflowIdFromUrl = useWorkflowId()
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlock.id)
@@ -37,9 +33,9 @@ export function ChannelSelectorInput({
   const [botToken] = useSubBlockValue(blockId, 'botToken')
   const [connectedCredential] = useSubBlockValue(blockId, 'credential')
 
-  const effectiveAuthMethod = previewContextValues?.authMethod ?? authMethod
-  const effectiveBotToken = previewContextValues?.botToken ?? botToken
-  const effectiveCredential = previewContextValues?.credential ?? connectedCredential
+  const effectiveAuthMethod = contextValues?.authMethod ?? authMethod
+  const effectiveBotToken = contextValues?.botToken ?? botToken
+  const effectiveCredential = contextValues?.credential ?? connectedCredential
   const [selectedChannelId, setSelectedChannelId] = useState<string>('')
   const [_channelInfo, setChannelInfo] = useState<SlackChannelInfo | null>(null)
 
@@ -49,7 +45,6 @@ export function ChannelSelectorInput({
   // Central dependsOn gating
   const { finalDisabled, dependsOn, dependencyValues } = useDependsOnGate(blockId, subBlock, {
     disabled,
-    isPreview,
   })
 
   // Choose credential strictly based on auth method - use effective values
@@ -64,13 +59,9 @@ export function ChannelSelectorInput({
     (effectiveAuthMethod as string) === 'bot_token' ? '' : (effectiveCredential as string) || ''
   )
 
-  // Get the current value from the store or prop value if in preview mode (same pattern as file-selector)
   useEffect(() => {
-    const val = isPreview && previewValue !== undefined ? previewValue : storeValue
-    if (val && typeof val === 'string') {
-      setSelectedChannelId(val)
-    }
-  }, [isPreview, previewValue, storeValue])
+    setSelectedChannelId(typeof storeValue === 'string' ? storeValue : '')
+  }, [storeValue])
 
   // Clear channel when any declared dependency changes (e.g., authMethod/credential)
   const prevDepsSigRef = useRef<string>('')
@@ -78,22 +69,18 @@ export function ChannelSelectorInput({
     if (dependsOn.length === 0) return
     const currentSig = JSON.stringify(dependencyValues)
     if (prevDepsSigRef.current && prevDepsSigRef.current !== currentSig) {
-      if (!isPreview) {
-        setSelectedChannelId('')
-        setChannelInfo(null)
-        setStoreValue('')
-      }
+      setSelectedChannelId('')
+      setChannelInfo(null)
+      setStoreValue('')
     }
     prevDepsSigRef.current = currentSig
-  }, [dependsOn, dependencyValues, isPreview, setStoreValue])
+  }, [dependsOn, dependencyValues, setStoreValue])
 
   // Handle channel selection (same pattern as file-selector)
   const handleChannelChange = (channelId: string, info?: SlackChannelInfo) => {
     setSelectedChannelId(channelId)
     setChannelInfo(info || null)
-    if (!isPreview) {
-      setStoreValue(channelId)
-    }
+    setStoreValue(channelId)
     onChannelSelect?.(channelId)
   }
 

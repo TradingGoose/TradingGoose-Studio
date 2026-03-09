@@ -630,14 +630,12 @@ export function DashboardClient({
         if (!response.ok) {
           throw new Error(`Failed to delete layout (${response.status})`)
         }
-        const currentLayoutId = layoutIdRef.current
-        const data = await loadLayoutData(currentLayoutId)
-        applyLayoutData(data)
+        setLayouts((current) => current.filter((layout) => layout.id !== layoutId))
       } catch (error) {
         console.error('Failed to delete layout:', error)
       }
     },
-    [workspaceId, loadLayoutData, applyLayoutData]
+    [workspaceId]
   )
 
   const handleReorderLayouts = useCallback(
@@ -1049,7 +1047,7 @@ function applyColorPairsToLayout(
   const pairMap = new Map<LinkedPairColor, PersistedColorPair>()
 
   for (const pair of colorPairs.pairs ?? []) {
-    if (pair?.color && pair.color !== 'gray') {
+    if (pair?.color) {
       pairMap.set(pair.color, pair)
     }
   }
@@ -1153,7 +1151,7 @@ function hydratePairStoreFromColorPairs(colorPairs: PersistedColorPairsState) {
   })
 
   for (const pair of colorPairs.pairs ?? []) {
-    if (!pair || !pair.color || pair.color === 'gray') continue
+    if (!pair || !pair.color) continue
     nextContexts[pair.color] = {
       workflowId: pair.workflowId ?? undefined,
       listing: pair.listing ?? null,
@@ -1211,7 +1209,6 @@ function hasLinkedColorPairs(colorPairs?: PersistedColorPairsState): boolean {
   return colorPairs.pairs.some(
     (pair) =>
       pair?.color &&
-      pair.color !== 'gray' &&
       (pair.workflowId ||
         pair.copilotChatId ||
         Boolean(getListingIdentity(pair.listing)) ||

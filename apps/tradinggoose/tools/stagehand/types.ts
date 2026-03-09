@@ -6,6 +6,7 @@ export interface StagehandExtractParams {
   schema: Record<string, any>
   apiKey: string
   url: string
+  provider?: string
 }
 
 export interface StagehandExtractResponse extends ToolResponse {
@@ -15,6 +16,7 @@ export interface StagehandExtractResponse extends ToolResponse {
 export interface StagehandAgentParams {
   task: string
   startUrl: string
+  provider?: string
   outputSchema?: Record<string, any>
   variables?: Record<string, string>
   apiKey: string

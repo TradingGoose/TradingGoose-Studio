@@ -16,31 +16,19 @@ import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/w
 interface GroupedCheckboxListProps {
   blockId: string
   subBlockId: string
-  title: string
   options: { label: string; id: string; group?: string }[]
-  layout?: 'full' | 'half'
-  isPreview?: boolean
-  subBlockValues: Record<string, any>
   disabled?: boolean
-  maxHeight?: number
 }
 
 export function GroupedCheckboxList({
   blockId,
   subBlockId,
-  title,
   options,
-  layout = 'full',
-  isPreview = false,
-  subBlockValues,
   disabled = false,
-  maxHeight = 400,
 }: GroupedCheckboxListProps) {
   const [open, setOpen] = useState(false)
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlockId)
-
-  const previewValue = isPreview && subBlockValues ? subBlockValues[subBlockId]?.value : undefined
-  const selectedValues = ((isPreview ? previewValue : storeValue) as string[]) || []
+  const selectedValues = (storeValue as string[]) || []
 
   const groupedOptions = useMemo(() => {
     const groups: Record<string, { label: string; id: string }[]> = {}
@@ -57,7 +45,7 @@ export function GroupedCheckboxList({
   }, [options])
 
   const handleToggle = (optionId: string) => {
-    if (isPreview || disabled) return
+    if (disabled) return
 
     const currentValues = (selectedValues || []) as string[]
     const newValues = currentValues.includes(optionId)
@@ -68,13 +56,13 @@ export function GroupedCheckboxList({
   }
 
   const handleSelectAll = () => {
-    if (isPreview || disabled) return
+    if (disabled) return
     const allIds = options.map((opt) => opt.id)
     setStoreValue(allIds)
   }
 
   const handleClear = () => {
-    if (isPreview || disabled) return
+    if (disabled) return
     setStoreValue([])
   }
 

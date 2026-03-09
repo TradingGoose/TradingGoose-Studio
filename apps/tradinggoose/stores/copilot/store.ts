@@ -19,7 +19,7 @@ import type {
 import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store'
-import { ensureClientToolInstance } from '@/stores/copilot/tool-registry'
+import { CLASS_TOOL_METADATA, ensureClientToolInstance } from '@/stores/copilot/tool-registry'
 import {
   isBackgroundState,
   isRejectedState,
@@ -33,7 +33,7 @@ import {
   updateStreamingMessage,
 } from '@/stores/copilot/streaming'
 
-export { CLASS_TOOL_METADATA } from '@/stores/copilot/tool-registry'
+export { CLASS_TOOL_METADATA }
 
 const logger = createLogger('CopilotStore')
 
@@ -50,6 +50,24 @@ const TEXT_BLOCK_TYPE = 'text'
 const THINKING_BLOCK_TYPE = 'thinking'
 const DATA_PREFIX = 'data: '
 const DATA_PREFIX_LENGTH = 6
+
+function withPinnedToolExecutionProvenance(
+  toolCall: CopilotToolCall,
+  workflowId?: string | null,
+  channelId = DEFAULT_COPILOT_CHANNEL_ID
+): CopilotToolCall {
+  if (toolCall.provenance || !workflowId) {
+    return toolCall
+  }
+
+  return {
+    ...toolCall,
+    provenance: {
+      channelId,
+      workflowId,
+    },
+  }
+}
 
 // Helper: abort all in-progress client tools and update inline blocks
 function abortAllInProgressTools(set: any, get: () => CopilotStore) {
@@ -573,12 +591,16 @@ const sseHandlers: Record<string, SSEHandler> = {
     if (!toolCallsById[toolCallId]) {
       // Show as pending until we receive full tool_call (with arguments) to decide execution
       const initialState = ClientToolCallState.pending
-      const tc: CopilotToolCall = {
-        id: toolCallId,
-        name: toolName,
-        state: initialState,
-        display: resolveToolDisplay(toolName, initialState, toolCallId),
-      }
+      const tc = withPinnedToolExecutionProvenance(
+        {
+          id: toolCallId,
+          name: toolName,
+          state: initialState,
+          display: resolveToolDisplay(toolName, initialState, toolCallId),
+        },
+        context.workflowId,
+        context.channelId
+      )
       const updated = { ...toolCallsById, [toolCallId]: tc }
       set({ toolCallsById: updated })
       logger.info('[toolCallsById] map updated', updated)
@@ -608,9 +630,10 @@ const sseHandlers: Record<string, SSEHandler> = {
 
     // Ensure class-based client tool instances are registered (for interrupts/display)
     ensureClientToolInstance(name, id)
+    const classTool = getClientTool(id) as any
 
     const existing = toolCallsById[id]
-    const next: CopilotToolCall = existing
+    const nextBase: CopilotToolCall = existing
       ? {
         ...existing,
         state: ClientToolCallState.pending,
@@ -624,6 +647,11 @@ const sseHandlers: Record<string, SSEHandler> = {
         ...(args ? { params: args } : {}),
         display: resolveToolDisplay(name, ClientToolCallState.pending, id, args),
       }
+    const next: CopilotToolCall = withPinnedToolExecutionProvenance(
+      nextBase,
+      context.workflowId,
+      context.channelId
+    )
     const updated = { ...toolCallsById, [id]: next }
     set({ toolCallsById: updated })
     logger.info('[toolCallsById] → pending', { id, name, params: args })
@@ -643,6 +671,26 @@ const sseHandlers: Record<string, SSEHandler> = {
     }
     updateStreamingMessage(set, context)
 
+    const provenance = next.provenance
+    if (!provenance) {
+      logger.warn('Skipping unpinned tool call execution', { id, name })
+      return
+    }
+
+    try {
+      const executionContext = createExecutionContext({
+        toolCallId: id,
+        toolName: name || 'unknown_tool',
+        channelId: provenance.channelId,
+        workflowId: provenance.workflowId,
+      })
+      if (typeof classTool?.setExecutionContext === 'function') {
+        classTool.setExecutionContext(executionContext)
+      }
+    } catch (error) {
+      logger.warn('Failed to bind execution context', { id, name, error })
+    }
+
     // Prefer interface-based registry to determine interrupt and execute
     try {
       const def = name ? getTool(name) : undefined
@@ -652,7 +700,12 @@ const sseHandlers: Record<string, SSEHandler> = {
             ? !!def.hasInterrupt(args || {})
             : !!def.hasInterrupt
         if (!hasInterrupt && typeof def.execute === 'function') {
-          const ctx = createExecutionContext({ toolCallId: id, toolName: name || 'unknown_tool' })
+          const ctx = createExecutionContext({
+            toolCallId: id,
+            toolName: name || 'unknown_tool',
+            channelId: provenance.channelId,
+            workflowId: provenance.workflowId,
+          })
           // Defer executing transition by a tick to let pending render
           setTimeout(() => {
             const executingMap = { ...get().toolCallsById }
@@ -753,7 +806,7 @@ const sseHandlers: Record<string, SSEHandler> = {
 
     // Class-based auto-exec for non-interrupt tools
     try {
-      const inst = getClientTool(id) as any
+      const inst = classTool
       const hasInterrupt = !!inst?.getInterruptDisplays?.()
       if (!hasInterrupt && typeof inst?.execute === 'function') {
         setTimeout(() => {
@@ -1103,7 +1156,7 @@ const initialState = {
   autoAllowedTools: [] as string[],
 }
 
-const createCopilotStoreInstance = () =>
+const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID) =>
   create<CopilotStore>()(
     devtools((set, get) => ({
       ...initialState,
@@ -1204,7 +1257,11 @@ const createCopilotStoreInstance = () =>
                 if (msg.contentBlocks) {
                   for (const block of msg.contentBlocks as any[]) {
                     if (block?.type === 'tool_call' && block.toolCall?.id) {
-                      toolCallsById[block.toolCall.id] = block.toolCall
+                      toolCallsById[block.toolCall.id] = withPinnedToolExecutionProvenance(
+                        block.toolCall,
+                        workflowId,
+                        storeChannelId
+                      )
                     }
                   }
                 }
@@ -1342,7 +1399,11 @@ const createCopilotStoreInstance = () =>
                     if (msg.contentBlocks) {
                       for (const block of msg.contentBlocks as any[]) {
                         if (block?.type === 'tool_call' && block.toolCall?.id) {
-                          toolCallsById[block.toolCall.id] = block.toolCall
+                          toolCallsById[block.toolCall.id] = withPinnedToolExecutionProvenance(
+                            block.toolCall,
+                            workflowId,
+                            storeChannelId
+                          )
                         }
                       }
                     }
@@ -1367,7 +1428,11 @@ const createCopilotStoreInstance = () =>
                   if (msg.contentBlocks) {
                     for (const block of msg.contentBlocks as any[]) {
                       if (block?.type === 'tool_call' && block.toolCall?.id) {
-                        toolCallsById[block.toolCall.id] = block.toolCall
+                        toolCallsById[block.toolCall.id] = withPinnedToolExecutionProvenance(
+                          block.toolCall,
+                          workflowId,
+                          storeChannelId
+                        )
                       }
                     }
                   }
@@ -1947,6 +2012,8 @@ const createCopilotStoreInstance = () =>
 
         const context: StreamingContext = {
           messageId: assistantMessageId,
+          channelId: storeChannelId,
+          workflowId: get().workflowId || undefined,
           accumulatedContent: new StringBuilder(),
           contentBlocks: [],
           currentTextBlock: null,
@@ -2209,8 +2276,9 @@ const createCopilotStoreInstance = () =>
       },
 
       executeIntegrationTool: async (toolCallId: string) => {
-        const { toolCallsById, workflowId } = get()
+        const { toolCallsById } = get()
         const toolCall = toolCallsById[toolCallId]
+        const workflowId = toolCall?.provenance?.workflowId
         if (!toolCall || !workflowId) return
 
         const { id, name, params } = toolCall
@@ -2393,24 +2461,30 @@ const createCopilotStoreInstance = () =>
 export const DEFAULT_COPILOT_CHANNEL_ID = 'default'
 
 const copilotStoreRegistry = new Map<string, StoreApi<CopilotStore>>()
-const defaultCopilotStore = createCopilotStoreInstance()
+const defaultCopilotStore = createCopilotStoreInstance(DEFAULT_COPILOT_CHANNEL_ID)
 copilotStoreRegistry.set(DEFAULT_COPILOT_CHANNEL_ID, defaultCopilotStore)
 
 export const getCopilotStore = (channelId = DEFAULT_COPILOT_CHANNEL_ID) => {
   if (!copilotStoreRegistry.has(channelId)) {
-    copilotStoreRegistry.set(channelId, createCopilotStoreInstance())
+    copilotStoreRegistry.set(channelId, createCopilotStoreInstance(channelId))
   }
 
   return copilotStoreRegistry.get(channelId)!
 }
 
 const findStoreForToolCall = (toolCallId: string) => {
-  for (const store of copilotStoreRegistry.values()) {
-    if (store.getState().toolCallsById[toolCallId]) {
+  let fallbackStore: StoreApi<CopilotStore> | undefined
+  for (const [channelId, store] of copilotStoreRegistry.entries()) {
+    const toolCall = store.getState().toolCallsById[toolCallId]
+    if (!toolCall) continue
+    if (toolCall.provenance?.channelId === channelId) {
       return store
     }
+    if (!fallbackStore) {
+      fallbackStore = store
+    }
   }
-  return undefined
+  return fallbackStore
 }
 
 export const getCopilotStoreForToolCall = (toolCallId: string) =>
@@ -2433,11 +2507,13 @@ export function CopilotStoreProvider({
 const identitySelector = (state: CopilotStore) => state
 
 export function useCopilotStore<T = CopilotStore>(
-  selector: (state: CopilotStore) => T = identitySelector,
+  selector?: (state: CopilotStore) => T,
   equalityFn?: (a: T, b: T) => boolean
 ) {
   const store = useContext(CopilotStoreContext) ?? defaultCopilotStore
-  return useStore(store, selector, equalityFn)
+  const resolvedSelector =
+    selector ?? (identitySelector as unknown as (state: CopilotStore) => T)
+  return useStore(store, resolvedSelector, equalityFn)
 }
 
 export function useCopilotStoreApi(channelId?: string) {

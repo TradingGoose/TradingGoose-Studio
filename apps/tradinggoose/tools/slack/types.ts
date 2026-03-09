@@ -9,6 +9,9 @@ export interface SlackBaseParams {
 export interface SlackMessageParams extends SlackBaseParams {
   channel: string
   text: string
+  destinationType?: string
+  dmUserId?: string
+  userId?: string
   thread_ts?: string
   files?: any[]
 }

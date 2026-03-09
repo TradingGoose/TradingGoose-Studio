@@ -20,8 +20,6 @@ import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflo
 interface OrderIdSelectorInputProps {
   blockId: string
   subBlockId: string
-  isPreview?: boolean
-  previewValue?: string | null
   value?: string | null
   onChange?: (value: string | null) => void
   disabled?: boolean
@@ -40,8 +38,6 @@ const equalsIgnoreCase = (a: string, b: string): boolean =>
 export function OrderIdSelectorInput({
   blockId,
   subBlockId,
-  isPreview = false,
-  previewValue,
   value,
   onChange,
   disabled = false,
@@ -50,14 +46,9 @@ export function OrderIdSelectorInput({
   const workflowId = useWorkflowId()
   const [storeValue, setStoreValue] = useSubBlockValue<string | null>(blockId, subBlockId)
 
-  const normalizedPreviewValue = previewValue ?? null
   const normalizedPropValue = value ?? null
   const hasPropValue = value !== undefined
-  const currentRawValue = isPreview
-    ? normalizedPreviewValue
-    : hasPropValue
-      ? normalizedPropValue
-      : storeValue
+  const currentRawValue = hasPropValue ? normalizedPropValue : storeValue
   const currentValue = normalizeTextValue(currentRawValue)
 
   const [open, setOpen] = useState(false)
@@ -78,7 +69,7 @@ export function OrderIdSelectorInput({
 
   const setOrderIdValue = useCallback(
     (nextValue: string | null) => {
-      if (isPreview || disabled) return
+      if (disabled) return
 
       if (onChange) {
         onChange(nextValue)
@@ -87,7 +78,7 @@ export function OrderIdSelectorInput({
 
       setStoreValue(nextValue)
     },
-    [isPreview, disabled, onChange, setStoreValue]
+    [disabled, onChange, setStoreValue]
   )
 
   const applySelection = useCallback(
@@ -235,9 +226,9 @@ export function OrderIdSelectorInput({
               )}
               placeholder='Search order by ID, symbol, or date'
               autoComplete='off'
-              disabled={disabled || isPreview}
+              disabled={disabled}
               onChange={(event) => {
-                if (disabled || isPreview) return
+                if (disabled) return
 
                 const nextValue = event.target.value
                 const nextTrimmed = nextValue.trim()
@@ -269,12 +260,12 @@ export function OrderIdSelectorInput({
                 }
               }}
               onFocus={() => {
-                if (disabled || isPreview) return
+                if (disabled) return
                 setOpen(true)
                 setHighlightedIndex(-1)
               }}
               onBlur={() => {
-                if (disabled || isPreview) return
+                if (disabled) return
 
                 setTimeout(() => {
                   const activeElement = document.activeElement
@@ -354,10 +345,10 @@ export function OrderIdSelectorInput({
               variant='ghost'
               size='sm'
               className='-translate-y-1/2 absolute top-1/2 right-1 z-10 h-6 w-6 bg-transparent p-0'
-              disabled={disabled || isPreview}
+              disabled={disabled}
               onMouseDown={(event) => {
                 event.preventDefault()
-                if (disabled || isPreview) return
+                if (disabled) return
 
                 setOpen((previous) => !previous)
 

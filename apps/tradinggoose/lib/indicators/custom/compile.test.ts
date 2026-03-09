@@ -2,13 +2,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { executeInE2B } from '@/lib/execution/e2b'
 import { CodeLanguage } from '@/lib/execution/languages'
 import { compileIndicator } from '@/lib/indicators/custom/compile'
+import { executeIndicatorInLocalVm } from '@/lib/indicators/execution/local-executor'
 import type { BarMs } from '@/lib/indicators/types'
 
 vi.mock('@/lib/execution/e2b', () => ({
   executeInE2B: vi.fn(),
+  isE2BWarmSandboxLimitError: vi.fn((error: unknown) => {
+    const maybeError = error as { code?: string; name?: string } | undefined
+    return (
+      maybeError?.code === 'E2B_WARM_SANDBOX_LIMIT_REACHED' ||
+      maybeError?.name === 'E2BWarmSandboxLimitError'
+    )
+  }),
+}))
+vi.mock('@/lib/indicators/execution/local-executor', () => ({
+  executeIndicatorInLocalVm: vi.fn(),
 }))
 
 const mockExecuteInE2B = vi.mocked(executeInE2B)
+const mockExecuteIndicatorInLocalVm = vi.mocked(executeIndicatorInLocalVm)
 
 const testBars: BarMs[] = [
   {
@@ -34,6 +46,21 @@ const testBars: BarMs[] = [
 describe('compileIndicator E2B runtime', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockExecuteIndicatorInLocalVm.mockResolvedValue({
+      context: {
+        indicator: { overlay: true },
+        plots: {
+          MA: {
+            title: 'MA',
+            options: { style: 'style_line', overlay: true, color: '#ff0000' },
+            data: [{ time: 2_000, value: 3 }],
+          },
+        },
+      },
+      transpiledCode: 'local transpiled',
+      triggerSignals: [],
+      triggerWarnings: [],
+    } as any)
   })
 
   it('uses E2B execution when requested', async () => {
@@ -102,5 +129,32 @@ plot(close, 'MA');
     expect(result.output).toBeNull()
     expect(result.executionError?.message).toContain('RuntimeError: boom')
     expect(result.executionError?.message).toContain('Traceback details')
+  })
+
+  it('falls back to local VM when E2B warm pool limit is reached', async () => {
+    mockExecuteInE2B.mockRejectedValue({
+      name: 'E2BWarmSandboxLimitError',
+      code: 'E2B_WARM_SANDBOX_LIMIT_REACHED',
+      details: {
+        activeWarmSandboxes: 2,
+        pendingWarmSandboxes: 1,
+        maxConcurrentWarmSandboxes: 3,
+      },
+    })
+
+    const result = await compileIndicator({
+      pineCode: `
+indicator('Test', { overlay: true });
+plot(close, 'MA');
+`,
+      barsMs: testBars,
+      useE2B: true,
+      executionTimeoutMs: 5_000,
+    })
+
+    expect(mockExecuteInE2B).toHaveBeenCalled()
+    expect(mockExecuteIndicatorInLocalVm).toHaveBeenCalled()
+    expect(result.output).not.toBeNull()
+    expect(result.executionError).toBeUndefined()
   })
 })

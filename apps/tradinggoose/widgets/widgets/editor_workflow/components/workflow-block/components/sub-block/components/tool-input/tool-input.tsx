@@ -1,29 +1,48 @@
 import type React from 'react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { format } from 'date-fns'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Server, WrenchIcon, XIcon } from 'lucide-react'
+import { DateTimePicker } from '@/components/ui/datetime-picker'
+import { SimpleTimePicker } from '@/components/ui/simple-time-picker'
+import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { Toggle } from '@/components/ui/toggle'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { OAuthProvider, OAuthService } from '@/lib/oauth/oauth'
+import {
+  formatUtcDate,
+  formatUtcDateTime,
+  parseStoredTimeValue,
+  resolveStoredDateValue,
+} from '@/lib/time-format'
 import { cn } from '@/lib/utils'
+import { getAllBlocks } from '@/blocks'
+import { useCustomTools } from '@/hooks/queries/custom-tools'
+import { useMcpTools } from '@/hooks/use-mcp-tools'
+import { getProviderFromModel, supportsToolUsageControl } from '@/providers/ai/utils'
+import type { CustomToolDefinition } from '@/stores/custom-tools/types'
+import { useSubBlockStore } from '@/stores/workflows/subblock/store'
+import {
+  formatParameterLabel,
+  getToolParametersConfig,
+  isPasswordParameter,
+  type ToolParameterConfig,
+} from '@/tools/params'
 import {
   ChannelSelectorInput,
   CheckboxList,
   Code,
   ComboBox,
-  DateTimeInputField,
   Dropdown,
   FileSelectorInput,
   FileUpload,
-  LongInput,
   ListingSelectorInput,
+  LongInput,
   OrderIdSelectorInput,
   ProjectSelectorInput,
   ShortInput,
-  SliderInput,
   Table,
-  TimeInput,
 } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components'
 import {
   type CustomTool,
@@ -32,19 +51,10 @@ import {
 import { McpServerModal } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/mcp-server-modal/mcp-server-modal'
 import { ToolCredentialSelector } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/tool-credential-selector'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import { useWorkflowId, useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { getAllBlocks } from '@/blocks'
-import { useMcpTools } from '@/hooks/use-mcp-tools'
-import { getProviderFromModel, supportsToolUsageControl } from '@/providers/ai/utils'
-import { useCustomTools } from '@/hooks/queries/custom-tools'
-import { useSubBlockStore } from '@/stores/workflows/subblock/store'
-import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
 import {
-  formatParameterLabel,
-  getToolParametersConfig,
-  isPasswordParameter,
-  type ToolParameterConfig,
-} from '@/tools/params'
+  useWorkflowId,
+  useWorkspaceId,
+} from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('ToolInput')
 
@@ -59,10 +69,7 @@ interface ToolInputProps {
   blockId: string
   subBlockId: string
   isConnecting: boolean
-  isPreview?: boolean
-  previewValue?: any
   disabled?: boolean
-  allowExpandInPreview?: boolean
 }
 
 interface StoredTool {
@@ -113,7 +120,7 @@ function FileSelectorSyncWrapper({
   onChange,
   uiComponent,
   disabled,
-  previewContextValues,
+  contextValues,
 }: {
   blockId: string
   paramId: string
@@ -121,7 +128,7 @@ function FileSelectorSyncWrapper({
   onChange: (value: string) => void
   uiComponent: any
   disabled: boolean
-  previewContextValues?: Record<string, any>
+  contextValues?: Record<string, any>
 }) {
   return (
     <GenericSyncWrapper blockId={blockId} paramId={paramId} value={value} onChange={onChange}>
@@ -138,7 +145,7 @@ function FileSelectorSyncWrapper({
           placeholder: uiComponent.placeholder,
         }}
         disabled={disabled}
-        previewContextValues={previewContextValues}
+        contextValues={contextValues}
       />
     </GenericSyncWrapper>
   )
@@ -178,105 +185,137 @@ function TableSyncWrapper({
 }
 
 function TimeInputSyncWrapper({
-  blockId,
-  paramId,
   value,
   onChange,
-  uiComponent,
   disabled,
 }: {
-  blockId: string
-  paramId: string
   value: string
   onChange: (value: string) => void
-  uiComponent: any
   disabled: boolean
 }) {
+  const initialSkipRef = useRef(!value)
+  const dateValue = useMemo(() => parseStoredTimeValue(value), [value])
+
+  useEffect(() => {
+    initialSkipRef.current = !value
+  }, [value])
+
   return (
-    <GenericSyncWrapper blockId={blockId} paramId={paramId} value={value} onChange={onChange}>
-      <TimeInput
-        blockId={blockId}
-        subBlockId={paramId}
-        placeholder={uiComponent.placeholder}
-        disabled={disabled}
-      />
-    </GenericSyncWrapper>
+    <SimpleTimePicker
+      value={dateValue}
+      onChange={(nextDate) => {
+        if (disabled) return
+        if (initialSkipRef.current) {
+          initialSkipRef.current = false
+          return
+        }
+        initialSkipRef.current = false
+        onChange(format(nextDate, 'HH:mm:ss'))
+      }}
+      use12HourFormat
+      timePicker={{ hour: true, minute: true, second: false }}
+      disabled={disabled}
+    />
   )
 }
 
 function DateTimeInputSyncWrapper({
-  blockId,
-  paramId,
   value,
   onChange,
   uiComponent,
   disabled,
 }: {
-  blockId: string
-  paramId: string
   value: string
   onChange: (value: string) => void
   uiComponent: any
   disabled: boolean
 }) {
+  const dateValue = useMemo(() => resolveStoredDateValue(value), [value])
+
   return (
-    <GenericSyncWrapper blockId={blockId} paramId={paramId} value={value} onChange={onChange}>
-      <DateTimeInputField
-        blockId={blockId}
-        subBlockId={paramId}
-        disabled={disabled}
-        config={{
-          id: paramId,
-          type: 'datetime-input',
-          timezone: uiComponent.timezone,
-          clearable: uiComponent.clearable,
-          hideCalendarIcon: uiComponent.hideCalendarIcon,
-          minDate: uiComponent.minDate,
-          maxDate: uiComponent.maxDate,
-          hideTime: uiComponent.hideTime,
-          use12HourFormat: uiComponent.use12HourFormat,
-          timePicker: uiComponent.timePicker,
-          placeholder: uiComponent.placeholder,
-        }}
-      />
-    </GenericSyncWrapper>
+    <DateTimePicker
+      value={dateValue}
+      onChange={(nextDate) => {
+        if (disabled) return
+        if (!nextDate) {
+          onChange('')
+          return
+        }
+        onChange(uiComponent.hideTime ? formatUtcDate(nextDate) : formatUtcDateTime(nextDate))
+      }}
+      min={resolveStoredDateValue(uiComponent.minDate)}
+      max={resolveStoredDateValue(uiComponent.maxDate)}
+      timezone={uiComponent.timezone}
+      hideTime={uiComponent.hideTime}
+      use12HourFormat={uiComponent.use12HourFormat}
+      clearable={uiComponent.clearable}
+      timePicker={uiComponent.timePicker}
+      placeholder={uiComponent.placeholder}
+      disabled={disabled}
+    />
   )
 }
 
-
 function SliderInputSyncWrapper({
-  blockId,
-  paramId,
   value,
   onChange,
   uiComponent,
   disabled,
 }: {
-  blockId: string
-  paramId: string
   value: string
   onChange: (value: string) => void
   uiComponent: any
   disabled: boolean
 }) {
+  const min = uiComponent.min ?? 0
+  const max = uiComponent.max ?? 100
+  const integer = uiComponent.integer === true
+  const step = uiComponent.step ?? 0.1
+  const computedDefaultValue =
+    uiComponent.defaultValue ?? (max <= 1 ? 0.7 : (min + max) / 2)
+  const parsedValue = value.trim() !== '' ? Number(value) : undefined
+  const hasExplicitValue = parsedValue !== undefined && !Number.isNaN(parsedValue)
+  const normalizedValue = hasExplicitValue
+    ? Math.max(min, Math.min(max, parsedValue))
+    : computedDefaultValue
+  const range = max - min || 1
+
+  useEffect(() => {
+    if (hasExplicitValue && parsedValue !== normalizedValue) {
+      onChange(String(integer ? Math.round(normalizedValue) : normalizedValue))
+    }
+  }, [hasExplicitValue, integer, normalizedValue, onChange, parsedValue])
+
   return (
-    <GenericSyncWrapper
-      blockId={blockId}
-      paramId={paramId}
-      value={value}
-      onChange={onChange}
-      transformer={(storeValue) => String(storeValue)}
-    >
-      <SliderInput
-        blockId={blockId}
-        subBlockId={paramId}
-        min={uiComponent.min}
-        max={uiComponent.max}
-        step={uiComponent.step}
-        integer={uiComponent.integer}
+    <div className='relative pt-2 pb-6'>
+      <Slider
+        value={[normalizedValue]}
+        min={min}
+        max={max}
+        step={integer ? 1 : step}
+        onValueChange={(newValue) => {
+          if (!disabled) {
+            onChange(String(integer ? Math.round(newValue[0]) : newValue[0]))
+          }
+        }}
         disabled={disabled}
+        className='[&_[class*=SliderTrack]]:h-1 [&_[role=slider]]:h-4 [&_[role=slider]]:w-4'
       />
-    </GenericSyncWrapper>
+      <div
+        className='absolute text-muted-foreground text-sm'
+        style={{
+          left: `clamp(0%, ${((normalizedValue - min) / range) * 100}%, 100%)`,
+          transform: `translateX(-${(() => {
+            const percentage = ((normalizedValue - min) / range) * 100
+            const bias = -25 * Math.sin((percentage * Math.PI) / 50)
+            return percentage === 0 ? 0 : percentage === 100 ? 100 : 50 + bias
+          })()}%)`,
+          top: '24px',
+        }}
+      >
+        {integer ? Math.round(normalizedValue).toString() : Number(normalizedValue).toFixed(1)}
+      </div>
+    </div>
   )
 }
 
@@ -306,7 +345,6 @@ function CheckboxListSyncWrapper({
       <CheckboxList
         blockId={blockId}
         subBlockId={paramId}
-        title={uiComponent.title || paramId}
         options={uiComponent.options || []}
         disabled={disabled}
       />
@@ -427,7 +465,7 @@ function ChannelSelectorSyncWrapper({
   onChange,
   uiComponent,
   disabled,
-  previewContextValues,
+  contextValues,
 }: {
   blockId: string
   paramId: string
@@ -435,7 +473,7 @@ function ChannelSelectorSyncWrapper({
   onChange: (value: string) => void
   uiComponent: any
   disabled: boolean
-  previewContextValues?: Record<string, any>
+  contextValues?: Record<string, any>
 }) {
   return (
     <GenericSyncWrapper blockId={blockId} paramId={paramId} value={value} onChange={onChange}>
@@ -450,7 +488,7 @@ function ChannelSelectorSyncWrapper({
         }}
         onChannelSelect={onChange}
         disabled={disabled}
-        previewContextValues={previewContextValues}
+        contextValues={contextValues}
       />
     </GenericSyncWrapper>
   )
@@ -460,10 +498,7 @@ export function ToolInput({
   blockId,
   subBlockId,
   isConnecting,
-  isPreview = false,
-  previewValue,
   disabled = false,
-  allowExpandInPreview,
 }: ToolInputProps) {
   const workspaceId = useWorkspaceId()
   const workflowId = useWorkflowId()
@@ -475,15 +510,10 @@ export function ToolInput({
   const [toolSelectorValue, setToolSelectorValue] = useState<string | undefined>()
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
-  const isWide = useWorkflowStore((state) => state.blocks[blockId]?.isWide)
   const { data: customTools = [] } = useCustomTools(workspaceId)
-  const subBlockStore = useSubBlockStore()
 
   // MCP tools integration
-  const {
-    mcpTools,
-    refreshTools,
-  } = useMcpTools(workspaceId)
+  const { mcpTools, refreshTools } = useMcpTools(workspaceId)
 
   // Get the current model from the 'model' subblock
   const model = typeof modelValue === 'string' ? modelValue : ''
@@ -494,53 +524,47 @@ export function ToolInput({
     (block) => block.category === 'tools' && block.type !== 'evaluator'
   )
 
-  // Use preview value when in preview mode, otherwise use store value
-  const value = isPreview ? previewValue : storeValue
-
   const selectedTools: StoredTool[] =
-    Array.isArray(value) && value.length > 0 && typeof value[0] === 'object'
-      ? (value as unknown as StoredTool[])
+    Array.isArray(storeValue) && storeValue.length > 0 && typeof storeValue[0] === 'object'
+      ? (storeValue as unknown as StoredTool[])
       : []
 
-  const toolSelectorOptions = useMemo(
-    () => {
-      const baseOptions: Array<{
-        label: string
-        id: string
-        icon?: React.ComponentType<{ className?: string }>
-        group?: string
-      }> = [
-          { id: 'action:create', label: 'Create Tool', icon: WrenchIcon, group: 'Actions' },
-          { id: 'action:add-mcp', label: 'Add MCP Server', icon: Server, group: 'Actions' },
-        ]
+  const toolSelectorOptions = useMemo(() => {
+    const baseOptions: Array<{
+      label: string
+      id: string
+      icon?: React.ComponentType<{ className?: string }>
+      group?: string
+    }> = [
+        { id: 'action:create', label: 'Create Tool', icon: WrenchIcon, group: 'Actions' },
+        { id: 'action:add-mcp', label: 'Add MCP Server', icon: Server, group: 'Actions' },
+      ]
 
-      const customToolOptions =
-        customTools?.map((tool) => ({
-          id: `custom:${tool.id}`,
-          label: tool.title,
-          icon: WrenchIcon,
-          group: 'Custom Tools',
-        })) || []
+    const customToolOptions =
+      customTools?.map((tool) => ({
+        id: `custom:${tool.id}`,
+        label: tool.title,
+        icon: WrenchIcon,
+        group: 'Custom Tools',
+      })) || []
 
-      const mcpToolOptions =
-        mcpTools?.map((tool) => ({
-          id: `mcp:${tool.id}`,
-          label: `${tool.name} (${tool.serverName})`,
-          icon: tool.icon,
-          group: 'MCP Tools',
-        })) || []
+    const mcpToolOptions =
+      mcpTools?.map((tool) => ({
+        id: `mcp:${tool.id}`,
+        label: `${tool.name} (${tool.serverName})`,
+        icon: tool.icon,
+        group: 'MCP Tools',
+      })) || []
 
-      const builtInOptions = toolBlocks.map((block) => ({
-        id: `builtin:${block.type}`,
-        label: block.name,
-        icon: block.icon,
-        group: 'Built-in Tools',
-      }))
+    const builtInOptions = toolBlocks.map((block) => ({
+      id: `builtin:${block.type}`,
+      label: block.name,
+      icon: block.icon,
+      group: 'Built-in Tools',
+    }))
 
-      return [...baseOptions, ...customToolOptions, ...mcpToolOptions, ...builtInOptions]
-    },
-    [customTools, mcpTools, toolBlocks]
-  )
+    return [...baseOptions, ...customToolOptions, ...mcpToolOptions, ...builtInOptions]
+  }, [customTools, mcpTools, toolBlocks])
 
   // Check if a tool is already selected (allowing multiple instances for multi-operation tools)
   const isToolAlreadySelected = (toolId: string, blockType: string) => {
@@ -620,36 +644,22 @@ export function ToolInput({
   }
 
   // Initialize tool parameters - no autofill, just return empty params
-  const initializeToolParams = (
-    toolId: string,
-    params: ToolParameterConfig[],
-    instanceId?: string
-  ): Record<string, string> => {
+  const initializeToolParams = (): Record<string, string> => {
     return {}
   }
 
   const addToolToStore = (newTool: StoredTool) => {
-    if (isWide) {
-      setStoreValue([
-        ...selectedTools.map((tool, index) => ({
-          ...tool,
-          isExpanded: Math.floor(selectedTools.length / 2) === Math.floor(index / 2),
-        })),
-        newTool,
-      ])
-    } else {
-      setStoreValue([
-        ...selectedTools.map((tool) => ({
-          ...tool,
-          isExpanded: false,
-        })),
-        newTool,
-      ])
-    }
+    setStoreValue([
+      ...selectedTools.map((tool) => ({
+        ...tool,
+        isExpanded: false,
+      })),
+      newTool,
+    ])
   }
 
   const handleSelectTool = (toolBlock: (typeof toolBlocks)[0]) => {
-    if (isPreview || disabled) return
+    if (disabled) return
 
     const hasOperations = hasMultipleOperations(toolBlock.type)
     const operationOptions = hasOperations ? getOperationOptions(toolBlock.type) : []
@@ -666,7 +676,7 @@ export function ToolInput({
     if (!toolParams) return
 
     // Initialize parameters with auto-fill and default values
-    const initialParams = initializeToolParams(toolId, toolParams.userInputParameters, blockId)
+    const initialParams = initializeToolParams()
 
     // Add default values from UI component configurations
     toolParams.userInputParameters.forEach((param) => {
@@ -693,7 +703,7 @@ export function ToolInput({
   }
 
   const handleToolSelection = (selectedId: string) => {
-    if (isPreview || disabled) return
+    if (disabled) return
 
     if (selectedId === 'action:create') {
       setCustomToolModalOpen(true)
@@ -752,8 +762,10 @@ export function ToolInput({
     setToolSelectorValue(undefined)
   }
 
-  const handleAddCustomTool = (customTool: CustomTool) => {
-    if (isPreview || disabled) return
+  const handleAddCustomTool = (
+    customTool: Pick<CustomTool, 'title' | 'schema' | 'code'> | CustomToolDefinition
+  ) => {
+    if (disabled) return
 
     const customToolId = `custom-${customTool.schema.function.name}`
 
@@ -780,7 +792,7 @@ export function ToolInput({
   }
 
   const handleSaveCustomTool = (customTool: CustomTool) => {
-    if (isPreview || disabled) return
+    if (disabled) return
 
     if (editingToolIndex !== null) {
       // Update existing tool
@@ -804,7 +816,7 @@ export function ToolInput({
   }
 
   const handleRemoveTool = (toolIndex: number) => {
-    if (isPreview || disabled) return
+    if (disabled) return
     setStoreValue(selectedTools.filter((_, index) => index !== toolIndex))
   }
 
@@ -832,8 +844,8 @@ export function ToolInput({
     }
   }
 
-  const handleParamChange = (toolIndex: number, paramId: string, paramValue: string) => {
-    if (isPreview || disabled) return
+  const handleParamChange = (toolIndex: number, paramId: string, paramValue: any) => {
+    if (disabled) return
 
     const tool = selectedTools[toolIndex]
     const currentValue = tool.params[paramId] ?? ''
@@ -893,7 +905,7 @@ export function ToolInput({
   }
 
   const handleOperationChange = (toolIndex: number, operation: string) => {
-    if (isPreview || disabled) {
+    if (disabled) {
       logger.info('❌ Early return: preview or disabled')
       return
     }
@@ -916,16 +928,14 @@ export function ToolInput({
     }
 
     // Initialize parameters for the new operation
-    const initialParams = initializeToolParams(newToolId, toolParams.userInputParameters, blockId)
+    const initialParams = initializeToolParams()
 
     // Preserve ALL existing parameters that also exist in the new tool configuration
     // This mimics how regular blocks work - each field maintains its state independently
-    const oldToolParams = getToolParametersConfig(tool.toolId, tool.type, tool.params)
-    const oldParamIds = new Set(oldToolParams?.userInputParameters.map((p) => p.id) || [])
     const newParamIds = new Set(toolParams.userInputParameters.map((p) => p.id))
 
     // Preserve any parameter that exists in both configurations and has a value
-    const preservedParams: Record<string, string> = {}
+    const preservedParams: Record<string, any> = {}
     Object.entries(tool.params).forEach(([paramId, value]) => {
       if (newParamIds.has(paramId) && value) {
         preservedParams[paramId] = value
@@ -958,7 +968,7 @@ export function ToolInput({
   }
 
   const handleUsageControlChange = (toolIndex: number, usageControl: string) => {
-    if (isPreview || disabled) return
+    if (disabled) return
 
     setStoreValue(
       selectedTools.map((tool, index) =>
@@ -972,17 +982,8 @@ export function ToolInput({
     )
   }
 
-  // Local expansion overrides for preview/diff mode
-  const [previewExpanded, setPreviewExpanded] = useState<Record<number, boolean>>({})
-
   const toggleToolExpansion = (toolIndex: number) => {
-    if ((isPreview && !allowExpandInPreview) || disabled) return
-
-    if (isPreview) {
-      setPreviewExpanded((prev) => ({
-        ...prev,
-        [toolIndex]: !(prev[toolIndex] ?? !!selectedTools[toolIndex]?.isExpanded),
-      }))
+    if (disabled) {
       return
     }
 
@@ -994,14 +995,14 @@ export function ToolInput({
   }
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
-    if (isPreview || disabled) return
+    if (disabled) return
     setDraggedIndex(index)
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/html', '')
   }
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
-    if (isPreview || disabled || draggedIndex === null) return
+    if (disabled || draggedIndex === null) return
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
     setDragOverIndex(index)
@@ -1017,7 +1018,7 @@ export function ToolInput({
   }
 
   const handleDrop = (e: React.DragEvent, dropIndex: number) => {
-    if (isPreview || disabled || draggedIndex === null || draggedIndex === dropIndex) return
+    if (disabled || draggedIndex === null || draggedIndex === dropIndex) return
     e.preventDefault()
 
     const newTools = [...selectedTools]
@@ -1095,7 +1096,7 @@ export function ToolInput({
     const baseMatch = evaluateMatch(condition, fieldValue)
     const andMatch =
       andConditions.length === 0 ||
-      andConditions.every((andCondition) =>
+      andConditions.every((andCondition: { field: string; value: any; not?: boolean }) =>
         evaluateMatch(andCondition, currentValues[andCondition.field])
       )
 
@@ -1105,8 +1106,8 @@ export function ToolInput({
   // Render the appropriate UI component based on parameter configuration
   const renderParameterInput = (
     param: ToolParameterConfig,
-    value: string,
-    onChange: (value: string) => void,
+    value: any,
+    onChange: (value: any) => void,
     toolIndex?: number,
     currentToolParams?: Record<string, any>,
     toolId?: string
@@ -1158,7 +1159,7 @@ export function ToolInput({
               dependsOn: uiComponent.dependsOn,
               fetchOptions: uiComponent.fetchOptions,
             }}
-            previewContextValues={currentToolParams}
+            contextValues={currentToolParams}
           />
         )
 
@@ -1222,8 +1223,6 @@ export function ToolInput({
           <ListingSelectorInput
             blockId={blockId}
             subBlockId={uniqueSubBlockId}
-            isPreview={isPreview}
-            previewValue={value}
             value={value}
             onChange={(listing) => onChange(listing ?? null)}
             disabled={disabled}
@@ -1245,8 +1244,6 @@ export function ToolInput({
           <OrderIdSelectorInput
             blockId={blockId}
             subBlockId={uniqueSubBlockId}
-            isPreview={isPreview}
-            previewValue={value}
             value={value}
             onChange={(orderId) => onChange(orderId ?? '')}
             disabled={disabled}
@@ -1268,7 +1265,7 @@ export function ToolInput({
             onChange={onChange}
             uiComponent={uiComponent}
             disabled={disabled}
-            previewContextValues={currentToolParams as any}
+            contextValues={currentToolParams as any}
           />
         )
 
@@ -1311,7 +1308,7 @@ export function ToolInput({
             onChange={onChange}
             uiComponent={uiComponent}
             disabled={disabled}
-            previewContextValues={currentToolParams as any}
+            contextValues={currentToolParams as any}
           />
         )
 
@@ -1343,8 +1340,6 @@ export function ToolInput({
       case 'slider':
         return (
           <SliderInputSyncWrapper
-            blockId={blockId}
-            paramId={uniqueSubBlockId}
             value={value}
             onChange={onChange}
             uiComponent={uiComponent}
@@ -1380,11 +1375,8 @@ export function ToolInput({
       case 'time-input':
         return (
           <TimeInputSyncWrapper
-            blockId={blockId}
-            paramId={param.id}
             value={value}
             onChange={onChange}
-            uiComponent={uiComponent}
             disabled={disabled}
           />
         )
@@ -1392,15 +1384,12 @@ export function ToolInput({
       case 'datetime-input':
         return (
           <DateTimeInputSyncWrapper
-            blockId={blockId}
-            paramId={param.id}
             value={value}
             onChange={onChange}
             uiComponent={uiComponent}
             disabled={disabled}
           />
         )
-
 
       case 'file-upload':
         return (
@@ -1445,7 +1434,7 @@ export function ToolInput({
           useStore={false}
           valueOverride={toolSelectorValue}
           onChange={handleToolSelection}
-          disabled={isPreview || disabled}
+          disabled={disabled}
           className='w-full'
           enableSearch
           searchPlaceholder='Search tools...'
@@ -1519,25 +1508,23 @@ export function ToolInput({
               !isCustomTool && !isMcpTool ? getToolOAuthConfig(currentToolId) : null
 
             // Tools are always expandable so users can access the interface
-            const isExpandedForDisplay = isPreview
-              ? (previewExpanded[toolIndex] ?? !!tool.isExpanded)
-              : !!tool.isExpanded
+            const isExpandedForDisplay = !!tool.isExpanded
 
             return (
               <div
                 key={`${tool.toolId}-${toolIndex}`}
                 className={cn(
                   'group relative flex flex-col transition-all duration-200 ease-in-out',
-                  isWide ? 'w-[calc(50%-0.25rem)]' : 'w-full',
+                  'w-full',
                   draggedIndex === toolIndex ? 'scale-95 opacity-40' : '',
                   dragOverIndex === toolIndex && draggedIndex !== toolIndex && draggedIndex !== null
                     ? 'translate-y-1 transform'
                     : '',
-                  selectedTools.length > 1 && !isPreview && !disabled
+                  selectedTools.length > 1 && !disabled
                     ? 'cursor-grab active:cursor-grabbing'
                     : ''
                 )}
-                draggable={!isPreview && !disabled}
+                draggable={!disabled}
                 onDragStart={(e) => handleDragStart(e, toolIndex)}
                 onDragOver={(e) => handleDragOver(e, toolIndex)}
                 onDragEnd={handleDragEnd}
@@ -1571,7 +1558,7 @@ export function ToolInput({
                         const toolColor = isCustomTool
                           ? sanitizeHexColor('#3B82F6')
                           : isMcpTool
-                            ? sanitizeHexColor(mcpTool?.bgColor) ?? sanitizeHexColor('#6366F1')
+                            ? (sanitizeHexColor(mcpTool?.bgColor) ?? sanitizeHexColor('#6366F1'))
                             : sanitizeHexColor(toolBlock?.bgColor)
                         const iconColor = toolColor || 'undefined'
                         return (
@@ -1583,17 +1570,17 @@ export function ToolInput({
                             }}
                           >
                             {isCustomTool ? (
-                              <WrenchIcon className='h-4 w-4' style={{ color: iconColor }} />
+                              <WrenchIcon className='h-3 w-3' style={{ color: iconColor }} />
                             ) : isMcpTool ? (
                               <IconComponent
                                 icon={Server}
-                                className='h-4 w-4'
+                                className='h-3 w-3'
                                 style={{ color: iconColor }}
                               />
                             ) : (
                               <IconComponent
                                 icon={toolBlock?.icon}
-                                className='h-4 w-4'
+                                className='h-3 w-3'
                                 style={{ color: iconColor }}
                               />
                             )}
@@ -1789,7 +1776,7 @@ export function ToolInput({
                                           parsed[param.id] ? 'true' : 'false'
                                         )
                                       })
-                                    } catch (e) {
+                                    } catch {
                                       // Handle error
                                     }
                                   }}
@@ -1888,7 +1875,7 @@ export function ToolInput({
             useStore={false}
             valueOverride={toolSelectorValue}
             onChange={handleToolSelection}
-            disabled={disabled || isPreview}
+            disabled={disabled}
             className='w-full'
             enableSearch
             searchPlaceholder='Search tools...'
