@@ -5,6 +5,7 @@ export const DATA_CHART_WIDGET_UPDATE_PARAMS_EVENT = 'data-chart-widgets:update-
 export const INDICATOR_WIDGET_SELECT_EVENT = 'indicator-widgets:select-indicator'
 export const INDICATOR_EDITOR_ACTION_EVENT = 'indicator-editor:action'
 export const WATCHLIST_WIDGET_UPDATE_PARAMS_EVENT = 'watchlist-widgets:update-params'
+export const WATCHLIST_WIDGET_ADD_DRAFT_SYMBOL_EVENT = 'watchlist-widgets:add-draft-symbol'
 
 export type WorkflowWidgetSelectEventDetail = {
   workflowId: string
@@ -20,6 +21,11 @@ export type DataChartWidgetUpdateEventDetail = {
 
 export type WatchlistWidgetUpdateEventDetail = {
   params: Record<string, unknown>
+  panelId?: string
+  widgetKey?: string
+}
+
+export type WatchlistWidgetAddDraftSymbolEventDetail = {
   panelId?: string
   widgetKey?: string
 }

@@ -86,7 +86,7 @@ describe('Watchlist export API route', () => {
     })
   })
 
-  it('exports listing identities as a JSON file', async () => {
+  it('exports watchlist items as a JSON file', async () => {
     const { GET } = await import('@/app/api/watchlists/[watchlistId]/export/route')
     const request = new NextRequest(
       new URL('http://localhost:3000/api/watchlists/watchlist-1/export?workspaceId=workspace-1'),
@@ -105,16 +105,29 @@ describe('Watchlist export API route', () => {
     expect(response.headers.get('Content-Disposition')).toContain('my_watchlist.json')
     expect(JSON.parse(body)).toEqual([
       {
-        listing_id: 'aapl-id',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
+        id: 'one',
+        type: 'listing',
+        listing: {
+          listing_id: 'aapl-id',
+          base_id: '',
+          quote_id: '',
+          listing_type: 'default',
+        },
       },
       {
-        listing_id: '',
-        base_id: 'BTC',
-        quote_id: 'USDT',
-        listing_type: 'crypto',
+        id: 'section-1',
+        type: 'section',
+        label: 'Tech',
+      },
+      {
+        id: 'two',
+        type: 'listing',
+        listing: {
+          listing_id: '',
+          base_id: 'BTC',
+          quote_id: 'USDT',
+          listing_type: 'crypto',
+        },
       },
     ])
   })

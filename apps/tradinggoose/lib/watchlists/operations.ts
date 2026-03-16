@@ -259,6 +259,9 @@ const hasListingIdentity = (items: WatchlistItemRow[], candidate: ListingIdentit
     return existing ? areListingIdentitiesEqual(existing, candidate) : false
   })
 
+const getListingIdentityKey = (listing: ListingIdentity) =>
+  `${listing.listing_type}|${listing.listing_id}|${listing.base_id}|${listing.quote_id}`
+
 const ensureDefaultWatchlistInTx = async (tx: WatchlistTx, scope: WatchlistScope) => {
   const [existingSystem] = await tx
     .select()
@@ -577,6 +580,61 @@ export async function addListingToWatchlist(
   })
 }
 
+export async function updateWatchlistItemListing(
+  scope: WatchlistScope,
+  watchlistId: string,
+  itemId: string,
+  listingInput: ListingIdentity
+): Promise<WatchlistRecord> {
+  const listing = toListingValueObject(listingInput)
+  if (!listing) {
+    throw new WatchlistOperationError('Invalid listing payload', 400)
+  }
+
+  return db.transaction(async (tx) => {
+    const row = await fetchWatchlistRow(tx, watchlistId, scope)
+    const { items } = await loadWatchlistRows(tx, row)
+
+    const target = items.find((item) => item.id === itemId)
+    if (!target) {
+      return mapRecordInTx(tx, row)
+    }
+
+    const currentListing = toListingValueObject(target.listing as ListingInputValue)
+    if (currentListing && areListingIdentitiesEqual(currentListing, listing)) {
+      return mapRecordInTx(tx, row)
+    }
+
+    if (
+      items.some((item) => {
+        if (item.id === itemId) return false
+        const identity = toListingValueObject(item.listing as ListingInputValue)
+        return identity ? areListingIdentitiesEqual(identity, listing) : false
+      })
+    ) {
+      throw new WatchlistOperationError('Listing already exists in watchlist', 409)
+    }
+
+    try {
+      await tx
+        .update(watchlistItem)
+        .set({
+          listing,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(watchlistItem.id, itemId), eq(watchlistItem.watchlistId, row.id)))
+    } catch (error) {
+      if (!isUniqueViolation(error)) {
+        throw error
+      }
+      throw new WatchlistOperationError('Listing already exists in watchlist', 409)
+    }
+
+    const updated = await touchWatchlist(tx, row.id)
+    return mapRecordInTx(tx, updated)
+  })
+}
+
 export async function addSectionToWatchlist(
   scope: WatchlistScope,
   watchlistId: string,
@@ -775,62 +833,113 @@ export async function reorderWatchlistItems(
   })
 }
 
-export async function appendListingsToWatchlist(
+export async function appendWatchlistItemsToWatchlist(
   scope: WatchlistScope,
   watchlistId: string,
-  listings: ListingIdentity[]
+  importedItems: WatchlistItem[]
 ): Promise<{ watchlist: WatchlistRecord; addedCount: number; skippedCount: number }> {
   return db.transaction(async (tx) => {
     const row = await fetchWatchlistRow(tx, watchlistId, scope)
     const { items } = await loadWatchlistRows(tx, row)
 
-    const existingListings = items
-      .map((entry) => toListingValueObject(entry.listing as ListingInputValue))
-      .filter((entry): entry is ListingIdentity => Boolean(entry))
-    const additions: ListingIdentity[] = []
+    const existingListingKeys = new Set(
+      items
+        .map((entry) => toListingValueObject(entry.listing as ListingInputValue))
+        .filter((entry): entry is ListingIdentity => Boolean(entry))
+        .map(getListingIdentityKey)
+    )
+    const plannedAdditionKeys = new Set<string>()
 
+    let addedCount = 0
     let skippedCount = 0
 
-    for (const candidate of listings) {
-      const listing = toListingValueObject(candidate)
-      const isDuplicate =
-        listing &&
-        (existingListings.some((entry) => areListingIdentitiesEqual(entry, listing)) ||
-          additions.some((entry) => areListingIdentitiesEqual(entry, listing)))
+    for (const item of importedItems) {
+      if (item.type !== 'listing') {
+        continue
+      }
 
-      if (!listing || isDuplicate) {
+      const listing = toListingValueObject(item.listing)
+      const key = listing ? getListingIdentityKey(listing) : null
+      const isDuplicate = key
+        ? existingListingKeys.has(key) || plannedAdditionKeys.has(key)
+        : true
+
+      if (!listing || !key || isDuplicate) {
         skippedCount += 1
         continue
       }
 
-      additions.push(listing)
+      plannedAdditionKeys.add(key)
+      addedCount += 1
     }
 
-    if (items.length + additions.length > MAX_SYMBOLS_PER_WATCHLIST) {
+    if (items.length + addedCount > MAX_SYMBOLS_PER_WATCHLIST) {
       throw new WatchlistOperationError(
         `Watchlist cannot contain more than ${MAX_SYMBOLS_PER_WATCHLIST} symbols`,
         400
       )
     }
 
-    if (additions.length > 0) {
-      const startSortOrder = await getNextSortOrderForItem(tx, row.id, null)
+    let currentSectionId: string | null = null
+    let nextSectionSortOrder = await getNextSortOrderForSection(tx, row)
+    let nextUnsectionedSortOrder = await getNextSortOrderForItem(tx, row.id, null)
+    const nextSectionItemSortOrder = new Map<string, number>()
+    const insertedListingKeys = new Set<string>()
 
-      await tx.insert(watchlistItem).values(
-        additions.map((listing, index) => ({
-          watchlistId: row.id,
-          containerId: null,
-          listing,
-          sortOrder: startSortOrder + index,
-        }))
-      )
+    for (const item of importedItems) {
+      if (item.type === 'section') {
+        const [createdSection] = await tx
+          .insert(watchlistTable)
+          .values({
+            workspaceId: row.workspaceId,
+            userId: row.userId,
+            parentId: row.id,
+            name: item.label,
+            sortOrder: nextSectionSortOrder,
+            isSystem: false,
+            settings: {},
+            updatedAt: new Date(),
+          })
+          .returning()
+
+        currentSectionId = ensureFound(createdSection).id
+        nextSectionItemSortOrder.set(currentSectionId, 0)
+        nextSectionSortOrder += 1
+        continue
+      }
+
+      const listing = toListingValueObject(item.listing)
+      const key = listing ? getListingIdentityKey(listing) : null
+      if (!listing || !key || !plannedAdditionKeys.has(key) || insertedListingKeys.has(key)) {
+        continue
+      }
+
+      const sortOrder = (() => {
+        if (!currentSectionId) {
+          const next = nextUnsectionedSortOrder
+          nextUnsectionedSortOrder += 1
+          return next
+        }
+
+        const next = nextSectionItemSortOrder.get(currentSectionId) ?? 0
+        nextSectionItemSortOrder.set(currentSectionId, next + 1)
+        return next
+      })()
+
+      await tx.insert(watchlistItem).values({
+        watchlistId: row.id,
+        containerId: currentSectionId,
+        listing,
+        sortOrder,
+      })
+      insertedListingKeys.add(key)
     }
 
     const updated = await touchWatchlist(tx, row.id)
 
     return {
       watchlist: await mapRecordInTx(tx, updated),
-      addedCount: additions.length,
+      addedCount,
       skippedCount,
     }
   })

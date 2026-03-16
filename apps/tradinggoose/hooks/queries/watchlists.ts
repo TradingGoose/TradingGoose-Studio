@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ListingIdentity } from '@/lib/listing/identity'
-import type { WatchlistRecord, WatchlistSettings } from '@/lib/watchlists/types'
+import type { WatchlistItem, WatchlistRecord, WatchlistSettings } from '@/lib/watchlists/types'
 
 export const watchlistKeys = {
   all: ['watchlists'] as const,
@@ -255,6 +255,44 @@ export function useAddWatchlistListing() {
   })
 }
 
+export function useUpdateWatchlistItemListing() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      workspaceId,
+      watchlistId,
+      itemId,
+      listing,
+    }: {
+      workspaceId: string
+      watchlistId: string
+      itemId: string
+      listing: ListingIdentity
+    }) => {
+      const response = await fetch(`/api/watchlists/${watchlistId}/items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspaceId,
+          action: 'updateListing',
+          itemId,
+          listing,
+        }),
+      })
+
+      const payload = await parseJson<{ watchlist?: WatchlistRecord; error?: string }>(response)
+      if (!response.ok || !payload.watchlist) {
+        throw new Error(payload.error || 'Failed to update listing')
+      }
+      return payload.watchlist
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: watchlistKeys.list(variables.workspaceId) })
+    },
+  })
+}
+
 export function useAddWatchlistSection() {
   const queryClient = useQueryClient()
 
@@ -405,18 +443,18 @@ export function useImportWatchlist() {
     mutationFn: async ({
       workspaceId,
       watchlistId,
-      listings,
+      items,
     }: {
       workspaceId: string
       watchlistId: string
-      listings: ListingIdentity[]
+      items: WatchlistItem[]
     }) => {
       const response = await fetch(`/api/watchlists/${watchlistId}/import`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workspaceId,
-          listings,
+          items,
         }),
       })
 

@@ -23,7 +23,7 @@ vi.mock('@/components/ui/tooltip', () => ({
 }))
 
 vi.mock('@/widgets/widgets/components/widget-header-control', () => ({
-  widgetHeaderControlClassName: () => 'control',
+  widgetHeaderIconButtonClassName: () => 'icon-button',
   widgetHeaderMenuItemClassName: 'menu-item',
 }))
 
@@ -46,12 +46,32 @@ const findElementByType = (
 const createProps = () => ({
   open: true,
   onOpenChange: vi.fn(),
+  onAddSymbol: vi.fn(),
+  onCreateWatchlist: vi.fn(),
+  onCreateSection: vi.fn(),
   onImport: vi.fn(),
   onExport: vi.fn(),
   onClearList: vi.fn(),
-  onResetOrder: vi.fn(),
   onDeleteWatchlist: vi.fn(),
 })
+
+const getMenuButtons = (tree: ReactNode) => {
+  const content = findElementByType(tree, (element) => element.type === popoverMocks.PopoverContent)
+
+  expect(content).not.toBeNull()
+
+  return Children.toArray((content!.props as { children?: ReactNode }).children).filter(
+    isValidElement
+  ) as ReactElement[]
+}
+
+const findMenuButton = (items: ReactElement[], label: string) =>
+  items.find((item) =>
+    Children.toArray((item.props as { children?: ReactNode }).children).some(
+      (child) =>
+        isValidElement<{ children?: ReactNode }>(child) && child.props.children === label
+    )
+  ) as ReactElement<{ onClick?: () => void }> | undefined
 
 describe('WatchlistListActionsButton', () => {
   it('prevents popover auto-focus when opening list actions', () => {
@@ -74,24 +94,90 @@ describe('WatchlistListActionsButton', () => {
     expect(preventDefault).toHaveBeenCalledOnce()
   })
 
-  it('closes menu before running import action', () => {
+  it('closes menu before running add symbol action', () => {
     const props = createProps()
     const tree = WatchlistListActionsButton(props)
-    const content = findElementByType(tree, (element) => element.type === popoverMocks.PopoverContent)
+    const items = getMenuButtons(tree)
+    const createButton = findMenuButton(items, 'Add Symbol')
 
-    expect(content).not.toBeNull()
+    expect(items).toHaveLength(7)
+    expect(createButton?.props.onClick).toBeTypeOf('function')
 
-    const items = Children.toArray((content!.props as { children?: ReactNode }).children).filter(
-      isValidElement
-    ) as ReactElement[]
-    const importButton = items[0] as ReactElement<{ onClick?: () => void }>
-
-    expect(items).toHaveLength(5)
-    expect(importButton.props.onClick).toBeTypeOf('function')
-
-    importButton.props.onClick?.()
+    createButton?.props.onClick?.()
 
     expect(props.onOpenChange).toHaveBeenCalledWith(false)
-    expect(props.onImport).toHaveBeenCalledOnce()
+    expect(props.onAddSymbol).toHaveBeenCalledOnce()
+  })
+
+  it('renders an icon-only trigger and closes menu before running create watchlist action', () => {
+    const props = createProps()
+    const tree = WatchlistListActionsButton(props)
+    const trigger = findElementByType(tree, (element) => element.type === 'button')
+
+    expect(trigger).not.toBeNull()
+    expect((trigger!.props as { className?: string }).className).toContain('icon-button')
+
+    const items = getMenuButtons(tree)
+    const createWatchlistButton = findMenuButton(items, 'Create Watchlist')
+
+    expect(createWatchlistButton?.props.onClick).toBeTypeOf('function')
+
+    createWatchlistButton?.props.onClick?.()
+
+    expect(props.onOpenChange).toHaveBeenCalledWith(false)
+    expect(props.onCreateWatchlist).toHaveBeenCalledOnce()
+  })
+
+  it('closes menu before running create section action', () => {
+    const props = createProps()
+    const tree = WatchlistListActionsButton(props)
+    const items = getMenuButtons(tree)
+    const createSectionButton = findMenuButton(items, 'Create Section')
+
+    expect(createSectionButton?.props.onClick).toBeTypeOf('function')
+
+    createSectionButton?.props.onClick?.()
+
+    expect(props.onOpenChange).toHaveBeenCalledWith(false)
+    expect(props.onCreateSection).toHaveBeenCalledOnce()
+  })
+
+  it('hides disabled actions instead of rendering disabled menu buttons', () => {
+    const tree = WatchlistListActionsButton({
+      ...createProps(),
+      addSymbolDisabled: true,
+      importDisabled: true,
+      clearListDisabled: true,
+      deleteWatchlistDisabled: true,
+    })
+
+    const items = getMenuButtons(tree)
+
+    expect(findMenuButton(items, 'Add Symbol')).toBeUndefined()
+    expect(findMenuButton(items, 'Import')).toBeUndefined()
+    expect(findMenuButton(items, 'Clear list')).toBeUndefined()
+    expect(findMenuButton(items, 'Delete watchlist')).toBeUndefined()
+    expect(findMenuButton(items, 'Create Watchlist')).toBeTruthy()
+    expect(findMenuButton(items, 'Create Section')).toBeTruthy()
+    expect(findMenuButton(items, 'Export')).toBeTruthy()
+  })
+
+  it('disables the trigger when every action is unavailable', () => {
+    const tree = WatchlistListActionsButton({
+      ...createProps(),
+      addSymbolDisabled: true,
+      createWatchlistDisabled: true,
+      createSectionDisabled: true,
+      importDisabled: true,
+      exportDisabled: true,
+      clearListDisabled: true,
+      deleteWatchlistDisabled: true,
+    })
+
+    const trigger = findElementByType(tree, (element) => element.type === 'button')
+    const content = findElementByType(tree, (element) => element.type === popoverMocks.PopoverContent)
+
+    expect((trigger?.props as { disabled?: boolean } | undefined)?.disabled).toBe(true)
+    expect(content).toBeNull()
   })
 })

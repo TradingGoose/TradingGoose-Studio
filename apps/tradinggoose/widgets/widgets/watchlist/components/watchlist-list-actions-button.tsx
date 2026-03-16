@@ -1,10 +1,11 @@
 'use client'
 
-import { ArrowUpDown, Download, Eraser, FileUp, ListChecks, Trash2 } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { Download, Eraser, FileUp, ListPlus, Plus, Trash2 } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
-  widgetHeaderControlClassName,
+  widgetHeaderIconButtonClassName,
   widgetHeaderMenuItemClassName,
 } from '@/widgets/widgets/components/widget-header-control'
 
@@ -12,37 +13,119 @@ type WatchlistListActionsButtonProps = {
   open: boolean
   onOpenChange: (nextOpen: boolean) => void
   disabled?: boolean
+  addSymbolDisabled?: boolean
+  createWatchlistDisabled?: boolean
+  createSectionDisabled?: boolean
   importDisabled?: boolean
   exportDisabled?: boolean
   clearListDisabled?: boolean
-  resetOrderDisabled?: boolean
   deleteWatchlistDisabled?: boolean
+  onAddSymbol: () => void
+  onCreateWatchlist: () => void
+  onCreateSection: () => void
   onImport: () => void
   onExport: () => void
   onClearList: () => void
-  onResetOrder: () => void
   onDeleteWatchlist: () => void
+}
+
+type VisibleAction = {
+  key: string
+  icon: ReactNode
+  label: string
+  onClick: () => void
 }
 
 export const WatchlistListActionsButton = ({
   open,
   onOpenChange,
   disabled = false,
+  addSymbolDisabled = false,
+  createWatchlistDisabled = false,
+  createSectionDisabled = false,
   importDisabled = false,
   exportDisabled = false,
   clearListDisabled = false,
-  resetOrderDisabled = false,
   deleteWatchlistDisabled = false,
+  onAddSymbol,
+  onCreateWatchlist,
+  onCreateSection,
   onImport,
   onExport,
   onClearList,
-  onResetOrder,
   onDeleteWatchlist,
 }: WatchlistListActionsButtonProps) => {
   const closeAndRun = (action: () => void) => {
     onOpenChange(false)
     action()
   }
+
+  const visibleActions: VisibleAction[] = []
+
+  if (!addSymbolDisabled) {
+    visibleActions.push({
+      key: 'add-symbol',
+      icon: <ListPlus className='h-3.5 w-3.5' />,
+      label: 'Add Symbol',
+      onClick: () => closeAndRun(onAddSymbol),
+    })
+  }
+
+  if (!createWatchlistDisabled) {
+    visibleActions.push({
+      key: 'create-watchlist',
+      icon: <Plus className='h-3.5 w-3.5' />,
+      label: 'Create Watchlist',
+      onClick: () => closeAndRun(onCreateWatchlist),
+    })
+  }
+
+  if (!createSectionDisabled) {
+    visibleActions.push({
+      key: 'create-section',
+      icon: <ListPlus className='h-3.5 w-3.5' />,
+      label: 'Create Section',
+      onClick: () => closeAndRun(onCreateSection),
+    })
+  }
+
+  if (!importDisabled) {
+    visibleActions.push({
+      key: 'import',
+      icon: <FileUp className='h-3.5 w-3.5' />,
+      label: 'Import',
+      onClick: () => closeAndRun(onImport),
+    })
+  }
+
+  if (!exportDisabled) {
+    visibleActions.push({
+      key: 'export',
+      icon: <Download className='h-3.5 w-3.5' />,
+      label: 'Export',
+      onClick: () => closeAndRun(onExport),
+    })
+  }
+
+  if (!clearListDisabled) {
+    visibleActions.push({
+      key: 'clear-list',
+      icon: <Eraser className='h-3.5 w-3.5' />,
+      label: 'Clear list',
+      onClick: () => closeAndRun(onClearList),
+    })
+  }
+
+  if (!deleteWatchlistDisabled) {
+    visibleActions.push({
+      key: 'delete-watchlist',
+      icon: <Trash2 className='h-3.5 w-3.5' />,
+      label: 'Delete watchlist',
+      onClick: () => closeAndRun(onDeleteWatchlist),
+    })
+  }
+
+  const triggerDisabled = disabled || visibleActions.length === 0
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -52,68 +135,36 @@ export const WatchlistListActionsButton = ({
             <PopoverTrigger asChild>
               <button
                 type='button'
-                className={widgetHeaderControlClassName('gap-1.5')}
-                disabled={disabled}
+                className={widgetHeaderIconButtonClassName()}
+                disabled={triggerDisabled}
               >
-                <ListChecks className='h-3.5 w-3.5 text-muted-foreground' />
-                <span>List actions</span>
+                <Plus className='h-3.5 w-3.5' />
+                <span className='sr-only'>List actions</span>
               </button>
             </PopoverTrigger>
           </span>
         </TooltipTrigger>
         <TooltipContent side='top'>List actions</TooltipContent>
       </Tooltip>
-      <PopoverContent
-        align='end'
-        className='w-52 p-1'
-        onOpenAutoFocus={(event) => event.preventDefault()}
-      >
-        <button
-          type='button'
-          className={widgetHeaderMenuItemClassName}
-          onClick={() => closeAndRun(onImport)}
-          disabled={importDisabled}
+      {visibleActions.length > 0 ? (
+        <PopoverContent
+          align='end'
+          className='w-56 p-1'
+          onOpenAutoFocus={(event) => event.preventDefault()}
         >
-          <FileUp className='h-3.5 w-3.5' />
-          <span>Import</span>
-        </button>
-        <button
-          type='button'
-          className={widgetHeaderMenuItemClassName}
-          onClick={() => closeAndRun(onExport)}
-          disabled={exportDisabled}
-        >
-          <Download className='h-3.5 w-3.5' />
-          <span>Export</span>
-        </button>
-        <button
-          type='button'
-          className={widgetHeaderMenuItemClassName}
-          onClick={() => closeAndRun(onClearList)}
-          disabled={clearListDisabled}
-        >
-          <Eraser className='h-3.5 w-3.5' />
-          <span>Clear list</span>
-        </button>
-        <button
-          type='button'
-          className={widgetHeaderMenuItemClassName}
-          onClick={() => closeAndRun(onResetOrder)}
-          disabled={resetOrderDisabled}
-        >
-          <ArrowUpDown className='h-3.5 w-3.5' />
-          <span>Reset order</span>
-        </button>
-        <button
-          type='button'
-          className={widgetHeaderMenuItemClassName}
-          onClick={() => closeAndRun(onDeleteWatchlist)}
-          disabled={deleteWatchlistDisabled}
-        >
-          <Trash2 className='h-3.5 w-3.5' />
-          <span>Delete watchlist</span>
-        </button>
-      </PopoverContent>
+          {visibleActions.map((action) => (
+            <button
+              key={action.key}
+              type='button'
+              className={widgetHeaderMenuItemClassName}
+              onClick={action.onClick}
+            >
+              {action.icon}
+              <span>{action.label}</span>
+            </button>
+          ))}
+        </PopoverContent>
+      ) : null}
     </Popover>
   )
 }

@@ -9,6 +9,7 @@ import {
   renameWatchlistSection,
   removeWatchlistItem,
   removeWatchlistSection,
+  updateWatchlistItemListing,
   WatchlistOperationError,
 } from '@/lib/watchlists/operations'
 
@@ -16,7 +17,14 @@ const logger = createLogger('WatchlistItemsAPI')
 
 const WatchlistItemsSchema = z.object({
   workspaceId: z.string().trim().min(1, 'workspaceId is required'),
-  action: z.enum(['addListing', 'addSection', 'renameSection', 'removeItem', 'removeSection']),
+  action: z.enum([
+    'addListing',
+    'updateListing',
+    'addSection',
+    'renameSection',
+    'removeItem',
+    'removeSection',
+  ]),
   listing: z
     .object({
       listing_id: z.string(),
@@ -91,6 +99,22 @@ export async function POST(
         return NextResponse.json({ error: 'label is required' }, { status: 400 })
       }
       const watchlist = await addSectionToWatchlist(scope, watchlistId, parsed.label)
+      return NextResponse.json({ watchlist }, { status: 200 })
+    }
+
+    if (parsed.action === 'updateListing') {
+      if (!parsed.itemId) {
+        return NextResponse.json({ error: 'itemId is required' }, { status: 400 })
+      }
+      if (!parsed.listing) {
+        return NextResponse.json({ error: 'listing is required' }, { status: 400 })
+      }
+      const watchlist = await updateWatchlistItemListing(
+        scope,
+        watchlistId,
+        parsed.itemId,
+        parsed.listing
+      )
       return NextResponse.json({ watchlist }, { status: 200 })
     }
 

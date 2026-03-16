@@ -6,7 +6,7 @@ import { createMockRequest } from '@/app/api/__test-utils__/utils'
 
 const mockGetSession = vi.fn()
 const mockGetUserEntityPermissions = vi.fn()
-const mockAppendListingsToWatchlist = vi.fn()
+const mockAppendWatchlistItemsToWatchlist = vi.fn()
 
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({
@@ -29,7 +29,7 @@ vi.mock('@/lib/watchlists/operations', async () => {
   const actual = await vi.importActual<any>('@/lib/watchlists/operations')
   return {
     ...actual,
-    appendListingsToWatchlist: mockAppendListingsToWatchlist,
+    appendWatchlistItemsToWatchlist: mockAppendWatchlistItemsToWatchlist,
   }
 })
 
@@ -38,7 +38,7 @@ describe('Watchlist import API route', () => {
     vi.clearAllMocks()
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
     mockGetUserEntityPermissions.mockResolvedValue('admin')
-    mockAppendListingsToWatchlist.mockResolvedValue({
+    mockAppendWatchlistItemsToWatchlist.mockResolvedValue({
       watchlist: {
         id: 'watchlist-1',
         workspaceId: 'workspace-1',
@@ -55,16 +55,25 @@ describe('Watchlist import API route', () => {
     })
   })
 
-  it('imports listing identity JSON payload', async () => {
+  it('imports watchlist item JSON payload with sections', async () => {
     const { POST } = await import('@/app/api/watchlists/[watchlistId]/import/route')
     const request = createMockRequest('POST', {
       workspaceId: 'workspace-1',
-      listings: [
+      items: [
         {
-          listing_id: 'aapl-id',
-          base_id: '',
-          quote_id: '',
-          listing_type: 'default',
+          id: 'section-1',
+          type: 'section',
+          label: 'Tech',
+        },
+        {
+          id: 'listing-1',
+          type: 'listing',
+          listing: {
+            listing_id: 'aapl-id',
+            base_id: '',
+            quote_id: '',
+            listing_type: 'default',
+          },
         },
       ],
     })
@@ -77,7 +86,7 @@ describe('Watchlist import API route', () => {
     expect(response.status).toBe(200)
     expect(payload.import.addedCount).toBe(1)
     expect(payload.import.skippedCount).toBe(0)
-    expect(mockAppendListingsToWatchlist).toHaveBeenCalledWith(
+    expect(mockAppendWatchlistItemsToWatchlist).toHaveBeenCalledWith(
       {
         workspaceId: 'workspace-1',
         userId: 'user-1',
@@ -85,25 +94,32 @@ describe('Watchlist import API route', () => {
       'watchlist-1',
       [
         {
-          listing_id: 'aapl-id',
-          base_id: '',
-          quote_id: '',
-          listing_type: 'default',
+          id: 'section-1',
+          type: 'section',
+          label: 'Tech',
+        },
+        {
+          id: 'listing-1',
+          type: 'listing',
+          listing: {
+            listing_id: 'aapl-id',
+            base_id: '',
+            quote_id: '',
+            listing_type: 'default',
+          },
         },
       ]
     )
   })
 
-  it('returns 400 when any listing identity is invalid', async () => {
+  it('returns 400 when any watchlist item is invalid', async () => {
     const { POST } = await import('@/app/api/watchlists/[watchlistId]/import/route')
     const request = createMockRequest('POST', {
       workspaceId: 'workspace-1',
-      listings: [
+      items: [
         {
-          listing_id: '',
-          base_id: '',
-          quote_id: '',
-          listing_type: 'default',
+          type: 'section',
+          label: 'Missing id',
         },
       ],
     })
@@ -114,7 +130,7 @@ describe('Watchlist import API route', () => {
     const payload = await response.json()
 
     expect(response.status).toBe(400)
-    expect(payload.error).toBe('Invalid listing identities payload')
-    expect(mockAppendListingsToWatchlist).not.toHaveBeenCalled()
+    expect(payload.error).toBe('Invalid watchlist items payload')
+    expect(mockAppendWatchlistItemsToWatchlist).not.toHaveBeenCalled()
   })
 })

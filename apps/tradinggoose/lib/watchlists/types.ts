@@ -1,14 +1,5 @@
 import type { ListingIdentity } from '@/lib/listing/identity'
 
-export type WatchlistColumnKey = 'listing' | 'assetClass' | 'lastPrice' | 'change' | 'changePercent'
-
-export type WatchlistSortDirection = 'asc' | 'desc'
-
-export type WatchlistSort = {
-  column: WatchlistColumnKey
-  direction: WatchlistSortDirection
-}
-
 export type WatchlistSettings = {
   showLogo: boolean
   showTicker: boolean
