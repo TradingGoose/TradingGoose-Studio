@@ -6,52 +6,80 @@ import { act } from 'react'
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { WATCHLIST_WIDGET_ADD_DRAFT_SYMBOL_EVENT } from '@/widgets/events'
-import { WatchlistHeaderRightControls } from '@/widgets/widgets/watchlist/components/watchlist-header-controls'
+import {
+  WatchlistHeaderCenterControls,
+  WatchlistHeaderRightControls,
+} from '@/widgets/widgets/watchlist/components/watchlist-header-controls'
 
 const mockUseWatchlists = vi.fn()
+const mockAddWatchlistListing = vi.fn()
 const mockCreateWatchlist = vi.fn()
 const mockAddWatchlistSection = vi.fn()
 const mockDeleteWatchlist = vi.fn()
-const mockClearWatchlist = vi.fn()
 const mockImportWatchlist = vi.fn()
 const mockExportWatchlist = vi.fn()
+const mockRenameWatchlist = vi.fn()
 
 vi.mock('@/hooks/queries/watchlists', () => ({
   useWatchlists: (...args: unknown[]) => mockUseWatchlists(...args),
+  useAddWatchlistListing: () => mockAddWatchlistListing(),
   useCreateWatchlist: () => mockCreateWatchlist(),
   useAddWatchlistSection: () => mockAddWatchlistSection(),
   useDeleteWatchlist: () => mockDeleteWatchlist(),
-  useClearWatchlist: () => mockClearWatchlist(),
   useImportWatchlist: () => mockImportWatchlist(),
   useExportWatchlist: () => mockExportWatchlist(),
-  useAddWatchlistListing: vi.fn(),
-  useRenameWatchlist: vi.fn(),
+  useRenameWatchlist: () => mockRenameWatchlist(),
 }))
 
 vi.mock('@/widgets/utils/watchlist-params', () => ({
   emitWatchlistParamsChange: vi.fn(),
 }))
 
+vi.mock('@/widgets/widgets/components/listing-selector', () => ({
+  ListingSelector: (props: {
+    disabled?: boolean
+    onListingChange?: (listing: {
+      listing_id: string
+      base_id: string
+      quote_id: string
+      listing_type: 'default'
+      name?: string
+    }) => void
+  }) => (
+    <button
+      type='button'
+      disabled={props.disabled}
+      onClick={() =>
+        props.onListingChange?.({
+          listing_id: 'BTCUSD',
+          base_id: '',
+          quote_id: '',
+          listing_type: 'default',
+          name: 'BTC/USD',
+        })
+      }
+    >
+      Select Listing
+    </button>
+  ),
+}))
+
+vi.mock('@/widgets/widgets/watchlist/components/watchlist-list-selector', () => ({
+  WatchlistListSelector: () => <div>watchlist-selector</div>,
+}))
+
 vi.mock('@/widgets/widgets/watchlist/components/watchlist-list-actions-button', () => ({
   WatchlistListActionsButton: (props: {
-    addSymbolDisabled?: boolean
-    onAddSymbol: () => void
     createSectionDisabled?: boolean
     onCreateSection: () => void
   }) => (
-    <>
-      <button type='button' disabled={props.addSymbolDisabled} onClick={props.onAddSymbol}>
-        Add Symbol
-      </button>
-      <button
-        type='button'
-        disabled={props.createSectionDisabled}
-        onClick={props.onCreateSection}
-      >
-        Create Section
-      </button>
-    </>
+    <button
+      type='button'
+      disabled={props.createSectionDisabled}
+      onClick={props.onCreateSection}
+    >
+      Create Section
+    </button>
   ),
 }))
 
@@ -74,8 +102,15 @@ vi.mock('@/components/ui/alert-dialog', () => ({
   AlertDialogTitle: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }))
 
+vi.mock('@/components/ui/tooltip', () => ({
+  Tooltip: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  TooltipTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+  TooltipContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+}))
+
 vi.mock('@/widgets/widgets/components/widget-header-control', () => ({
   widgetHeaderButtonGroupClassName: () => 'controls',
+  widgetHeaderIconButtonClassName: () => 'icon-button',
 }))
 
 const createMutationState = (mutateAsync = vi.fn()) => ({
@@ -83,11 +118,23 @@ const createMutationState = (mutateAsync = vi.fn()) => ({
   mutateAsync,
 })
 
+const defaultWatchlist = {
+  id: 'default-watchlist',
+  workspaceId: 'workspace-1',
+  userId: 'user-1',
+  name: 'Default',
+  isSystem: true,
+  items: [],
+  settings: { showLogo: true, showTicker: true, showDescription: true },
+  createdAt: '2026-03-13T00:00:00.000Z',
+  updatedAt: '2026-03-13T00:00:00.000Z',
+}
+
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
 
-describe('WatchlistHeaderRightControls', () => {
+describe('watchlist header controls', () => {
   let container: HTMLDivElement
   let root: Root
 
@@ -99,26 +146,15 @@ describe('WatchlistHeaderRightControls', () => {
     root = createRoot(container)
 
     mockUseWatchlists.mockReturnValue({
-      data: [
-        {
-          id: 'default-watchlist',
-          workspaceId: 'workspace-1',
-          userId: 'user-1',
-          name: 'Default',
-          isSystem: true,
-          items: [],
-          settings: { showLogo: true, showTicker: true, showDescription: true },
-          createdAt: '2026-03-13T00:00:00.000Z',
-          updatedAt: '2026-03-13T00:00:00.000Z',
-        },
-      ],
+      data: [defaultWatchlist],
     })
+    mockAddWatchlistListing.mockReturnValue(createMutationState())
     mockCreateWatchlist.mockReturnValue(createMutationState())
     mockAddWatchlistSection.mockReturnValue(createMutationState())
     mockDeleteWatchlist.mockReturnValue(createMutationState())
-    mockClearWatchlist.mockReturnValue(createMutationState())
     mockImportWatchlist.mockReturnValue(createMutationState())
     mockExportWatchlist.mockReturnValue(createMutationState())
+    mockRenameWatchlist.mockReturnValue(createMutationState())
   })
 
   afterEach(() => {
@@ -128,24 +164,70 @@ describe('WatchlistHeaderRightControls', () => {
     container.remove()
   })
 
+  it('adds the staged listing from the center header control', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue({})
+    mockAddWatchlistListing.mockReturnValue(createMutationState(mutateAsync))
+
+    await act(async () => {
+      root.render(
+        <WatchlistHeaderCenterControls
+          workspaceId='workspace-1'
+          panelId='panel-2'
+          widget={{
+            key: 'watchlist-widget',
+            params: {
+              watchlistId: 'default-watchlist',
+              provider: 'alpaca',
+            },
+          } as any}
+        />
+      )
+    })
+
+    const buttons = Array.from(container.querySelectorAll('button'))
+    const listingButton = buttons.find((button) => button.textContent?.includes('Select Listing'))
+    const addButton = buttons.find((button) =>
+      button.textContent?.includes('Add listing to watchlist')
+    )
+
+    expect(listingButton).toBeTruthy()
+    expect(addButton?.hasAttribute('disabled')).toBe(true)
+
+    await act(async () => {
+      listingButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(addButton?.hasAttribute('disabled')).toBe(false)
+
+    await act(async () => {
+      addButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      await Promise.resolve()
+    })
+
+    expect(mutateAsync).toHaveBeenCalledWith({
+      workspaceId: 'workspace-1',
+      watchlistId: 'default-watchlist',
+      listing: {
+        listing_id: 'BTCUSD',
+        base_id: '',
+        quote_id: '',
+        listing_type: 'default',
+      },
+    })
+    expect(addButton?.hasAttribute('disabled')).toBe(true)
+  })
+
   it('enables section creation on the Default watchlist and creates the next section name', async () => {
     const mutateAsync = vi.fn().mockResolvedValue({})
     mockAddWatchlistSection.mockReturnValue(createMutationState(mutateAsync))
     mockUseWatchlists.mockReturnValue({
       data: [
         {
-          id: 'default-watchlist',
-          workspaceId: 'workspace-1',
-          userId: 'user-1',
-          name: 'Default',
-          isSystem: true,
+          ...defaultWatchlist,
           items: [
             { id: 'section-1', type: 'section', label: 'Section 1' },
             { id: 'section-3', type: 'section', label: 'Section 3' },
           ],
-          settings: { showLogo: true, showTicker: true, showDescription: true },
-          createdAt: '2026-03-13T00:00:00.000Z',
-          updatedAt: '2026-03-13T00:00:00.000Z',
         },
       ],
     })
@@ -168,7 +250,6 @@ describe('WatchlistHeaderRightControls', () => {
     )
 
     expect(button).toBeTruthy()
-    expect(button?.textContent).toContain('Create Section')
     expect(button?.hasAttribute('disabled')).toBe(false)
 
     await act(async () => {
@@ -180,45 +261,6 @@ describe('WatchlistHeaderRightControls', () => {
       watchlistId: 'default-watchlist',
       label: 'Section 2',
     })
-  })
-
-  it('dispatches an add-symbol widget event from list actions', async () => {
-    const eventHandler = vi.fn()
-    window.addEventListener(WATCHLIST_WIDGET_ADD_DRAFT_SYMBOL_EVENT, eventHandler as EventListener)
-
-    await act(async () => {
-      root.render(
-        <WatchlistHeaderRightControls
-          workspaceId='workspace-1'
-          panelId='panel-9'
-          widget={{
-            key: 'watchlist-widget',
-            params: { watchlistId: 'default-watchlist' },
-          } as any}
-        />
-      )
-    })
-
-    const button = Array.from(container.querySelectorAll('button')).find((candidate) =>
-      candidate.textContent?.includes('Add Symbol')
-    )
-
-    expect(button).toBeTruthy()
-
-    await act(async () => {
-      button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    })
-
-    expect(eventHandler).toHaveBeenCalledTimes(1)
-    expect((eventHandler.mock.calls[0]?.[0] as CustomEvent).detail).toEqual({
-      panelId: 'panel-9',
-      widgetKey: 'watchlist-widget',
-    })
-
-    window.removeEventListener(
-      WATCHLIST_WIDGET_ADD_DRAFT_SYMBOL_EVENT,
-      eventHandler as EventListener
-    )
   })
 
   it('imports watchlist files with sections and listings', async () => {

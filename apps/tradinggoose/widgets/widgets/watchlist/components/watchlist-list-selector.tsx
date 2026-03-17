@@ -10,7 +10,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import { Check, ChevronDown, Pencil, Search, Trash2 } from 'lucide-react'
+import { Check, ChevronDown, List, Pencil, Search, Trash2 } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,6 +49,7 @@ type WatchlistListSelectorProps = {
   isRenamingWatchlist?: boolean
   isDeletingWatchlist?: boolean
   disabled?: boolean
+  align?: 'start' | 'end'
 }
 
 const DROPDOWN_MAX_HEIGHT = '20rem'
@@ -63,6 +64,7 @@ export const WatchlistListSelector = ({
   isRenamingWatchlist = false,
   isDeletingWatchlist = false,
   disabled = false,
+  align = 'start',
 }: WatchlistListSelectorProps) => {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -84,6 +86,14 @@ export const WatchlistListSelector = ({
   const selectionLabel = selectedWatchlist?.name ?? 'Select watchlist'
   const chevronClassName =
     'h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
+  const iconBadge = (
+    <div
+      className='h-5 w-5 rounded-xs bg-muted/60 p-0.5 text-muted-foreground'
+      aria-hidden='true'
+    >
+      <List className='h-4 w-4' />
+    </div>
+  )
 
   const cancelRename = () => {
     setEditingWatchlistId(null)
@@ -191,19 +201,18 @@ export const WatchlistListSelector = ({
                   type='button'
                   disabled={disabled}
                   className={widgetHeaderControlClassName(
-                    cn(
-                      'group flex min-w-[140px] max-w-[320px] items-center justify-between gap-2'
-                    )
+                    cn('group flex min-w-[220px] items-center justify-between gap-2')
                   )}
                   aria-haspopup='listbox'
                 >
+                  {iconBadge}
                   {selectedWatchlist ? (
-                    <span className='min-w-0 flex-1 overflow-x-auto whitespace-nowrap text-left font-medium text-foreground text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'>
-                      <span className='inline-block'>{selectionLabel}</span>
+                    <span className='min-w-0 flex-1 truncate text-left font-medium text-foreground text-sm'>
+                      {selectionLabel}
                     </span>
                   ) : (
-                    <span className='min-w-0 flex-1 overflow-x-auto whitespace-nowrap text-left font-medium text-muted-foreground text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'>
-                      <span className='inline-block'>{selectionLabel}</span>
+                    <span className='min-w-0 flex-1 truncate text-left font-medium text-muted-foreground text-sm'>
+                      {selectionLabel}
                     </span>
                   )}
                   <ChevronDown className={chevronClassName} aria-hidden='true' />
@@ -214,11 +223,11 @@ export const WatchlistListSelector = ({
           <TooltipContent side='top'>{tooltipText}</TooltipContent>
         </Tooltip>
         <DropdownMenuContent
-          align='start'
+          align={align}
           sideOffset={6}
           className={cn(
             widgetHeaderMenuContentClassName,
-            'max-h-[20rem] w-max min-w-[var(--radix-dropdown-menu-trigger-width)] max-w-[420px] overflow-hidden p-0 shadow-lg'
+            'max-h-[20rem] w-[240px] overflow-hidden p-0 shadow-lg'
           )}
           style={{ maxHeight: DROPDOWN_MAX_HEIGHT }}
           onWheel={(event) => event.stopPropagation()}

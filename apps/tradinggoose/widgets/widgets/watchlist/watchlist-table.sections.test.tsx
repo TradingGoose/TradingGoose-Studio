@@ -218,9 +218,6 @@ const createTableProps = (overrides: Record<string, unknown> = {}) => ({
   watchlist,
   quotes: {},
   providerId: 'alpaca',
-  draftRows: [],
-  onCreateDraftRowListing: vi.fn().mockResolvedValue(true),
-  onCancelDraftRow: vi.fn(),
   onUpdateItemListing: vi.fn().mockResolvedValue(true),
   onReorderItems: vi.fn(),
   onRemoveItem: vi.fn(),
@@ -310,6 +307,7 @@ describe('WatchlistTable section interactions', () => {
     expect(listingRow).toBeTruthy()
     expect(listingRow?.className).toContain('bg-background')
     expect(marketListingRow?.className).toContain('w-full')
+    expect(marketListingRow?.className).not.toContain('pl-6')
     expect(marketListingRow?.className).not.toContain('border')
     expect(marketListingRow?.className).not.toContain('rounded')
 
@@ -427,16 +425,16 @@ describe('WatchlistTable section interactions', () => {
       editButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    const selector = container.querySelector('[data-testid^="stock-selector-watchlist-listing-editor-listing-"]')
+    const selector = container.querySelector('[data-testid="stock-selector-watchlist-listing-editor-listing-1"]')
 
     expect(selector).toBeTruthy()
     expect(mockStockSelectorRender).toHaveBeenLastCalledWith({
-      instanceId: 'watchlist-listing-editor-listing-listing-1',
+      instanceId: 'watchlist-listing-editor-listing-1',
       activateOnMount: true,
     })
 
     const selectButton = container.querySelector(
-      '[data-testid="stock-selector-select-watchlist-listing-editor-listing-listing-1"]'
+      '[data-testid="stock-selector-select-watchlist-listing-editor-listing-1"]'
     )
 
     await act(async () => {
@@ -531,13 +529,13 @@ describe('WatchlistTable section interactions', () => {
       editButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    const selector = container.querySelector('[data-testid^="stock-selector-watchlist-listing-editor-listing-"]')
+    const selector = container.querySelector('[data-testid="stock-selector-watchlist-listing-editor-listing-1"]')
     const focusButton = container.querySelector(
-      '[data-testid="stock-selector-focus-watchlist-listing-editor-listing-listing-1"]'
+      '[data-testid="stock-selector-focus-watchlist-listing-editor-listing-1"]'
     )
     const editingRow = Array.from(container.querySelectorAll('tr')).find((row) =>
       row.getAttribute('data-watchlist-listing-edit-surface') ===
-      'watchlist-listing-edit-surface-listing-listing-1'
+      'watchlist-listing-edit-surface-listing-1'
     )
     const editingCell = selector?.closest('td')
 
@@ -551,7 +549,7 @@ describe('WatchlistTable section interactions', () => {
     })
 
     expect(
-      container.querySelector('[data-testid^="stock-selector-watchlist-listing-editor-listing-"]')
+      container.querySelector('[data-testid="stock-selector-watchlist-listing-editor-listing-1"]')
     ).toBeTruthy()
     expect(onUpdateItemListing).not.toHaveBeenCalled()
 
@@ -560,7 +558,7 @@ describe('WatchlistTable section interactions', () => {
     })
 
     expect(
-      container.querySelector('[data-testid^="stock-selector-watchlist-listing-editor-listing-"]')
+      container.querySelector('[data-testid="stock-selector-watchlist-listing-editor-listing-1"]')
     ).toBeNull()
     expect(onUpdateItemListing).not.toHaveBeenCalled()
   })

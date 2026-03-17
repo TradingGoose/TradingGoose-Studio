@@ -46,12 +46,10 @@ const findElementByType = (
 const createProps = () => ({
   open: true,
   onOpenChange: vi.fn(),
-  onAddSymbol: vi.fn(),
   onCreateWatchlist: vi.fn(),
   onCreateSection: vi.fn(),
   onImport: vi.fn(),
   onExport: vi.fn(),
-  onClearList: vi.fn(),
   onDeleteWatchlist: vi.fn(),
 })
 
@@ -94,19 +92,19 @@ describe('WatchlistListActionsButton', () => {
     expect(preventDefault).toHaveBeenCalledOnce()
   })
 
-  it('closes menu before running add symbol action', () => {
+  it('renders the reduced watchlist action set', () => {
     const props = createProps()
     const tree = WatchlistListActionsButton(props)
     const items = getMenuButtons(tree)
-    const createButton = findMenuButton(items, 'Add Symbol')
 
-    expect(items).toHaveLength(7)
-    expect(createButton?.props.onClick).toBeTypeOf('function')
-
-    createButton?.props.onClick?.()
-
-    expect(props.onOpenChange).toHaveBeenCalledWith(false)
-    expect(props.onAddSymbol).toHaveBeenCalledOnce()
+    expect(items).toHaveLength(5)
+    expect(findMenuButton(items, 'Add Symbol')).toBeUndefined()
+    expect(findMenuButton(items, 'Clear list')).toBeUndefined()
+    expect(findMenuButton(items, 'Create Watchlist')).toBeTruthy()
+    expect(findMenuButton(items, 'Create Section')).toBeTruthy()
+    expect(findMenuButton(items, 'Import')).toBeTruthy()
+    expect(findMenuButton(items, 'Export')).toBeTruthy()
+    expect(findMenuButton(items, 'Delete watchlist')).toBeTruthy()
   })
 
   it('renders an icon-only trigger and closes menu before running create watchlist action', () => {
@@ -145,9 +143,7 @@ describe('WatchlistListActionsButton', () => {
   it('hides disabled actions instead of rendering disabled menu buttons', () => {
     const tree = WatchlistListActionsButton({
       ...createProps(),
-      addSymbolDisabled: true,
       importDisabled: true,
-      clearListDisabled: true,
       deleteWatchlistDisabled: true,
     })
 
@@ -165,12 +161,10 @@ describe('WatchlistListActionsButton', () => {
   it('disables the trigger when every action is unavailable', () => {
     const tree = WatchlistListActionsButton({
       ...createProps(),
-      addSymbolDisabled: true,
       createWatchlistDisabled: true,
       createSectionDisabled: true,
       importDisabled: true,
       exportDisabled: true,
-      clearListDisabled: true,
       deleteWatchlistDisabled: true,
     })
 

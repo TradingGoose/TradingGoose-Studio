@@ -253,6 +253,26 @@ const getNextSortOrderForItem = async (
   return last ? last.sortOrder + 1 : 0
 }
 
+const getFirstSortOrderForItem = async (
+  tx: WatchlistTx,
+  watchlistId: string,
+  containerId: string | null
+) => {
+  const [first] = await tx
+    .select({ sortOrder: watchlistItem.sortOrder })
+    .from(watchlistItem)
+    .where(
+      and(
+        eq(watchlistItem.watchlistId, watchlistId),
+        containerId ? eq(watchlistItem.containerId, containerId) : isNull(watchlistItem.containerId)
+      )
+    )
+    .orderBy(asc(watchlistItem.sortOrder))
+    .limit(1)
+
+  return first ? first.sortOrder - 1 : 0
+}
+
 const hasListingIdentity = (items: WatchlistItemRow[], candidate: ListingIdentity) =>
   items.some((entry) => {
     const existing = toListingValueObject(entry.listing as ListingInputValue)
@@ -560,7 +580,7 @@ export async function addListingToWatchlist(
       )
     }
 
-    const sortOrder = await getNextSortOrderForItem(tx, row.id, null)
+    const sortOrder = await getFirstSortOrderForItem(tx, row.id, null)
 
     try {
       await tx.insert(watchlistItem).values({

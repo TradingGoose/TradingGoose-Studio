@@ -1,7 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Download, Eraser, FileUp, ListPlus, Plus, Trash2 } from 'lucide-react'
+import { Download, FileUp, ListPlus, Plus, Trash2 } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
@@ -13,19 +13,15 @@ type WatchlistListActionsButtonProps = {
   open: boolean
   onOpenChange: (nextOpen: boolean) => void
   disabled?: boolean
-  addSymbolDisabled?: boolean
   createWatchlistDisabled?: boolean
   createSectionDisabled?: boolean
   importDisabled?: boolean
   exportDisabled?: boolean
-  clearListDisabled?: boolean
   deleteWatchlistDisabled?: boolean
-  onAddSymbol: () => void
   onCreateWatchlist: () => void
   onCreateSection: () => void
   onImport: () => void
   onExport: () => void
-  onClearList: () => void
   onDeleteWatchlist: () => void
 }
 
@@ -40,19 +36,15 @@ export const WatchlistListActionsButton = ({
   open,
   onOpenChange,
   disabled = false,
-  addSymbolDisabled = false,
   createWatchlistDisabled = false,
   createSectionDisabled = false,
   importDisabled = false,
   exportDisabled = false,
-  clearListDisabled = false,
   deleteWatchlistDisabled = false,
-  onAddSymbol,
   onCreateWatchlist,
   onCreateSection,
   onImport,
   onExport,
-  onClearList,
   onDeleteWatchlist,
 }: WatchlistListActionsButtonProps) => {
   const closeAndRun = (action: () => void) => {
@@ -61,15 +53,6 @@ export const WatchlistListActionsButton = ({
   }
 
   const visibleActions: VisibleAction[] = []
-
-  if (!addSymbolDisabled) {
-    visibleActions.push({
-      key: 'add-symbol',
-      icon: <ListPlus className='h-3.5 w-3.5' />,
-      label: 'Add Symbol',
-      onClick: () => closeAndRun(onAddSymbol),
-    })
-  }
 
   if (!createWatchlistDisabled) {
     visibleActions.push({
@@ -104,15 +87,6 @@ export const WatchlistListActionsButton = ({
       icon: <Download className='h-3.5 w-3.5' />,
       label: 'Export',
       onClick: () => closeAndRun(onExport),
-    })
-  }
-
-  if (!clearListDisabled) {
-    visibleActions.push({
-      key: 'clear-list',
-      icon: <Eraser className='h-3.5 w-3.5' />,
-      label: 'Clear list',
-      onClick: () => closeAndRun(onClearList),
     })
   }
 

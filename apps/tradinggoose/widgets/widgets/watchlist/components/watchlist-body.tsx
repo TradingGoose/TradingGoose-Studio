@@ -1,10 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useWatchlistQuotes } from '@/hooks/queries/watchlist-quotes'
 import {
-  useAddWatchlistListing,
   useRemoveWatchlistItem,
   useRemoveWatchlistSection,
   useReorderWatchlistItems,
@@ -15,10 +14,6 @@ import {
 import type { ListingIdentity } from '@/lib/listing/identity'
 import type { WidgetComponentProps } from '@/widgets/types'
 import {
-  WATCHLIST_WIDGET_ADD_DRAFT_SYMBOL_EVENT,
-  type WatchlistWidgetAddDraftSymbolEventDetail,
-} from '@/widgets/events'
-import {
   emitWatchlistParamsChange,
   useWatchlistParamsPersistence,
 } from '@/widgets/utils/watchlist-params'
@@ -28,7 +23,6 @@ import {
   resolveSelectedWatchlistId,
 } from '@/widgets/widgets/watchlist/components/watchlist-selection'
 import {
-  type WatchlistDraftListingRow,
   WatchlistTable,
 } from '@/widgets/widgets/watchlist/components/watchlist-table'
 import type { WatchlistWidgetParams } from '@/widgets/widgets/watchlist/types'
@@ -44,11 +38,6 @@ const resolveProviderId = (params: WatchlistWidgetParams | null) => {
   if (fromParams) return fromParams
   return providerOptions[0]?.id ?? ''
 }
-
-const createDraftRowId = () =>
-  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : `draft-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 
 export const WatchlistWidgetBody = ({
   context,
@@ -71,13 +60,11 @@ export const WatchlistWidgetBody = ({
     error,
   } = useWatchlists(workspaceId ?? undefined)
   const reorderMutation = useReorderWatchlistItems()
-  const addListingMutation = useAddWatchlistListing()
   const updateListingMutation = useUpdateWatchlistItemListing()
   const removeItemMutation = useRemoveWatchlistItem()
   const renameSectionMutation = useRenameWatchlistSection()
   const removeSectionMutation = useRemoveWatchlistSection()
   const lastRefreshAtRef = useRef<number | null>(null)
-  const [draftRows, setDraftRows] = useState<WatchlistDraftListingRow[]>([])
 
   useWatchlistParamsPersistence({
     onWidgetParamsChange,
@@ -124,33 +111,6 @@ export const WatchlistWidgetBody = ({
     })
   }, [fallbackWatchlist, panelId, selectedWatchlistId, shouldSyncFallbackWatchlistId, widgetKey])
 
-  useEffect(() => {
-    setDraftRows([])
-  }, [selectedWatchlist?.id])
-
-  useEffect(() => {
-    const handleAddDraftSymbol = (event: Event) => {
-      const detail = (event as CustomEvent<WatchlistWidgetAddDraftSymbolEventDetail>).detail
-      if (panelId && detail?.panelId && detail.panelId !== panelId) return
-      if (widgetKey && detail?.widgetKey && detail.widgetKey !== widgetKey) return
-      if (!selectedWatchlist) return
-
-      setDraftRows((current) => [...current, { id: createDraftRowId() }])
-    }
-
-    window.addEventListener(
-      WATCHLIST_WIDGET_ADD_DRAFT_SYMBOL_EVENT,
-      handleAddDraftSymbol as EventListener
-    )
-
-    return () => {
-      window.removeEventListener(
-        WATCHLIST_WIDGET_ADD_DRAFT_SYMBOL_EVENT,
-        handleAddDraftSymbol as EventListener
-      )
-    }
-  }, [panelId, selectedWatchlist, widgetKey])
-
   const quoteItems = useMemo(
     () =>
       (selectedWatchlist?.items ?? [])
@@ -180,31 +140,10 @@ export const WatchlistWidgetBody = ({
 
   const isMutating =
     reorderMutation.isPending ||
-    addListingMutation.isPending ||
     updateListingMutation.isPending ||
     removeItemMutation.isPending ||
     renameSectionMutation.isPending ||
     removeSectionMutation.isPending
-
-  const handleCancelDraftRow = (draftId: string) => {
-    setDraftRows((current) => current.filter((draft) => draft.id !== draftId))
-  }
-
-  const handleCreateDraftRowListing = async (draftId: string, listing: ListingIdentity) => {
-    if (!workspaceId || !selectedWatchlist || addListingMutation.isPending) return false
-
-    try {
-      await addListingMutation.mutateAsync({
-        workspaceId,
-        watchlistId: selectedWatchlist.id,
-        listing,
-      })
-      setDraftRows((current) => current.filter((draft) => draft.id !== draftId))
-      return true
-    } catch {
-      return false
-    }
-  }
 
   const handleUpdateItemListing = async (itemId: string, listing: ListingIdentity) => {
     if (!workspaceId || !selectedWatchlist || updateListingMutation.isPending) return false
@@ -290,9 +229,6 @@ export const WatchlistWidgetBody = ({
           watchlist={selectedWatchlist}
           quotes={quotes}
           providerId={providerId}
-          draftRows={draftRows}
-          onCreateDraftRowListing={handleCreateDraftRowListing}
-          onCancelDraftRow={handleCancelDraftRow}
           onUpdateItemListing={handleUpdateItemListing}
           onReorderItems={handleReorderItems}
           onRemoveItem={handleRemoveItem}

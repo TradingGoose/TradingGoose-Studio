@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState, type KeyboardEvent } from 'react'
 import type {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
@@ -54,19 +54,12 @@ type WatchlistTableProps = {
   watchlist: WatchlistRecord | null
   quotes: Record<string, WatchlistQuoteSnapshot>
   providerId?: string
-  draftRows: WatchlistDraftListingRow[]
-  onCreateDraftRowListing: (draftId: string, listing: ListingIdentity) => Promise<boolean> | boolean
-  onCancelDraftRow: (draftId: string) => void
   onUpdateItemListing: (itemId: string, listing: ListingIdentity) => Promise<boolean> | boolean
   onReorderItems: (orderedItemIds: string[]) => Promise<void>
   onRemoveItem: (itemId: string) => Promise<void> | void
   onRenameSection: (sectionId: string, label: string) => Promise<void> | void
   onRemoveSection: (sectionId: string) => Promise<void> | void
   isMutating?: boolean
-}
-
-export type WatchlistDraftListingRow = {
-  id: string
 }
 
 type ListingRowEntry = {
@@ -79,11 +72,6 @@ type SectionBlock = {
   section: WatchlistSectionItem
   rows: ListingRowEntry[]
 }
-
-type EditingListingTarget =
-  | { kind: 'draft'; id: string }
-  | { kind: 'listing'; id: string }
-  | null
 
 type ResolvedListingEntry = {
   identity: ListingIdentity
@@ -139,19 +127,14 @@ const stopSortableActivation = (
   event.stopPropagation()
 }
 
-const buildListingEditorInstanceId = (target: Exclude<EditingListingTarget, null>) =>
-  `watchlist-listing-editor-${target.kind}-${target.id}`
+const buildListingEditorInstanceId = (itemId: string) => `watchlist-listing-editor-${itemId}`
 
-const buildListingEditSurfaceId = (target: Exclude<EditingListingTarget, null>) =>
-  `watchlist-listing-edit-surface-${target.kind}-${target.id}`
+const buildListingEditSurfaceId = (itemId: string) => `watchlist-listing-edit-surface-${itemId}`
 
 export const WatchlistTable = ({
   watchlist,
   quotes,
   providerId,
-  draftRows,
-  onCreateDraftRowListing,
-  onCancelDraftRow,
   onUpdateItemListing,
   onReorderItems,
   onRemoveItem,
@@ -170,8 +153,7 @@ export const WatchlistTable = ({
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null)
   const [editingSectionLabel, setEditingSectionLabel] = useState('')
   const [activeRowId, setActiveRowId] = useState<string | null>(null)
-  const [editingListingTarget, setEditingListingTarget] = useState<EditingListingTarget>(null)
-  const previousDraftIdsRef = useRef<string[]>([])
+  const [editingListingId, setEditingListingId] = useState<string | null>(null)
 
   const parsedRows = useMemo(() => {
     const unsectionedRows: ListingRowEntry[] = []
@@ -261,39 +243,19 @@ export const WatchlistTable = ({
     if (!activeRowId) return
 
     const [, itemId] = activeRowId.split(':')
-    const exists =
-      (watchlist?.items.some((item) => item.id === itemId) ?? false) ||
-      draftRows.some((draft) => draft.id === itemId)
+    const exists = watchlist?.items.some((item) => item.id === itemId) ?? false
     if (!exists) {
       setActiveRowId(null)
     }
-  }, [activeRowId, draftRows, watchlist])
+  }, [activeRowId, watchlist])
 
-  const resetListingEditor = useCallback((target: Exclude<EditingListingTarget, null>) => {
-    resetListingSelectorInstance(buildListingEditorInstanceId(target))
+  const resetListingEditor = useCallback((itemId: string) => {
+    resetListingSelectorInstance(buildListingEditorInstanceId(itemId))
   }, [resetListingSelectorInstance])
-
-  const startDraftRowEdit = (draftId: string) => {
-    const target: Exclude<EditingListingTarget, null> = { kind: 'draft', id: draftId }
-    const instanceId = buildListingEditorInstanceId(target)
-    ensureListingSelectorInstance(instanceId, { providerId })
-    updateListingSelectorInstance(instanceId, {
-      providerId,
-      query: '',
-      results: [],
-      isLoading: false,
-      error: undefined,
-      selectedListingValue: null,
-      selectedListing: null,
-    })
-    setEditingListingTarget(target)
-    setActiveRowId(`draft:${draftId}`)
-  }
 
   const startListingEdit = (row: ListingRowEntry) => {
     if (isMutating) return
-    const target: Exclude<EditingListingTarget, null> = { kind: 'listing', id: row.item.id }
-    const instanceId = buildListingEditorInstanceId(target)
+    const instanceId = buildListingEditorInstanceId(row.item.id)
     ensureListingSelectorInstance(instanceId, { providerId })
     updateListingSelectorInstance(instanceId, {
       providerId,
@@ -309,87 +271,57 @@ export const WatchlistTable = ({
           : null
       ),
     })
-    setEditingListingTarget(target)
+    setEditingListingId(row.item.id)
     setActiveRowId(`listing:${row.item.id}`)
   }
 
-  const cancelListingEdit = useCallback((target: Exclude<EditingListingTarget, null>) => {
-    resetListingEditor(target)
-    setEditingListingTarget((current) =>
-      current?.kind === target.kind && current.id === target.id ? null : current
-    )
-    if (target.kind === 'draft') {
-      onCancelDraftRow(target.id)
-    }
-  }, [onCancelDraftRow, resetListingEditor])
+  const cancelListingEdit = useCallback((itemId: string) => {
+    resetListingEditor(itemId)
+    setEditingListingId((current) => (current === itemId ? null : current))
+  }, [resetListingEditor])
 
-  const commitListingSelection = async (
-    target: Exclude<EditingListingTarget, null>,
-    listingOption: ListingOption | null
-  ) => {
+  const commitListingSelection = async (itemId: string, listingOption: ListingOption | null) => {
     const listing = toListingValue(listingOption)
     if (!listing) return
 
-    const succeeded =
-      target.kind === 'draft'
-        ? await onCreateDraftRowListing(target.id, listing)
-        : await onUpdateItemListing(target.id, listing)
+    const succeeded = await onUpdateItemListing(itemId, listing)
     if (!succeeded) return
 
-    resetListingEditor(target)
-    setEditingListingTarget((current) =>
-      current?.kind === target.kind && current.id === target.id ? null : current
-    )
+    resetListingEditor(itemId)
+    setEditingListingId((current) => (current === itemId ? null : current))
   }
 
   useEffect(() => {
-    if (!editingListingTarget) return
-    updateListingSelectorInstance(buildListingEditorInstanceId(editingListingTarget), { providerId })
-  }, [editingListingTarget, providerId, updateListingSelectorInstance])
+    if (!editingListingId) return
+    updateListingSelectorInstance(buildListingEditorInstanceId(editingListingId), { providerId })
+  }, [editingListingId, providerId, updateListingSelectorInstance])
 
   useEffect(() => {
-    const previousDraftIds = previousDraftIdsRef.current
-    const nextDraftIds = draftRows.map((draft) => draft.id)
-    const newlyAddedDraftId = nextDraftIds.find((id) => !previousDraftIds.includes(id))
-    previousDraftIdsRef.current = nextDraftIds
-
-    if (!newlyAddedDraftId) return
-    startDraftRowEdit(newlyAddedDraftId)
-  }, [draftRows, providerId])
+    if (!editingListingId) return
+    if (watchlist?.items.some((item) => item.id === editingListingId)) return
+    setEditingListingId(null)
+  }, [editingListingId, watchlist])
 
   useEffect(() => {
-    if (!editingListingTarget) return
+    if (!editingListingId || isMutating) return
 
-    if (editingListingTarget.kind === 'draft') {
-      if (draftRows.some((draft) => draft.id === editingListingTarget.id)) return
-      setEditingListingTarget(null)
-      return
-    }
-
-    if (watchlist?.items.some((item) => item.id === editingListingTarget.id)) return
-    setEditingListingTarget(null)
-  }, [draftRows, editingListingTarget, watchlist])
-
-  useEffect(() => {
-    if (!editingListingTarget || isMutating) return
-
-    const activeSurfaceId = buildListingEditSurfaceId(editingListingTarget)
-    const activeSelectorId = buildListingEditorInstanceId(editingListingTarget)
+    const activeSurfaceId = buildListingEditSurfaceId(editingListingId)
+    const activeSelectorId = buildListingEditorInstanceId(editingListingId)
     const handlePointerDown = (event: PointerEvent) => {
       const target = event.target
       if (!(target instanceof Element)) return
       if (target.closest(`[data-watchlist-listing-edit-surface="${activeSurfaceId}"]`)) return
       if (target.closest(`[data-market-selector-id="${activeSelectorId}"]`)) return
-      cancelListingEdit(editingListingTarget)
+      cancelListingEdit(editingListingId)
     }
 
     document.addEventListener('pointerdown', handlePointerDown, true)
     return () => {
       document.removeEventListener('pointerdown', handlePointerDown, true)
     }
-  }, [cancelListingEdit, editingListingTarget, isMutating])
+  }, [cancelListingEdit, editingListingId, isMutating])
 
-  const hasAnyItem = (watchlist?.items.length ?? 0) + draftRows.length > 0
+  const hasAnyItem = (watchlist?.items.length ?? 0) > 0
   const hasSections = parsedRows.sections.length > 0
   const dragEnabled = !isMutating
   const sortableIds = useMemo(() => {
@@ -517,29 +449,26 @@ export const WatchlistTable = ({
     )
   }
 
-  const renderListingEditor = (
-    target: Exclude<EditingListingTarget, null>,
-    nested = false
-  ) => {
-    const instanceId = buildListingEditorInstanceId(target)
+  const renderListingEditor = (itemId: string) => {
+    const instanceId = buildListingEditorInstanceId(itemId)
 
     return (
-      <div className={cn('relative z-20 flex items-center bg-background', nested && 'pl-6')}>
+      <div className='relative z-20 flex items-center bg-background'>
         <StockSelector
           instanceId={instanceId}
           providerType='market'
           disabled={isMutating}
-          activateOnMount={target.kind === 'listing'}
+          activateOnMount
           className='min-w-0 flex-1 [&>div>button]:h-6 [&>div>button]:w-6 [&>div>input]:h-9 [&>div>input]:rounded-sm [&>div>input]:pr-9 [&>div>input]:text-xs'
           onListingChange={(listing) => {
-            void commitListingSelection(target, listing)
+            void commitListingSelection(itemId, listing)
           }}
         />
       </div>
     )
   }
 
-  const renderListingRow = (row: ListingRowEntry, nested = false) => {
+  const renderListingRow = (row: ListingRowEntry) => {
     const quote = quotes[row.itemId]
     const resolved =
       resolvedByItemId[row.itemId] &&
@@ -554,10 +483,8 @@ export const WatchlistTable = ({
     const isDropBefore = dropTarget?.type === 'before' && dropTarget.itemId === row.item.id
     const sortableId = createWatchlistListingSortableId(row.item.id)
     const isSelected = activeRowId === `listing:${row.item.id}`
-    const isEditing =
-      editingListingTarget?.kind === 'listing' && editingListingTarget.id === row.item.id
-    const editingTarget = isEditing ? editingListingTarget : null
-    const editSurfaceId = editingTarget ? buildListingEditSurfaceId(editingTarget) : undefined
+    const isEditing = editingListingId === row.item.id
+    const editSurfaceId = isEditing ? buildListingEditSurfaceId(row.item.id) : undefined
 
     return (
       <SortableItem
@@ -581,10 +508,10 @@ export const WatchlistTable = ({
           onClick={() => setActiveRowId(`listing:${row.item.id}`)}
         >
           <td className={cn('p-3 align-middle', isEditing && 'relative z-20 overflow-visible')}>
-            {editingTarget ? (
-              renderListingEditor(editingTarget, nested)
+            {isEditing ? (
+              renderListingEditor(row.item.id)
             ) : (
-              <div className={cn('flex items-center', nested && 'pl-6')}>
+              <div className='flex items-center'>
                 <MarketListingRow listing={listing} className='w-full pl-1' />
               </div>
             )}
@@ -616,7 +543,7 @@ export const WatchlistTable = ({
                   : 'pointer-events-none opacity-0 transition-opacity group-hover/listing:pointer-events-auto group-hover/listing:opacity-100 group-focus-within/listing:pointer-events-auto group-focus-within/listing:opacity-100'
               )}
             >
-              {editingTarget ? (
+              {isEditing ? (
                 <Button
                   type='button'
                   variant='ghost'
@@ -627,7 +554,7 @@ export const WatchlistTable = ({
                   onTouchStart={stopSortableActivation}
                   onClick={(event) => {
                     event.stopPropagation()
-                    cancelListingEdit(editingTarget)
+                    cancelListingEdit(row.item.id)
                   }}
                   disabled={isMutating}
                 >
@@ -663,8 +590,8 @@ export const WatchlistTable = ({
                 onTouchStart={stopSortableActivation}
                 onClick={(event) => {
                   event.stopPropagation()
-                  if (editingTarget) {
-                    cancelListingEdit(editingTarget)
+                  if (isEditing) {
+                    cancelListingEdit(row.item.id)
                   }
                   setListingToDelete({ id: row.item.id, label: listingLabel })
                 }}
@@ -677,73 +604,6 @@ export const WatchlistTable = ({
           </td>
         </tr>
       </SortableItem>
-    )
-  }
-
-  const renderDraftRow = (draftRow: WatchlistDraftListingRow) => {
-    const isSelected = activeRowId === `draft:${draftRow.id}`
-    const isEditing =
-      editingListingTarget?.kind === 'draft' && editingListingTarget.id === draftRow.id
-    const editingTarget = isEditing ? editingListingTarget : null
-    const editSurfaceId = editingTarget ? buildListingEditSurfaceId(editingTarget) : undefined
-
-    return (
-      <tr
-        key={draftRow.id}
-        data-watchlist-listing-edit-surface={editSurfaceId}
-        className={cn(
-          'group/listing border-b bg-background transition-colors',
-          isEditing && 'relative z-20',
-          isSelected ? 'bg-accent' : 'hover:bg-accent/20'
-        )}
-        onClick={() => {
-          setActiveRowId(`draft:${draftRow.id}`)
-          if (!editingTarget) {
-            startDraftRowEdit(draftRow.id)
-          }
-        }}
-      >
-        <td className={cn('p-3 align-middle', isEditing && 'relative z-20 overflow-visible')}>
-          {editingTarget ? (
-            renderListingEditor(editingTarget)
-          ) : (
-            <span className='pl-1 text-muted-foreground text-sm'>Select listing</span>
-          )}
-        </td>
-        <td className='p-3 text-center align-middle'>
-          <span className='text-muted-foreground text-sm'>-</span>
-        </td>
-        <td className='p-3 text-center align-middle'>
-          <span className='text-muted-foreground text-sm'>-</span>
-        </td>
-        <td className='p-3 text-center align-middle'>
-          <span className='text-muted-foreground text-sm'>-</span>
-        </td>
-        <td className='p-3 text-center align-middle'>
-          <span className='text-muted-foreground text-sm'>-</span>
-        </td>
-        <td className='p-3 text-center align-middle'>
-          <div className='flex items-center justify-center gap-1 opacity-100'>
-            <Button
-              type='button'
-              variant='ghost'
-              size='icon'
-              className='h-8 w-8 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
-              onPointerDownCapture={stopSortableActivation}
-              onMouseDown={stopSortableActivation}
-              onTouchStart={stopSortableActivation}
-              onClick={(event) => {
-                event.stopPropagation()
-                cancelListingEdit({ kind: 'draft', id: draftRow.id })
-              }}
-              disabled={isMutating}
-            >
-              <Trash2 className='!h-3.5 !w-3.5' />
-              <span className='sr-only'>Remove draft symbol</span>
-            </Button>
-          </div>
-        </td>
-      </tr>
     )
   }
 
@@ -803,7 +663,6 @@ export const WatchlistTable = ({
                 ) : null}
 
                 {parsedRows.unsectionedRows.map((row) => renderListingRow(row))}
-                {draftRows.map((draftRow) => renderDraftRow(draftRow))}
 
                 {parsedRows.sections.map((section) => {
                   const isExpanded = expandedSections[section.section.id] ?? true
@@ -938,7 +797,7 @@ export const WatchlistTable = ({
                         </tr>
                       </SortableItem>
 
-                      {isExpanded ? section.rows.map((row) => renderListingRow(row, true)) : null}
+                      {isExpanded ? section.rows.map((row) => renderListingRow(row)) : null}
                     </Fragment>
                   )
                 })}
