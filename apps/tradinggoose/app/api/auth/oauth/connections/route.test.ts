@@ -104,7 +104,7 @@ describe('OAuth Connections API Route', () => {
     expect(data.connections[0]).toMatchObject({
       provider: 'google-email',
       baseProvider: 'google',
-      featureType: 'email',
+      featureType: 'gmail',
       isConnected: true,
     })
     expect(data.connections[1]).toMatchObject({

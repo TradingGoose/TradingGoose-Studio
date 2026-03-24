@@ -34,6 +34,7 @@ export function Integrations() {
     const [isConnecting, setIsConnecting] = useState<string | null>(null)
     const [pendingService, setPendingService] = useState<string | null>(null)
     const [authSuccess, setAuthSuccess] = useState(false)
+    const [authError, setAuthError] = useState<string | null>(null)
     const [showActionRequired, setShowActionRequired] = useState(false)
     const [providerAvailability, setProviderAvailability] = useState<Record<string, boolean>>({})
     const [availabilityLoaded, setAvailabilityLoaded] = useState(false)
@@ -85,9 +86,11 @@ export function Integrations() {
         const code = searchParams.get('code')
         const state = searchParams.get('state')
         const error = searchParams.get('error')
+        const errorDescription = searchParams.get('error_description')
 
         // Handle OAuth callback
         if (code && state) {
+            setAuthError(null)
             // This is an OAuth callback - try to restore state from localStorage
             try {
                 const stored = localStorage.getItem('pending_oauth_state')
@@ -120,7 +123,9 @@ export function Integrations() {
             // Clear the URL parameters
             router.replace(`/workspace/${workspaceId}/integrations`)
         } else if (error) {
-            logger.error('OAuth error:', { error })
+            const message = errorDescription || 'Account connection failed. Please try again.'
+            logger.error('OAuth error:', { error, errorDescription })
+            setAuthError(message)
             router.replace(`/workspace/${workspaceId}/integrations`)
         }
     }, [searchParams, router, workspaceId, refetch])
@@ -265,6 +270,14 @@ export function Integrations() {
                                                     </p>
                                                 </div>
                                             </div>
+                                        </div>
+                                    )}
+
+                                    {authError && (
+                                        <div className='rounded-sm border border-red-200 bg-red-50 p-4'>
+                                            <p className='font-medium text-red-800 text-sm'>
+                                                {authError}
+                                            </p>
                                         </div>
                                     )}
 

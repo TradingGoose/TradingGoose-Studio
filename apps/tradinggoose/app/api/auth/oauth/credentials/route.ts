@@ -5,8 +5,12 @@ import { jwtDecode } from 'jwt-decode'
 import { type NextRequest, NextResponse } from 'next/server'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
-import type { OAuthService } from '@/lib/oauth/oauth'
-import { parseProvider } from '@/lib/oauth/oauth'
+import {
+  OAUTH_PROVIDERS,
+  type OAuthProvider,
+  type OAuthService,
+  parseProvider,
+} from '@/lib/oauth'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 
@@ -18,6 +22,33 @@ interface GoogleIdToken {
   email?: string
   sub?: string
   name?: string
+}
+
+function toCredentialResponse(
+  acc: {
+    id: string
+    userId: string
+    providerId: string
+    accountId: string
+    updatedAt: Date
+    idToken: string | null
+    scope: string | null
+  },
+  displayName: string
+) {
+  const storedScope = acc.scope?.trim()
+  const scopes = storedScope ? storedScope.split(/[\s,]+/).filter(Boolean) : []
+  const { baseProvider, featureType } = parseProvider(acc.providerId as OAuthProvider)
+  const isDefault = OAUTH_PROVIDERS[baseProvider]?.defaultService === featureType
+
+  return {
+    id: acc.id,
+    name: displayName,
+    provider: acc.providerId,
+    lastUsed: acc.updatedAt.toISOString(),
+    isDefault,
+    scopes,
+  }
 }
 
 /**
@@ -89,9 +120,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Provider or credentialId is required' }, { status: 400 })
     }
 
-    // Parse the provider to get base provider and feature type (if provider is present)
-    const { baseProvider } = parseProvider(providerParam || 'google-default')
-
     let accountsData
 
     if (credentialId) {
@@ -117,8 +145,7 @@ export async function GET(request: NextRequest) {
     // Transform accounts into credentials
     const credentials = await Promise.all(
       accountsData.map(async (acc) => {
-        // Extract the feature type from providerId (e.g., 'google-default' -> 'default')
-        const [_, featureType = 'default'] = acc.providerId.split('-')
+        const { baseProvider } = parseProvider(acc.providerId as OAuthProvider)
 
         // Try multiple methods to get a user-friendly display name
         let displayName = ''
@@ -168,13 +195,7 @@ export async function GET(request: NextRequest) {
           displayName = `${acc.accountId} (${baseProvider})`
         }
 
-        return {
-          id: acc.id,
-          name: displayName,
-          provider: acc.providerId,
-          lastUsed: acc.updatedAt.toISOString(),
-          isDefault: featureType === 'default',
-        }
+        return toCredentialResponse(acc, displayName)
       })
     )
 

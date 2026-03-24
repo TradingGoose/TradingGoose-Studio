@@ -4,6 +4,8 @@ import { jwtDecode } from 'jwt-decode'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import type { OAuthProvider } from '@/lib/oauth'
+import { parseProvider } from '@/lib/oauth'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('OAuthConnectionsAPI')
@@ -46,10 +48,10 @@ export async function GET(request: NextRequest) {
     const connections: any[] = []
 
     for (const acc of accounts) {
-      // Extract the base provider and feature type from providerId (e.g., 'google-email' -> 'google', 'email')
-      const [provider, featureType = 'default'] = acc.providerId.split('-')
+      const { baseProvider, featureType } = parseProvider(acc.providerId as OAuthProvider)
+      const scopes = acc.scope ? acc.scope.split(/\s+/).filter(Boolean) : []
 
-      if (provider) {
+      if (baseProvider) {
         // Try multiple methods to get a user-friendly display name
         let displayName = ''
 
@@ -70,7 +72,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Method 2: For GitHub, the accountId might be the username
-        if (!displayName && provider === 'github') {
+        if (!displayName && baseProvider === 'github') {
           displayName = `${acc.accountId} (GitHub)`
         }
 
@@ -81,7 +83,7 @@ export async function GET(request: NextRequest) {
 
         // Fallback: Use accountId with provider type as context
         if (!displayName) {
-          displayName = `${acc.accountId} (${provider})`
+          displayName = `${acc.accountId} (${baseProvider})`
         }
 
         // Create a unique connection key that includes the full provider ID
@@ -90,28 +92,37 @@ export async function GET(request: NextRequest) {
         // Find existing connection for this specific provider ID
         const existingConnection = connections.find((conn) => conn.provider === connectionKey)
 
+        const accountSummary = {
+          id: acc.id,
+          name: displayName,
+        }
+
         if (existingConnection) {
           // Add account to existing connection
           existingConnection.accounts = existingConnection.accounts || []
-          existingConnection.accounts.push({
-            id: acc.id,
-            name: displayName,
-          })
+          existingConnection.accounts.push(accountSummary)
+          existingConnection.scopes = Array.from(
+            new Set([...(existingConnection.scopes || []), ...scopes])
+          )
+
+          const existingTimestamp = existingConnection.lastConnected
+            ? new Date(existingConnection.lastConnected).getTime()
+            : 0
+          const candidateTimestamp = acc.updatedAt.getTime()
+
+          if (candidateTimestamp > existingTimestamp) {
+            existingConnection.lastConnected = acc.updatedAt.toISOString()
+          }
         } else {
           // Create new connection
           connections.push({
             provider: connectionKey,
-            baseProvider: provider,
+            baseProvider,
             featureType,
             isConnected: true,
-            scopes: acc.scope ? acc.scope.split(' ') : [],
+            scopes,
             lastConnected: acc.updatedAt.toISOString(),
-            accounts: [
-              {
-                id: acc.id,
-                name: displayName,
-              },
-            ],
+            accounts: [accountSummary],
           })
         }
       }

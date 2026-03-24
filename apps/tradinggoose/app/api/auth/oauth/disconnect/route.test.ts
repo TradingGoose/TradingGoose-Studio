@@ -37,7 +37,7 @@ describe('OAuth Disconnect API Route', () => {
     }))
 
     vi.doMock('@tradinggoose/db/schema', () => ({
-      account: { userId: 'userId', providerId: 'providerId' },
+      account: { id: 'id', userId: 'userId', providerId: 'providerId' },
     }))
 
     vi.doMock('drizzle-orm', () => ({
@@ -89,6 +89,29 @@ describe('OAuth Disconnect API Route', () => {
     const req = createMockRequest('POST', {
       provider: 'google',
       providerId: 'google-email',
+    })
+
+    const { POST } = await import('@/app/api/auth/oauth/disconnect/route')
+
+    const response = await POST(req)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(mockLogger.info).toHaveBeenCalled()
+  })
+
+  it('should disconnect a specific account row successfully', async () => {
+    mockGetSession.mockResolvedValueOnce({
+      user: { id: 'user-123' },
+    })
+
+    mockDb.delete.mockReturnValueOnce(mockDb)
+    mockDb.where.mockResolvedValueOnce(undefined)
+
+    const req = createMockRequest('POST', {
+      provider: 'google',
+      accountId: 'account-123',
     })
 
     const { POST } = await import('@/app/api/auth/oauth/disconnect/route')

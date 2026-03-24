@@ -8,7 +8,8 @@ import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('OAuth Credentials API Route', () => {
-  const mockGetSession = vi.fn()
+  const mockCheckHybridAuth = vi.fn()
+  const mockGetUserEntityPermissions = vi.fn()
   const mockParseProvider = vi.fn()
   const mockDb = {
     select: vi.fn().mockReturnThis(),
@@ -37,12 +38,32 @@ describe('OAuth Credentials API Route', () => {
       randomUUID: vi.fn().mockReturnValue(mockUUID),
     })
 
-    vi.doMock('@/lib/auth', () => ({
-      getSession: mockGetSession,
+    mockParseProvider.mockImplementation((providerId: string) => {
+      switch (providerId) {
+        case 'google-email':
+          return { baseProvider: 'google', featureType: 'gmail' }
+        case 'google-drive':
+          return { baseProvider: 'google', featureType: 'google-drive' }
+        case 'google':
+          return { baseProvider: 'google', featureType: 'default' }
+        default:
+          return { baseProvider: providerId.split('-')[0], featureType: 'default' }
+      }
+    })
+
+    vi.doMock('@/lib/auth/hybrid', () => ({
+      checkHybridAuth: mockCheckHybridAuth,
+    }))
+
+    vi.doMock('@/lib/permissions/utils', () => ({
+      getUserEntityPermissions: mockGetUserEntityPermissions,
     }))
 
     vi.doMock('@/lib/oauth', () => ({
       parseProvider: mockParseProvider,
+      OAUTH_PROVIDERS: {
+        google: { defaultService: 'gmail' },
+      },
     }))
 
     vi.doMock('@tradinggoose/db', () => ({
@@ -50,8 +71,9 @@ describe('OAuth Credentials API Route', () => {
     }))
 
     vi.doMock('@tradinggoose/db/schema', () => ({
-      account: { userId: 'userId', providerId: 'providerId' },
+      account: { id: 'id', userId: 'userId', providerId: 'providerId' },
       user: { email: 'email', id: 'id' },
+      workflow: { id: 'id', userId: 'userId', workspaceId: 'workspaceId' },
     }))
 
     vi.doMock('drizzle-orm', () => ({
@@ -73,12 +95,10 @@ describe('OAuth Credentials API Route', () => {
   })
 
   it('should return credentials successfully', async () => {
-    mockGetSession.mockResolvedValueOnce({
-      user: { id: 'user-123' },
-    })
-
-    mockParseProvider.mockReturnValueOnce({
-      baseProvider: 'google',
+    mockCheckHybridAuth.mockResolvedValueOnce({
+      success: true,
+      authType: 'session',
+      userId: 'user-123',
     })
 
     const mockAccounts = [
@@ -89,28 +109,24 @@ describe('OAuth Credentials API Route', () => {
         accountId: 'test@example.com',
         updatedAt: new Date('2024-01-01'),
         idToken: null,
+        scope: null,
       },
       {
         id: 'credential-2',
         userId: 'user-123',
-        providerId: 'google-default',
-        accountId: 'user-id',
+        providerId: 'google-drive',
+        accountId: 'drive-user-id',
         updatedAt: new Date('2024-01-02'),
         idToken: null,
+        scope: 'https://www.googleapis.com/auth/drive.file',
       },
     ]
 
-    mockDb.select.mockReturnValueOnce(mockDb)
-    mockDb.from.mockReturnValueOnce(mockDb)
     mockDb.where.mockResolvedValueOnce(mockAccounts)
-
-    mockDb.select.mockReturnValueOnce(mockDb)
-    mockDb.from.mockReturnValueOnce(mockDb)
-    mockDb.where.mockReturnValueOnce(mockDb)
+    mockDb.limit.mockResolvedValueOnce([{ email: 'user@example.com' }])
     mockDb.limit.mockResolvedValueOnce([{ email: 'user@example.com' }])
 
     const req = createMockRequestWithQuery('GET', '?provider=google-email')
-
     const { GET } = await import('@/app/api/auth/oauth/credentials/route')
 
     const response = await GET(req)
@@ -121,20 +137,24 @@ describe('OAuth Credentials API Route', () => {
     expect(data.credentials[0]).toMatchObject({
       id: 'credential-1',
       provider: 'google-email',
-      isDefault: false,
+      isDefault: true,
+      scopes: [],
     })
     expect(data.credentials[1]).toMatchObject({
       id: 'credential-2',
-      provider: 'google-default',
-      isDefault: true,
+      provider: 'google-drive',
+      isDefault: false,
+      scopes: ['https://www.googleapis.com/auth/drive.file'],
     })
   })
 
   it('should handle unauthenticated user', async () => {
-    mockGetSession.mockResolvedValueOnce(null)
+    mockCheckHybridAuth.mockResolvedValueOnce({
+      success: false,
+      error: 'User not authenticated',
+    })
 
     const req = createMockRequestWithQuery('GET', '?provider=google')
-
     const { GET } = await import('@/app/api/auth/oauth/credentials/route')
 
     const response = await GET(req)
@@ -146,12 +166,13 @@ describe('OAuth Credentials API Route', () => {
   })
 
   it('should handle missing provider parameter', async () => {
-    mockGetSession.mockResolvedValueOnce({
-      user: { id: 'user-123' },
+    mockCheckHybridAuth.mockResolvedValueOnce({
+      success: true,
+      authType: 'session',
+      userId: 'user-123',
     })
 
     const req = createMockRequestWithQuery('GET')
-
     const { GET } = await import('@/app/api/auth/oauth/credentials/route')
 
     const response = await GET(req)
@@ -163,20 +184,15 @@ describe('OAuth Credentials API Route', () => {
   })
 
   it('should handle no credentials found', async () => {
-    mockGetSession.mockResolvedValueOnce({
-      user: { id: 'user-123' },
+    mockCheckHybridAuth.mockResolvedValueOnce({
+      success: true,
+      authType: 'session',
+      userId: 'user-123',
     })
 
-    mockParseProvider.mockReturnValueOnce({
-      baseProvider: 'github',
-    })
-
-    mockDb.select.mockReturnValueOnce(mockDb)
-    mockDb.from.mockReturnValueOnce(mockDb)
     mockDb.where.mockResolvedValueOnce([])
 
     const req = createMockRequestWithQuery('GET', '?provider=github')
-
     const { GET } = await import('@/app/api/auth/oauth/credentials/route')
 
     const response = await GET(req)
@@ -190,36 +206,30 @@ describe('OAuth Credentials API Route', () => {
     const { jwtDecode } = await import('jwt-decode')
     const mockJwtDecode = jwtDecode as any
 
-    mockGetSession.mockResolvedValueOnce({
-      user: { id: 'user-123' },
+    mockCheckHybridAuth.mockResolvedValueOnce({
+      success: true,
+      authType: 'session',
+      userId: 'user-123',
     })
 
-    mockParseProvider.mockReturnValueOnce({
-      baseProvider: 'google',
-    })
-
-    const mockAccounts = [
+    mockDb.where.mockResolvedValueOnce([
       {
         id: 'credential-1',
         userId: 'user-123',
-        providerId: 'google-default',
+        providerId: 'google-email',
         accountId: 'google-user-id',
         updatedAt: new Date('2024-01-01'),
         idToken: 'mock-jwt-token',
+        scope: 'email profile',
       },
-    ]
+    ])
 
     mockJwtDecode.mockReturnValueOnce({
       email: 'decoded@example.com',
       name: 'Decoded User',
     })
 
-    mockDb.select.mockReturnValueOnce(mockDb)
-    mockDb.from.mockReturnValueOnce(mockDb)
-    mockDb.where.mockResolvedValueOnce(mockAccounts)
-
     const req = createMockRequestWithQuery('GET', '?provider=google')
-
     const { GET } = await import('@/app/api/auth/oauth/credentials/route')
 
     const response = await GET(req)
@@ -230,20 +240,15 @@ describe('OAuth Credentials API Route', () => {
   })
 
   it('should handle database error', async () => {
-    mockGetSession.mockResolvedValueOnce({
-      user: { id: 'user-123' },
+    mockCheckHybridAuth.mockResolvedValueOnce({
+      success: true,
+      authType: 'session',
+      userId: 'user-123',
     })
 
-    mockParseProvider.mockReturnValueOnce({
-      baseProvider: 'google',
-    })
-
-    mockDb.select.mockReturnValueOnce(mockDb)
-    mockDb.from.mockReturnValueOnce(mockDb)
     mockDb.where.mockRejectedValueOnce(new Error('Database error'))
 
     const req = createMockRequestWithQuery('GET', '?provider=google')
-
     const { GET } = await import('@/app/api/auth/oauth/credentials/route')
 
     const response = await GET(req)

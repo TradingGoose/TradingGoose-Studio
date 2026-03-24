@@ -138,6 +138,7 @@ export function useConnectOAuthService() {
       await client.oauth2.link({
         providerId,
         callbackURL,
+        errorCallbackURL: callbackURL,
       })
 
       return { success: true }

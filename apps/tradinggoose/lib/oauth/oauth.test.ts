@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest'
 
-vi.mock('@/lib/env', () => ({
-  env: {
+const { mockEnv } = vi.hoisted(() => ({
+  mockEnv: {
     GOOGLE_CLIENT_ID: 'google_client_id',
     GOOGLE_CLIENT_SECRET: 'google_client_secret',
     GITHUB_CLIENT_ID: 'github_client_id',
@@ -28,7 +28,12 @@ vi.mock('@/lib/env', () => ({
     SLACK_CLIENT_SECRET: 'slack_client_secret',
     REDDIT_CLIENT_ID: 'reddit_client_id',
     REDDIT_CLIENT_SECRET: 'reddit_client_secret',
-  },
+  } as Record<string, string | undefined>,
+}))
+
+vi.mock('@/lib/env', () => ({
+  env: mockEnv,
+  getEnv: (key: string) => mockEnv[key],
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -43,7 +48,38 @@ vi.mock('@/lib/logs/console/logger', () => ({
 const mockFetch = vi.fn()
 global.fetch = mockFetch
 
-import { refreshOAuthToken } from '@/lib/oauth/oauth'
+import { getOAuthProviderAvailability, refreshOAuthToken } from '@/lib/oauth/oauth'
+
+describe('OAuth Provider Availability', () => {
+  beforeEach(() => {
+    delete mockEnv.GITHUB_REPO_CLIENT_ID
+    delete mockEnv.GITHUB_REPO_CLIENT_SECRET
+  })
+
+  it('requires direct credentials for integrations with their own OAuth app', () => {
+    expect(getOAuthProviderAvailability(['github-repo'])).toEqual({
+      'github-repo': false,
+    })
+
+    mockEnv.GITHUB_REPO_CLIENT_ID = 'github_repo_client_id'
+    mockEnv.GITHUB_REPO_CLIENT_SECRET = 'github_repo_client_secret'
+
+    expect(getOAuthProviderAvailability(['github-repo'])).toEqual({
+      'github-repo': true,
+    })
+  })
+
+  it('uses shared credential groups for multi-service providers', () => {
+    expect(
+      getOAuthProviderAvailability(['google-email', 'google-drive', 'microsoft-excel', 'outlook'])
+    ).toEqual({
+      'google-email': true,
+      'google-drive': true,
+      'microsoft-excel': true,
+      outlook: true,
+    })
+  })
+})
 
 describe('OAuth Token Refresh', () => {
   beforeEach(() => {
@@ -159,7 +195,6 @@ describe('OAuth Token Refresh', () => {
         providerId: 'supabase',
         endpoint: 'https://api.supabase.com/v1/oauth/token',
       },
-      { name: 'Notion', providerId: 'notion', endpoint: 'https://api.notion.com/v1/oauth/token' },
       { name: 'Slack', providerId: 'slack', endpoint: 'https://slack.com/api/oauth.v2.access' },
     ]
 
@@ -211,6 +246,44 @@ describe('OAuth Token Refresh', () => {
 
       const [, requestOptions] = (mockFetch as Mock).mock.calls[0]
       expect(requestOptions.headers.Accept).toBe('application/json')
+    })
+
+    it('should resolve service provider IDs to their base provider config', async () => {
+      const refreshToken = 'test_refresh_token'
+
+      await refreshOAuthToken('microsoft-teams', refreshToken)
+
+      const [, requestOptions] = (mockFetch as Mock).mock.calls[0]
+      const bodyParams = new URLSearchParams(requestOptions.body)
+
+      expect(bodyParams.get('client_id')).toBe('microsoft_client_id')
+      expect(bodyParams.get('client_secret')).toBe('microsoft_client_secret')
+    })
+
+    it('should send Notion refresh requests as JSON with Basic Auth', async () => {
+      const refreshToken = 'test_refresh_token'
+
+      await refreshOAuthToken('notion', refreshToken)
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.notion.com/v1/oauth/token',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            Authorization: expect.stringMatching(/^Basic /),
+          }),
+          body: expect.any(String),
+        })
+      )
+
+      const [, requestOptions] = (mockFetch as Mock).mock.calls[0]
+      const body = JSON.parse(requestOptions.body)
+
+      expect(body).toEqual({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+      })
     })
   })
 
