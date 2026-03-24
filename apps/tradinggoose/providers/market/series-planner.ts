@@ -123,7 +123,7 @@ const normalizeWindow = (
   if (window.mode === 'absolute') {
     const startMs = toEpochMs(window.start)
     const endMs = toEpochMs(window.end) ?? Date.now()
-    if (!startMs || !Number.isFinite(endMs)) return null
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null
     if (startMs >= endMs) return null
 
     let resolvedStart = startMs
