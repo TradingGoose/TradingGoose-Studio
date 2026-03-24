@@ -11,6 +11,8 @@ export type PairColorContext = {
   copilotChatId?: string | null
   indicatorId?: string | null
   pineIndicatorId?: string | null
+  mcpServerId?: string | null
+  customToolId?: string | null
 }
 
 interface PairStoreState {

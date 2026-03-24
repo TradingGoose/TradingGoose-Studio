@@ -271,7 +271,7 @@ export const ToolArgSchemas = {
       .string()
       .optional()
       .describe(
-        'Required for edit and delete operations. The database ID of the MCP server. Use the MCP settings panel or API to get server IDs.'
+        'Required for edit and delete operations. The database ID of the MCP server. Use the MCP dashboard widgets or API to get server IDs.'
       ),
     config: z
       .object({

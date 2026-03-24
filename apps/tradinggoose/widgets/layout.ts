@@ -17,6 +17,8 @@ export type PersistedColorPair = {
   copilotChatId?: string | null
   indicatorId?: string | null
   pineIndicatorId?: string | null
+  mcpServerId?: string | null
+  customToolId?: string | null
 }
 
 export type PersistedColorPairsState = {
@@ -166,6 +168,16 @@ export function normalizeColorPairsState(state?: unknown): PersistedColorPairsSt
       ((raw as { pineIndicatorId?: unknown }).pineIndicatorId as string).trim().length > 0
         ? ((raw as { pineIndicatorId?: unknown }).pineIndicatorId as string)
         : null
+    const mcpServerId =
+      typeof (raw as { mcpServerId?: unknown }).mcpServerId === 'string' &&
+      ((raw as { mcpServerId?: unknown }).mcpServerId as string).trim().length > 0
+        ? ((raw as { mcpServerId?: unknown }).mcpServerId as string)
+        : null
+    const customToolId =
+      typeof (raw as { customToolId?: unknown }).customToolId === 'string' &&
+      ((raw as { customToolId?: unknown }).customToolId as string).trim().length > 0
+        ? ((raw as { customToolId?: unknown }).customToolId as string)
+        : null
 
     normalized.push({
       color: rawColor,
@@ -174,6 +186,8 @@ export function normalizeColorPairsState(state?: unknown): PersistedColorPairsSt
       copilotChatId,
       indicatorId,
       pineIndicatorId,
+      mcpServerId,
+      customToolId,
     })
     seen.add(rawColor)
   }
