@@ -482,7 +482,7 @@ export function DashboardClient({
           id: block.type,
           name: block.name,
           icon: block.icon,
-          bgColor: block.bgColor && block.bgColor.trim() ? block.bgColor : undefined,
+          bgColor: block.bgColor?.trim() ? block.bgColor : undefined,
           href: block.docsLink!,
         }))
       )
