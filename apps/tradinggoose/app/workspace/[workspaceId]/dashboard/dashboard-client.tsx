@@ -1109,6 +1109,7 @@ function applyPairDataToWidget(
   const pineIndicatorId = pairData.pineIndicatorId ?? null
   const mcpServerId = pairData.mcpServerId ?? null
   const customToolId = pairData.customToolId ?? null
+  const skillId = pairData.skillId ?? null
   const hasPairData =
     workflowId != null ||
     listing != null ||
@@ -1116,7 +1117,8 @@ function applyPairDataToWidget(
     indicatorId != null ||
     pineIndicatorId != null ||
     mcpServerId != null ||
-    customToolId != null
+    customToolId != null ||
+    skillId != null
   const hasPairParams =
     'workflowId' in baseParams ||
     'listing' in baseParams ||
@@ -1124,7 +1126,8 @@ function applyPairDataToWidget(
     'indicatorId' in baseParams ||
     'pineIndicatorId' in baseParams ||
     'mcpServerId' in baseParams ||
-    'customToolId' in baseParams
+    'customToolId' in baseParams ||
+    'skillId' in baseParams
 
   if (!hasPairData && !hasPairParams) {
     return widget
@@ -1165,6 +1168,11 @@ function applyPairDataToWidget(
   } else {
     baseParams.customToolId = customToolId
   }
+  if (skillId == null) {
+    baseParams.skillId = undefined
+  } else {
+    baseParams.skillId = skillId
+  }
 
   const nextParams = Object.keys(baseParams).length > 0 ? baseParams : null
 
@@ -1198,6 +1206,7 @@ function hydratePairStoreFromColorPairs(colorPairs: PersistedColorPairsState) {
       pineIndicatorId: pair.pineIndicatorId ?? null,
       mcpServerId: pair.mcpServerId ?? null,
       customToolId: pair.customToolId ?? null,
+      skillId: pair.skillId ?? null,
       updatedAt: now,
     }
   }
@@ -1238,6 +1247,10 @@ function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState 
       typeof context?.customToolId === 'string' && context.customToolId.trim().length > 0
         ? context.customToolId
         : null
+    const skillId =
+      typeof context?.skillId === 'string' && context.skillId.trim().length > 0
+        ? context.skillId
+        : null
 
     pairs.push({
       color,
@@ -1248,6 +1261,7 @@ function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState 
       pineIndicatorId,
       mcpServerId,
       customToolId,
+      skillId,
     })
   })
 
@@ -1265,7 +1279,8 @@ function hasLinkedColorPairs(colorPairs?: PersistedColorPairsState): boolean {
         pair.indicatorId ||
         pair.pineIndicatorId ||
         pair.mcpServerId ||
-        pair.customToolId)
+        pair.customToolId ||
+        pair.skillId)
   )
 }
 

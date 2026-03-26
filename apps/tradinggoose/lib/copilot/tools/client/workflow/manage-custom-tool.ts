@@ -1,12 +1,12 @@
-import { createLogger } from '@/lib/logs/console/logger'
 import { Check, Loader2, Plus, X, XCircle } from 'lucide-react'
 import {
   BaseClientTool,
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
-import { useCustomToolsStore } from '@/stores/custom-tools/store'
+import { createLogger } from '@/lib/logs/console/logger'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store'
+import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 interface CustomToolSchema {
@@ -23,8 +23,9 @@ interface CustomToolSchema {
 }
 
 interface ManageCustomToolArgs {
-  operation: 'add' | 'edit' | 'delete'
+  operation: 'add' | 'edit' | 'delete' | 'list'
   toolId?: string
+  title?: string
   schema?: CustomToolSchema
   code?: string
 }
@@ -66,17 +67,17 @@ export class ManageCustomToolClientTool extends BaseClientTool {
       reject: { text: 'Skip', icon: XCircle },
     },
     getDynamicText: (params, state) => {
-      const operation = params?.operation as 'add' | 'edit' | 'delete' | undefined
+      const operation = params?.operation as 'add' | 'edit' | 'delete' | 'list' | undefined
 
       // Return undefined if no operation yet - use static defaults
       if (!operation) return undefined
 
       // Get tool name from schema, or look it up from the store by toolId
-      let toolName = params?.schema?.function?.name
+      let toolName = params?.title || params?.schema?.function?.name
       if (!toolName && params?.toolId) {
         try {
           const tool = useCustomToolsStore.getState().getTool(params.toolId)
-          toolName = tool?.schema?.function?.name
+          toolName = tool?.title || tool?.schema?.function?.name
         } catch {
           // Ignore errors accessing store
         }
@@ -90,19 +91,30 @@ export class ManageCustomToolClientTool extends BaseClientTool {
             return verb === 'present' ? 'Edit' : verb === 'past' ? 'Edited' : 'Editing'
           case 'delete':
             return verb === 'present' ? 'Delete' : verb === 'past' ? 'Deleted' : 'Deleting'
+          case 'list':
+            return verb === 'present' ? 'List' : verb === 'past' ? 'Listed' : 'Listing'
         }
       }
 
       // For add: only show tool name in past tense (success)
       // For edit/delete: always show tool name
+      // For list: never show an individual tool name
       const shouldShowToolName = (currentState: ClientToolCallState) => {
+        if (operation === 'list') {
+          return false
+        }
         if (operation === 'add') {
           return currentState === ClientToolCallState.success
         }
         return true // edit and delete always show tool name
       }
 
-      const nameText = shouldShowToolName(state) && toolName ? ` ${toolName}` : ' custom tool'
+      const nameText =
+        operation === 'list'
+          ? ' custom tools'
+          : shouldShowToolName(state) && toolName
+            ? ` ${toolName}`
+            : ' custom tool'
 
       switch (state) {
         case ClientToolCallState.success:
@@ -138,14 +150,13 @@ export class ManageCustomToolClientTool extends BaseClientTool {
   }
 
   /**
-   * Override getInterruptDisplays to only show confirmation for edit and delete operations.
-   * Add operations execute directly without confirmation.
+   * Require confirmation for any mutating operation.
    */
   getInterruptDisplays(): BaseClientToolMetadata['interrupt'] | undefined {
     // Try currentArgs first, then fall back to store (for when called before execute())
     const args = this.currentArgs || this.getArgsFromStore()
     const operation = args?.operation
-    if (operation === 'edit' || operation === 'delete') {
+    if (operation && operation !== 'list') {
       return this.metadata.interrupt
     }
     return undefined
@@ -170,12 +181,9 @@ export class ManageCustomToolClientTool extends BaseClientTool {
 
   async execute(args?: ManageCustomToolArgs): Promise<void> {
     this.currentArgs = args
-    // For add operation, execute directly without confirmation
-    // For edit/delete, the copilot store will check hasInterrupt() and wait for confirmation
-    if (args?.operation === 'add') {
+    if (args?.operation === 'list') {
       await this.handleAccept(args)
     }
-    // edit/delete will wait for user confirmation via handleAccept
   }
 
   /**
@@ -189,7 +197,7 @@ export class ManageCustomToolClientTool extends BaseClientTool {
       throw new Error('Operation is required')
     }
 
-    const { operation, toolId, schema, code } = args
+    const { operation, toolId, title, schema, code } = args
 
     // Resolve workspace from the currently active workflow metadata.
     const { workflowId: activeWorkflowId } = this.requireExecutionContext()
@@ -202,16 +210,20 @@ export class ManageCustomToolClientTool extends BaseClientTool {
     logger.info(`Executing custom tool operation: ${operation}`, {
       operation,
       toolId,
+      title,
       functionName: schema?.function?.name,
       workspaceId,
     })
 
     switch (operation) {
+      case 'list':
+        await this.listCustomTools(workspaceId, logger)
+        break
       case 'add':
-        await this.addCustomTool({ schema, code, workspaceId }, logger)
+        await this.addCustomTool({ title, schema, code, workspaceId }, logger)
         break
       case 'edit':
-        await this.editCustomTool({ toolId, schema, code, workspaceId }, logger)
+        await this.editCustomTool({ toolId, title, schema, code, workspaceId }, logger)
         break
       case 'delete':
         await this.deleteCustomTool({ toolId, workspaceId }, logger)
@@ -226,13 +238,14 @@ export class ManageCustomToolClientTool extends BaseClientTool {
    */
   private async addCustomTool(
     params: {
+      title?: string
       schema?: CustomToolSchema
       code?: string
       workspaceId: string
     },
     logger: ReturnType<typeof createLogger>
   ): Promise<void> {
-    const { schema, code, workspaceId } = params
+    const { title, schema, code, workspaceId } = params
 
     if (!schema) {
       throw new Error('Schema is required for adding a custom tool')
@@ -242,12 +255,13 @@ export class ManageCustomToolClientTool extends BaseClientTool {
     }
 
     const functionName = schema.function.name
+    const toolTitle = title || functionName
 
     const response = await fetch(API_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        tools: [{ title: functionName, schema, code }],
+        tools: [{ title: toolTitle, schema, code }],
         workspaceId,
       }),
     })
@@ -263,13 +277,14 @@ export class ManageCustomToolClientTool extends BaseClientTool {
     }
 
     const createdTool = data.data[0]
-    logger.info(`Created custom tool: ${functionName}`, { toolId: createdTool.id })
+    logger.info(`Created custom tool: ${toolTitle}`, { toolId: createdTool.id })
 
     this.setState(ClientToolCallState.success)
-    await this.markToolComplete(200, `Created custom tool "${functionName}"`, {
+    await this.markToolComplete(200, `Created custom tool "${toolTitle}"`, {
       success: true,
       operation: 'add',
       toolId: createdTool.id,
+      title: toolTitle,
       functionName,
     })
   }
@@ -280,13 +295,14 @@ export class ManageCustomToolClientTool extends BaseClientTool {
   private async editCustomTool(
     params: {
       toolId?: string
+      title?: string
       schema?: CustomToolSchema
       code?: string
       workspaceId: string
     },
     logger: ReturnType<typeof createLogger>
   ): Promise<void> {
-    const { toolId, schema, code, workspaceId } = params
+    const { toolId, title, schema, code, workspaceId } = params
 
     if (!toolId) {
       throw new Error('Tool ID is required for editing a custom tool')
@@ -315,7 +331,7 @@ export class ManageCustomToolClientTool extends BaseClientTool {
     const mergedSchema = schema ?? existingTool.schema
     const updatedTool = {
       id: toolId,
-      title: mergedSchema.function.name,
+      title: title ?? mergedSchema.function.name ?? existingTool.title,
       schema: mergedSchema,
       code: code ?? existingTool.code,
     }
@@ -336,13 +352,14 @@ export class ManageCustomToolClientTool extends BaseClientTool {
     }
 
     const functionName = updatedTool.schema.function.name
-    logger.info(`Updated custom tool: ${functionName}`, { toolId })
+    logger.info(`Updated custom tool: ${updatedTool.title}`, { toolId })
 
     this.setState(ClientToolCallState.success)
-    await this.markToolComplete(200, `Updated custom tool "${functionName}"`, {
+    await this.markToolComplete(200, `Updated custom tool "${updatedTool.title}"`, {
       success: true,
       operation: 'edit',
       toolId,
+      title: updatedTool.title,
       functionName,
     })
   }
@@ -381,6 +398,30 @@ export class ManageCustomToolClientTool extends BaseClientTool {
       success: true,
       operation: 'delete',
       toolId,
+    })
+  }
+
+  private async listCustomTools(
+    workspaceId: string,
+    logger: ReturnType<typeof createLogger>
+  ): Promise<void> {
+    const response = await fetch(`${API_ENDPOINT}?workspaceId=${workspaceId}`)
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to fetch custom tools')
+    }
+
+    const tools = Array.isArray(data.data) ? data.data : []
+
+    logger.info(`Listed custom tools for workspace ${workspaceId}`, { count: tools.length })
+
+    this.setState(ClientToolCallState.success)
+    await this.markToolComplete(200, `Found ${tools.length} custom tool(s)`, {
+      success: true,
+      operation: 'list',
+      tools,
+      count: tools.length,
     })
   }
 }

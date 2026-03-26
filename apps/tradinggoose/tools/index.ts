@@ -38,7 +38,11 @@ const BODY_SIZE_LIMIT_ERROR_MESSAGE =
 /**
  * Validates request body size and throws a user-friendly error if exceeded
  */
-function validateRequestBodySize(body: string | undefined, requestId: string, context: string): void {
+function validateRequestBodySize(
+  body: string | undefined,
+  requestId: string,
+  context: string
+): void {
   if (!body) return
 
   const bodySize = Buffer.byteLength(body, 'utf8')
@@ -283,9 +287,9 @@ export async function executeTool(
         contextParams.credential
 
       // Avoid leaking provider-specific credential params downstream
-      delete contextParams.alpacaCredential
-      delete contextParams.tradierCredential
-      delete contextParams.robinhoodCredential
+      contextParams.alpacaCredential = undefined
+      contextParams.tradierCredential = undefined
+      contextParams.robinhoodCredential = undefined
     }
 
     if (contextParams.credential) {
@@ -379,7 +383,11 @@ export async function executeTool(
 
       // Apply post-processing if available and not skipped
       let finalResult = result
-      if (tool.postProcess && !skipPostProcess && (result.success || toolId === 'trading_place_order')) {
+      if (
+        tool.postProcess &&
+        !skipPostProcess &&
+        (result.success || toolId === 'trading_place_order')
+      ) {
         try {
           finalResult = await tool.postProcess(result, contextParams, executeTool)
         } catch (error) {
@@ -416,7 +424,11 @@ export async function executeTool(
 
     // Apply post-processing if available and not skipped
     let finalResult = result
-    if (tool.postProcess && !skipPostProcess && (result.success || toolId === 'trading_place_order')) {
+    if (
+      tool.postProcess &&
+      !skipPostProcess &&
+      (result.success || toolId === 'trading_place_order')
+    ) {
       try {
         finalResult = await tool.postProcess(result, contextParams, executeTool)
       } catch (error) {
@@ -630,10 +642,7 @@ async function executeToolRequest(
         'params' in requestBody
       ) {
         try {
-          validateClientSideParams(
-            (requestBody as any).params,
-            (requestBody as any).schema
-          )
+          validateClientSideParams((requestBody as any).params, (requestBody as any).schema)
         } catch (validationError) {
           logger.error(`[${requestId}] Custom tool validation failed for ${toolId}:`, {
             error:

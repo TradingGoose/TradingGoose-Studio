@@ -217,7 +217,11 @@ export function McpDropdown({
                   style={{ backgroundColor: `${iconColor}20` }}
                   aria-hidden='true'
                 >
-                  <Server className='h-full w-full' aria-hidden='true' style={{ color: iconColor }} />
+                  <Server
+                    className='h-full w-full'
+                    aria-hidden='true'
+                    style={{ color: iconColor }}
+                  />
                 </span>
                 <span className={cn(widgetHeaderMenuTextClassName, 'truncate')}>
                   {getServerLabel(server)}

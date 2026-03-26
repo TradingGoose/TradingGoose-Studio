@@ -1,10 +1,10 @@
-import { createLogger } from '@/lib/logs/console/logger'
 import { Check, Loader2, Server, X, XCircle } from 'lucide-react'
 import {
   BaseClientTool,
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
+import { createLogger } from '@/lib/logs/console/logger'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
@@ -18,7 +18,7 @@ interface McpServerConfig {
 }
 
 interface ManageMcpToolArgs {
-  operation: 'add' | 'edit' | 'delete'
+  operation: 'add' | 'edit' | 'delete' | 'list'
   serverId?: string
   config?: McpServerConfig
 }
@@ -60,11 +60,11 @@ export class ManageMcpToolClientTool extends BaseClientTool {
       reject: { text: 'Skip', icon: XCircle },
     },
     getDynamicText: (params, state) => {
-      const operation = params?.operation as 'add' | 'edit' | 'delete' | undefined
+      const operation = params?.operation as 'add' | 'edit' | 'delete' | 'list' | undefined
 
       if (!operation) return undefined
 
-      const serverName = params?.config?.name || params?.serverName
+      const serverName = params?.config?.name || params?.name || params?.serverName
 
       const getActionText = (verb: 'present' | 'past' | 'gerund') => {
         switch (operation) {
@@ -74,17 +74,27 @@ export class ManageMcpToolClientTool extends BaseClientTool {
             return verb === 'present' ? 'Edit' : verb === 'past' ? 'Edited' : 'Editing'
           case 'delete':
             return verb === 'present' ? 'Delete' : verb === 'past' ? 'Deleted' : 'Deleting'
+          case 'list':
+            return verb === 'present' ? 'List' : verb === 'past' ? 'Listed' : 'Listing'
         }
       }
 
       const shouldShowServerName = (currentState: ClientToolCallState) => {
+        if (operation === 'list') {
+          return false
+        }
         if (operation === 'add') {
           return currentState === ClientToolCallState.success
         }
         return true
       }
 
-      const nameText = shouldShowServerName(state) && serverName ? ` ${serverName}` : ' MCP tool'
+      const nameText =
+        operation === 'list'
+          ? ' MCP servers'
+          : shouldShowServerName(state) && serverName
+            ? ` ${serverName}`
+            : ' MCP tool'
 
       switch (state) {
         case ClientToolCallState.success:
@@ -120,13 +130,12 @@ export class ManageMcpToolClientTool extends BaseClientTool {
   }
 
   /**
-   * Override getInterruptDisplays to only show confirmation for edit and delete operations.
-   * Add operations execute directly without confirmation.
+   * Require confirmation for any mutating operation.
    */
   getInterruptDisplays(): BaseClientToolMetadata['interrupt'] | undefined {
     const args = this.currentArgs || this.getArgsFromStore()
     const operation = args?.operation
-    if (operation === 'edit' || operation === 'delete') {
+    if (operation && operation !== 'list') {
       return this.metadata.interrupt
     }
     return undefined
@@ -151,7 +160,7 @@ export class ManageMcpToolClientTool extends BaseClientTool {
 
   async execute(args?: ManageMcpToolArgs): Promise<void> {
     this.currentArgs = args
-    if (args?.operation === 'add') {
+    if (args?.operation === 'list') {
       await this.handleAccept(args)
     }
   }
@@ -184,6 +193,9 @@ export class ManageMcpToolClientTool extends BaseClientTool {
     })
 
     switch (operation) {
+      case 'list':
+        await this.listMcpServers(workspaceId, logger)
+        break
       case 'add':
         await this.addMcpServer({ config, workspaceId }, logger)
         break
@@ -211,7 +223,7 @@ export class ManageMcpToolClientTool extends BaseClientTool {
     const { config, workspaceId } = params
 
     if (!config) {
-      throw new Error('Config is required for adding an MCP tool')
+      throw new Error('Config is required for adding an MCP server')
     }
     if (!config.name) {
       throw new Error('Server name is required')
@@ -248,6 +260,7 @@ export class ManageMcpToolClientTool extends BaseClientTool {
       success: true,
       operation: 'add',
       serverId,
+      name: config.name,
       serverName: config.name,
     })
   }
@@ -266,11 +279,11 @@ export class ManageMcpToolClientTool extends BaseClientTool {
     const { serverId, config, workspaceId } = params
 
     if (!serverId) {
-      throw new Error('Server ID is required for editing an MCP tool')
+      throw new Error('Server ID is required for editing an MCP server')
     }
 
     if (!config) {
-      throw new Error('Config is required for editing an MCP tool')
+      throw new Error('Config is required for editing an MCP server')
     }
 
     const updateData = {
@@ -298,6 +311,7 @@ export class ManageMcpToolClientTool extends BaseClientTool {
       success: true,
       operation: 'edit',
       serverId,
+      name: serverName,
       serverName,
     })
   }
@@ -315,7 +329,7 @@ export class ManageMcpToolClientTool extends BaseClientTool {
     const { serverId, workspaceId } = params
 
     if (!serverId) {
-      throw new Error('Server ID is required for deleting an MCP tool')
+      throw new Error('Server ID is required for deleting an MCP server')
     }
 
     const url = `${API_ENDPOINT}?serverId=${serverId}&workspaceId=${workspaceId}`
@@ -336,6 +350,30 @@ export class ManageMcpToolClientTool extends BaseClientTool {
       success: true,
       operation: 'delete',
       serverId,
+    })
+  }
+
+  private async listMcpServers(
+    workspaceId: string,
+    logger: ReturnType<typeof createLogger>
+  ): Promise<void> {
+    const response = await fetch(`${API_ENDPOINT}?workspaceId=${workspaceId}`)
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to fetch MCP servers')
+    }
+
+    const servers = Array.isArray(data.data?.servers) ? data.data.servers : []
+
+    logger.info(`Listed MCP servers for workspace ${workspaceId}`, { count: servers.length })
+
+    this.setState(ClientToolCallState.success)
+    await this.markToolComplete(200, `Found ${servers.length} MCP server(s)`, {
+      success: true,
+      operation: 'list',
+      servers,
+      count: servers.length,
     })
   }
 }

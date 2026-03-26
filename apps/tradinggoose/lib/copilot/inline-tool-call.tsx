@@ -5,11 +5,16 @@ import { Loader2 } from 'lucide-react'
 import useDrivePicker from 'react-google-drive-picker'
 import { GoogleDriveIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
+import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { getClientTool } from '@/lib/copilot/tools/client/manager'
-import { getRegisteredTools } from '@/lib/copilot/tools/client/registry'
 import { getEnv } from '@/lib/env'
-import { CLASS_TOOL_METADATA, useCopilotStore } from '@/stores/copilot/store'
+import { useCopilotStore } from '@/stores/copilot/store'
+import {
+  getCopilotToolMetadata,
+  getToolInterruptDisplays,
+  isCopilotTool,
+} from '@/stores/copilot/tool-registry'
 import type { CopilotToolCall } from '@/stores/copilot/types'
 
 interface InlineToolCallProps {
@@ -162,65 +167,23 @@ function ShimmerOverlayText({
 }
 
 function isIntegrationTool(toolName: string): boolean {
-  const isClientTool = !!CLASS_TOOL_METADATA[toolName] || !!getRegisteredTools()[toolName]
-  return !isClientTool
+  return !isCopilotTool(toolName)
 }
 
 function shouldShowRunSkipButtons(
   toolCall: CopilotToolCall,
-  options: { mode: 'ask' | 'build'; isAutoAllowed: boolean }
+  options: { accessLevel: CopilotAccessLevel; isIntegration: boolean }
 ): boolean {
-  const instance = getClientTool(toolCall.id)
-  let hasInterrupt = !!instance?.getInterruptDisplays?.()
-  if (!hasInterrupt) {
-    try {
-      const def = getRegisteredTools()[toolCall.name]
-      if (def) {
-        hasInterrupt =
-          typeof def.hasInterrupt === 'function'
-            ? !!def.hasInterrupt(toolCall.params || {})
-            : !!def.hasInterrupt
-      }
-    } catch { }
-  }
-  if (hasInterrupt && toolCall.state === 'pending') {
+  const hasInterrupt = !!getToolInterruptDisplays(toolCall.name, toolCall.id)
+  if (hasInterrupt && toolCall.state === 'pending' && options.accessLevel === 'limited') {
     return true
   }
 
-  if (
-    options.mode === 'build' &&
-    isIntegrationTool(toolCall.name) &&
-    toolCall.state === 'pending' &&
-    !options.isAutoAllowed
-  ) {
+  if (options.isIntegration && toolCall.state === 'pending' && options.accessLevel === 'limited') {
     return true
   }
 
   return false
-}
-
-async function handleRun(toolCall: CopilotToolCall, setToolCallState: any, onStateChange?: any) {
-  const instance = getClientTool(toolCall.id)
-  if (!instance) return
-  try {
-    const mergedParams =
-      (toolCall as any).params || (toolCall as any).parameters || (toolCall as any).input || {}
-    await instance.handleAccept?.(mergedParams)
-    onStateChange?.('executing')
-  } catch (e) {
-    setToolCallState(toolCall, 'errored', { error: e instanceof Error ? e.message : String(e) })
-  }
-}
-
-async function handleSkip(toolCall: CopilotToolCall, setToolCallState: any, onStateChange?: any) {
-  const instance = getClientTool(toolCall.id)
-  if (instance) {
-    try {
-      await instance.handleReject?.()
-    } catch { }
-  }
-  setToolCallState(toolCall, 'rejected')
-  onStateChange?.('rejected')
 }
 
 function getStateVerb(state: string): string {
@@ -255,10 +218,9 @@ function getDisplayName(toolCall: CopilotToolCall, options?: { isIntegration?: b
   if (fromStore && !isIntegration) return fromStore
 
   try {
-    const def = getRegisteredTools()[toolCall.name] as any
-    const byState = def?.metadata?.displayNames?.[toolCall.state]
+    const byState = getCopilotToolMetadata(toolCall.name)?.displayNames?.[toolCall.state]
     if (byState?.text) return byState.text
-  } catch { }
+  } catch {}
 
   if (isIntegration) {
     return `${getStateVerb(String(toolCall.state))} ${formatToolName(toolCall.name)}`.trim()
@@ -280,14 +242,12 @@ function RunSkipButtons({
   const [buttonsHidden, setButtonsHidden] = useState(false)
   const actionInProgressRef = useRef(false)
   const {
-    setToolCallState,
+    executeCopilotToolCall,
     executeIntegrationTool,
+    skipCopilotToolCall,
     skipIntegrationTool,
-    addAutoAllowedTool,
   } = useCopilotStore()
   const [openPicker] = useDrivePicker()
-
-  const instance = getClientTool(toolCall.id)
 
   const onRun = async () => {
     if (actionInProgressRef.current) return
@@ -299,26 +259,8 @@ function RunSkipButtons({
         onStateChange?.('executing')
         await executeIntegrationTool(toolCall.id)
       } else {
-        await handleRun(toolCall, setToolCallState, onStateChange)
-      }
-    } finally {
-      setIsProcessing(false)
-      actionInProgressRef.current = false
-    }
-  }
-
-  const onAlwaysAllow = async () => {
-    if (actionInProgressRef.current) return
-    actionInProgressRef.current = true
-    setIsProcessing(true)
-    setButtonsHidden(true)
-    try {
-      await addAutoAllowedTool(toolCall.name)
-      if (isIntegration) {
         onStateChange?.('executing')
-        await executeIntegrationTool(toolCall.id)
-      } else {
-        await handleRun(toolCall, setToolCallState, onStateChange)
+        await executeCopilotToolCall(toolCall.id)
       }
     } finally {
       setIsProcessing(false)
@@ -374,7 +316,8 @@ function RunSkipButtons({
         <Button
           onClick={async () => {
             setButtonsHidden(true)
-            await handleSkip(toolCall, setToolCallState, onStateChange)
+            await skipCopilotToolCall(toolCall.id)
+            onStateChange?.('rejected')
           }}
           size='sm'
           variant='outline'
@@ -387,21 +330,9 @@ function RunSkipButtons({
 
   return (
     <div className='flex items-center gap-1.5'>
-      <Button
-        onClick={onRun}
-        disabled={isProcessing}
-        size='sm'
-      >
+      <Button onClick={onRun} disabled={isProcessing} size='sm'>
         {isProcessing ? <Loader2 className='mr-1 h-3 w-3 animate-spin' /> : null}
         Allow
-      </Button>
-      <Button
-        onClick={onAlwaysAllow}
-        disabled={isProcessing}
-        size='sm'
-        variant='secondary'
-      >
-        Always Allow
       </Button>
       <Button
         onClick={async () => {
@@ -410,7 +341,8 @@ function RunSkipButtons({
             onStateChange?.('rejected')
             skipIntegrationTool(toolCall.id)
           } else {
-            await handleSkip(toolCall, setToolCallState, onStateChange)
+            await skipCopilotToolCall(toolCall.id)
+            onStateChange?.('rejected')
           }
         }}
         disabled={isProcessing}
@@ -449,15 +381,10 @@ export function InlineToolCall({
     toolName === 'set_environment_variables' ||
     toolName === 'set_global_workflow_variables'
 
-  const mode = useCopilotStore((s) => s.mode)
-  const autoAllowedTools = useCopilotStore((s) => s.autoAllowedTools)
-  const removeAutoAllowedTool = useCopilotStore((s) => s.removeAutoAllowedTool)
+  const accessLevel = useCopilotStore((s) => s.accessLevel)
 
-  const isClientTool =
-    !!CLASS_TOOL_METADATA[toolName] || !!getRegisteredTools()[toolName]
-  const isIntegration = !isClientTool
-  const isIntegrationInBuildMode = mode === 'build' && isIntegration
-  const [showRemoveAutoAllow, setShowRemoveAutoAllow] = useState(false)
+  const isCopilotManagedTool = isCopilotTool(toolName)
+  const isIntegration = !isCopilotManagedTool
 
   // Guard: nothing to render without a toolCall
   if (!toolCall) return null
@@ -465,13 +392,7 @@ export function InlineToolCall({
   // Skip rendering some internal tools
   if (toolCall.name === 'checkoff_todo' || toolCall.name === 'mark_todo_in_progress') return null
 
-  if (!isClientTool && !isIntegrationInBuildMode) {
-    return null
-  }
-
-  const isAutoAllowed = isIntegration && autoAllowedTools.includes(toolCall.name)
-
-  const showButtons = shouldShowRunSkipButtons(toolCall, { mode, isAutoAllowed })
+  const showButtons = shouldShowRunSkipButtons(toolCall, { accessLevel, isIntegration })
   const showMoveToBackground =
     toolCall.name === 'run_workflow' &&
     (toolCall.state === (ClientToolCallState.executing as any) ||
@@ -553,11 +474,11 @@ export function InlineToolCall({
                   key={name}
                   className='grid grid-cols-[auto_1fr] items-center gap-2 px-2 py-1.5'
                 >
-                  <div className='truncate font-medium text-yellow-800 text-xs dark:text-yellow-200'>
+                  <div className='truncate font-medium text-xs text-yellow-800 dark:text-yellow-200'>
                     {name}
                   </div>
                   <div className='min-w-0'>
-                    <span className='block overflow-x-auto whitespace-nowrap font-mono text-yellow-700 text-xs dark:text-yellow-300'>
+                    <span className='block overflow-x-auto whitespace-nowrap font-mono text-xs text-yellow-700 dark:text-yellow-300'>
                       {value}
                     </span>
                   </div>
@@ -591,7 +512,7 @@ export function InlineToolCall({
               {ops.map((op, idx) => (
                 <div key={idx} className='grid grid-cols-3 items-center gap-0 px-2 py-1.5'>
                   <div className='min-w-0'>
-                    <span className='truncate text-yellow-800 text-xs dark:text-yellow-200'>
+                    <span className='truncate text-xs text-yellow-800 dark:text-yellow-200'>
                       {String(op.name || '')}
                     </span>
                   </div>
@@ -602,7 +523,7 @@ export function InlineToolCall({
                   </div>
                   <div className='min-w-0'>
                     {op.value !== undefined ? (
-                      <span className='block overflow-x-auto whitespace-nowrap font-mono text-yellow-700 text-xs dark:text-yellow-300'>
+                      <span className='block overflow-x-auto whitespace-nowrap font-mono text-xs text-yellow-700 dark:text-yellow-300'>
                         {String(op.value)}
                       </span>
                     ) : (
@@ -628,9 +549,8 @@ export function InlineToolCall({
       let IconComp: any | undefined = IconFromStore
       if (!IconComp) {
         try {
-          const def = getRegisteredTools()[toolCall.name] as any
-          IconComp = def?.metadata?.displayNames?.[toolCall.state]?.icon
-        } catch { }
+          IconComp = getCopilotToolMetadata(toolCall.name)?.displayNames?.[toolCall.state]?.icon
+        } catch {}
       }
       if (!IconComp) IconComp = Loader2
 
@@ -663,7 +583,7 @@ export function InlineToolCall({
     toolCall.state === ClientToolCallState.pending ||
     toolCall.state === ClientToolCallState.executing
 
-  const isToolNameClickable = isExpandableTool || isAutoAllowed
+  const isToolNameClickable = isExpandableTool
 
   return (
     <div className='flex w-full flex-col gap-1 py-1'>
@@ -672,18 +592,12 @@ export function InlineToolCall({
         onClick={() => {
           if (isExpandableTool) {
             setExpanded((e) => !e)
-          } else if (isAutoAllowed) {
-            setShowRemoveAutoAllow((prev) => !prev)
           }
         }}
       >
         <div className='flex items-center gap-2 text-muted-foreground'>
           <div className='flex-shrink-0'>{renderDisplayIcon()}</div>
-          <ShimmerOverlayText
-            text={displayName}
-            active={isLoadingState}
-            className='text-sm'
-          />
+          <ShimmerOverlayText text={displayName} active={isLoadingState} className='text-sm' />
         </div>
         {showButtons ? (
           <RunSkipButtons
@@ -706,7 +620,7 @@ export function InlineToolCall({
                 // Optionally force a re-render; store should sync state from server
                 forceUpdate({})
                 onStateChange?.('background')
-              } catch { }
+              } catch {}
             }}
             size='sm'
             variant='secondary'
@@ -717,22 +631,6 @@ export function InlineToolCall({
         ) : null}
       </div>
       {isExpandableTool && expanded && <div className='pr-1 pl-5'>{renderPendingDetails()}</div>}
-      {showRemoveAutoAllow && isAutoAllowed ? (
-        <div className='pl-5'>
-          <Button
-            onClick={async (event) => {
-              event.stopPropagation()
-              await removeAutoAllowedTool(toolCall.name)
-              setShowRemoveAutoAllow(false)
-              forceUpdate({})
-            }}
-            size='sm'
-            variant='outline'
-          >
-            Remove from Always Allowed
-          </Button>
-        </div>
-      ) : null}
     </div>
   )
 }

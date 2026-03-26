@@ -7,13 +7,14 @@ import {
   createRequestTracker,
   createUnauthorizedResponse,
 } from '@/lib/copilot/auth'
+import { ToolIds } from '@/lib/copilot/registry'
 import { routeExecution } from '@/lib/copilot/tools/server/router'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('ExecuteCopilotServerToolAPI')
 
 const ExecuteSchema = z.object({
-  toolName: z.string(),
+  toolName: ToolIds,
   payload: z.unknown().optional(),
 })
 

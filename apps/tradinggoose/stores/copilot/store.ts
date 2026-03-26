@@ -4,11 +4,34 @@ import { createContext, createElement, type ReactNode, useContext, useMemo } fro
 import type { StoreApi } from 'zustand'
 import { create, useStore } from 'zustand'
 import { devtools } from 'zustand/middleware'
+import {
+  shouldAutoExecuteCopilotTool,
+  shouldAutoExecuteIntegrationTool,
+} from '@/lib/copilot/access-policy'
 import { type CopilotChat, sendStreamingMessage } from '@/lib/copilot/api'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
-import { getClientTool, registerToolStateSync } from '@/lib/copilot/tools/client/manager'
-import { createExecutionContext, getRegisteredTools, getTool } from '@/lib/copilot/tools/client/registry'
+import { registerToolStateSync } from '@/lib/copilot/tools/client/manager'
+import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas'
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  resetStreamingQueue,
+  type SSEHandler,
+  type StreamingContext,
+  updateStreamingMessage,
+} from '@/stores/copilot/streaming'
+import {
+  bindClientToolExecutionContext,
+  copilotToolHasInterrupt,
+  createExecutionContext,
+  ensureClientToolInstance,
+  isBackgroundState,
+  isCopilotTool,
+  isRejectedState,
+  isReviewState,
+  isServerManagedCopilotTool,
+  prepareCopilotToolArgs,
+  resolveToolDisplay,
+} from '@/stores/copilot/tool-registry'
 import type {
   ChatContext,
   CopilotMessage,
@@ -19,21 +42,6 @@ import type {
 import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store'
-import { CLASS_TOOL_METADATA, ensureClientToolInstance } from '@/stores/copilot/tool-registry'
-import {
-  isBackgroundState,
-  isRejectedState,
-  isReviewState,
-  resolveToolDisplay,
-} from '@/stores/copilot/tool-display'
-import {
-  type SSEHandler,
-  type StreamingContext,
-  resetStreamingQueue,
-  updateStreamingMessage,
-} from '@/stores/copilot/streaming'
-
-export { CLASS_TOOL_METADATA }
 
 const logger = createLogger('CopilotStore')
 
@@ -43,7 +51,7 @@ try {
   if (diffStore?.isShowingDiff || diffStore?.diffWorkflow) {
     diffStore.clearDiff()
   }
-} catch { }
+} catch {}
 
 // Constants
 const TEXT_BLOCK_TYPE = 'text'
@@ -129,7 +137,7 @@ function abortAllInProgressTools(set: any, get: () => CopilotStore) {
         return { messages: msgs }
       })
     }
-  } catch { }
+  } catch {}
 }
 
 // Normalize loaded messages so assistant messages render correctly from DB
@@ -153,75 +161,75 @@ function normalizeMessagesForUI(messages: CopilotMessage[]): CopilotMessage[] {
       // Use existing contentBlocks ordering if present; otherwise only render text content
       const blocks: any[] = Array.isArray(message.contentBlocks)
         ? (message.contentBlocks as any[]).map((b: any) => {
-          if (b?.type === 'tool_call' && b.toolCall) {
-            // Ensure client tool instance is registered for this tool call
-            ensureClientToolInstance(b.toolCall?.name, b.toolCall?.id)
+            if (b?.type === 'tool_call' && b.toolCall) {
+              // Ensure client tool instance is registered for this tool call
+              ensureClientToolInstance(b.toolCall?.name, b.toolCall?.id)
 
-            return {
-              ...b,
-              toolCall: {
-                ...b.toolCall,
-                state:
-                  isRejectedState(b.toolCall?.state) ||
+              return {
+                ...b,
+                toolCall: {
+                  ...b.toolCall,
+                  state:
+                    isRejectedState(b.toolCall?.state) ||
                     isReviewState(b.toolCall?.state) ||
                     isBackgroundState(b.toolCall?.state) ||
                     b.toolCall?.state === ClientToolCallState.success ||
                     b.toolCall?.state === ClientToolCallState.error ||
                     b.toolCall?.state === ClientToolCallState.aborted
-                    ? b.toolCall.state
-                    : ClientToolCallState.rejected,
-                display: resolveToolDisplay(
-                  b.toolCall?.name,
-                  (isRejectedState(b.toolCall?.state) ||
+                      ? b.toolCall.state
+                      : ClientToolCallState.rejected,
+                  display: resolveToolDisplay(
+                    b.toolCall?.name,
+                    (isRejectedState(b.toolCall?.state) ||
                     isReviewState(b.toolCall?.state) ||
                     isBackgroundState(b.toolCall?.state) ||
                     b.toolCall?.state === ClientToolCallState.success ||
                     b.toolCall?.state === ClientToolCallState.error ||
                     b.toolCall?.state === ClientToolCallState.aborted
-                    ? (b.toolCall?.state as any)
-                    : ClientToolCallState.rejected) as any,
-                  b.toolCall?.id,
-                  b.toolCall?.params
-                ),
-              },
+                      ? (b.toolCall?.state as any)
+                      : ClientToolCallState.rejected) as any,
+                    b.toolCall?.id,
+                    b.toolCall?.params
+                  ),
+                },
+              }
             }
-          }
-          return b
-        })
+            return b
+          })
         : []
 
       // Prepare toolCalls with display for non-block UI components, but do not fabricate blocks
       const updatedToolCalls = Array.isArray((message as any).toolCalls)
         ? (message as any).toolCalls.map((tc: any) => {
-          // Ensure client tool instance is registered for this tool call
-          ensureClientToolInstance(tc?.name, tc?.id)
+            // Ensure client tool instance is registered for this tool call
+            ensureClientToolInstance(tc?.name, tc?.id)
 
-          return {
-            ...tc,
-            state:
-              isRejectedState(tc?.state) ||
+            return {
+              ...tc,
+              state:
+                isRejectedState(tc?.state) ||
                 isReviewState(tc?.state) ||
                 isBackgroundState(tc?.state) ||
                 tc?.state === ClientToolCallState.success ||
                 tc?.state === ClientToolCallState.error ||
                 tc?.state === ClientToolCallState.aborted
-                ? tc.state
-                : ClientToolCallState.rejected,
-            display: resolveToolDisplay(
-              tc?.name,
-              (isRejectedState(tc?.state) ||
+                  ? tc.state
+                  : ClientToolCallState.rejected,
+              display: resolveToolDisplay(
+                tc?.name,
+                (isRejectedState(tc?.state) ||
                 isReviewState(tc?.state) ||
                 isBackgroundState(tc?.state) ||
                 tc?.state === ClientToolCallState.success ||
                 tc?.state === ClientToolCallState.error ||
                 tc?.state === ClientToolCallState.aborted
-                ? (tc?.state as any)
-                : ClientToolCallState.rejected) as any,
-              tc?.id,
-              tc?.params
-            ),
-          }
-        })
+                  ? (tc?.state as any)
+                  : ClientToolCallState.rejected) as any,
+                tc?.id,
+                tc?.params
+              ),
+            }
+          })
         : (message as any).toolCalls
 
       return {
@@ -269,9 +277,9 @@ const contentBlockPool = new ObjectPool(
     obj.type = ''
     obj.content = ''
     obj.timestamp = 0
-      ; (obj as any).toolCall = null
-      ; (obj as any).startTime = undefined
-      ; (obj as any).duration = undefined
+    ;(obj as any).toolCall = null
+    ;(obj as any).startTime = undefined
+    ;(obj as any).duration = undefined
   }
 )
 
@@ -313,10 +321,10 @@ function createUserMessage(
     ...(contexts && contexts.length > 0 && { contexts }),
     ...(contexts &&
       contexts.length > 0 && {
-      contentBlocks: [
-        { type: 'contexts', contexts: contexts as any, timestamp: Date.now() },
-      ] as any,
-    }),
+        contentBlocks: [
+          { type: 'contexts', contexts: contexts as any, timestamp: Date.now() },
+        ] as any,
+      }),
   }
 }
 
@@ -370,21 +378,21 @@ function validateMessagesForLLM(messages: CopilotMessage[]): any[] {
         timestamp: msg.timestamp,
         ...(Array.isArray((msg as any).toolCalls) &&
           (msg as any).toolCalls.length > 0 && {
-          toolCalls: (msg as any).toolCalls,
-        }),
+            toolCalls: (msg as any).toolCalls,
+          }),
         ...(Array.isArray(msg.contentBlocks) &&
           msg.contentBlocks.length > 0 && {
-          // Persist full contentBlocks including thinking so history can render it
-          contentBlocks: msg.contentBlocks,
-        }),
+            // Persist full contentBlocks including thinking so history can render it
+            contentBlocks: msg.contentBlocks,
+          }),
         ...(msg.fileAttachments &&
           msg.fileAttachments.length > 0 && {
-          fileAttachments: msg.fileAttachments,
-        }),
+            fileAttachments: msg.fileAttachments,
+          }),
         ...((msg as any).contexts &&
           Array.isArray((msg as any).contexts) && {
-          contexts: (msg as any).contexts,
-        }),
+            contexts: (msg as any).contexts,
+          }),
       }
     })
     .filter((m) => {
@@ -465,7 +473,7 @@ const sseHandlers: Record<string, SSEHandler> = {
             if (todoId) {
               get().updatePlanTodoStatus(todoId, 'completed')
             }
-          } catch { }
+          } catch {}
         }
 
         // If mark_todo_in_progress succeeded, set todo executing in planTodos
@@ -480,7 +488,7 @@ const sseHandlers: Record<string, SSEHandler> = {
             if (todoId) {
               get().updatePlanTodoStatus(todoId, 'executing')
             }
-          } catch { }
+          } catch {}
         }
       }
 
@@ -516,7 +524,7 @@ const sseHandlers: Record<string, SSEHandler> = {
         }
       }
       updateStreamingMessage(set, context)
-    } catch { }
+    } catch {}
   },
   tool_error: (data, context, get, set) => {
     try {
@@ -578,7 +586,7 @@ const sseHandlers: Record<string, SSEHandler> = {
         }
       }
       updateStreamingMessage(set, context)
-    } catch { }
+    } catch {}
   },
   tool_generating: (data, context, get, set) => {
     const { toolCallId, toolName } = data
@@ -628,25 +636,23 @@ const sseHandlers: Record<string, SSEHandler> = {
     const args = toolData.arguments
     const { toolCallsById } = get()
 
-    // Ensure class-based client tool instances are registered (for interrupts/display)
     ensureClientToolInstance(name, id)
-    const classTool = getClientTool(id) as any
 
     const existing = toolCallsById[id]
     const nextBase: CopilotToolCall = existing
       ? {
-        ...existing,
-        state: ClientToolCallState.pending,
-        ...(args ? { params: args } : {}),
-        display: resolveToolDisplay(name, ClientToolCallState.pending, id, args),
-      }
+          ...existing,
+          state: ClientToolCallState.pending,
+          ...(args ? { params: args } : {}),
+          display: resolveToolDisplay(name, ClientToolCallState.pending, id, args),
+        }
       : {
-        id,
-        name: name || 'unknown_tool',
-        state: ClientToolCallState.pending,
-        ...(args ? { params: args } : {}),
-        display: resolveToolDisplay(name, ClientToolCallState.pending, id, args),
-      }
+          id,
+          name: name || 'unknown_tool',
+          state: ClientToolCallState.pending,
+          ...(args ? { params: args } : {}),
+          display: resolveToolDisplay(name, ClientToolCallState.pending, id, args),
+        }
     const next: CopilotToolCall = withPinnedToolExecutionProvenance(
       nextBase,
       context.workflowId,
@@ -677,194 +683,61 @@ const sseHandlers: Record<string, SSEHandler> = {
       return
     }
 
+    const executionContext = createExecutionContext({
+      toolCallId: id,
+      toolName: name || 'unknown_tool',
+      channelId: provenance.channelId,
+      workflowId: provenance.workflowId,
+    })
+
     try {
-      const executionContext = createExecutionContext({
-        toolCallId: id,
-        toolName: name || 'unknown_tool',
-        channelId: provenance.channelId,
-        workflowId: provenance.workflowId,
-      })
-      if (typeof classTool?.setExecutionContext === 'function') {
-        classTool.setExecutionContext(executionContext)
-      }
+      bindClientToolExecutionContext(id, executionContext)
     } catch (error) {
       logger.warn('Failed to bind execution context', { id, name, error })
     }
 
-    // Prefer interface-based registry to determine interrupt and execute
-    try {
-      const def = name ? getTool(name) : undefined
-      if (def) {
-        const hasInterrupt =
-          typeof def.hasInterrupt === 'function'
-            ? !!def.hasInterrupt(args || {})
-            : !!def.hasInterrupt
-        if (!hasInterrupt && typeof def.execute === 'function') {
-          const ctx = createExecutionContext({
-            toolCallId: id,
-            toolName: name || 'unknown_tool',
-            channelId: provenance.channelId,
-            workflowId: provenance.workflowId,
-          })
-          // Defer executing transition by a tick to let pending render
+    if (isCopilotTool(name)) {
+      try {
+        const hasInterrupt = copilotToolHasInterrupt(name, id)
+        const { accessLevel } = get()
+        if (shouldAutoExecuteCopilotTool(accessLevel, hasInterrupt)) {
           setTimeout(() => {
-            const executingMap = { ...get().toolCallsById }
-            executingMap[id] = {
-              ...executingMap[id],
-              state: ClientToolCallState.executing,
-              display: resolveToolDisplay(name, ClientToolCallState.executing, id, args),
-            }
-            set({ toolCallsById: executingMap })
-            logger.info('[toolCallsById] pending → executing (registry)', { id, name })
-
-            // Update inline content block to executing
-            for (let i = 0; i < context.contentBlocks.length; i++) {
-              const b = context.contentBlocks[i] as any
-              if (b.type === 'tool_call' && b.toolCall?.id === id) {
-                context.contentBlocks[i] = {
-                  ...b,
-                  toolCall: { ...b.toolCall, state: ClientToolCallState.executing },
-                }
-                break
-              }
-            }
-            updateStreamingMessage(set, context)
-
-            Promise.resolve()
-              .then(async () => {
-                const result = await def.execute(ctx, args || {})
-                const success =
-                  result && typeof result.status === 'number'
-                    ? result.status >= 200 && result.status < 300
-                    : true
-                const completeMap = { ...get().toolCallsById }
-                // Do not override terminal review/rejected
-                if (
-                  isRejectedState(completeMap[id]?.state) ||
-                  isReviewState(completeMap[id]?.state) ||
-                  isBackgroundState(completeMap[id]?.state)
-                ) {
-                  return
-                }
-                completeMap[id] = {
-                  ...completeMap[id],
-                  state: success ? ClientToolCallState.success : ClientToolCallState.error,
-                  display: resolveToolDisplay(
-                    name,
-                    success ? ClientToolCallState.success : ClientToolCallState.error,
-                    id,
-                    args
-                  ),
-                }
-                set({ toolCallsById: completeMap })
-                logger.info(
-                  `[toolCallsById] executing → ${success ? 'success' : 'error'} (registry)`,
-                  { id, name }
-                )
-
-                // Notify backend tool mark-complete endpoint
-                try {
-                  await fetch('/api/copilot/tools/mark-complete', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      id,
-                      name: name || 'unknown_tool',
-                      status:
-                        typeof result?.status === 'number' ? result.status : success ? 200 : 500,
-                      message: result?.message,
-                      data: result?.data,
-                    }),
-                  })
-                } catch { }
-              })
-              .catch((e) => {
-                const errorMap = { ...get().toolCallsById }
-                // Do not override terminal review/rejected
-                if (
-                  isRejectedState(errorMap[id]?.state) ||
-                  isReviewState(errorMap[id]?.state) ||
-                  isBackgroundState(errorMap[id]?.state)
-                ) {
-                  return
-                }
-                errorMap[id] = {
-                  ...errorMap[id],
-                  state: ClientToolCallState.error,
-                  display: resolveToolDisplay(name, ClientToolCallState.error, id, args),
-                }
-                set({ toolCallsById: errorMap })
-                logger.error('Registry auto-execute tool failed', { id, name, error: e })
-              })
+            get().executeCopilotToolCall(id)
           }, 0)
-          return
+        } else {
+          logger.info('[copilot access] copilot tool awaiting confirmation', {
+            accessLevel,
+            id,
+            name,
+          })
         }
+      } catch (error) {
+        logger.warn('Copilot tool auto-exec check failed', { id, name, error })
       }
-    } catch (e) {
-      logger.warn('tool_call registry auto-exec check failed', { id, name, error: e })
+      return
     }
 
-    // Class-based auto-exec for non-interrupt tools
+    // Integration tools follow the current access level.
     try {
-      const inst = classTool
-      const hasInterrupt = !!inst?.getInterruptDisplays?.()
-      if (!hasInterrupt && typeof inst?.execute === 'function') {
+      const { accessLevel } = get()
+      if (name && shouldAutoExecuteIntegrationTool(accessLevel)) {
+        logger.info('[copilot access] auto-executing integration tool', {
+          accessLevel,
+          id,
+          name,
+        })
         setTimeout(() => {
-          const executingMap = { ...get().toolCallsById }
-          executingMap[id] = {
-            ...executingMap[id],
-            state: ClientToolCallState.executing,
-            display: resolveToolDisplay(name, ClientToolCallState.executing, id, args),
-          }
-          set({ toolCallsById: executingMap })
-          logger.info('[toolCallsById] pending → executing (class)', { id, name })
-
-          Promise.resolve()
-            .then(async () => {
-              await inst.execute(args || {})
-              // Success/error will be synced via registerToolStateSync
-            })
-            .catch(() => {
-              const errorMap = { ...get().toolCallsById }
-              // Do not override terminal review/rejected
-              if (
-                isRejectedState(errorMap[id]?.state) ||
-                isReviewState(errorMap[id]?.state) ||
-                isBackgroundState(errorMap[id]?.state)
-              ) {
-                return
-              }
-              errorMap[id] = {
-                ...errorMap[id],
-                state: ClientToolCallState.error,
-                display: resolveToolDisplay(name, ClientToolCallState.error, id, args),
-              }
-              set({ toolCallsById: errorMap })
-            })
+          get().executeIntegrationTool(id)
         }, 0)
-      }
-    } catch { }
-
-    // Integration tools: Check if auto-allowed, otherwise wait for user confirmation (build mode only)
-    try {
-      const { mode, workflowId, autoAllowedTools } = get()
-      if (mode === 'build' && workflowId && name) {
-        const def = name ? getTool(name) : undefined
-        const inst = getClientTool(id) as any
-        const isClientTool = !!CLASS_TOOL_METADATA[name] || !!getRegisteredTools()[name]
-        if (!def && !inst && !isClientTool) {
-          if (autoAllowedTools.includes(name)) {
-            logger.info('[build mode] Integration tool auto-allowed, executing', { id, name })
-            setTimeout(() => {
-              get().executeIntegrationTool(id)
-            }, 0)
-          } else {
-            logger.info('[build mode] Integration tool awaiting user confirmation', { id, name })
-          }
-        }
+      } else {
+        logger.info('[copilot access] integration tool awaiting confirmation', {
+          accessLevel: get().accessLevel,
+          id,
+          name,
+        })
       }
     } catch (error) {
-      logger.warn('Integration tool auto-allow check failed', { id, name, error })
+      logger.warn('Integration tool access check failed', { id, name, error })
     }
   },
   reasoning: (data, context, _get, set) => {
@@ -875,7 +748,7 @@ const sseHandlers: Record<string, SSEHandler> = {
         context.currentThinkingBlock.type = THINKING_BLOCK_TYPE
         context.currentThinkingBlock.content = ''
         context.currentThinkingBlock.timestamp = Date.now()
-          ; (context.currentThinkingBlock as any).startTime = Date.now()
+        ;(context.currentThinkingBlock as any).startTime = Date.now()
         context.contentBlocks.push(context.currentThinkingBlock)
       }
       context.isInThinkingBlock = true
@@ -885,7 +758,7 @@ const sseHandlers: Record<string, SSEHandler> = {
     }
     if (phase === 'end') {
       if (context.currentThinkingBlock) {
-        ; (context.currentThinkingBlock as any).duration =
+        ;(context.currentThinkingBlock as any).duration =
           Date.now() - ((context.currentThinkingBlock as any).startTime || Date.now())
       }
       context.isInThinkingBlock = false
@@ -903,7 +776,7 @@ const sseHandlers: Record<string, SSEHandler> = {
       context.currentThinkingBlock.type = THINKING_BLOCK_TYPE
       context.currentThinkingBlock.content = chunk
       context.currentThinkingBlock.timestamp = Date.now()
-        ; (context.currentThinkingBlock as any).startTime = Date.now()
+      ;(context.currentThinkingBlock as any).startTime = Date.now()
       context.contentBlocks.push(context.currentThinkingBlock)
     }
     context.isInThinkingBlock = true
@@ -1041,10 +914,10 @@ const sseHandlers: Record<string, SSEHandler> = {
       messages: state.messages.map((msg) =>
         msg.id === context.messageId
           ? {
-            ...msg,
-            content: context.accumulatedContent || 'An error occurred.',
-            error: data.error,
-          }
+              ...msg,
+              content: context.accumulatedContent || 'An error occurred.',
+              error: data.error,
+            }
           : msg
       ),
     }))
@@ -1086,7 +959,7 @@ const sseHandlers: Record<string, SSEHandler> = {
     context.currentTextBlock = null
     updateStreamingMessage(set, context)
   },
-  default: () => { },
+  default: () => {},
 }
 
 async function* parseSSEStream(
@@ -1122,7 +995,7 @@ async function* parseSSEStream(
 
 // Initial state (subset required for UI/streaming)
 const initialState = {
-  mode: 'build' as const,
+  accessLevel: 'limited' as const,
   selectedModel: 'claude-4.5-sonnet' as CopilotStore['selectedModel'],
   agentPrefetch: false,
   enabledModels: null as string[] | null, // Null means not loaded yet, empty array means all disabled
@@ -1153,7 +1026,6 @@ const initialState = {
   toolCallsById: {} as Record<string, CopilotToolCall>,
   suppressAutoSelect: false,
   contextUsage: null,
-  autoAllowedTools: [] as string[],
 }
 
 const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID) =>
@@ -1161,8 +1033,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
     devtools((set, get) => ({
       ...initialState,
 
-      // Basic mode controls
-      setMode: (mode) => set({ mode }),
+      // Access policy controls
+      setAccessLevel: (accessLevel) => set({ accessLevel }),
 
       // Clear messages
       clearMessages: () => set({ messages: [], contextUsage: null }),
@@ -1178,15 +1050,14 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         abortAllInProgressTools(set, get)
         try {
           useWorkflowDiffStore.getState().clearDiff()
-        } catch { }
+        } catch {}
 
         set({
           ...initialState,
           workflowId,
-          mode: get().mode,
+          accessLevel: get().accessLevel,
           selectedModel: get().selectedModel,
           agentPrefetch: get().agentPrefetch,
-          autoAllowedTools: get().autoAllowedTools,
         })
       },
 
@@ -1213,7 +1084,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         abortAllInProgressTools(set, get)
         try {
           useWorkflowDiffStore.getState().clearDiff()
-        } catch { }
+        } catch {}
 
         // Capture previous chat/messages for optimistic background save
         const previousChat = currentChat
@@ -1237,9 +1108,9 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ chatId: previousChat.id, messages: dbMessages }),
-            }).catch(() => { })
+            }).catch(() => {})
           }
-        } catch { }
+        } catch {}
 
         // Refresh selected chat from server to ensure we have latest messages/tool calls
         try {
@@ -1278,13 +1149,13 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               })
               try {
                 await get().loadMessageCheckpoints(latestChat.id)
-              } catch { }
+              } catch {}
               // Fetch context usage for the selected chat
               logger.info('[Context Usage] Chat selected, fetching usage')
               await get().fetchContextUsage()
             }
           }
-        } catch { }
+        } catch {}
       },
 
       createNewChat: async () => {
@@ -1295,7 +1166,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         abortAllInProgressTools(set, get)
         try {
           useWorkflowDiffStore.getState().clearDiff()
-        } catch { }
+        } catch {}
 
         // Background-save the current chat before clearing (optimistic)
         try {
@@ -1307,9 +1178,9 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ chatId: currentChat.id, messages: dbMessages }),
-            }).catch(() => { })
+            }).catch(() => {})
           }
-        } catch { }
+        } catch {}
 
         logger.info('[Context Usage] New chat created, clearing context usage')
         set({
@@ -1417,7 +1288,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 }
                 try {
                   await get().loadMessageCheckpoints(updatedCurrentChat.id)
-                } catch { }
+                } catch {}
               } else if (!isSendingMessage && !suppressAutoSelect) {
                 const mostRecentChat: CopilotChat = data.chats[0]
                 const normalizedMessages = normalizeMessagesForUI(mostRecentChat.messages || [])
@@ -1445,7 +1316,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 })
                 try {
                   await get().loadMessageCheckpoints(mostRecentChat.id)
-                } catch { }
+                } catch {}
               }
             } else {
               set({ currentChat: null, messages: [] })
@@ -1464,7 +1335,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
 
       // Send a message (streaming only)
       sendMessage: async (message: string, options = {}) => {
-        const { workflowId, currentChat, mode, revertState } = get()
+        const { workflowId, currentChat, revertState } = get()
         const {
           stream = true,
           fileAttachments,
@@ -1531,21 +1402,20 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               contextsCount: Array.isArray(contexts) ? contexts.length : 0,
               contextsPreview: Array.isArray(contexts)
                 ? contexts.map((c: any) => ({
-                  kind: c?.kind,
-                  chatId: (c as any)?.chatId,
-                  workflowId: (c as any)?.workflowId,
-                  label: (c as any)?.label,
-                }))
+                    kind: c?.kind,
+                    chatId: (c as any)?.chatId,
+                    workflowId: (c as any)?.workflowId,
+                    label: (c as any)?.label,
+                  }))
                 : undefined,
             })
-          } catch { }
+          } catch {}
 
           const result = await sendStreamingMessage({
             message,
             userMessageId: userMessage.id,
             chatId: currentChat?.id,
             workflowId,
-            mode: mode === 'ask' ? 'ask' : 'build',
             model: get().selectedModel,
             prefetch: get().agentPrefetch,
             createNewChat: !currentChat,
@@ -1652,8 +1522,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ chatId: currentChat.id, messages: dbMessages }),
-              }).catch(() => { })
-            } catch { }
+              }).catch(() => {})
+            } catch {}
           }
 
           // Fetch context usage after abort
@@ -1665,61 +1535,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             })
         } catch {
           set({ isSendingMessage: false, isAborting: false, abortController: null })
-        }
-      },
-
-      // Implicit feedback (send a continuation) - minimal
-      sendImplicitFeedback: async (implicitFeedback: string) => {
-        const { workflowId, currentChat, mode, selectedModel } = get()
-        if (!workflowId) return
-        const abortController = new AbortController()
-        set({ isSendingMessage: true, error: null, abortController })
-        const newAssistantMessage = createStreamingMessage()
-        set((state) => ({ messages: [...state.messages, newAssistantMessage] }))
-        try {
-          const result = await sendStreamingMessage({
-            message: 'Please continue your response.',
-            chatId: currentChat?.id,
-            workflowId,
-            mode: mode === 'ask' ? 'ask' : 'build',
-            model: selectedModel,
-            prefetch: get().agentPrefetch,
-            createNewChat: !currentChat,
-            stream: true,
-            implicitFeedback,
-            abortSignal: abortController.signal,
-          })
-          if (result.success && result.stream) {
-            await get().handleStreamingResponse(result.stream, newAssistantMessage.id, false)
-          } else {
-            if (result.error === 'Request was aborted') return
-            const errorMessage = createErrorMessage(
-              newAssistantMessage.id,
-              result.error || 'Failed to send implicit feedback'
-            )
-            set((state) => ({
-              messages: state.messages.map((msg) =>
-                msg.id === newAssistantMessage.id ? errorMessage : msg
-              ),
-              error: result.error || 'Failed to send implicit feedback',
-              isSendingMessage: false,
-              abortController: null,
-            }))
-          }
-        } catch (error) {
-          if (error instanceof Error && error.name === 'AbortError') return
-          const errorMessage = createErrorMessage(
-            newAssistantMessage.id,
-            'Sorry, I encountered an error while processing your feedback. Please try again.'
-          )
-          set((state) => ({
-            messages: state.messages.map((msg) =>
-              msg.id === newAssistantMessage.id ? errorMessage : msg
-            ),
-            error: error instanceof Error ? error.message : 'Failed to send implicit feedback',
-            isSendingMessage: false,
-            abortController: null,
-          }))
         }
       },
 
@@ -1753,7 +1568,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             display: resolveToolDisplay(current.name, norm, id, current.params),
           }
           set({ toolCallsById: map })
-        } catch { }
+        } catch {}
       },
       updatePreviewToolCallState: (
         toolCallState: 'accepted' | 'rejected' | 'error',
@@ -1870,7 +1685,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 let body: string | undefined
                 try {
                   body = await res.text()
-                } catch { }
+                } catch {}
                 logger.warn('[mark-complete] proxy responded non-OK', {
                   toolCallId: id,
                   toolName: current.name,
@@ -1886,14 +1701,14 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 error: error instanceof Error ? error.message : String(error),
               })
             })
-        } catch { }
+        } catch {}
       },
 
       sendDocsMessage: async (query: string) => {
         await get().sendMessage(query)
       },
 
-      saveChatMessages: async (_chatId: string) => { },
+      saveChatMessages: async (_chatId: string) => {},
 
       loadCheckpoints: async (_chatId: string) => set({ checkpoints: [] }),
 
@@ -1945,7 +1760,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             // Clear any active diff preview
             try {
               useWorkflowDiffStore.getState().clearDiff()
-            } catch { }
+            } catch {}
 
             // Apply to main workflow store
             useWorkflowStore.setState({
@@ -1992,7 +1807,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       },
 
       // Preview YAML (stubbed/no-op)
-      setPreviewYaml: async (_yamlContent: string) => { },
+      setPreviewYaml: async (_yamlContent: string) => {},
       clearPreviewYaml: async () => {
         set((state) => ({
           currentChat: state.currentChat ? { ...state.currentChat, previewYaml: null } : null,
@@ -2066,10 +1881,10 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             messages: state.messages.map((msg) =>
               msg.id === assistantMessageId
                 ? {
-                  ...msg,
-                  content: finalContent,
-                  contentBlocks: context.contentBlocks,
-                }
+                    ...msg,
+                    content: finalContent,
+                    contentBlocks: context.contentBlocks,
+                  }
                 : msg
             ),
             isSendingMessage: false,
@@ -2092,19 +1907,17 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ chatId: currentChat.id, messages: dbMessages }),
               })
-            } catch { }
+            } catch {}
           }
 
           // Post copilot_stats record (input/output tokens can be null for now)
           try {
             // Removed: stats sending now occurs only on accept/reject with minimal payload
-          } catch { }
+          } catch {}
 
           // Fetch context usage after response completes
           logger.info('[Context Usage] Stream completed, fetching usage')
-          const billingOptions = assistantMessageId
-            ? { bill: true, assistantMessageId }
-            : undefined
+          const billingOptions = assistantMessageId ? { bill: true, assistantMessageId } : undefined
           await get().fetchContextUsage(billingOptions)
         } finally {
           clearTimeout(timeoutId)
@@ -2128,7 +1941,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         abortAllInProgressTools(set, get)
         try {
           useWorkflowDiffStore.getState().clearDiff()
-        } catch { }
+        } catch {}
 
         set({
           currentChat: newChat,
@@ -2145,7 +1958,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       clearError: () => set({ error: null }),
       clearSaveError: () => set({ saveError: null }),
       clearCheckpointError: () => set({ checkpointError: null }),
-      retrySave: async (_chatId: string) => { },
+      retrySave: async (_chatId: string) => {},
 
       cleanup: () => {
         const { isSendingMessage } = get()
@@ -2154,14 +1967,14 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         // Clear any diff on cleanup
         try {
           useWorkflowDiffStore.getState().clearDiff()
-        } catch { }
+        } catch {}
       },
 
       reset: () => {
         get().cleanup()
         // Abort in-progress tools prior to reset
         abortAllInProgressTools(set, get)
-        set({ ...initialState, autoAllowedTools: get().autoAllowedTools })
+        set({ ...initialState, accessLevel: get().accessLevel })
       },
 
       // Input controls
@@ -2183,8 +1996,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       closePlanTodos: () => set({ showPlanTodos: false }),
 
       // Diff updates are out of scope for minimal store
-      updateDiffStore: async (_yamlContent: string) => { },
-      updateDiffStoreWithWorkflowState: async (_workflowState: any) => { },
+      updateDiffStore: async (_yamlContent: string) => {},
+      updateDiffStoreWithWorkflowState: async (_workflowState: any) => {},
 
       setSelectedModel: async (model) => {
         logger.info('[Context Usage] Model changed', { from: get().selectedModel, to: model })
@@ -2275,6 +2088,219 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         }
       },
 
+      executeCopilotToolCall: async (toolCallId: string) => {
+        const { toolCallsById } = get()
+        const toolCall = toolCallsById[toolCallId]
+        const workflowId = toolCall?.provenance?.workflowId
+        if (!toolCall || !workflowId) return
+
+        const { id, name, params } = toolCall
+        const executionContext = createExecutionContext({
+          toolCallId: id,
+          toolName: name,
+          channelId: toolCall.provenance?.channelId || DEFAULT_COPILOT_CHANNEL_ID,
+          workflowId,
+        })
+        const preparedArgs = prepareCopilotToolArgs(name, params, executionContext)
+
+        const executingMap = { ...get().toolCallsById }
+        executingMap[id] = {
+          ...executingMap[id],
+          state: ClientToolCallState.executing,
+          display: resolveToolDisplay(name, ClientToolCallState.executing, id, params),
+        }
+        set({ toolCallsById: executingMap })
+        logger.info('[toolCallsById] pending → executing (copilot tool)', { id, name })
+
+        if (isServerManagedCopilotTool(name)) {
+          try {
+            const response = await fetch('/api/copilot/execute-copilot-server-tool', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                toolName: name,
+                payload: preparedArgs,
+              }),
+            })
+
+            if (!response.ok) {
+              const errorText = await response.text().catch(() => '')
+              throw new Error(errorText || `Server error (${response.status})`)
+            }
+
+            const json = await response.json()
+            const parsed = ExecuteResponseSuccessSchema.parse(json)
+            const result = parsed.result
+            const logicalSuccess =
+              !result ||
+              typeof result !== 'object' ||
+              !('success' in result) ||
+              (result as any).success !== false
+
+            const completeMap = { ...get().toolCallsById }
+            if (
+              isRejectedState(completeMap[id]?.state) ||
+              isReviewState(completeMap[id]?.state) ||
+              isBackgroundState(completeMap[id]?.state)
+            ) {
+              return
+            }
+
+            completeMap[id] = {
+              ...completeMap[id],
+              state: logicalSuccess ? ClientToolCallState.success : ClientToolCallState.error,
+              display: resolveToolDisplay(
+                name,
+                logicalSuccess ? ClientToolCallState.success : ClientToolCallState.error,
+                id,
+                params
+              ),
+            }
+            set({ toolCallsById: completeMap })
+
+            const completionMessage =
+              typeof (result as any)?.message === 'string'
+                ? (result as any).message
+                : resolveToolDisplay(
+                    name,
+                    logicalSuccess ? ClientToolCallState.success : ClientToolCallState.error,
+                    id,
+                    params
+                  )?.text
+
+            try {
+              await fetch('/api/copilot/tools/mark-complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  id,
+                  name: name || 'unknown_tool',
+                  status: logicalSuccess ? 200 : 500,
+                  message: completionMessage,
+                  data: result,
+                }),
+              })
+            } catch {}
+            return
+          } catch (error) {
+            const errorMap = { ...get().toolCallsById }
+            if (
+              isRejectedState(errorMap[id]?.state) ||
+              isReviewState(errorMap[id]?.state) ||
+              isBackgroundState(errorMap[id]?.state)
+            ) {
+              return
+            }
+
+            const message = error instanceof Error ? error.message : String(error)
+            errorMap[id] = {
+              ...errorMap[id],
+              state: ClientToolCallState.error,
+              display: resolveToolDisplay(name, ClientToolCallState.error, id, params),
+            }
+            set({ toolCallsById: errorMap })
+
+            try {
+              await fetch('/api/copilot/tools/mark-complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  id,
+                  name: name || 'unknown_tool',
+                  status: 500,
+                  message,
+                }),
+              })
+            } catch {}
+            logger.error('Copilot server tool execution failed', { id, name, error })
+            return
+          }
+        }
+
+        const instance = ensureClientToolInstance(name, id) as any
+        if (!instance) {
+          const errorMap = { ...get().toolCallsById }
+          errorMap[id] = {
+            ...errorMap[id],
+            state: ClientToolCallState.error,
+            display: resolveToolDisplay(name, ClientToolCallState.error, id, params),
+          }
+          set({ toolCallsById: errorMap })
+          logger.error('Client-managed copilot tool instance not found', { id, name })
+          return
+        }
+
+        try {
+          bindClientToolExecutionContext(id, executionContext)
+          if (instance.getInterruptDisplays?.() && typeof instance.handleAccept === 'function') {
+            await instance.handleAccept(preparedArgs)
+          } else {
+            await instance.execute(preparedArgs)
+          }
+        } catch (error) {
+          const errorMap = { ...get().toolCallsById }
+          if (
+            isRejectedState(errorMap[id]?.state) ||
+            isReviewState(errorMap[id]?.state) ||
+            isBackgroundState(errorMap[id]?.state)
+          ) {
+            return
+          }
+          errorMap[id] = {
+            ...errorMap[id],
+            state: ClientToolCallState.error,
+            display: resolveToolDisplay(name, ClientToolCallState.error, id, params),
+          }
+          set({ toolCallsById: errorMap })
+          logger.error('Client-managed copilot tool execution failed', { id, name, error })
+        }
+      },
+
+      skipCopilotToolCall: async (toolCallId: string) => {
+        const { toolCallsById } = get()
+        const toolCall = toolCallsById[toolCallId]
+        if (!toolCall) return
+
+        const { id, name, params } = toolCall
+
+        if (isServerManagedCopilotTool(name)) {
+          const rejectedMap = { ...get().toolCallsById }
+          rejectedMap[id] = {
+            ...rejectedMap[id],
+            state: ClientToolCallState.rejected,
+            display: resolveToolDisplay(name, ClientToolCallState.rejected, id, params),
+          }
+          set({ toolCallsById: rejectedMap })
+
+          fetch('/api/copilot/tools/mark-complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id,
+              name: name || 'unknown_tool',
+              status: 200,
+              message: 'Tool execution was skipped by the user',
+              data: { skipped: true },
+            }),
+          }).catch(() => {})
+          return
+        }
+
+        const instance = ensureClientToolInstance(name, id) as any
+        if (instance?.handleReject) {
+          await instance.handleReject()
+          return
+        }
+
+        const rejectedMap = { ...get().toolCallsById }
+        rejectedMap[id] = {
+          ...rejectedMap[id],
+          state: ClientToolCallState.rejected,
+          display: resolveToolDisplay(name, ClientToolCallState.rejected, id, params),
+        }
+        set({ toolCallsById: rejectedMap })
+      },
+
       executeIntegrationTool: async (toolCallId: string) => {
         const { toolCallsById } = get()
         const toolCall = toolCallsById[toolCallId]
@@ -2307,7 +2333,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           let result: any = null
           try {
             result = await res.json()
-          } catch { }
+          } catch {}
 
           const success =
             res.ok && result?.success && result?.result && result.result.success === true
@@ -2351,12 +2377,12 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 data: success
                   ? result?.result?.output
                   : {
-                    error: result?.result?.error || result?.error,
-                    output: result?.result?.output,
-                  },
+                      error: result?.result?.error || result?.error,
+                      output: result?.result?.output,
+                    },
               }),
             })
-          } catch { }
+          } catch {}
         } catch (error) {
           const errorMap = { ...get().toolCallsById }
           if (
@@ -2402,58 +2428,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             message: 'Tool execution skipped by user',
             data: { skipped: true },
           }),
-        }).catch(() => { })
-      },
-
-      loadAutoAllowedTools: async () => {
-        try {
-          const res = await fetch('/api/copilot/auto-allowed-tools')
-          if (res.ok) {
-            const data = await res.json()
-            set({ autoAllowedTools: data.autoAllowedTools || [] })
-            logger.info('[AutoAllowedTools] Loaded', { tools: data.autoAllowedTools })
-          }
-        } catch (error) {
-          logger.error('[AutoAllowedTools] Failed to load', { error })
-        }
-      },
-
-      addAutoAllowedTool: async (toolId: string) => {
-        try {
-          const res = await fetch('/api/copilot/auto-allowed-tools', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ toolId }),
-          })
-          if (res.ok) {
-            const data = await res.json()
-            set({ autoAllowedTools: data.autoAllowedTools || [] })
-            logger.info('[AutoAllowedTools] Added tool', { toolId })
-          }
-        } catch (error) {
-          logger.error('[AutoAllowedTools] Failed to add tool', { toolId, error })
-        }
-      },
-
-      removeAutoAllowedTool: async (toolId: string) => {
-        try {
-          const res = await fetch(
-            `/api/copilot/auto-allowed-tools?toolId=${encodeURIComponent(toolId)}`,
-            { method: 'DELETE' }
-          )
-          if (res.ok) {
-            const data = await res.json()
-            set({ autoAllowedTools: data.autoAllowedTools || [] })
-            logger.info('[AutoAllowedTools] Removed tool', { toolId })
-          }
-        } catch (error) {
-          logger.error('[AutoAllowedTools] Failed to remove tool', { toolId, error })
-        }
-      },
-
-      isToolAutoAllowed: (toolId: string) => {
-        const { autoAllowedTools } = get()
-        return autoAllowedTools.includes(toolId)
+        }).catch(() => {})
       },
     }))
   )
@@ -2511,8 +2486,7 @@ export function useCopilotStore<T = CopilotStore>(
   equalityFn?: (a: T, b: T) => boolean
 ) {
   const store = useContext(CopilotStoreContext) ?? defaultCopilotStore
-  const resolvedSelector =
-    selector ?? (identitySelector as unknown as (state: CopilotStore) => T)
+  const resolvedSelector = selector ?? (identitySelector as unknown as (state: CopilotStore) => T)
   return useStore(store, resolvedSelector, equalityFn)
 }
 
@@ -2576,4 +2550,4 @@ try {
     }
     targetStore.setState({ toolCallsById: updated })
   })
-} catch { }
+} catch {}

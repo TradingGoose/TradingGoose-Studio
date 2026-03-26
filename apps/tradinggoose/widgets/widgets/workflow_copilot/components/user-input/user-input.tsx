@@ -10,7 +10,6 @@ import {
   useState,
 } from 'react'
 import {
-  Send,
   AtSign,
   Blocks,
   BookOpen,
@@ -26,10 +25,11 @@ import {
   Info,
   LibraryBig,
   Loader2,
-  MessageCircle,
-  Package,
   Paperclip,
+  Send,
   Shapes,
+  Shield,
+  ShieldCheck,
   SquareChevronRight,
   Workflow,
   X,
@@ -49,12 +49,13 @@ import {
   TooltipTrigger,
 } from '@/components/ui'
 import { useSession } from '@/lib/auth-client'
+import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
-import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useCopilotStore } from '@/stores/copilot/store'
 import type { ChatContext } from '@/stores/copilot/types'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store-client'
+import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { ContextUsagePill } from '../context-usage-pill/context-usage-pill'
 
 const logger = createLogger('CopilotUserInput')
@@ -90,8 +91,8 @@ interface UserInputProps {
   isAborting?: boolean
   placeholder?: string
   className?: string
-  mode?: 'ask' | 'build'
-  onModeChange?: (mode: 'ask' | 'build') => void
+  accessLevel?: CopilotAccessLevel
+  onAccessLevelChange?: (accessLevel: CopilotAccessLevel) => void
   value?: string // Controlled value from outside
   onChange?: (value: string) => void // Callback when value changes
   panelWidth?: number // Panel width to adjust truncation
@@ -113,8 +114,8 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       isAborting = false,
       placeholder,
       className,
-      mode = 'build',
-      onModeChange,
+      accessLevel = 'limited',
+      onAccessLevelChange,
       value: controlledValue,
       onChange: onControlledChange,
       panelWidth = 308,
@@ -208,10 +209,12 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     } = useCopilotStore()
     const workspaceId = useWorkspaceId()
 
-    // Determine placeholder based on mode
+    // Determine placeholder based on access level
     const effectivePlaceholder =
       placeholder ||
-      (mode === 'ask' ? 'Ask, plan, understand workflows' : 'Build, edit, debug workflows')
+      (accessLevel === 'limited'
+        ? 'Ask questions or request workflow, skill, or tool changes'
+        : 'Describe the workflow, skill, MCP, or custom-tool changes to run')
 
     // Track submenu query anchor and aggregate mode
     const [submenuQueryStart, setSubmenuQueryStart] = useState<number | null>(null)
@@ -239,7 +242,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     // Use controlled value if provided, otherwise use internal state
     const message = controlledValue !== undefined ? controlledValue : internalMessage
     const setMessage =
-      controlledValue !== undefined ? onControlledChange || (() => { }) : setInternalMessage
+      controlledValue !== undefined ? onControlledChange || (() => {}) : setInternalMessage
 
     // Load workflows on mount if we have a workflowId
     useEffect(() => {
@@ -639,11 +642,11 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
             prev.map((f) =>
               f.id === tempFile.id
                 ? {
-                  ...f,
-                  path: presignedData.fileInfo.path,
-                  key: presignedData.fileInfo.key, // Store the actual storage key
-                  uploading: false,
-                }
+                    ...f,
+                    path: presignedData.fileInfo.path,
+                    key: presignedData.fileInfo.key, // Store the actual storage key
+                    uploading: false,
+                  }
                 : f
             )
           )
@@ -739,25 +742,25 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
         const aggregatedList =
           !openSubmenuFor && mainQ.length > 0
             ? [
-              ...workflowBlocks
-                .filter((b) => (b.name || b.id).toLowerCase().includes(mainQ))
-                .map((b) => ({ type: 'Workflow Blocks' as const, value: b })),
-              ...workflows
-                .filter((w) => (w.name || 'Untitled Workflow').toLowerCase().includes(mainQ))
-                .map((w) => ({ type: 'Workflows' as const, value: w })),
-              ...blocksList
-                .filter((b) => (b.name || b.id).toLowerCase().includes(mainQ))
-                .map((b) => ({ type: 'Blocks' as const, value: b })),
-              ...knowledgeBases
-                .filter((k) => (k.name || 'Untitled').toLowerCase().includes(mainQ))
-                .map((k) => ({ type: 'Knowledge' as const, value: k })),
-              ...templatesList
-                .filter((t) => (t.name || 'Untitled Template').toLowerCase().includes(mainQ))
-                .map((t) => ({ type: 'Templates' as const, value: t })),
-              ...pastChats
-                .filter((c) => (c.title || 'Untitled Chat').toLowerCase().includes(mainQ))
-                .map((c) => ({ type: 'Chats' as const, value: c })),
-            ]
+                ...workflowBlocks
+                  .filter((b) => (b.name || b.id).toLowerCase().includes(mainQ))
+                  .map((b) => ({ type: 'Workflow Blocks' as const, value: b })),
+                ...workflows
+                  .filter((w) => (w.name || 'Untitled Workflow').toLowerCase().includes(mainQ))
+                  .map((w) => ({ type: 'Workflows' as const, value: w })),
+                ...blocksList
+                  .filter((b) => (b.name || b.id).toLowerCase().includes(mainQ))
+                  .map((b) => ({ type: 'Blocks' as const, value: b })),
+                ...knowledgeBases
+                  .filter((k) => (k.name || 'Untitled').toLowerCase().includes(mainQ))
+                  .map((k) => ({ type: 'Knowledge' as const, value: k })),
+                ...templatesList
+                  .filter((t) => (t.name || 'Untitled Template').toLowerCase().includes(mainQ))
+                  .map((t) => ({ type: 'Templates' as const, value: t })),
+                ...pastChats
+                  .filter((c) => (c.title || 'Untitled Chat').toLowerCase().includes(mainQ))
+                  .map((c) => ({ type: 'Chats' as const, value: c })),
+              ]
             : []
 
         if (openSubmenuFor === 'Chats' && pastChats.length > 0) {
@@ -1616,8 +1619,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
           const beforeChar = idx === 0 ? ' ' : text[idx - 1]
           const afterChar = text[idx + token.length] ?? ''
           const hasLeadingBoundary = idx === 0 || /\s/.test(beforeChar)
-          const hasTrailingBoundary =
-            idx + token.length >= text.length || /\s/.test(afterChar)
+          const hasTrailingBoundary = idx + token.length >= text.length || /\s/.test(afterChar)
           if (hasLeadingBoundary && hasTrailingBoundary) {
             ranges.push({ start: idx, end: idx + token.length, label })
           }
@@ -1715,25 +1717,18 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     const canSubmit = message.trim().length > 0 && !disabled && !isLoading
     const showAbortButton = isLoading && onAbort
 
-    const handleModeToggle = () => {
-      if (onModeChange) {
-        // Toggle between Ask and Build modes
-        onModeChange(mode === 'ask' ? 'build' : 'ask')
+    const getAccessLevelIcon = () => {
+      if (accessLevel === 'full') {
+        return <ShieldCheck className='h-3 w-3 text-muted-foreground' />
       }
+      return <Shield className='h-3 w-3 text-muted-foreground' />
     }
 
-    const getModeIcon = () => {
-      if (mode === 'ask') {
-        return <MessageCircle className='h-3 w-3 text-muted-foreground' />
+    const getAccessLevelText = () => {
+      if (accessLevel === 'full') {
+        return 'Full'
       }
-      return <Package className='h-3 w-3 text-muted-foreground' />
-    }
-
-    const getModeText = () => {
-      if (mode === 'ask') {
-        return 'Ask'
-      }
-      return 'Build'
+      return 'Limited'
     }
 
     // Model selection state comes from global store; access via useCopilotStore
@@ -2132,7 +2127,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
           className={cn(
             'relative rounded-md border border-input bg-muted/40 p-2 shadow-xs transition-all duration-200 ',
             isDragging &&
-            'border-primary-hover bg-yellow-50/50 dark:border-primary-hover dark:bg-yellow-950/20'
+              'border-primary-hover bg-yellow-50/50 dark:border-primary-hover dark:bg-yellow-950/20'
           )}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
@@ -3228,20 +3223,20 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
               )}
           </div>
 
-          {/* Bottom Row: Mode Selector + Attach Button + Send Button */}
+          {/* Bottom Row: Access Selector + Attach Button + Send Button */}
           <div className='flex items-center justify-between'>
-            {/* Left side: Mode Selector and Depth (if Build) */}
+            {/* Left side: Access Selector and Model */}
             <div className='flex items-center gap-1.5'>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant='outline'
                     size='sm'
-                    disabled={!onModeChange}
+                    disabled={!onAccessLevelChange}
                     className='flex h-6 items-center gap-1.5 rounded-sm border px-2 py-1 font-medium text-xs focus-visible:ring-0 focus-visible:ring-offset-0'
                   >
-                    {getModeIcon()}
-                    <span>{getModeText()}</span>
+                    {getAccessLevelIcon()}
+                    <span>{getAccessLevelText()}</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
@@ -3254,43 +3249,17 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <DropdownMenuItem
-                            onSelect={() => onModeChange?.('ask')}
+                            onSelect={() => onAccessLevelChange?.('limited')}
                             className={cn(
                               'flex items-center justify-between rounded-sm px-2 py-1.5 text-xs leading-4',
-                              mode === 'ask' && 'bg-muted/40'
+                              accessLevel === 'limited' && 'bg-muted/40'
                             )}
                           >
                             <span className='flex items-center gap-1.5'>
-                              <MessageCircle className='h-3 w-3 text-muted-foreground' />
-                              Ask
+                              <Shield className='h-3 w-3 text-muted-foreground' />
+                              Limited
                             </span>
-                            {mode === 'ask' && <Check className='h-3 w-3 text-muted-foreground' />}
-                          </DropdownMenuItem>
-                        </TooltipTrigger>
-                        <TooltipContent
-                          side='right'
-                          sideOffset={6}
-                          align='center'
-                          className='max-w-[220px] border bg-popover p-2 text-[11px] text-popover-foreground leading-snug shadow-md'
-                        >
-                          Ask mode can help answer questions about your workflow, tell you about
-                          Sim, and guide you in building/editing.
-                        </TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <DropdownMenuItem
-                            onSelect={() => onModeChange?.('build')}
-                            className={cn(
-                              'flex items-center justify-between rounded-sm px-2 py-1.5 text-xs leading-4',
-                              mode === 'build' && 'bg-muted/40'
-                            )}
-                          >
-                            <span className='flex items-center gap-1.5'>
-                              <Package className='h-3 w-3 text-muted-foreground' />
-                              Build
-                            </span>
-                            {mode === 'build' && (
+                            {accessLevel === 'limited' && (
                               <Check className='h-3 w-3 text-muted-foreground' />
                             )}
                           </DropdownMenuItem>
@@ -3301,7 +3270,35 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                           align='center'
                           className='max-w-[220px] border bg-popover p-2 text-[11px] text-popover-foreground leading-snug shadow-md'
                         >
-                          Build mode can build, edit, and interact with your workflows (Recommended)
+                          Reviews workflow, skill, MCP, and custom-tool changes before they run.
+                        </TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <DropdownMenuItem
+                            onSelect={() => onAccessLevelChange?.('full')}
+                            className={cn(
+                              'flex items-center justify-between rounded-sm px-2 py-1.5 text-xs leading-4',
+                              accessLevel === 'full' && 'bg-muted/40'
+                            )}
+                          >
+                            <span className='flex items-center gap-1.5'>
+                              <ShieldCheck className='h-3 w-3 text-muted-foreground' />
+                              Full
+                            </span>
+                            {accessLevel === 'full' && (
+                              <Check className='h-3 w-3 text-muted-foreground' />
+                            )}
+                          </DropdownMenuItem>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side='right'
+                          sideOffset={6}
+                          align='center'
+                          className='max-w-[220px] border bg-popover p-2 text-[11px] text-popover-foreground leading-snug shadow-md'
+                        >
+                          Allows workflow, skill, MCP, and custom-tool changes without extra
+                          approval.
                         </TooltipContent>
                       </Tooltip>
                     </div>
@@ -3337,10 +3334,10 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                         className={cn(
                           'flex h-6 items-center gap-1.5 rounded-sm border px-2 py-1 font-medium text-xs focus-visible:ring-0 focus-visible:ring-offset-0',
                           showPurple
-                            ? 'border-primary-hover text-primary-hover hover:bg-primary-hover/10 hover:text-primary hover:border-primary'
+                            ? 'border-primary-hover text-primary-hover hover:border-primary hover:bg-primary-hover/10 hover:text-primary'
                             : 'border-border text-foreground'
                         )}
-                        title='Choose mode'
+                        title='Choose model'
                       >
                         {getModelIcon()}
                         <span className={cn(panelWidth < 360 ? 'max-w-[72px] truncate' : '')}>

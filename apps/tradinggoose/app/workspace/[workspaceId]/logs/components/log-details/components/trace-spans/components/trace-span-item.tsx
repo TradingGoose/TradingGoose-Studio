@@ -1,5 +1,5 @@
 import type React from 'react'
-import { ChevronDown, ChevronRight, Code, RepeatIcon, SplitIcon } from 'lucide-react'
+import { ChevronDown, ChevronRight, Code, RepeatIcon, SplitIcon, ToolCase } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import {
@@ -7,6 +7,7 @@ import {
   normalizeChildWorkflowSpan,
 } from '@/app/workspace/[workspaceId]/logs/components/log-details/components/trace-spans'
 import { getBlock } from '@/blocks/registry'
+import { isSkillLoaderToolId } from '@/executor/handlers/agent/skills-resolver'
 import { getProviderIcon } from '@/providers/ai/utils'
 import type { TraceSpan } from '@/stores/logs/filters/types'
 import { getTool } from '@/tools/utils'
@@ -90,6 +91,9 @@ export function TraceSpanItem({
 
     if (type === 'tool') {
       const toolId = String(span.name || '')
+      if (isSkillLoaderToolId(toolId)) {
+        return { Icon: ToolCase, bgColor: '#10b981' }
+      }
       const parts = toolId.split('_')
       for (let i = parts.length; i > 0; i--) {
         const candidate = parts.slice(0, i).join('_')
@@ -149,7 +153,7 @@ export function TraceSpanItem({
       const block = getBlock(type)
       const color = (block as { bgColor?: string } | null)?.bgColor
       if (color) return color as string
-    } catch { }
+    } catch {}
     return getSpanColor(type)
   }
   const spanColor = getBlockColor(span.type)
@@ -168,6 +172,9 @@ export function TraceSpanItem({
   const formatSpanName = (span: TraceSpan) => {
     if (span.type === 'tool') {
       const raw = String(span.name || '')
+      if (isSkillLoaderToolId(raw)) {
+        return 'Load Skill'
+      }
       const tool = getTool(raw)
       const displayName = (() => {
         if (tool?.name) return tool.name
@@ -241,11 +248,7 @@ export function TraceSpanItem({
   }
 
   return (
-    <div
-      className={cn(
-        'relative border-b transition-colors last:border-b-0'
-      )}
-    >
+    <div className={cn('relative border-b transition-colors last:border-b-0')}>
       {depth > 0 && (
         <div
           className='pointer-events-none absolute top-0 bottom-0 border-border/60 border-l'
@@ -386,7 +389,7 @@ export function TraceSpanItem({
                           formatCostFn = require('@/providers/ai/utils').formatCost as (
                             v: number
                           ) => string
-                        } catch { }
+                        } catch {}
                         return (
                           <div className='space-y-0.5'>
                             {typeof input === 'number' && (

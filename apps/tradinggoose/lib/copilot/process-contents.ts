@@ -10,6 +10,7 @@ export type AgentContextType =
   | 'past_chat'
   | 'workflow'
   | 'current_workflow'
+  | 'current_targets'
   | 'blocks'
   | 'logs'
   | 'knowledge'
@@ -40,6 +41,9 @@ export async function processContexts(
           ctx.label ? `@${ctx.label}` : '@',
           ctx.kind
         )
+      }
+      if (ctx.kind === 'current_targets') {
+        return processCurrentTargetsContext(ctx)
       }
       if (ctx.kind === 'knowledge' && (ctx as any).knowledgeId) {
         return await processKnowledgeFromDb(
@@ -96,6 +100,9 @@ export async function processContextsServer(
           ctx.kind
         )
       }
+      if (ctx.kind === 'current_targets') {
+        return processCurrentTargetsContext(ctx)
+      }
       if (ctx.kind === 'knowledge' && (ctx as any).knowledgeId) {
         return await processKnowledgeFromDb(
           (ctx as any).knowledgeId,
@@ -151,6 +158,33 @@ export async function processContextsServer(
     kinds: Array.from(filtered.reduce((s, r) => s.add(r.type), new Set<string>())),
   })
   return filtered
+}
+
+function processCurrentTargetsContext(
+  ctx: Extract<ChatContext, { kind: 'current_targets' }>
+): AgentContext | null {
+  const targetEntries = [
+    ['workflowId', ctx.workflowId],
+    ['skillId', ctx.skillId],
+    ['customToolId', ctx.customToolId],
+    ['mcpServerId', ctx.mcpServerId],
+    ['indicatorId', ctx.indicatorId],
+    ['pineIndicatorId', ctx.pineIndicatorId],
+  ].filter(([, value]) => typeof value === 'string' && value.trim().length > 0)
+
+  if (targetEntries.length === 0) {
+    return null
+  }
+
+  return {
+    type: 'current_targets',
+    tag: ctx.label ? `@${ctx.label}` : '@',
+    content: [
+      'Default current edit/review targets for this copilot context:',
+      ...targetEntries.map(([key, value]) => `${key}: ${value}`),
+      'Use these only when the user does not explicitly specify a different target.',
+    ].join('\n'),
+  }
 }
 
 function escapeRegExp(input: string): string {
@@ -524,9 +558,9 @@ async function processExecutionLogFromDb(
       // Include trace spans and any available details without being huge
       executionData: log.executionData
         ? {
-          traceSpans: (log.executionData as any).traceSpans || undefined,
-          errorDetails: (log.executionData as any).errorDetails || undefined,
-        }
+            traceSpans: (log.executionData as any).traceSpans || undefined,
+            errorDetails: (log.executionData as any).errorDetails || undefined,
+          }
         : undefined,
       cost: log.cost || undefined,
     }

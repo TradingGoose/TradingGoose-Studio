@@ -4,6 +4,7 @@ import { and, desc, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
+import { requestCopilotTitle } from '@/lib/copilot/agent/utils'
 import {
   authenticateCopilotRequestSessionOnly,
   createBadRequestResponse,
@@ -15,11 +16,9 @@ import { getCopilotModel } from '@/lib/copilot/config'
 import type { CopilotProviderConfig } from '@/lib/copilot/types'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
-import { COPILOT_API_VERSION } from '@/lib/copilot/agent/constants'
-import { proxyCopilotRequest } from '@/app/api/copilot/proxy'
-import { requestCopilotTitle } from '@/lib/copilot/agent/utils'
 import { CopilotFiles } from '@/lib/uploads'
 import { createFileContent } from '@/lib/uploads/utils/file-utils'
+import { proxyCopilotRequest } from '@/app/api/copilot/proxy'
 
 const logger = createLogger('CopilotChatAPI')
 
@@ -52,11 +51,9 @@ const ChatMessageSchema = z.object({
     ])
     .optional()
     .default('claude-4.5-sonnet'),
-  mode: z.enum(['ask', 'build']).optional().default('build'),
   prefetch: z.boolean().optional(),
   createNewChat: z.boolean().optional().default(false),
   stream: z.boolean().optional().default(true),
-  implicitFeedback: z.string().optional(),
   fileAttachments: z.array(FileAttachmentSchema).optional(),
   provider: z.string().optional().default('openai'),
   conversationId: z.string().optional(),
@@ -67,6 +64,7 @@ const ChatMessageSchema = z.object({
           'past_chat',
           'workflow',
           'current_workflow',
+          'current_targets',
           'blocks',
           'logs',
           'workflow_block',
@@ -77,6 +75,11 @@ const ChatMessageSchema = z.object({
         label: z.string(),
         chatId: z.string().optional(),
         workflowId: z.string().optional(),
+        skillId: z.string().optional(),
+        customToolId: z.string().optional(),
+        mcpServerId: z.string().optional(),
+        indicatorId: z.string().optional(),
+        pineIndicatorId: z.string().optional(),
         knowledgeId: z.string().optional(),
         blockId: z.string().optional(),
         templateId: z.string().optional(),
@@ -89,7 +92,7 @@ const ChatMessageSchema = z.object({
 
 /**
  * POST /api/copilot/chat
- * Send messages to sim agent and handle chat persistence
+ * Send messages to TradingGoose Copilot and handle chat persistence
  */
 export async function POST(req: NextRequest) {
   const tracker = createRequestTracker()
@@ -111,11 +114,9 @@ export async function POST(req: NextRequest) {
       chatId,
       workflowId,
       model,
-      mode,
       prefetch,
       createNewChat,
       stream,
-      implicitFeedback,
       fileAttachments,
       provider,
       conversationId,
@@ -129,15 +130,15 @@ export async function POST(req: NextRequest) {
         contextsCount: Array.isArray(contexts) ? contexts.length : 0,
         contextsPreview: Array.isArray(contexts)
           ? contexts.map((c: any) => ({
-            kind: c?.kind,
-            chatId: c?.chatId,
-            workflowId: c?.workflowId,
-            executionId: (c as any)?.executionId,
-            label: c?.label,
-          }))
+              kind: c?.kind,
+              chatId: c?.chatId,
+              workflowId: c?.workflowId,
+              executionId: (c as any)?.executionId,
+              label: c?.label,
+            }))
           : undefined,
       })
-    } catch { }
+    } catch {}
     // Preprocess contexts server-side
     let agentContexts: Array<{ type: string; content: string }> = []
     if (Array.isArray(contexts) && contexts.length > 0) {
@@ -213,70 +214,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Build messages array for sim agent with conversation history
-    const messages: any[] = []
-
-    // Add conversation history (need to rebuild these with file support if they had attachments)
-    for (const msg of conversationHistory) {
-      if (msg.fileAttachments && msg.fileAttachments.length > 0) {
-        // This is a message with file attachments - rebuild with content array
-        const content: any[] = [{ type: 'text', text: msg.content }]
-
-        const processedHistoricalAttachments = await CopilotFiles.processCopilotAttachments(
-          msg.fileAttachments,
-          tracker.requestId
-        )
-
-        for (const { buffer, attachment } of processedHistoricalAttachments) {
-          const fileContent = createFileContent(buffer, attachment.media_type)
-          if (fileContent) {
-            content.push(fileContent)
-          }
-        }
-
-        messages.push({
-          role: msg.role,
-          content,
-        })
-      } else {
-        // Regular text-only message
-        messages.push({
-          role: msg.role,
-          content: msg.content,
-        })
-      }
-    }
-
-    // Add implicit feedback if provided
-    if (implicitFeedback) {
-      messages.push({
-        role: 'system',
-        content: implicitFeedback,
-      })
-    }
-
-    // Add current user message with file attachments
-    if (processedFileContents.length > 0) {
-      // Message with files - use content array format
-      const content: any[] = [{ type: 'text', text: message }]
-
-      // Add file contents
-      for (const fileContent of processedFileContents) {
-        content.push(fileContent)
-      }
-
-      messages.push({
-        role: 'user',
-        content,
-      })
-    } else {
-      // Text-only message
-      messages.push({
-        role: 'user',
-        content: message,
-      })
-    }
-
     const defaults = getCopilotModel('chat')
     const modelToUse = env.COPILOT_MODEL || defaults.model
 
@@ -312,9 +249,7 @@ export async function POST(req: NextRequest) {
       stream: stream,
       streamToolCalls: true,
       model: model,
-      mode: mode,
       messageId: userMessageIdToUse,
-      version: COPILOT_API_VERSION,
       ...(providerConfig ? { provider: providerConfig } : {}),
       ...(effectiveConversationId ? { conversationId: effectiveConversationId } : {}),
       ...(typeof prefetch === 'boolean' ? { prefetch: prefetch } : {}),
@@ -325,40 +260,40 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      logger.info(`[${tracker.requestId}] About to call Sim Agent`, {
+      logger.info(`[${tracker.requestId}] About to call TradingGoose Copilot`, {
         hasContext: agentContexts.length > 0,
         contextCount: agentContexts.length,
         hasConversationId: !!effectiveConversationId,
         hasFileAttachments: processedFileContents.length > 0,
         messageLength: message.length,
       })
-    } catch { }
+    } catch {}
 
-    const simAgentResponse = await proxyCopilotRequest({
-      endpoint: '/api/chat-completion-streaming',
+    const copilotResponse = await proxyCopilotRequest({
+      endpoint: '/api/copilot',
       body: requestPayload,
     })
 
-    if (!simAgentResponse.ok) {
-      if (simAgentResponse.status === 401 || simAgentResponse.status === 402) {
+    if (!copilotResponse.ok) {
+      if (copilotResponse.status === 401 || copilotResponse.status === 402) {
         // Rethrow status only; client will render appropriate assistant message
-        return new NextResponse(null, { status: simAgentResponse.status })
+        return new NextResponse(null, { status: copilotResponse.status })
       }
 
-      const errorText = await simAgentResponse.text().catch(() => '')
+      const errorText = await copilotResponse.text().catch(() => '')
       logger.error(`[${tracker.requestId}] TradingGoose Copilot API error:`, {
-        status: simAgentResponse.status,
+        status: copilotResponse.status,
         error: errorText,
       })
 
       return NextResponse.json(
-        { error: `TradingGoose Copilot API error: ${simAgentResponse.statusText}` },
-        { status: simAgentResponse.status }
+        { error: `TradingGoose Copilot API error: ${copilotResponse.statusText}` },
+        { status: copilotResponse.status }
       )
     }
 
     // If streaming is requested, forward the stream and update chat later
-    if (stream && simAgentResponse.body) {
+    if (stream && copilotResponse.body) {
       // Create user message to save
       const userMessage = {
         id: userMessageIdToUse, // Consistent ID used for request and persistence
@@ -369,8 +304,8 @@ export async function POST(req: NextRequest) {
         ...(Array.isArray(contexts) && contexts.length > 0 && { contexts }),
         ...(Array.isArray(contexts) &&
           contexts.length > 0 && {
-          contentBlocks: [{ type: 'contexts', contexts: contexts as any, timestamp: Date.now() }],
-        }),
+            contentBlocks: [{ type: 'contexts', contexts: contexts as any, timestamp: Date.now() }],
+          }),
       }
 
       // Create a pass-through stream that captures the response
@@ -396,8 +331,8 @@ export async function POST(req: NextRequest) {
             logger.debug(`[${tracker.requestId}] Sent initial chatId event to client`)
           }
 
-          // Forward the sim agent stream and capture assistant response
-          const reader = simAgentResponse.body!.getReader()
+          // Forward the Copilot stream and capture assistant response
+          const reader = copilotResponse.body!.getReader()
           const decoder = new TextDecoder()
 
           try {
@@ -483,11 +418,8 @@ export async function POST(req: NextRequest) {
                           titleRequested = true
                           requestCopilotTitle({
                             message,
-                            workflowId,
-                            userId: authenticatedUserId,
-                            conversationId: event.data.conversationId,
-                            model,
-                            provider: providerConfig,
+                            model: providerConfig?.model ?? model,
+                            provider: providerConfig?.provider,
                           })
                             .then(async (title) => {
                               if (title) {
@@ -555,7 +487,7 @@ export async function POST(req: NextRequest) {
                           reader.cancel()
                           break
                         }
-                      } catch { }
+                      } catch {}
                       // Do not forward the original error event
                     } else {
                       // Forward original event to client
@@ -588,7 +520,7 @@ export async function POST(req: NextRequest) {
                     }
                   }
                 } else if (line.trim() && line !== 'data: [DONE]') {
-                  logger.debug(`[${tracker.requestId}] Non-SSE line from sim agent: "${line}"`)
+                  logger.debug(`[${tracker.requestId}] Non-SSE line from Copilot: "${line}"`)
                 }
               }
             }
@@ -679,9 +611,7 @@ export async function POST(req: NextRequest) {
                 .set({
                   messages: updatedMessages,
                   updatedAt: new Date(),
-                  ...(conversationIdToPersist
-                    ? { conversationId: conversationIdToPersist }
-                    : {}),
+                  ...(conversationIdToPersist ? { conversationId: conversationIdToPersist } : {}),
                 })
                 .where(eq(copilotChats.id, actualChatId!))
 
@@ -724,8 +654,8 @@ export async function POST(req: NextRequest) {
     }
 
     // For non-streaming responses
-    const responseData = await simAgentResponse.json()
-    logger.info(`[${tracker.requestId}] Non-streaming response from sim agent:`, {
+    const responseData = await copilotResponse.json()
+    logger.info(`[${tracker.requestId}] Non-streaming response from Copilot:`, {
       hasContent: !!responseData.content,
       contentLength: responseData.content?.length || 0,
       model: responseData.model,
@@ -757,8 +687,8 @@ export async function POST(req: NextRequest) {
         ...(Array.isArray(contexts) && contexts.length > 0 && { contexts }),
         ...(Array.isArray(contexts) &&
           contexts.length > 0 && {
-          contentBlocks: [{ type: 'contexts', contexts: contexts as any, timestamp: Date.now() }],
-        }),
+            contentBlocks: [{ type: 'contexts', contexts: contexts as any, timestamp: Date.now() }],
+          }),
       }
 
       const assistantMessage = {
@@ -775,11 +705,8 @@ export async function POST(req: NextRequest) {
         logger.info(`[${tracker.requestId}] Starting title generation for non-streaming response`)
         requestCopilotTitle({
           message,
-          workflowId,
-          userId: authenticatedUserId,
-          conversationId: responseData.conversationId,
-          model,
-          provider: providerConfig,
+          model: providerConfig?.model ?? model,
+          provider: providerConfig?.provider,
         })
           .then(async (title) => {
             if (title) {

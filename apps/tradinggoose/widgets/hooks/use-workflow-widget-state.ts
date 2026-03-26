@@ -2,7 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { shallow } from 'zustand/shallow'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
+import {
+  type PairColorContext,
+  usePairColorStore,
+  useSetPairColorContext,
+} from '@/stores/dashboard/pair-store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import type { PairColor } from '@/widgets/pair-colors'
@@ -16,6 +20,7 @@ type UseWorkflowWidgetStateOptions = Pick<
   fallbackWidgetKey: string
   loggerScope?: string
   activateWorkflow?: boolean
+  usePairWorkflowContext?: boolean
 }
 
 type UseWorkflowWidgetStateResult = {
@@ -32,6 +37,7 @@ type UseWorkflowWidgetStateResult = {
 
 const DEFAULT_LOAD_ERROR_MESSAGE = 'Unable to load workflows'
 const MAX_METADATA_LOAD_ATTEMPTS = 2
+const EMPTY_PAIR_CONTEXT: Readonly<PairColorContext> = Object.freeze({})
 
 export const useWorkflowWidgetState = ({
   workspaceId,
@@ -43,6 +49,7 @@ export const useWorkflowWidgetState = ({
   fallbackWidgetKey,
   loggerScope = 'workflow widget',
   activateWorkflow = true,
+  usePairWorkflowContext = true,
 }: UseWorkflowWidgetStateOptions): UseWorkflowWidgetStateResult => {
   const { resolvedPairColor, channelId } = resolveWidgetChannel({
     pairColor,
@@ -50,7 +57,10 @@ export const useWorkflowWidgetState = ({
     panelId,
     fallbackWidgetKey,
   })
-  const pairContext = usePairColorContext(resolvedPairColor)
+  const shouldUsePairWorkflowContext = usePairWorkflowContext && resolvedPairColor !== 'gray'
+  const pairContext = usePairColorStore((state) =>
+    shouldUsePairWorkflowContext ? state.contexts[resolvedPairColor] : EMPTY_PAIR_CONTEXT
+  )
   const setPairContext = useSetPairColorContext()
   const { workflows, loadWorkflows, setActiveWorkflow } = useWorkflowRegistry(
     (state) => ({
@@ -67,12 +77,16 @@ export const useWorkflowWidgetState = ({
   const [loadAttempts, setLoadAttempts] = useState(0)
 
   const requestedWorkflowId = useMemo(() => {
-    if (resolvedPairColor !== 'gray' || !params || typeof params !== 'object') {
+    if (
+      (resolvedPairColor !== 'gray' && shouldUsePairWorkflowContext) ||
+      !params ||
+      typeof params !== 'object'
+    ) {
       return null
     }
 
     return 'workflowId' in params && params.workflowId ? String(params.workflowId) : null
-  }, [resolvedPairColor, params])
+  }, [resolvedPairColor, params, shouldUsePairWorkflowContext])
 
   const rawActiveWorkflowIdForChannel = useWorkflowRegistry((state) =>
     state.getActiveWorkflowId(channelId)
@@ -128,19 +142,19 @@ export const useWorkflowWidgetState = ({
     let cancelled = false
     setHasRequestedLoad(true)
     setLoadAttempts((previous) => previous + 1)
-    loadWorkflows({ workspaceId, channelId })
-      .catch((error) => {
-        if (cancelled) {
-          return
-        }
+    loadWorkflows({ workspaceId, channelId }).catch((error) => {
+      if (cancelled) {
+        return
+      }
 
-        console.error(`Failed to load workflows for ${loggerScope}`, error)
-        setLoadError(
-          error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')
-            ? 'Authentication required to load workflows'
-            : DEFAULT_LOAD_ERROR_MESSAGE
-        )
-      })
+      console.error(`Failed to load workflows for ${loggerScope}`, error)
+      setLoadError(
+        error instanceof Error &&
+          (error.message === 'Unauthorized' || error.message === 'Forbidden')
+          ? 'Authentication required to load workflows'
+          : DEFAULT_LOAD_ERROR_MESSAGE
+      )
+    })
 
     return () => {
       cancelled = true
@@ -161,7 +175,7 @@ export const useWorkflowWidgetState = ({
     }
 
     const pairWorkflowId =
-      resolvedPairColor !== 'gray' &&
+      shouldUsePairWorkflowContext &&
       pairContext.workflowId &&
       workspaceWorkflowMap[pairContext.workflowId]
         ? pairContext.workflowId
@@ -169,6 +183,15 @@ export const useWorkflowWidgetState = ({
 
     if (pairWorkflowId) {
       return pairWorkflowId
+    }
+
+    const channelWorkflowId =
+      rawActiveWorkflowIdForChannel && workspaceWorkflowMap[rawActiveWorkflowIdForChannel]
+        ? rawActiveWorkflowIdForChannel
+        : null
+
+    if (channelWorkflowId) {
+      return channelWorkflowId
     }
 
     if (requestedWorkflowId && workspaceWorkflowMap[requestedWorkflowId]) {
@@ -180,11 +203,14 @@ export const useWorkflowWidgetState = ({
     workflowIds,
     pairContext.workflowId,
     workspaceWorkflowMap,
+    rawActiveWorkflowIdForChannel,
     requestedWorkflowId,
-    resolvedPairColor,
+    shouldUsePairWorkflowContext,
   ])
 
-  const activeWorkflowIdForChannel = activateWorkflow ? rawActiveWorkflowIdForChannel : resolvedWorkflowId
+  const activeWorkflowIdForChannel = activateWorkflow
+    ? rawActiveWorkflowIdForChannel
+    : resolvedWorkflowId
 
   useEffect(() => {
     if (!activateWorkflow) {
@@ -195,10 +221,9 @@ export const useWorkflowWidgetState = ({
       return
     }
 
-    setActiveWorkflow({ workflowId: resolvedWorkflowId, channelId })
-      .catch((error) => {
-        console.error(`Failed to activate workflow for ${loggerScope}`, error)
-      })
+    setActiveWorkflow({ workflowId: resolvedWorkflowId, channelId }).catch((error) => {
+      console.error(`Failed to activate workflow for ${loggerScope}`, error)
+    })
   }, [
     activateWorkflow,
     resolvedWorkflowId,
@@ -219,7 +244,7 @@ export const useWorkflowWidgetState = ({
   }, [workspaceId, workspaceHasWorkflows, loadError, hasRequestedLoad, hydration.phase])
 
   useEffect(() => {
-    if (resolvedPairColor === 'gray' || !resolvedWorkflowId) {
+    if (!shouldUsePairWorkflowContext || !resolvedWorkflowId) {
       return
     }
 
@@ -233,7 +258,7 @@ export const useWorkflowWidgetState = ({
       channelId,
     })
   }, [
-    resolvedPairColor,
+    shouldUsePairWorkflowContext,
     resolvedWorkflowId,
     pairContext.workflowId,
     pairContext.listing,
@@ -252,13 +277,7 @@ export const useWorkflowWidgetState = ({
 
     const nextParams = { ...(params ?? {}), workflowId: resolvedWorkflowId }
     onWidgetParamsChange(nextParams)
-  }, [
-    resolvedPairColor,
-    resolvedWorkflowId,
-    requestedWorkflowId,
-    onWidgetParamsChange,
-    params,
-  ])
+  }, [resolvedPairColor, resolvedWorkflowId, requestedWorkflowId, onWidgetParamsChange, params])
 
   return {
     resolvedPairColor,

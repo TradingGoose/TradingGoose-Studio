@@ -1,23 +1,31 @@
 'use client'
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  CheckpointPanel,
-  CopilotMessage,
-  CopilotWelcome,
-  TodoList,
-  UserInput,
-} from '..'
-import type { MessageFileAttachment, UserInputRef } from '../user-input/user-input'
-import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { usePreviewStore } from '@/stores/copilot/preview-store'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
+import type { ChatContext } from '@/stores/copilot/types'
+import { usePairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
+import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import {
+  appendCurrentTargetsContext,
+  buildCurrentTargetsContext,
+} from '../../utils/current-target-context'
+import { CheckpointPanel, CopilotMessage, CopilotWelcome, TodoList, UserInput } from '..'
+import type { MessageFileAttachment, UserInputRef } from '../user-input/user-input'
 
 const logger = createLogger('Copilot')
 
@@ -49,620 +57,625 @@ interface CopilotRef {
 }
 
 export const Copilot = forwardRef<CopilotRef, CopilotProps>(
-  ({ panelWidth, initialChatId = null, onChatIdChange, pairColor: _pairColor }, ref) => {
-  const scrollAreaRef = useRef<HTMLDivElement>(null)
-  const userInputRef = useRef<UserInputRef>(null)
-  const [showCheckpoints] = useState(false)
-  const [isInitialized, setIsInitialized] = useState(false)
-  const [todosCollapsed, setTodosCollapsed] = useState(false)
-  const lastWorkflowIdRef = useRef<string | null>(null)
-  const hasMountedRef = useRef(false)
-  const hasLoadedModelsRef = useRef(false)
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
-  const [isEditingMessage, setIsEditingMessage] = useState(false)
-  const [revertingMessageId, setRevertingMessageId] = useState<string | null>(null)
-  const pendingChatIdRef = useRef<string | null>(initialChatId ?? null)
-  const lastNotifiedChatIdRef = useRef<string | null>(initialChatId ?? null)
-  const hasLoadedAutoAllowedRef = useRef(false)
+  ({ panelWidth, initialChatId = null, onChatIdChange, pairColor = 'gray' }, ref) => {
+    const scrollAreaRef = useRef<HTMLDivElement>(null)
+    const userInputRef = useRef<UserInputRef>(null)
+    const [showCheckpoints] = useState(false)
+    const [isInitialized, setIsInitialized] = useState(false)
+    const [todosCollapsed, setTodosCollapsed] = useState(false)
+    const lastWorkflowIdRef = useRef<string | null>(null)
+    const hasMountedRef = useRef(false)
+    const hasLoadedModelsRef = useRef(false)
+    const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
+    const [isEditingMessage, setIsEditingMessage] = useState(false)
+    const [revertingMessageId, setRevertingMessageId] = useState<string | null>(null)
+    const pendingChatIdRef = useRef<string | null>(initialChatId ?? null)
+    const lastNotifiedChatIdRef = useRef<string | null>(initialChatId ?? null)
 
-  // Scroll state
-  const [isNearBottom, setIsNearBottom] = useState(true)
-  const [showScrollButton, setShowScrollButton] = useState(false)
-  // New state to track if user has intentionally scrolled during streaming
-  const [userHasScrolledDuringStream, setUserHasScrolledDuringStream] = useState(false)
-  const isUserScrollingRef = useRef(false) // Track if scroll event is user-initiated
+    // Scroll state
+    const [isNearBottom, setIsNearBottom] = useState(true)
+    const [showScrollButton, setShowScrollButton] = useState(false)
+    // New state to track if user has intentionally scrolled during streaming
+    const [userHasScrolledDuringStream, setUserHasScrolledDuringStream] = useState(false)
+    const isUserScrollingRef = useRef(false) // Track if scroll event is user-initiated
 
-  const { workflowId: activeWorkflowId } = useWorkflowRoute()
+    const { workflowId: activeWorkflowId } = useWorkflowRoute()
+    const pairContext = usePairColorContext(pairColor)
 
-  // Use preview store to track seen previews
-  const { isToolCallSeen, markToolCallAsSeen } = usePreviewStore()
+    // Use preview store to track seen previews
+    const { isToolCallSeen, markToolCallAsSeen } = usePreviewStore()
 
-  // Use the new copilot store
-  const {
-    messages,
-    chats,
-    isLoadingChats,
-    isSendingMessage,
-    isAborting,
-    mode,
-    inputValue,
-    planTodos,
-    showPlanTodos,
-    sendMessage,
-    abortMessage,
-    createNewChat,
-    setMode,
-    setInputValue,
-    chatsLoadedForWorkflow,
-    setWorkflowId: setCopilotWorkflowId,
-    loadChats,
-    selectChat,
-    enabledModels,
-    setEnabledModels,
-    selectedModel,
-    setSelectedModel,
-    messageCheckpoints,
-    currentChat,
-    fetchContextUsage,
-    loadAutoAllowedTools,
-  } = useCopilotStore()
-  const copilotStoreApi = useCopilotStoreApi()
+    // Use the new copilot store
+    const {
+      messages,
+      chats,
+      isLoadingChats,
+      isSendingMessage,
+      isAborting,
+      accessLevel,
+      inputValue,
+      planTodos,
+      showPlanTodos,
+      sendMessage,
+      abortMessage,
+      createNewChat,
+      setAccessLevel,
+      setInputValue,
+      chatsLoadedForWorkflow,
+      setWorkflowId: setCopilotWorkflowId,
+      loadChats,
+      selectChat,
+      enabledModels,
+      setEnabledModels,
+      selectedModel,
+      setSelectedModel,
+      messageCheckpoints,
+      currentChat,
+      fetchContextUsage,
+    } = useCopilotStore()
+    const copilotStoreApi = useCopilotStoreApi()
+    const defaultCurrentTargetsContext = useMemo(
+      () =>
+        buildCurrentTargetsContext({
+          activeWorkflowId,
+          pairColor,
+          pairContext,
+        }),
+      [activeWorkflowId, pairColor, pairContext]
+    )
 
-  useEffect(() => {
-    pendingChatIdRef.current = initialChatId ?? null
-  }, [initialChatId])
+    useEffect(() => {
+      pendingChatIdRef.current = initialChatId ?? null
+    }, [initialChatId])
 
-  // Load user's enabled models on mount
-  useEffect(() => {
-    const loadEnabledModels = async () => {
-      if (hasLoadedModelsRef.current) return
-      hasLoadedModelsRef.current = true
+    // Load user's enabled models on mount
+    useEffect(() => {
+      const loadEnabledModels = async () => {
+        if (hasLoadedModelsRef.current) return
+        hasLoadedModelsRef.current = true
 
-      try {
-        const res = await fetch('/api/copilot/user-models')
-        if (!res.ok) {
-          logger.warn('Failed to fetch user models, using defaults')
-          // Use defaults if fetch fails
+        try {
+          const res = await fetch('/api/copilot/user-models')
+          if (!res.ok) {
+            logger.warn('Failed to fetch user models, using defaults')
+            // Use defaults if fetch fails
+            const enabledArray = Object.keys(DEFAULT_ENABLED_MODELS).filter(
+              (key) => DEFAULT_ENABLED_MODELS[key]
+            )
+            setEnabledModels(enabledArray)
+            return
+          }
+
+          const data = await res.json()
+          const modelsMap = data.enabledModels || DEFAULT_ENABLED_MODELS
+
+          // Convert map to array of enabled model IDs
+          const enabledArray = Object.entries(modelsMap)
+            .filter(([_, enabled]) => enabled)
+            .map(([modelId]) => modelId)
+
+          setEnabledModels(enabledArray)
+          logger.info('Loaded user enabled models', { count: enabledArray.length })
+        } catch (error) {
+          logger.error('Failed to load enabled models', { error })
+          // Use defaults on error
           const enabledArray = Object.keys(DEFAULT_ENABLED_MODELS).filter(
             (key) => DEFAULT_ENABLED_MODELS[key]
           )
           setEnabledModels(enabledArray)
-          return
         }
+      }
 
-        const data = await res.json()
-        const modelsMap = data.enabledModels || DEFAULT_ENABLED_MODELS
+      loadEnabledModels()
+    }, [setEnabledModels])
 
-        // Convert map to array of enabled model IDs
-        const enabledArray = Object.entries(modelsMap)
-          .filter(([_, enabled]) => enabled)
-          .map(([modelId]) => modelId)
+    // Ensure selected model is in the enabled models list
+    useEffect(() => {
+      if (!enabledModels || enabledModels.length === 0) return
 
-        setEnabledModels(enabledArray)
-        logger.info('Loaded user enabled models', { count: enabledArray.length })
-      } catch (error) {
-        logger.error('Failed to load enabled models', { error })
-        // Use defaults on error
-        const enabledArray = Object.keys(DEFAULT_ENABLED_MODELS).filter(
-          (key) => DEFAULT_ENABLED_MODELS[key]
+      // Check if current selected model is in the enabled list
+      if (selectedModel && !enabledModels.includes(selectedModel)) {
+        // Switch to the first enabled model (prefer claude-4.5-sonnet if available)
+        const preferredModel = 'claude-4.5-sonnet'
+        const fallbackModel = enabledModels[0] as typeof selectedModel
+
+        if (enabledModels.includes(preferredModel)) {
+          setSelectedModel(preferredModel)
+          logger.info('Selected model not enabled, switching to preferred model', {
+            from: selectedModel,
+            to: preferredModel,
+          })
+        } else if (fallbackModel) {
+          setSelectedModel(fallbackModel)
+          logger.info('Selected model not enabled, switching to first available', {
+            from: selectedModel,
+            to: fallbackModel,
+          })
+        }
+      }
+    }, [enabledModels, selectedModel, setSelectedModel])
+
+    // Force fresh initialization on mount (handles hot reload)
+    useEffect(() => {
+      if (activeWorkflowId && !hasMountedRef.current) {
+        hasMountedRef.current = true
+        // Reset state to ensure fresh load, especially important for hot reload
+        setIsInitialized(false)
+        lastWorkflowIdRef.current = null
+
+        // Force reload chats for current workflow
+        setCopilotWorkflowId(activeWorkflowId)
+        loadChats(true) // Force refresh
+      }
+    }, [activeWorkflowId, setCopilotWorkflowId, loadChats])
+
+    // Initialize the component - only on mount and genuine workflow changes
+    useEffect(() => {
+      // If workflow actually changed (not initial mount), reset initialization
+      if (
+        activeWorkflowId &&
+        activeWorkflowId !== lastWorkflowIdRef.current &&
+        hasMountedRef.current
+      ) {
+        setIsInitialized(false)
+        lastWorkflowIdRef.current = activeWorkflowId
+      }
+
+      // Set as initialized once we have the workflow and chats are ready
+      if (
+        activeWorkflowId &&
+        !isLoadingChats &&
+        chatsLoadedForWorkflow === activeWorkflowId &&
+        !isInitialized
+      ) {
+        setIsInitialized(true)
+      }
+    }, [activeWorkflowId, isLoadingChats, chatsLoadedForWorkflow, isInitialized])
+
+    // Align selected chat with the widget-provided chatId when available
+    useEffect(() => {
+      const targetChatId = pendingChatIdRef.current
+      if (!targetChatId) return
+      if (!activeWorkflowId) return
+      if (currentChat?.id === targetChatId) {
+        pendingChatIdRef.current = null
+        return
+      }
+      if (isLoadingChats || chatsLoadedForWorkflow !== activeWorkflowId) return
+
+      const match = (chats || []).find((chat) => chat.id === targetChatId)
+      if (match) {
+        pendingChatIdRef.current = null
+        selectChat(match).catch(() => {})
+      } else {
+        pendingChatIdRef.current = null
+      }
+    }, [
+      activeWorkflowId,
+      chats,
+      chatsLoadedForWorkflow,
+      currentChat?.id,
+      isLoadingChats,
+      selectChat,
+    ])
+
+    // Fetch context usage when component is initialized and has a current chat
+    useEffect(() => {
+      if (isInitialized && currentChat?.id && activeWorkflowId) {
+        logger.info('[Copilot] Component initialized, fetching context usage')
+        fetchContextUsage().catch((err) => {
+          logger.warn('[Copilot] Failed to fetch context usage on mount', err)
+        })
+      }
+    }, [isInitialized, currentChat?.id, activeWorkflowId, fetchContextUsage])
+
+    // Keep widget params in sync with the active chat
+    useEffect(() => {
+      if (!onChatIdChange) return
+      if (!isInitialized) return
+
+      const nextId = currentChat?.id ?? null
+      if (nextId === lastNotifiedChatIdRef.current) return
+
+      if (nextId || lastNotifiedChatIdRef.current !== null) {
+        lastNotifiedChatIdRef.current = nextId
+        onChatIdChange(nextId)
+      }
+    }, [currentChat?.id, isInitialized, onChatIdChange])
+
+    // Clear any existing preview when component mounts or workflow changes
+    useEffect(() => {
+      // Preview clearing is now handled automatically by the copilot store
+    }, [activeWorkflowId])
+
+    // Scroll to bottom function
+    const scrollToBottom = useCallback(() => {
+      if (scrollAreaRef.current) {
+        const scrollContainer = scrollAreaRef.current.querySelector(
+          '[data-radix-scroll-area-viewport]'
         )
-        setEnabledModels(enabledArray)
+        if (scrollContainer) {
+          // Mark that we're programmatically scrolling
+          isUserScrollingRef.current = false
+          scrollContainer.scrollTo({
+            top: scrollContainer.scrollHeight,
+            behavior: 'smooth',
+          })
+        }
       }
-    }
+    }, [])
 
-    loadEnabledModels()
-  }, [setEnabledModels])
+    // Handle scroll events to track user position
+    const handleScroll = useCallback(() => {
+      const scrollArea = scrollAreaRef.current
+      if (!scrollArea) return
 
-  // Load auto-allowed integration tools on mount
-  useEffect(() => {
-    const loadAutoAllowed = async () => {
-      if (hasLoadedAutoAllowedRef.current) return
-      hasLoadedAutoAllowedRef.current = true
-      try {
-        await loadAutoAllowedTools()
-      } catch (error) {
-        logger.warn('Failed to load auto-allowed tools', { error })
+      // Find the viewport element inside the ScrollArea
+      const viewport = scrollArea.querySelector('[data-radix-scroll-area-viewport]')
+      if (!viewport) return
+
+      const { scrollTop, scrollHeight, clientHeight } = viewport
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight
+
+      // Consider "near bottom" if within 100px of bottom
+      const nearBottom = distanceFromBottom <= 100
+      setIsNearBottom(nearBottom)
+      setShowScrollButton(!nearBottom)
+
+      // If user scrolled up during streaming, mark it
+      if (isSendingMessage && !nearBottom && isUserScrollingRef.current) {
+        setUserHasScrolledDuringStream(true)
       }
-    }
 
-    loadAutoAllowed()
-  }, [loadAutoAllowedTools])
-
-  // Ensure selected model is in the enabled models list
-  useEffect(() => {
-    if (!enabledModels || enabledModels.length === 0) return
-
-    // Check if current selected model is in the enabled list
-    if (selectedModel && !enabledModels.includes(selectedModel)) {
-      // Switch to the first enabled model (prefer claude-4.5-sonnet if available)
-      const preferredModel = 'claude-4.5-sonnet'
-      const fallbackModel = enabledModels[0] as typeof selectedModel
-
-      if (enabledModels.includes(preferredModel)) {
-        setSelectedModel(preferredModel)
-        logger.info('Selected model not enabled, switching to preferred model', {
-          from: selectedModel,
-          to: preferredModel,
-        })
-      } else if (fallbackModel) {
-        setSelectedModel(fallbackModel)
-        logger.info('Selected model not enabled, switching to first available', {
-          from: selectedModel,
-          to: fallbackModel,
-        })
-      }
-    }
-  }, [enabledModels, selectedModel, setSelectedModel])
-
-  // Force fresh initialization on mount (handles hot reload)
-  useEffect(() => {
-    if (activeWorkflowId && !hasMountedRef.current) {
-      hasMountedRef.current = true
-      // Reset state to ensure fresh load, especially important for hot reload
-      setIsInitialized(false)
-      lastWorkflowIdRef.current = null
-
-      // Force reload chats for current workflow
-      setCopilotWorkflowId(activeWorkflowId)
-      loadChats(true) // Force refresh
-    }
-  }, [activeWorkflowId, setCopilotWorkflowId, loadChats])
-
-  // Initialize the component - only on mount and genuine workflow changes
-  useEffect(() => {
-    // If workflow actually changed (not initial mount), reset initialization
-    if (
-      activeWorkflowId &&
-      activeWorkflowId !== lastWorkflowIdRef.current &&
-      hasMountedRef.current
-    ) {
-      setIsInitialized(false)
-      lastWorkflowIdRef.current = activeWorkflowId
-    }
-
-    // Set as initialized once we have the workflow and chats are ready
-    if (
-      activeWorkflowId &&
-      !isLoadingChats &&
-      chatsLoadedForWorkflow === activeWorkflowId &&
-      !isInitialized
-    ) {
-      setIsInitialized(true)
-    }
-  }, [activeWorkflowId, isLoadingChats, chatsLoadedForWorkflow, isInitialized])
-
-  // Align selected chat with the widget-provided chatId when available
-  useEffect(() => {
-    const targetChatId = pendingChatIdRef.current
-    if (!targetChatId) return
-    if (!activeWorkflowId) return
-    if (currentChat?.id === targetChatId) {
-      pendingChatIdRef.current = null
-      return
-    }
-    if (isLoadingChats || chatsLoadedForWorkflow !== activeWorkflowId) return
-
-    const match = (chats || []).find((chat) => chat.id === targetChatId)
-    if (match) {
-      pendingChatIdRef.current = null
-      selectChat(match).catch(() => { })
-    } else {
-      pendingChatIdRef.current = null
-    }
-  }, [
-    activeWorkflowId,
-    chats,
-    chatsLoadedForWorkflow,
-    currentChat?.id,
-    isLoadingChats,
-    selectChat,
-  ])
-
-  // Fetch context usage when component is initialized and has a current chat
-  useEffect(() => {
-    if (isInitialized && currentChat?.id && activeWorkflowId) {
-      logger.info('[Copilot] Component initialized, fetching context usage')
-      fetchContextUsage().catch((err) => {
-        logger.warn('[Copilot] Failed to fetch context usage on mount', err)
-      })
-    }
-  }, [isInitialized, currentChat?.id, activeWorkflowId, fetchContextUsage])
-
-  // Keep widget params in sync with the active chat
-  useEffect(() => {
-    if (!onChatIdChange) return
-    if (!isInitialized) return
-
-    const nextId = currentChat?.id ?? null
-    if (nextId === lastNotifiedChatIdRef.current) return
-
-    if (nextId || lastNotifiedChatIdRef.current !== null) {
-      lastNotifiedChatIdRef.current = nextId
-      onChatIdChange(nextId)
-    }
-  }, [currentChat?.id, isInitialized, onChatIdChange])
-
-  // Clear any existing preview when component mounts or workflow changes
-  useEffect(() => {
-    // Preview clearing is now handled automatically by the copilot store
-  }, [activeWorkflowId])
-
-  // Scroll to bottom function
-  const scrollToBottom = useCallback(() => {
-    if (scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector(
-        '[data-radix-scroll-area-viewport]'
-      )
-      if (scrollContainer) {
-        // Mark that we're programmatically scrolling
-        isUserScrollingRef.current = false
-        scrollContainer.scrollTo({
-          top: scrollContainer.scrollHeight,
-          behavior: 'smooth',
-        })
-      }
-    }
-  }, [])
-
-  // Handle scroll events to track user position
-  const handleScroll = useCallback(() => {
-    const scrollArea = scrollAreaRef.current
-    if (!scrollArea) return
-
-    // Find the viewport element inside the ScrollArea
-    const viewport = scrollArea.querySelector('[data-radix-scroll-area-viewport]')
-    if (!viewport) return
-
-    const { scrollTop, scrollHeight, clientHeight } = viewport
-    const distanceFromBottom = scrollHeight - scrollTop - clientHeight
-
-    // Consider "near bottom" if within 100px of bottom
-    const nearBottom = distanceFromBottom <= 100
-    setIsNearBottom(nearBottom)
-    setShowScrollButton(!nearBottom)
-
-    // If user scrolled up during streaming, mark it
-    if (isSendingMessage && !nearBottom && isUserScrollingRef.current) {
-      setUserHasScrolledDuringStream(true)
-    }
-
-    // Reset the user scrolling flag after processing
-    isUserScrollingRef.current = true
-  }, [isSendingMessage])
-
-  // Attach scroll listener
-  useEffect(() => {
-    const scrollArea = scrollAreaRef.current
-    if (!scrollArea) return
-
-    // Find the viewport element inside the ScrollArea
-    const viewport = scrollArea.querySelector('[data-radix-scroll-area-viewport]')
-    if (!viewport) return
-
-    // Mark user-initiated scrolls
-    const handleUserScroll = () => {
+      // Reset the user scrolling flag after processing
       isUserScrollingRef.current = true
-      handleScroll()
-    }
+    }, [isSendingMessage])
 
-    viewport.addEventListener('scroll', handleUserScroll, { passive: true })
+    // Attach scroll listener
+    useEffect(() => {
+      const scrollArea = scrollAreaRef.current
+      if (!scrollArea) return
 
-    // Also listen for scrollend event if available (for smooth scrolling)
-    if ('onscrollend' in viewport) {
-      viewport.addEventListener('scrollend', handleScroll, { passive: true })
-    }
+      // Find the viewport element inside the ScrollArea
+      const viewport = scrollArea.querySelector('[data-radix-scroll-area-viewport]')
+      if (!viewport) return
 
-    // Initial scroll state check with small delay to ensure DOM is ready
-    setTimeout(handleScroll, 100)
+      // Mark user-initiated scrolls
+      const handleUserScroll = () => {
+        isUserScrollingRef.current = true
+        handleScroll()
+      }
 
-    return () => {
-      viewport.removeEventListener('scroll', handleUserScroll)
+      viewport.addEventListener('scroll', handleUserScroll, { passive: true })
+
+      // Also listen for scrollend event if available (for smooth scrolling)
       if ('onscrollend' in viewport) {
-        viewport.removeEventListener('scrollend', handleScroll)
+        viewport.addEventListener('scrollend', handleScroll, { passive: true })
       }
-    }
-  }, [handleScroll])
 
-  // Smart auto-scroll: only scroll if user hasn't intentionally scrolled up during streaming
-  useEffect(() => {
-    if (messages.length === 0) return
+      // Initial scroll state check with small delay to ensure DOM is ready
+      setTimeout(handleScroll, 100)
 
-    const lastMessage = messages[messages.length - 1]
-    const isNewUserMessage = lastMessage?.role === 'user'
+      return () => {
+        viewport.removeEventListener('scroll', handleUserScroll)
+        if ('onscrollend' in viewport) {
+          viewport.removeEventListener('scrollend', handleScroll)
+        }
+      }
+    }, [handleScroll])
 
-    // Conditions for auto-scrolling:
-    // 1. Always scroll for new user messages (resets the user scroll state)
-    // 2. For assistant messages during streaming: only if user hasn't scrolled up
-    // 3. For assistant messages when not streaming: only if near bottom
-    const shouldAutoScroll =
-      isNewUserMessage ||
-      (isSendingMessage && !userHasScrolledDuringStream) ||
-      (!isSendingMessage && isNearBottom)
+    // Smart auto-scroll: only scroll if user hasn't intentionally scrolled up during streaming
+    useEffect(() => {
+      if (messages.length === 0) return
 
-    if (shouldAutoScroll && scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector(
-        '[data-radix-scroll-area-viewport]'
-      )
-      if (scrollContainer) {
-        // Mark that we're programmatically scrolling
+      const lastMessage = messages[messages.length - 1]
+      const isNewUserMessage = lastMessage?.role === 'user'
+
+      // Conditions for auto-scrolling:
+      // 1. Always scroll for new user messages (resets the user scroll state)
+      // 2. For assistant messages during streaming: only if user hasn't scrolled up
+      // 3. For assistant messages when not streaming: only if near bottom
+      const shouldAutoScroll =
+        isNewUserMessage ||
+        (isSendingMessage && !userHasScrolledDuringStream) ||
+        (!isSendingMessage && isNearBottom)
+
+      if (shouldAutoScroll && scrollAreaRef.current) {
+        const scrollContainer = scrollAreaRef.current.querySelector(
+          '[data-radix-scroll-area-viewport]'
+        )
+        if (scrollContainer) {
+          // Mark that we're programmatically scrolling
+          isUserScrollingRef.current = false
+          scrollContainer.scrollTo({
+            top: scrollContainer.scrollHeight,
+            behavior: 'smooth',
+          })
+        }
+      }
+    }, [messages, isNearBottom, isSendingMessage, userHasScrolledDuringStream])
+
+    // Reset user scroll state when streaming starts or when user sends a message
+    useEffect(() => {
+      const lastMessage = messages[messages.length - 1]
+      if (lastMessage?.role === 'user') {
+        // User sent a new message - reset scroll state
+        setUserHasScrolledDuringStream(false)
         isUserScrollingRef.current = false
-        scrollContainer.scrollTo({
-          top: scrollContainer.scrollHeight,
-          behavior: 'smooth',
-        })
       }
-    }
-  }, [messages, isNearBottom, isSendingMessage, userHasScrolledDuringStream])
+    }, [messages])
 
-  // Reset user scroll state when streaming starts or when user sends a message
-  useEffect(() => {
-    const lastMessage = messages[messages.length - 1]
-    if (lastMessage?.role === 'user') {
-      // User sent a new message - reset scroll state
-      setUserHasScrolledDuringStream(false)
-      isUserScrollingRef.current = false
-    }
-  }, [messages])
-
-  // Reset user scroll state when streaming completes
-  const prevIsSendingRef = useRef(false)
-  useEffect(() => {
-    // When streaming transitions from true to false, reset the user scroll state
-    if (prevIsSendingRef.current && !isSendingMessage) {
-      setUserHasScrolledDuringStream(false)
-    }
-    prevIsSendingRef.current = isSendingMessage
-  }, [isSendingMessage])
-
-  // Auto-scroll to bottom when chat loads in
-  useEffect(() => {
-    if (isInitialized && messages.length > 0) {
-      scrollToBottom()
-    }
-  }, [isInitialized, messages.length, scrollToBottom])
-
-  // Track previous sending state to detect when stream completes
-  const wasSendingRef = useRef(false)
-
-  // Auto-collapse todos and remove uncompleted ones when stream completes
-  useEffect(() => {
-    if (wasSendingRef.current && !isSendingMessage && showPlanTodos) {
-      // Stream just completed, collapse the todos and filter out uncompleted ones
-      setTodosCollapsed(true)
-
-      // Remove any uncompleted todos
-      const completedTodos = planTodos.filter((todo) => todo.completed === true)
-      if (completedTodos.length !== planTodos.length) {
-        // Only update if there are uncompleted todos to remove
-        const store = copilotStoreApi.getState()
-        store.setPlanTodos(completedTodos)
+    // Reset user scroll state when streaming completes
+    const prevIsSendingRef = useRef(false)
+    useEffect(() => {
+      // When streaming transitions from true to false, reset the user scroll state
+      if (prevIsSendingRef.current && !isSendingMessage) {
+        setUserHasScrolledDuringStream(false)
       }
-    }
-    wasSendingRef.current = isSendingMessage
-  }, [isSendingMessage, showPlanTodos, planTodos])
+      prevIsSendingRef.current = isSendingMessage
+    }, [isSendingMessage])
 
-  // Reset collapsed state when todos first appear
-  useEffect(() => {
-    if (showPlanTodos && planTodos.length > 0) {
-      // Check if this is the first time todos are showing
-      // (only expand if currently sending a message, meaning new todos are being created)
-      if (isSendingMessage) {
-        setTodosCollapsed(false)
+    // Auto-scroll to bottom when chat loads in
+    useEffect(() => {
+      if (isInitialized && messages.length > 0) {
+        scrollToBottom()
       }
-    }
-  }, [showPlanTodos, planTodos.length, isSendingMessage])
+    }, [isInitialized, messages.length, scrollToBottom])
 
-  // Cleanup on component unmount (page refresh, navigation, etc.)
-  useEffect(() => {
-    return () => {
-      // Abort any active message streaming and terminate active tools
-      if (isSendingMessage) {
-        abortMessage()
-        logger.info('Aborted active message streaming due to component unmount')
+    // Track previous sending state to detect when stream completes
+    const wasSendingRef = useRef(false)
+
+    // Auto-collapse todos and remove uncompleted ones when stream completes
+    useEffect(() => {
+      if (wasSendingRef.current && !isSendingMessage && showPlanTodos) {
+        // Stream just completed, collapse the todos and filter out uncompleted ones
+        setTodosCollapsed(true)
+
+        // Remove any uncompleted todos
+        const completedTodos = planTodos.filter((todo) => todo.completed === true)
+        if (completedTodos.length !== planTodos.length) {
+          // Only update if there are uncompleted todos to remove
+          const store = copilotStoreApi.getState()
+          store.setPlanTodos(completedTodos)
+        }
       }
-    }
-  }, [isSendingMessage, abortMessage])
+      wasSendingRef.current = isSendingMessage
+    }, [isSendingMessage, showPlanTodos, planTodos])
 
-  // Handle new chat creation
-  const handleStartNewChat = useCallback(() => {
-    // Preview clearing is now handled automatically by the copilot store
-    createNewChat()
-    logger.info('Started new chat')
+    // Reset collapsed state when todos first appear
+    useEffect(() => {
+      if (showPlanTodos && planTodos.length > 0) {
+        // Check if this is the first time todos are showing
+        // (only expand if currently sending a message, meaning new todos are being created)
+        if (isSendingMessage) {
+          setTodosCollapsed(false)
+        }
+      }
+    }, [showPlanTodos, planTodos.length, isSendingMessage])
 
-    // Focus the input after creating new chat
-    setTimeout(() => {
-      userInputRef.current?.focus()
-    }, 100) // Small delay to ensure DOM updates are complete
-  }, [createNewChat])
+    // Cleanup on component unmount (page refresh, navigation, etc.)
+    useEffect(() => {
+      return () => {
+        // Abort any active message streaming and terminate active tools
+        if (isSendingMessage) {
+          abortMessage()
+          logger.info('Aborted active message streaming due to component unmount')
+        }
+      }
+    }, [isSendingMessage, abortMessage])
 
-  const handleSetInputValueAndFocus = useCallback(
-    (value: string) => {
-      setInputValue(value)
+    // Handle new chat creation
+    const handleStartNewChat = useCallback(() => {
+      // Preview clearing is now handled automatically by the copilot store
+      createNewChat()
+      logger.info('Started new chat')
+
+      // Focus the input after creating new chat
       setTimeout(() => {
         userInputRef.current?.focus()
-      }, 150)
-    },
-    [setInputValue]
-  )
+      }, 100) // Small delay to ensure DOM updates are complete
+    }, [createNewChat])
 
-  // Expose functions to parent
-  useImperativeHandle(
-    ref,
-    () => ({
-      createNewChat: handleStartNewChat,
-      setInputValueAndFocus: handleSetInputValueAndFocus,
-    }),
-    [handleStartNewChat, handleSetInputValueAndFocus]
-  )
+    const handleSetInputValueAndFocus = useCallback(
+      (value: string) => {
+        setInputValue(value)
+        setTimeout(() => {
+          userInputRef.current?.focus()
+        }, 150)
+      },
+      [setInputValue]
+    )
 
-  // Handle abort action
-  const handleAbort = useCallback(() => {
-    abortMessage()
-    // Collapse todos when aborting
-    if (showPlanTodos) {
-      setTodosCollapsed(true)
-    }
-  }, [abortMessage, showPlanTodos])
+    // Expose functions to parent
+    useImperativeHandle(
+      ref,
+      () => ({
+        createNewChat: handleStartNewChat,
+        setInputValueAndFocus: handleSetInputValueAndFocus,
+      }),
+      [handleStartNewChat, handleSetInputValueAndFocus]
+    )
 
-  // Handle message submission
-  const handleSubmit = useCallback(
-    async (query: string, fileAttachments?: MessageFileAttachment[], contexts?: any[]) => {
-      if (!query || isSendingMessage || !activeWorkflowId) return
-
-      // Clear todos when sending a new message
+    // Handle abort action
+    const handleAbort = useCallback(() => {
+      abortMessage()
+      // Collapse todos when aborting
       if (showPlanTodos) {
-        const store = copilotStoreApi.getState()
-        store.setPlanTodos([])
+        setTodosCollapsed(true)
       }
+    }, [abortMessage, showPlanTodos])
 
-      try {
-        await sendMessage(query, { stream: true, fileAttachments, contexts })
-        logger.info(
-          'Sent message:',
-          query,
-          fileAttachments ? `with ${fileAttachments.length} attachments` : ''
-        )
-      } catch (error) {
-        logger.error('Failed to send message:', error)
-      }
-    },
-    [isSendingMessage, activeWorkflowId, sendMessage, showPlanTodos]
-  )
+    // Handle message submission
+    const handleSubmit = useCallback(
+      async (
+        query: string,
+        fileAttachments?: MessageFileAttachment[],
+        contexts?: ChatContext[]
+      ) => {
+        if (!query || isSendingMessage || !activeWorkflowId) return
 
-  const handleEditModeChange = useCallback((messageId: string, isEditing: boolean) => {
-    setEditingMessageId(isEditing ? messageId : null)
-    setIsEditingMessage(isEditing)
-    logger.info('Edit mode changed', { messageId, isEditing, willDimMessages: isEditing })
-  }, [])
+        // Clear todos when sending a new message
+        if (showPlanTodos) {
+          const store = copilotStoreApi.getState()
+          store.setPlanTodos([])
+        }
 
-  const handleRevertModeChange = useCallback((messageId: string, isReverting: boolean) => {
-    setRevertingMessageId(isReverting ? messageId : null)
-  }, [])
+        try {
+          await sendMessage(query, {
+            stream: true,
+            fileAttachments,
+            contexts: appendCurrentTargetsContext(contexts, defaultCurrentTargetsContext),
+          })
+          logger.info(
+            'Sent message:',
+            query,
+            fileAttachments ? `with ${fileAttachments.length} attachments` : ''
+          )
+        } catch (error) {
+          logger.error('Failed to send message:', error)
+        }
+      },
+      [activeWorkflowId, defaultCurrentTargetsContext, isSendingMessage, sendMessage, showPlanTodos]
+    )
 
-  return (
-    <>
-      <div className='flex h-full flex-col overflow-hidden'>
-        {/* Show loading state until fully initialized */}
-        {!isInitialized ? (
-          <div className='flex h-full w-full items-center justify-center'>
-            <div className='flex flex-col items-center gap-3'>
-              <LoadingAgent size='md' />
-              <p className='text-muted-foreground text-sm'>Loading chat history...</p>
+    const handleEditModeChange = useCallback((messageId: string, isEditing: boolean) => {
+      setEditingMessageId(isEditing ? messageId : null)
+      setIsEditingMessage(isEditing)
+      logger.info('Edit mode changed', { messageId, isEditing, willDimMessages: isEditing })
+    }, [])
+
+    const handleRevertModeChange = useCallback((messageId: string, isReverting: boolean) => {
+      setRevertingMessageId(isReverting ? messageId : null)
+    }, [])
+
+    return (
+      <>
+        <div className='flex h-full flex-col overflow-hidden'>
+          {/* Show loading state until fully initialized */}
+          {!isInitialized ? (
+            <div className='flex h-full w-full items-center justify-center'>
+              <div className='flex flex-col items-center gap-3'>
+                <LoadingAgent size='md' />
+                <p className='text-muted-foreground text-sm'>Loading chat history...</p>
+              </div>
             </div>
-          </div>
-        ) : (
-          <>
-            {/* Messages area or Checkpoint Panel */}
-            {showCheckpoints ? (
-              <CheckpointPanel />
-            ) : (
-              <div className='relative flex-1 overflow-hidden'>
-                <ScrollArea ref={scrollAreaRef} className='h-full' hideScrollbar={true}>
-                  <div className='w-full max-w-full space-y-2 overflow-hidden'>
-                    {messages.length === 0 && !isSendingMessage && !isEditingMessage ? (
-                      <div className='flex h-full items-center justify-center p-4'>
-                        <CopilotWelcome
-                          onQuestionClick={handleSubmit}
-                          mode={mode === 'ask' ? 'ask' : 'build'}
-                        />
-                      </div>
-                    ) : (
-                      messages.map((message, index) => {
-                        // Determine if this message should be dimmed
-                        let isDimmed = false
-
-                        // Dim messages after the one being edited
-                        if (editingMessageId) {
-                          const editingIndex = messages.findIndex((m) => m.id === editingMessageId)
-                          isDimmed = editingIndex !== -1 && index > editingIndex
-                        }
-
-                        // Also dim messages after the one showing restore confirmation
-                        if (!isDimmed && revertingMessageId) {
-                          const revertingIndex = messages.findIndex(
-                            (m) => m.id === revertingMessageId
-                          )
-                          isDimmed = revertingIndex !== -1 && index > revertingIndex
-                        }
-
-                        // Get checkpoint count for this message to force re-render when it changes
-                        const checkpointCount = messageCheckpoints[message.id]?.length || 0
-
-                        return (
-                          <CopilotMessage
-                            key={message.id}
-                            message={message}
-                            isStreaming={
-                              isSendingMessage && message.id === messages[messages.length - 1]?.id
-                            }
-                            panelWidth={panelWidth}
-                            isDimmed={isDimmed}
-                            checkpointCount={checkpointCount}
-                            onEditModeChange={(isEditing) =>
-                              handleEditModeChange(message.id, isEditing)
-                            }
-                            onRevertModeChange={(isReverting) =>
-                              handleRevertModeChange(message.id, isReverting)
-                            }
+          ) : (
+            <>
+              {/* Messages area or Checkpoint Panel */}
+              {showCheckpoints ? (
+                <CheckpointPanel />
+              ) : (
+                <div className='relative flex-1 overflow-hidden'>
+                  <ScrollArea ref={scrollAreaRef} className='h-full' hideScrollbar={true}>
+                    <div className='w-full max-w-full space-y-2 overflow-hidden'>
+                      {messages.length === 0 && !isSendingMessage && !isEditingMessage ? (
+                        <div className='flex h-full items-center justify-center p-4'>
+                          <CopilotWelcome
+                            onQuestionClick={handleSubmit}
+                            accessLevel={accessLevel}
                           />
-                        )
-                      })
-                    )}
-                  </div>
-                </ScrollArea>
+                        </div>
+                      ) : (
+                        messages.map((message, index) => {
+                          // Determine if this message should be dimmed
+                          let isDimmed = false
 
-                {/* Scroll to bottom button */}
-                {showScrollButton && (
-                  <div className='-translate-x-1/2 absolute bottom-4 left-1/2 z-10'>
-                    <Button
-                      onClick={scrollToBottom}
-                      size='sm'
-                      variant='outline'
-                      className='flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1 shadow-lg transition-all hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700'
-                    >
-                      <ArrowDown className='h-3.5 w-3.5 text-gray-700 dark:text-gray-300' />
-                      <span className='sr-only'>Scroll to bottom</span>
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
+                          // Dim messages after the one being edited
+                          if (editingMessageId) {
+                            const editingIndex = messages.findIndex(
+                              (m) => m.id === editingMessageId
+                            )
+                            isDimmed = editingIndex !== -1 && index > editingIndex
+                          }
 
-            {/* Todo list from plan tool */}
-            {!showCheckpoints && showPlanTodos && (
-              <TodoList
-                todos={planTodos}
-                collapsed={todosCollapsed}
-                onClose={() => {
-                  const store = copilotStoreApi.getState()
-                  store.setPlanTodos([])
-                }}
-              />
-            )}
+                          // Also dim messages after the one showing restore confirmation
+                          if (!isDimmed && revertingMessageId) {
+                            const revertingIndex = messages.findIndex(
+                              (m) => m.id === revertingMessageId
+                            )
+                            isDimmed = revertingIndex !== -1 && index > revertingIndex
+                          }
 
-            {/* Input area with integrated mode selector */}
-            {!showCheckpoints && (
-              <div className='pt-2'>
-                <UserInput
-                  ref={userInputRef}
-                  onSubmit={handleSubmit}
-                  onAbort={handleAbort}
-                  disabled={!activeWorkflowId}
-                  isLoading={isSendingMessage}
-                  isAborting={isAborting}
-                  mode={mode}
-                  onModeChange={setMode}
-                  value={inputValue}
-                  onChange={setInputValue}
-                  panelWidth={panelWidth}
+                          // Get checkpoint count for this message to force re-render when it changes
+                          const checkpointCount = messageCheckpoints[message.id]?.length || 0
+
+                          return (
+                            <CopilotMessage
+                              key={message.id}
+                              message={message}
+                              isStreaming={
+                                isSendingMessage && message.id === messages[messages.length - 1]?.id
+                              }
+                              panelWidth={panelWidth}
+                              isDimmed={isDimmed}
+                              checkpointCount={checkpointCount}
+                              defaultCurrentTargetsContext={defaultCurrentTargetsContext}
+                              onEditModeChange={(isEditing) =>
+                                handleEditModeChange(message.id, isEditing)
+                              }
+                              onRevertModeChange={(isReverting) =>
+                                handleRevertModeChange(message.id, isReverting)
+                              }
+                            />
+                          )
+                        })
+                      )}
+                    </div>
+                  </ScrollArea>
+
+                  {/* Scroll to bottom button */}
+                  {showScrollButton && (
+                    <div className='-translate-x-1/2 absolute bottom-4 left-1/2 z-10'>
+                      <Button
+                        onClick={scrollToBottom}
+                        size='sm'
+                        variant='outline'
+                        className='flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1 shadow-lg transition-all hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700'
+                      >
+                        <ArrowDown className='h-3.5 w-3.5 text-gray-700 dark:text-gray-300' />
+                        <span className='sr-only'>Scroll to bottom</span>
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Todo list from plan tool */}
+              {!showCheckpoints && showPlanTodos && (
+                <TodoList
+                  todos={planTodos}
+                  collapsed={todosCollapsed}
+                  onClose={() => {
+                    const store = copilotStoreApi.getState()
+                    store.setPlanTodos([])
+                  }}
                 />
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </>
-  )
-})
+              )}
+
+              {/* Input area with integrated access selector */}
+              {!showCheckpoints && (
+                <div className='pt-2'>
+                  <UserInput
+                    ref={userInputRef}
+                    onSubmit={handleSubmit}
+                    onAbort={handleAbort}
+                    disabled={!activeWorkflowId}
+                    isLoading={isSendingMessage}
+                    isAborting={isAborting}
+                    accessLevel={accessLevel}
+                    onAccessLevelChange={setAccessLevel}
+                    value={inputValue}
+                    onChange={setInputValue}
+                    panelWidth={panelWidth}
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </>
+    )
+  }
+)
 
 Copilot.displayName = 'Copilot'

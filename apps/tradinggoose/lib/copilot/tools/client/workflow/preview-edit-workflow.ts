@@ -7,6 +7,7 @@ import {
 import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useWorkflowDiffStore } from '@/stores/workflow-diff/store'
+import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { mergeSubblockState } from '@/stores/workflows/utils'
 import { useWorkflowStore } from '@/stores/workflows/workflow/store'
 
@@ -59,6 +60,9 @@ export class PreviewEditWorkflowClientTool extends BaseClientTool {
         await this.markToolComplete(400, 'No active workflow found')
         return
       }
+      const registryState = useWorkflowRegistry.getState()
+      const channelIdForWorkflow =
+        registryState.getPrimaryLoadedChannelForWorkflow?.(workflowId) || executionContext.channelId
 
       const operations = args?.operations || []
       if (!operations.length) {
@@ -71,7 +75,7 @@ export class PreviewEditWorkflowClientTool extends BaseClientTool {
       let currentUserWorkflow = args?.currentUserWorkflow
       const diffStoreState = useWorkflowDiffStore.getState()
       const canUseScopedDiff =
-        !diffStoreState.scopeChannelId || diffStoreState.scopeChannelId === executionContext.channelId
+        !diffStoreState.scopeChannelId || diffStoreState.scopeChannelId === channelIdForWorkflow
       let usedDiffWorkflow = false
 
       if (
@@ -97,13 +101,16 @@ export class PreviewEditWorkflowClientTool extends BaseClientTool {
             edgesCount: normalizedDiffWorkflow.edges.length,
           })
         } catch (e) {
-          logger.warn('Failed to serialize diff workflow state; falling back to active workflow', e as any)
+          logger.warn(
+            'Failed to serialize diff workflow state; falling back to active workflow',
+            e as any
+          )
         }
       }
 
       if (!currentUserWorkflow && !usedDiffWorkflow) {
         try {
-          const workflowStore = useWorkflowStore.getState(executionContext.channelId)
+          const workflowStore = useWorkflowStore.getState(channelIdForWorkflow)
           const fullState = workflowStore.getWorkflowState()
           let merged = fullState
           if (merged?.blocks) {
@@ -117,7 +124,10 @@ export class PreviewEditWorkflowClientTool extends BaseClientTool {
             currentUserWorkflow = JSON.stringify(merged)
           }
         } catch (e) {
-          logger.warn('Failed to build currentUserWorkflow from stores; proceeding without it', e as any)
+          logger.warn(
+            'Failed to build currentUserWorkflow from stores; proceeding without it',
+            e as any
+          )
         }
       }
 

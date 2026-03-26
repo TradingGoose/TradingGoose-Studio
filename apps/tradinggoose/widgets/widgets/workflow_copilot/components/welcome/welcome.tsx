@@ -1,58 +1,59 @@
 'use client'
 
 import { Blocks, LibraryBig, Workflow } from 'lucide-react'
+import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
 
 interface CopilotWelcomeProps {
   onQuestionClick?: (question: string) => void
-  mode?: 'ask' | 'build'
+  accessLevel?: CopilotAccessLevel
 }
 
-export function CopilotWelcome({ onQuestionClick, mode = 'ask' }: CopilotWelcomeProps) {
+export function CopilotWelcome({ onQuestionClick, accessLevel = 'limited' }: CopilotWelcomeProps) {
   const handleQuestionClick = (question: string) => {
     onQuestionClick?.(question)
   }
 
   const subtitle =
-    mode === 'ask'
-      ? 'Ask about workflows, tools, or how to get started'
-      : 'Build, edit, and optimize workflows'
+    accessLevel === 'full'
+      ? 'Apply workflow, skill, MCP, and tool changes directly with full access'
+      : 'Ask questions and review workflow, skill, MCP, and tool changes before they apply'
 
   const capabilities =
-    mode === 'build'
+    accessLevel === 'full'
       ? [
-        {
-          title: 'Build & edit workflows',
-          question: 'Help me build a workflow',
-          Icon: Workflow,
-        },
-        {
-          title: 'Optimize workflows',
-          question: 'Help me optimize my workflow',
-          Icon: Blocks,
-        },
-        {
-          title: 'Debug workflows',
-          question: 'Help me debug my workflow',
-          Icon: LibraryBig,
-        },
-      ]
+          {
+            title: 'Build & edit workflows',
+            question: 'Help me build a workflow',
+            Icon: Workflow,
+          },
+          {
+            title: 'Optimize workflows',
+            question: 'Help me optimize my workflow',
+            Icon: Blocks,
+          },
+          {
+            title: 'Debug workflows',
+            question: 'Help me debug my workflow',
+            Icon: LibraryBig,
+          },
+        ]
       : [
-        {
-          title: 'Understand my workflow',
-          question: 'What does my workflow do?',
-          Icon: Workflow,
-        },
-        {
-          title: 'Discover tools',
-          question: 'What tools are available?',
-          Icon: Blocks,
-        },
-        {
-          title: 'Get started',
-          question: 'How do I create a workflow?',
-          Icon: LibraryBig,
-        },
-      ]
+          {
+            title: 'Understand workflows',
+            question: 'What does my workflow do?',
+            Icon: Workflow,
+          },
+          {
+            title: 'Review changes safely',
+            question: 'Help me update this workflow safely',
+            Icon: Blocks,
+          },
+          {
+            title: 'Plan next steps',
+            question: 'What should I change in this workflow next?',
+            Icon: LibraryBig,
+          },
+        ]
 
   return (
     <div className='relative h-full w-full overflow-hidden px-4 pt-8 pb-6'>

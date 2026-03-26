@@ -25,6 +25,7 @@ import {
 const DEFAULT_PLACEHOLDER = 'Select custom tool'
 const DROPDOWN_MAX_HEIGHT = '20rem'
 const DROPDOWN_VIEWPORT_HEIGHT = '14rem'
+const CUSTOM_TOOL_ICON_COLOR = '#d97706'
 
 interface CustomToolDropdownProps {
   workspaceId?: string | null
@@ -188,8 +189,16 @@ export function CustomToolDropdown({
               }}
             >
               <div className='flex min-w-0 items-center gap-2'>
-                <span className='h-5 w-5 rounded-xs p-0.5' aria-hidden='true'>
-                  <Wrench className='w-full h-full' aria-hidden='true' />
+                <span
+                  className='h-5 w-5 rounded-xs p-0.5'
+                  style={{ backgroundColor: `${CUSTOM_TOOL_ICON_COLOR}20` }}
+                  aria-hidden='true'
+                >
+                  <Wrench
+                    className='h-4 w-4'
+                    aria-hidden='true'
+                    style={{ color: CUSTOM_TOOL_ICON_COLOR }}
+                  />
                 </span>
                 <span className={cn(widgetHeaderMenuTextClassName, 'truncate')}>
                   {getToolTitle(tool)}
@@ -207,8 +216,12 @@ export function CustomToolDropdown({
     'h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
 
   const iconBadge = (
-    <span className='h-5 w-5 rounded-xs p-0.5' aria-hidden='true'>
-      <Wrench className='h-full w-full' aria-hidden='true' />
+    <span
+      className='h-5 w-5 rounded-xs p-0.5'
+      style={{ backgroundColor: `${CUSTOM_TOOL_ICON_COLOR}20` }}
+      aria-hidden='true'
+    >
+      <Wrench className='h-4 w-4' aria-hidden='true' style={{ color: CUSTOM_TOOL_ICON_COLOR }} />
     </span>
   )
 

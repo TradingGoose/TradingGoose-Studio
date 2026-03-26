@@ -1,3 +1,4 @@
+import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
 import type { ClientToolCallState, ClientToolDisplay } from '@/lib/copilot/tools/client/base-tool'
 
 export type ToolState = ClientToolCallState
@@ -48,6 +49,16 @@ export type ChatContext =
   | { kind: 'past_chat'; chatId: string; label: string }
   | { kind: 'workflow'; workflowId: string; label: string }
   | { kind: 'current_workflow'; workflowId: string; label: string }
+  | {
+      kind: 'current_targets'
+      label: string
+      workflowId?: string
+      skillId?: string
+      customToolId?: string
+      mcpServerId?: string
+      indicatorId?: string
+      pineIndicatorId?: string
+    }
   | { kind: 'blocks'; blockIds: string[]; label: string }
   | { kind: 'logs'; executionId?: string; label: string }
   | { kind: 'workflow_block'; workflowId: string; blockId: string; label: string }
@@ -67,15 +78,13 @@ export interface CopilotChat {
   updatedAt: Date
 }
 
-export type CopilotMode = 'ask' | 'build'
-
 export interface CopilotToolExecutionProvenance {
   channelId: string
   workflowId: string
 }
 
 export interface CopilotState {
-  mode: CopilotMode
+  accessLevel: CopilotAccessLevel
   selectedModel:
     | 'gpt-5-fast'
     | 'gpt-5'
@@ -143,13 +152,10 @@ export interface CopilotState {
     when: 'start' | 'end'
     estimatedTokens?: number
   } | null
-
-  // Auto-allowed integration tools (tools that can run without confirmation)
-  autoAllowedTools: string[]
 }
 
 export interface CopilotActions {
-  setMode: (mode: CopilotMode) => void
+  setAccessLevel: (accessLevel: CopilotAccessLevel) => void
   setSelectedModel: (model: CopilotStore['selectedModel']) => Promise<void>
   setAgentPrefetch: (prefetch: boolean) => void
   setEnabledModels: (models: string[] | null) => void
@@ -173,10 +179,6 @@ export interface CopilotActions {
     }
   ) => Promise<void>
   abortMessage: () => void
-  sendImplicitFeedback: (
-    implicitFeedback: string,
-    toolCallState?: 'accepted' | 'rejected' | 'error'
-  ) => Promise<void>
   updatePreviewToolCallState: (
     toolCallState: 'accepted' | 'rejected' | 'error',
     toolCallId?: string
@@ -220,12 +222,10 @@ export interface CopilotActions {
   updateDiffStore: (yamlContent: string, toolName?: string) => Promise<void>
   updateDiffStoreWithWorkflowState: (workflowState: any, toolName?: string) => Promise<void>
 
+  executeCopilotToolCall: (toolCallId: string) => Promise<void>
+  skipCopilotToolCall: (toolCallId: string) => Promise<void>
   executeIntegrationTool: (toolCallId: string) => Promise<void>
   skipIntegrationTool: (toolCallId: string) => void
-  loadAutoAllowedTools: () => Promise<void>
-  addAutoAllowedTool: (toolId: string) => Promise<void>
-  removeAutoAllowedTool: (toolId: string) => Promise<void>
-  isToolAutoAllowed: (toolId: string) => boolean
 }
 
 export type CopilotStore = CopilotState & CopilotActions

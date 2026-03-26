@@ -1,18 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { BotMessageSquare } from 'lucide-react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import WorkflowCopilotApp from './components/workflow-copilot-app'
-import { useWidgetChannel } from '@/widgets/hooks/use-widget-channel'
-import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
-import type { WidgetInstance } from '@/widgets/layout'
-import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
-import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
-import {
-  emitWorkflowSelectionChange,
-  useWorkflowSelectionPersistence,
-} from '@/widgets/utils/workflow-selection'
+import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
+import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { CopilotHeader, CopilotHeaderActions } from './components/copilot/copilot-header'
+import WorkflowCopilotApp from './components/workflow-copilot-app'
+
+const COPILOT_WIDGET_KEY = 'workflow-copilot'
 
 const WorkflowCopilotWidgetBody = ({
   params,
@@ -22,20 +17,15 @@ const WorkflowCopilotWidgetBody = ({
   widget,
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
-  const { workspaceId, channelId, resolvedPairColor, isLinkedToColorPair } = useWidgetChannel({
-    context,
-    pairColor,
-    widget,
-    panelId,
-    fallbackWidgetKey: 'workflow-copilot',
-  })
+  const workspaceId = context?.workspaceId
   const {
+    channelId,
+    resolvedPairColor,
     resolvedWorkflowId,
     hasLoadedWorkflows,
     loadError,
     isLoading,
     workflowIds,
-    activeWorkflowIdForChannel,
   } = useWorkflowWidgetState({
     workspaceId,
     pairColor,
@@ -43,16 +33,10 @@ const WorkflowCopilotWidgetBody = ({
     panelId,
     params,
     onWidgetParamsChange,
-    fallbackWidgetKey: 'workflow-copilot',
+    fallbackWidgetKey: COPILOT_WIDGET_KEY,
     loggerScope: 'workflow copilot widget',
-    activateWorkflow: isLinkedToColorPair,
-  })
-  useWorkflowSelectionPersistence({
-    onWidgetParamsChange,
-    panelId,
-    widget,
-    pairColor: resolvedPairColor,
-    params,
+    activateWorkflow: true,
+    usePairWorkflowContext: false,
   })
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [panelWidth, setPanelWidth] = useState(0)
@@ -61,10 +45,9 @@ const WorkflowCopilotWidgetBody = ({
     params && typeof params === 'object' && 'chatId' in params && params.chatId
       ? String(params.chatId)
       : null
+  const normalizedPanelId = panelId && panelId.trim().length > 0 ? panelId : 'panel'
   const copilotChannelId =
-    resolvedPairColor !== 'gray'
-      ? `${channelId}-${panelId && panelId.trim().length > 0 ? panelId : 'panel'}`
-      : channelId
+    resolvedPairColor !== 'gray' ? `${channelId}-${normalizedPanelId}` : channelId
 
   const handleChatIdChange = useCallback(
     (nextChatId: string | null) => {
@@ -74,11 +57,10 @@ const WorkflowCopilotWidgetBody = ({
       const normalizedNextId = nextChatId ?? null
       if (normalizedCurrentId === normalizedNextId) return
 
-      const nextParams = { ...(params ?? {}) }
+      const baseParams = (params ?? {}) as Record<string, unknown>
+      const { chatId: _chatId, ...nextParams } = baseParams
       if (normalizedNextId) {
         nextParams.chatId = normalizedNextId
-      } else {
-        delete nextParams.chatId
       }
 
       if (resolvedWorkflowId) {
@@ -132,10 +114,7 @@ const WorkflowCopilotWidgetBody = ({
   }
 
   return (
-    <div
-      ref={containerRef}
-      className='flex h-full w-full overflow-hidden  p-2'
-    >
+    <div ref={containerRef} className='flex h-full w-full overflow-hidden p-2'>
       <WorkflowCopilotApp
         workspaceId={workspaceId}
         workflowId={resolvedWorkflowId}
@@ -151,72 +130,24 @@ const WorkflowCopilotWidgetBody = ({
 }
 
 const WidgetStateMessage = ({ message }: { message: string }) => (
-  <div className='flex h-full w-full items-center justify-center  px-4 text-center text-muted-foreground text-xs'>
+  <div className='flex h-full w-full items-center justify-center px-4 text-center text-muted-foreground text-xs'>
     {message}
   </div>
 )
 
-type WorkflowCopilotHeaderSelectorProps = {
-  workspaceId?: string
-  widget?: WidgetInstance | null
-  panelId?: string
-}
-
-const WorkflowCopilotHeaderSelector = ({
-  workspaceId,
-  widget,
-  panelId,
-}: WorkflowCopilotHeaderSelectorProps) => {
-  const { resolvedPairColor, resolvedWorkflowId } = useWorkflowWidgetState({
-    workspaceId,
-    pairColor: widget?.pairColor ?? 'gray',
-    widget,
-    panelId,
-    params: widget?.params ?? null,
-    fallbackWidgetKey: 'workflow-copilot',
-    loggerScope: 'workflow copilot header',
-    activateWorkflow: false,
-  })
-
-  const handleWorkflowChange = useCallback(
-    (workflowId: string) => {
-      if (resolvedPairColor !== 'gray') {
-        return
-      }
-
-      emitWorkflowSelectionChange({
-        panelId,
-        widgetKey: widget?.key ?? undefined,
-        workflowId,
-      })
-    },
-    [panelId, resolvedPairColor, widget?.key]
-  )
-
-  return (
-    <WorkflowDropdown
-      workspaceId={workspaceId}
-      pairColor={resolvedPairColor}
-      value={resolvedWorkflowId}
-      onChange={handleWorkflowChange}
-      triggerClassName='w-auto min-w-[240px]'
-    />
-  )
-}
-
 export const workflowCopilotWidget: DashboardWidgetDefinition = {
   key: 'workflow_copilot',
-  title: 'Workflow Copilot',
+  title: 'Copilot',
   icon: BotMessageSquare,
   category: 'utility',
-  description: 'AI copilot experience tailored to the selected workflow.',
+  description: 'AI copilot experience across workflows and workspace tools.',
   component: (props) => <WorkflowCopilotWidgetBody {...props} />,
-  renderHeader: ({ widget, context, panelId }) => {
+  renderHeader: ({ widget, panelId }) => {
     const { channelId, resolvedPairColor } = resolveWidgetChannel({
       pairColor: widget?.pairColor ?? 'gray',
       widget,
       panelId,
-      fallbackWidgetKey: 'workflow-copilot',
+      fallbackWidgetKey: COPILOT_WIDGET_KEY,
     })
     const normalizedPanelId = panelId && panelId.trim().length > 0 ? panelId : 'panel'
     const copilotChannelId =
@@ -224,13 +155,6 @@ export const workflowCopilotWidget: DashboardWidgetDefinition = {
 
     return {
       left: <CopilotHeader channelId={copilotChannelId} />,
-      center: (
-        <WorkflowCopilotHeaderSelector
-          workspaceId={context?.workspaceId}
-          widget={widget}
-          panelId={panelId}
-        />
-      ),
       right: <CopilotHeaderActions channelId={copilotChannelId} />,
     }
   },
