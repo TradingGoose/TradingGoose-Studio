@@ -1,13 +1,21 @@
 'use client'
 
-import { Fragment, useCallback, useEffect, useMemo, useState, type KeyboardEvent } from 'react'
 import type {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
   TouchEvent as ReactTouchEvent,
 } from 'react'
+import {
+  Fragment,
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import type { DragOverEvent, UniqueIdentifier } from '@dnd-kit/core'
-import { ChevronRight, Pencil, Trash2, X } from 'lucide-react'
+import { Check, ChevronRight, Pencil, Trash2, X } from 'lucide-react'
 import { getListingPrimary, MarketListingRow } from '@/components/listing-selector/listing/row'
 import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import {
@@ -24,31 +32,31 @@ import { Button } from '@/components/ui/button'
 import { Sortable, SortableContent, SortableItem } from '@/components/ui/sortable'
 import {
   areListingIdentitiesEqual,
-  toListingValue,
   type ListingIdentity,
   type ListingOption,
+  toListingValue,
 } from '@/lib/listing/identity'
+import { cn } from '@/lib/utils'
 import type {
   WatchlistListingItem,
   WatchlistRecord,
   WatchlistSectionItem,
 } from '@/lib/watchlists/types'
-import { cn } from '@/lib/utils'
 import type { WatchlistQuoteSnapshot } from '@/hooks/queries/watchlist-quotes'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
+import { StockSelector } from '@/widgets/widgets/watchlist/components/stock-selector'
 import {
   createWatchlistListingSortableId,
   createWatchlistSectionSortableId,
   moveWatchlistItem,
   resolveEffectiveDropTarget,
-  type WatchlistDropTarget,
   WATCHLIST_ROOT_SORTABLE_ID,
+  type WatchlistDropTarget,
 } from '@/widgets/widgets/watchlist/components/watchlist-reorder'
 import {
   resolveWatchlistAssetClass,
   resolveWatchlistValueColorClass,
 } from '@/widgets/widgets/watchlist/components/watchlist-table-utils'
-import { StockSelector } from '@/widgets/widgets/watchlist/components/stock-selector'
 
 type WatchlistTableProps = {
   watchlist: WatchlistRecord | null
@@ -60,6 +68,9 @@ type WatchlistTableProps = {
   onRenameSection: (sectionId: string, label: string) => Promise<void> | void
   onRemoveSection: (sectionId: string) => Promise<void> | void
   isMutating?: boolean
+  selectedListing?: ListingIdentity | null
+  isLinkedSelection?: boolean
+  onSelectListing?: (listing: ListingIdentity | null) => void
 }
 
 type ListingRowEntry = {
@@ -108,9 +119,7 @@ const buildListingOption = (
   base:
     resolved?.base?.trim() ||
     (listing.listing_type === 'default' ? listing.listing_id : listing.base_id),
-  quote:
-    resolved?.quote?.trim() ||
-    (listing.listing_type === 'default' ? null : listing.quote_id),
+  quote: resolved?.quote?.trim() || (listing.listing_type === 'default' ? null : listing.quote_id),
   name:
     resolved?.name?.trim() ||
     (listing.listing_type === 'default'
@@ -127,6 +136,11 @@ const stopSortableActivation = (
   event.stopPropagation()
 }
 
+const blurAfterPointerClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
+  if (event.detail === 0) return
+  event.currentTarget.blur()
+}
+
 const buildListingEditorInstanceId = (itemId: string) => `watchlist-listing-editor-${itemId}`
 
 const buildListingEditSurfaceId = (itemId: string) => `watchlist-listing-edit-surface-${itemId}`
@@ -141,6 +155,9 @@ export const WatchlistTable = ({
   onRenameSection,
   onRemoveSection,
   isMutating = false,
+  selectedListing = null,
+  isLinkedSelection = false,
+  onSelectListing,
 }: WatchlistTableProps) => {
   const ensureListingSelectorInstance = useListingSelectorStore((state) => state.ensureInstance)
   const updateListingSelectorInstance = useListingSelectorStore((state) => state.updateInstance)
@@ -152,8 +169,10 @@ export const WatchlistTable = ({
   const [sectionToDelete, setSectionToDelete] = useState<WatchlistSectionItem | null>(null)
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null)
   const [editingSectionLabel, setEditingSectionLabel] = useState('')
-  const [activeRowId, setActiveRowId] = useState<string | null>(null)
+  const [activeSectionId, setActiveSectionId] = useState<string | null>(null)
+  const [selectedListingId, setSelectedListingId] = useState<string | null>(null)
   const [editingListingId, setEditingListingId] = useState<string | null>(null)
+  const sectionRenameInputRef = useRef<HTMLInputElement | null>(null)
 
   const parsedRows = useMemo(() => {
     const unsectionedRows: ListingRowEntry[] = []
@@ -240,18 +259,33 @@ export const WatchlistTable = ({
   }, [listingRows, resolvedByItemId])
 
   useEffect(() => {
-    if (!activeRowId) return
+    if (!activeSectionId) return
 
-    const [, itemId] = activeRowId.split(':')
-    const exists = watchlist?.items.some((item) => item.id === itemId) ?? false
+    const exists =
+      watchlist?.items.some((item) => item.type === 'section' && item.id === activeSectionId) ??
+      false
     if (!exists) {
-      setActiveRowId(null)
+      setActiveSectionId(null)
     }
-  }, [activeRowId, watchlist])
+  }, [activeSectionId, watchlist])
 
-  const resetListingEditor = useCallback((itemId: string) => {
-    resetListingSelectorInstance(buildListingEditorInstanceId(itemId))
-  }, [resetListingSelectorInstance])
+  useEffect(() => {
+    if (!selectedListingId) return
+
+    const exists =
+      watchlist?.items.some((item) => item.type === 'listing' && item.id === selectedListingId) ??
+      false
+    if (!exists) {
+      setSelectedListingId(null)
+    }
+  }, [selectedListingId, watchlist])
+
+  const resetListingEditor = useCallback(
+    (itemId: string) => {
+      resetListingSelectorInstance(buildListingEditorInstanceId(itemId))
+    },
+    [resetListingSelectorInstance]
+  )
 
   const startListingEdit = (row: ListingRowEntry) => {
     if (isMutating) return
@@ -272,23 +306,36 @@ export const WatchlistTable = ({
       ),
     })
     setEditingListingId(row.item.id)
-    setActiveRowId(`listing:${row.item.id}`)
   }
 
-  const cancelListingEdit = useCallback((itemId: string) => {
-    resetListingEditor(itemId)
-    setEditingListingId((current) => (current === itemId ? null : current))
-  }, [resetListingEditor])
+  const cancelListingEdit = useCallback(
+    (itemId: string) => {
+      resetListingEditor(itemId)
+      setEditingListingId((current) => (current === itemId ? null : current))
+    },
+    [resetListingEditor]
+  )
 
   const commitListingSelection = async (itemId: string, listingOption: ListingOption | null) => {
     const listing = toListingValue(listingOption)
     if (!listing) return
+    const previousListing = watchlist?.items.find(
+      (item): item is WatchlistListingItem => item.type === 'listing' && item.id === itemId
+    )?.listing
+    const shouldSyncLinkedSelection =
+      isLinkedSelection &&
+      selectedListing &&
+      previousListing &&
+      areListingIdentitiesEqual(selectedListing, previousListing)
 
     const succeeded = await onUpdateItemListing(itemId, listing)
     if (!succeeded) return
 
     resetListingEditor(itemId)
     setEditingListingId((current) => (current === itemId ? null : current))
+    if (shouldSyncLinkedSelection) {
+      onSelectListing?.(listing)
+    }
   }
 
   useEffect(() => {
@@ -320,6 +367,11 @@ export const WatchlistTable = ({
       document.removeEventListener('pointerdown', handlePointerDown, true)
     }
   }, [cancelListingEdit, editingListingId, isMutating])
+
+  useEffect(() => {
+    if (!editingSectionId) return
+    sectionRenameInputRef.current?.focus()
+  }, [editingSectionId])
 
   const hasAnyItem = (watchlist?.items.length ?? 0) > 0
   const hasSections = parsedRows.sections.length > 0
@@ -383,7 +435,7 @@ export const WatchlistTable = ({
     if (isMutating) return
     setEditingSectionId(section.id)
     setEditingSectionLabel(section.label)
-    setActiveRowId(`section:${section.id}`)
+    setActiveSectionId(section.id)
   }
 
   const commitSectionRename = async (section: WatchlistSectionItem) => {
@@ -439,6 +491,19 @@ export const WatchlistTable = ({
     }
   }
 
+  const handleToggleListingSelection = (row: ListingRowEntry) => {
+    if (isLinkedSelection) {
+      const nextListing =
+        selectedListing && areListingIdentitiesEqual(selectedListing, row.listing)
+          ? null
+          : row.listing
+      onSelectListing?.(nextListing)
+      return
+    }
+
+    setSelectedListingId((current) => (current === row.item.id ? null : row.item.id))
+  }
+
   if (!watchlist || !hasAnyItem) {
     return (
       <div className='flex h-full max-h-full min-h-0 flex-col overflow-hidden bg-background'>
@@ -482,8 +547,10 @@ export const WatchlistTable = ({
     const assetClass = resolveWatchlistAssetClass(row.listing, resolved)
     const isDropBefore = dropTarget?.type === 'before' && dropTarget.itemId === row.item.id
     const sortableId = createWatchlistListingSortableId(row.item.id)
-    const isSelected = activeRowId === `listing:${row.item.id}`
     const isEditing = editingListingId === row.item.id
+    const isSelected = isLinkedSelection
+      ? areListingIdentitiesEqual(selectedListing, row.listing)
+      : selectedListingId === row.item.id
     const editSurfaceId = isEditing ? buildListingEditSurfaceId(row.item.id) : undefined
 
     return (
@@ -499,13 +566,8 @@ export const WatchlistTable = ({
           className={cn(
             'group/listing border-b bg-background transition-colors',
             isEditing && 'relative z-20',
-            isDropBefore
-              ? 'bg-primary/10'
-              : isSelected
-                ? 'bg-accent'
-                : 'hover:bg-accent/20'
+            isDropBefore ? 'bg-primary/10' : isSelected ? 'bg-accent' : 'hover:bg-accent/20'
           )}
-          onClick={() => setActiveRowId(`listing:${row.item.id}`)}
         >
           <td className={cn('p-3 align-middle', isEditing && 'relative z-20 overflow-visible')}>
             {isEditing ? (
@@ -529,77 +591,106 @@ export const WatchlistTable = ({
           </td>
           <td className='p-3 text-center align-middle'>
             <span
-              className={cn('text-sm', resolveWatchlistValueColorClass(quote?.changePercent ?? null))}
+              className={cn(
+                'text-sm',
+                resolveWatchlistValueColorClass(quote?.changePercent ?? null)
+              )}
             >
               {formatPercent(quote?.changePercent ?? null)}
             </span>
           </td>
           <td className='p-3 text-center align-middle'>
-            <div
-              className={cn(
-                'flex items-center justify-center gap-1',
-                isEditing
-                  ? 'pointer-events-auto opacity-100'
-                  : 'pointer-events-none opacity-0 transition-opacity group-hover/listing:pointer-events-auto group-hover/listing:opacity-100 group-focus-within/listing:pointer-events-auto group-focus-within/listing:opacity-100'
-              )}
-            >
-              {isEditing ? (
-                <Button
-                  type='button'
-                  variant='ghost'
-                  size='icon'
-                  className='h-8 w-8 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
-                  onPointerDownCapture={stopSortableActivation}
-                  onMouseDown={stopSortableActivation}
-                  onTouchStart={stopSortableActivation}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    cancelListingEdit(row.item.id)
-                  }}
-                  disabled={isMutating}
-                >
-                  <X className='!h-3.5 !w-3.5' />
-                  <span className='sr-only'>Cancel symbol edit</span>
-                </Button>
-              ) : (
-                <Button
-                  type='button'
-                  variant='ghost'
-                  size='icon'
-                  className='h-8 w-8 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
-                  onPointerDownCapture={stopSortableActivation}
-                  onMouseDown={stopSortableActivation}
-                  onTouchStart={stopSortableActivation}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    startListingEdit(row)
-                  }}
-                  disabled={isMutating}
-                >
-                  <Pencil className='!h-3.5 !w-3.5' />
-                  <span className='sr-only'>Edit symbol</span>
-                </Button>
-              )}
+            <div className='flex items-center justify-center gap-1'>
               <Button
                 type='button'
                 variant='ghost'
                 size='icon'
-                className='h-8 w-8 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
+                aria-pressed={isSelected}
+                className={cn(
+                  'h-8 w-8 transition-colors hover:text-foreground',
+                  isSelected
+                    ? 'pointer-events-auto bg-accent text-foreground opacity-100 hover:bg-accent focus-visible:bg-accent'
+                    : 'pointer-events-none bg-transparent text-muted-foreground opacity-0 hover:bg-transparent group-focus-within/listing:pointer-events-auto group-focus-within/listing:opacity-100 group-hover/listing:pointer-events-auto group-hover/listing:opacity-100'
+                )}
                 onPointerDownCapture={stopSortableActivation}
                 onMouseDown={stopSortableActivation}
                 onTouchStart={stopSortableActivation}
                 onClick={(event) => {
                   event.stopPropagation()
-                  if (isEditing) {
-                    cancelListingEdit(row.item.id)
-                  }
-                  setListingToDelete({ id: row.item.id, label: listingLabel })
+                  blurAfterPointerClick(event)
+                  handleToggleListingSelection(row)
                 }}
                 disabled={isMutating}
               >
-                <Trash2 className='!h-3.5 !w-3.5' />
-                <span className='sr-only'>Remove symbol</span>
+                <Check className='!h-3.5 !w-3.5' />
+                <span className='sr-only'>{isSelected ? 'Deselect symbol' : 'Select symbol'}</span>
               </Button>
+              <div
+                className={cn(
+                  'flex items-center justify-center gap-1',
+                  isEditing
+                    ? 'pointer-events-auto opacity-100'
+                    : 'pointer-events-none opacity-0 transition-opacity group-focus-within/listing:pointer-events-auto group-focus-within/listing:opacity-100 group-hover/listing:pointer-events-auto group-hover/listing:opacity-100'
+                )}
+              >
+                {isEditing ? (
+                  <Button
+                    type='button'
+                    variant='ghost'
+                    size='icon'
+                    className='h-8 w-8 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
+                    onPointerDownCapture={stopSortableActivation}
+                    onMouseDown={stopSortableActivation}
+                    onTouchStart={stopSortableActivation}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      cancelListingEdit(row.item.id)
+                    }}
+                    disabled={isMutating}
+                  >
+                    <X className='!h-3.5 !w-3.5' />
+                    <span className='sr-only'>Cancel symbol edit</span>
+                  </Button>
+                ) : (
+                  <Button
+                    type='button'
+                    variant='ghost'
+                    size='icon'
+                    className='h-8 w-8 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
+                    onPointerDownCapture={stopSortableActivation}
+                    onMouseDown={stopSortableActivation}
+                    onTouchStart={stopSortableActivation}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      startListingEdit(row)
+                    }}
+                    disabled={isMutating}
+                  >
+                    <Pencil className='!h-3.5 !w-3.5' />
+                    <span className='sr-only'>Edit symbol</span>
+                  </Button>
+                )}
+                <Button
+                  type='button'
+                  variant='ghost'
+                  size='icon'
+                  className='h-8 w-8 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
+                  onPointerDownCapture={stopSortableActivation}
+                  onMouseDown={stopSortableActivation}
+                  onTouchStart={stopSortableActivation}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    if (isEditing) {
+                      cancelListingEdit(row.item.id)
+                    }
+                    setListingToDelete({ id: row.item.id, label: listingLabel })
+                  }}
+                  disabled={isMutating}
+                >
+                  <Trash2 className='!h-3.5 !w-3.5' />
+                  <span className='sr-only'>Remove symbol</span>
+                </Button>
+              </div>
             </div>
           </td>
         </tr>
@@ -653,7 +744,7 @@ export const WatchlistTable = ({
                           className={cn(
                             'h-2 transition-colors',
                             dropTarget?.type === 'root'
-                              ? 'bg-primary/15 ring-1 ring-inset ring-primary/30'
+                              ? 'bg-primary/15 ring-1 ring-primary/30 ring-inset'
                               : 'bg-transparent'
                           )}
                         />
@@ -670,7 +761,7 @@ export const WatchlistTable = ({
                     dropTarget?.type === 'section' && dropTarget.sectionId === section.section.id
                   const sectionSortableId = createWatchlistSectionSortableId(section.section.id)
                   const isEditingSection = editingSectionId === section.section.id
-                  const isSelected = activeRowId === `section:${section.section.id}`
+                  const isSelected = activeSectionId === section.section.id
 
                   return (
                     <Fragment key={section.section.id}>
@@ -689,7 +780,7 @@ export const WatchlistTable = ({
                                 ? 'bg-accent'
                                 : 'hover:bg-accent/20'
                           )}
-                          onClick={() => setActiveRowId(`section:${section.section.id}`)}
+                          onClick={() => setActiveSectionId(section.section.id)}
                         >
                           <td colSpan={COLUMN_COUNT} className='p-0'>
                             <div className='flex items-center gap-2 px-3 py-2'>
@@ -722,6 +813,7 @@ export const WatchlistTable = ({
 
                               {isEditingSection ? (
                                 <input
+                                  ref={sectionRenameInputRef}
                                   value={editingSectionLabel}
                                   onChange={(event) => setEditingSectionLabel(event.target.value)}
                                   onKeyDown={(event) =>
@@ -734,17 +826,16 @@ export const WatchlistTable = ({
                                   onMouseDown={stopSortableActivation}
                                   onTouchStart={stopSortableActivation}
                                   onClick={(event) => event.stopPropagation()}
-                                  className='min-w-0 flex-1 border-0 bg-transparent p-0 text-sm font-medium text-foreground outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
+                                  className='min-w-0 flex-1 border-0 bg-transparent p-0 font-medium text-foreground text-sm outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
                                   maxLength={100}
                                   disabled={isMutating}
-                                  autoFocus
                                   autoComplete='off'
                                   autoCorrect='off'
                                   autoCapitalize='off'
                                   spellCheck='false'
                                 />
                               ) : (
-                                <span className='min-w-0 flex-1 truncate pr-1 text-sm font-medium text-foreground'>
+                                <span className='min-w-0 flex-1 truncate pr-1 font-medium text-foreground text-sm'>
                                   {section.section.label}
                                 </span>
                               )}
@@ -754,7 +845,7 @@ export const WatchlistTable = ({
                                   'flex items-center justify-center gap-1',
                                   isEditingSection
                                     ? 'pointer-events-auto opacity-100'
-                                    : 'pointer-events-none opacity-0 transition-opacity group-hover/section:pointer-events-auto group-hover/section:opacity-100 group-focus-within/section:pointer-events-auto group-focus-within/section:opacity-100'
+                                    : 'pointer-events-none opacity-0 transition-opacity group-focus-within/section:pointer-events-auto group-focus-within/section:opacity-100 group-hover/section:pointer-events-auto group-hover/section:opacity-100'
                                 )}
                               >
                                 <Button

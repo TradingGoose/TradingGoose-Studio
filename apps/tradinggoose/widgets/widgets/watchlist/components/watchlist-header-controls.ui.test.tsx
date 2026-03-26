@@ -294,16 +294,20 @@ describe('watchlist header controls', () => {
     const file = {
       text: vi.fn().mockResolvedValue(
         JSON.stringify([
-          { id: 'section-1', type: 'section', label: 'Tech' },
           {
-            id: 'listing-1',
-            type: 'listing',
-            listing: {
-              listing_id: 'aapl-id',
-              base_id: '',
-              quote_id: '',
-              listing_type: 'default',
-            },
+            type: 'section',
+            label: 'Tech',
+            items: [
+              {
+                type: 'listing',
+                listing: {
+                  listing_id: 'aapl-id',
+                  base_id: '',
+                  quote_id: '',
+                  listing_type: 'default',
+                },
+              },
+            ],
           },
         ])
       ),
@@ -323,16 +327,20 @@ describe('watchlist header controls', () => {
       workspaceId: 'workspace-1',
       watchlistId: 'default-watchlist',
       items: [
-        { id: 'section-1', type: 'section', label: 'Tech' },
         {
-          id: 'listing-1',
-          type: 'listing',
-          listing: {
-            listing_id: 'aapl-id',
-            base_id: '',
-            quote_id: '',
-            listing_type: 'default',
-          },
+          type: 'section',
+          label: 'Tech',
+          items: [
+            {
+              type: 'listing',
+              listing: {
+                listing_id: 'aapl-id',
+                base_id: '',
+                quote_id: '',
+                listing_type: 'default',
+              },
+            },
+          ],
         },
       ],
     })

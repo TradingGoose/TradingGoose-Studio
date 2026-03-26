@@ -1,17 +1,19 @@
 'use client'
 
-import { useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
+import { areListingIdentitiesEqual, type ListingIdentity } from '@/lib/listing/identity'
 import { useWatchlistQuotes } from '@/hooks/queries/watchlist-quotes'
 import {
   useRemoveWatchlistItem,
   useRemoveWatchlistSection,
-  useReorderWatchlistItems,
   useRenameWatchlistSection,
+  useReorderWatchlistItems,
   useUpdateWatchlistItemListing,
   useWatchlists,
 } from '@/hooks/queries/watchlists'
-import type { ListingIdentity } from '@/lib/listing/identity'
+import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
+import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
 import {
   emitWatchlistParamsChange,
@@ -22,9 +24,7 @@ import {
   resolveSelectedWatchlist,
   resolveSelectedWatchlistId,
 } from '@/widgets/widgets/watchlist/components/watchlist-selection'
-import {
-  WatchlistTable,
-} from '@/widgets/widgets/watchlist/components/watchlist-table'
+import { WatchlistTable } from '@/widgets/widgets/watchlist/components/watchlist-table'
 import type { WatchlistWidgetParams } from '@/widgets/widgets/watchlist/types'
 
 const WatchlistMessage = ({ message }: { message: string }) => (
@@ -42,17 +42,22 @@ const resolveProviderId = (params: WatchlistWidgetParams | null) => {
 export const WatchlistWidgetBody = ({
   context,
   panelId,
+  pairColor = 'gray',
   widget,
   params,
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId ?? null
   const widgetKey = widget?.key ?? 'watchlist'
+  const resolvedPairColor = ((widget?.pairColor ?? pairColor ?? 'gray') as PairColor) ?? 'gray'
+  const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const widgetParams =
     params && typeof params === 'object' ? (params as WatchlistWidgetParams) : null
   const providerId = resolveProviderId(widgetParams)
   const refreshAt =
     typeof widgetParams?.runtime?.refreshAt === 'number' ? widgetParams.runtime.refreshAt : null
+  const pairContext = usePairColorContext(resolvedPairColor)
+  const setPairContext = useSetPairColorContext()
   const {
     data: watchlists = [],
     isLoading,
@@ -197,6 +202,21 @@ export const WatchlistWidgetBody = ({
       orderedItemIds,
     })
   }
+  const selectedListing = isLinkedToColorPair ? (pairContext.listing ?? null) : null
+
+  const handleSelectListing = useCallback(
+    (listing: ListingIdentity | null) => {
+      if (!isLinkedToColorPair) return
+      if (listing == null) {
+        if (pairContext.listing == null) return
+        setPairContext(resolvedPairColor, { listing: null })
+        return
+      }
+      if (areListingIdentitiesEqual(pairContext.listing, listing)) return
+      setPairContext(resolvedPairColor, { listing })
+    },
+    [isLinkedToColorPair, pairContext.listing, resolvedPairColor, setPairContext]
+  )
 
   if (!workspaceId) {
     return <WatchlistMessage message='Select a workspace to use watchlists.' />
@@ -235,6 +255,9 @@ export const WatchlistWidgetBody = ({
           onRenameSection={handleRenameSection}
           onRemoveSection={handleRemoveSection}
           isMutating={isMutating}
+          selectedListing={selectedListing}
+          isLinkedSelection={isLinkedToColorPair}
+          onSelectListing={handleSelectListing}
         />
       </div>
     </div>

@@ -1,6 +1,10 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ListingIdentity } from '@/lib/listing/identity'
-import type { WatchlistItem, WatchlistRecord, WatchlistSettings } from '@/lib/watchlists/types'
+import type {
+  WatchlistImportFileItem,
+  WatchlistRecord,
+  WatchlistSettings,
+} from '@/lib/watchlists/types'
 
 export const watchlistKeys = {
   all: ['watchlists'] as const,
@@ -447,7 +451,7 @@ export function useImportWatchlist() {
     }: {
       workspaceId: string
       watchlistId: string
-      items: WatchlistItem[]
+      items: WatchlistImportFileItem[]
     }) => {
       const response = await fetch(`/api/watchlists/${watchlistId}/import`, {
         method: 'POST',

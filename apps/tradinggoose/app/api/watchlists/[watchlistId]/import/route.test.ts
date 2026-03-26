@@ -61,19 +61,19 @@ describe('Watchlist import API route', () => {
       workspaceId: 'workspace-1',
       items: [
         {
-          id: 'section-1',
           type: 'section',
           label: 'Tech',
-        },
-        {
-          id: 'listing-1',
-          type: 'listing',
-          listing: {
-            listing_id: 'aapl-id',
-            base_id: '',
-            quote_id: '',
-            listing_type: 'default',
-          },
+          items: [
+            {
+              type: 'listing',
+              listing: {
+                listing_id: 'aapl-id',
+                base_id: '',
+                quote_id: '',
+                listing_type: 'default',
+              },
+            },
+          ],
         },
       ],
     })
@@ -94,19 +94,19 @@ describe('Watchlist import API route', () => {
       'watchlist-1',
       [
         {
-          id: 'section-1',
           type: 'section',
           label: 'Tech',
-        },
-        {
-          id: 'listing-1',
-          type: 'listing',
-          listing: {
-            listing_id: 'aapl-id',
-            base_id: '',
-            quote_id: '',
-            listing_type: 'default',
-          },
+          items: [
+            {
+              type: 'listing',
+              listing: {
+                listing_id: 'aapl-id',
+                base_id: '',
+                quote_id: '',
+                listing_type: 'default',
+              },
+            },
+          ],
         },
       ]
     )
@@ -118,8 +118,10 @@ describe('Watchlist import API route', () => {
       workspaceId: 'workspace-1',
       items: [
         {
+          id: 'legacy-section-id',
           type: 'section',
-          label: 'Missing id',
+          label: 'Tech',
+          items: [],
         },
       ],
     })
@@ -130,7 +132,7 @@ describe('Watchlist import API route', () => {
     const payload = await response.json()
 
     expect(response.status).toBe(400)
-    expect(payload.error).toBe('Invalid watchlist items payload')
+    expect(payload.error).toBe('Invalid watchlist import file')
     expect(mockAppendWatchlistItemsToWatchlist).not.toHaveBeenCalled()
   })
 })

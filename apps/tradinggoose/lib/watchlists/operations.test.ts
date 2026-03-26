@@ -42,7 +42,7 @@ vi.mock('drizzle-orm', () => ({
   isNull: vi.fn((value: unknown) => ({ kind: 'isNull', value })),
 }))
 
-import { addListingToWatchlist } from '@/lib/watchlists/operations'
+import { addListingToWatchlist, appendWatchlistItemsToWatchlist } from '@/lib/watchlists/operations'
 
 const scope = {
   workspaceId: 'workspace-1',
@@ -320,6 +320,202 @@ describe('watchlist operations', () => {
           base_id: '',
           quote_id: '',
           listing_type: 'default',
+        },
+      },
+    ])
+  })
+
+  it('imports hierarchical file items into root and section containers', async () => {
+    const watchlistRow = createWatchlistRow()
+    const updatedRow = {
+      ...watchlistRow,
+      updatedAt: new Date('2026-03-17T11:00:00.000Z'),
+    }
+    const existingSection = createSectionRow('section-1', 'Macro', 0)
+    const createdSection = createSectionRow('section-2', 'Tech', 1)
+    const existingApple = createItemRow({
+      id: 'item-a',
+      listing: {
+        listing_id: 'aapl-id',
+        base_id: '',
+        quote_id: '',
+        listing_type: 'default',
+      },
+      sortOrder: 0,
+      createdAt: '2026-03-17T10:15:00.000Z',
+    })
+    const insertedTesla = createItemRow({
+      id: 'item-tsla',
+      listing: {
+        listing_id: 'tsla-id',
+        base_id: '',
+        quote_id: '',
+        listing_type: 'default',
+      },
+      sortOrder: 1,
+      createdAt: '2026-03-17T10:25:00.000Z',
+    })
+    const insertedBitcoin = createItemRow({
+      id: 'item-btc',
+      listing: {
+        listing_id: '',
+        base_id: 'BTC',
+        quote_id: 'USDT',
+        listing_type: 'crypto',
+      },
+      containerId: 'section-2',
+      sortOrder: 1,
+      createdAt: '2026-03-17T10:30:00.000Z',
+    })
+
+    const pendingSelects = [
+      [watchlistRow],
+      [existingSection],
+      [existingApple],
+      [{ sortOrder: 0 }],
+      [{ sortOrder: 0 }],
+      [existingSection, createdSection],
+      [existingApple, insertedTesla, insertedBitcoin],
+    ]
+    const insertValues = vi.fn((value: Record<string, unknown>) => {
+      if ('parentId' in value) {
+        return {
+          returning: vi.fn().mockResolvedValue([createdSection]),
+        }
+      }
+
+      return Promise.resolve(undefined)
+    })
+    const tx: any = {
+      select: vi.fn(() => {
+        if (pendingSelects.length === 0) {
+          throw new Error('Unexpected select call')
+        }
+        return createQueryChain(pendingSelects.shift())
+      }),
+      insert: vi.fn(() => ({
+        values: insertValues,
+      })),
+      update: vi.fn(() => {
+        const chain: any = {}
+        chain.set = vi.fn().mockReturnValue(chain)
+        chain.where = vi.fn().mockReturnValue(chain)
+        chain.returning = vi.fn().mockResolvedValue([updatedRow])
+        return chain
+      }),
+    }
+
+    mockTransaction.mockImplementation(async (callback: (innerTx: unknown) => unknown) => callback(tx))
+
+    const result = await appendWatchlistItemsToWatchlist(scope, 'watchlist-1', [
+      {
+        type: 'listing',
+        listing: {
+          listing_id: 'tsla-id',
+          base_id: '',
+          quote_id: '',
+          listing_type: 'default',
+        },
+      },
+      {
+        type: 'section',
+        label: 'Tech',
+        items: [
+          {
+            type: 'listing',
+            listing: {
+              listing_id: 'aapl-id',
+              base_id: '',
+              quote_id: '',
+              listing_type: 'default',
+            },
+          },
+          {
+            type: 'listing',
+            listing: {
+              listing_id: '',
+              base_id: 'BTC',
+              quote_id: 'USDT',
+              listing_type: 'crypto',
+            },
+          },
+        ],
+      },
+    ])
+
+    expect(result.addedCount).toBe(2)
+    expect(result.skippedCount).toBe(1)
+    expect(insertValues).toHaveBeenNthCalledWith(1, {
+      watchlistId: 'watchlist-1',
+      containerId: null,
+      listing: {
+        listing_id: 'tsla-id',
+        base_id: '',
+        quote_id: '',
+        listing_type: 'default',
+      },
+      sortOrder: 1,
+    })
+    expect(insertValues).toHaveBeenNthCalledWith(2, {
+      workspaceId: 'workspace-1',
+      userId: 'user-1',
+      parentId: 'watchlist-1',
+      name: 'Tech',
+      sortOrder: 1,
+      isSystem: false,
+      settings: {},
+      updatedAt: expect.any(Date),
+    })
+    expect(insertValues).toHaveBeenNthCalledWith(3, {
+      watchlistId: 'watchlist-1',
+      containerId: 'section-2',
+      listing: {
+        listing_id: '',
+        base_id: 'BTC',
+        quote_id: 'USDT',
+        listing_type: 'crypto',
+      },
+      sortOrder: 1,
+    })
+    expect(result.watchlist.items).toEqual([
+      {
+        id: 'item-a',
+        type: 'listing',
+        listing: {
+          listing_id: 'aapl-id',
+          base_id: '',
+          quote_id: '',
+          listing_type: 'default',
+        },
+      },
+      {
+        id: 'item-tsla',
+        type: 'listing',
+        listing: {
+          listing_id: 'tsla-id',
+          base_id: '',
+          quote_id: '',
+          listing_type: 'default',
+        },
+      },
+      {
+        id: 'section-1',
+        type: 'section',
+        label: 'Macro',
+      },
+      {
+        id: 'section-2',
+        type: 'section',
+        label: 'Tech',
+      },
+      {
+        id: 'item-btc',
+        type: 'listing',
+        listing: {
+          listing_id: '',
+          base_id: 'BTC',
+          quote_id: 'USDT',
+          listing_type: 'crypto',
         },
       },
     ])

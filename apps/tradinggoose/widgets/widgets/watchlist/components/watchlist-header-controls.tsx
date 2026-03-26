@@ -15,7 +15,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { toListingValue, type ListingIdentity, type ListingOption } from '@/lib/listing/identity'
 import type { WatchlistRecord } from '@/lib/watchlists/types'
-import { normalizeWatchlistItems } from '@/lib/watchlists/validation'
+import { normalizeWatchlistImportFileItems } from '@/lib/watchlists/validation'
 import {
   useAddWatchlistListing,
   useAddWatchlistSection,
@@ -449,7 +449,7 @@ export const WatchlistHeaderRightControls = ({
         throw new Error('Invalid watchlist import file')
       }
 
-      const items = normalizeWatchlistItems(parsed)
+      const items = normalizeWatchlistImportFileItems(parsed)
       if (items.length !== parsed.length) {
         throw new Error('Invalid watchlist import file')
       }

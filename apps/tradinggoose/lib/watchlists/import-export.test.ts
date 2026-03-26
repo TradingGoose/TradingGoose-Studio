@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { extractWatchlistItems, exportWatchlistItemsAsJson } from '@/lib/watchlists/import-export'
+import {
+  extractWatchlistImportFileItems,
+  exportWatchlistItemsAsJson,
+} from '@/lib/watchlists/import-export'
 
 describe('watchlist import/export', () => {
-  it('extracts watchlist items while preserving sections and order', () => {
-    const items = extractWatchlistItems([
+  it('extracts hierarchical import file items without ids', () => {
+    const items = extractWatchlistImportFileItems([
       {
-        id: 'one',
         type: 'listing',
         listing: {
           listing_id: 'aapl-id',
@@ -15,25 +17,24 @@ describe('watchlist import/export', () => {
         },
       },
       {
-        id: 'two',
         type: 'section',
         label: 'Tech',
-      },
-      {
-        id: 'three',
-        type: 'listing',
-        listing: {
-          listing_id: '',
-          base_id: 'BTC',
-          quote_id: 'USDT',
-          listing_type: 'crypto',
-        },
+        items: [
+          {
+            type: 'listing',
+            listing: {
+              listing_id: '',
+              base_id: 'BTC',
+              quote_id: 'USDT',
+              listing_type: 'crypto',
+            },
+          },
+        ],
       },
     ])
 
     expect(items).toEqual([
       {
-        id: 'one',
         type: 'listing',
         listing: {
           listing_id: 'aapl-id',
@@ -43,24 +44,24 @@ describe('watchlist import/export', () => {
         },
       },
       {
-        id: 'two',
         type: 'section',
         label: 'Tech',
-      },
-      {
-        id: 'three',
-        type: 'listing',
-        listing: {
-          listing_id: '',
-          base_id: 'BTC',
-          quote_id: 'USDT',
-          listing_type: 'crypto',
-        },
+        items: [
+          {
+            type: 'listing',
+            listing: {
+              listing_id: '',
+              base_id: 'BTC',
+              quote_id: 'USDT',
+              listing_type: 'crypto',
+            },
+          },
+        ],
       },
     ])
   })
 
-  it('exports watchlist items as JSON array payload', () => {
+  it('exports watchlist items as a hierarchical no-id JSON payload', () => {
     const payload = exportWatchlistItemsAsJson([
       {
         id: 'one',
@@ -91,7 +92,6 @@ describe('watchlist import/export', () => {
 
     expect(JSON.parse(payload)).toEqual([
       {
-        id: 'one',
         type: 'listing',
         listing: {
           listing_id: 'aapl-id',
@@ -101,19 +101,19 @@ describe('watchlist import/export', () => {
         },
       },
       {
-        id: 'section-1',
         type: 'section',
         label: 'Tech',
-      },
-      {
-        id: 'two',
-        type: 'listing',
-        listing: {
-          listing_id: '',
-          base_id: 'BTC',
-          quote_id: 'USDT',
-          listing_type: 'crypto',
-        },
+        items: [
+          {
+            type: 'listing',
+            listing: {
+              listing_id: '',
+              base_id: 'BTC',
+              quote_id: 'USDT',
+              listing_type: 'crypto',
+            },
+          },
+        ],
       },
     ])
   })

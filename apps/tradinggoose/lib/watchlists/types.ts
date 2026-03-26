@@ -20,6 +20,21 @@ export type WatchlistSectionItem = {
 
 export type WatchlistItem = WatchlistListingItem | WatchlistSectionItem
 
+export type WatchlistImportFileListingItem = {
+  type: 'listing'
+  listing: ListingIdentity
+}
+
+export type WatchlistImportFileSection = {
+  type: 'section'
+  label: string
+  items: WatchlistImportFileListingItem[]
+}
+
+export type WatchlistImportFileItem =
+  | WatchlistImportFileListingItem
+  | WatchlistImportFileSection
+
 export type WatchlistRecord = {
   id: string
   workspaceId: string

@@ -105,7 +105,6 @@ describe('Watchlist export API route', () => {
     expect(response.headers.get('Content-Disposition')).toContain('my_watchlist.json')
     expect(JSON.parse(body)).toEqual([
       {
-        id: 'one',
         type: 'listing',
         listing: {
           listing_id: 'aapl-id',
@@ -115,19 +114,19 @@ describe('Watchlist export API route', () => {
         },
       },
       {
-        id: 'section-1',
         type: 'section',
         label: 'Tech',
-      },
-      {
-        id: 'two',
-        type: 'listing',
-        listing: {
-          listing_id: '',
-          base_id: 'BTC',
-          quote_id: 'USDT',
-          listing_type: 'crypto',
-        },
+        items: [
+          {
+            type: 'listing',
+            listing: {
+              listing_id: '',
+              base_id: 'BTC',
+              quote_id: 'USDT',
+              listing_type: 'crypto',
+            },
+          },
+        ],
       },
     ])
   })

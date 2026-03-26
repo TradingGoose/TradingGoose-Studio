@@ -4,8 +4,8 @@ import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { WatchlistOperationError, appendWatchlistItemsToWatchlist } from '@/lib/watchlists/operations'
-import type { WatchlistItem } from '@/lib/watchlists/types'
-import { normalizeWatchlistItems } from '@/lib/watchlists/validation'
+import type { WatchlistImportFileItem } from '@/lib/watchlists/types'
+import { normalizeWatchlistImportFileItems } from '@/lib/watchlists/validation'
 
 const logger = createLogger('WatchlistImportAPI')
 
@@ -32,10 +32,10 @@ const requireWorkspacePermission = async (userId: string, workspaceId: string) =
   }
 }
 
-const normalizeImportedWatchlistItems = (entries: unknown[]): WatchlistItem[] => {
-  const items = normalizeWatchlistItems(entries)
+const normalizeImportedWatchlistItems = (entries: unknown[]): WatchlistImportFileItem[] => {
+  const items = normalizeWatchlistImportFileItems(entries)
   if (items.length !== entries.length) {
-    throw new WatchlistOperationError('Invalid watchlist items payload', 400)
+    throw new WatchlistOperationError('Invalid watchlist import file', 400)
   }
   return items
 }

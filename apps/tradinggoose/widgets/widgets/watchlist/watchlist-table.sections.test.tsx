@@ -2,12 +2,12 @@
  * @vitest-environment jsdom
  */
 
-import { act } from 'react'
 import {
+  act,
+  type ButtonHTMLAttributes,
   Children,
   cloneElement,
   isValidElement,
-  type ButtonHTMLAttributes,
   type MouseEvent,
   type ReactElement,
   type ReactNode,
@@ -104,13 +104,8 @@ vi.mock('@/stores/market/selector/store', () => ({
 
 vi.mock('@/components/ui/sortable', () => ({
   Sortable: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  SortableContent: ({
-    children,
-    withoutSlot,
-  }: {
-    children: ReactNode
-    withoutSlot?: boolean
-  }) => (withoutSlot ? <>{children}</> : <div>{children}</div>),
+  SortableContent: ({ children, withoutSlot }: { children: ReactNode; withoutSlot?: boolean }) =>
+    withoutSlot ? <>{children}</> : <div>{children}</div>,
   SortableItem: ({ children, asChild }: { children: ReactNode; asChild?: boolean }) => {
     if (!asChild) {
       return <div>{children}</div>
@@ -144,13 +139,8 @@ vi.mock('@/components/ui/sortable', () => ({
 }))
 
 vi.mock('@/components/ui/alert-dialog', () => ({
-  AlertDialog: ({
-    open,
-    children,
-  }: {
-    open: boolean
-    children: ReactNode
-  }) => (open ? <div>{children}</div> : null),
+  AlertDialog: ({ open, children }: { open: boolean; children: ReactNode }) =>
+    open ? <div>{children}</div> : null,
   AlertDialogAction: ({ children, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button data-testid='confirm-delete-section' type='button' {...props}>
       {children}
@@ -223,6 +213,9 @@ const createTableProps = (overrides: Record<string, unknown> = {}) => ({
   onRemoveItem: vi.fn(),
   onRenameSection: vi.fn(),
   onRemoveSection: vi.fn(),
+  selectedListing: null,
+  isLinkedSelection: false,
+  onSelectListing: vi.fn(),
   ...overrides,
 })
 
@@ -248,9 +241,7 @@ describe('WatchlistTable section interactions', () => {
 
   it('lets the rename button open inline editing without triggering sortable drag activation', async () => {
     await act(async () => {
-      root.render(
-        <WatchlistTable {...(createTableProps() as any)} />
-      )
+      root.render(<WatchlistTable {...(createTableProps() as any)} />)
     })
 
     const renameButton = findButtonByText(container, 'Rename section')
@@ -281,9 +272,7 @@ describe('WatchlistTable section interactions', () => {
 
   it('renders watchlist rows with the requested surfaces and no outer chrome', async () => {
     await act(async () => {
-      root.render(
-        <WatchlistTable {...(createTableProps() as any)} />
-      )
+      root.render(<WatchlistTable {...(createTableProps() as any)} />)
     })
 
     const wrapper = container.firstElementChild as HTMLElement | null
@@ -310,12 +299,201 @@ describe('WatchlistTable section interactions', () => {
     expect(marketListingRow?.className).not.toContain('pl-6')
     expect(marketListingRow?.className).not.toContain('border')
     expect(marketListingRow?.className).not.toContain('rounded')
+  })
+
+  it('does not select a listing when the row itself is clicked', async () => {
+    const onSelectListing = vi.fn()
+
+    await act(async () => {
+      root.render(
+        <WatchlistTable
+          {...(createTableProps({
+            isLinkedSelection: true,
+            onSelectListing,
+          }) as any)}
+        />
+      )
+    })
+
+    const listingRow = Array.from(container.querySelectorAll('tr')).find((row) =>
+      row.textContent?.includes('BTC')
+    )
+
+    expect(listingRow).toBeTruthy()
 
     await act(async () => {
       listingRow?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
+    expect(onSelectListing).not.toHaveBeenCalled()
+    expect(findButtonByText(container, 'Select symbol')).toBeTruthy()
+    expect(findButtonByText(container, 'Deselect symbol')).toBeFalsy()
+  })
+
+  it('selects a listing through the select button in unlinked mode', async () => {
+    await act(async () => {
+      root.render(<WatchlistTable {...(createTableProps() as any)} />)
+    })
+
+    const listingRow = Array.from(container.querySelectorAll('tr')).find((row) =>
+      row.textContent?.includes('BTC')
+    )
+    const selectButton = findButtonByText(container, 'Select symbol')
+
+    expect(listingRow).toBeTruthy()
+    expect(selectButton).toBeTruthy()
+
+    await act(async () => {
+      selectButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    const deselectButton = findButtonByText(container, 'Deselect symbol')
+
     expect(listingRow?.className).toContain('bg-accent')
+    expect(deselectButton?.className).toContain('opacity-100')
+    expect(deselectButton?.className).toContain('bg-accent')
+  })
+
+  it('blurs pointer-selected rows so action visibility can return to hover-only state', async () => {
+    await act(async () => {
+      root.render(<WatchlistTable {...(createTableProps() as any)} />)
+    })
+
+    const selectButton = findButtonByText(container, 'Select symbol') as
+      | HTMLButtonElement
+      | undefined
+
+    expect(selectButton).toBeTruthy()
+
+    await act(async () => {
+      selectButton?.focus()
+      selectButton?.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }))
+    })
+
+    expect(document.activeElement).toBe(document.body)
+  })
+
+  it('does not activate drag when the select button is pressed before clicking', async () => {
+    const onSelectListing = vi.fn()
+
+    await act(async () => {
+      root.render(
+        <WatchlistTable
+          {...(createTableProps({
+            isLinkedSelection: true,
+            onSelectListing,
+          }) as any)}
+        />
+      )
+    })
+
+    const selectButton = findButtonByText(container, 'Select symbol')
+
+    expect(selectButton).toBeTruthy()
+
+    await act(async () => {
+      selectButton?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    })
+
+    expect(mockDragActivation).not.toHaveBeenCalled()
+
+    await act(async () => {
+      selectButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(onSelectListing).toHaveBeenCalledWith({
+      listing_id: 'BTC',
+      base_id: '',
+      quote_id: '',
+      listing_type: 'default',
+    })
+  })
+
+  it('calls the listing selection callback when the select button is clicked in linked mode', async () => {
+    const onSelectListing = vi.fn()
+
+    await act(async () => {
+      root.render(
+        <WatchlistTable
+          {...(createTableProps({
+            isLinkedSelection: true,
+            onSelectListing,
+          }) as any)}
+        />
+      )
+    })
+
+    const selectButton = findButtonByText(container, 'Select symbol')
+
+    expect(selectButton).toBeTruthy()
+
+    await act(async () => {
+      selectButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(onSelectListing).toHaveBeenCalledWith({
+      listing_id: 'BTC',
+      base_id: '',
+      quote_id: '',
+      listing_type: 'default',
+    })
+  })
+
+  it('keeps the selected check button visible for linked selections', async () => {
+    await act(async () => {
+      root.render(
+        <WatchlistTable
+          {...(createTableProps({
+            isLinkedSelection: true,
+            selectedListing: {
+              listing_id: 'BTC',
+              base_id: '',
+              quote_id: '',
+              listing_type: 'default',
+            },
+          }) as any)}
+        />
+      )
+    })
+
+    const listingRow = Array.from(container.querySelectorAll('tr')).find((row) =>
+      row.textContent?.includes('BTC')
+    )
+    const selectButton = findButtonByText(container, 'Deselect symbol')
+
+    expect(listingRow?.className).toContain('bg-accent')
+    expect(selectButton?.className).toContain('opacity-100')
+  })
+
+  it('calls the listing selection callback with null when the selected button is clicked again', async () => {
+    const onSelectListing = vi.fn()
+
+    await act(async () => {
+      root.render(
+        <WatchlistTable
+          {...(createTableProps({
+            isLinkedSelection: true,
+            onSelectListing,
+            selectedListing: {
+              listing_id: 'BTC',
+              base_id: '',
+              quote_id: '',
+              listing_type: 'default',
+            },
+          }) as any)}
+        />
+      )
+    })
+
+    const selectButton = findButtonByText(container, 'Deselect symbol')
+
+    expect(selectButton).toBeTruthy()
+
+    await act(async () => {
+      selectButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(onSelectListing).toHaveBeenCalledWith(null)
   })
 
   it('opens delete confirmation from the section action and waits for delete success before closing', async () => {
@@ -323,9 +501,7 @@ describe('WatchlistTable section interactions', () => {
     const onRemoveSection = vi.fn().mockReturnValue(deferred.promise)
 
     await act(async () => {
-      root.render(
-        <WatchlistTable {...(createTableProps({ onRemoveSection }) as any)} />
-      )
+      root.render(<WatchlistTable {...(createTableProps({ onRemoveSection }) as any)} />)
     })
 
     const deleteButton = findButtonByText(container, 'Delete section')
@@ -366,9 +542,7 @@ describe('WatchlistTable section interactions', () => {
     const onRemoveItem = vi.fn().mockReturnValue(deferred.promise)
 
     await act(async () => {
-      root.render(
-        <WatchlistTable {...(createTableProps({ onRemoveItem }) as any)} />
-      )
+      root.render(<WatchlistTable {...(createTableProps({ onRemoveItem }) as any)} />)
     })
 
     const deleteButton = findButtonByText(container, 'Remove symbol')
@@ -410,9 +584,7 @@ describe('WatchlistTable section interactions', () => {
     const onUpdateItemListing = vi.fn().mockResolvedValue(true)
 
     await act(async () => {
-      root.render(
-        <WatchlistTable {...(createTableProps({ onUpdateItemListing }) as any)} />
-      )
+      root.render(<WatchlistTable {...(createTableProps({ onUpdateItemListing }) as any)} />)
     })
 
     const editButton = Array.from(container.querySelectorAll('button')).find((button) =>
@@ -425,7 +597,9 @@ describe('WatchlistTable section interactions', () => {
       editButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    const selector = container.querySelector('[data-testid="stock-selector-watchlist-listing-editor-listing-1"]')
+    const selector = container.querySelector(
+      '[data-testid="stock-selector-watchlist-listing-editor-listing-1"]'
+    )
 
     expect(selector).toBeTruthy()
     expect(mockStockSelectorRender).toHaveBeenLastCalledWith({
@@ -442,6 +616,60 @@ describe('WatchlistTable section interactions', () => {
     })
 
     expect(onUpdateItemListing).toHaveBeenCalledWith('listing-1', {
+      listing_id: 'eth-id',
+      base_id: '',
+      quote_id: '',
+      listing_type: 'default',
+    })
+  })
+
+  it('updates linked selection when the selected listing is edited', async () => {
+    const onUpdateItemListing = vi.fn().mockResolvedValue(true)
+    const onSelectListing = vi.fn()
+
+    await act(async () => {
+      root.render(
+        <WatchlistTable
+          {...(createTableProps({
+            onUpdateItemListing,
+            onSelectListing,
+            isLinkedSelection: true,
+            selectedListing: {
+              listing_id: 'BTC',
+              base_id: '',
+              quote_id: '',
+              listing_type: 'default',
+            },
+          }) as any)}
+        />
+      )
+    })
+
+    const editButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Edit symbol')
+    )
+
+    expect(editButton).toBeTruthy()
+
+    await act(async () => {
+      editButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    const selectButton = container.querySelector(
+      '[data-testid="stock-selector-select-watchlist-listing-editor-listing-1"]'
+    )
+
+    await act(async () => {
+      selectButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(onUpdateItemListing).toHaveBeenCalledWith('listing-1', {
+      listing_id: 'eth-id',
+      base_id: '',
+      quote_id: '',
+      listing_type: 'default',
+    })
+    expect(onSelectListing).toHaveBeenCalledWith({
       listing_id: 'eth-id',
       base_id: '',
       quote_id: '',
@@ -467,9 +695,7 @@ describe('WatchlistTable section interactions', () => {
       })
 
     await act(async () => {
-      root.render(
-        <WatchlistTable {...(createTableProps() as any)} />
-      )
+      root.render(<WatchlistTable {...(createTableProps() as any)} />)
     })
 
     await act(async () => {
@@ -516,9 +742,7 @@ describe('WatchlistTable section interactions', () => {
     const onUpdateItemListing = vi.fn().mockResolvedValue(true)
 
     await act(async () => {
-      root.render(
-        <WatchlistTable {...(createTableProps({ onUpdateItemListing }) as any)} />
-      )
+      root.render(<WatchlistTable {...(createTableProps({ onUpdateItemListing }) as any)} />)
     })
 
     const editButton = Array.from(container.querySelectorAll('button')).find((button) =>
@@ -529,13 +753,16 @@ describe('WatchlistTable section interactions', () => {
       editButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    const selector = container.querySelector('[data-testid="stock-selector-watchlist-listing-editor-listing-1"]')
+    const selector = container.querySelector(
+      '[data-testid="stock-selector-watchlist-listing-editor-listing-1"]'
+    )
     const focusButton = container.querySelector(
       '[data-testid="stock-selector-focus-watchlist-listing-editor-listing-1"]'
     )
-    const editingRow = Array.from(container.querySelectorAll('tr')).find((row) =>
-      row.getAttribute('data-watchlist-listing-edit-surface') ===
-      'watchlist-listing-edit-surface-listing-1'
+    const editingRow = Array.from(container.querySelectorAll('tr')).find(
+      (row) =>
+        row.getAttribute('data-watchlist-listing-edit-surface') ===
+        'watchlist-listing-edit-surface-listing-1'
     )
     const editingCell = selector?.closest('td')
 

@@ -4,7 +4,13 @@ import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
 import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
 import { areListingIdentitiesEqual, toListingValueObject } from '@/lib/listing/identity'
 import { DEFAULT_WATCHLIST_NAME, MAX_SYMBOLS_PER_WATCHLIST } from '@/lib/watchlists/constants'
-import type { WatchlistItem, WatchlistRecord, WatchlistSettings } from '@/lib/watchlists/types'
+import type {
+  WatchlistImportFileItem,
+  WatchlistImportFileListingItem,
+  WatchlistItem,
+  WatchlistRecord,
+  WatchlistSettings,
+} from '@/lib/watchlists/types'
 import {
   isProtectedWatchlistName,
   normalizeWatchlistName,
@@ -281,6 +287,11 @@ const hasListingIdentity = (items: WatchlistItemRow[], candidate: ListingIdentit
 
 const getListingIdentityKey = (listing: ListingIdentity) =>
   `${listing.listing_type}|${listing.listing_id}|${listing.base_id}|${listing.quote_id}`
+
+const flattenImportedWatchlistListings = (items: WatchlistImportFileItem[]) =>
+  items.flatMap<WatchlistImportFileListingItem>((item) =>
+    item.type === 'listing' ? [item] : item.items
+  )
 
 const ensureDefaultWatchlistInTx = async (tx: WatchlistTx, scope: WatchlistScope) => {
   const [existingSystem] = await tx
@@ -856,7 +867,7 @@ export async function reorderWatchlistItems(
 export async function appendWatchlistItemsToWatchlist(
   scope: WatchlistScope,
   watchlistId: string,
-  importedItems: WatchlistItem[]
+  importedItems: WatchlistImportFileItem[]
 ): Promise<{ watchlist: WatchlistRecord; addedCount: number; skippedCount: number }> {
   return db.transaction(async (tx) => {
     const row = await fetchWatchlistRow(tx, watchlistId, scope)
@@ -869,15 +880,12 @@ export async function appendWatchlistItemsToWatchlist(
         .map(getListingIdentityKey)
     )
     const plannedAdditionKeys = new Set<string>()
+    const importedListings = flattenImportedWatchlistListings(importedItems)
 
     let addedCount = 0
     let skippedCount = 0
 
-    for (const item of importedItems) {
-      if (item.type !== 'listing') {
-        continue
-      }
-
+    for (const item of importedListings) {
       const listing = toListingValueObject(item.listing)
       const key = listing ? getListingIdentityKey(listing) : null
       const isDuplicate = key
@@ -903,56 +911,62 @@ export async function appendWatchlistItemsToWatchlist(
     let currentSectionId: string | null = null
     let nextSectionSortOrder = await getNextSortOrderForSection(tx, row)
     let nextUnsectionedSortOrder = await getNextSortOrderForItem(tx, row.id, null)
-    const nextSectionItemSortOrder = new Map<string, number>()
     const insertedListingKeys = new Set<string>()
 
-    for (const item of importedItems) {
-      if (item.type === 'section') {
-        const [createdSection] = await tx
-          .insert(watchlistTable)
-          .values({
-            workspaceId: row.workspaceId,
-            userId: row.userId,
-            parentId: row.id,
-            name: item.label,
-            sortOrder: nextSectionSortOrder,
-            isSystem: false,
-            settings: {},
-            updatedAt: new Date(),
-          })
-          .returning()
-
-        currentSectionId = ensureFound(createdSection).id
-        nextSectionItemSortOrder.set(currentSectionId, 0)
-        nextSectionSortOrder += 1
-        continue
-      }
-
-      const listing = toListingValueObject(item.listing)
+    const insertListing = async (
+      listingItem: WatchlistImportFileListingItem,
+      containerId: string | null,
+      sortOrder: number
+    ) => {
+      const listing = toListingValueObject(listingItem.listing)
       const key = listing ? getListingIdentityKey(listing) : null
       if (!listing || !key || !plannedAdditionKeys.has(key) || insertedListingKeys.has(key)) {
-        continue
+        return
       }
-
-      const sortOrder = (() => {
-        if (!currentSectionId) {
-          const next = nextUnsectionedSortOrder
-          nextUnsectionedSortOrder += 1
-          return next
-        }
-
-        const next = nextSectionItemSortOrder.get(currentSectionId) ?? 0
-        nextSectionItemSortOrder.set(currentSectionId, next + 1)
-        return next
-      })()
 
       await tx.insert(watchlistItem).values({
         watchlistId: row.id,
-        containerId: currentSectionId,
+        containerId,
         listing,
         sortOrder,
       })
       insertedListingKeys.add(key)
+    }
+
+    for (const item of importedItems) {
+      if (item.type === 'listing') {
+        const sortOrder = (() => {
+          const next = nextUnsectionedSortOrder
+          nextUnsectionedSortOrder += 1
+          return next
+        })()
+
+        await insertListing(item, null, sortOrder)
+        continue
+      }
+
+      const [createdSection] = await tx
+        .insert(watchlistTable)
+        .values({
+          workspaceId: row.workspaceId,
+          userId: row.userId,
+          parentId: row.id,
+          name: item.label,
+          sortOrder: nextSectionSortOrder,
+          isSystem: false,
+          settings: {},
+          updatedAt: new Date(),
+        })
+        .returning()
+
+      currentSectionId = ensureFound(createdSection).id
+      nextSectionSortOrder += 1
+
+      let nextSectionItemSortOrder = 0
+      for (const sectionItem of item.items) {
+        await insertListing(sectionItem, currentSectionId, nextSectionItemSortOrder)
+        nextSectionItemSortOrder += 1
+      }
     }
 
     const updated = await touchWatchlist(tx, row.id)
