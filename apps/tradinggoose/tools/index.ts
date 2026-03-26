@@ -1,11 +1,15 @@
 import { generateInternalToken } from '@/lib/auth/internal'
+import { toListingValueObject } from '@/lib/listing/identity'
+import { resolveListingIdentity } from '@/lib/listing/resolve'
 import { createLogger } from '@/lib/logs/console/logger'
 import { parseMcpToolId } from '@/lib/mcp/utils'
 import { validateExternalUrl } from '@/lib/security/input-validation'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
-import { resolveListingIdentity } from '@/lib/listing/resolve'
-import { toListingValueObject } from '@/lib/listing/identity'
+import {
+  isSkillLoaderExecution,
+  resolveSkillContent,
+} from '@/executor/handlers/agent/skills-resolver'
 import type { ExecutionContext } from '@/executor/types'
 import type { ErrorInfo } from '@/tools/error-extractors'
 import { extractErrorMessage } from '@/tools/error-extractors'
@@ -193,6 +197,40 @@ export async function executeTool(
 
   try {
     let tool: ToolConfig | undefined
+
+    if (isSkillLoaderExecution(params)) {
+      const skillName = typeof params.skill_name === 'string' ? params.skill_name : null
+      const workspaceId =
+        typeof params._context?.workspaceId === 'string'
+          ? params._context.workspaceId
+          : executionContext?.workspaceId
+      const workflowId =
+        typeof params._context?.workflowId === 'string'
+          ? params._context.workflowId
+          : executionContext?.workflowId
+
+      if (!skillName || !workspaceId) {
+        return {
+          success: false,
+          output: { error: 'Missing skill_name or workspace context' },
+          error: 'Missing skill_name or workspace context',
+        }
+      }
+
+      const content = await resolveSkillContent(skillName, workspaceId, workflowId)
+      if (!content) {
+        return {
+          success: false,
+          output: { error: `Skill "${skillName}" not found` },
+          error: `Skill "${skillName}" not found`,
+        }
+      }
+
+      return {
+        success: true,
+        output: { content },
+      }
+    }
 
     // If it's a custom tool, use the async version with workflowId
     if (toolId.startsWith('custom_')) {

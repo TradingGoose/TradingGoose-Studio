@@ -1,6 +1,6 @@
 import type React from 'react'
-import { format } from 'date-fns'
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { format } from 'date-fns'
 import { AlertTriangle, Info } from 'lucide-react'
 import { Label, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui'
 import { DateTimePicker } from '@/components/ui/datetime-picker'
@@ -14,6 +14,7 @@ import {
   resolveStoredDateValue,
 } from '@/lib/time-format'
 import { cn } from '@/lib/utils'
+import type { SubBlockConfig } from '@/blocks/types'
 import {
   ChannelSelectorInput,
   CheckboxList,
@@ -31,16 +32,17 @@ import {
   InputFormat,
   InputMapping,
   KnowledgeBaseSelector,
-  LongInput,
   ListingSelectorInput,
-  OrderIdSelectorInput,
+  LongInput,
   McpDynamicArgs,
   McpServerSelector,
   McpToolSelector,
+  OrderIdSelectorInput,
   ProjectSelectorInput,
   ResponseFormat,
   ScheduleConfig,
   ShortInput,
+  SkillInput,
   Table,
   Text,
   ToolInput,
@@ -48,10 +50,9 @@ import {
   VariablesInput,
   WebhookConfig,
 } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components'
-import type { SubBlockConfig } from '@/blocks/types'
-import { useSubBlockValue } from './hooks/use-sub-block-value'
 import { DocumentTagEntry } from './components/document-tag-entry/document-tag-entry'
 import { KnowledgeTagFilters } from './components/knowledge-tag-filters/knowledge-tag-filters'
+import { useSubBlockValue } from './hooks/use-sub-block-value'
 
 interface SubBlockProps {
   blockId: string
@@ -237,12 +238,7 @@ function SubBlockDateTimeField({
 }
 
 export const SubBlock = memo(
-  function SubBlock({
-    blockId,
-    config,
-    isConnecting,
-    disabled = false,
-  }: SubBlockProps) {
+  function SubBlock({ blockId, config, isConnecting, disabled = false }: SubBlockProps) {
     const [isValidJson, setIsValidJson] = useState(true)
 
     const handleMouseDown = (e: React.MouseEvent) => {
@@ -357,11 +353,7 @@ export const SubBlock = memo(
               placeholder={config.placeholder}
               language={config.language}
               generationType={config.generationType}
-              value={
-                typeof config.value === 'function'
-                  ? config.value({})
-                  : undefined
-              }
+              value={typeof config.value === 'function' ? config.value({}) : undefined}
               disabled={isDisabled}
               onValidationChange={handleValidationChange}
               readOnly={config.readOnly}
@@ -396,6 +388,8 @@ export const SubBlock = memo(
               disabled={isDisabled}
             />
           )
+        case 'skill-input':
+          return <SkillInput blockId={blockId} subBlockId={config.id} disabled={isDisabled} />
         case 'market-selector':
           return (
             <ListingSelectorInput
@@ -443,20 +437,10 @@ export const SubBlock = memo(
             />
           )
         case 'eval-input':
-          return (
-            <EvalInput
-              blockId={blockId}
-              subBlockId={config.id}
-              disabled={isDisabled}
-            />
-          )
+          return <EvalInput blockId={blockId} subBlockId={config.id} disabled={isDisabled} />
         case 'time-input':
           return (
-            <SubBlockTimeField
-              blockId={blockId}
-              subBlockId={config.id}
-              disabled={isDisabled}
-            />
+            <SubBlockTimeField blockId={blockId} subBlockId={config.id} disabled={isDisabled} />
           )
         case 'datetime-input':
           return (
@@ -498,45 +482,15 @@ export const SubBlock = memo(
             />
           )
         case 'oauth-input':
-          return (
-            <CredentialSelector
-              blockId={blockId}
-              subBlock={config}
-              disabled={isDisabled}
-            />
-          )
+          return <CredentialSelector blockId={blockId} subBlock={config} disabled={isDisabled} />
         case 'file-selector':
-          return (
-            <FileSelectorInput
-              blockId={blockId}
-              subBlock={config}
-              disabled={isDisabled}
-            />
-          )
+          return <FileSelectorInput blockId={blockId} subBlock={config} disabled={isDisabled} />
         case 'project-selector':
-          return (
-            <ProjectSelectorInput
-              blockId={blockId}
-              subBlock={config}
-              disabled={isDisabled}
-            />
-          )
+          return <ProjectSelectorInput blockId={blockId} subBlock={config} disabled={isDisabled} />
         case 'folder-selector':
-          return (
-            <FolderSelectorInput
-              blockId={blockId}
-              subBlock={config}
-              disabled={isDisabled}
-            />
-          )
+          return <FolderSelectorInput blockId={blockId} subBlock={config} disabled={isDisabled} />
         case 'knowledge-base-selector':
-          return (
-            <KnowledgeBaseSelector
-              blockId={blockId}
-              subBlock={config}
-              disabled={isDisabled}
-            />
-          )
+          return <KnowledgeBaseSelector blockId={blockId} subBlock={config} disabled={isDisabled} />
         case 'knowledge-tag-filters':
           return (
             <KnowledgeTagFilters
@@ -557,13 +511,7 @@ export const SubBlock = memo(
             />
           )
         case 'document-selector':
-          return (
-            <DocumentSelector
-              blockId={blockId}
-              subBlock={config}
-              disabled={isDisabled}
-            />
-          )
+          return <DocumentSelector blockId={blockId} subBlock={config} disabled={isDisabled} />
         case 'input-format': {
           return (
             <InputFormat
@@ -607,29 +555,11 @@ export const SubBlock = memo(
             />
           )
         case 'channel-selector':
-          return (
-            <ChannelSelectorInput
-              blockId={blockId}
-              subBlock={config}
-              disabled={isDisabled}
-            />
-          )
+          return <ChannelSelectorInput blockId={blockId} subBlock={config} disabled={isDisabled} />
         case 'mcp-server-selector':
-          return (
-            <McpServerSelector
-              blockId={blockId}
-              subBlock={config}
-              disabled={isDisabled}
-            />
-          )
+          return <McpServerSelector blockId={blockId} subBlock={config} disabled={isDisabled} />
         case 'mcp-tool-selector':
-          return (
-            <McpToolSelector
-              blockId={blockId}
-              subBlock={config}
-              disabled={isDisabled}
-            />
-          )
+          return <McpToolSelector blockId={blockId} subBlock={config} disabled={isDisabled} />
         case 'mcp-dynamic-args':
           return (
             <McpDynamicArgs
@@ -675,10 +605,7 @@ export const SubBlock = memo(
       config.type !== 'trigger-save'
 
     return (
-      <div
-        className={cn('space-y-[6px] pt-[2px]')}
-        onMouseDown={handleMouseDown}
-      >
+      <div className={cn('space-y-[6px] pt-[2px]')} onMouseDown={handleMouseDown}>
         {showLabel && (
           <Label className='flex items-center gap-1'>
             {config.title}
@@ -716,9 +643,7 @@ export const SubBlock = memo(
                   side='top'
                   className='max-w-[400px] select-text whitespace-pre-wrap'
                 >
-                  {(config.tooltip || config.description || '')
-                    .split('\n')
-                    .map((line, idx) => (
+                  {(config.tooltip || config.description || '').split('\n').map((line, idx) => (
                     <p
                       key={idx}
                       className={idx === 0 ? 'mb-1 text-sm' : 'text-muted-foreground text-xs'}

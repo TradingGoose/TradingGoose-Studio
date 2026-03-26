@@ -7,11 +7,13 @@ import { dataChartWidget } from '@/widgets/widgets/data_chart'
 import { editorCustomToolWidget } from '@/widgets/widgets/editor_custom_tool/index'
 import { editorIndicatorWidget } from '@/widgets/widgets/editor_indicator'
 import { editorMcpWidget } from '@/widgets/widgets/editor_mcp'
+import { editorSkillWidget } from '@/widgets/widgets/editor_skill'
 import { workflowEditorWidget } from '@/widgets/widgets/editor_workflow'
 import { emptyWidget } from '@/widgets/widgets/empty'
 import { listCustomToolWidget } from '@/widgets/widgets/list_custom_tool'
 import { listIndicatorWidget } from '@/widgets/widgets/list_indicator'
 import { listMcpWidget } from '@/widgets/widgets/list_mcp'
+import { listSkillWidget } from '@/widgets/widgets/list_skill'
 import { workflowListWidget } from '@/widgets/widgets/list_workflow'
 import { watchlistWidget } from '@/widgets/widgets/watchlist'
 import { chatWidget } from '@/widgets/widgets/workflow_chat'
@@ -48,6 +50,8 @@ const widgetRegistry: Record<string, DashboardWidgetDefinition> = {
   editor_mcp: editorMcpWidget,
   list_custom_tool: listCustomToolWidget,
   editor_custom_tool: editorCustomToolWidget,
+  list_skill: listSkillWidget,
+  editor_skill: editorSkillWidget,
   workflow_variables: workflowVariablesWidget,
   watchlist: watchlistWidget,
 }

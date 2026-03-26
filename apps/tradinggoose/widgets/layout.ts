@@ -19,6 +19,7 @@ export type PersistedColorPair = {
   pineIndicatorId?: string | null
   mcpServerId?: string | null
   customToolId?: string | null
+  skillId?: string | null
 }
 
 export type PersistedColorPairsState = {
@@ -178,6 +179,11 @@ export function normalizeColorPairsState(state?: unknown): PersistedColorPairsSt
       ((raw as { customToolId?: unknown }).customToolId as string).trim().length > 0
         ? ((raw as { customToolId?: unknown }).customToolId as string)
         : null
+    const skillId =
+      typeof (raw as { skillId?: unknown }).skillId === 'string' &&
+      ((raw as { skillId?: unknown }).skillId as string).trim().length > 0
+        ? ((raw as { skillId?: unknown }).skillId as string)
+        : null
 
     normalized.push({
       color: rawColor,
@@ -188,6 +194,7 @@ export function normalizeColorPairsState(state?: unknown): PersistedColorPairsSt
       pineIndicatorId,
       mcpServerId,
       customToolId,
+      skillId,
     })
     seen.add(rawColor)
   }

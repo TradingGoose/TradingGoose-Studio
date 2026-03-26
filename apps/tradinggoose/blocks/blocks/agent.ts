@@ -267,15 +267,15 @@ Create a system prompt appropriately detailed for the request, using clear langu
       // Hide API key for hosted models and Ollama models
       condition: isHosted
         ? {
-          field: 'model',
-          value: getHostedModels(),
-          not: true, // Show for all models EXCEPT those listed
-        }
+            field: 'model',
+            value: getHostedModels(),
+            not: true, // Show for all models EXCEPT those listed
+          }
         : () => ({
-          field: 'model',
-          value: getCurrentOllamaModels(),
-          not: true, // Show for all models EXCEPT Ollama models
-        }),
+            field: 'model',
+            value: getCurrentOllamaModels(),
+            not: true, // Show for all models EXCEPT Ollama models
+          }),
     },
     {
       id: 'azureEndpoint',
@@ -306,6 +306,13 @@ Create a system prompt appropriately detailed for the request, using clear langu
       id: 'tools',
       title: 'Tools',
       type: 'tool-input',
+      layout: 'full',
+      defaultValue: [],
+    },
+    {
+      id: 'skills',
+      title: 'Skills',
+      type: 'skill-input',
       layout: 'full',
       defaultValue: [],
     },
@@ -527,6 +534,7 @@ Example 3 (Array Input):
     reasoningEffort: { type: 'string', description: 'Reasoning effort level for GPT-5 models' },
     verbosity: { type: 'string', description: 'Verbosity level for GPT-5 models' },
     tools: { type: 'json', description: 'Available tools configuration' },
+    skills: { type: 'json', description: 'Selected skills configuration' },
   },
   outputs: {
     content: { type: 'string', description: 'Generated response content' },
