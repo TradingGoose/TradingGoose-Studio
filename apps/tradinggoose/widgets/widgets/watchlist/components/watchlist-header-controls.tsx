@@ -1,6 +1,7 @@
 'use client'
 
-import { type ChangeEvent, useMemo, useRef, useState } from 'react'
+import { Check } from 'lucide-react'
+import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,12 +12,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
-import { toListingValueObject } from '@/lib/listing/identity'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { toListingValue, type ListingIdentity, type ListingOption } from '@/lib/listing/identity'
+import type { WatchlistRecord } from '@/lib/watchlists/types'
+import { normalizeWatchlistImportFileItems } from '@/lib/watchlists/validation'
 import {
   useAddWatchlistListing,
   useAddWatchlistSection,
-  useClearWatchlist,
   useCreateWatchlist,
   useDeleteWatchlist,
   useExportWatchlist,
@@ -24,15 +26,22 @@ import {
   useRenameWatchlist,
   useWatchlists,
 } from '@/hooks/queries/watchlists'
+import { useListingSelectorStore } from '@/stores/market/selector/store'
 import type { WidgetInstance } from '@/widgets/layout'
 import { emitWatchlistParamsChange } from '@/widgets/utils/watchlist-params'
 import { MarketProviderSelector } from '@/widgets/widgets/components/market-provider-selector'
-import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
+import { ListingSelector } from '@/widgets/widgets/components/listing-selector'
+import {
+  widgetHeaderButtonGroupClassName,
+  widgetHeaderIconButtonClassName,
+} from '@/widgets/widgets/components/widget-header-control'
 import { providerOptions } from '@/widgets/widgets/data_chart/options'
-import { ListingSelectorAddButton } from '@/widgets/widgets/watchlist/components/listing-selector-add-button'
-import { WatchlistAddSectionButton } from '@/widgets/widgets/watchlist/components/watchlist-add-section-button'
 import { WatchlistListActionsButton } from '@/widgets/widgets/watchlist/components/watchlist-list-actions-button'
 import { WatchlistListSelector } from '@/widgets/widgets/watchlist/components/watchlist-list-selector'
+import {
+  resolveWatchlistProviderCredentialDefinitions,
+  WatchlistProviderSettingsButton,
+} from '@/widgets/widgets/watchlist/components/provider-controls'
 import { WatchlistRefreshDataButton } from '@/widgets/widgets/watchlist/components/watchlist-refresh-data-button'
 import {
   resolveSelectedWatchlist,
@@ -64,6 +73,55 @@ const resolveWatchlistParams = (widget?: WidgetInstance | null): WatchlistWidget
     : null
 }
 
+const buildWatchlistHeaderListingSelectorId = (panelId: string | undefined, widgetKey: string) =>
+  `watchlist-header-listing-${panelId ?? 'panel'}-${widgetKey}`
+
+export const resolveNextWatchlistName = (watchlists: Array<{ name: string }>) => {
+  const usedNumbers = new Set<number>()
+
+  for (const watchlist of watchlists) {
+    const match = watchlist.name.trim().match(/^Watchlist\s+(\d+)$/i)
+    if (!match) continue
+
+    const value = Number.parseInt(match[1] ?? '', 10)
+    if (Number.isInteger(value) && value > 0) {
+      usedNumbers.add(value)
+    }
+  }
+
+  let nextNumber = 1
+  while (usedNumbers.has(nextNumber)) {
+    nextNumber += 1
+  }
+
+  return `Watchlist ${nextNumber}`
+}
+
+export const resolveNextSectionName = (
+  watchlist: Pick<WatchlistRecord, 'items'> | null | undefined
+) => {
+  const usedNumbers = new Set<number>()
+
+  for (const item of watchlist?.items ?? []) {
+    if (item.type !== 'section') continue
+
+    const match = item.label.trim().match(/^Section\s+(\d+)$/i)
+    if (!match) continue
+
+    const value = Number.parseInt(match[1] ?? '', 10)
+    if (Number.isInteger(value) && value > 0) {
+      usedNumbers.add(value)
+    }
+  }
+
+  let nextNumber = 1
+  while (usedNumbers.has(nextNumber)) {
+    nextNumber += 1
+  }
+
+  return `Section ${nextNumber}`
+}
+
 const useWatchlistSelection = (workspaceId?: string, selectedWatchlistId?: string | null) => {
   const { data: watchlists = [] } = useWatchlists(workspaceId)
   const selectedWatchlist = useMemo(
@@ -85,6 +143,10 @@ export const WatchlistHeaderLeftControls = ({
   const widgetKey = widget?.key ?? 'watchlist'
   const params = resolveWatchlistParams(widget)
   const providerId = resolveProviderId(params)
+  const credentialDefinitions = useMemo(
+    () => resolveWatchlistProviderCredentialDefinitions(providerId),
+    [providerId]
+  )
 
   const handleProviderChange = (nextProvider: string) => {
     if (!nextProvider || nextProvider === providerId) return
@@ -110,8 +172,36 @@ export const WatchlistHeaderLeftControls = ({
     })
   }
 
+  const handleSaveProviderSettings = ({
+    providerParams,
+    auth,
+  }: {
+    providerParams?: Record<string, unknown>
+    auth?: Record<string, unknown>
+  }) => {
+    emitWatchlistParamsChange({
+      params: {
+        providerParams,
+        auth: auth as WatchlistWidgetParams['auth'],
+        runtime: {
+          refreshAt: Date.now(),
+        },
+      },
+      panelId,
+      widgetKey,
+    })
+  }
+
   return (
     <div className={widgetHeaderButtonGroupClassName()}>
+      <WatchlistProviderSettingsButton
+        providerId={providerId}
+        providerParams={params?.providerParams}
+        authParams={params?.auth}
+        definitions={credentialDefinitions}
+        workspaceId={workspaceId}
+        onSave={handleSaveProviderSettings}
+      />
       <MarketProviderSelector
         value={providerId}
         options={providerOptions}
@@ -132,22 +222,146 @@ export const WatchlistHeaderCenterControls = ({
   panelId,
   widget,
 }: WatchlistHeaderControlsSlotProps) => {
-  const [sectionOpen, setSectionOpen] = useState(false)
-  const [sectionName, setSectionName] = useState('')
+  const widgetKey = widget?.key ?? 'watchlist'
+  const params = resolveWatchlistParams(widget)
+  const providerId = resolveProviderId(params)
+  const selectedWatchlistId = resolveSelectedWatchlistId(params)
+  const { selectedWatchlist } = useWatchlistSelection(workspaceId, selectedWatchlistId)
+  const selectorInstanceId = useMemo(
+    () => buildWatchlistHeaderListingSelectorId(panelId, widgetKey),
+    [panelId, widgetKey]
+  )
+  const ensureSelectorInstance = useListingSelectorStore((state) => state.ensureInstance)
+  const updateSelectorInstance = useListingSelectorStore((state) => state.updateInstance)
+  const addListingMutation = useAddWatchlistListing()
+  const [pendingListing, setPendingListing] = useState<ListingIdentity | null>(null)
+
+  const clearPendingListing = useCallback(
+    (nextProviderId = providerId) => {
+      setPendingListing(null)
+      updateSelectorInstance(selectorInstanceId, {
+        providerId: nextProviderId || undefined,
+        query: '',
+        results: [],
+        isLoading: false,
+        error: undefined,
+        selectedListingValue: null,
+        selectedListing: null,
+      })
+    },
+    [providerId, selectorInstanceId, updateSelectorInstance]
+  )
+
+  useEffect(() => {
+    ensureSelectorInstance(selectorInstanceId, { providerId: providerId || undefined })
+  }, [ensureSelectorInstance, providerId, selectorInstanceId])
+
+  const previousProviderIdRef = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    const previousProviderId = previousProviderIdRef.current
+    const normalizedProviderId = providerId || undefined
+    if (previousProviderId !== undefined && previousProviderId !== normalizedProviderId) {
+      clearPendingListing(normalizedProviderId)
+    } else {
+      updateSelectorInstance(selectorInstanceId, { providerId: normalizedProviderId })
+    }
+    previousProviderIdRef.current = normalizedProviderId
+  }, [clearPendingListing, providerId, selectorInstanceId, updateSelectorInstance])
+
+  const previousWatchlistIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    const nextWatchlistId = selectedWatchlist?.id ?? null
+    if (previousWatchlistIdRef.current !== nextWatchlistId) {
+      clearPendingListing()
+    }
+    previousWatchlistIdRef.current = nextWatchlistId
+  }, [clearPendingListing, selectedWatchlist?.id])
+
+  const handleListingChange = (listing: ListingOption | null) => {
+    setPendingListing(toListingValue(listing))
+  }
+
+  const handleAddListing = async () => {
+    if (
+      !workspaceId ||
+      !selectedWatchlist ||
+      !pendingListing ||
+      addListingMutation.isPending
+    ) {
+      return
+    }
+
+    try {
+      await addListingMutation.mutateAsync({
+        workspaceId,
+        watchlistId: selectedWatchlist.id,
+        listing: pendingListing,
+      })
+      clearPendingListing()
+    } catch {
+      // Request errors are surfaced through mutation state and existing data refresh behavior.
+    }
+  }
+
+  const addListingDisabled =
+    !workspaceId ||
+    !providerId ||
+    !selectedWatchlist ||
+    !pendingListing ||
+    addListingMutation.isPending
+
+  return (
+    <div className={widgetHeaderButtonGroupClassName()}>
+      <div className='min-w-[240px]'>
+        <ListingSelector
+          instanceId={selectorInstanceId}
+          disabled={!workspaceId || !providerId || !selectedWatchlist}
+          onListingChange={handleListingChange}
+        />
+      </div>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className='inline-flex'>
+            <button
+              type='button'
+              className={widgetHeaderIconButtonClassName()}
+              onClick={() => {
+                void handleAddListing()
+              }}
+              disabled={addListingDisabled}
+            >
+              <Check className='h-3.5 w-3.5' />
+              <span className='sr-only'>Add listing to watchlist</span>
+            </button>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side='top'>Add listing to watchlist</TooltipContent>
+      </Tooltip>
+    </div>
+  )
+}
+
+export const WatchlistHeaderRightControls = ({
+  workspaceId,
+  panelId,
+  widget,
+}: WatchlistHeaderControlsSlotProps) => {
+  const [listActionsOpen, setListActionsOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const widgetKey = widget?.key ?? 'watchlist'
   const params = resolveWatchlistParams(widget)
   const selectedWatchlistId = resolveSelectedWatchlistId(params)
-  const providerId = resolveProviderId(params)
 
   const { watchlists, selectedWatchlist } = useWatchlistSelection(workspaceId, selectedWatchlistId)
 
-  const createMutation = useCreateWatchlist()
-  const addListingMutation = useAddWatchlistListing()
-  const addSectionMutation = useAddWatchlistSection()
   const renameMutation = useRenameWatchlist()
+  const createMutation = useCreateWatchlist()
+  const addSectionMutation = useAddWatchlistSection()
   const deleteMutation = useDeleteWatchlist()
-
+  const importMutation = useImportWatchlist()
+  const exportMutation = useExportWatchlist()
   const orderedWatchlists = useMemo(
     () =>
       [...watchlists].sort((left, right) => toEpochMs(right.createdAt) - toEpochMs(left.createdAt)),
@@ -155,17 +369,14 @@ export const WatchlistHeaderCenterControls = ({
   )
 
   const hasSelectedWatchlist = Boolean(selectedWatchlist)
+  const canManageSections = hasSelectedWatchlist
+  const canDeleteCurrent = Boolean(selectedWatchlist && !selectedWatchlist.isSystem)
   const isMutating =
     createMutation.isPending ||
-    addListingMutation.isPending ||
     addSectionMutation.isPending ||
-    renameMutation.isPending ||
-    deleteMutation.isPending
-
-  const listingSelectorInstanceId = useMemo(
-    () => `watchlist-add-${panelId ?? widgetKey}`,
-    [panelId, widgetKey]
-  )
+    deleteMutation.isPending ||
+    importMutation.isPending ||
+    exportMutation.isPending
 
   const handleSelectWatchlist = (watchlistId: string) => {
     emitWatchlistParamsChange({
@@ -175,62 +386,6 @@ export const WatchlistHeaderCenterControls = ({
       panelId,
       widgetKey,
     })
-  }
-
-  const handleCreateWatchlist = async (name: string) => {
-    if (!workspaceId || createMutation.isPending) return false
-    const nextName = name.trim()
-    if (!nextName) return false
-
-    try {
-      const watchlist = await createMutation.mutateAsync({
-        workspaceId,
-        name: nextName,
-      })
-      emitWatchlistParamsChange({
-        params: {
-          watchlistId: watchlist.id,
-        },
-        panelId,
-        widgetKey,
-      })
-      return true
-    } catch {
-      // Request errors are surfaced through mutation state and existing data refresh behavior.
-      return false
-    }
-  }
-
-  const handleAddListing = async (listing: ListingIdentity) => {
-    if (!workspaceId || !selectedWatchlist || addListingMutation.isPending) return false
-    try {
-      await addListingMutation.mutateAsync({
-        workspaceId,
-        watchlistId: selectedWatchlist.id,
-        listing,
-      })
-      return true
-    } catch {
-      // Request errors are surfaced through mutation state and existing data refresh behavior.
-      return false
-    }
-  }
-
-  const handleAddSection = async () => {
-    if (!workspaceId || !selectedWatchlist || addSectionMutation.isPending) return
-    const label = sectionName.trim()
-    if (!label) return
-    try {
-      await addSectionMutation.mutateAsync({
-        workspaceId,
-        watchlistId: selectedWatchlist.id,
-        label,
-      })
-      setSectionName('')
-      setSectionOpen(false)
-    } catch {
-      // Request errors are surfaced through mutation state and existing data refresh behavior.
-    }
   }
 
   const handleRenameWatchlist = async (watchlistId: string, nextName: string) => {
@@ -259,10 +414,11 @@ export const WatchlistHeaderCenterControls = ({
     }
   }
 
-  const handleDeleteWatchlist = async (watchlistId: string) => {
+  const handleDeleteWatchlistById = async (watchlistId: string) => {
     if (!workspaceId || deleteMutation.isPending) return false
     const target = watchlists.find((entry) => entry.id === watchlistId)
     if (!target || target.isSystem) return false
+
     try {
       await deleteMutation.mutateAsync({
         workspaceId,
@@ -274,73 +430,6 @@ export const WatchlistHeaderCenterControls = ({
       return false
     }
   }
-
-  return (
-    <div className={widgetHeaderButtonGroupClassName()}>
-      <WatchlistListSelector
-        watchlists={orderedWatchlists}
-        selectedWatchlist={selectedWatchlist}
-        onSelect={handleSelectWatchlist}
-        onCreateFromSearch={handleCreateWatchlist}
-        onRenameWatchlist={handleRenameWatchlist}
-        onDeleteWatchlist={handleDeleteWatchlist}
-        isRenamingWatchlist={renameMutation.isPending}
-        isDeletingWatchlist={deleteMutation.isPending}
-        disabled={!workspaceId}
-        isCreating={createMutation.isPending}
-      />
-
-      <ListingSelectorAddButton
-        instanceId={listingSelectorInstanceId}
-        workspaceId={hasSelectedWatchlist ? workspaceId : undefined}
-        providerId={providerId}
-        isMutating={isMutating}
-        onAddListing={handleAddListing}
-      />
-
-      <WatchlistAddSectionButton
-        open={sectionOpen}
-        onOpenChange={setSectionOpen}
-        sectionName={sectionName}
-        onSectionNameChange={setSectionName}
-        onSubmit={handleAddSection}
-        disabled={!workspaceId || !hasSelectedWatchlist || isMutating}
-        isMutating={isMutating}
-      />
-    </div>
-  )
-}
-
-export const WatchlistHeaderRightControls = ({
-  workspaceId,
-  panelId,
-  widget,
-}: WatchlistHeaderControlsSlotProps) => {
-  const [listActionsOpen, setListActionsOpen] = useState(false)
-  const [clearDialogOpen, setClearDialogOpen] = useState(false)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
-
-  const widgetKey = widget?.key ?? 'watchlist'
-  const params = resolveWatchlistParams(widget)
-  const selectedWatchlistId = resolveSelectedWatchlistId(params)
-  const hasActiveSort = Boolean(params?.sort)
-
-  const { selectedWatchlist } = useWatchlistSelection(workspaceId, selectedWatchlistId)
-
-  const deleteMutation = useDeleteWatchlist()
-  const clearMutation = useClearWatchlist()
-  const importMutation = useImportWatchlist()
-  const exportMutation = useExportWatchlist()
-
-  const hasSelectedWatchlist = Boolean(selectedWatchlist)
-  const canManageCurrentList = Boolean(selectedWatchlist && !selectedWatchlist.isSystem)
-  const canDeleteCurrent = Boolean(selectedWatchlist && !selectedWatchlist.isSystem)
-  const isMutating =
-    deleteMutation.isPending ||
-    clearMutation.isPending ||
-    importMutation.isPending ||
-    exportMutation.isPending
 
   const handleImportClick = () => {
     fileInputRef.current?.click()
@@ -359,17 +448,15 @@ export const WatchlistHeaderRightControls = ({
       if (!Array.isArray(parsed)) {
         throw new Error('Invalid watchlist import file')
       }
-      const listings = parsed
-        .map((entry) => toListingValueObject(entry as ListingInputValue))
-        .filter((entry): entry is ListingIdentity => Boolean(entry))
 
-      if (listings.length !== parsed.length) {
+      const items = normalizeWatchlistImportFileItems(parsed)
+      if (items.length !== parsed.length) {
         throw new Error('Invalid watchlist import file')
       }
       await importMutation.mutateAsync({
         workspaceId,
         watchlistId: selectedWatchlist.id,
-        listings,
+        items,
       })
     } catch {
       // Request errors are surfaced through mutation state and existing data refresh behavior.
@@ -400,100 +487,85 @@ export const WatchlistHeaderRightControls = ({
     }
   }
 
-  const handleClearWatchlist = async () => {
-    if (
-      !workspaceId ||
-      !selectedWatchlist ||
-      selectedWatchlist.isSystem ||
-      clearMutation.isPending
-    ) {
+  const handleCreateWatchlist = async () => {
+    if (!workspaceId || createMutation.isPending) return
+
+    try {
+      const watchlist = await createMutation.mutateAsync({
+        workspaceId,
+        name: resolveNextWatchlistName(watchlists),
+      })
+      emitWatchlistParamsChange({
+        params: {
+          watchlistId: watchlist.id,
+        },
+        panelId,
+        widgetKey,
+      })
+    } catch {
+      // Request errors are surfaced through mutation state and existing data refresh behavior.
+    }
+  }
+
+  const handleCreateSection = async () => {
+    if (!workspaceId || !selectedWatchlist || addSectionMutation.isPending) {
       return
     }
 
     try {
-      await clearMutation.mutateAsync({
+      await addSectionMutation.mutateAsync({
         workspaceId,
         watchlistId: selectedWatchlist.id,
+        label: resolveNextSectionName(selectedWatchlist),
       })
-      setClearDialogOpen(false)
     } catch {
       // Request errors are surfaced through mutation state and existing data refresh behavior.
     }
-  }
-
-  const handleResetOrder = () => {
-    emitWatchlistParamsChange({
-      params: {
-        sort: null,
-      },
-      panelId,
-      widgetKey,
-    })
   }
 
   const handleDeleteWatchlist = async () => {
     if (!workspaceId || !selectedWatchlist || selectedWatchlist.isSystem) return
-    try {
-      await deleteMutation.mutateAsync({
-        workspaceId,
-        watchlistId: selectedWatchlist.id,
-      })
-      setDeleteDialogOpen(false)
-    } catch {
-      // Request errors are surfaced through mutation state and existing data refresh behavior.
-    }
+    const deleted = await handleDeleteWatchlistById(selectedWatchlist.id)
+    if (!deleted) return
+    setDeleteDialogOpen(false)
   }
 
   return (
     <div className={widgetHeaderButtonGroupClassName()}>
+      <WatchlistListSelector
+        watchlists={orderedWatchlists}
+        selectedWatchlist={selectedWatchlist}
+        onSelect={handleSelectWatchlist}
+        onRenameWatchlist={handleRenameWatchlist}
+        onDeleteWatchlist={handleDeleteWatchlistById}
+        isRenamingWatchlist={renameMutation.isPending}
+        isDeletingWatchlist={deleteMutation.isPending}
+        disabled={!workspaceId}
+        align='end'
+      />
       <WatchlistListActionsButton
         open={listActionsOpen}
         onOpenChange={setListActionsOpen}
         disabled={!workspaceId}
+        createWatchlistDisabled={!workspaceId || createMutation.isPending}
+        createSectionDisabled={!workspaceId || !canManageSections || isMutating}
         importDisabled={!workspaceId || !hasSelectedWatchlist || isMutating}
         exportDisabled={!workspaceId || !hasSelectedWatchlist || isMutating}
-        clearListDisabled={!workspaceId || !canManageCurrentList || isMutating}
-        resetOrderDisabled={!canManageCurrentList || !hasActiveSort || isMutating}
         deleteWatchlistDisabled={!workspaceId || !canDeleteCurrent || isMutating}
+        onCreateWatchlist={() => {
+          void handleCreateWatchlist()
+        }}
+        onCreateSection={() => {
+          void handleCreateSection()
+        }}
         onImport={handleImportClick}
         onExport={() => {
           void handleExport()
         }}
-        onClearList={() => {
-          setDeleteDialogOpen(false)
-          setClearDialogOpen(true)
-        }}
-        onResetOrder={handleResetOrder}
         onDeleteWatchlist={() => {
-          setClearDialogOpen(false)
           setDeleteDialogOpen(true)
         }}
       />
-
-      <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Clear list?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {selectedWatchlist
-                ? `This action will remove all symbols from "${selectedWatchlist.name}".`
-                : 'This action will remove all symbols from this watchlist.'}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isMutating}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={isMutating}
-              onClick={(event) => {
-                event.preventDefault()
-                void handleClearWatchlist()
-              }}
-            >
-              Clear list
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>

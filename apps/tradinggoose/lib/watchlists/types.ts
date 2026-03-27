@@ -1,14 +1,5 @@
 import type { ListingIdentity } from '@/lib/listing/identity'
 
-export type WatchlistColumnKey = 'listing' | 'assetClass' | 'lastPrice' | 'change' | 'changePercent'
-
-export type WatchlistSortDirection = 'asc' | 'desc'
-
-export type WatchlistSort = {
-  column: WatchlistColumnKey
-  direction: WatchlistSortDirection
-}
-
 export type WatchlistSettings = {
   showLogo: boolean
   showTicker: boolean
@@ -28,6 +19,21 @@ export type WatchlistSectionItem = {
 }
 
 export type WatchlistItem = WatchlistListingItem | WatchlistSectionItem
+
+export type WatchlistImportFileListingItem = {
+  type: 'listing'
+  listing: ListingIdentity
+}
+
+export type WatchlistImportFileSection = {
+  type: 'section'
+  label: string
+  items: WatchlistImportFileListingItem[]
+}
+
+export type WatchlistImportFileItem =
+  | WatchlistImportFileListingItem
+  | WatchlistImportFileSection
 
 export type WatchlistRecord = {
   id: string

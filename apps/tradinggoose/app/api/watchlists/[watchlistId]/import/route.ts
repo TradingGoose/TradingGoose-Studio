@@ -1,17 +1,17 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
-import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
-import { toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
-import { appendListingsToWatchlist, WatchlistOperationError } from '@/lib/watchlists/operations'
+import { WatchlistOperationError, appendWatchlistItemsToWatchlist } from '@/lib/watchlists/operations'
+import type { WatchlistImportFileItem } from '@/lib/watchlists/types'
+import { normalizeWatchlistImportFileItems } from '@/lib/watchlists/validation'
 
 const logger = createLogger('WatchlistImportAPI')
 
 const WatchlistImportSchema = z.object({
   workspaceId: z.string().trim().min(1, 'workspaceId is required'),
-  listings: z.array(z.unknown()),
+  items: z.array(z.unknown()),
 })
 
 const requireSessionUser = async () => {
@@ -32,18 +32,12 @@ const requireWorkspacePermission = async (userId: string, workspaceId: string) =
   }
 }
 
-const normalizeListingIdentities = (entries: unknown[]): ListingIdentity[] => {
-  const listings: ListingIdentity[] = []
-
-  for (const entry of entries) {
-    const listing = toListingValueObject(entry as ListingInputValue)
-    if (!listing) {
-      throw new WatchlistOperationError('Invalid listing identities payload', 400)
-    }
-    listings.push(listing)
+const normalizeImportedWatchlistItems = (entries: unknown[]): WatchlistImportFileItem[] => {
+  const items = normalizeWatchlistImportFileItems(entries)
+  if (items.length !== entries.length) {
+    throw new WatchlistOperationError('Invalid watchlist import file', 400)
   }
-
-  return listings
+  return items
 }
 
 const handleRouteError = (error: unknown, fallbackMessage: string) => {
@@ -67,15 +61,15 @@ export async function POST(
     const parsed = WatchlistImportSchema.parse(await request.json())
     await requireWorkspacePermission(userId, parsed.workspaceId)
 
-    const listings = normalizeListingIdentities(parsed.listings)
+    const items = normalizeImportedWatchlistItems(parsed.items)
 
-    const result = await appendListingsToWatchlist(
+    const result = await appendWatchlistItemsToWatchlist(
       {
         workspaceId: parsed.workspaceId,
         userId,
       },
       watchlistId,
-      listings
+      items
     )
 
     return NextResponse.json(

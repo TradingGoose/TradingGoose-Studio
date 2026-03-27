@@ -1,11 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import type { WatchlistSort } from '@/lib/watchlists/types'
-import type { WatchlistQuoteSnapshot } from '@/hooks/queries/watchlist-quotes'
 import {
   resolveWatchlistAssetClass,
   resolveWatchlistListingLabel,
   resolveWatchlistValueColorClass,
-  sortWatchlistRowsByColumn,
 } from '@/widgets/widgets/watchlist/components/watchlist-table-utils'
 
 describe('watchlist table utils', () => {
@@ -40,70 +37,5 @@ describe('watchlist table utils', () => {
         null
       )
     ).toBe('CURRENCY')
-  })
-
-  it('sorts watchlist rows by numeric columns', () => {
-    const rows = [
-      {
-        item: {
-          id: 'a',
-          type: 'listing' as const,
-          listing: {
-            listing_id: 'a',
-            base_id: '',
-            quote_id: '',
-            listing_type: 'default' as const,
-          },
-        },
-        listing: {
-          listing_id: 'a',
-          base_id: '',
-          quote_id: '',
-          listing_type: 'default' as const,
-        },
-        itemId: 'a',
-      },
-      {
-        item: {
-          id: 'b',
-          type: 'listing' as const,
-          listing: {
-            listing_id: 'b',
-            base_id: '',
-            quote_id: '',
-            listing_type: 'default' as const,
-          },
-        },
-        listing: {
-          listing_id: 'b',
-          base_id: '',
-          quote_id: '',
-          listing_type: 'default' as const,
-        },
-        itemId: 'b',
-      },
-    ]
-
-    const quotes: Record<string, WatchlistQuoteSnapshot> = {
-      a: {
-        lastPrice: 10,
-        change: 1,
-        changePercent: 10,
-        previousClose: 9,
-      },
-      b: {
-        lastPrice: 20,
-        change: 2,
-        changePercent: 11,
-        previousClose: 19,
-      },
-    }
-    const sort: WatchlistSort = {
-      column: 'lastPrice',
-      direction: 'desc',
-    }
-
-    const sorted = sortWatchlistRowsByColumn(rows, sort, quotes, {})
-    expect(sorted.map((entry) => entry.itemId)).toEqual(['b', 'a'])
   })
 })

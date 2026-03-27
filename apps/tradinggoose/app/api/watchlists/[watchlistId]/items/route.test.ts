@@ -7,6 +7,7 @@ import { createMockRequest } from '@/app/api/__test-utils__/utils'
 const mockGetSession = vi.fn()
 const mockGetUserEntityPermissions = vi.fn()
 const mockAddListingToWatchlist = vi.fn()
+const mockUpdateWatchlistItemListing = vi.fn()
 const mockAddSectionToWatchlist = vi.fn()
 const mockRenameWatchlistSection = vi.fn()
 const mockRemoveWatchlistItem = vi.fn()
@@ -34,6 +35,7 @@ vi.mock('@/lib/watchlists/operations', async () => {
   return {
     ...actual,
     addListingToWatchlist: mockAddListingToWatchlist,
+    updateWatchlistItemListing: mockUpdateWatchlistItemListing,
     addSectionToWatchlist: mockAddSectionToWatchlist,
     renameWatchlistSection: mockRenameWatchlistSection,
     removeWatchlistItem: mockRemoveWatchlistItem,
@@ -79,6 +81,53 @@ describe('Watchlist items API route', () => {
 
     expect(response.status).toBe(200)
     expect(mockAddListingToWatchlist).toHaveBeenCalled()
+  })
+
+  it('updates a listing through POST action updateListing', async () => {
+    mockUpdateWatchlistItemListing.mockResolvedValue({
+      id: 'watchlist-1',
+      workspaceId: 'workspace-1',
+      userId: 'user-1',
+      name: 'Default',
+      isSystem: true,
+      items: [],
+      settings: { showLogo: true, showTicker: true, showDescription: true },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    })
+
+    const { POST } = await import('@/app/api/watchlists/[watchlistId]/items/route')
+    const request = createMockRequest('POST', {
+      workspaceId: 'workspace-1',
+      action: 'updateListing',
+      itemId: 'item-1',
+      listing: {
+        listing_id: 'msft-id',
+        base_id: '',
+        quote_id: '',
+        listing_type: 'default',
+      },
+    })
+
+    const response = await POST(request, {
+      params: Promise.resolve({ watchlistId: 'watchlist-1' }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(mockUpdateWatchlistItemListing).toHaveBeenCalledWith(
+      {
+        workspaceId: 'workspace-1',
+        userId: 'user-1',
+      },
+      'watchlist-1',
+      'item-1',
+      {
+        listing_id: 'msft-id',
+        base_id: '',
+        quote_id: '',
+        listing_type: 'default',
+      }
+    )
   })
 
   it('removes an item through POST action removeItem', async () => {
@@ -211,5 +260,35 @@ describe('Watchlist items API route', () => {
     })
 
     expect(missingLabelResponse.status).toBe(400)
+  })
+
+  it('requires itemId and listing for POST action updateListing', async () => {
+    const { POST } = await import('@/app/api/watchlists/[watchlistId]/items/route')
+    const missingItemIdRequest = createMockRequest('POST', {
+      workspaceId: 'workspace-1',
+      action: 'updateListing',
+      listing: {
+        listing_id: 'msft-id',
+        base_id: '',
+        quote_id: '',
+        listing_type: 'default',
+      },
+    })
+    const missingItemIdResponse = await POST(missingItemIdRequest, {
+      params: Promise.resolve({ watchlistId: 'watchlist-1' }),
+    })
+
+    expect(missingItemIdResponse.status).toBe(400)
+
+    const missingListingRequest = createMockRequest('POST', {
+      workspaceId: 'workspace-1',
+      action: 'updateListing',
+      itemId: 'item-1',
+    })
+    const missingListingResponse = await POST(missingListingRequest, {
+      params: Promise.resolve({ watchlistId: 'watchlist-1' }),
+    })
+
+    expect(missingListingResponse.status).toBe(400)
   })
 })

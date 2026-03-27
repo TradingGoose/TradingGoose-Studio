@@ -1,23 +1,48 @@
-import { normalizeWatchlistItems } from '@/lib/watchlists/validation'
-import type { ListingIdentity } from '@/lib/listing/identity'
+import {
+  normalizeWatchlistImportFileItems,
+  normalizeWatchlistItems,
+} from '@/lib/watchlists/validation'
+import type {
+  WatchlistImportFileItem,
+  WatchlistImportFileListingItem,
+  WatchlistItem,
+} from '@/lib/watchlists/types'
 
-const getListingIdentityKey = (listing: ListingIdentity) =>
-  `${listing.listing_type}|${listing.listing_id}|${listing.base_id}|${listing.quote_id}`
+export const extractWatchlistImportFileItems = (itemsInput: unknown): WatchlistImportFileItem[] =>
+  normalizeWatchlistImportFileItems(itemsInput)
 
-export const extractWatchlistListingIdentities = (itemsInput: unknown): ListingIdentity[] => {
-  const items = normalizeWatchlistItems(itemsInput)
-  const listings: ListingIdentity[] = []
-  const seen = new Set<string>()
+const toWatchlistImportFileListingItem = (
+  item: Extract<WatchlistItem, { type: 'listing' }>
+): WatchlistImportFileListingItem => ({
+  type: 'listing',
+  listing: item.listing,
+})
+
+const toWatchlistImportFileItems = (items: WatchlistItem[]): WatchlistImportFileItem[] => {
+  const output: WatchlistImportFileItem[] = []
+  let currentSection: Extract<WatchlistImportFileItem, { type: 'section' }> | null = null
+
   for (const item of items) {
-    if (item.type !== 'listing') continue
-    const key = getListingIdentityKey(item.listing)
-    if (seen.has(key)) continue
-    seen.add(key)
-    listings.push(item.listing)
+    if (item.type === 'section') {
+      currentSection = {
+        type: 'section',
+        label: item.label,
+        items: [],
+      }
+      output.push(currentSection)
+      continue
+    }
+
+    if (currentSection) {
+      currentSection.items.push(toWatchlistImportFileListingItem(item))
+      continue
+    }
+
+    output.push(toWatchlistImportFileListingItem(item))
   }
 
-  return listings
+  return output
 }
 
 export const exportWatchlistItemsAsJson = (itemsInput: unknown): string =>
-  JSON.stringify(extractWatchlistListingIdentities(itemsInput), null, 2)
+  JSON.stringify(toWatchlistImportFileItems(normalizeWatchlistItems(itemsInput)), null, 2)
