@@ -42,7 +42,7 @@ const WorkflowEditorWidgetBody = ({
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId
-  const widgetKey = widget?.key ?? 'workflow-editor'
+  const widgetKey = widget?.key ?? 'editor_workflow'
   const toolbarScopeId = getWorkflowToolbarScopeId(widgetKey, panelId)
   const {
     channelId,
@@ -59,7 +59,7 @@ const WorkflowEditorWidgetBody = ({
     panelId,
     params,
     onWidgetParamsChange,
-    fallbackWidgetKey: 'workflow-editor',
+    fallbackWidgetKey: 'editor_workflow',
     loggerScope: 'workflow editor widget',
   })
   useWorkflowSelectionPersistence({
@@ -203,7 +203,7 @@ const WorkflowEditorHeaderSelector = ({
     widget: widget as WidgetComponentProps['widget'],
     panelId,
     params: widget?.params ?? null,
-    fallbackWidgetKey: 'workflow-editor',
+    fallbackWidgetKey: 'editor_workflow',
     loggerScope: 'workflow editor header',
     activateWorkflow: false,
   })
@@ -238,7 +238,7 @@ export const workflowEditorWidget: DashboardWidgetDefinition = {
   description: 'Canvas interface to build and edit workflows.',
   component: (props) => <WorkflowEditorWidgetBody {...props} />,
   renderHeader: ({ widget, context, panelId }) => {
-    const widgetKey = widget?.key ?? 'workflow-editor'
+    const widgetKey = widget?.key ?? 'editor_workflow'
     const toolbarScopeId = getWorkflowToolbarScopeId(widgetKey, panelId)
 
     return {

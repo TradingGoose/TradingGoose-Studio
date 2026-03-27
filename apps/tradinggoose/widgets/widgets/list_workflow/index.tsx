@@ -39,7 +39,8 @@ const WorkflowListWidgetBody = ({
   const workspaceId = context?.workspaceId ?? null
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const metadataChannelId = isLinkedToColorPair
+  const metadataChannelId = WORKSPACE_BOOTSTRAP_CHANNEL
+  const selectionChannelId = isLinkedToColorPair
     ? `pair-${resolvedPairColor}`
     : WORKSPACE_BOOTSTRAP_CHANNEL
   const { workflows, metadataHydrationPhase, loadWorkflows, createWorkflow, activeWorkflowId } =
@@ -49,7 +50,7 @@ const WorkflowListWidgetBody = ({
         metadataHydrationPhase: state.getHydration(metadataChannelId).phase,
         loadWorkflows: state.loadWorkflows,
         createWorkflow: state.createWorkflow,
-        activeWorkflowId: state.getActiveWorkflowId(metadataChannelId),
+        activeWorkflowId: state.getActiveWorkflowId(selectionChannelId),
       }),
       shallow
     )
@@ -96,13 +97,12 @@ const WorkflowListWidgetBody = ({
     setLoadError(null)
     setHasRequestedLoad(true)
 
-    loadWorkflows({ workspaceId, channelId: metadataChannelId })
-      .catch((error) => {
-        if (!cancelled) {
-          console.error('Failed to load workflows for dashboard workflow list widget', error)
-          setLoadError('Unable to load workflows for this workspace.')
-        }
-      })
+    loadWorkflows({ workspaceId, channelId: metadataChannelId }).catch((error) => {
+      if (!cancelled) {
+        console.error('Failed to load workflows for dashboard workflow list widget', error)
+        setLoadError('Unable to load workflows for this workspace.')
+      }
+    })
 
     return () => {
       cancelled = true
