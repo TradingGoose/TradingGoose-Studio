@@ -11,6 +11,9 @@ export type PairColorContext = {
   copilotChatId?: string | null
   indicatorId?: string | null
   pineIndicatorId?: string | null
+  mcpServerId?: string | null
+  customToolId?: string | null
+  skillId?: string | null
 }
 
 interface PairStoreState {
@@ -18,6 +21,15 @@ interface PairStoreState {
   setContext: (color: PairColor, ctx: PairColorContext) => void
   resetContext: (color: PairColor) => void
 }
+
+const WORKFLOW_SCOPED_CONTEXT_KEYS = [
+  'copilotChatId',
+  'indicatorId',
+  'pineIndicatorId',
+  'mcpServerId',
+  'customToolId',
+  'skillId',
+] as const
 
 const emptyContexts = PAIR_COLORS.reduce<Record<PairColor, PairColorContext>>(
   (acc, color) => {
@@ -43,9 +55,15 @@ export const usePairColorStore = create<PairStoreState>((set) => ({
         updatedAt: Date.now(),
       }
 
-      if (workflowChanged && typeof ctx.copilotChatId === 'undefined') {
-        const { copilotChatId: _removed, ...rest } = next
-        next = rest
+      if (workflowChanged) {
+        for (const key of WORKFLOW_SCOPED_CONTEXT_KEYS) {
+          if (typeof ctx[key] !== 'undefined') {
+            continue
+          }
+
+          const { [key]: _removed, ...rest } = next
+          next = rest
+        }
       }
 
       if (ctx.copilotChatId === null) {

@@ -10,7 +10,12 @@ import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 const logger = createLogger('GetWorkflowDataClientTool')
 
 /** Data type enum for the get_workflow_data tool */
-export type WorkflowDataType = 'global_variables' | 'custom_tools' | 'mcp_tools' | 'files'
+export type WorkflowDataType =
+  | 'global_variables'
+  | 'custom_tools'
+  | 'skills'
+  | 'mcp_tools'
+  | 'files'
 
 interface GetWorkflowDataArgs {
   data_type: WorkflowDataType
@@ -40,6 +45,7 @@ export class GetWorkflowDataClientTool extends BaseClientTool {
       const typeLabels: Record<WorkflowDataType, string> = {
         global_variables: 'variables',
         custom_tools: 'custom tools',
+        skills: 'skills',
         mcp_tools: 'MCP tools',
         files: 'files',
       }
@@ -86,6 +92,9 @@ export class GetWorkflowDataClientTool extends BaseClientTool {
           break
         case 'custom_tools':
           await this.fetchCustomTools(activeWorkspaceId)
+          break
+        case 'skills':
+          await this.fetchSkills(activeWorkspaceId)
           break
         case 'mcp_tools':
           await this.fetchMcpTools(activeWorkspaceId)
@@ -177,6 +186,44 @@ export class GetWorkflowDataClientTool extends BaseClientTool {
 
     logger.info('Fetched custom tools', { count: customTools.length })
     await this.markToolComplete(200, `Found ${customTools.length} custom tool(s)`, { customTools })
+    this.setState(ClientToolCallState.success)
+  }
+
+  /**
+   * Fetch skills for the workspace
+   */
+  private async fetchSkills(workspaceId: string | null): Promise<void> {
+    if (!workspaceId) {
+      await this.markToolComplete(400, 'No active workspace found')
+      this.setState(ClientToolCallState.error)
+      return
+    }
+
+    const res = await fetch(`/api/skills?workspaceId=${workspaceId}`, { method: 'GET' })
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      await this.markToolComplete(res.status, text || 'Failed to fetch skills')
+      this.setState(ClientToolCallState.error)
+      return
+    }
+
+    const json = await res.json()
+    const skillsData = (json?.data as unknown[]) || []
+    const skills = skillsData.map((skill: unknown) => {
+      const currentSkill = skill as {
+        id?: string
+        name?: string
+        description?: string
+      }
+      return {
+        id: String(currentSkill?.id || ''),
+        name: String(currentSkill?.name || ''),
+        description: String(currentSkill?.description || ''),
+      }
+    })
+
+    logger.info('Fetched skills', { count: skills.length })
+    await this.markToolComplete(200, `Found ${skills.length} skill(s)`, { skills })
     this.setState(ClientToolCallState.success)
   }
 

@@ -7,7 +7,7 @@ const logger = createLogger('McpServersStore')
 
 export const useMcpServersStore = create<McpServersState & McpServersActions>()(
   devtools(
-    (set, get) => ({
+    (set) => ({
       ...initialState,
 
       fetchServers: async (workspaceId: string) => {
@@ -145,59 +145,27 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
       },
 
       refreshServer: async (workspaceId: string, id: string) => {
-        const server = get().servers.find((s) => s.id === id && s.workspaceId === workspaceId)
-        if (!server) return
+        const refreshedAt = new Date().toISOString()
 
-        try {
-          // For now, just update the last refresh time - actual refresh would require an endpoint
-          set((state) => ({
-            servers: state.servers.map((s) =>
-              s.id === id && s.workspaceId === workspaceId
-                ? {
-                    ...s,
-                    lastToolsRefresh: new Date().toISOString(),
-                  }
-                : s
-            ),
-          }))
+        set((state) => ({
+          servers: state.servers.map((server) =>
+            server.id === id && server.workspaceId === workspaceId
+              ? {
+                  ...server,
+                  lastToolsRefresh: refreshedAt,
+                }
+              : server
+          ),
+        }))
 
-          logger.info(`Refreshed MCP server: ${id} in workspace: ${workspaceId}`)
-        } catch (error) {
-          logger.error(`Failed to refresh MCP server ${id}:`, error)
-
-          set((state) => ({
-            servers: state.servers.map((s) =>
-              s.id === id && s.workspaceId === workspaceId
-                ? {
-                    ...s,
-                    connectionStatus: 'error',
-                    lastError: error instanceof Error ? error.message : 'Refresh failed',
-                  }
-                : s
-            ),
-          }))
-        }
+        logger.info(`Refreshed MCP server: ${id} in workspace: ${workspaceId}`)
       },
-
-      clearError: () => set({ error: null }),
-
-      reset: () => set(initialState),
     }),
     {
       name: 'mcp-servers-store',
     }
   )
 )
-
-export const useIsConnectedServer = (serverId: string) => {
-  return useMcpServersStore(
-    (state) => state.servers.find((s) => s.id === serverId)?.connectionStatus === 'connected'
-  )
-}
-
-export const useServerToolCount = (serverId: string) => {
-  return useMcpServersStore((state) => state.servers.find((s) => s.id === serverId)?.toolCount || 0)
-}
 
 export const useEnabledServers = () => {
   return useMcpServersStore((state) => state.servers.filter((s) => s.enabled && !s.deletedAt))

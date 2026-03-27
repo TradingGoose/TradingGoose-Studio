@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
@@ -143,9 +144,27 @@ export function useCustomTools(workspaceId: string) {
     placeholderData: keepPreviousData,
   })
 
-  if (query.data) {
+  const lastSyncRef = useRef<string>('')
+
+  useEffect(() => {
+    if (!workspaceId) return
+    if (!query.data) return
+
+    const signature = query.data
+      .map((tool) => {
+        const updatedAt =
+          typeof tool.updatedAt === 'string' ? tool.updatedAt : (tool.createdAt ?? '')
+        return `${tool.id}:${updatedAt}:${tool.title}:${tool.schema?.function?.name ?? ''}:${tool.code ?? ''}`
+      })
+      .join('|')
+
+    if (signature === lastSyncRef.current) {
+      return
+    }
+
+    lastSyncRef.current = signature
     syncCustomToolsToStore(workspaceId, query.data)
-  }
+  }, [query.data, workspaceId])
 
   return query
 }

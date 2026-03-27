@@ -133,9 +133,9 @@ export const POST = withMcpAuth('write')(
 )
 
 /**
- * DELETE - Delete an MCP server from the workspace (requires admin permission)
+ * DELETE - Delete an MCP server from the workspace (requires write permission)
  */
-export const DELETE = withMcpAuth('admin')(
+export const DELETE = withMcpAuth('write')(
   async (request: NextRequest, { userId, workspaceId, requestId }) => {
     try {
       const { searchParams } = new URL(request.url)

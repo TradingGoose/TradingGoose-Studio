@@ -190,6 +190,7 @@ export async function handleMarketProviderRequest({
       kind: normalizedRequest.kind,
       listing: normalizedRequest.listing,
       interval: normalizedRequest.kind === 'series' ? normalizedRequest.interval : undefined,
+      windows: normalizedRequest.kind === 'series' ? normalizedRequest.windows : undefined,
       normalizationMode:
         normalizedRequest.kind === 'series' ? normalizedRequest.normalizationMode : undefined,
     })

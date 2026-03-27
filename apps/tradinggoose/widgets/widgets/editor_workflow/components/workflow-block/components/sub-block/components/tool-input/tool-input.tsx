@@ -1,7 +1,8 @@
 import type React from 'react'
-import { format } from 'date-fns'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { format } from 'date-fns'
 import { Server, WrenchIcon, XIcon } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { DateTimePicker } from '@/components/ui/datetime-picker'
 import { SimpleTimePicker } from '@/components/ui/simple-time-picker'
 import { Slider } from '@/components/ui/slider'
@@ -44,11 +45,6 @@ import {
   ShortInput,
   Table,
 } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components'
-import {
-  type CustomTool,
-  CustomToolModal,
-} from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/custom-tool-modal/custom-tool-modal'
-import { McpServerModal } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/mcp-server-modal/mcp-server-modal'
 import { ToolCredentialSelector } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/tool-credential-selector'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import {
@@ -271,8 +267,7 @@ function SliderInputSyncWrapper({
   const max = uiComponent.max ?? 100
   const integer = uiComponent.integer === true
   const step = uiComponent.step ?? 0.1
-  const computedDefaultValue =
-    uiComponent.defaultValue ?? (max <= 1 ? 0.7 : (min + max) / 2)
+  const computedDefaultValue = uiComponent.defaultValue ?? (max <= 1 ? 0.7 : (min + max) / 2)
   const parsedValue = value.trim() !== '' ? Number(value) : undefined
   const hasExplicitValue = parsedValue !== undefined && !Number.isNaN(parsedValue)
   const normalizedValue = hasExplicitValue
@@ -494,26 +489,19 @@ function ChannelSelectorSyncWrapper({
   )
 }
 
-export function ToolInput({
-  blockId,
-  subBlockId,
-  isConnecting,
-  disabled = false,
-}: ToolInputProps) {
+export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false }: ToolInputProps) {
   const workspaceId = useWorkspaceId()
   const workflowId = useWorkflowId()
+  const router = useRouter()
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlockId)
   const [modelValue] = useSubBlockValue<string | null>(blockId, 'model')
-  const [customToolModalOpen, setCustomToolModalOpen] = useState(false)
-  const [mcpServerModalOpen, setMcpServerModalOpen] = useState(false)
-  const [editingToolIndex, setEditingToolIndex] = useState<number | null>(null)
   const [toolSelectorValue, setToolSelectorValue] = useState<string | undefined>()
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const { data: customTools = [] } = useCustomTools(workspaceId)
 
   // MCP tools integration
-  const { mcpTools, refreshTools } = useMcpTools(workspaceId)
+  const { mcpTools } = useMcpTools(workspaceId)
 
   // Get the current model from the 'model' subblock
   const model = typeof modelValue === 'string' ? modelValue : ''
@@ -535,10 +523,7 @@ export function ToolInput({
       id: string
       icon?: React.ComponentType<{ className?: string }>
       group?: string
-    }> = [
-        { id: 'action:create', label: 'Create Tool', icon: WrenchIcon, group: 'Actions' },
-        { id: 'action:add-mcp', label: 'Add MCP Server', icon: Server, group: 'Actions' },
-      ]
+    }> = [{ id: 'action:add-mcp', label: 'Create MCP Server', icon: Server, group: 'Actions' }]
 
     const customToolOptions =
       customTools?.map((tool) => ({
@@ -705,14 +690,10 @@ export function ToolInput({
   const handleToolSelection = (selectedId: string) => {
     if (disabled) return
 
-    if (selectedId === 'action:create') {
-      setCustomToolModalOpen(true)
-      setToolSelectorValue(undefined)
-      return
-    }
-
     if (selectedId === 'action:add-mcp') {
-      setMcpServerModalOpen(true)
+      if (workspaceId) {
+        router.push(`/workspace/${workspaceId}/dashboard`)
+      }
       setToolSelectorValue(undefined)
       return
     }
@@ -762,9 +743,7 @@ export function ToolInput({
     setToolSelectorValue(undefined)
   }
 
-  const handleAddCustomTool = (
-    customTool: Pick<CustomTool, 'title' | 'schema' | 'code'> | CustomToolDefinition
-  ) => {
+  const handleAddCustomTool = (customTool: CustomToolDefinition) => {
     if (disabled) return
 
     const customToolId = `custom-${customTool.schema.function.name}`
@@ -783,65 +762,9 @@ export function ToolInput({
     addToolToStore(newTool)
   }
 
-  const handleEditCustomTool = (toolIndex: number) => {
-    const tool = selectedTools[toolIndex]
-    if (tool.type !== 'custom-tool' || !tool.schema) return
-
-    setEditingToolIndex(toolIndex)
-    setCustomToolModalOpen(true)
-  }
-
-  const handleSaveCustomTool = (customTool: CustomTool) => {
-    if (disabled) return
-
-    if (editingToolIndex !== null) {
-      // Update existing tool
-      setStoreValue(
-        selectedTools.map((tool, index) =>
-          index === editingToolIndex
-            ? {
-              ...tool,
-              title: customTool.title,
-              schema: customTool.schema,
-              code: customTool.code || '',
-            }
-            : tool
-        )
-      )
-      setEditingToolIndex(null)
-    } else {
-      // Add new tool
-      handleAddCustomTool(customTool)
-    }
-  }
-
   const handleRemoveTool = (toolIndex: number) => {
     if (disabled) return
     setStoreValue(selectedTools.filter((_, index) => index !== toolIndex))
-  }
-
-  const handleDeleteTool = (toolId: string) => {
-    // Find any instances of this tool in the current workflow and remove them
-    const updatedTools = selectedTools.filter((tool) => {
-      // For custom tools, check if it matches the deleted tool
-      if (
-        tool.type === 'custom-tool' &&
-        tool.schema?.function?.name &&
-        customTools.some(
-          (customTool) =>
-            customTool.id === toolId &&
-            customTool.schema.function.name === tool.schema.function.name
-        )
-      ) {
-        return false
-      }
-      return true
-    })
-
-    // Update the workflow value if any tools were removed
-    if (updatedTools.length !== selectedTools.length) {
-      setStoreValue(updatedTools)
-    }
   }
 
   const handleParamChange = (toolIndex: number, paramId: string, paramValue: any) => {
@@ -889,16 +812,16 @@ export function ToolInput({
       selectedTools.map((tool, index) =>
         index === toolIndex
           ? {
-            ...tool,
-            params: {
-              ...tool.params,
-              [paramId]: paramValue,
-              ...dependentParamIds.reduce<Record<string, string>>((acc, dependentId) => {
-                acc[dependentId] = ''
-                return acc
-              }, {}),
-            },
-          }
+              ...tool,
+              params: {
+                ...tool.params,
+                [paramId]: paramValue,
+                ...dependentParamIds.reduce<Record<string, string>>((acc, dependentId) => {
+                  acc[dependentId] = ''
+                  return acc
+                }, {}),
+              },
+            }
           : tool
       )
     )
@@ -957,11 +880,11 @@ export function ToolInput({
       selectedTools.map((tool, index) =>
         index === toolIndex
           ? {
-            ...tool,
-            toolId: newToolId,
-            operation,
-            params: { ...initialParams, ...preservedParams }, // Preserve all compatible existing values
-          }
+              ...tool,
+              toolId: newToolId,
+              operation,
+              params: { ...initialParams, ...preservedParams }, // Preserve all compatible existing values
+            }
           : tool
       )
     )
@@ -974,9 +897,9 @@ export function ToolInput({
       selectedTools.map((tool, index) =>
         index === toolIndex
           ? {
-            ...tool,
-            usageControl: usageControl as 'auto' | 'force' | 'none',
-          }
+              ...tool,
+              usageControl: usageControl as 'auto' | 'force' | 'none',
+            }
           : tool
       )
     )
@@ -1373,13 +1296,7 @@ export function ToolInput({
         )
 
       case 'time-input':
-        return (
-          <TimeInputSyncWrapper
-            value={value}
-            onChange={onChange}
-            disabled={disabled}
-          />
-        )
+        return <TimeInputSyncWrapper value={value} onChange={onChange} disabled={disabled} />
 
       case 'datetime-input':
         return (
@@ -1466,15 +1383,15 @@ export function ToolInput({
             const customToolParams =
               isCustomTool && tool.schema && tool.schema.function?.parameters?.properties
                 ? Object.entries(tool.schema.function.parameters.properties || {}).map(
-                  ([paramId, param]: [string, any]) => ({
-                    id: paramId,
-                    type: param.type || 'string',
-                    description: param.description || '',
-                    visibility: (tool.schema.function.parameters.required?.includes(paramId)
-                      ? 'user-or-llm'
-                      : 'user-only') as 'user-or-llm' | 'user-only' | 'llm-only' | 'hidden',
-                  })
-                )
+                    ([paramId, param]: [string, any]) => ({
+                      id: paramId,
+                      type: param.type || 'string',
+                      description: param.description || '',
+                      visibility: (tool.schema.function.parameters.required?.includes(paramId)
+                        ? 'user-or-llm'
+                        : 'user-only') as 'user-or-llm' | 'user-only' | 'llm-only' | 'hidden',
+                    })
+                  )
                 : []
 
             // For MCP tools, extract parameters from input schema
@@ -1484,15 +1401,15 @@ export function ToolInput({
             const mcpToolParams =
               isMcpTool && mcpToolSchema?.properties
                 ? Object.entries(mcpToolSchema.properties || {}).map(
-                  ([paramId, param]: [string, any]) => ({
-                    id: paramId,
-                    type: param.type || 'string',
-                    description: param.description || '',
-                    visibility: (mcpToolSchema.required?.includes(paramId)
-                      ? 'user-or-llm'
-                      : 'user-only') as 'user-or-llm' | 'user-only' | 'llm-only' | 'hidden',
-                  })
-                )
+                    ([paramId, param]: [string, any]) => ({
+                      id: paramId,
+                      type: param.type || 'string',
+                      description: param.description || '',
+                      visibility: (mcpToolSchema.required?.includes(paramId)
+                        ? 'user-or-llm'
+                        : 'user-only') as 'user-or-llm' | 'user-only' | 'llm-only' | 'hidden',
+                    })
+                  )
                 : []
 
             // Get all parameters to display
@@ -1520,9 +1437,7 @@ export function ToolInput({
                   dragOverIndex === toolIndex && draggedIndex !== toolIndex && draggedIndex !== null
                     ? 'translate-y-1 transform'
                     : '',
-                  selectedTools.length > 1 && !disabled
-                    ? 'cursor-grab active:cursor-grabbing'
-                    : ''
+                  selectedTools.length > 1 && !disabled ? 'cursor-grab active:cursor-grabbing' : ''
                 )}
                 draggable={!disabled}
                 onDragStart={(e) => handleDragStart(e, toolIndex)}
@@ -1545,13 +1460,7 @@ export function ToolInput({
                       'flex items-center justify-between rounded-md bg-accent p-2',
                       'cursor-pointer'
                     )}
-                    onClick={() => {
-                      if (isCustomTool) {
-                        handleEditCustomTool(toolIndex)
-                      } else {
-                        toggleToolExpansion(toolIndex)
-                      }
-                    }}
+                    onClick={() => toggleToolExpansion(toolIndex)}
                   >
                     <div className='flex min-w-0 flex-shrink-1 items-center gap-2 overflow-hidden'>
                       {(() => {
@@ -1597,7 +1506,7 @@ export function ToolInput({
                             <Toggle
                               className='group flex h-6 items-center justify-center rounded-sm px-2 py-0 hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=on]:bg-transparent'
                               pressed={true}
-                              onPressedChange={() => { }}
+                              onPressedChange={() => {}}
                               onClick={(e: React.MouseEvent) => {
                                 e.stopPropagation()
                                 // Cycle through the states: auto -> force -> none -> auto
@@ -1613,10 +1522,11 @@ export function ToolInput({
                               aria-label='Toggle tool usage control'
                             >
                               <span
-                                className={`font-medium text-xs ${tool.usageControl === 'auto'
-                                  ? 'block text-muted-foreground'
-                                  : 'hidden'
-                                  }`}
+                                className={`font-medium text-xs ${
+                                  tool.usageControl === 'auto'
+                                    ? 'block text-muted-foreground'
+                                    : 'hidden'
+                                }`}
                               >
                                 Auto
                               </span>
@@ -1668,7 +1578,7 @@ export function ToolInput({
                     </div>
                   </div>
 
-                  {!isCustomTool && isExpandedForDisplay && (
+                  {isExpandedForDisplay && (
                     <div className='space-y-3 overflow-visible p-3'>
                       {/* Operation dropdown for tools with multiple operations */}
                       {(() => {
@@ -1882,42 +1792,6 @@ export function ToolInput({
           />
         </div>
       )}
-
-      {/* Custom Tool Modal */}
-      <CustomToolModal
-        open={customToolModalOpen}
-        onOpenChange={(open) => {
-          setCustomToolModalOpen((prev) => (prev === open ? prev : open))
-          if (!open) setEditingToolIndex(null)
-        }}
-        onSave={editingToolIndex !== null ? handleSaveCustomTool : handleAddCustomTool}
-        onDelete={handleDeleteTool}
-        blockId={blockId}
-        initialValues={
-          editingToolIndex !== null && selectedTools[editingToolIndex]?.type === 'custom-tool'
-            ? {
-              id: customTools.find(
-                (tool) =>
-                  tool.schema.function.name ===
-                  selectedTools[editingToolIndex].schema.function.name
-              )?.id,
-              schema: selectedTools[editingToolIndex].schema,
-              code: selectedTools[editingToolIndex].code || '',
-            }
-            : undefined
-        }
-      />
-
-      {/* MCP Server Modal */}
-      <McpServerModal
-        open={mcpServerModalOpen}
-        onOpenChange={setMcpServerModalOpen}
-        onServerCreated={() => {
-          // Refresh MCP tools when a new server is created
-          refreshTools(true)
-        }}
-        blockId={blockId}
-      />
     </div>
   )
 }

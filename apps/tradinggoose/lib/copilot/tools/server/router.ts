@@ -1,3 +1,4 @@
+import { getToolContract, isToolId, type ToolId } from '@/lib/copilot/registry'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { getBlockConfigServerTool } from '@/lib/copilot/tools/server/blocks/get-block-config'
 import { getBlockOptionsServerTool } from '@/lib/copilot/tools/server/blocks/get-block-options'
@@ -7,10 +8,7 @@ import { getTriggerBlocksServerTool } from '@/lib/copilot/tools/server/blocks/ge
 import { searchDocumentationServerTool } from '@/lib/copilot/tools/server/docs/search-documentation'
 import { listGDriveFilesServerTool } from '@/lib/copilot/tools/server/gdrive/list-files'
 import { readGDriveFileServerTool } from '@/lib/copilot/tools/server/gdrive/read-file'
-import {
-  KnowledgeBaseInput,
-  knowledgeBaseServerTool,
-} from '@/lib/copilot/tools/server/knowledge/knowledge-base'
+import { knowledgeBaseServerTool } from '@/lib/copilot/tools/server/knowledge/knowledge-base'
 import { makeApiRequestServerTool } from '@/lib/copilot/tools/server/other/make-api-request'
 import { searchOnlineServerTool } from '@/lib/copilot/tools/server/other/search-online'
 import { getCredentialsServerTool } from '@/lib/copilot/tools/server/user/get-credentials'
@@ -18,60 +16,53 @@ import { getEnvironmentVariablesServerTool } from '@/lib/copilot/tools/server/us
 import { getOAuthCredentialsServerTool } from '@/lib/copilot/tools/server/user/get-oauth-credentials'
 import { setEnvironmentVariablesServerTool } from '@/lib/copilot/tools/server/user/set-environment-variables'
 import { editWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow'
-import { previewEditWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/preview-edit-workflow'
 import { getWorkflowConsoleServerTool } from '@/lib/copilot/tools/server/workflow/get-workflow-console'
-import {
-  ExecuteResponseSuccessSchema,
-  GetBlockConfigInput,
-  GetBlockConfigResult,
-  GetBlockOptionsInput,
-  GetBlockOptionsResult,
-  GetBlocksAndToolsInput,
-  GetBlocksAndToolsResult,
-  GetBlocksMetadataInput,
-  GetBlocksMetadataResult,
-  GetTriggerBlocksInput,
-  GetTriggerBlocksResult,
-} from '@/lib/copilot/tools/shared/schemas'
+import { previewEditWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/preview-edit-workflow'
+import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas'
 import { createLogger } from '@/lib/logs/console/logger'
 
 // Generic execute response schemas (success path only for this route; errors handled via HTTP status)
 export { ExecuteResponseSuccessSchema }
 export type ExecuteResponseSuccess = (typeof ExecuteResponseSuccessSchema)['_type']
 
-// Define server tool registry for the new copilot runtime
-const serverToolRegistry: Record<string, BaseServerTool<any, any>> = {}
 const logger = createLogger('ServerToolRouter')
 
-// Register tools
-serverToolRegistry[getBlocksAndToolsServerTool.name] = getBlocksAndToolsServerTool
-serverToolRegistry[getBlocksMetadataServerTool.name] = getBlocksMetadataServerTool
-serverToolRegistry[getBlockOptionsServerTool.name] = getBlockOptionsServerTool
-serverToolRegistry[getBlockConfigServerTool.name] = getBlockConfigServerTool
-serverToolRegistry[getTriggerBlocksServerTool.name] = getTriggerBlocksServerTool
-serverToolRegistry[editWorkflowServerTool.name] = editWorkflowServerTool
-serverToolRegistry[previewEditWorkflowServerTool.name] = previewEditWorkflowServerTool
-serverToolRegistry[getWorkflowConsoleServerTool.name] = getWorkflowConsoleServerTool
-serverToolRegistry[searchDocumentationServerTool.name] = searchDocumentationServerTool
-serverToolRegistry[searchOnlineServerTool.name] = searchOnlineServerTool
-serverToolRegistry[getEnvironmentVariablesServerTool.name] = getEnvironmentVariablesServerTool
-serverToolRegistry[setEnvironmentVariablesServerTool.name] = setEnvironmentVariablesServerTool
-serverToolRegistry[listGDriveFilesServerTool.name] = listGDriveFilesServerTool
-serverToolRegistry[readGDriveFileServerTool.name] = readGDriveFileServerTool
-serverToolRegistry[getOAuthCredentialsServerTool.name] = getOAuthCredentialsServerTool
-serverToolRegistry[getCredentialsServerTool.name] = getCredentialsServerTool
-serverToolRegistry[makeApiRequestServerTool.name] = makeApiRequestServerTool
-serverToolRegistry[knowledgeBaseServerTool.name] = knowledgeBaseServerTool
+const serverToolRegistry: Partial<Record<ToolId, BaseServerTool<any, any>>> = {
+  [getBlocksAndToolsServerTool.name]: getBlocksAndToolsServerTool,
+  [getBlocksMetadataServerTool.name]: getBlocksMetadataServerTool,
+  [getBlockOptionsServerTool.name]: getBlockOptionsServerTool,
+  [getBlockConfigServerTool.name]: getBlockConfigServerTool,
+  [getTriggerBlocksServerTool.name]: getTriggerBlocksServerTool,
+  [editWorkflowServerTool.name]: editWorkflowServerTool,
+  [previewEditWorkflowServerTool.name]: previewEditWorkflowServerTool,
+  [getWorkflowConsoleServerTool.name]: getWorkflowConsoleServerTool,
+  [searchDocumentationServerTool.name]: searchDocumentationServerTool,
+  [searchOnlineServerTool.name]: searchOnlineServerTool,
+  [getEnvironmentVariablesServerTool.name]: getEnvironmentVariablesServerTool,
+  [setEnvironmentVariablesServerTool.name]: setEnvironmentVariablesServerTool,
+  [listGDriveFilesServerTool.name]: listGDriveFilesServerTool,
+  [readGDriveFileServerTool.name]: readGDriveFileServerTool,
+  [getOAuthCredentialsServerTool.name]: getOAuthCredentialsServerTool,
+  [getCredentialsServerTool.name]: getCredentialsServerTool,
+  [makeApiRequestServerTool.name]: makeApiRequestServerTool,
+  [knowledgeBaseServerTool.name]: knowledgeBaseServerTool,
+}
 
 export async function routeExecution(
   toolName: string,
   payload: unknown,
   context?: { userId: string }
 ): Promise<any> {
-  const tool = serverToolRegistry[toolName]
-  if (!tool) {
+  if (!isToolId(toolName)) {
     throw new Error(`Unknown server tool: ${toolName}`)
   }
+
+  const tool = serverToolRegistry[toolName]
+  const contract = getToolContract(toolName)
+  if (!tool || !contract) {
+    throw new Error(`Unknown server tool: ${toolName}`)
+  }
+
   logger.debug('Routing to tool', {
     toolName,
     payloadPreview: (() => {
@@ -83,43 +74,7 @@ export async function routeExecution(
     })(),
   })
 
-  let args: any = payload || {}
-  if (toolName === 'get_blocks_and_tools') {
-    args = GetBlocksAndToolsInput.parse(args)
-  }
-  if (toolName === 'get_blocks_metadata') {
-    args = GetBlocksMetadataInput.parse(args)
-  }
-  if (toolName === 'get_block_options') {
-    args = GetBlockOptionsInput.parse(args)
-  }
-  if (toolName === 'get_block_config') {
-    args = GetBlockConfigInput.parse(args)
-  }
-  if (toolName === 'get_trigger_blocks') {
-    args = GetTriggerBlocksInput.parse(args)
-  }
-  if (toolName === 'knowledge_base') {
-    args = KnowledgeBaseInput.parse(args)
-  }
-
+  const args = contract.args.parse(payload ?? {})
   const result = await tool.execute(args, context)
-
-  if (toolName === 'get_blocks_and_tools') {
-    return GetBlocksAndToolsResult.parse(result)
-  }
-  if (toolName === 'get_blocks_metadata') {
-    return GetBlocksMetadataResult.parse(result)
-  }
-  if (toolName === 'get_block_options') {
-    return GetBlockOptionsResult.parse(result)
-  }
-  if (toolName === 'get_block_config') {
-    return GetBlockConfigResult.parse(result)
-  }
-  if (toolName === 'get_trigger_blocks') {
-    return GetTriggerBlocksResult.parse(result)
-  }
-
-  return result
+  return contract.result.parse(result)
 }

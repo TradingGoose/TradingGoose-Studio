@@ -3,17 +3,23 @@ import type {
   WidgetCategoryDefinition,
   WidgetCategoryGroup,
 } from '@/widgets/types'
+import { dataChartWidget } from '@/widgets/widgets/data_chart'
+import { editorCustomToolWidget } from '@/widgets/widgets/editor_custom_tool/index'
+import { editorIndicatorWidget } from '@/widgets/widgets/editor_indicator'
+import { editorMcpWidget } from '@/widgets/widgets/editor_mcp'
+import { editorSkillWidget } from '@/widgets/widgets/editor_skill'
 import { workflowEditorWidget } from '@/widgets/widgets/editor_workflow'
 import { emptyWidget } from '@/widgets/widgets/empty'
-import { dataChartWidget } from '@/widgets/widgets/data_chart'
+import { listCustomToolWidget } from '@/widgets/widgets/list_custom_tool'
+import { listIndicatorWidget } from '@/widgets/widgets/list_indicator'
+import { listMcpWidget } from '@/widgets/widgets/list_mcp'
+import { listSkillWidget } from '@/widgets/widgets/list_skill'
+import { workflowListWidget } from '@/widgets/widgets/list_workflow'
+import { watchlistWidget } from '@/widgets/widgets/watchlist'
 import { chatWidget } from '@/widgets/widgets/workflow_chat'
 import { workflowConsoleWidget } from '@/widgets/widgets/workflow_console'
 import { workflowCopilotWidget } from '@/widgets/widgets/workflow_copilot'
-import { listIndicatorWidget } from '@/widgets/widgets/list_indicator'
-import { editorIndicatorWidget } from '@/widgets/widgets/editor_indicator'
-import { workflowListWidget } from '@/widgets/widgets/list_workflow'
 import { workflowVariablesWidget } from '@/widgets/widgets/workflow_variables'
-import { watchlistWidget } from '@/widgets/widgets/watchlist'
 
 const widgetCategoryConfig: WidgetCategoryDefinition[] = [
   {
@@ -39,7 +45,13 @@ const widgetRegistry: Record<string, DashboardWidgetDefinition> = {
   workflow_console: workflowConsoleWidget,
   workflow_copilot: workflowCopilotWidget,
   list_indicator: listIndicatorWidget,
+  list_mcp: listMcpWidget,
   editor_indicator: editorIndicatorWidget,
+  editor_mcp: editorMcpWidget,
+  list_custom_tool: listCustomToolWidget,
+  editor_custom_tool: editorCustomToolWidget,
+  list_skill: listSkillWidget,
+  editor_skill: editorSkillWidget,
   workflow_variables: workflowVariablesWidget,
   watchlist: watchlistWidget,
 }

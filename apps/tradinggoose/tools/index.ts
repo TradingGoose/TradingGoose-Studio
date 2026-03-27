@@ -1,11 +1,15 @@
 import { generateInternalToken } from '@/lib/auth/internal'
+import { toListingValueObject } from '@/lib/listing/identity'
+import { resolveListingIdentity } from '@/lib/listing/resolve'
 import { createLogger } from '@/lib/logs/console/logger'
 import { parseMcpToolId } from '@/lib/mcp/utils'
 import { validateExternalUrl } from '@/lib/security/input-validation'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
-import { resolveListingIdentity } from '@/lib/listing/resolve'
-import { toListingValueObject } from '@/lib/listing/identity'
+import {
+  isSkillLoaderExecution,
+  resolveSkillContent,
+} from '@/executor/handlers/agent/skills-resolver'
 import type { ExecutionContext } from '@/executor/types'
 import type { ErrorInfo } from '@/tools/error-extractors'
 import { extractErrorMessage } from '@/tools/error-extractors'
@@ -34,7 +38,11 @@ const BODY_SIZE_LIMIT_ERROR_MESSAGE =
 /**
  * Validates request body size and throws a user-friendly error if exceeded
  */
-function validateRequestBodySize(body: string | undefined, requestId: string, context: string): void {
+function validateRequestBodySize(
+  body: string | undefined,
+  requestId: string,
+  context: string
+): void {
   if (!body) return
 
   const bodySize = Buffer.byteLength(body, 'utf8')
@@ -194,6 +202,40 @@ export async function executeTool(
   try {
     let tool: ToolConfig | undefined
 
+    if (isSkillLoaderExecution(params)) {
+      const skillName = typeof params.skill_name === 'string' ? params.skill_name : null
+      const workspaceId =
+        typeof params._context?.workspaceId === 'string'
+          ? params._context.workspaceId
+          : executionContext?.workspaceId
+      const workflowId =
+        typeof params._context?.workflowId === 'string'
+          ? params._context.workflowId
+          : executionContext?.workflowId
+
+      if (!skillName || !workspaceId) {
+        return {
+          success: false,
+          output: { error: 'Missing skill_name or workspace context' },
+          error: 'Missing skill_name or workspace context',
+        }
+      }
+
+      const content = await resolveSkillContent(skillName, workspaceId, workflowId)
+      if (!content) {
+        return {
+          success: false,
+          output: { error: `Skill "${skillName}" not found` },
+          error: `Skill "${skillName}" not found`,
+        }
+      }
+
+      return {
+        success: true,
+        output: { content },
+      }
+    }
+
     // If it's a custom tool, use the async version with workflowId
     if (toolId.startsWith('custom_')) {
       const workflowId = params._context?.workflowId || executionContext?.workflowId
@@ -245,9 +287,9 @@ export async function executeTool(
         contextParams.credential
 
       // Avoid leaking provider-specific credential params downstream
-      delete contextParams.alpacaCredential
-      delete contextParams.tradierCredential
-      delete contextParams.robinhoodCredential
+      contextParams.alpacaCredential = undefined
+      contextParams.tradierCredential = undefined
+      contextParams.robinhoodCredential = undefined
     }
 
     if (contextParams.credential) {
@@ -341,7 +383,11 @@ export async function executeTool(
 
       // Apply post-processing if available and not skipped
       let finalResult = result
-      if (tool.postProcess && !skipPostProcess && (result.success || toolId === 'trading_place_order')) {
+      if (
+        tool.postProcess &&
+        !skipPostProcess &&
+        (result.success || toolId === 'trading_place_order')
+      ) {
         try {
           finalResult = await tool.postProcess(result, contextParams, executeTool)
         } catch (error) {
@@ -378,7 +424,11 @@ export async function executeTool(
 
     // Apply post-processing if available and not skipped
     let finalResult = result
-    if (tool.postProcess && !skipPostProcess && (result.success || toolId === 'trading_place_order')) {
+    if (
+      tool.postProcess &&
+      !skipPostProcess &&
+      (result.success || toolId === 'trading_place_order')
+    ) {
       try {
         finalResult = await tool.postProcess(result, contextParams, executeTool)
       } catch (error) {
@@ -592,10 +642,7 @@ async function executeToolRequest(
         'params' in requestBody
       ) {
         try {
-          validateClientSideParams(
-            (requestBody as any).params,
-            (requestBody as any).schema
-          )
+          validateClientSideParams((requestBody as any).params, (requestBody as any).schema)
         } catch (validationError) {
           logger.error(`[${requestId}] Custom tool validation failed for ${toolId}:`, {
             error:

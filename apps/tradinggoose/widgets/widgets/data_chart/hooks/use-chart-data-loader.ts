@@ -561,7 +561,7 @@ export const useChartDataLoader = ({
     ) => {
       historicalCursorRef.current = requestStartMs
       hasMoreHistoricalDataRef.current =
-        retentionStartMs === null ? true : requestStartMs > retentionStartMs
+        retentionStartMs === null ? requestStartMs > 0 : requestStartMs > retentionStartMs
     }
 
     const handleVisibleRangeChange = async (range: { from: number; to: number } | null) => {
@@ -612,10 +612,11 @@ export const useChartDataLoader = ({
           if (!spanMs) return
 
           const retentionStartMs = resolveRetentionStartMs()
-          const boundary = historicalCursorRef.current
-            ? Math.min(oldestBar.openTime, historicalCursorRef.current)
-            : oldestBar.openTime
-          if (!boundary) return
+          const boundary =
+            historicalCursorRef.current !== null
+              ? Math.min(oldestBar.openTime, historicalCursorRef.current)
+              : oldestBar.openTime
+          if (!Number.isFinite(boundary)) return
           let requestStartMs = Math.max(0, boundary - spanMs)
           if (retentionStartMs !== null && requestStartMs < retentionStartMs) {
             requestStartMs = retentionStartMs

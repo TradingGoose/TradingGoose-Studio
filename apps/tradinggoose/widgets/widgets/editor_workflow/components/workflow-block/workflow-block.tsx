@@ -92,7 +92,8 @@ function formatSubBlockValue(value: unknown): string {
     if (entries.length === 1) {
       const [entryKey, entryValue] = entries[0]
       const entryValueString = String(entryValue)
-      const preview = entryValueString.length > 30 ? `${entryValueString.slice(0, 30)}...` : entryValueString
+      const preview =
+        entryValueString.length > 30 ? `${entryValueString.slice(0, 30)}...` : entryValueString
       return `${entryKey}: ${preview}`
     }
 
@@ -159,12 +160,10 @@ function buildJsonPreviewFieldRows(value: unknown): JsonPreviewFieldRow[] {
     const firstItem = parsedValue[0]
     if (firstItem && typeof firstItem === 'object' && !Array.isArray(firstItem)) {
       const entries = Object.entries(firstItem)
-      const rows = entries
-        .slice(0, JSON_PREVIEW_ROW_LIMIT)
-        .map(([key, entryValue]) => ({
-          title: key,
-          value: formatSubBlockValue(entryValue),
-        }))
+      const rows = entries.slice(0, JSON_PREVIEW_ROW_LIMIT).map(([key, entryValue]) => ({
+        title: key,
+        value: formatSubBlockValue(entryValue),
+      }))
 
       if (entries.length > JSON_PREVIEW_ROW_LIMIT) {
         rows.push({
@@ -203,12 +202,10 @@ function buildJsonPreviewFieldRows(value: unknown): JsonPreviewFieldRow[] {
       return [{ title: 'object', value: '{}' }]
     }
 
-    const rows = entries
-      .slice(0, JSON_PREVIEW_ROW_LIMIT)
-      .map(([key, entryValue]) => ({
-        title: key,
-        value: formatSubBlockValue(entryValue),
-      }))
+    const rows = entries.slice(0, JSON_PREVIEW_ROW_LIMIT).map(([key, entryValue]) => ({
+      title: key,
+      value: formatSubBlockValue(entryValue),
+    }))
 
     if (entries.length > JSON_PREVIEW_ROW_LIMIT) {
       rows.push({
@@ -221,6 +218,41 @@ function buildJsonPreviewFieldRows(value: unknown): JsonPreviewFieldRow[] {
   }
 
   return [{ title: 'value', value: formatSubBlockValue(parsedValue) }]
+}
+
+function formatSkillInputValue(value: unknown): string {
+  if (!Array.isArray(value) || value.length === 0) {
+    return '-'
+  }
+
+  const resolvedNames = value
+    .map((item) => {
+      if (!item || typeof item !== 'object') {
+        return null
+      }
+
+      const storedSkill = item as { skillId?: string; name?: string }
+      if (typeof storedSkill.name === 'string' && storedSkill.name.length > 0) {
+        return storedSkill.name
+      }
+
+      return storedSkill.skillId ?? null
+    })
+    .filter((name): name is string => typeof name === 'string' && name.length > 0)
+
+  if (resolvedNames.length === 0) {
+    return '-'
+  }
+
+  if (resolvedNames.length === 1) {
+    return resolvedNames[0]
+  }
+
+  if (resolvedNames.length === 2) {
+    return `${resolvedNames[0]}, ${resolvedNames[1]}`
+  }
+
+  return `${resolvedNames[0]}, ${resolvedNames[1]} +${resolvedNames.length - 2}`
 }
 
 interface WorkflowBlockProps {
@@ -330,7 +362,7 @@ export const WorkflowBlock = memo(
           createdPortal.remove()
         }
 
-          ; (flow as any)[WORKFLOW_POPOVER_PORTAL_KEY] = portal
+        ;(flow as any)[WORKFLOW_POPOVER_PORTAL_KEY] = portal
       }
 
       if (!portal) return
@@ -467,7 +499,9 @@ export const WorkflowBlock = memo(
     const blockWebhookStatus = useSubBlockStore(
       useCallback(
         (state) => {
-          const blockValues = resolvedWorkflowId ? state.workflowValues[resolvedWorkflowId]?.[id] : null
+          const blockValues = resolvedWorkflowId
+            ? state.workflowValues[resolvedWorkflowId]?.[id]
+            : null
           if (!blockValues) return false
 
           const hasLegacyWebhookConfig = Boolean(
@@ -831,8 +865,7 @@ export const WorkflowBlock = memo(
               typeof condition.id === 'string' && condition.id.length > 0
                 ? condition.id
                 : `${id}-cond-${index}`,
-            title:
-              index === 0 ? 'if' : index === parsedConditions.length - 1 ? 'else' : 'else if',
+            title: index === 0 ? 'if' : index === parsedConditions.length - 1 ? 'else' : 'else if',
             value: typeof condition.value === 'string' ? condition.value : '',
           }
         })
@@ -981,11 +1014,7 @@ export const WorkflowBlock = memo(
 
     const blockAccentColor = config.bgColor || 'hsl(var(--foreground))'
     const hasPriorityRing =
-      isActive ||
-      isPending ||
-      diffStatus === 'new' ||
-      diffStatus === 'edited' ||
-      isDeletedBlock
+      isActive || isPending || diffStatus === 'new' || diffStatus === 'edited' || isDeletedBlock
 
     return (
       <TooltipEnvironmentProvider value={tooltipEnvironmentValue}>
@@ -1003,7 +1032,7 @@ export const WorkflowBlock = memo(
                 // Diff highlighting
                 diffStatus === 'new' && 'bg-green-50/50 ring-2 ring-green-500 dark:bg-green-900/10',
                 diffStatus === 'edited' &&
-                'bg-orange-50/50 ring-2 ring-orange-500 dark:bg-orange-900/10',
+                  'bg-orange-50/50 ring-2 ring-orange-500 dark:bg-orange-900/10',
                 // Deleted block highlighting (in original workflow)
                 isDeletedBlock && 'bg-red-50/50 ring-2 ring-red-500 dark:bg-red-900/10',
                 !hasPriorityRing && 'hover:ring-1 hover:ring-[var(--block-hover-color)]',
@@ -1118,7 +1147,7 @@ export const WorkflowBlock = memo(
                           'inline-block cursor-text font-medium text-md hover:text-muted-foreground',
                           !isEnabled && 'text-muted-foreground',
                           (disableInNodeEditing || isReadOnlyBlock) &&
-                          'cursor-default hover:text-foreground'
+                            'cursor-default hover:text-foreground'
                         )}
                         onClick={handleNameClick}
                         title={name}
@@ -1188,84 +1217,93 @@ export const WorkflowBlock = memo(
                   <div className='flex flex-col gap-2'>
                     {type === 'condition'
                       ? conditionRows.map((conditionRow) => (
-                        <div key={conditionRow.id} className='flex items-center gap-2'>
-                          <p
-                            className='min-w-0 truncate text-muted-foreground capitalize'
-                            title={conditionRow.title}
-                          >
-                            {conditionRow.title}
-                          </p>
-                          <p
-                            className='min-w-0 flex-1 truncate text-right'
-                            title={conditionRow.value}
-                          >
-                            {formatSubBlockValue(conditionRow.value)}
-                          </p>
-                        </div>
-                      ))
-                      : flattenedSubBlocks.map((subBlock, index) => {
-                        const stableKey = `${getSubBlockStableKey(subBlock, subBlockState)}-${index}`
-                        const rawValue =
-                          subBlockState[subBlock.id]?.value ??
-                          (typeof subBlock.defaultValue === 'function'
-                            ? undefined
-                            : subBlock.defaultValue)
-                        const isJsonCodeSubBlock =
-                          subBlock.type === 'code' && subBlock.language === 'json'
-                        const jsonPreviewRows = isJsonCodeSubBlock
-                          ? buildJsonPreviewFieldRows(rawValue)
-                          : null
-                        const displayValue = formatSubBlockValue(rawValue)
-
-                        if (isJsonCodeSubBlock) {
-                          const jsonTitle = subBlock.title ?? subBlock.id
-                          return (
-                            <div key={stableKey} className='flex flex-col gap-1'>
-                              <p
-                                className='min-w-0 truncate text-muted-foreground capitalize'
-                                title={jsonTitle}
-                              >
-                                {jsonTitle}:
-                              </p>
-                              <div className='ml-3 overflow-hidden bg-background rounded-md border border-border'>
-                                {(jsonPreviewRows ?? []).map((jsonRow, jsonRowIndex) => (
-                                  <div
-                                    key={`${stableKey}-json-row-${jsonRowIndex}`}
-                                    className={cn(
-                                      'flex items-center gap-2 px-3 py-1.5',
-                                      jsonRowIndex > 0 && 'border-t border-border'
-                                    )}
-                                  >
-                                    <p className='min-w-0 truncate text-muted-foreground' title={jsonRow.title}>
-                                      {jsonRow.title}
-                                    </p>
-                                    <p className='min-w-0 flex-1 truncate text-right' title={jsonRow.value}>
-                                      {jsonRow.value}
-                                    </p>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )
-                        }
-
-                        return (
-                          <div key={stableKey} className='flex items-center gap-2'>
+                          <div key={conditionRow.id} className='flex items-center gap-2'>
                             <p
                               className='min-w-0 truncate text-muted-foreground capitalize'
-                              title={subBlock.title ?? subBlock.id}
+                              title={conditionRow.title}
                             >
-                              {subBlock.title ?? subBlock.id}
+                              {conditionRow.title}
                             </p>
                             <p
                               className='min-w-0 flex-1 truncate text-right'
-                              title={displayValue}
+                              title={conditionRow.value}
                             >
-                              {displayValue}
+                              {formatSubBlockValue(conditionRow.value)}
                             </p>
                           </div>
-                        )
-                      })}
+                        ))
+                      : flattenedSubBlocks.map((subBlock, index) => {
+                          const stableKey = `${getSubBlockStableKey(subBlock, subBlockState)}-${index}`
+                          const rawValue =
+                            subBlockState[subBlock.id]?.value ??
+                            (typeof subBlock.defaultValue === 'function'
+                              ? undefined
+                              : subBlock.defaultValue)
+                          const isJsonCodeSubBlock =
+                            subBlock.type === 'code' && subBlock.language === 'json'
+                          const jsonPreviewRows = isJsonCodeSubBlock
+                            ? buildJsonPreviewFieldRows(rawValue)
+                            : null
+                          const displayValue =
+                            subBlock.type === 'skill-input'
+                              ? formatSkillInputValue(rawValue)
+                              : formatSubBlockValue(rawValue)
+
+                          if (isJsonCodeSubBlock) {
+                            const jsonTitle = subBlock.title ?? subBlock.id
+                            return (
+                              <div key={stableKey} className='flex flex-col gap-1'>
+                                <p
+                                  className='min-w-0 truncate text-muted-foreground capitalize'
+                                  title={jsonTitle}
+                                >
+                                  {jsonTitle}:
+                                </p>
+                                <div className='ml-3 overflow-hidden rounded-md border border-border bg-background'>
+                                  {(jsonPreviewRows ?? []).map((jsonRow, jsonRowIndex) => (
+                                    <div
+                                      key={`${stableKey}-json-row-${jsonRowIndex}`}
+                                      className={cn(
+                                        'flex items-center gap-2 px-3 py-1.5',
+                                        jsonRowIndex > 0 && 'border-border border-t'
+                                      )}
+                                    >
+                                      <p
+                                        className='min-w-0 truncate text-muted-foreground'
+                                        title={jsonRow.title}
+                                      >
+                                        {jsonRow.title}
+                                      </p>
+                                      <p
+                                        className='min-w-0 flex-1 truncate text-right'
+                                        title={jsonRow.value}
+                                      >
+                                        {jsonRow.value}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )
+                          }
+
+                          return (
+                            <div key={stableKey} className='flex items-center gap-2'>
+                              <p
+                                className='min-w-0 truncate text-muted-foreground capitalize'
+                                title={subBlock.title ?? subBlock.id}
+                              >
+                                {subBlock.title ?? subBlock.id}
+                              </p>
+                              <p
+                                className='min-w-0 flex-1 truncate text-right'
+                                title={displayValue}
+                              >
+                                {displayValue}
+                              </p>
+                            </div>
+                          )
+                        })}
                     {type === 'condition' && shouldShowErrorHandle && (
                       <div className='flex items-center gap-2'>
                         <p
@@ -1314,36 +1352,38 @@ export const WorkflowBlock = memo(
                     />
                   ))}
                 </>
-              ) : type !== 'response' && (
-                <>
-                  <Handle
-                    type='source'
-                    position={horizontalHandles ? Position.Right : Position.Bottom}
-                    id='source'
-                    className={cn(
-                      horizontalHandles ? '!w-[7px] !h-5' : '!w-5 !h-[7px]',
-                      '!bg-slate-300 dark:!bg-slate-500 !rounded-xs !border-none',
-                      '!z-[30]',
-                      'group-hover:!shadow-[0_0_0_3px_rgba(156,163,175,0.15)]',
-                      horizontalHandles
-                        ? 'hover:!w-[10px] hover:!right-[-10px]'
-                        : 'hover:!h-[10px] hover:!bottom-[-10px]',
-                      '!cursor-crosshair',
-                      'transition-[colors] duration-150',
-                      horizontalHandles ? '!right-[-8px]' : '!bottom-[-8px]'
-                    )}
-                    style={{
-                      ...(horizontalHandles
-                        ? { top: '50%', transform: 'translateY(-50%)' }
-                        : { left: '50%', transform: 'translateX(-50%)' }),
-                    }}
-                    data-nodeid={id}
-                    data-handleid='source'
-                    isConnectableStart={!isReadOnlyBlock}
-                    isConnectableEnd={false}
-                    isValidConnection={(connection) => connection.target !== id}
-                  />
-                </>
+              ) : (
+                type !== 'response' && (
+                  <>
+                    <Handle
+                      type='source'
+                      position={horizontalHandles ? Position.Right : Position.Bottom}
+                      id='source'
+                      className={cn(
+                        horizontalHandles ? '!w-[7px] !h-5' : '!w-5 !h-[7px]',
+                        '!bg-slate-300 dark:!bg-slate-500 !rounded-xs !border-none',
+                        '!z-[30]',
+                        'group-hover:!shadow-[0_0_0_3px_rgba(156,163,175,0.15)]',
+                        horizontalHandles
+                          ? 'hover:!w-[10px] hover:!right-[-10px]'
+                          : 'hover:!h-[10px] hover:!bottom-[-10px]',
+                        '!cursor-crosshair',
+                        'transition-[colors] duration-150',
+                        horizontalHandles ? '!right-[-8px]' : '!bottom-[-8px]'
+                      )}
+                      style={{
+                        ...(horizontalHandles
+                          ? { top: '50%', transform: 'translateY(-50%)' }
+                          : { left: '50%', transform: 'translateX(-50%)' }),
+                      }}
+                      data-nodeid={id}
+                      data-handleid='source'
+                      isConnectableStart={!isReadOnlyBlock}
+                      isConnectableEnd={false}
+                      isValidConnection={(connection) => connection.target !== id}
+                    />
+                  </>
+                )
               )}
 
               {shouldShowErrorHandle && (
@@ -1366,24 +1406,24 @@ export const WorkflowBlock = memo(
                     position: 'absolute',
                     ...(type === 'condition'
                       ? {
-                        right: '-8px',
-                        top: `${60 + conditionRows.length * 29}px`,
-                        bottom: 'auto',
-                        transform: 'translateY(-50%)',
-                      }
+                          right: '-8px',
+                          top: `${60 + conditionRows.length * 29}px`,
+                          bottom: 'auto',
+                          transform: 'translateY(-50%)',
+                        }
                       : useHorizontalErrorHandle
                         ? {
-                          right: '-8px',
-                          top: 'auto',
-                          bottom: '30px',
-                          transform: 'translateY(0)',
-                        }
+                            right: '-8px',
+                            top: 'auto',
+                            bottom: '30px',
+                            transform: 'translateY(0)',
+                          }
                         : {
-                          bottom: '-8px',
-                          left: 'auto',
-                          right: '30px',
-                          transform: 'translateX(0)',
-                        }),
+                            bottom: '-8px',
+                            left: 'auto',
+                            right: '30px',
+                            transform: 'translateX(0)',
+                          }),
                   }}
                   data-nodeid={id}
                   data-handleid='error'

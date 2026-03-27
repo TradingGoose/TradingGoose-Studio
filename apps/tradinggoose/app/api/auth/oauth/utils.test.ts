@@ -37,6 +37,9 @@ describe('OAuth Utils', () => {
 
     vi.doMock('@/lib/oauth/oauth', () => ({
       refreshOAuthToken: mockRefreshOAuthToken,
+      getMicrosoftRefreshTokenExpiry: vi.fn(() => new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)),
+      isMicrosoftProvider: vi.fn((providerId: string) => providerId === 'outlook'),
+      PROACTIVE_REFRESH_THRESHOLD_DAYS: 7,
     }))
 
     vi.doMock('@/lib/logs/console/logger', () => ({
@@ -192,6 +195,87 @@ describe('OAuth Utils', () => {
       expect(mockLogger.error).toHaveBeenCalled()
     })
 
+    it('should proactively refresh Microsoft tokens before refresh token expiry', async () => {
+      const mockCredential = {
+        id: 'credential-id',
+        accessToken: 'valid-token',
+        refreshToken: 'refresh-token',
+        accessTokenExpiresAt: new Date(Date.now() + 3600 * 1000),
+        refreshTokenExpiresAt: new Date(Date.now() + 24 * 3600 * 1000),
+        providerId: 'outlook',
+      }
+
+      mockRefreshOAuthToken.mockResolvedValueOnce({
+        accessToken: 'new-token',
+        expiresIn: 3600,
+        refreshToken: 'new-refresh-token',
+      })
+
+      const { refreshTokenIfNeeded } = await import('@/app/api/auth/oauth/utils')
+
+      const result = await refreshTokenIfNeeded('request-id', mockCredential, 'credential-id')
+
+      expect(mockRefreshOAuthToken).toHaveBeenCalledWith('outlook', 'refresh-token')
+      expect(result).toEqual({ accessToken: 'new-token', refreshed: true })
+      expect(mockDb.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accessToken: 'new-token',
+          refreshToken: 'new-refresh-token',
+          refreshTokenExpiresAt: expect.any(Date),
+        })
+      )
+    })
+
+    it('should keep the current access token if proactive refresh fails', async () => {
+      const mockCredential = {
+        id: 'credential-id',
+        userId: 'test-user-id',
+        accessToken: 'valid-token',
+        refreshToken: 'refresh-token',
+        accessTokenExpiresAt: new Date(Date.now() + 3600 * 1000),
+        refreshTokenExpiresAt: new Date(Date.now() + 24 * 3600 * 1000),
+        providerId: 'outlook',
+      }
+
+      mockRefreshOAuthToken.mockResolvedValueOnce(null)
+
+      const { refreshTokenIfNeeded } = await import('@/app/api/auth/oauth/utils')
+
+      const result = await refreshTokenIfNeeded('request-id', mockCredential, 'credential-id')
+
+      expect(result).toEqual({ accessToken: 'valid-token', refreshed: false })
+      expect(mockDb.limit).not.toHaveBeenCalled()
+    })
+
+    it('should use the DB token when another request refreshed concurrently', async () => {
+      const mockCredential = {
+        id: 'credential-id',
+        userId: 'test-user-id',
+        accessToken: 'expired-token',
+        refreshToken: 'refresh-token',
+        accessTokenExpiresAt: new Date(Date.now() - 3600 * 1000),
+        providerId: 'google',
+      }
+
+      mockRefreshOAuthToken.mockResolvedValueOnce(null)
+      mockDb.limit.mockReturnValueOnce([
+        {
+          id: 'credential-id',
+          userId: 'test-user-id',
+          accessToken: 'concurrent-token',
+          refreshToken: 'rotated-refresh-token',
+          accessTokenExpiresAt: new Date(Date.now() + 3600 * 1000),
+          providerId: 'google',
+        },
+      ])
+
+      const { refreshTokenIfNeeded } = await import('@/app/api/auth/oauth/utils')
+
+      const result = await refreshTokenIfNeeded('request-id', mockCredential, 'credential-id')
+
+      expect(result).toEqual({ accessToken: 'concurrent-token', refreshed: true })
+    })
+
     it('should not attempt refresh if no refresh token', async () => {
       const mockCredential = {
         id: 'credential-id',
@@ -287,6 +371,56 @@ describe('OAuth Utils', () => {
 
       expect(token).toBeNull()
       expect(mockLogger.error).toHaveBeenCalled()
+    })
+
+    it('should keep the current access token if proactive refresh fails', async () => {
+      const mockCredential = {
+        id: 'credential-id',
+        accessToken: 'valid-token',
+        refreshToken: 'refresh-token',
+        accessTokenExpiresAt: new Date(Date.now() + 3600 * 1000),
+        refreshTokenExpiresAt: new Date(Date.now() + 24 * 3600 * 1000),
+        providerId: 'outlook',
+        userId: 'test-user-id',
+      }
+      mockDb.limit.mockReturnValueOnce([mockCredential])
+
+      mockRefreshOAuthToken.mockResolvedValueOnce(null)
+
+      const { refreshAccessTokenIfNeeded } = await import('@/app/api/auth/oauth/utils')
+
+      const token = await refreshAccessTokenIfNeeded('credential-id', 'test-user-id', 'request-id')
+
+      expect(token).toBe('valid-token')
+    })
+
+    it('should use the DB token when another request refreshed concurrently', async () => {
+      const mockCredential = {
+        id: 'credential-id',
+        accessToken: 'expired-token',
+        refreshToken: 'refresh-token',
+        accessTokenExpiresAt: new Date(Date.now() - 3600 * 1000),
+        providerId: 'google',
+        userId: 'test-user-id',
+      }
+      mockDb.limit
+        .mockReturnValueOnce([mockCredential])
+        .mockReturnValueOnce([
+          {
+            ...mockCredential,
+            accessToken: 'concurrent-token',
+            refreshToken: 'rotated-refresh-token',
+            accessTokenExpiresAt: new Date(Date.now() + 3600 * 1000),
+          },
+        ])
+
+      mockRefreshOAuthToken.mockResolvedValueOnce(null)
+
+      const { refreshAccessTokenIfNeeded } = await import('@/app/api/auth/oauth/utils')
+
+      const token = await refreshAccessTokenIfNeeded('credential-id', 'test-user-id', 'request-id')
+
+      expect(token).toBe('concurrent-token')
     })
   })
 })

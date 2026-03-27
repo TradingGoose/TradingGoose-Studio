@@ -93,6 +93,7 @@ export interface OAuthProviderConfig {
   icon: (props: { className?: string }) => ReactNode
   services: Record<string, OAuthServiceConfig>
   defaultService: string
+  credentialProvider?: string
 }
 
 export interface OAuthServiceConfig {
@@ -103,6 +104,7 @@ export interface OAuthServiceConfig {
   icon: (props: { className?: string }) => ReactNode
   baseProviderIcon: (props: { className?: string }) => ReactNode
   scopes: string[]
+  credentialProvider?: string
 }
 
 export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
@@ -127,6 +129,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     id: 'google',
     name: 'Google',
     icon: (props) => GoogleIcon(props),
+    credentialProvider: 'google',
     services: {
       gmail: {
         id: 'gmail',
@@ -219,6 +222,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     id: 'microsoft',
     name: 'Microsoft',
     icon: (props) => MicrosoftIcon(props),
+    credentialProvider: 'microsoft',
     services: {
       'microsoft-excel': {
         id: 'microsoft-excel',
@@ -315,12 +319,13 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
         ],
       },
     },
-    defaultService: 'microsoft',
+    defaultService: 'outlook',
   },
   github: {
     id: 'github',
     name: 'GitHub',
     icon: (props) => GithubIcon(props),
+    credentialProvider: 'github-repo',
     services: {
       github: {
         id: 'github',
@@ -590,6 +595,20 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   },
 }
 
+export const MICROSOFT_REFRESH_TOKEN_LIFETIME_DAYS = 90
+export const PROACTIVE_REFRESH_THRESHOLD_DAYS = 7
+export const MICROSOFT_PROVIDERS = new Set(
+  Object.values(OAUTH_PROVIDERS.microsoft?.services ?? {}).map((service) => service.providerId)
+)
+
+export function isMicrosoftProvider(providerId: string): boolean {
+  return MICROSOFT_PROVIDERS.has(providerId)
+}
+
+export function getMicrosoftRefreshTokenExpiry(): Date {
+  return new Date(Date.now() + MICROSOFT_REFRESH_TOKEN_LIFETIME_DAYS * 24 * 60 * 60 * 1000)
+}
+
 // Helper function to get a service by provider and service ID
 export function getServiceByProviderAndId(
   provider: OAuthProvider,
@@ -705,6 +724,7 @@ export interface Credential {
   serviceId?: string
   lastUsed?: string
   isDefault?: boolean
+  scopes?: string[]
 }
 
 // Interface for provider configuration
@@ -715,45 +735,53 @@ export interface ProviderConfig {
 
 export type OAuthProviderAvailability = Record<string, boolean>
 
+const OAUTH_PROVIDER_LOOKUP = Object.fromEntries(
+  Object.entries(OAUTH_PROVIDERS).flatMap(([baseProvider, providerConfig]) =>
+    Object.entries(providerConfig.services).map(([featureType, service]) => [
+      service.providerId,
+      {
+        baseProvider,
+        featureType,
+        scopes: service.scopes,
+        credentialProvider:
+          service.credentialProvider ?? providerConfig.credentialProvider ?? service.providerId,
+      },
+    ])
+  )
+) as Record<
+  string,
+  {
+    baseProvider: string
+    featureType: string
+    scopes: string[]
+    credentialProvider: string
+  }
+>
+
+export function getCanonicalScopesForProvider(providerId: string): string[] {
+  return OAUTH_PROVIDER_LOOKUP[providerId]?.scopes
+    ? [...OAUTH_PROVIDER_LOOKUP[providerId].scopes]
+    : []
+}
+
 /**
  * Parse a provider string into its base provider and feature type
  * This is a server-safe utility that can be used in both client and server code
  */
 export function parseProvider(provider: OAuthProvider): ProviderConfig {
-  // Handle special cases first
-  if (provider === 'outlook') {
+  const mapping = OAUTH_PROVIDER_LOOKUP[provider]
+  if (mapping) {
     return {
-      baseProvider: 'microsoft',
-      featureType: 'outlook',
-    }
-  }
-  if (provider === 'onedrive') {
-    return {
-      baseProvider: 'microsoft',
-      featureType: 'onedrive',
-    }
-  }
-  if (provider === 'sharepoint') {
-    return {
-      baseProvider: 'microsoft',
-      featureType: 'sharepoint',
+      baseProvider: mapping.baseProvider,
+      featureType: mapping.featureType,
     }
   }
 
   // Handle compound providers (e.g., 'google-email' -> { baseProvider: 'google', featureType: 'email' })
-  const [base, feature] = provider.split('-')
-
-  if (feature) {
-    return {
-      baseProvider: base,
-      featureType: feature,
-    }
-  }
-
-  // For simple providers, use 'default' as feature type
+  const [base, feature = 'default'] = provider.split('-')
   return {
-    baseProvider: provider,
-    featureType: 'default',
+    baseProvider: base,
+    featureType: feature,
   }
 }
 
@@ -767,17 +795,11 @@ export const getOAuthProviderAvailability = (
   const uniqueProviders = providers.filter((provider) => provider.trim().length > 0)
 
   const checkProvider = (providerId: string) => {
-    const directPrefix = toEnvKey(providerId)
-    const direct =
-      Boolean(getEnv(`${directPrefix}_CLIENT_ID`)) &&
-      Boolean(getEnv(`${directPrefix}_CLIENT_SECRET`))
-    if (direct) return true
-
-    const { baseProvider } = parseProvider(providerId)
-    const basePrefix = toEnvKey(baseProvider)
+    const credentialProvider = OAUTH_PROVIDER_LOOKUP[providerId]?.credentialProvider ?? providerId
+    const credentialPrefix = toEnvKey(credentialProvider)
     return (
-      Boolean(getEnv(`${basePrefix}_CLIENT_ID`)) &&
-      Boolean(getEnv(`${basePrefix}_CLIENT_SECRET`))
+      Boolean(getEnv(`${credentialPrefix}_CLIENT_ID`)) &&
+      Boolean(getEnv(`${credentialPrefix}_CLIENT_SECRET`))
     )
   }
 
@@ -799,6 +821,7 @@ interface ProviderAuthConfig {
   useBasicAuth: boolean
   additionalHeaders?: Record<string, string>
   supportsRefreshTokenRotation?: boolean
+  useJsonBody?: boolean
 }
 
 /**
@@ -845,6 +868,7 @@ function getProviderAuthConfig(provider: string): ProviderAuthConfig {
         clientId,
         clientSecret,
         useBasicAuth: true,
+        supportsRefreshTokenRotation: true,
       }
     }
     case 'confluence': {
@@ -904,7 +928,9 @@ function getProviderAuthConfig(provider: string): ProviderAuthConfig {
         tokenEndpoint: 'https://api.notion.com/v1/oauth/token',
         clientId,
         clientSecret,
-        useBasicAuth: false,
+        useBasicAuth: true,
+        supportsRefreshTokenRotation: true,
+        useJsonBody: true,
       }
     }
     case 'discord': {
@@ -977,6 +1003,7 @@ function getProviderAuthConfig(provider: string): ProviderAuthConfig {
         clientId,
         clientSecret,
         useBasicAuth: true,
+        supportsRefreshTokenRotation: true,
       }
     }
     case 'slack': {
@@ -1002,6 +1029,9 @@ function getProviderAuthConfig(provider: string): ProviderAuthConfig {
         clientId,
         clientSecret,
         useBasicAuth: true,
+        additionalHeaders: {
+          'User-Agent': 'tradinggoose-studio/1.0',
+        },
       }
     }
     case 'tradier': {
@@ -1065,9 +1095,9 @@ function getProviderAuthConfig(provider: string): ProviderAuthConfig {
 function buildAuthRequest(
   config: ProviderAuthConfig,
   refreshToken: string
-): { headers: Record<string, string>; bodyParams: Record<string, string> } {
+): { headers: Record<string, string>; bodyParams: Record<string, string>; useJsonBody: boolean } {
   const headers: Record<string, string> = {
-    'Content-Type': 'application/x-www-form-urlencoded',
+    'Content-Type': config.useJsonBody ? 'application/json' : 'application/x-www-form-urlencoded',
     ...config.additionalHeaders,
   }
 
@@ -1086,7 +1116,11 @@ function buildAuthRequest(
     bodyParams.client_secret = config.clientSecret
   }
 
-  return { headers, bodyParams }
+  return { headers, bodyParams, useJsonBody: Boolean(config.useJsonBody) }
+}
+
+function getBaseProviderForService(providerId: string): string {
+  return OAUTH_PROVIDER_LOOKUP[providerId]?.baseProvider || parseProvider(providerId).baseProvider
 }
 
 /**
@@ -1101,20 +1135,19 @@ export async function refreshOAuthToken(
   refreshToken: string
 ): Promise<{ accessToken: string; expiresIn: number; refreshToken: string } | null> {
   try {
-    // Get the provider from the providerId (e.g., 'google-drive' -> 'google')
-    const provider = providerId.split('-')[0]
+    const provider = getBaseProviderForService(providerId)
 
     // Get provider configuration
     const config = getProviderAuthConfig(provider)
 
     // Build authentication request
-    const { headers, bodyParams } = buildAuthRequest(config, refreshToken)
+    const { headers, bodyParams, useJsonBody } = buildAuthRequest(config, refreshToken)
 
     // Refresh the token
     const response = await fetch(config.tokenEndpoint, {
       method: 'POST',
       headers,
-      body: new URLSearchParams(bodyParams).toString(),
+      body: useJsonBody ? JSON.stringify(bodyParams) : new URLSearchParams(bodyParams).toString(),
     })
 
     if (!response.ok) {

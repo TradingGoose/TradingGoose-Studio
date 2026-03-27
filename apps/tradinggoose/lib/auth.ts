@@ -43,10 +43,103 @@ import { quickValidateEmail } from '@/lib/email/validation'
 import { env, isTruthy } from '@/lib/env'
 import { isBillingEnabled, isEmailVerificationEnabled } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  getCanonicalScopesForProvider,
+  getMicrosoftRefreshTokenExpiry,
+  isMicrosoftProvider,
+  MICROSOFT_PROVIDERS,
+  OAUTH_PROVIDERS,
+} from '@/lib/oauth'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { SSO_TRUSTED_PROVIDERS } from './sso/consts'
 
 const logger = createLogger('Auth')
+
+const BASE_TRUSTED_OAUTH_PROVIDERS = [
+  'google',
+  'github',
+  'email-password',
+  'confluence',
+  'supabase',
+  'x',
+  'notion',
+  'microsoft',
+  'slack',
+  'reddit',
+  'webflow',
+]
+
+const TRUSTED_OAUTH_PROVIDER_IDS = Array.from(
+  new Set([
+    ...BASE_TRUSTED_OAUTH_PROVIDERS,
+    ...Object.entries(OAUTH_PROVIDERS).flatMap(([baseProvider, providerConfig]) =>
+      BASE_TRUSTED_OAUTH_PROVIDERS.includes(baseProvider)
+        ? Object.values(providerConfig.services).map((service) => service.providerId)
+        : []
+    ),
+  ])
+)
+
+const MICROSOFT_OAUTH_BASE_CONFIG = {
+  clientId: env.MICROSOFT_CLIENT_ID as string,
+  clientSecret: env.MICROSOFT_CLIENT_SECRET as string,
+  authorizationUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
+  tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+  userInfoUrl: 'https://graph.microsoft.com/v1.0/me',
+  responseType: 'code' as const,
+  accessType: 'offline' as const,
+  authentication: 'basic' as const,
+  pkce: true,
+}
+
+function createMicrosoftOAuthProvider(providerId: string) {
+  return {
+    ...MICROSOFT_OAUTH_BASE_CONFIG,
+    providerId,
+    scopes: getCanonicalScopesForProvider(providerId),
+    redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/${providerId}`,
+    getUserInfo: async (tokens: Record<string, unknown>) =>
+      getMicrosoftUserInfoFromIdToken(tokens, providerId),
+  }
+}
+
+function getMicrosoftUserInfoFromIdToken(tokens: Record<string, unknown>, providerId: string) {
+  const idToken = typeof tokens.idToken === 'string' ? tokens.idToken : undefined
+  if (!idToken) {
+    logger.error(`Microsoft ${providerId} OAuth: no ID token received`)
+    throw new Error(`Microsoft ${providerId} OAuth requires an ID token`)
+  }
+
+  const parts = idToken.split('.')
+  if (parts.length !== 3) {
+    throw new Error(`Microsoft ${providerId} OAuth: malformed ID token`)
+  }
+
+  let payload: Record<string, unknown>
+  try {
+    payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf-8'))
+  } catch {
+    throw new Error(`Microsoft ${providerId} OAuth: failed to decode ID token payload`)
+  }
+
+  const email =
+    (payload.email as string) || (payload.preferred_username as string) || (payload.upn as string)
+  if (!email) {
+    throw new Error(
+      `Microsoft ${providerId} OAuth: ID token contains no email, preferred_username, or upn claim`
+    )
+  }
+
+  const now = new Date()
+  return {
+    id: `${payload.oid || payload.sub}-${crypto.randomUUID()}`,
+    name: (payload.name as string) || 'Microsoft User',
+    email,
+    emailVerified: true,
+    createdAt: now,
+    updatedAt: now,
+  }
+}
 
 // Only initialize Stripe if the key is provided
 // This allows local development without a Stripe account
@@ -97,6 +190,31 @@ export const auth = betterAuth({
         },
       },
     },
+    account: {
+      create: {
+        after: async (account) => {
+          if (!isMicrosoftProvider(account.providerId)) {
+            return
+          }
+
+          try {
+            await db
+              .update(schema.account)
+              .set({ refreshTokenExpiresAt: getMicrosoftRefreshTokenExpiry() })
+              .where(eq(schema.account.id, account.id))
+          } catch (error) {
+            logger.error(
+              '[databaseHooks.account.create.after] Failed to set Microsoft refresh token expiry',
+              {
+                accountId: account.id,
+                providerId: account.providerId,
+                error,
+              }
+            )
+          }
+        },
+      },
+    },
     session: {
       create: {
         before: async (session) => {
@@ -142,17 +260,7 @@ export const auth = betterAuth({
       allowDifferentEmails: true,
       trustedProviders: [
         // Standard OAuth providers
-        'google',
-        'github',
-        'email-password',
-        'confluence',
-        'supabase',
-        'x',
-        'notion',
-        'microsoft',
-        'slack',
-        'reddit',
-        'webflow',
+        ...TRUSTED_OAUTH_PROVIDER_IDS,
 
         // Common SSO provider patterns
         ...SSO_TRUSTED_PROVIDERS,
@@ -525,134 +633,7 @@ export const auth = betterAuth({
           redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/google-vault`,
         },
 
-        {
-          providerId: 'microsoft-teams',
-          clientId: env.MICROSOFT_CLIENT_ID as string,
-          clientSecret: env.MICROSOFT_CLIENT_SECRET as string,
-          authorizationUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
-          tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-          userInfoUrl: 'https://graph.microsoft.com/v1.0/me',
-          scopes: [
-            'openid',
-            'profile',
-            'email',
-            'User.Read',
-            'Chat.Read',
-            'Chat.ReadWrite',
-            'Chat.ReadBasic',
-            'Channel.ReadBasic.All',
-            'ChannelMessage.Send',
-            'ChannelMessage.Read.All',
-            'Group.Read.All',
-            'Group.ReadWrite.All',
-            'Team.ReadBasic.All',
-            'offline_access',
-          ],
-          responseType: 'code',
-          accessType: 'offline',
-          authentication: 'basic',
-          pkce: true,
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/microsoft-teams`,
-        },
-
-        {
-          providerId: 'microsoft-excel',
-          clientId: env.MICROSOFT_CLIENT_ID as string,
-          clientSecret: env.MICROSOFT_CLIENT_SECRET as string,
-          authorizationUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
-          tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-          userInfoUrl: 'https://graph.microsoft.com/v1.0/me',
-          scopes: ['openid', 'profile', 'email', 'Files.Read', 'Files.ReadWrite', 'offline_access'],
-          responseType: 'code',
-          accessType: 'offline',
-          authentication: 'basic',
-          pkce: true,
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/microsoft-excel`,
-        },
-        {
-          providerId: 'microsoft-planner',
-          clientId: env.MICROSOFT_CLIENT_ID as string,
-          clientSecret: env.MICROSOFT_CLIENT_SECRET as string,
-          authorizationUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
-          tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-          userInfoUrl: 'https://graph.microsoft.com/v1.0/me',
-          scopes: [
-            'openid',
-            'profile',
-            'email',
-            'Group.ReadWrite.All',
-            'Group.Read.All',
-            'Tasks.ReadWrite',
-            'offline_access',
-          ],
-          responseType: 'code',
-          accessType: 'offline',
-          authentication: 'basic',
-          pkce: true,
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/microsoft-planner`,
-        },
-
-        {
-          providerId: 'outlook',
-          clientId: env.MICROSOFT_CLIENT_ID as string,
-          clientSecret: env.MICROSOFT_CLIENT_SECRET as string,
-          authorizationUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
-          tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-          userInfoUrl: 'https://graph.microsoft.com/v1.0/me',
-          scopes: [
-            'openid',
-            'profile',
-            'email',
-            'Mail.ReadWrite',
-            'Mail.ReadBasic',
-            'Mail.Read',
-            'Mail.Send',
-            'offline_access',
-          ],
-          responseType: 'code',
-          accessType: 'offline',
-          authentication: 'basic',
-          pkce: true,
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/outlook`,
-        },
-
-        {
-          providerId: 'onedrive',
-          clientId: env.MICROSOFT_CLIENT_ID as string,
-          clientSecret: env.MICROSOFT_CLIENT_SECRET as string,
-          authorizationUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
-          tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-          userInfoUrl: 'https://graph.microsoft.com/v1.0/me',
-          scopes: ['openid', 'profile', 'email', 'Files.Read', 'Files.ReadWrite', 'offline_access'],
-          responseType: 'code',
-          accessType: 'offline',
-          authentication: 'basic',
-          pkce: true,
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/onedrive`,
-        },
-
-        {
-          providerId: 'sharepoint',
-          clientId: env.MICROSOFT_CLIENT_ID as string,
-          clientSecret: env.MICROSOFT_CLIENT_SECRET as string,
-          authorizationUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
-          tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-          userInfoUrl: 'https://graph.microsoft.com/v1.0/me',
-          scopes: [
-            'openid',
-            'profile',
-            'email',
-            'Sites.Read.All',
-            'Sites.ReadWrite.All',
-            'Sites.Manage.All',
-            'offline_access',
-          ],
-          responseType: 'code',
-          accessType: 'offline',
-          authentication: 'basic',
-          pkce: true,
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/sharepoint`,
-        },
+        ...[...MICROSOFT_PROVIDERS].map(createMicrosoftOAuthProvider),
 
         {
           providerId: 'wealthbox',

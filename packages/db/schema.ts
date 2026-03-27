@@ -633,6 +633,29 @@ export const customTools = pgTable(
   })
 )
 
+export const skill = pgTable(
+  'skill',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspace.id, { onDelete: 'cascade' }),
+    userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
+    name: text('name').notNull(),
+    description: text('description').notNull(),
+    content: text('content').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    workspaceIdIdx: index('skill_workspace_id_idx').on(table.workspaceId),
+    workspaceNameUnique: uniqueIndex('skill_workspace_name_unique').on(
+      table.workspaceId,
+      table.name
+    ),
+  })
+)
+
 export const pineIndicators = pgTable(
   'custom_indicators',
   {

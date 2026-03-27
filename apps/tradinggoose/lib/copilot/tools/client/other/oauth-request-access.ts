@@ -143,6 +143,7 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
         await client.oauth2.link({
           providerId,
           callbackURL,
+          errorCallbackURL: callbackURL,
         })
         return
       }

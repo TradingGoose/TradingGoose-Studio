@@ -1,4 +1,11 @@
-import type { BaseClientToolMetadata } from '@/lib/copilot/tools/client/base-tool'
+import { isToolId, type ToolId } from '@/lib/copilot/registry'
+import {
+  type BaseClientTool,
+  type BaseClientToolMetadata,
+  ClientToolCallState,
+  type ClientToolDisplay,
+  type ClientToolExecutionContext,
+} from '@/lib/copilot/tools/client/base-tool'
 import { GetBlockConfigClientTool } from '@/lib/copilot/tools/client/blocks/get-block-config'
 import { GetBlockOptionsClientTool } from '@/lib/copilot/tools/client/blocks/get-block-options'
 import { GetBlocksAndToolsClientTool } from '@/lib/copilot/tools/client/blocks/get-blocks-and-tools'
@@ -7,10 +14,10 @@ import { GetTriggerBlocksClientTool } from '@/lib/copilot/tools/client/blocks/ge
 import { GetExamplesRagClientTool } from '@/lib/copilot/tools/client/examples/get-examples-rag'
 import { GetOperationsExamplesClientTool } from '@/lib/copilot/tools/client/examples/get-operations-examples'
 import { GetTriggerExamplesClientTool } from '@/lib/copilot/tools/client/examples/get-trigger-examples'
-import { KnowledgeBaseClientTool } from '@/lib/copilot/tools/client/knowledge/knowledge-base'
 import { ListGDriveFilesClientTool } from '@/lib/copilot/tools/client/gdrive/list-files'
 import { ReadGDriveFileClientTool } from '@/lib/copilot/tools/client/gdrive/read-file'
 import { GDriveRequestAccessClientTool } from '@/lib/copilot/tools/client/google/gdrive-request-access'
+import { KnowledgeBaseClientTool } from '@/lib/copilot/tools/client/knowledge/knowledge-base'
 import { getClientTool, registerClientTool } from '@/lib/copilot/tools/client/manager'
 import { CheckoffTodoClientTool } from '@/lib/copilot/tools/client/other/checkoff-todo'
 import { MakeApiRequestClientTool } from '@/lib/copilot/tools/client/other/make-api-request'
@@ -32,7 +39,6 @@ import { DeployWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/de
 import { EditWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/edit-workflow'
 import { GetBlockOutputsClientTool } from '@/lib/copilot/tools/client/workflow/get-block-outputs'
 import { GetBlockUpstreamReferencesClientTool } from '@/lib/copilot/tools/client/workflow/get-block-upstream-references'
-import { PreviewEditWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/preview-edit-workflow'
 import { GetGlobalWorkflowVariablesClientTool } from '@/lib/copilot/tools/client/workflow/get-global-workflow-variables'
 import { GetUserWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/get-user-workflow'
 import { GetWorkflowConsoleClientTool } from '@/lib/copilot/tools/client/workflow/get-workflow-console'
@@ -41,114 +47,348 @@ import { GetWorkflowFromNameClientTool } from '@/lib/copilot/tools/client/workfl
 import { ListUserWorkflowsClientTool } from '@/lib/copilot/tools/client/workflow/list-user-workflows'
 import { ManageCustomToolClientTool } from '@/lib/copilot/tools/client/workflow/manage-custom-tool'
 import { ManageMcpToolClientTool } from '@/lib/copilot/tools/client/workflow/manage-mcp-tool'
+import { ManageSkillClientTool } from '@/lib/copilot/tools/client/workflow/manage-skill'
+import { PreviewEditWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/preview-edit-workflow'
 import { RunWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/run-workflow'
 import { SetGlobalWorkflowVariablesClientTool } from '@/lib/copilot/tools/client/workflow/set-global-workflow-variables'
+import { createLogger } from '@/lib/logs/console/logger'
+import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
-// Known class-based client tools: map tool name -> instantiator
-export const CLIENT_TOOL_INSTANTIATORS: Record<string, (id: string) => any> = {
-  run_workflow: (id) => new RunWorkflowClientTool(id),
-  get_workflow_console: (id) => new GetWorkflowConsoleClientTool(id),
-  get_blocks_and_tools: (id) => new GetBlocksAndToolsClientTool(id),
-  get_blocks_metadata: (id) => new GetBlocksMetadataClientTool(id),
-  get_block_options: (id) => new GetBlockOptionsClientTool(id),
-  get_block_config: (id) => new GetBlockConfigClientTool(id),
-  get_trigger_blocks: (id) => new GetTriggerBlocksClientTool(id),
-  search_online: (id) => new SearchOnlineClientTool(id),
-  search_documentation: (id) => new SearchDocumentationClientTool(id),
-  search_patterns: (id) => new SearchPatternsClientTool(id),
-  search_errors: (id) => new SearchErrorsClientTool(id),
-  remember_debug: (id) => new RememberDebugClientTool(id),
-  get_environment_variables: (id) => new GetEnvironmentVariablesClientTool(id),
-  set_environment_variables: (id) => new SetEnvironmentVariablesClientTool(id),
-  get_credentials: (id) => new GetCredentialsClientTool(id),
-  knowledge_base: (id) => new KnowledgeBaseClientTool(id),
-  list_gdrive_files: (id) => new ListGDriveFilesClientTool(id),
-  read_gdrive_file: (id) => new ReadGDriveFileClientTool(id),
-  get_oauth_credentials: (id) => new GetOAuthCredentialsClientTool(id),
-  make_api_request: (id) => new MakeApiRequestClientTool(id),
-  plan: (id) => new PlanClientTool(id),
-  checkoff_todo: (id) => new CheckoffTodoClientTool(id),
-  mark_todo_in_progress: (id) => new MarkTodoInProgressClientTool(id),
-  gdrive_request_access: (id) => new GDriveRequestAccessClientTool(id),
-  oauth_request_access: (id) => new OAuthRequestAccessClientTool(id),
-  edit_workflow: (id) => new EditWorkflowClientTool(id),
-  preview_edit_workflow: (id) => new PreviewEditWorkflowClientTool(id),
-  get_user_workflow: (id) => new GetUserWorkflowClientTool(id),
-  list_user_workflows: (id) => new ListUserWorkflowsClientTool(id),
-  get_workflow_from_name: (id) => new GetWorkflowFromNameClientTool(id),
-  get_workflow_data: (id) => new GetWorkflowDataClientTool(id),
-  get_global_workflow_variables: (id) => new GetGlobalWorkflowVariablesClientTool(id),
-  set_global_workflow_variables: (id) => new SetGlobalWorkflowVariablesClientTool(id),
-  get_trigger_examples: (id) => new GetTriggerExamplesClientTool(id),
-  get_examples_rag: (id) => new GetExamplesRagClientTool(id),
-  get_operations_examples: (id) => new GetOperationsExamplesClientTool(id),
-  deploy_workflow: (id) => new DeployWorkflowClientTool(id),
-  check_deployment_status: (id) => new CheckDeploymentStatusClientTool(id),
-  manage_custom_tool: (id) => new ManageCustomToolClientTool(id),
-  manage_mcp_tool: (id) => new ManageMcpToolClientTool(id),
-  sleep: (id) => new SleepClientTool(id),
-  get_block_outputs: (id) => new GetBlockOutputsClientTool(id),
-  get_block_upstream_references: (id) => new GetBlockUpstreamReferencesClientTool(id),
+const logger = createLogger('CopilotToolRegistry')
+
+type ToolExecutionKind = 'client' | 'server'
+
+type ClientToolCtor = {
+  new (toolCallId: string): BaseClientTool
+  metadata: BaseClientToolMetadata
 }
 
-// Read-only static metadata for class-based tools (no instances)
-export const CLASS_TOOL_METADATA: Record<string, BaseClientToolMetadata | undefined> = {
-  run_workflow: (RunWorkflowClientTool as any)?.metadata,
-  get_workflow_console: (GetWorkflowConsoleClientTool as any)?.metadata,
-  get_blocks_and_tools: (GetBlocksAndToolsClientTool as any)?.metadata,
-  get_blocks_metadata: (GetBlocksMetadataClientTool as any)?.metadata,
-  get_block_options: (GetBlockOptionsClientTool as any)?.metadata,
-  get_block_config: (GetBlockConfigClientTool as any)?.metadata,
-  get_trigger_blocks: (GetTriggerBlocksClientTool as any)?.metadata,
-  search_online: (SearchOnlineClientTool as any)?.metadata,
-  search_documentation: (SearchDocumentationClientTool as any)?.metadata,
-  search_patterns: (SearchPatternsClientTool as any)?.metadata,
-  search_errors: (SearchErrorsClientTool as any)?.metadata,
-  remember_debug: (RememberDebugClientTool as any)?.metadata,
-  get_environment_variables: (GetEnvironmentVariablesClientTool as any)?.metadata,
-  set_environment_variables: (SetEnvironmentVariablesClientTool as any)?.metadata,
-  get_credentials: (GetCredentialsClientTool as any)?.metadata,
-  knowledge_base: (KnowledgeBaseClientTool as any)?.metadata,
-  list_gdrive_files: (ListGDriveFilesClientTool as any)?.metadata,
-  read_gdrive_file: (ReadGDriveFileClientTool as any)?.metadata,
-  get_oauth_credentials: (GetOAuthCredentialsClientTool as any)?.metadata,
-  make_api_request: (MakeApiRequestClientTool as any)?.metadata,
-  plan: (PlanClientTool as any)?.metadata,
-  checkoff_todo: (CheckoffTodoClientTool as any)?.metadata,
-  mark_todo_in_progress: (MarkTodoInProgressClientTool as any)?.metadata,
-  gdrive_request_access: (GDriveRequestAccessClientTool as any)?.metadata,
-  edit_workflow: (EditWorkflowClientTool as any)?.metadata,
-  preview_edit_workflow: (PreviewEditWorkflowClientTool as any)?.metadata,
-  get_user_workflow: (GetUserWorkflowClientTool as any)?.metadata,
-  list_user_workflows: (ListUserWorkflowsClientTool as any)?.metadata,
-  get_workflow_from_name: (GetWorkflowFromNameClientTool as any)?.metadata,
-  get_workflow_data: (GetWorkflowDataClientTool as any)?.metadata,
-  get_global_workflow_variables: (GetGlobalWorkflowVariablesClientTool as any)?.metadata,
-  set_global_workflow_variables: (SetGlobalWorkflowVariablesClientTool as any)?.metadata,
-  get_trigger_examples: (GetTriggerExamplesClientTool as any)?.metadata,
-  get_examples_rag: (GetExamplesRagClientTool as any)?.metadata,
-  oauth_request_access: (OAuthRequestAccessClientTool as any)?.metadata,
-  get_operations_examples: (GetOperationsExamplesClientTool as any)?.metadata,
-  deploy_workflow: (DeployWorkflowClientTool as any)?.metadata,
-  check_deployment_status: (CheckDeploymentStatusClientTool as any)?.metadata,
-  manage_custom_tool: (ManageCustomToolClientTool as any)?.metadata,
-  manage_mcp_tool: (ManageMcpToolClientTool as any)?.metadata,
-  sleep: (SleepClientTool as any)?.metadata,
-  get_block_outputs: (GetBlockOutputsClientTool as any)?.metadata,
-  get_block_upstream_references: (GetBlockUpstreamReferencesClientTool as any)?.metadata,
+interface CopilotToolDefinition {
+  execution: ToolExecutionKind
+  metadata: BaseClientToolMetadata
+  createInstance?: (toolCallId: string) => BaseClientTool
+  prepareArgs?: (
+    args: Record<string, any> | undefined,
+    context: ClientToolExecutionContext
+  ) => Record<string, any>
+}
+
+function clientTool(Ctor: ClientToolCtor): CopilotToolDefinition {
+  return {
+    execution: 'client',
+    metadata: Ctor.metadata,
+    createInstance: (toolCallId) => new Ctor(toolCallId),
+  }
+}
+
+function serverTool(
+  Ctor: Pick<ClientToolCtor, 'metadata'>,
+  prepareArgs?: CopilotToolDefinition['prepareArgs']
+): CopilotToolDefinition {
+  return {
+    execution: 'server',
+    metadata: Ctor.metadata,
+    ...(prepareArgs ? { prepareArgs } : {}),
+  }
+}
+
+function cloneArgs(args: Record<string, any> | undefined): Record<string, any> {
+  if (!args || typeof args !== 'object') {
+    return {}
+  }
+
+  return { ...args }
+}
+
+function resolveActiveWorkflowId(context: ClientToolExecutionContext): string | undefined {
+  return (
+    context.workflowId ||
+    useWorkflowRegistry.getState().getActiveWorkflowId(context.channelId) ||
+    undefined
+  )
+}
+
+function withActiveWorkflowId(
+  args: Record<string, any> | undefined,
+  context: ClientToolExecutionContext
+): Record<string, any> {
+  const payload = cloneArgs(args)
+  if (!payload.workflowId) {
+    const workflowId = resolveActiveWorkflowId(context)
+    if (workflowId) {
+      payload.workflowId = workflowId
+    }
+  }
+  return payload
+}
+
+function withActiveWorkflowIdUnlessIdentityProvided(
+  args: Record<string, any> | undefined,
+  context: ClientToolExecutionContext
+): Record<string, any> {
+  const payload = cloneArgs(args)
+  if (!payload.userId && !payload.workflowId) {
+    const workflowId = resolveActiveWorkflowId(context)
+    if (workflowId) {
+      payload.workflowId = workflowId
+    }
+  }
+  return payload
+}
+
+const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
+  run_workflow: clientTool(RunWorkflowClientTool),
+  get_workflow_console: serverTool(GetWorkflowConsoleClientTool, withActiveWorkflowId),
+  get_blocks_and_tools: serverTool(GetBlocksAndToolsClientTool),
+  get_blocks_metadata: serverTool(GetBlocksMetadataClientTool),
+  get_block_options: serverTool(GetBlockOptionsClientTool),
+  get_block_config: serverTool(GetBlockConfigClientTool),
+  get_trigger_blocks: serverTool(GetTriggerBlocksClientTool),
+  search_online: serverTool(SearchOnlineClientTool),
+  search_documentation: serverTool(SearchDocumentationClientTool),
+  search_patterns: clientTool(SearchPatternsClientTool),
+  search_errors: clientTool(SearchErrorsClientTool),
+  remember_debug: clientTool(RememberDebugClientTool),
+  get_environment_variables: serverTool(
+    GetEnvironmentVariablesClientTool,
+    withActiveWorkflowIdUnlessIdentityProvided
+  ),
+  set_environment_variables: serverTool(SetEnvironmentVariablesClientTool, withActiveWorkflowId),
+  get_credentials: serverTool(GetCredentialsClientTool, withActiveWorkflowIdUnlessIdentityProvided),
+  knowledge_base: clientTool(KnowledgeBaseClientTool),
+  list_gdrive_files: serverTool(
+    ListGDriveFilesClientTool,
+    withActiveWorkflowIdUnlessIdentityProvided
+  ),
+  read_gdrive_file: serverTool(ReadGDriveFileClientTool),
+  get_oauth_credentials: serverTool(
+    GetOAuthCredentialsClientTool,
+    withActiveWorkflowIdUnlessIdentityProvided
+  ),
+  make_api_request: serverTool(MakeApiRequestClientTool),
+  plan: clientTool(PlanClientTool),
+  checkoff_todo: clientTool(CheckoffTodoClientTool),
+  mark_todo_in_progress: clientTool(MarkTodoInProgressClientTool),
+  gdrive_request_access: clientTool(GDriveRequestAccessClientTool),
+  oauth_request_access: clientTool(OAuthRequestAccessClientTool),
+  edit_workflow: clientTool(EditWorkflowClientTool),
+  preview_edit_workflow: clientTool(PreviewEditWorkflowClientTool),
+  get_user_workflow: clientTool(GetUserWorkflowClientTool),
+  list_user_workflows: clientTool(ListUserWorkflowsClientTool),
+  get_workflow_from_name: clientTool(GetWorkflowFromNameClientTool),
+  get_workflow_data: clientTool(GetWorkflowDataClientTool),
+  get_global_workflow_variables: clientTool(GetGlobalWorkflowVariablesClientTool),
+  set_global_workflow_variables: clientTool(SetGlobalWorkflowVariablesClientTool),
+  get_trigger_examples: clientTool(GetTriggerExamplesClientTool),
+  get_examples_rag: clientTool(GetExamplesRagClientTool),
+  get_operations_examples: clientTool(GetOperationsExamplesClientTool),
+  deploy_workflow: clientTool(DeployWorkflowClientTool),
+  check_deployment_status: clientTool(CheckDeploymentStatusClientTool),
+  manage_custom_tool: clientTool(ManageCustomToolClientTool),
+  manage_skill: clientTool(ManageSkillClientTool),
+  manage_mcp_tool: clientTool(ManageMcpToolClientTool),
+  sleep: clientTool(SleepClientTool),
+  get_block_outputs: clientTool(GetBlockOutputsClientTool),
+  get_block_upstream_references: clientTool(GetBlockUpstreamReferencesClientTool),
+}
+
+export function createExecutionContext(params: {
+  toolCallId: string
+  toolName: string
+  channelId: string
+  workflowId: string
+}): ClientToolExecutionContext {
+  const { toolCallId, toolName, channelId, workflowId } = params
+
+  return {
+    toolCallId,
+    toolName,
+    channelId,
+    workflowId,
+    log: (level, message, extra) => {
+      try {
+        logger[level](message, { toolCallId, toolName, channelId, workflowId, ...(extra || {}) })
+      } catch {}
+    },
+  }
+}
+
+export function getCopilotToolDefinition(
+  toolName: string | undefined
+): CopilotToolDefinition | undefined {
+  if (!toolName || !isToolId(toolName)) {
+    return undefined
+  }
+
+  return COPILOT_TOOL_REGISTRY[toolName]
+}
+
+export function isCopilotTool(toolName: string | undefined): boolean {
+  return !!getCopilotToolDefinition(toolName)
+}
+
+export function isClientManagedCopilotTool(toolName: string | undefined): boolean {
+  return getCopilotToolDefinition(toolName)?.execution === 'client'
+}
+
+export function isServerManagedCopilotTool(toolName: string | undefined): boolean {
+  return getCopilotToolDefinition(toolName)?.execution === 'server'
+}
+
+export function getCopilotToolMetadata(
+  toolName: string | undefined
+): BaseClientToolMetadata | undefined {
+  return getCopilotToolDefinition(toolName)?.metadata
 }
 
 export function ensureClientToolInstance(
   toolName: string | undefined,
   toolCallId: string | undefined
-) {
+): BaseClientTool | undefined {
   try {
-    if (!toolName || !toolCallId) return
-    if (getClientTool(toolCallId)) return
-    const make = CLIENT_TOOL_INSTANTIATORS[toolName]
-    if (make) {
-      const inst = make(toolCallId)
-      registerClientTool(toolCallId, inst)
+    if (!toolName || !toolCallId) {
+      return undefined
     }
-  } catch { }
+
+    const existing = getClientTool(toolCallId) as BaseClientTool | undefined
+    if (existing) {
+      return existing
+    }
+
+    const definition = getCopilotToolDefinition(toolName)
+    if (definition?.execution !== 'client' || !definition.createInstance) {
+      return undefined
+    }
+
+    const instance = definition.createInstance(toolCallId)
+    registerClientTool(toolCallId, instance)
+    return instance
+  } catch {
+    return undefined
+  }
+}
+
+export function bindClientToolExecutionContext(
+  toolCallId: string,
+  context: ClientToolExecutionContext
+): void {
+  try {
+    const instance = getClientTool(toolCallId) as BaseClientTool | undefined
+    instance?.setExecutionContext(context)
+  } catch {}
+}
+
+export function prepareCopilotToolArgs(
+  toolName: string | undefined,
+  args: Record<string, any> | undefined,
+  context: ClientToolExecutionContext
+): Record<string, any> {
+  const definition = getCopilotToolDefinition(toolName)
+  if (!definition) {
+    return cloneArgs(args)
+  }
+
+  if (!definition.prepareArgs) {
+    return cloneArgs(args)
+  }
+
+  return definition.prepareArgs(args, context)
+}
+
+export function getToolInterruptDisplays(
+  toolName: string | undefined,
+  toolCallId?: string
+): BaseClientToolMetadata['interrupt'] | undefined {
+  try {
+    const instance = toolCallId ? (getClientTool(toolCallId) as any) : undefined
+    const instanceInterrupt = instance?.getInterruptDisplays?.()
+    if (instanceInterrupt) {
+      return instanceInterrupt
+    }
+  } catch {}
+
+  return getCopilotToolMetadata(toolName)?.interrupt
+}
+
+export function copilotToolHasInterrupt(
+  toolName: string | undefined,
+  toolCallId?: string
+): boolean {
+  return !!getToolInterruptDisplays(toolName, toolCallId)
+}
+
+export function resolveToolDisplay(
+  toolName: string | undefined,
+  state: ClientToolCallState,
+  _toolCallId?: string,
+  params?: Record<string, any>
+): ClientToolDisplay | undefined {
+  try {
+    if (!toolName) {
+      return undefined
+    }
+
+    const toolMetadata = getCopilotToolMetadata(toolName)
+    const displayNames = toolMetadata?.displayNames
+    const stateDisplay = displayNames?.[state]
+
+    if (stateDisplay?.text || stateDisplay?.icon) {
+      const dynamicText = toolMetadata?.getDynamicText?.(params || {}, state)
+      if (dynamicText && stateDisplay.icon) {
+        return { text: dynamicText, icon: stateDisplay.icon }
+      }
+      return { text: stateDisplay.text, icon: stateDisplay.icon }
+    }
+
+    const fallbackOrder: ClientToolCallState[] = [
+      ClientToolCallState.generating,
+      ClientToolCallState.executing,
+      ClientToolCallState.review,
+      ClientToolCallState.success,
+      ClientToolCallState.error,
+      ClientToolCallState.rejected,
+    ]
+
+    for (const fallbackState of fallbackOrder) {
+      const fallbackDisplay = displayNames?.[fallbackState]
+      if (fallbackDisplay?.text || fallbackDisplay?.icon) {
+        return { text: fallbackDisplay.text, icon: fallbackDisplay.icon }
+      }
+    }
+  } catch {}
+
+  try {
+    if (toolName) {
+      return {
+        text: toolName.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()),
+        icon: undefined as any,
+      }
+    }
+  } catch {}
+
+  return undefined
+}
+
+export function isRejectedState(state: any): boolean {
+  try {
+    return state === 'rejected' || state === ClientToolCallState.rejected
+  } catch {
+    return state === 'rejected'
+  }
+}
+
+export function isReviewState(state: any): boolean {
+  try {
+    return state === 'review' || state === ClientToolCallState.review
+  } catch {
+    return state === 'review'
+  }
+}
+
+export function isBackgroundState(state: any): boolean {
+  try {
+    return state === 'background' || state === ClientToolCallState.background
+  } catch {
+    return state === 'background'
+  }
 }

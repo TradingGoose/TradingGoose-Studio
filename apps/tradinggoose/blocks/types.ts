@@ -1,6 +1,6 @@
 import type { JSX, SVGProps } from 'react'
-import type { ToolResponse } from '@/tools/types'
 import type { TimeFormat } from '@/lib/time-format'
+import type { ToolResponse } from '@/tools/types'
 
 export type BlockIcon = (props: SVGProps<SVGSVGElement>) => JSX.Element
 export type ParamType = 'string' | 'number' | 'boolean' | 'json' | 'array'
@@ -50,6 +50,7 @@ export type SubBlockType =
   | 'code' // Code editor
   | 'switch' // Toggle button
   | 'tool-input' // Tool configuration
+  | 'skill-input' // Agent skill selector
   | 'checkbox-list' // Multiple selection
   | 'grouped-checkbox-list' // Grouped, scrollable checkbox list with select all
   | 'condition-input' // Conditional logic
@@ -93,16 +94,16 @@ export type ExtractToolOutput<T> = T extends ToolResponse ? T['output'] : never
 
 export type ToolOutputToValueType<T> = T extends Record<string, any>
   ? {
-    [K in keyof T]: T[K] extends string
-    ? 'string'
-    : T[K] extends number
-    ? 'number'
-    : T[K] extends boolean
-    ? 'boolean'
-    : T[K] extends object
-    ? 'json'
-    : 'any'
-  }
+      [K in keyof T]: T[K] extends string
+        ? 'string'
+        : T[K] extends number
+          ? 'number'
+          : T[K] extends boolean
+            ? 'boolean'
+            : T[K] extends object
+              ? 'json'
+              : 'any'
+    }
   : never
 
 export type BlockOutput =
@@ -146,41 +147,41 @@ export interface SubBlockConfig {
   providerType?: 'market' | 'trading'
   providerFieldId?: string
   required?:
-  | boolean
-  | {
-    field: string
-    value: string | number | boolean | Array<string | number | boolean>
-    not?: boolean
-    and?: {
-      field: string
-      value: string | number | boolean | Array<string | number | boolean> | undefined
-      not?: boolean
-    }
-  }
-  | (() => {
-    field: string
-    value: string | number | boolean | Array<string | number | boolean>
-    not?: boolean
-    and?: {
-      field: string
-      value: string | number | boolean | Array<string | number | boolean> | undefined
-      not?: boolean
-    }
-  })
+    | boolean
+    | {
+        field: string
+        value: string | number | boolean | Array<string | number | boolean>
+        not?: boolean
+        and?: {
+          field: string
+          value: string | number | boolean | Array<string | number | boolean> | undefined
+          not?: boolean
+        }
+      }
+    | (() => {
+        field: string
+        value: string | number | boolean | Array<string | number | boolean>
+        not?: boolean
+        and?: {
+          field: string
+          value: string | number | boolean | Array<string | number | boolean> | undefined
+          not?: boolean
+        }
+      })
   defaultValue?: string | number | boolean | Record<string, unknown> | Array<unknown>
   options?:
-  | {
-    label: string
-    id: string
-    icon?: React.ComponentType<{ className?: string }>
-    group?: string
-  }[]
-  | (() => {
-    label: string
-    id: string
-    icon?: React.ComponentType<{ className?: string }>
-    group?: string
-  }[])
+    | {
+        label: string
+        id: string
+        icon?: React.ComponentType<{ className?: string }>
+        group?: string
+      }[]
+    | (() => {
+        label: string
+        id: string
+        icon?: React.ComponentType<{ className?: string }>
+        group?: string
+      }[])
   // Async options loader for dropdown/combobox-like inputs
   fetchOptions?: (
     blockId: string,
@@ -222,9 +223,7 @@ export interface SubBlockConfig {
   scrollable?: boolean
   maxHeight?: number
   selectAllOption?: boolean
-  condition?:
-  | SubBlockCondition
-  | (() => SubBlockCondition)
+  condition?: SubBlockCondition | (() => SubBlockCondition)
   // Props specific to 'code' sub-block type
   language?: 'typescript' | 'javascript' | 'json' | 'python' | 'sql' | 'html' | 'plaintext'
   generationType?: GenerationType

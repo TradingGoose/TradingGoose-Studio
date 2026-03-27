@@ -1,12 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { getSession } from '@/lib/auth'
+import {
+  formatCompletionModel,
+  readCompletionDeltaText,
+  readCompletionError,
+} from '@/lib/copilot/completion'
+import { getCopilotModel } from '@/lib/copilot/config'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getSession } from '@/lib/auth'
 import { encodeSSE, SSE_HEADERS } from '@/lib/utils'
-import { proxyCopilotRequest } from '@/app/api/copilot/proxy'
+import { proxyCopilotCompletionRequest } from '@/app/api/copilot/proxy'
 
 const logger = createLogger('WandCopilot')
+
 const WandRequestSchema = z.object({
   prompt: z.string().min(1, 'Prompt is required.'),
   systemPrompt: z.string().optional(),
@@ -19,6 +26,49 @@ const WandRequestSchema = z.object({
     )
     .optional(),
 })
+
+function relayCompletionSegment(
+  rawSegment: string,
+  controller: ReadableStreamDefaultController<Uint8Array>
+): boolean {
+  if (!rawSegment.trim()) {
+    return false
+  }
+
+  let sawDone = false
+  for (const line of rawSegment.split('\n')) {
+    const data = line.startsWith('data:') ? line.slice(5).trim() : ''
+    if (!data) {
+      continue
+    }
+
+    if (data === '[DONE]') {
+      controller.enqueue(encodeSSE({ done: true }))
+      sawDone = true
+      continue
+    }
+
+    let payload: unknown
+    try {
+      payload = JSON.parse(data)
+    } catch {
+      continue
+    }
+
+    const errorMessage = readCompletionError(payload)
+    if (errorMessage) {
+      controller.enqueue(encodeSSE({ error: errorMessage }))
+      continue
+    }
+
+    const contentChunk = readCompletionDeltaText(payload)
+    if (contentChunk) {
+      controller.enqueue(encodeSSE({ chunk: contentChunk }))
+    }
+  }
+
+  return sawDone
+}
 
 export async function POST(req: NextRequest) {
   const session = await getSession()
@@ -47,34 +97,30 @@ export async function POST(req: NextRequest) {
   }
 
   const { prompt, systemPrompt, history } = parsed.data
-
-  const copilotPayload: Record<string, any> = {
-    message: prompt,
-    workflowId: 'wand',
-    userId: session.user.id,
-    stream: true,
-    streamToolCalls: false,
-    mode: 'wand',
-  }
-
-  if (systemPrompt) {
-    copilotPayload.systemPrompt = systemPrompt
-  }
-  if (history && history.length > 0) {
-    copilotPayload.history = history
-  }
-  if (session.user.name) {
-    copilotPayload.userName = session.user.name
-  }
-  if (env.WAND_OPENAI_MODEL_NAME) {
-    copilotPayload.model = env.WAND_OPENAI_MODEL_NAME
-  }
+  const defaultModel = getCopilotModel('chat')
+  const providerEnv = env.COPILOT_PROVIDER as typeof defaultModel.provider | undefined
+  const sharedModel = providerEnv ? env.COPILOT_MODEL || defaultModel.model : defaultModel.model
+  const configuredModel = env.WAND_OPENAI_MODEL_NAME || sharedModel
+  const configuredProvider = env.WAND_OPENAI_MODEL_NAME
+    ? 'openai'
+    : providerEnv || defaultModel.provider
+  const messages: Array<{ role: 'user' | 'assistant' | 'system' | 'tool'; content: string }> = [
+    ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
+    ...(history || []).map((message) => ({
+      role: message.role,
+      content: message.content,
+    })),
+    { role: 'user' as const, content: prompt },
+  ]
 
   let copilotResponse: Response
   try {
-    copilotResponse = await proxyCopilotRequest({
-      endpoint: '/api/chat-completion-streaming',
-      body: copilotPayload,
+    copilotResponse = await proxyCopilotCompletionRequest({
+      body: {
+        model: formatCompletionModel(configuredModel, configuredProvider),
+        stream: true,
+        messages,
+      },
       signal: req.signal,
     })
   } catch (error) {
@@ -103,6 +149,7 @@ export async function POST(req: NextRequest) {
       const reader = copilotResponse.body!.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      let didSendDone = false
 
       try {
         while (true) {
@@ -116,52 +163,7 @@ export async function POST(req: NextRequest) {
           buffer = segments.pop() || ''
 
           for (const segment of segments) {
-            const trimmed = segment.trim()
-            if (!trimmed) {
-              continue
-            }
-
-            const lines = trimmed.split('\n')
-            for (const line of lines) {
-              if (!line.startsWith('data:')) {
-                continue
-              }
-              const payload = line.slice(5).trim()
-
-              if (!payload) {
-                continue
-              }
-
-              if (payload === '[DONE]') {
-                controller.enqueue(encodeSSE({ done: true }))
-                continue
-              }
-
-              let parsedEvent
-              try {
-                parsedEvent = JSON.parse(payload)
-              } catch (parseError) {
-                logger.debug('Failed to parse copilot SSE payload', { parseError, payload })
-                continue
-              }
-
-              if (parsedEvent.type === 'content' && typeof parsedEvent.data === 'string') {
-                controller.enqueue(encodeSSE({ chunk: parsedEvent.data }))
-                continue
-              }
-
-              if (parsedEvent.type === 'error') {
-                controller.enqueue(
-                  encodeSSE({ error: parsedEvent.data || parsedEvent.error || payload })
-                )
-                continue
-              }
-
-              if (parsedEvent.type === 'done' || parsedEvent.type === 'stream_end') {
-                controller.enqueue(encodeSSE({ done: true }))
-                continue
-              }
-            }
+            didSendDone = relayCompletionSegment(segment, controller) || didSendDone
           }
         }
       } catch (error) {
@@ -171,16 +173,11 @@ export async function POST(req: NextRequest) {
       } finally {
         reader.releaseLock()
         if (buffer.trim()) {
-          try {
-            const parsedEvent = JSON.parse(buffer.trim())
-            if (parsedEvent && typeof parsedEvent === 'object' && parsedEvent.chunk) {
-              controller.enqueue(encodeSSE({ chunk: parsedEvent.chunk }))
-            }
-          } catch {
-            // ignore
-          }
+          didSendDone = relayCompletionSegment(buffer, controller) || didSendDone
         }
-        controller.enqueue(encodeSSE({ done: true }))
+        if (!didSendDone) {
+          controller.enqueue(encodeSSE({ done: true }))
+        }
         controller.close()
       }
     },

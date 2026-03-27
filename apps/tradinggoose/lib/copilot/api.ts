@@ -57,7 +57,6 @@ export interface SendMessageRequest {
   userMessageId?: string // ID from frontend for the user message
   chatId?: string
   workflowId?: string
-  mode?: 'ask' | 'build'
   model?:
     | 'gpt-5-fast'
     | 'gpt-5'
@@ -73,7 +72,6 @@ export interface SendMessageRequest {
   prefetch?: boolean
   createNewChat?: boolean
   stream?: boolean
-  implicitFeedback?: string
   fileAttachments?: MessageFileAttachment[]
   abortSignal?: AbortSignal
   contexts?: Array<{

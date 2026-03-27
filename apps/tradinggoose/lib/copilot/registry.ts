@@ -1,8 +1,28 @@
 import { z } from 'zod'
-import { KnowledgeBaseArgsSchema, KnowledgeBaseResultSchema } from './tools/shared/schemas'
+import {
+  GetBlockConfigInput,
+  GetBlockConfigResult,
+  GetBlockOptionsInput,
+  GetBlockOptionsResult,
+  GetBlockOutputsInput,
+  GetBlockOutputsResult,
+  GetBlocksAndToolsInput,
+  GetBlocksAndToolsResult,
+  GetBlocksMetadataInput,
+  GetBlocksMetadataResult,
+  GetBlockUpstreamReferencesInput,
+  GetBlockUpstreamReferencesResult,
+  GetTriggerBlocksInput,
+  GetTriggerBlocksResult,
+  KnowledgeBaseArgsSchema,
+  KnowledgeBaseResultSchema,
+} from './tools/shared/schemas'
 
 // Tool IDs supported by the Copilot runtime
 export const ToolIds = z.enum([
+  'plan',
+  'checkoff_todo',
+  'mark_todo_in_progress',
   'get_user_workflow',
   'edit_workflow',
   'preview_edit_workflow',
@@ -36,6 +56,7 @@ export const ToolIds = z.enum([
   'check_deployment_status',
   'knowledge_base',
   'manage_custom_tool',
+  'manage_skill',
   'manage_mcp_tool',
   'sleep',
   'get_block_outputs',
@@ -65,11 +86,34 @@ const NumberOptional = z.number().optional()
 
 // Tool argument schemas (per SSE examples provided)
 export const ToolArgSchemas = {
+  plan: z.object({
+    objective: z.string().optional(),
+    todoList: z
+      .array(
+        z.union([
+          z.string(),
+          z.object({
+            id: z.string().optional(),
+            todoId: z.string().optional(),
+            content: z.string(),
+          }),
+        ])
+      )
+      .optional(),
+  }),
+  checkoff_todo: z.object({
+    id: z.string().optional(),
+    todoId: z.string().optional(),
+  }),
+  mark_todo_in_progress: z.object({
+    id: z.string().optional(),
+    todoId: z.string().optional(),
+  }),
   get_user_workflow: z.object({}),
   list_user_workflows: z.object({}),
   get_workflow_from_name: z.object({ workflow_name: z.string() }),
   get_workflow_data: z.object({
-    data_type: z.enum(['global_variables', 'custom_tools', 'mcp_tools', 'files']),
+    data_type: z.enum(['global_variables', 'custom_tools', 'skills', 'mcp_tools', 'files']),
   }),
   get_global_workflow_variables: z.object({}),
   set_global_workflow_variables: z.object({
@@ -125,36 +169,15 @@ export const ToolArgSchemas = {
     includeDetails: BooleanOptional,
   }),
 
-  get_blocks_and_tools: z.object({}),
+  get_blocks_and_tools: GetBlocksAndToolsInput,
 
-  get_blocks_metadata: z.object({
-    blockIds: StringArray.min(1),
-  }),
+  get_blocks_metadata: GetBlocksMetadataInput,
 
-  get_block_options: z.object({
-    blockId: z.string().describe('The block type ID (e.g., "google_sheets", "slack", "gmail")'),
-  }),
+  get_block_options: GetBlockOptionsInput,
 
-  get_block_config: z.object({
-    blockType: z.string().describe('The block type ID (e.g., "google_sheets", "slack", "gmail")'),
-    operation: z
-      .string()
-      .optional()
-      .describe(
-        'Optional operation ID (e.g., "read", "write"). If not provided, returns full block schema.'
-      ),
-  }),
+  get_block_config: GetBlockConfigInput,
 
-  get_trigger_blocks: z.object({}),
-
-  // Legacy/unused tools (kept for compatibility in ToolArgSchemas/ToolResultSchemas)
-  get_block_best_practices: z.object({
-    blockIds: StringArray.min(1),
-  }),
-
-  get_edit_workflow_examples: z.object({
-    exampleIds: StringArray.min(1),
-  }),
+  get_trigger_blocks: GetTriggerBlocksInput,
 
   get_trigger_examples: z.object({}),
 
@@ -232,13 +255,21 @@ export const ToolArgSchemas = {
 
   manage_custom_tool: z.object({
     operation: z
-      .enum(['add', 'edit', 'delete'])
-      .describe('The operation to perform: add (create new), edit (update existing), or delete'),
+      .enum(['add', 'edit', 'delete', 'list'])
+      .describe(
+        'The operation to perform: add (create new), edit (update existing), delete, or list'
+      ),
     toolId: z
       .string()
       .optional()
       .describe(
-        'Required for edit and delete operations. The database ID of the custom tool (e.g., "0robnW7_JUVwZrDkq1mqj"). Use get_workflow_data with data_type "custom_tools" to get the list of tools and their IDs. Do NOT use the function name - use the actual "id" field from the tool.'
+        'Required for edit and delete operations. The database ID of the custom tool (e.g., "0robnW7_JUVwZrDkq1mqj"). Use manage_custom_tool with operation "list" or get_workflow_data with data_type "custom_tools" to get the list of tools and their IDs. Do NOT use the function name - use the actual "id" field from the tool.'
+      ),
+    title: z
+      .string()
+      .optional()
+      .describe(
+        'Optional display title for the custom tool. If omitted, the function name will be used.'
       ),
     schema: z
       .object({
@@ -262,16 +293,43 @@ export const ToolArgSchemas = {
         'Required for add. The JavaScript function body code. Use {{ENV_VAR}} for environment variables and reference parameters directly by name.'
       ),
   }),
+  manage_skill: z.object({
+    operation: z
+      .enum(['add', 'edit', 'delete', 'list'])
+      .describe(
+        'The operation to perform: add (create new), edit (update existing), delete, or list'
+      ),
+    skillId: z
+      .string()
+      .optional()
+      .describe(
+        'Required for edit and delete operations. The database ID of the skill. Use manage_skill with operation "list" or get_workflow_data with data_type "skills" to get the list of skills and their IDs.'
+      ),
+    name: z
+      .string()
+      .optional()
+      .describe('Required for add. The skill name in kebab-case, for example market-research.'),
+    description: z
+      .string()
+      .optional()
+      .describe('Required for add. A short description of what the skill does.'),
+    content: z
+      .string()
+      .optional()
+      .describe('Required for add. The full skill instructions content.'),
+  }),
 
   manage_mcp_tool: z.object({
     operation: z
-      .enum(['add', 'edit', 'delete'])
-      .describe('The operation to perform: add (create new), edit (update existing), or delete'),
+      .enum(['add', 'edit', 'delete', 'list'])
+      .describe(
+        'The operation to perform: add (create new), edit (update existing), delete, or list'
+      ),
     serverId: z
       .string()
       .optional()
       .describe(
-        'Required for edit and delete operations. The database ID of the MCP server. Use the MCP settings panel or API to get server IDs.'
+        'Required for edit and delete operations. The database ID of the MCP server. Use manage_mcp_tool with operation "list" to get the available servers and their IDs.'
       ),
     config: z
       .object({
@@ -301,23 +359,9 @@ export const ToolArgSchemas = {
       .describe('The number of seconds to sleep (0-180, max 3 minutes)'),
   }),
 
-  get_block_outputs: z.object({
-    blockIds: z
-      .array(z.string())
-      .optional()
-      .describe(
-        'Optional array of block UUIDs. If provided, returns outputs only for those blocks. If not provided, returns outputs for all blocks in the workflow.'
-      ),
-  }),
+  get_block_outputs: GetBlockOutputsInput,
 
-  get_block_upstream_references: z.object({
-    blockIds: z
-      .array(z.string())
-      .min(1)
-      .describe(
-        'Array of block UUIDs. Returns all upstream references (block outputs and variables) accessible to each block based on workflow connections.'
-      ),
-  }),
+  get_block_upstream_references: GetBlockUpstreamReferencesInput,
 } as const
 export type ToolArgSchemaMap = typeof ToolArgSchemas
 
@@ -335,6 +379,12 @@ function toolCallSSEFor<TName extends ToolId, TArgs extends z.ZodTypeAny>(
 }
 
 export const ToolSSESchemas = {
+  plan: toolCallSSEFor('plan', ToolArgSchemas.plan),
+  checkoff_todo: toolCallSSEFor('checkoff_todo', ToolArgSchemas.checkoff_todo),
+  mark_todo_in_progress: toolCallSSEFor(
+    'mark_todo_in_progress',
+    ToolArgSchemas.mark_todo_in_progress
+  ),
   get_user_workflow: toolCallSSEFor('get_user_workflow', ToolArgSchemas.get_user_workflow),
   list_user_workflows: toolCallSSEFor('list_user_workflows', ToolArgSchemas.list_user_workflows),
   get_workflow_from_name: toolCallSSEFor(
@@ -382,9 +432,15 @@ export const ToolSSESchemas = {
     'set_environment_variables',
     ToolArgSchemas.set_environment_variables
   ),
-  get_oauth_credentials: toolCallSSEFor('get_oauth_credentials', ToolArgSchemas.get_oauth_credentials),
+  get_oauth_credentials: toolCallSSEFor(
+    'get_oauth_credentials',
+    ToolArgSchemas.get_oauth_credentials
+  ),
   get_credentials: toolCallSSEFor('get_credentials', ToolArgSchemas.get_credentials),
-  gdrive_request_access: toolCallSSEFor('gdrive_request_access', ToolArgSchemas.gdrive_request_access),
+  gdrive_request_access: toolCallSSEFor(
+    'gdrive_request_access',
+    ToolArgSchemas.gdrive_request_access
+  ),
   list_gdrive_files: toolCallSSEFor('list_gdrive_files', ToolArgSchemas.list_gdrive_files),
   read_gdrive_file: toolCallSSEFor('read_gdrive_file', ToolArgSchemas.read_gdrive_file),
   oauth_request_access: toolCallSSEFor('oauth_request_access', ToolArgSchemas.oauth_request_access),
@@ -395,6 +451,7 @@ export const ToolSSESchemas = {
   ),
   knowledge_base: toolCallSSEFor('knowledge_base', ToolArgSchemas.knowledge_base),
   manage_custom_tool: toolCallSSEFor('manage_custom_tool', ToolArgSchemas.manage_custom_tool),
+  manage_skill: toolCallSSEFor('manage_skill', ToolArgSchemas.manage_skill),
   manage_mcp_tool: toolCallSSEFor('manage_mcp_tool', ToolArgSchemas.manage_mcp_tool),
   sleep: toolCallSSEFor('sleep', ToolArgSchemas.sleep),
   get_block_outputs: toolCallSSEFor('get_block_outputs', ToolArgSchemas.get_block_outputs),
@@ -443,6 +500,18 @@ const ExecutionEntry = z.object({
 })
 
 export const ToolResultSchemas = {
+  plan: z.object({
+    objective: z.string().optional(),
+    todoList: z.array(z.any()).optional(),
+  }),
+  checkoff_todo: z.object({
+    todoId: z.string().optional(),
+    id: z.string().optional(),
+  }),
+  mark_todo_in_progress: z.object({
+    todoId: z.string().optional(),
+    id: z.string().optional(),
+  }),
   get_user_workflow: z
     .object({ userWorkflow: z.string() })
     .or(z.object({ yamlContent: z.string() }))
@@ -461,6 +530,15 @@ export const ToolResultSchemas = {
           functionName: z.string(),
           description: z.string(),
           parameters: z.any().optional(),
+        })
+      ),
+    }),
+    z.object({
+      skills: z.array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          description: z.string(),
         })
       ),
     }),
@@ -508,37 +586,11 @@ export const ToolResultSchemas = {
     data: z.any().optional(),
   }),
   get_workflow_console: z.object({ entries: z.array(ExecutionEntry) }),
-  get_blocks_and_tools: z.object({ blocks: z.array(z.any()), tools: z.array(z.any()) }),
-  get_blocks_metadata: z.object({ metadata: z.record(z.any()) }),
-  get_block_options: z.object({
-    blockId: z.string(),
-    blockName: z.string(),
-    operations: z.array(
-      z.object({
-        id: z.string(),
-        name: z.string(),
-        description: z.string().optional(),
-      })
-    ),
-  }),
-  get_block_config: z.object({
-    blockType: z.string(),
-    blockName: z.string(),
-    operation: z.string().optional(),
-    inputs: z.record(z.any()),
-    outputs: z.record(z.any()),
-  }),
-  get_trigger_blocks: z.object({ triggerBlockIds: z.array(z.string()) }),
-  get_block_best_practices: z.object({ bestPractices: z.array(z.any()) }),
-  get_edit_workflow_examples: z.object({
-    examples: z.array(
-      z.object({
-        id: z.string(),
-        title: z.string().optional(),
-        operations: z.array(z.any()).optional(),
-      })
-    ),
-  }),
+  get_blocks_and_tools: GetBlocksAndToolsResult,
+  get_blocks_metadata: GetBlocksMetadataResult,
+  get_block_options: GetBlockOptionsResult,
+  get_block_config: GetBlockConfigResult,
+  get_trigger_blocks: GetTriggerBlocksResult,
   get_trigger_examples: z.object({
     examples: z.array(
       z.object({
@@ -599,6 +651,7 @@ export const ToolResultSchemas = {
     status: z.number(),
     statusText: z.string().optional(),
     headers: z.record(z.string()).optional(),
+    data: z.any().optional(),
     body: z.any().optional(),
   }),
   get_environment_variables: z.union([
@@ -672,7 +725,14 @@ export const ToolResultSchemas = {
       })
     ),
   }),
-  read_gdrive_file: z.object({ content: z.string().optional(), data: z.any().optional() }),
+  read_gdrive_file: z.object({
+    type: z.string().optional(),
+    content: z.string().optional(),
+    data: z.any().optional(),
+    rows: z.any().optional(),
+    range: z.string().optional(),
+    metadata: z.any().optional(),
+  }),
   deploy_workflow: z.object({
     action: z.enum(['deploy', 'undeploy']).optional(),
     deployType: z.enum(['api', 'chat']).optional(),
@@ -693,91 +753,96 @@ export const ToolResultSchemas = {
     deployedAt: z.string().nullable(),
   }),
   knowledge_base: KnowledgeBaseResultSchema,
-  manage_custom_tool: z.object({
-    success: z.boolean(),
-    operation: z.enum(['add', 'edit', 'delete']),
-    toolId: z.string().optional(),
-    title: z.string().optional(),
-    message: z.string().optional(),
-  }),
-  manage_mcp_tool: z.object({
-    success: z.boolean(),
-    operation: z.enum(['add', 'edit', 'delete']),
-    serverId: z.string().optional(),
-    serverName: z.string().optional(),
-    message: z.string().optional(),
-  }),
+  manage_custom_tool: z
+    .object({
+      success: z.boolean(),
+      operation: z.enum(['add', 'edit', 'delete']),
+      toolId: z.string().optional(),
+      title: z.string().optional(),
+      functionName: z.string().optional(),
+      message: z.string().optional(),
+    })
+    .or(
+      z.object({
+        success: z.boolean(),
+        operation: z.literal('list'),
+        tools: z.array(
+          z.object({
+            id: z.string(),
+            title: z.string(),
+            schema: z.any().optional(),
+            code: z.string().optional(),
+          })
+        ),
+        count: z.number(),
+      })
+    ),
+  manage_skill: z
+    .object({
+      success: z.boolean(),
+      operation: z.enum(['add', 'edit', 'delete']),
+      skillId: z.string().optional(),
+      name: z.string().optional(),
+      message: z.string().optional(),
+    })
+    .or(
+      z.object({
+        success: z.boolean(),
+        operation: z.literal('list'),
+        skills: z.array(
+          z.object({
+            id: z.string(),
+            name: z.string(),
+            description: z.string(),
+            createdAt: z.any().optional(),
+          })
+        ),
+        count: z.number(),
+      })
+    ),
+  manage_mcp_tool: z
+    .object({
+      success: z.boolean(),
+      operation: z.enum(['add', 'edit', 'delete']),
+      serverId: z.string().optional(),
+      name: z.string().optional(),
+      serverName: z.string().optional(),
+      message: z.string().optional(),
+    })
+    .or(
+      z.object({
+        success: z.boolean(),
+        operation: z.literal('list'),
+        servers: z.array(
+          z.object({
+            id: z.string(),
+            name: z.string(),
+            url: z.string().optional(),
+            transport: z.string().optional(),
+            enabled: z.boolean().optional(),
+            connectionStatus: z.string().optional(),
+          })
+        ),
+        count: z.number(),
+      })
+    ),
   sleep: z.object({
     success: z.boolean(),
     seconds: z.number(),
     message: z.string().optional(),
   }),
-  get_block_outputs: z.object({
-    blocks: z.array(
-      z.object({
-        blockId: z.string(),
-        blockName: z.string(),
-        blockType: z.string(),
-        outputs: z.array(z.string()),
-        insideSubflowOutputs: z.array(z.string()).optional(),
-        outsideSubflowOutputs: z.array(z.string()).optional(),
-      })
-    ),
-    variables: z
-      .array(
-        z.object({
-          id: z.string(),
-          name: z.string(),
-          type: z.string(),
-          tag: z.string(),
-        })
-      )
-      .optional(),
-  }),
-  get_block_upstream_references: z.object({
-    results: z.array(
-      z.object({
-        blockId: z.string(),
-        blockName: z.string(),
-        insideSubflows: z
-          .array(
-            z.object({
-              blockId: z.string(),
-              blockName: z.string(),
-              blockType: z.string(),
-            })
-          )
-          .optional(),
-        accessibleBlocks: z.array(
-          z.object({
-            blockId: z.string(),
-            blockName: z.string(),
-            blockType: z.string(),
-            outputs: z.array(z.string()),
-            accessContext: z.enum(['inside', 'outside']).optional(),
-          })
-        ),
-        variables: z.array(
-          z.object({
-            id: z.string(),
-            name: z.string(),
-            type: z.string(),
-            tag: z.string(),
-          })
-        ),
-      })
-    ),
-  }),
+  get_block_outputs: GetBlockOutputsResult,
+  get_block_upstream_references: GetBlockUpstreamReferencesResult,
 } as const
 export type ToolResultSchemaMap = typeof ToolResultSchemas
 
 // Consolidated registry entry per tool
 export const ToolRegistry = Object.freeze(
-  (Object.keys(ToolArgSchemas) as ToolId[]).reduce(
+  ToolIds.options.reduce(
     (acc, toolId) => {
-      const args = (ToolArgSchemas as any)[toolId] as z.ZodTypeAny
-      const sse = (ToolSSESchemas as any)[toolId] as z.ZodTypeAny
-      const result = (ToolResultSchemas as any)[toolId] as z.ZodTypeAny
+      const args = ToolArgSchemas[toolId]
+      const sse = ToolSSESchemas[toolId]
+      const result = ToolResultSchemas[toolId]
       acc[toolId] = { id: toolId, args, sse, result }
       return acc
     },
@@ -788,6 +853,14 @@ export const ToolRegistry = Object.freeze(
   )
 )
 export type ToolRegistryMap = typeof ToolRegistry
+
+export function isToolId(toolId: string): toolId is ToolId {
+  return Object.hasOwn(ToolRegistry, toolId)
+}
+
+export function getToolContract(toolId: string) {
+  return isToolId(toolId) ? ToolRegistry[toolId] : undefined
+}
 
 // Convenience helper types inferred from schemas
 export type InferArgs<T extends ToolId> = z.infer<(typeof ToolArgSchemas)[T]>

@@ -482,7 +482,7 @@ export function DashboardClient({
           id: block.type,
           name: block.name,
           icon: block.icon,
-          bgColor: block.bgColor && block.bgColor.trim() ? block.bgColor : undefined,
+          bgColor: block.bgColor?.trim() ? block.bgColor : undefined,
           href: block.docsLink!,
         }))
       )
@@ -1107,36 +1107,82 @@ function applyPairDataToWidget(
   const copilotChatId = pairData.copilotChatId ?? null
   const indicatorId = pairData.indicatorId ?? null
   const pineIndicatorId = pairData.pineIndicatorId ?? null
+  const mcpServerId = pairData.mcpServerId ?? null
+  const customToolId = pairData.customToolId ?? null
+  const skillId = pairData.skillId ?? null
+  const hasPairData =
+    workflowId != null ||
+    listing != null ||
+    copilotChatId != null ||
+    indicatorId != null ||
+    pineIndicatorId != null ||
+    mcpServerId != null ||
+    customToolId != null ||
+    skillId != null
+  const hasPairParams =
+    'workflowId' in baseParams ||
+    'listing' in baseParams ||
+    'copilotChatId' in baseParams ||
+    'indicatorId' in baseParams ||
+    'pineIndicatorId' in baseParams ||
+    'mcpServerId' in baseParams ||
+    'customToolId' in baseParams ||
+    'skillId' in baseParams
 
-  if (
-    workflowId == null &&
-    listing == null &&
-    copilotChatId == null &&
-    indicatorId == null &&
-    pineIndicatorId == null
-  ) {
+  if (!hasPairData && !hasPairParams) {
     return widget
   }
 
-  baseParams.workflowId = workflowId
-  baseParams.listing = listing
-  if (copilotChatId) {
+  if (workflowId == null) {
+    baseParams.workflowId = undefined
+  } else {
+    baseParams.workflowId = workflowId
+  }
+  if (listing == null) {
+    baseParams.listing = undefined
+  } else {
+    baseParams.listing = listing
+  }
+  if (copilotChatId == null) {
+    baseParams.copilotChatId = undefined
+  } else {
     baseParams.copilotChatId = copilotChatId
   }
-  if (indicatorId) {
+  if (indicatorId == null) {
+    baseParams.indicatorId = undefined
+  } else {
     baseParams.indicatorId = indicatorId
   }
-  if (pineIndicatorId) {
+  if (pineIndicatorId == null) {
+    baseParams.pineIndicatorId = undefined
+  } else {
     baseParams.pineIndicatorId = pineIndicatorId
   }
+  if (mcpServerId == null) {
+    baseParams.mcpServerId = undefined
+  } else {
+    baseParams.mcpServerId = mcpServerId
+  }
+  if (customToolId == null) {
+    baseParams.customToolId = undefined
+  } else {
+    baseParams.customToolId = customToolId
+  }
+  if (skillId == null) {
+    baseParams.skillId = undefined
+  } else {
+    baseParams.skillId = skillId
+  }
 
-  if (areWidgetParamsEqual(widget.params ?? null, baseParams)) {
+  const nextParams = Object.keys(baseParams).length > 0 ? baseParams : null
+
+  if (areWidgetParamsEqual(widget.params ?? null, nextParams)) {
     return widget
   }
 
   return {
     ...widget,
-    params: baseParams,
+    params: nextParams,
   }
 }
 
@@ -1158,6 +1204,9 @@ function hydratePairStoreFromColorPairs(colorPairs: PersistedColorPairsState) {
       copilotChatId: pair.copilotChatId ?? null,
       indicatorId: pair.indicatorId ?? null,
       pineIndicatorId: pair.pineIndicatorId ?? null,
+      mcpServerId: pair.mcpServerId ?? null,
+      customToolId: pair.customToolId ?? null,
+      skillId: pair.skillId ?? null,
       updatedAt: now,
     }
   }
@@ -1190,6 +1239,18 @@ function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState 
       typeof context?.pineIndicatorId === 'string' && context.pineIndicatorId.trim().length > 0
         ? context.pineIndicatorId
         : null
+    const mcpServerId =
+      typeof context?.mcpServerId === 'string' && context.mcpServerId.trim().length > 0
+        ? context.mcpServerId
+        : null
+    const customToolId =
+      typeof context?.customToolId === 'string' && context.customToolId.trim().length > 0
+        ? context.customToolId
+        : null
+    const skillId =
+      typeof context?.skillId === 'string' && context.skillId.trim().length > 0
+        ? context.skillId
+        : null
 
     pairs.push({
       color,
@@ -1198,6 +1259,9 @@ function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState 
       copilotChatId,
       indicatorId,
       pineIndicatorId,
+      mcpServerId,
+      customToolId,
+      skillId,
     })
   })
 
@@ -1213,7 +1277,10 @@ function hasLinkedColorPairs(colorPairs?: PersistedColorPairsState): boolean {
         pair.copilotChatId ||
         Boolean(getListingIdentity(pair.listing)) ||
         pair.indicatorId ||
-        pair.pineIndicatorId)
+        pair.pineIndicatorId ||
+        pair.mcpServerId ||
+        pair.customToolId ||
+        pair.skillId)
   )
 }
 

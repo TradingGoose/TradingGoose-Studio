@@ -177,6 +177,7 @@ export function OAuthRequiredModal({
       await client.oauth2.link({
         providerId,
         callbackURL: window.location.href,
+        errorCallbackURL: window.location.href,
       })
     } catch (error) {
       logger.error('Error initiating OAuth flow:', { error })

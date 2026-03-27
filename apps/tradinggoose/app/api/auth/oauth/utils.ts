@@ -3,9 +3,67 @@ import { account, workflow } from '@tradinggoose/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { refreshOAuthToken } from '@/lib/oauth/oauth'
+import {
+  getMicrosoftRefreshTokenExpiry,
+  isMicrosoftProvider,
+  PROACTIVE_REFRESH_THRESHOLD_DAYS,
+  refreshOAuthToken,
+} from '@/lib/oauth/oauth'
 
 const logger = createLogger('OAuthUtilsAPI')
+
+function getValidAccessToken(credential: any): string | null {
+  if (!credential?.accessToken) {
+    return null
+  }
+
+  if (credential.accessTokenExpiresAt && credential.accessTokenExpiresAt <= new Date()) {
+    return null
+  }
+
+  return credential.accessToken
+}
+
+function getRefreshState(credential: any) {
+  const now = new Date()
+  const hasValidAccessToken = !!getValidAccessToken(credential)
+  const accessTokenNeedsRefresh = !!credential.refreshToken && !hasValidAccessToken
+  const proactiveRefreshThreshold = new Date(
+    now.getTime() + PROACTIVE_REFRESH_THRESHOLD_DAYS * 24 * 60 * 60 * 1000
+  )
+  const refreshTokenNeedsProactiveRefresh =
+    !!credential.refreshToken &&
+    isMicrosoftProvider(credential.providerId) &&
+    credential.refreshTokenExpiresAt &&
+    credential.refreshTokenExpiresAt <= proactiveRefreshThreshold
+
+  return {
+    refreshTokenNeedsProactiveRefresh,
+    shouldRefresh: accessTokenNeedsRefresh || refreshTokenNeedsProactiveRefresh,
+  }
+}
+
+async function getConcurrentRefreshAccessToken(
+  requestId: string,
+  credentialId: string,
+  userId?: string
+): Promise<string | null> {
+  if (!userId) {
+    return null
+  }
+
+  logger.warn(`[${requestId}] Refresh attempt failed, checking if another concurrent request succeeded`)
+
+  const freshCredential = await getCredential(requestId, credentialId, userId)
+  const concurrentAccessToken = getValidAccessToken(freshCredential)
+
+  if (!concurrentAccessToken) {
+    return null
+  }
+
+  logger.info(`[${requestId}] Found valid token from concurrent refresh, using it`)
+  return concurrentAccessToken
+}
 
 /**
  * Get the user ID based on either a session or a workflow ID
@@ -166,16 +224,11 @@ export async function refreshAccessTokenIfNeeded(
     return null
   }
 
-  // Decide if we should refresh: token missing OR expired
-  const expiresAt = credential.accessTokenExpiresAt
-  const now = new Date()
-  const shouldRefresh =
-    !!credential.refreshToken && (!credential.accessToken || (expiresAt && expiresAt <= now))
+  const refreshState = getRefreshState(credential)
+  const accessToken = getValidAccessToken(credential)
 
-  const accessToken = credential.accessToken
-
-  if (shouldRefresh) {
-    logger.info(`[${requestId}] Token expired, attempting to refresh for credential`)
+  if (refreshState.shouldRefresh) {
+    logger.info(`[${requestId}] Refreshing token for credential`)
     try {
       const refreshedToken = await refreshOAuthToken(
         credential.providerId,
@@ -183,13 +236,7 @@ export async function refreshAccessTokenIfNeeded(
       )
 
       if (!refreshedToken) {
-        logger.error(`[${requestId}] Failed to refresh token for credential: ${credentialId}`, {
-          credentialId,
-          providerId: credential.providerId,
-          userId: credential.userId,
-          hasRefreshToken: !!credential.refreshToken,
-        })
-        return null
+        throw new Error('Failed to refresh token')
       }
 
       // Prepare update data
@@ -205,12 +252,32 @@ export async function refreshAccessTokenIfNeeded(
         updateData.refreshToken = refreshedToken.refreshToken
       }
 
+      if (isMicrosoftProvider(credential.providerId)) {
+        updateData.refreshTokenExpiresAt = getMicrosoftRefreshTokenExpiry()
+      }
+
       // Update the token in the database
       await db.update(account).set(updateData).where(eq(account.id, credentialId))
 
       logger.info(`[${requestId}] Successfully refreshed access token for credential`)
       return refreshedToken.accessToken
     } catch (error) {
+      if (refreshState.refreshTokenNeedsProactiveRefresh && accessToken) {
+        logger.warn(
+          `[${requestId}] Proactive refresh failed, using existing access token for credential`
+        )
+        return accessToken
+      }
+
+      const concurrentAccessToken = await getConcurrentRefreshAccessToken(
+        requestId,
+        credentialId,
+        credential.userId
+      )
+      if (concurrentAccessToken) {
+        return concurrentAccessToken
+      }
+
       logger.error(`[${requestId}] Error refreshing token for credential`, {
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
@@ -238,14 +305,10 @@ export async function refreshTokenIfNeeded(
   credential: any,
   credentialId: string
 ): Promise<{ accessToken: string; refreshed: boolean }> {
-  // Decide if we should refresh: token missing OR expired
-  const expiresAt = credential.accessTokenExpiresAt
-  const now = new Date()
-  const shouldRefresh =
-    !!credential.refreshToken && (!credential.accessToken || (expiresAt && expiresAt <= now))
+  const refreshState = getRefreshState(credential)
 
   // If token appears valid and present, return it directly
-  if (!shouldRefresh) {
+  if (!refreshState.shouldRefresh) {
     logger.info(`[${requestId}] Access token is valid`)
     return { accessToken: credential.accessToken, refreshed: false }
   }
@@ -273,24 +336,28 @@ export async function refreshTokenIfNeeded(
       updateData.refreshToken = newRefreshToken
     }
 
+    if (isMicrosoftProvider(credential.providerId)) {
+      updateData.refreshTokenExpiresAt = getMicrosoftRefreshTokenExpiry()
+    }
+
     await db.update(account).set(updateData).where(eq(account.id, credentialId))
 
     logger.info(`[${requestId}] Successfully refreshed access token`)
     return { accessToken: refreshedToken, refreshed: true }
   } catch (error) {
-    logger.warn(
-      `[${requestId}] Refresh attempt failed, checking if another concurrent request succeeded`
+    const accessToken = getValidAccessToken(credential)
+    if (refreshState.refreshTokenNeedsProactiveRefresh && accessToken) {
+      logger.warn(`[${requestId}] Proactive refresh failed, using existing access token`)
+      return { accessToken, refreshed: false }
+    }
+
+    const concurrentAccessToken = await getConcurrentRefreshAccessToken(
+      requestId,
+      credentialId,
+      credential.userId
     )
-
-    const freshCredential = await getCredential(requestId, credentialId, credential.userId)
-    if (freshCredential?.accessToken) {
-      const freshExpiresAt = freshCredential.accessTokenExpiresAt
-      const stillValid = !freshExpiresAt || freshExpiresAt > new Date()
-
-      if (stillValid) {
-        logger.info(`[${requestId}] Found valid token from concurrent refresh, using it`)
-        return { accessToken: freshCredential.accessToken, refreshed: true }
-      }
+    if (concurrentAccessToken) {
+      return { accessToken: concurrentAccessToken, refreshed: true }
     }
 
     logger.error(`[${requestId}] Refresh failed and no valid token found in DB`, error)

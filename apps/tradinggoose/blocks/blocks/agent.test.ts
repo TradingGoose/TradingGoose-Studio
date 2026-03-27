@@ -1,5 +1,35 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { AgentBlock } from '@/blocks/blocks/agent'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('@/components/icons/icons', () => ({
+  AgentIcon: () => null,
+}))
+
+vi.mock('@/providers/ai/utils', () => ({
+  MODELS_WITH_REASONING_EFFORT: [],
+  MODELS_WITH_VERBOSITY: [],
+  getAllModelProviders: vi.fn(() => ({ 'gpt-4o': 'openai_chat' })),
+  getHostedModels: vi.fn(() => []),
+  getMaxTemperature: vi.fn(() => 1),
+  getProviderIcon: vi.fn(() => undefined),
+  providers: {
+    'azure-openai': {
+      models: [],
+    },
+  },
+  supportsTemperature: vi.fn(() => true),
+}))
+
+vi.mock('@/stores/providers/store', () => ({
+  useProvidersStore: {
+    getState: vi.fn(() => ({
+      providers: {
+        base: { models: ['gpt-4o'] },
+        ollama: { models: [] },
+        openrouter: { models: [] },
+      },
+    })),
+  },
+}))
 
 vi.mock('@/blocks', () => ({
   getAllBlocks: vi.fn(() => [
@@ -19,18 +49,36 @@ vi.mock('@/blocks', () => ({
 }))
 
 describe('AgentBlock', () => {
+  let AgentBlock: typeof import('@/blocks/blocks/agent').AgentBlock
+
+  beforeAll(async () => {
+    ;({ AgentBlock } = await import('@/blocks/blocks/agent'))
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  const paramsFunction = AgentBlock.tools.config?.params
-
-  if (!paramsFunction) {
-    throw new Error('AgentBlock.tools.config.params function is missing')
+  const getParamsFunction = () => {
+    const paramsFunction = AgentBlock.tools.config?.params
+    if (!paramsFunction) {
+      throw new Error('AgentBlock.tools.config.params function is missing')
+    }
+    return paramsFunction
   }
+
+  it('includes a skills selector sub-block', () => {
+    const skillsSubBlock = AgentBlock.subBlocks.find((subBlock) => subBlock.id === 'skills')
+
+    expect(skillsSubBlock).toBeDefined()
+    expect(skillsSubBlock?.type).toBe('skill-input')
+    expect(skillsSubBlock?.defaultValue).toEqual([])
+  })
 
   describe('tools.config.params function', () => {
     it('should pass through params when no tools array is provided', () => {
+      const paramsFunction = getParamsFunction()
+
       const params = {
         model: 'gpt-4o',
         systemPrompt: 'You are a helpful assistant.',
@@ -42,6 +90,8 @@ describe('AgentBlock', () => {
     })
 
     it('should filter out tools with usageControl set to "none"', () => {
+      const paramsFunction = getParamsFunction()
+
       const params = {
         model: 'gpt-4o',
         systemPrompt: 'You are a helpful assistant.',
@@ -84,6 +134,8 @@ describe('AgentBlock', () => {
     })
 
     it('should set default usageControl to "auto" if not specified', () => {
+      const paramsFunction = getParamsFunction()
+
       const params = {
         model: 'gpt-4o',
         systemPrompt: 'You are a helpful assistant.',
@@ -103,6 +155,8 @@ describe('AgentBlock', () => {
     })
 
     it('should correctly transform custom tools', () => {
+      const paramsFunction = getParamsFunction()
+
       const params = {
         model: 'gpt-4o',
         systemPrompt: 'You are a helpful assistant.',
@@ -147,6 +201,8 @@ describe('AgentBlock', () => {
     })
 
     it('should handle an empty tools array', () => {
+      const paramsFunction = getParamsFunction()
+
       const params = {
         model: 'gpt-4o',
         systemPrompt: 'You are a helpful assistant.',

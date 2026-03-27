@@ -59,8 +59,6 @@ export interface McpServersActions {
   ) => Promise<McpServerWithStatus | null>
   deleteServer: (workspaceId: string, id: string) => Promise<void>
   refreshServer: (workspaceId: string, id: string) => Promise<void>
-  clearError: () => void
-  reset: () => void
 }
 
 export const initialState: McpServersState = {

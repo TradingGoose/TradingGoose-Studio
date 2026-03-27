@@ -21,6 +21,14 @@ import {
 } from 'lucide-react'
 import { InlineToolCall } from '@/lib/copilot/inline-tool-call'
 import { createLogger } from '@/lib/logs/console/logger'
+import { usePreviewStore } from '@/stores/copilot/preview-store'
+import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
+import type { ChatContext, CopilotMessage as CopilotMessageType } from '@/stores/copilot/types'
+import {
+  appendCurrentTargetsContext,
+  isHiddenCopilotContext,
+} from '../../utils/current-target-context'
+import { UserInput, type UserInputRef } from '../user-input/user-input'
 import {
   FileAttachmentDisplay,
   OptionsSelector,
@@ -30,10 +38,6 @@ import {
   ThinkingBlock,
 } from './components'
 import CopilotMarkdownRenderer from './components/markdown-renderer'
-import { UserInput, type UserInputRef } from '../user-input/user-input'
-import { usePreviewStore } from '@/stores/copilot/preview-store'
-import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
-import type { CopilotMessage as CopilotMessageType } from '@/stores/copilot/types'
 
 const logger = createLogger('CopilotMessage')
 
@@ -43,6 +47,7 @@ interface CopilotMessageProps {
   panelWidth?: number
   isDimmed?: boolean
   checkpointCount?: number
+  defaultCurrentTargetsContext?: ChatContext | null
   onEditModeChange?: (isEditing: boolean) => void
   onRevertModeChange?: (isReverting: boolean) => void
 }
@@ -54,6 +59,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     panelWidth = 308,
     isDimmed = false,
     checkpointCount = 0,
+    defaultCurrentTargetsContext = null,
     onEditModeChange,
     onRevertModeChange,
   }) => {
@@ -90,8 +96,8 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       sendMessage,
       isSendingMessage,
       abortMessage,
-      mode,
-      setMode,
+      accessLevel,
+      setAccessLevel,
     } = useCopilotStore()
     const copilotStoreApi = useCopilotStoreApi()
 
@@ -447,7 +453,10 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
           ...message,
           content: editedMessage,
           fileAttachments: fileAttachments || message.fileAttachments,
-          contexts: contexts || (message as any).contexts,
+          contexts: appendCurrentTargetsContext(
+            (contexts || (message as any).contexts) as ChatContext[] | undefined,
+            defaultCurrentTargetsContext
+          ),
         }
 
         // Show the updated message immediately to prevent disappearing
@@ -480,7 +489,10 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
         // Send the edited message with the SAME message ID
         await sendMessage(editedMessage, {
           fileAttachments: fileAttachments || message.fileAttachments,
-          contexts: contexts || (message as any).contexts,
+          contexts: appendCurrentTargetsContext(
+            (contexts || (message as any).contexts) as ChatContext[] | undefined,
+            defaultCurrentTargetsContext
+          ),
           messageId: message.id, // Reuse the original message ID
         })
       }
@@ -670,9 +682,11 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
     const handleOptionSelect = useCallback(
       (_optionKey: string, optionText: string) => {
-        sendMessage(optionText)
+        sendMessage(optionText, {
+          contexts: appendCurrentTargetsContext(undefined, defaultCurrentTargetsContext),
+        })
       },
-      [sendMessage]
+      [defaultCurrentTargetsContext, sendMessage]
     )
 
     // Get clean text content with double newline parsing
@@ -779,8 +793,8 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 value={editedContent}
                 onChange={setEditedContent}
                 placeholder='Edit your message...'
-                mode={mode}
-                onModeChange={setMode}
+                accessLevel={accessLevel}
+                onAccessLevelChange={setAccessLevel}
                 panelWidth={panelWidth}
                 hideContextUsage={true}
                 clearOnSubmit={false}
@@ -875,8 +889,8 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
               {/* Context chips displayed above the message box */}
               {(Array.isArray((message as any).contexts) && (message as any).contexts.length > 0) ||
-                (Array.isArray(message.contentBlocks) &&
-                  (message.contentBlocks as any[]).some((b: any) => b?.type === 'contexts')) ? (
+              (Array.isArray(message.contentBlocks) &&
+                (message.contentBlocks as any[]).some((b: any) => b?.type === 'contexts')) ? (
                 <div className='mb-1.5 flex flex-wrap gap-1.5'>
                   {(() => {
                     const direct = Array.isArray((message as any).contexts)
@@ -889,7 +903,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                       ? ((block as any).contexts as any[])
                       : []
                     const allContexts = (direct.length > 0 ? direct : fromBlock).filter(
-                      (c: any) => c?.kind !== 'current_workflow'
+                      (context: any) => !isHiddenCopilotContext(context)
                     )
                     const MAX_VISIBLE = 4
                     const visible = showAllContexts
@@ -900,7 +914,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                         {visible.map((ctx: any, idx: number) => (
                           <span
                             key={`ctx-${idx}-${ctx?.label || ctx?.kind}`}
-                            className='inline-flex items-center gap-1 rounded-full bg-primary-hover/20 px-1.5 py-0.5 text-xs text-foreground'
+                            className='inline-flex items-center gap-1 rounded-full bg-primary-hover/20 px-1.5 py-0.5 text-foreground text-xs'
                             title={ctx?.label || ctx?.kind}
                           >
                             {ctx?.kind === 'past_chat' ? (
@@ -973,7 +987,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                       ? ((message as any).contexts as any[])
                       : []
                     const labels = contexts
-                      .filter((c) => c?.kind !== 'current_workflow')
+                      .filter((context) => !isHiddenCopilotContext(context))
                       .map((c) => c?.label)
                       .filter(Boolean) as string[]
                     if (!labels.length) return text
@@ -1003,12 +1017,10 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                     if (tail) nodes.push(tail)
                     return nodes
                   })()}
-
-
                 </div>
                 {/* Gradient fade when truncated */}
                 {!isExpanded && needsExpansion && (
-                  <div className='absolute rounded-b-lg right-0 bottom-0 left-0 h-full bg-gradient-to-t to-transparent from-background/60' />
+                  <div className='absolute right-0 bottom-0 left-0 h-full rounded-b-lg bg-gradient-to-t from-background/60 to-transparent' />
                 )}
                 {/* Abort button when hovering and response is generating (only on last user message) */}
                 {isSendingMessage && isHoveringMessage && isLastUserMessage && (

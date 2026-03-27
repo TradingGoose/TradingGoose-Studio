@@ -215,6 +215,7 @@ describe('AgentBlockHandler', () => {
         model: 'mock-model',
         tokens: { prompt: 10, completion: 20, total: 30 },
         toolCalls: { list: [], count: 0 },
+        toolResults: [],
         providerTiming: { total: 100 },
         cost: 0.001,
       }
@@ -224,6 +225,120 @@ describe('AgentBlockHandler', () => {
       expect(mockGetProviderFromModel).toHaveBeenCalledWith('gpt-4o')
       expect(mockFetch).toHaveBeenCalledWith(expect.any(String), expect.any(Object))
       expect(result).toEqual(expectedOutput)
+    })
+
+    it('should generate a unique internal skill loader tool id when the reserved id is already in use', async () => {
+      mockContext.workspaceId = 'workspace-123'
+
+      const providerRequests: any[] = []
+      mockTransformBlockTool.mockImplementationOnce(() => ({
+        id: 'tradinggoose_internal_load_skill',
+        name: 'existing_tool',
+        description: 'Conflicting tool',
+        parameters: { type: 'object', properties: {}, required: [] },
+      }))
+
+      mockFetch.mockImplementation((input, init) => {
+        const url = String(input)
+
+        if (url.includes('/api/skills')) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                data: [
+                  {
+                    id: 'skill-1',
+                    name: 'market-research',
+                    description: 'Research the market before acting',
+                    content: 'Investigate the market before making a decision.',
+                  },
+                ],
+              }),
+          })
+        }
+
+        if (url.includes('/api/providers')) {
+          providerRequests.push(JSON.parse(String(init?.body || '{}')))
+
+          return Promise.resolve({
+            ok: true,
+            headers: {
+              get: (name: string) => {
+                if (name === 'Content-Type') return 'application/json'
+                if (name === 'X-Execution-Data') return null
+                return null
+              },
+            },
+            json: () =>
+              Promise.resolve({
+                content: 'Mocked response content',
+                model: 'mock-model',
+                tokens: { prompt: 10, completion: 20, total: 30 },
+                toolCalls: [],
+                cost: 0.001,
+                timing: { total: 100 },
+              }),
+          })
+        }
+
+        return Promise.resolve({
+          ok: true,
+          headers: {
+            get: (name: string) => {
+              if (name === 'Content-Type') return 'application/json'
+              if (name === 'X-Execution-Data') return null
+              return null
+            },
+          },
+          json: () =>
+            Promise.resolve({
+              content: 'Mocked response content',
+              model: 'mock-model',
+              tokens: { prompt: 10, completion: 20, total: 30 },
+              toolCalls: [],
+              cost: 0.001,
+              timing: { total: 100 },
+            }),
+        })
+      })
+
+      await handler.execute(
+        mockBlock,
+        {
+          model: 'gpt-4o',
+          systemPrompt: 'You are a helpful assistant.',
+          apiKey: 'test-api-key',
+          tools: [
+            {
+              title: 'Conflicting Tool',
+              type: 'tool-type-1',
+              operation: 'operation1',
+            },
+          ],
+          skills: [{ skillId: 'skill-1' }],
+        },
+        mockContext
+      )
+
+      expect(providerRequests).toHaveLength(1)
+
+      const providerRequest = providerRequests[0]
+      const toolIds = providerRequest.tools.map((tool: { id: string }) => tool.id)
+      const uniqueToolIds = new Set(toolIds)
+      const generatedSkillToolId = toolIds.find(
+        (toolId: string) =>
+          toolId.startsWith('tradinggoose_internal_load_skill') &&
+          toolId !== 'tradinggoose_internal_load_skill'
+      )
+      const systemMessage = providerRequest.messages.find(
+        (message: { role: string; content?: string }) => message.role === 'system'
+      )
+
+      expect(uniqueToolIds.size).toBe(toolIds.length)
+      expect(toolIds).toContain('tradinggoose_internal_load_skill')
+      expect(generatedSkillToolId).toBe('tradinggoose_internal_load_skill_2')
+      expect(systemMessage?.content).toContain('tradinggoose_internal_load_skill_2')
     })
 
     it('should preserve executeFunction for custom tools with different usageControl settings', async () => {
@@ -595,6 +710,7 @@ describe('AgentBlockHandler', () => {
         model: 'mock-model',
         tokens: { prompt: 10, completion: 20, total: 30 },
         toolCalls: { list: [], count: 0 }, // Assuming no tool calls in this mock response
+        toolResults: [],
         providerTiming: { total: 100 },
         cost: 0.001,
       }
@@ -697,6 +813,7 @@ describe('AgentBlockHandler', () => {
         score: 0.95,
         tokens: { prompt: 10, completion: 20, total: 30 },
         toolCalls: { list: [], count: 0 },
+        toolResults: [],
         providerTiming: { total: 100 },
         cost: undefined,
       })
@@ -737,6 +854,7 @@ describe('AgentBlockHandler', () => {
         model: 'mock-model',
         tokens: { prompt: 10, completion: 20, total: 30 },
         toolCalls: { list: [], count: 0 },
+        toolResults: [],
         providerTiming: { total: 100 },
         cost: undefined,
       })
@@ -780,6 +898,7 @@ describe('AgentBlockHandler', () => {
         model: 'mock-model',
         tokens: { prompt: 10, completion: 20, total: 30 },
         toolCalls: { list: [], count: 0 },
+        toolResults: [],
         providerTiming: { total: 100 },
         cost: undefined,
       })
@@ -823,6 +942,7 @@ describe('AgentBlockHandler', () => {
         model: 'mock-model',
         tokens: { prompt: 10, completion: 20, total: 30 },
         toolCalls: { list: [], count: 0 },
+        toolResults: [],
         providerTiming: { total: 100 },
         cost: undefined,
       })

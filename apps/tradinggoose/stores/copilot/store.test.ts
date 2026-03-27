@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createExecutionContext } from '@/lib/copilot/tools/client/registry'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { getCopilotStore, getCopilotStoreForToolCall } from '@/stores/copilot/store'
+import { createExecutionContext } from '@/stores/copilot/tool-registry'
 
 describe('copilot tool execution provenance', () => {
   beforeEach(() => {

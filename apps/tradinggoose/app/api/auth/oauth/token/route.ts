@@ -36,16 +36,23 @@ export async function POST(request: NextRequest) {
       requireWorkflowIdForInternal: false,
     })
     if (!authz.ok || !authz.credentialOwnerUserId) {
-      return NextResponse.json({ error: authz.error || 'Unauthorized' }, { status: 403 })
+      const status = authz.error === 'Credential not found' ? 404 : 403
+      return NextResponse.json({ error: authz.error || 'Unauthorized' }, { status })
     }
 
     // Fetch the credential as the owner to enforce ownership scoping
     const credential = await getCredential(requestId, credentialId, authz.credentialOwnerUserId)
+    if (!credential) {
+      return NextResponse.json({ error: 'Credential not found' }, { status: 404 })
+    }
 
     try {
       // Refresh the token if needed
       const { accessToken } = await refreshTokenIfNeeded(requestId, credential, credentialId)
-      return NextResponse.json({ accessToken }, { status: 200 })
+      return NextResponse.json(
+        { accessToken, idToken: credential.idToken || undefined },
+        { status: 200 }
+      )
     } catch (error) {
       logger.error(`[${requestId}] Failed to refresh access token:`, error)
       return NextResponse.json({ error: 'Failed to refresh access token' }, { status: 401 })
@@ -92,7 +99,10 @@ export async function GET(request: NextRequest) {
 
     try {
       const { accessToken } = await refreshTokenIfNeeded(requestId, credential, credentialId)
-      return NextResponse.json({ accessToken }, { status: 200 })
+      return NextResponse.json(
+        { accessToken, idToken: credential.idToken || undefined },
+        { status: 200 }
+      )
     } catch (_error) {
       return NextResponse.json({ error: 'Failed to refresh access token' }, { status: 401 })
     }

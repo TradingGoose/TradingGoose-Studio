@@ -7,6 +7,7 @@
  * which are the central pieces of infrastructure for executing tools.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { buildLoadSkillTool } from '@/executor/handlers/agent/skills-resolver'
 import type { ExecutionContext } from '@/executor/types'
 import { mockEnvironmentVariables } from '@/tools/__test-utils__/test-tools'
 import { executeTool } from '@/tools/index'
@@ -199,13 +200,10 @@ describe('executeTool Function', () => {
   })
 
   it('should execute a tool successfully', async () => {
-    const result = await executeTool(
-      'http_request',
-      {
-        url: 'https://api.example.com/data',
-        method: 'GET',
-      }
-    )
+    const result = await executeTool('http_request', {
+      url: 'https://api.example.com/data',
+      method: 'GET',
+    })
 
     expect(result.success).toBe(true)
     expect(result.output).toBeDefined()
@@ -226,13 +224,10 @@ describe('executeTool Function', () => {
       }),
     }
 
-    await executeTool(
-      'function_execute',
-      {
-        code: 'return { result: "hello world" }',
-        language: 'javascript',
-      }
-    )
+    await executeTool('function_execute', {
+      code: 'return { result: "hello world" }',
+      language: 'javascript',
+    })
 
     // Restore original tool
     tools.function_execute = originalFunctionTool
@@ -241,6 +236,71 @@ describe('executeTool Function', () => {
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/api/function/execute'),
       expect.anything()
+    )
+  })
+
+  it('should load skill content through the skills API', async () => {
+    const skillLoaderTool = buildLoadSkillTool('tradinggoose_internal_load_skill', [
+      'market-research',
+    ])
+
+    global.fetch = Object.assign(
+      vi.fn().mockImplementation(async (url) => {
+        if (url.toString().includes('/api/skills')) {
+          return {
+            ok: true,
+            status: 200,
+            json: () =>
+              Promise.resolve({
+                data: [
+                  {
+                    id: 'skill-123',
+                    name: 'market-research',
+                    description: 'Research a market before acting',
+                    content: 'Investigate the market and summarize the setup.',
+                  },
+                ],
+              }),
+          }
+        }
+
+        return {
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              output: { result: 'Direct request successful' },
+            }),
+          headers: {
+            get: () => 'application/json',
+            forEach: () => {},
+          },
+          clone: function () {
+            return { ...this }
+          },
+        }
+      }),
+      { preconnect: vi.fn() }
+    ) as typeof fetch
+
+    const result = await executeTool(
+      skillLoaderTool.id,
+      {
+        ...skillLoaderTool.params,
+        skill_name: 'market-research',
+      },
+      false,
+      createMockExecutionContext()
+    )
+
+    expect(result.success).toBe(true)
+    expect(result.output).toEqual({
+      content: 'Investigate the market and summarize the setup.',
+    })
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/skills?workspaceId=workspace-456'),
+      expect.objectContaining({ method: 'GET' })
     )
   })
 
@@ -273,13 +333,10 @@ describe('executeTool Function', () => {
       { preconnect: vi.fn() }
     ) as typeof fetch
 
-    const result = await executeTool(
-      'http_request',
-      {
-        url: 'https://api.example.com/data',
-        method: 'GET',
-      }
-    )
+    const result = await executeTool('http_request', {
+      url: 'https://api.example.com/data',
+      method: 'GET',
+    })
 
     expect(result.success).toBe(false)
     expect(result.error).toBeDefined()
@@ -287,12 +344,9 @@ describe('executeTool Function', () => {
   })
 
   it('should add timing information to results', async () => {
-    const result = await executeTool(
-      'http_request',
-      {
-        url: 'https://api.example.com/data',
-      }
-    )
+    const result = await executeTool('http_request', {
+      url: 'https://api.example.com/data',
+    })
 
     expect(result.timing).toBeDefined()
     expect(result.timing?.startTime).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)
@@ -518,7 +572,6 @@ describe('Automatic Internal Route Detection', () => {
     // Restore original tools
     Object.assign(tools, originalTools)
   })
-
 })
 
 describe('Centralized Error Handling', () => {
@@ -730,12 +783,7 @@ describe('MCP Tool Execution', () => {
 
     const mockContext = createMockExecutionContext()
 
-    const result = await executeTool(
-      'mcp-123-list_files',
-      { path: '/test' },
-      false,
-      mockContext
-    )
+    const result = await executeTool('mcp-123-list_files', { path: '/test' }, false, mockContext)
 
     expect(result.success).toBe(true)
     expect(result.output).toBeDefined()
@@ -765,12 +813,7 @@ describe('MCP Tool Execution', () => {
 
     const mockContext2 = createMockExecutionContext()
 
-    await executeTool(
-      'mcp-timestamp123-complex-tool-name',
-      { param: 'value' },
-      false,
-      mockContext2
-    )
+    await executeTool('mcp-timestamp123-complex-tool-name', { param: 'value' }, false, mockContext2)
   })
 
   it('should handle MCP block arguments format', async () => {
@@ -882,12 +925,7 @@ describe('MCP Tool Execution', () => {
   it('should handle invalid MCP tool ID format', async () => {
     const mockContext6 = createMockExecutionContext()
 
-    const result = await executeTool(
-      'invalid-mcp-id',
-      { param: 'value' },
-      false,
-      mockContext6
-    )
+    const result = await executeTool('invalid-mcp-id', { param: 'value' }, false, mockContext6)
 
     expect(result.success).toBe(false)
     expect(result.error).toContain('Tool not found')
@@ -900,12 +938,7 @@ describe('MCP Tool Execution', () => {
 
     const mockContext7 = createMockExecutionContext()
 
-    const result = await executeTool(
-      'mcp-123-test_tool',
-      { param: 'value' },
-      false,
-      mockContext7
-    )
+    const result = await executeTool('mcp-123-test_tool', { param: 'value' }, false, mockContext7)
 
     expect(result.success).toBe(false)
     expect(result.error).toContain('Network error')

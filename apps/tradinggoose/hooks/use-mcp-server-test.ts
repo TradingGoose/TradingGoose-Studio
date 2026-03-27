@@ -118,27 +118,3 @@ export function useMcpServerTest() {
     clearTestResult,
   }
 }
-
-export function getTestResultSummary(result: McpServerTestResult): string {
-  if (result.success) {
-    let summary = `✓ Connection successful! Protocol: ${result.negotiatedVersion || 'Unknown'}`
-    if (result.toolCount !== undefined) {
-      summary += `\n${result.toolCount} tool${result.toolCount !== 1 ? 's' : ''} available`
-    }
-    if (result.supportedCapabilities && result.supportedCapabilities.length > 0) {
-      summary += `\nCapabilities: ${result.supportedCapabilities.join(', ')}`
-    }
-    return summary
-  }
-  return `✗ Connection failed: ${result.message}${result.error ? `\n${result.error}` : ''}`
-}
-
-export function isServerSafeToAdd(result: McpServerTestResult): boolean {
-  if (!result.success) return false
-
-  if (result.warnings?.some((w) => w.toLowerCase().includes('version'))) {
-    return false
-  }
-
-  return true
-}

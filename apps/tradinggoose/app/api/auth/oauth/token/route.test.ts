@@ -70,6 +70,7 @@ describe('OAuth Token API Routes', () => {
         refreshToken: 'refresh-token',
         accessTokenExpiresAt: new Date(Date.now() + 3600 * 1000),
         providerId: 'google',
+        idToken: 'id-token-value',
       })
       mockRefreshTokenIfNeeded.mockResolvedValueOnce({
         accessToken: 'fresh-token',
@@ -91,6 +92,7 @@ describe('OAuth Token API Routes', () => {
       // Verify request was handled correctly
       expect(response.status).toBe(200)
       expect(data).toHaveProperty('accessToken', 'fresh-token')
+      expect(data).toHaveProperty('idToken', 'id-token-value')
 
       // Verify mocks were called correctly
       expect(mockAuthorizeCredentialUse).toHaveBeenCalled()
@@ -200,8 +202,8 @@ describe('OAuth Token API Routes', () => {
       const response = await POST(req)
       const data = await response.json()
 
-      expect(response.status).toBe(401)
-      expect(data).toHaveProperty('error')
+      expect(response.status).toBe(404)
+      expect(data).toHaveProperty('error', 'Credential not found')
     })
 
     it('should handle token refresh failure', async () => {
@@ -250,6 +252,7 @@ describe('OAuth Token API Routes', () => {
         refreshToken: 'refresh-token',
         accessTokenExpiresAt: new Date(Date.now() + 3600 * 1000),
         providerId: 'google',
+        idToken: 'id-token-value',
       })
       mockRefreshTokenIfNeeded.mockResolvedValueOnce({
         accessToken: 'fresh-token',
@@ -267,6 +270,7 @@ describe('OAuth Token API Routes', () => {
 
       expect(response.status).toBe(200)
       expect(data).toHaveProperty('accessToken', 'fresh-token')
+      expect(data).toHaveProperty('idToken', 'id-token-value')
 
       expect(mockCheckHybridAuth).toHaveBeenCalled()
       expect(mockGetCredential).toHaveBeenCalledWith(mockRequestId, 'credential-id', 'test-user-id')

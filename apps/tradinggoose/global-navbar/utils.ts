@@ -1,4 +1,12 @@
-import { Braces, Files, LayoutTemplate, KeyRound, LibraryBig, Scroll, Server, Waypoints, Wrench } from 'lucide-react'
+import {
+  Braces,
+  Files,
+  KeyRound,
+  LayoutTemplate,
+  LibraryBig,
+  Scroll,
+  Waypoints,
+} from 'lucide-react'
 import type { NavItemLink, NavSection } from './types'
 
 export function getWorkspaceIdFromPath(path: string) {
@@ -6,13 +14,25 @@ export function getWorkspaceIdFromPath(path: string) {
   return match?.[1]
 }
 
-export function getWorkspaceSwitchPath(path: string, targetWorkspaceId: string, searchParams?: string) {
+export function getWorkspaceSwitchPath(
+  path: string,
+  targetWorkspaceId: string,
+  searchParams?: string
+) {
   const match = /^\/workspace\/[^/]+(?:\/([^/]+))?/.exec(path)
   const section = match?.[1] ?? null
 
   // Only allow safe top-level sections to carry over between workspaces.
   // Workflow routes (/w) and deep paths are reset to the dashboard to avoid stale data.
-  const allowedSections = new Set(['dashboard', 'knowledge', 'custom-tools', 'files', 'logs', 'environment', 'api-keys', 'mcp', 'integrations'])
+  const allowedSections = new Set([
+    'dashboard',
+    'knowledge',
+    'files',
+    'logs',
+    'environment',
+    'api-keys',
+    'integrations',
+  ])
   const sectionPath = section && allowedSections.has(section) ? `/${section}` : '/dashboard'
 
   const basePath = `/workspace/${targetWorkspaceId}${sectionPath}`
@@ -35,8 +55,6 @@ export function createWorkspaceNav(workspaceId?: string): NavItemLink[] {
   return [
     { title: 'Dashboard', url: `${base}/dashboard`, icon: LayoutTemplate, section: 'workspace' },
     { title: 'Knowledge', url: `${base}/knowledge`, icon: LibraryBig, section: 'workspace' },
-    { title: 'Custom Tools', url: `${base}/custom-tools`, icon: Wrench, section: 'workspace' },
-    { title: 'MCP Servers', url: `${base}/mcp`, icon: Server, section: 'workspace' },
     { title: 'Files', url: `${base}/files`, icon: Files, section: 'workspace' },
     { title: 'Logs', url: `${base}/logs`, icon: Scroll, section: 'workspace' },
     { title: 'Environment Variable', url: `${base}/environment`, icon: Braces, section: 'more' },

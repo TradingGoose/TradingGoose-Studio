@@ -16,6 +16,12 @@ import { getApiKey, getProviderFromModel, transformBlockTool } from '@/providers
 import type { SerializedBlock } from '@/serializer/types'
 import { executeTool } from '@/tools'
 import { getTool, getToolAsync } from '@/tools/utils'
+import {
+  buildLoadSkillTool,
+  buildSkillsSystemPromptSection,
+  createSkillLoaderToolId,
+  resolveSkillMetadata,
+} from './skills-resolver'
 
 const logger = createLogger('AgentBlockHandler')
 
@@ -70,8 +76,33 @@ export class AgentBlockHandler implements BlockHandler {
     const model = inputs.model || DEFAULT_MODEL
     const providerId = getProviderFromModel(model)
     const formattedTools = await this.formatTools(inputs.tools || [], context)
+    const skillInputs = Array.isArray(inputs.skills)
+      ? inputs.skills.filter((skill) => skill?.skillId)
+      : []
+    const skillMetadata =
+      skillInputs.length > 0 && context.workspaceId
+        ? await resolveSkillMetadata(skillInputs, context.workspaceId, context.workflowId)
+        : []
+    const skillLoaderToolId =
+      skillMetadata.length > 0
+        ? createSkillLoaderToolId(
+            formattedTools
+              .map((tool) => (typeof tool?.id === 'string' ? tool.id : ''))
+              .filter((toolId) => toolId.length > 0)
+          )
+        : null
+
+    if (skillMetadata.length > 0 && skillLoaderToolId) {
+      formattedTools.push(
+        buildLoadSkillTool(
+          skillLoaderToolId,
+          skillMetadata.map((skill) => skill.name)
+        )
+      )
+    }
+
     const streamingConfig = this.getStreamingConfig(block, context)
-    const messages = this.buildMessages(inputs)
+    const messages = this.buildMessages(inputs, skillMetadata, skillLoaderToolId)
 
     const providerRequest = this.buildProviderRequest({
       providerId,
@@ -375,7 +406,8 @@ export class AgentBlockHandler implements BlockHandler {
     const transformedTool = await transformBlockTool(tool, {
       selectedOperation: tool.operation,
       getAllBlocks,
-      getToolAsync: (toolId: string) => getToolAsync(toolId, context.workflowId, context.workspaceId),
+      getToolAsync: (toolId: string) =>
+        getToolAsync(toolId, context.workflowId, context.workspaceId),
       getTool,
     })
 
@@ -401,8 +433,17 @@ export class AgentBlockHandler implements BlockHandler {
     return { shouldUseStreaming, isBlockSelectedForOutput, hasOutgoingConnections }
   }
 
-  private buildMessages(inputs: AgentInputs): Message[] | undefined {
-    if (!inputs.memories && !(inputs.systemPrompt && inputs.userPrompt)) {
+  private buildMessages(
+    inputs: AgentInputs,
+    skillMetadata: Array<{ name: string; description: string }> = [],
+    skillLoaderToolId?: string | null
+  ): Message[] | undefined {
+    if (
+      !inputs.memories &&
+      !inputs.systemPrompt &&
+      !inputs.userPrompt &&
+      skillMetadata.length === 0
+    ) {
       return undefined
     }
 
@@ -418,6 +459,20 @@ export class AgentBlockHandler implements BlockHandler {
 
     if (inputs.userPrompt) {
       this.addUserPrompt(messages, inputs.userPrompt)
+    }
+
+    if (skillMetadata.length > 0 && skillLoaderToolId) {
+      const skillSection = buildSkillsSystemPromptSection(skillMetadata, skillLoaderToolId)
+      const systemIndex = messages.findIndex((message) => message.role === 'system')
+
+      if (systemIndex >= 0) {
+        messages[systemIndex] = {
+          ...messages[systemIndex],
+          content: `${messages[systemIndex].content}${skillSection}`,
+        }
+      } else {
+        messages.unshift({ role: 'system', content: skillSection.trim() })
+      }
     }
 
     return messages.length > 0 ? messages : undefined

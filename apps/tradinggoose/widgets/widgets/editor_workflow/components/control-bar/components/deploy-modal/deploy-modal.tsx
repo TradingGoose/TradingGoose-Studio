@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, type WheelEvent } from 'react'
-import { Loader2, MoreVertical, X } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState, type ComponentType, type WheelEvent } from 'react'
+import { Check, CreditCard, History, Loader2, MoreVertical, PanelLeft, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import {
   Button,
@@ -12,6 +12,9 @@ import {
   Tabs,
   TabsList,
   TabsTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from '@/components/ui'
 import {
   AlertDialog,
@@ -117,6 +120,8 @@ interface TriggerDeployTab {
   blockId: string
   label: string
   triggerId: string
+  icon: ComponentType<{ className?: string }> | undefined
+  iconAccentColor: string | undefined
   subBlocks: SubBlockConfig[]
   hasConfigurableFields: boolean
 }
@@ -137,11 +142,14 @@ interface DeployableTriggerState {
 interface TriggerTabItem {
   key: string
   label: string
+  icon: ComponentType<{ className?: string }> | undefined
+  iconAccentColor: string | undefined
+  isReady?: boolean
 }
 
 const NON_DEPLOYABLE_TRIGGER_IDS = new Set(['manual'])
 const deployNavGroupLabelClass =
-  'flex h-8 shrink-0 items-center rounded-md px-2 font-medium text-sidebar-foreground/70 text-xs'
+  'flex h-8 shrink-0 items-center rounded-md px-1 font-medium text-sidebar-foreground/70 text-xs'
 const deployNavButtonClass =
   'flex h-8 w-full items-center gap-2 overflow-hidden rounded-md bg-background px-2 text-left text-sm text-muted-foreground outline-none transition-colors hover:bg-secondary/60 hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring disabled:pointer-events-none disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground'
 const deployInlineNavButtonClass =
@@ -273,10 +281,6 @@ function isTriggerDeployTabConfigured(tabState: TriggerDeployValidationState): b
   )
 }
 
-function formatTriggerCountLabel(configuredCount: number, totalCount: number): string {
-  return `${configuredCount}/${totalCount} ${totalCount === 1 ? 'trigger' : 'triggers'}`
-}
-
 export function DeployModal({
   open,
   onOpenChange,
@@ -299,6 +303,7 @@ export function DeployModal({
   const [isLoading, setIsLoading] = useState(false)
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
   const [activeTab, setActiveTab] = useState<TabView>('versions')
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [selectedApiKeyId, setSelectedApiKeyId] = useState<string>('')
   const [apiDeployError, setApiDeployError] = useState<string | null>(null)
   const [publishedChat, setPublishedChat] = useState<PublishedChatDeployment | null>(null)
@@ -342,6 +347,7 @@ export function DeployModal({
     .map((block) => {
       const blockConfig = getBlock(block.type)
       const triggerId = resolveTriggerIdForBlock(block)
+      const triggerDef = triggerId ? getTrigger(triggerId) : null
       if (!triggerId) {
         return null
       }
@@ -360,8 +366,12 @@ export function DeployModal({
       return {
         key: `trigger-${block.id}`,
         blockId: block.id,
-        label: blockConfig?.name || getTrigger(triggerId)?.name || triggerId,
+        label: blockConfig?.name || triggerDef?.name || triggerId,
         triggerId,
+        icon:
+          triggerDef?.icon ??
+          (blockConfig?.icon as ComponentType<{ className?: string }> | undefined),
+        iconAccentColor: blockConfig?.bgColor,
         subBlocks,
         hasConfigurableFields,
       }
@@ -440,18 +450,73 @@ export function DeployModal({
   const triggerValidationStateByKey = new Map(
     triggerDeployValidationState.map((tabState) => [tabState.key, tabState])
   )
+  const isChatTriggerReady = chatTriggerBlock
+    ? isChatDeploymentDraftConfigured(getChatDeploymentDraftFromBlock(chatTriggerBlock), {
+      hasPasswordFallback: Boolean(publishedChat?.hasPassword),
+    })
+    : false
+  const isApiTriggerReady = hasApiTriggerTab
+    ? Boolean(selectedApiKeyId || deploymentInfo?.apiKey || isWorkflowDeployed)
+    : false
+  const deployableTriggerStates: DeployableTriggerState[] = blockList
+    .map((block) => {
+      const triggerId = resolveTriggerIdForBlock(block)
+      if (!triggerId || !isDeployableTriggerId(triggerId)) {
+        return null
+      }
+
+      const key = `trigger-${block.id}`
+      const validationState = triggerValidationStateByKey.get(key)
+      if (validationState) {
+        return {
+          key,
+          isConfigured: isTriggerDeployTabConfigured(validationState),
+        }
+      }
+
+      if (triggerId === 'chat') {
+        return {
+          key,
+          isConfigured: isChatDeploymentDraftConfigured(getChatDeploymentDraftFromBlock(block), {
+            hasPasswordFallback: Boolean(publishedChat?.hasPassword),
+          }),
+        }
+      }
+
+      if (triggerId === 'api') {
+        return {
+          key,
+          isConfigured: Boolean(selectedApiKeyId || deploymentInfo?.apiKey || isWorkflowDeployed),
+        }
+      }
+
+      return {
+        key,
+        isConfigured: true,
+      }
+    })
+    .filter((triggerState): triggerState is DeployableTriggerState => triggerState !== null)
+  const triggerReadyStateByKey = new Map(
+    deployableTriggerStates.map((triggerState) => [triggerState.key, triggerState.isConfigured])
+  )
   const infoTabItems: TriggerTabItem[] = [
     ...(showBillingTab
       ? [
         {
           key: BILLING_TAB_KEY,
           label: 'Billing',
+          icon: CreditCard,
+          iconAccentColor: undefined,
+          isReady: undefined,
         },
       ]
       : []),
     {
       key: 'versions',
       label: 'Versions',
+      icon: History,
+      iconAccentColor: undefined,
+      isReady: undefined,
     },
   ]
   const nativeTriggerTabItems: TriggerTabItem[] = [
@@ -460,6 +525,9 @@ export function DeployModal({
         {
           key: 'chat',
           label: 'Chat',
+          icon: getTrigger('chat')?.icon,
+          iconAccentColor: getBlock('chat_trigger')?.bgColor,
+          isReady: isChatTriggerReady,
         },
       ]
       : []),
@@ -468,6 +536,9 @@ export function DeployModal({
         {
           key: API_TRIGGER_TAB_KEY,
           label: 'API Trigger',
+          icon: getTrigger('api')?.icon,
+          iconAccentColor: getBlock('api_trigger')?.bgColor,
+          isReady: isApiTriggerReady,
         },
       ]
       : []),
@@ -476,6 +547,9 @@ export function DeployModal({
       .map((tab) => ({
         key: tab.key,
         label: tab.label,
+        icon: tab.icon,
+        iconAccentColor: tab.iconAccentColor,
+        isReady: triggerReadyStateByKey.get(tab.key) ?? false,
       })),
   ]
   const integrationTriggerTabItems: TriggerTabItem[] = triggerDeployTabs
@@ -483,6 +557,9 @@ export function DeployModal({
     .map((tab) => ({
       key: tab.key,
       label: tab.label,
+      icon: tab.icon,
+      iconAccentColor: tab.iconAccentColor,
+      isReady: triggerReadyStateByKey.get(tab.key) ?? false,
     }))
   const triggerTabItems: TriggerTabItem[] = [
     ...nativeTriggerTabItems,
@@ -544,69 +621,18 @@ export function DeployModal({
     : hasSelectedSharedApiKey
       ? 'This API trigger will use the shared deployment API key currently selected in Billing.'
       : 'Select a shared deployment API key in Billing before deploying this API trigger.'
-  const deployableTriggerStates: DeployableTriggerState[] = blockList
-    .map((block) => {
-      const triggerId = resolveTriggerIdForBlock(block)
-      if (!triggerId || !isDeployableTriggerId(triggerId)) {
-        return null
-      }
-
-      const key = `trigger-${block.id}`
-      const validationState = triggerValidationStateByKey.get(key)
-      if (validationState) {
-        return {
-          key,
-          isConfigured: isTriggerDeployTabConfigured(validationState),
-        }
-      }
-
-      if (triggerId === 'chat') {
-        return {
-          key,
-          isConfigured: isChatDeploymentDraftConfigured(getChatDeploymentDraftFromBlock(block), {
-            hasPasswordFallback: Boolean(publishedChat?.hasPassword),
-          }),
-        }
-      }
-
-      if (triggerId === 'api') {
-        return {
-          key,
-          isConfigured: Boolean(selectedApiKeyId || deploymentInfo?.apiKey || isWorkflowDeployed),
-        }
-      }
-
-      return {
-        key,
-        isConfigured: true,
-      }
-    })
-    .filter((triggerState): triggerState is DeployableTriggerState => triggerState !== null)
-  const configuredTriggerDeployCount = deployableTriggerStates.filter(
-    (triggerState) => triggerState.isConfigured
-  ).length
-  const totalTriggerDeployCount = deployableTriggerStates.length
-  const hasIncompleteTriggerConfiguration =
-    versionToActivate === null && configuredTriggerDeployCount < totalTriggerDeployCount
   const deployButtonLabel =
     versionToActivate !== null
       ? `Deploy ${versions.find((v) => v.version === versionToActivate)?.name || `v${versionToActivate}`}`
-      : hasIncompleteTriggerConfiguration
-        ? `${needsRedeployment ? 'Redeploy' : 'Deploy'} with ${formatTriggerCountLabel(
-          configuredTriggerDeployCount,
-          totalTriggerDeployCount
-        )}`
-        : needsRedeployment
-          ? 'Redeploy Workflow'
-          : 'Deploy Workflow'
-  const isTriggerTab = triggerTabItems.some((tab) => tab.key === activeTab)
+      : 'Deploy Workflow'
   const isVersionActivationAction = versionToActivate !== null
-  const isInitialWorkflowDeployAction =
-    !isVersionActivationAction && isTriggerTab && !isWorkflowDeployed
+  const isInitialWorkflowDeployAction = !isVersionActivationAction && !isWorkflowDeployed
   const isWorkflowRedeployAction =
-    !isVersionActivationAction && isTriggerTab && isWorkflowDeployed && needsRedeployment
+    !isVersionActivationAction && isWorkflowDeployed && needsRedeployment
   const hasReusableApiKey = Boolean(deploymentInfo?.hasReusableApiKey)
-  const hasConfiguredTriggerToDeploy = configuredTriggerDeployCount > 0
+  const hasConfiguredTriggerToDeploy = deployableTriggerStates.some(
+    (triggerState) => triggerState.isConfigured
+  )
   const showFooter = versionToActivate !== null || hasNonChatDeployPath || hasChatTrigger
   const showFooterStatus = isWorkflowDeployed && versionToActivate === null
   const canViewActiveDeployment = !isLoadingDeployedState && !!deployedState
@@ -618,7 +644,7 @@ export function DeployModal({
     ((isInitialWorkflowDeployAction && !selectedApiKeyId) ||
       (isWorkflowRedeployAction && !hasReusableApiKey && !selectedApiKeyId))
   const footerPrimaryMissingConfiguredTrigger =
-    !isVersionActivationAction && totalTriggerDeployCount > 0 && !hasConfiguredTriggerToDeploy
+    !isVersionActivationAction && deployableTriggerStates.length > 0 && !hasConfiguredTriggerToDeploy
   const footerPrimaryDisabled =
     isSubmitting ||
     isChatConfigBusy ||
@@ -1218,6 +1244,64 @@ export function DeployModal({
     )
   }
 
+  const renderDesktopSidebarSection = (label: string, tabs: TriggerTabItem[]) => {
+    if (tabs.length === 0) {
+      return null
+    }
+
+    return (
+      <div className='space-y-2'>
+        {!isSidebarCollapsed && <div className={deployNavGroupLabelClass}>{label}</div>}
+        <div className='space-y-1 px-1'>
+          {tabs.map((tab) => {
+            const Icon = tab.icon
+            const iconTileStyle = tab.iconAccentColor
+              ? {
+                backgroundColor: `${tab.iconAccentColor}20`,
+                color: tab.iconAccentColor,
+              }
+              : undefined
+            const button = (
+              <button
+                key={tab.key}
+                type='button'
+                onClick={() => setActiveTab(tab.key)}
+                data-active={activeTab === tab.key}
+                aria-current={activeTab === tab.key ? 'page' : undefined}
+                aria-label={isSidebarCollapsed ? tab.label : undefined}
+                className={cn(deployNavButtonClass, isSidebarCollapsed && 'justify-center px-0')}
+              >
+                <div
+                  className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-secondary text-foreground'
+                  style={iconTileStyle}
+                >
+                  {Icon ? <Icon className='h-5 w-5' /> : null}
+                </div>
+                {!isSidebarCollapsed && <span className='min-w-0 flex-1 truncate'>{tab.label}</span>}
+                {!isSidebarCollapsed && tab.isReady && (
+                  <Check className='h-4 w-4 shrink-0 text-green-500' />
+                )}
+              </button>
+            )
+
+            if (!isSidebarCollapsed) {
+              return button
+            }
+
+            return (
+              <Tooltip key={tab.key}>
+                <TooltipTrigger asChild>{button}</TooltipTrigger>
+                <TooltipContent side='right' container={overlayContainer} className='z-[1001]'>
+                  {tab.label}
+                </TooltipContent>
+              </Tooltip>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <>
       {open &&
@@ -1239,6 +1323,18 @@ export function DeployModal({
               <div className='justify-center border-b gap-3 space-y-3 p-3'>
                 <div className='flex flex-shrink-0 items-center justify-between'>
                   <div className='flex items-center gap-1'>
+                    <Button
+                      type='button'
+                      variant='ghost'
+                      size='icon'
+                      className='hidden h-8 w-8 p-0 text-muted-foreground sm:inline-flex'
+                      onClick={() => setIsSidebarCollapsed((collapsed) => !collapsed)}
+                    >
+                      <PanelLeft className='h-4 w-4' />
+                      <span className='sr-only'>
+                        {isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                      </span>
+                    </Button>
                     <h2 id='deploy-workflow-title' className='font-medium text-lg'>
                       Deploy Workflow
                     </h2>
@@ -1270,66 +1366,22 @@ export function DeployModal({
 
 
               <div className='flex flex-1 overflow-hidden'>
-                <div className='hidden w-64 flex-shrink-0 border-border border-r bg-background py-1 sm:flex'>
-                  <div className='flex min-h-0 flex-1 flex-col overflow-y-auto px-2'>
-                    <div className='space-y-3 py-1'>
-                      <div className='space-y-2'>
-                        <div className={deployNavGroupLabelClass}>Info</div>
-                        <div className='space-y-1'>
-                          {infoTabItems.map((tab) => (
-                            <button
-                              key={tab.key}
-                              type='button'
-                              onClick={() => setActiveTab(tab.key)}
-                              data-active={activeTab === tab.key}
-                              aria-current={activeTab === tab.key ? 'page' : undefined}
-                              className={deployNavButtonClass}
-                            >
-                              <span className='truncate'>{tab.label}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {nativeTriggerTabItems.length > 0 && (
-                        <div className='space-y-2'>
-                          <div className={deployNavGroupLabelClass}>Native</div>
-                          <div className='space-y-1'>
-                            {nativeTriggerTabItems.map((tab) => (
-                              <button
-                                key={tab.key}
-                                type='button'
-                                onClick={() => setActiveTab(tab.key)}
-                                data-active={activeTab === tab.key}
-                                aria-current={activeTab === tab.key ? 'page' : undefined}
-                                className={deployNavButtonClass}
-                              >
-                                <span className='truncate'>{tab.label}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {integrationTriggerTabItems.length > 0 && (
-                        <div className='space-y-2'>
-                          <div className={deployNavGroupLabelClass}>Integration</div>
-                          <div className='space-y-1'>
-                            {integrationTriggerTabItems.map((tab) => (
-                              <button
-                                key={tab.key}
-                                type='button'
-                                onClick={() => setActiveTab(tab.key)}
-                                data-active={activeTab === tab.key}
-                                aria-current={activeTab === tab.key ? 'page' : undefined}
-                                className={deployNavButtonClass}
-                              >
-                                <span className='truncate'>{tab.label}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                <div
+                  className={cn(
+                    'hidden flex-shrink-0 border-border border-r bg-background py-1 transition-[width] duration-200 ease-linear sm:flex',
+                    isSidebarCollapsed ? 'w-12' : 'w-64'
+                  )}
+                >
+                  <div
+                    className={cn(
+                      'flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden py-1',
+                      isSidebarCollapsed ? 'px-1' : 'px-2'
+                    )}
+                  >
+                    <div className='space-y-3'>
+                      {renderDesktopSidebarSection('Info', infoTabItems)}
+                      {renderDesktopSidebarSection('Native', nativeTriggerTabItems)}
+                      {renderDesktopSidebarSection('Integration', integrationTriggerTabItems)}
                     </div>
                   </div>
                 </div>

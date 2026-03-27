@@ -1,7 +1,14 @@
+export interface SkillInput {
+  skillId: string
+  name?: string
+  description?: string
+}
+
 export interface AgentInputs {
   model?: string
   responseFormat?: string | object
   tools?: ToolInput[]
+  skills?: SkillInput[]
   systemPrompt?: string
   userPrompt?: string | object
   memories?: any

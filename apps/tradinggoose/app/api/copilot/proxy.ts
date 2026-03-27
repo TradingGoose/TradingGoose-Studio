@@ -1,59 +1,61 @@
-import { env } from '@/lib/env'
-import { createLogger } from '@/lib/logs/console/logger'
 import { COPILOT_API_URL_DEFAULT, COPILOT_API_VERSION } from '@/lib/copilot/agent/constants'
+import { env } from '@/lib/env'
 
-const logger = createLogger('CopilotProxy')
 const COPILOT_API_URL = env.COPILOT_API_URL || COPILOT_API_URL_DEFAULT
+const COMPLETION_API_VERSION = 'v1'
 
-export type CopilotProxyOptions = {
+export type CopilotProxyRequest = {
   endpoint: string
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'HEAD'
-  body?: Record<string, any>
-  headers?: Record<string, string>
+  body?: Record<string, unknown>
   signal?: AbortSignal
-  apiKey?: string
 }
 
-export function getCopilotApiUrl(endpoint: string) {
-  return `${COPILOT_API_URL}${endpoint}`
+export type CopilotCompletionRequest = {
+  body?: Record<string, unknown>
+  signal?: AbortSignal
 }
 
-export function withCopilotVersion(body?: Record<string, any>) {
-  if (!body || typeof body !== 'object' || Array.isArray(body)) return body
-  const version =
-    typeof body.version === 'string' && body.version.trim().length > 0
-      ? body.version
-      : COPILOT_API_VERSION
-  return { ...body, version }
-}
+type CopilotQuery = Record<string, string | number | boolean | null | undefined>
 
-export async function proxyCopilotRequest(options: CopilotProxyOptions) {
-  const { endpoint, method = 'POST', body, headers = {}, signal, apiKey } = options
-  const url = getCopilotApiUrl(endpoint)
-  const payload = withCopilotVersion(body)
-  const resolvedApiKey = apiKey || env.COPILOT_API_KEY || env.INTERNAL_API_SECRET
-
-  const requestHeaders: Record<string, string> = {
+function createRequestInit(
+  body: Record<string, unknown> | undefined,
+  signal?: AbortSignal
+): RequestInit {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...headers,
   }
-  if (resolvedApiKey && !('x-api-key' in requestHeaders)) {
-    requestHeaders['x-api-key'] = resolvedApiKey
+  const apiKey = env.COPILOT_API_KEY || env.INTERNAL_API_SECRET
+  if (apiKey) {
+    headers['x-api-key'] = apiKey
   }
 
-  logger.debug('Proxying copilot request', {
-    method,
-    endpoint,
-  })
-
-  const init: RequestInit = {
-    method,
-    headers: requestHeaders,
+  return {
+    method: 'POST',
+    headers,
     signal,
+    body: body ? JSON.stringify(body) : undefined,
   }
-  if (payload && method !== 'GET' && method !== 'HEAD') {
-    init.body = JSON.stringify(payload)
-  }
+}
 
-  return fetch(url, init)
+export function getCopilotApiUrl(endpoint: string, query?: CopilotQuery) {
+  const url = new URL(endpoint, COPILOT_API_URL)
+  for (const [key, value] of Object.entries(query || {})) {
+    if (value === undefined || value === null || value === '') continue
+    url.searchParams.set(key, String(value))
+  }
+  return url.toString()
+}
+
+export function proxyCopilotRequest({ endpoint, body, signal }: CopilotProxyRequest) {
+  return fetch(
+    getCopilotApiUrl(endpoint),
+    createRequestInit(body ? { ...body, version: COPILOT_API_VERSION } : undefined, signal)
+  )
+}
+
+export function proxyCopilotCompletionRequest({ body, signal }: CopilotCompletionRequest) {
+  return fetch(
+    getCopilotApiUrl('/api/completion', { version: COMPLETION_API_VERSION }),
+    createRequestInit(body, signal)
+  )
 }

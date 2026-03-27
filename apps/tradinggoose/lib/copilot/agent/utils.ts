@@ -1,34 +1,43 @@
+import { formatCompletionModel, readCompletionMessageText } from '@/lib/copilot/completion'
+import { getCopilotModel } from '@/lib/copilot/config'
+import { TITLE_GENERATION_SYSTEM_PROMPT, TITLE_GENERATION_USER_PROMPT } from '@/lib/copilot/prompts'
 import { createLogger } from '@/lib/logs/console/logger'
-import { proxyCopilotRequest } from '@/app/api/copilot/proxy'
-import type { CopilotProviderConfig } from '@/lib/copilot/types'
+import type { ProviderId } from '@/providers/ai/types'
+import { proxyCopilotCompletionRequest } from '@/app/api/copilot/proxy'
 
-const logger = createLogger('SimAgentUtils')
+const logger = createLogger('CopilotTitle')
 
 /**
  * Generates a short title for a chat based on the first message
  * @returns A short title or null if the request fails
  */
-export async function requestCopilotTitle(params: {
+export async function requestCopilotTitle({
+  message,
+  model,
+  provider,
+}: {
   message: string
-  workflowId: string
-  userId: string
-  conversationId?: string
   model?: string
-  provider?: CopilotProviderConfig
+  provider?: ProviderId
 }): Promise<string | null> {
-  const { message, workflowId, userId, conversationId, model, provider } = params
   try {
-    const response = await proxyCopilotRequest({
-      endpoint: '/api/chat-completion-streaming',
+    const defaults = getCopilotModel('title')
+    const resolvedProvider = provider || defaults.provider
+    const resolvedModel = model || defaults.model
+    const response = await proxyCopilotCompletionRequest({
       body: {
-        message,
-        workflowId,
-        userId,
         stream: false,
-        mode: 'title',
-        ...(conversationId ? { conversationId } : {}),
-        ...(model ? { model } : {}),
-        ...(provider ? { provider } : {}),
+        model: formatCompletionModel(resolvedModel, resolvedProvider),
+        messages: [
+          {
+            role: 'system',
+            content: TITLE_GENERATION_SYSTEM_PROMPT,
+          },
+          {
+            role: 'user',
+            content: TITLE_GENERATION_USER_PROMPT(message),
+          },
+        ],
       },
     })
     if (!response.ok) {
@@ -40,7 +49,7 @@ export async function requestCopilotTitle(params: {
       return null
     }
     const data = await response.json().catch(() => null)
-    const title = typeof data?.content === 'string' ? data.content.trim() : ''
+    const title = readCompletionMessageText(data)
     return title.length > 0 ? title : null
   } catch (error) {
     logger.error('Error requesting copilot title:', error)

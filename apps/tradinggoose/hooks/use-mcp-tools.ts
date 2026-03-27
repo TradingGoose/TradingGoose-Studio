@@ -32,7 +32,6 @@ export interface UseMcpToolsResult {
   isLoading: boolean
   error: string | null
   refreshTools: (forceRefresh?: boolean) => Promise<void>
-  getToolById: (toolId: string) => McpToolForUI | undefined
   getToolsByServer: (serverId: string) => McpToolForUI[]
 }
 
@@ -40,6 +39,7 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
   const [mcpTools, setMcpTools] = useState<McpToolForUI[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const normalizedWorkspaceId = workspaceId.trim()
 
   const servers = useMcpServersStore((state) => state.servers)
 
@@ -57,14 +57,23 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
 
   const refreshTools = useCallback(
     async (forceRefresh = false) => {
+      if (!normalizedWorkspaceId) {
+        setMcpTools([])
+        setError(null)
+        setIsLoading(false)
+        return
+      }
+
       setIsLoading(true)
       setError(null)
 
       try {
-        logger.info('Discovering MCP tools', { forceRefresh, workspaceId })
+        logger.info('Discovering MCP tools', { forceRefresh, workspaceId: normalizedWorkspaceId })
 
         const response = await fetch(
-          `/api/mcp/tools/discover?workspaceId=${workspaceId}&refresh=${forceRefresh}`
+          `/api/mcp/tools/discover?workspaceId=${encodeURIComponent(
+            normalizedWorkspaceId
+          )}&refresh=${forceRefresh}`
         )
 
         if (!response.ok) {
@@ -104,14 +113,7 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
         setIsLoading(false)
       }
     },
-    [workspaceId]
-  )
-
-  const getToolById = useCallback(
-    (toolId: string): McpToolForUI | undefined => {
-      return mcpTools.find((tool) => tool.id === toolId)
-    },
-    [mcpTools]
+    [normalizedWorkspaceId, workspaceId]
   )
 
   const getToolsByServer = useCallback(
@@ -122,12 +124,25 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
   )
 
   useEffect(() => {
+    if (!normalizedWorkspaceId) {
+      setMcpTools([])
+      setError(null)
+      setIsLoading(false)
+      return
+    }
+
     refreshTools()
-  }, [refreshTools])
+  }, [normalizedWorkspaceId, refreshTools])
 
   // Refresh tools when servers change
   useEffect(() => {
-    if (!serversFingerprint || serversFingerprint === lastProcessedFingerprintRef.current) return
+    if (
+      !normalizedWorkspaceId ||
+      !serversFingerprint ||
+      serversFingerprint === lastProcessedFingerprintRef.current
+    ) {
+      return
+    }
 
     logger.info('Active servers changed, refreshing MCP tools', {
       serverCount: servers.filter((s) => s.enabled && !s.deletedAt).length,
@@ -136,13 +151,13 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
 
     lastProcessedFingerprintRef.current = serversFingerprint
     refreshTools()
-  }, [serversFingerprint, refreshTools])
+  }, [normalizedWorkspaceId, serversFingerprint, refreshTools, servers])
 
   // Auto-refresh every 5 minutes
   useEffect(() => {
     const interval = setInterval(
       () => {
-        if (!isLoading) {
+        if (!isLoading && normalizedWorkspaceId) {
           refreshTools()
         }
       },
@@ -150,56 +165,13 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
     )
 
     return () => clearInterval(interval)
-  }, [refreshTools])
+  }, [isLoading, normalizedWorkspaceId, refreshTools])
 
   return {
     mcpTools,
     isLoading,
     error,
     refreshTools,
-    getToolById,
     getToolsByServer,
   }
-}
-
-export function useMcpToolExecution(workspaceId: string) {
-  const executeTool = useCallback(
-    async (serverId: string, toolName: string, args: Record<string, any>) => {
-      if (!workspaceId) {
-        throw new Error('workspaceId is required for MCP tool execution')
-      }
-
-      logger.info(
-        `Executing MCP tool ${toolName} on server ${serverId} in workspace ${workspaceId}`
-      )
-
-      const response = await fetch('/api/mcp/tools/execute', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          serverId,
-          toolName,
-          arguments: args,
-          workspaceId,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`Tool execution failed: ${response.status} ${response.statusText}`)
-      }
-
-      const result = await response.json()
-
-      if (!result.success) {
-        throw new Error(result.error || 'Tool execution failed')
-      }
-
-      return result.data
-    },
-    [workspaceId]
-  )
-
-  return { executeTool }
 }

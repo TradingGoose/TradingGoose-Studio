@@ -100,7 +100,7 @@ export function McpServerSelector({
                 <div className='p-4 text-center'>
                   <p className='font-medium text-sm'>No MCP servers found</p>
                   <p className='text-muted-foreground text-xs'>
-                    Configure MCP servers in workspace settings
+                    Add a server in the MCP dashboard widgets
                   </p>
                 </div>
               )}

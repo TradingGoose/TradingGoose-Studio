@@ -24,9 +24,9 @@ describe('Copilot Chat API Route', () => {
   const mockUpdate = vi.fn()
   const mockSet = vi.fn()
 
-  const mockExecuteProviderRequest = vi.fn()
   const mockGetCopilotModel = vi.fn()
   const mockGetRotatingApiKey = vi.fn()
+  const mockRequestCopilotTitle = vi.fn()
 
   beforeEach(() => {
     vi.resetModules()
@@ -82,20 +82,18 @@ describe('Copilot Chat API Route', () => {
       getCopilotModel: mockGetCopilotModel,
     }))
 
+    vi.doMock('@/lib/copilot/agent/utils', () => ({
+      requestCopilotTitle: mockRequestCopilotTitle,
+    }))
+
     vi.doMock('@/lib/copilot/prompts', () => ({
       TITLE_GENERATION_SYSTEM_PROMPT: 'Generate a title',
       TITLE_GENERATION_USER_PROMPT: vi.fn((msg) => `Generate title for: ${msg}`),
     }))
 
-    mockExecuteProviderRequest.mockResolvedValue({
-      content: 'Generated Title',
-    })
-
-    vi.doMock('@/providers/ai', () => ({
-      executeProviderRequest: mockExecuteProviderRequest,
-    }))
-
     mockGetRotatingApiKey.mockReturnValue('test-api-key')
+    mockRequestCopilotTitle.mockReset()
+    mockRequestCopilotTitle.mockResolvedValue('Generated Title')
 
     vi.doMock('@/lib/utils', () => ({
       getRotatingApiKey: mockGetRotatingApiKey,
@@ -107,7 +105,26 @@ describe('Copilot Chat API Route', () => {
         COPILOT_API_URL: 'http://localhost:8000',
         COPILOT_API_KEY: 'test-copilot-key',
         BETTER_AUTH_URL: 'http://localhost:3000',
+        NEXT_PUBLIC_APP_URL: 'http://localhost:3000',
       },
+      getEnv: vi.fn((key: string) => {
+        const values: Record<string, string | undefined> = {
+          COPILOT_API_URL: 'http://localhost:8000',
+          COPILOT_API_KEY: 'test-copilot-key',
+          BETTER_AUTH_URL: 'http://localhost:3000',
+          NEXT_PUBLIC_APP_URL: 'http://localhost:3000',
+        }
+        return values[key]
+      }),
+      isTruthy: vi.fn((value: string | boolean | number | undefined) => {
+        if (typeof value === 'boolean') return value
+        if (typeof value === 'number') return value !== 0
+        if (typeof value === 'string') {
+          const normalized = value.trim().toLowerCase()
+          return ['1', 'true', 'yes', 'on'].includes(normalized)
+        }
+        return false
+      }),
     }))
 
     global.fetch = vi.fn()
@@ -117,6 +134,25 @@ describe('Copilot Chat API Route', () => {
     vi.clearAllMocks()
     vi.restoreAllMocks()
   })
+
+  function expectCopilotRequestPayload(expectedBody: Record<string, unknown>) {
+    const copilotCall = (global.fetch as any).mock.calls.findLast(
+      ([url]: [string]) => url === 'http://localhost:8000/api/copilot'
+    )
+
+    expect(copilotCall).toBeDefined()
+
+    const [url, init] = copilotCall
+    expect(url).toBe('http://localhost:8000/api/copilot')
+    expect(init).toMatchObject({
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': 'test-copilot-key',
+      },
+    })
+    expect(JSON.parse(init.body)).toEqual(expectedBody)
+  }
 
   describe('POST', () => {
     it('should return 401 when user is not authenticated', async () => {
@@ -153,7 +189,7 @@ describe('Copilot Chat API Route', () => {
       expect(responseData.details).toBeDefined()
     })
 
-    it('should handle new chat creation and forward to sim agent', async () => {
+    it('should handle new chat creation and forward to copilot', async () => {
       const authMocks = mockAuth()
       authMocks.setAuthenticated()
 
@@ -168,7 +204,7 @@ describe('Copilot Chat API Route', () => {
       }
       mockReturning.mockResolvedValue([newChat])
 
-      // Mock successful sim agent response
+      // Mock successful copilot response
       const mockReadableStream = new ReadableStream({
         start(controller) {
           const encoder = new TextEncoder()
@@ -179,10 +215,10 @@ describe('Copilot Chat API Route', () => {
         },
       })
 
-        ; (global.fetch as any).mockResolvedValue({
-          ok: true,
-          body: mockReadableStream,
-        })
+      ;(global.fetch as any).mockResolvedValue({
+        ok: true,
+        body: mockReadableStream,
+      })
 
       const req = createMockRequest('POST', {
         message: 'Hello',
@@ -204,29 +240,18 @@ describe('Copilot Chat API Route', () => {
         messages: [],
       })
 
-      // Verify sim agent was called
-      expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8000/api/chat-completion-streaming',
-        expect.objectContaining({
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': 'test-copilot-key',
-          },
-          body: JSON.stringify({
-            message: 'Hello',
-            workflowId: 'workflow-123',
-            userId: 'user-123',
-            stream: true,
-            streamToolCalls: true,
-            model: 'claude-4.5-sonnet',
-            mode: 'build',
-            messageId: 'mock-uuid-1234-5678',
-            version: '1.0.2',
-            chatId: 'chat-123',
-          }),
-        })
-      )
+      // Verify copilot was called
+      expectCopilotRequestPayload({
+        message: 'Hello',
+        workflowId: 'workflow-123',
+        userId: 'user-123',
+        stream: true,
+        streamToolCalls: true,
+        model: 'claude-4.5-sonnet',
+        messageId: 'mock-uuid-1234-5678',
+        chatId: 'chat-123',
+        version: '1.0',
+      })
     })
 
     it('should load existing chat and include conversation history', async () => {
@@ -247,17 +272,17 @@ describe('Copilot Chat API Route', () => {
       // For POST route, the select query uses limit not orderBy
       mockLimit.mockResolvedValue([existingChat])
 
-      // Mock sim agent response
+      // Mock copilot response
       const mockReadableStream = new ReadableStream({
         start(controller) {
           controller.close()
         },
       })
 
-        ; (global.fetch as any).mockResolvedValue({
-          ok: true,
-          body: mockReadableStream,
-        })
+      ;(global.fetch as any).mockResolvedValue({
+        ok: true,
+        body: mockReadableStream,
+      })
 
       const req = createMockRequest('POST', {
         message: 'New message',
@@ -271,87 +296,30 @@ describe('Copilot Chat API Route', () => {
       expect(response.status).toBe(200)
 
       // Verify conversation history was included
-      expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8000/api/chat-completion-streaming',
-        expect.objectContaining({
-          body: JSON.stringify({
-            message: 'New message',
-            workflowId: 'workflow-123',
-            userId: 'user-123',
-            stream: true,
-            streamToolCalls: true,
-            model: 'claude-4.5-sonnet',
-            mode: 'build',
-            messageId: 'mock-uuid-1234-5678',
-            version: '1.0.2',
-            chatId: 'chat-123',
-          }),
-        })
-      )
-    })
-
-    it('should include implicit feedback in messages', async () => {
-      const authMocks = mockAuth()
-      authMocks.setAuthenticated()
-
-      const newChat = {
-        id: 'chat-123',
+      expectCopilotRequestPayload({
+        message: 'New message',
+        workflowId: 'workflow-123',
         userId: 'user-123',
-        workflowId: 'workflow-123',
-        messages: [],
-      }
-      mockReturning.mockResolvedValue([newChat])
-
-        ; (global.fetch as any).mockResolvedValue({
-          ok: true,
-          body: new ReadableStream({
-            start(controller) {
-              controller.close()
-            },
-          }),
-        })
-
-      const req = createMockRequest('POST', {
-        message: 'Hello',
-        workflowId: 'workflow-123',
-        createNewChat: true,
-        implicitFeedback: 'User seems confused about the workflow',
+        stream: true,
+        streamToolCalls: true,
+        model: 'claude-4.5-sonnet',
+        messageId: 'mock-uuid-1234-5678',
+        chatId: 'chat-123',
+        version: '1.0',
       })
-
-      const { POST } = await import('@/app/api/copilot/chat/route')
-      await POST(req)
-
-      // Verify implicit feedback was included
-      expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8000/api/chat-completion-streaming',
-        expect.objectContaining({
-          body: JSON.stringify({
-            message: 'Hello',
-            workflowId: 'workflow-123',
-            userId: 'user-123',
-            stream: true,
-            streamToolCalls: true,
-            model: 'claude-4.5-sonnet',
-            mode: 'build',
-            messageId: 'mock-uuid-1234-5678',
-            version: '1.0.2',
-            chatId: 'chat-123',
-          }),
-        })
-      )
     })
 
-    it('should handle sim agent API errors', async () => {
+    it('should handle copilot API errors', async () => {
       const authMocks = mockAuth()
       authMocks.setAuthenticated()
 
       mockReturning.mockResolvedValue([{ id: 'chat-123', messages: [] }])
 
-        ; (global.fetch as any).mockResolvedValue({
-          ok: false,
-          status: 500,
-          text: () => Promise.resolve('Internal server error'),
-        })
+      ;(global.fetch as any).mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: () => Promise.resolve('Internal server error'),
+      })
 
       const req = createMockRequest('POST', {
         message: 'Hello',
@@ -388,48 +356,117 @@ describe('Copilot Chat API Route', () => {
       expect(responseData.error).toBe('Database connection failed')
     })
 
-    it('should use ask mode when specified', async () => {
+    it('should use the copilot transport contract without mode', async () => {
       const authMocks = mockAuth()
       authMocks.setAuthenticated()
 
       mockReturning.mockResolvedValue([{ id: 'chat-123', messages: [] }])
 
-        ; (global.fetch as any).mockResolvedValue({
-          ok: true,
-          body: new ReadableStream({
-            start(controller) {
-              controller.close()
-            },
-          }),
-        })
+      ;(global.fetch as any).mockResolvedValue({
+        ok: true,
+        body: new ReadableStream({
+          start(controller) {
+            controller.close()
+          },
+        }),
+      })
 
       const req = createMockRequest('POST', {
         message: 'What is this workflow?',
         workflowId: 'workflow-123',
         createNewChat: true,
-        mode: 'ask',
       })
 
       const { POST } = await import('@/app/api/copilot/chat/route')
       await POST(req)
 
-      expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8000/api/chat-completion-streaming',
-        expect.objectContaining({
-          body: JSON.stringify({
-            message: 'What is this workflow?',
-            workflowId: 'workflow-123',
-            userId: 'user-123',
-            stream: true,
-            streamToolCalls: true,
-            model: 'claude-4.5-sonnet',
-            mode: 'ask',
-            messageId: 'mock-uuid-1234-5678',
-            version: '1.0.2',
-            chatId: 'chat-123',
-          }),
-        })
-      )
+      expectCopilotRequestPayload({
+        message: 'What is this workflow?',
+        workflowId: 'workflow-123',
+        userId: 'user-123',
+        stream: true,
+        streamToolCalls: true,
+        model: 'claude-4.5-sonnet',
+        messageId: 'mock-uuid-1234-5678',
+        chatId: 'chat-123',
+        version: '1.0',
+      })
+    })
+
+    it('passes the resolved provider/model to title generation', async () => {
+      vi.doMock('@/lib/env', () => ({
+        env: {
+          COPILOT_API_URL: 'http://localhost:8000',
+          COPILOT_API_KEY: 'test-copilot-key',
+          BETTER_AUTH_URL: 'http://localhost:3000',
+          NEXT_PUBLIC_APP_URL: 'http://localhost:3000',
+          COPILOT_PROVIDER: 'azure-openai',
+          COPILOT_MODEL: 'gpt-4.1',
+          AZURE_OPENAI_API_KEY: 'azure-key',
+          AZURE_OPENAI_ENDPOINT: 'https://azure.example.com',
+        },
+        getEnv: vi.fn((key: string) => {
+          const values: Record<string, string | undefined> = {
+            COPILOT_API_URL: 'http://localhost:8000',
+            COPILOT_API_KEY: 'test-copilot-key',
+            BETTER_AUTH_URL: 'http://localhost:3000',
+            NEXT_PUBLIC_APP_URL: 'http://localhost:3000',
+            COPILOT_PROVIDER: 'azure-openai',
+            COPILOT_MODEL: 'gpt-4.1',
+            AZURE_OPENAI_API_KEY: 'azure-key',
+            AZURE_OPENAI_ENDPOINT: 'https://azure.example.com',
+          }
+          return values[key]
+        }),
+        isTruthy: vi.fn((value: string | boolean | number | undefined) => {
+          if (typeof value === 'boolean') return value
+          if (typeof value === 'number') return value !== 0
+          if (typeof value === 'string') {
+            const normalized = value.trim().toLowerCase()
+            return ['1', 'true', 'yes', 'on'].includes(normalized)
+          }
+          return false
+        }),
+      }))
+
+      const authMocks = mockAuth()
+      authMocks.setAuthenticated()
+
+      mockReturning.mockResolvedValue([
+        {
+          id: 'chat-123',
+          userId: 'user-123',
+          workflowId: 'workflow-123',
+          title: null,
+          model: 'claude-3-haiku-20240307',
+          messages: [],
+        },
+      ])
+
+      ;(global.fetch as any).mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          content: 'Hello response',
+          conversationId: 'conv-123',
+        }),
+      })
+
+      const req = createMockRequest('POST', {
+        message: 'Hello',
+        workflowId: 'workflow-123',
+        createNewChat: true,
+        stream: false,
+      })
+
+      const { POST } = await import('@/app/api/copilot/chat/route')
+      const response = await POST(req)
+
+      expect(response.status).toBe(200)
+      expect(mockRequestCopilotTitle).toHaveBeenCalledWith({
+        message: 'Hello',
+        model: 'gpt-4.1',
+        provider: 'azure-openai',
+      })
     })
   })
 

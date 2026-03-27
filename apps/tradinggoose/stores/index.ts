@@ -7,6 +7,7 @@ import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import { useIndicatorsStore } from '@/stores/indicators/store'
 import { useExecutionStore } from '@/stores/execution/store'
 import { useConsoleStore } from '@/stores/console/store'
+import { useSkillsStore } from '@/stores/skills/store'
 import { useVariablesStore } from '@/stores/variables/store'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
 import { useSubscriptionStore } from '@/stores/subscription/store'
@@ -251,6 +252,7 @@ export const resetAllStores = () => {
   useConsoleStore.setState({ entries: [], isOpen: false })
   getCopilotStore().setState({ messages: [], isSendingMessage: false, error: null })
   useCustomToolsStore.getState().resetAll()
+  useSkillsStore.getState().resetAll()
   useIndicatorsStore.getState().resetAll()
   // Variables store has no tracking to reset; registry hydrates
   useSubscriptionStore.getState().reset() // Reset subscription store
@@ -266,6 +268,7 @@ export const logAllStores = () => {
     console: useConsoleStore.getState(),
     copilot: getCopilotStore().getState(),
     customTools: useCustomToolsStore.getState(),
+    skills: useSkillsStore.getState(),
     indicators: useIndicatorsStore.getState(),
     subBlock: useSubBlockStore.getState(),
     variables: useVariablesStore.getState(),
