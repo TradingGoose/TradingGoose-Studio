@@ -39,6 +39,7 @@ import {
   normalizeColorPairsState,
   type PersistedColorPair,
   type PersistedColorPairsState,
+  resolveWidgetParamsForPairColorChange,
   serializeLayout,
   type WidgetInstance,
 } from '@/widgets/layout'
@@ -879,10 +880,9 @@ function updatePanelPairColor(node: LayoutNode, panelId: string, color: PairColo
     if (currentPairColor === color) {
       return node
     }
-
     // When switching to a linked color pair, drop stale params that belong to the previous color.
     // Linked color pairs should derive params from the shared pair store instead of the widget state.
-    const nextParams = color === 'gray' ? (node.widget?.params ?? null) : null
+    const nextParams = resolveWidgetParamsForPairColorChange(node.widget, color)
 
     return {
       ...node,

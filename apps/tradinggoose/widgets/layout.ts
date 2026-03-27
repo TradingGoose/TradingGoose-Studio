@@ -71,6 +71,24 @@ export const createDefaultColorPairsState = (): PersistedColorPairsState => ({
   pairs: [],
 })
 
+export function resolveWidgetParamsForPairColorChange(
+  widget: WidgetInstance,
+  nextColor: PairColor
+): Record<string, unknown> | null {
+  const currentParams = widget?.params ?? null
+  if (nextColor === 'gray') {
+    return currentParams
+  }
+
+  // Data Chart keeps provider and chart configuration widget-local while linked listings
+  // continue to resolve from the shared pair store.
+  if (widget?.key === 'data_chart') {
+    return currentParams
+  }
+
+  return null
+}
+
 const normalizeListingIdentity = (value: unknown): ListingIdentity | null => {
   if (!value || typeof value !== 'object') return null
   const listing = toListingValueObject(value as any)
