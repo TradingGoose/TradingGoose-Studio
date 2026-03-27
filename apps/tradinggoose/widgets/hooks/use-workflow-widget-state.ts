@@ -8,6 +8,7 @@ import {
   useSetPairColorContext,
 } from '@/stores/dashboard/pair-store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { WORKSPACE_BOOTSTRAP_CHANNEL } from '@/stores/workflows/registry/types'
 import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
@@ -57,6 +58,9 @@ export const useWorkflowWidgetState = ({
     panelId,
     fallbackWidgetKey,
   })
+  // Metadata is workspace-scoped, not pair-scoped. Loading it through the shared bootstrap channel
+  // avoids pair-context resets discarding in-flight metadata requests before a pair has an active workflow.
+  const metadataChannelId = WORKSPACE_BOOTSTRAP_CHANNEL
   const shouldUsePairWorkflowContext = usePairWorkflowContext && resolvedPairColor !== 'gray'
   const pairContext = usePairColorStore((state) =>
     shouldUsePairWorkflowContext ? state.contexts[resolvedPairColor] : EMPTY_PAIR_CONTEXT
@@ -91,8 +95,11 @@ export const useWorkflowWidgetState = ({
   const rawActiveWorkflowIdForChannel = useWorkflowRegistry((state) =>
     state.getActiveWorkflowId(channelId)
   )
-  const hydration = useWorkflowRegistry((state) => state.getHydration(channelId))
+  const metadataHydration = useWorkflowRegistry((state) => state.getHydration(metadataChannelId))
   const isChannelHydrating = useWorkflowRegistry((state) => state.isChannelHydrating(channelId))
+  const isMetadataChannelHydrating = useWorkflowRegistry((state) =>
+    state.isChannelHydrating(metadataChannelId)
+  )
 
   const workspaceWorkflowMap = useMemo(() => {
     if (!workspaceId) {
@@ -112,7 +119,7 @@ export const useWorkflowWidgetState = ({
     setLoadError(null)
     setHasRequestedLoad(false)
     setLoadAttempts(0)
-  }, [workspaceId, channelId])
+  }, [workspaceId, metadataChannelId])
 
   useEffect(() => {
     if (!workspaceId) {
@@ -123,14 +130,17 @@ export const useWorkflowWidgetState = ({
       return
     }
 
-    if (hydration.phase === 'metadata-loading' || hydration.phase === 'state-loading') {
+    if (
+      metadataHydration.phase === 'metadata-loading' ||
+      metadataHydration.phase === 'state-loading'
+    ) {
       return
     }
 
     if (
-      hydration.phase !== 'idle' &&
-      hydration.phase !== 'error' &&
-      hydration.phase !== 'metadata-ready'
+      metadataHydration.phase !== 'idle' &&
+      metadataHydration.phase !== 'error' &&
+      metadataHydration.phase !== 'metadata-ready'
     ) {
       return
     }
@@ -142,7 +152,7 @@ export const useWorkflowWidgetState = ({
     let cancelled = false
     setHasRequestedLoad(true)
     setLoadAttempts((previous) => previous + 1)
-    loadWorkflows({ workspaceId, channelId }).catch((error) => {
+    loadWorkflows({ workspaceId, channelId: metadataChannelId }).catch((error) => {
       if (cancelled) {
         return
       }
@@ -162,11 +172,11 @@ export const useWorkflowWidgetState = ({
   }, [
     workspaceId,
     workspaceHasWorkflows,
-    hydration.phase,
+    metadataHydration.phase,
     loadAttempts,
     loadWorkflows,
     loggerScope,
-    channelId,
+    metadataChannelId,
   ])
 
   const resolvedWorkflowId = useMemo(() => {
@@ -240,8 +250,8 @@ export const useWorkflowWidgetState = ({
     if (workspaceHasWorkflows || Boolean(loadError)) {
       return true
     }
-    return hasRequestedLoad && hydration.phase !== 'metadata-loading'
-  }, [workspaceId, workspaceHasWorkflows, loadError, hasRequestedLoad, hydration.phase])
+    return hasRequestedLoad && metadataHydration.phase !== 'metadata-loading'
+  }, [workspaceId, workspaceHasWorkflows, loadError, hasRequestedLoad, metadataHydration.phase])
 
   useEffect(() => {
     if (!shouldUsePairWorkflowContext || !resolvedWorkflowId) {
@@ -286,7 +296,7 @@ export const useWorkflowWidgetState = ({
     resolvedWorkflowId,
     hasLoadedWorkflows,
     loadError,
-    isLoading: isChannelHydrating,
+    isLoading: isMetadataChannelHydrating || isChannelHydrating,
     workflowIds,
     activeWorkflowIdForChannel: activeWorkflowIdForChannel ?? null,
   }

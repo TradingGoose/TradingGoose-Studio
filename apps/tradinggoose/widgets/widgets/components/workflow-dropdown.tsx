@@ -60,9 +60,7 @@ export function WorkflowDropdown({
   const [searchQuery, setSearchQuery] = useState('')
   const resolvedPairColor = pairColor && pairColor !== 'gray' ? pairColor : 'gray'
   const isPairContextActive = resolvedPairColor !== 'gray'
-  const metadataChannelId = isPairContextActive
-    ? `pair-${resolvedPairColor}`
-    : WORKSPACE_BOOTSTRAP_CHANNEL
+  const metadataChannelId = WORKSPACE_BOOTSTRAP_CHANNEL
 
   const {
     workflows: registryWorkflows,
@@ -131,13 +129,12 @@ export function WorkflowDropdown({
     setHasRequestedLoad(true)
     setLoadError(null)
 
-    loadWorkflows({ workspaceId, channelId: metadataChannelId })
-      .catch((error) => {
-        if (!cancelled) {
-          console.error('Failed to load workflows for workflow dropdown', error)
-          setLoadError('Failed to load workflows')
-        }
-      })
+    loadWorkflows({ workspaceId, channelId: metadataChannelId }).catch((error) => {
+      if (!cancelled) {
+        console.error('Failed to load workflows for workflow dropdown', error)
+        setLoadError('Failed to load workflows')
+      }
+    })
 
     return () => {
       cancelled = true
