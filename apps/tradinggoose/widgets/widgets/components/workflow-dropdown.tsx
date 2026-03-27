@@ -15,8 +15,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { WORKSPACE_BOOTSTRAP_CHANNEL } from '@/stores/workflows/registry/types'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
+import { WORKSPACE_BOOTSTRAP_CHANNEL } from '@/stores/workflows/registry/types'
 import type { PairColor } from '@/widgets/pair-colors'
 import {
   widgetHeaderControlClassName,
@@ -229,7 +229,7 @@ export function WorkflowDropdown({
           <p className='text-destructive'>{loadError}. Try reloading the widget.</p>
           <button
             type='button'
-            className='text-primary text-xs font-semibold hover:underline'
+            className='font-semibold text-primary text-xs hover:underline'
             onClick={handleRetry}
           >
             Retry
@@ -273,9 +273,9 @@ export function WorkflowDropdown({
             >
               <div className='flex min-w-0 items-center gap-2'>
                 <span
-                  className='h-5 w-5 p-0.5 rounded-xs'
+                  className='h-5 w-5 rounded-xs p-0.5'
                   style={{
-                    backgroundColor: workflow.color + '20',
+                    backgroundColor: `${workflow.color}20`,
                   }}
                   aria-hidden='true'
                 >
@@ -302,9 +302,9 @@ export function WorkflowDropdown({
 
   const colorBadge = (
     <div
-      className='h-5 w-5 p-0.5 rounded-xs'
+      className='h-5 w-5 rounded-xs p-0.5'
       style={{
-        backgroundColor: selectedWorkflow?.color + '20',
+        backgroundColor: `${selectedWorkflow?.color}20`,
       }}
       aria-hidden='true'
     >
@@ -313,11 +313,11 @@ export function WorkflowDropdown({
   )
 
   const labelContent = selectedWorkflow ? (
-    <span className='min-w-0 flex-1 truncate text-left text-sm font-medium text-foreground'>
+    <span className='min-w-0 flex-1 truncate text-left font-medium text-foreground text-sm'>
       {selectedWorkflow.name || 'Untitled workflow'}
     </span>
   ) : (
-    <span className='min-w-0 flex-1 truncate text-left text-sm font-medium text-muted-foreground'>
+    <span className='min-w-0 flex-1 truncate text-left font-medium text-muted-foreground text-sm'>
       {placeholder}
     </span>
   )
@@ -353,7 +353,7 @@ export function WorkflowDropdown({
         sideOffset={6}
         className={cn(
           widgetHeaderMenuContentClassName,
-          'w-[240px] max-h-[20rem] overflow-hidden p-0 shadow-lg',
+          'max-h-[20rem] w-[240px] overflow-hidden p-0 shadow-lg',
           menuClassName
         )}
         style={{ maxHeight: DROPDOWN_MAX_HEIGHT }}
