@@ -908,29 +908,36 @@ export async function appendWatchlistItemsToWatchlist(
       )
     }
 
-    let currentSectionId: string | null = null
     let nextSectionSortOrder = await getNextSortOrderForSection(tx, row)
     let nextUnsectionedSortOrder = await getNextSortOrderForItem(tx, row.id, null)
     const insertedListingKeys = new Set<string>()
+
+    const resolveInsertableListing = (listingItem: WatchlistImportFileListingItem) => {
+      const listing = toListingValueObject(listingItem.listing)
+      const key = listing ? getListingIdentityKey(listing) : null
+      if (!listing || !key || !plannedAdditionKeys.has(key) || insertedListingKeys.has(key)) {
+        return null
+      }
+
+      return { listing, key }
+    }
 
     const insertListing = async (
       listingItem: WatchlistImportFileListingItem,
       containerId: string | null,
       sortOrder: number
     ) => {
-      const listing = toListingValueObject(listingItem.listing)
-      const key = listing ? getListingIdentityKey(listing) : null
-      if (!listing || !key || !plannedAdditionKeys.has(key) || insertedListingKeys.has(key)) {
-        return
-      }
+      const resolved = resolveInsertableListing(listingItem)
+      if (!resolved) return false
 
       await tx.insert(watchlistItem).values({
         watchlistId: row.id,
         containerId,
-        listing,
+        listing: resolved.listing,
         sortOrder,
       })
-      insertedListingKeys.add(key)
+      insertedListingKeys.add(resolved.key)
+      return true
     }
 
     for (const item of importedItems) {
@@ -945,25 +952,32 @@ export async function appendWatchlistItemsToWatchlist(
         continue
       }
 
-      const [createdSection] = await tx
-        .insert(watchlistTable)
-        .values({
-          workspaceId: row.workspaceId,
-          userId: row.userId,
-          parentId: row.id,
-          name: item.label,
-          sortOrder: nextSectionSortOrder,
-          isSystem: false,
-          settings: {},
-          updatedAt: new Date(),
-        })
-        .returning()
-
-      currentSectionId = ensureFound(createdSection).id
-      nextSectionSortOrder += 1
-
+      let currentSectionId: string | null = null
       let nextSectionItemSortOrder = 0
       for (const sectionItem of item.items) {
+        if (!resolveInsertableListing(sectionItem)) {
+          continue
+        }
+
+        if (!currentSectionId) {
+          const [createdSection] = await tx
+            .insert(watchlistTable)
+            .values({
+              workspaceId: row.workspaceId,
+              userId: row.userId,
+              parentId: row.id,
+              name: item.label,
+              sortOrder: nextSectionSortOrder,
+              isSystem: false,
+              settings: {},
+              updatedAt: new Date(),
+            })
+            .returning()
+
+          currentSectionId = ensureFound(createdSection).id
+          nextSectionSortOrder += 1
+        }
+
         await insertListing(sectionItem, currentSectionId, nextSectionItemSortOrder)
         nextSectionItemSortOrder += 1
       }

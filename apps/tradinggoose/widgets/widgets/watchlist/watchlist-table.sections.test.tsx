@@ -204,6 +204,9 @@ const findButtonByText = (container: HTMLElement, text: string) =>
     button.textContent?.includes(text)
   )
 
+const findRowByText = (container: HTMLElement, text: string) =>
+  Array.from(container.querySelectorAll('tr')).find((row) => row.textContent?.includes(text))
+
 const createTableProps = (overrides: Record<string, unknown> = {}) => ({
   watchlist,
   quotes: {},
@@ -301,7 +304,35 @@ describe('WatchlistTable section interactions', () => {
     expect(marketListingRow?.className).not.toContain('rounded')
   })
 
-  it('does not select a listing when the row itself is clicked', async () => {
+  it('formats watchlist item numbers with two decimal digits', async () => {
+    await act(async () => {
+      root.render(
+        <WatchlistTable
+          {...(createTableProps({
+            quotes: {
+              'listing-1': {
+                lastPrice: 123.4567,
+                change: -0.9876,
+                changePercent: 4.3219,
+              },
+            },
+          }) as any)}
+        />
+      )
+    })
+
+    const listingRow = findRowByText(container, 'BTC')
+
+    expect(listingRow).toBeTruthy()
+    expect(listingRow?.textContent).toContain('123.46')
+    expect(listingRow?.textContent).toContain('-0.99')
+    expect(listingRow?.textContent).toContain('4.32%')
+    expect(listingRow?.textContent).not.toContain('123.4567')
+    expect(listingRow?.textContent).not.toContain('-0.9876')
+    expect(listingRow?.textContent).not.toContain('4.3219%')
+  })
+
+  it('selects a listing when the row itself is clicked in linked mode', async () => {
     const onSelectListing = vi.fn()
 
     await act(async () => {
@@ -315,9 +346,7 @@ describe('WatchlistTable section interactions', () => {
       )
     })
 
-    const listingRow = Array.from(container.querySelectorAll('tr')).find((row) =>
-      row.textContent?.includes('BTC')
-    )
+    const listingRow = findRowByText(container, 'BTC')
 
     expect(listingRow).toBeTruthy()
 
@@ -325,121 +354,53 @@ describe('WatchlistTable section interactions', () => {
       listingRow?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    expect(onSelectListing).not.toHaveBeenCalled()
-    expect(findButtonByText(container, 'Select symbol')).toBeTruthy()
+    expect(onSelectListing).toHaveBeenCalledWith({
+      listing_id: 'BTC',
+      base_id: '',
+      quote_id: '',
+      listing_type: 'default',
+    })
+  })
+
+  it('selects a listing through a row click in unlinked mode', async () => {
+    await act(async () => {
+      root.render(<WatchlistTable {...(createTableProps() as any)} />)
+    })
+
+    const listingRow = findRowByText(container, 'BTC')
+
+    expect(listingRow).toBeTruthy()
+
+    await act(async () => {
+      listingRow?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(listingRow?.className).toContain('bg-accent')
+    expect(findButtonByText(container, 'Select symbol')).toBeFalsy()
     expect(findButtonByText(container, 'Deselect symbol')).toBeFalsy()
   })
 
-  it('selects a listing through the select button in unlinked mode', async () => {
+  it('toggles the selected row off when the same row is clicked again in unlinked mode', async () => {
     await act(async () => {
       root.render(<WatchlistTable {...(createTableProps() as any)} />)
     })
 
-    const listingRow = Array.from(container.querySelectorAll('tr')).find((row) =>
-      row.textContent?.includes('BTC')
-    )
-    const selectButton = findButtonByText(container, 'Select symbol')
+    const listingRow = findRowByText(container, 'BTC')
 
     expect(listingRow).toBeTruthy()
-    expect(selectButton).toBeTruthy()
 
     await act(async () => {
-      selectButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      listingRow?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    const deselectButton = findButtonByText(container, 'Deselect symbol')
+    await act(async () => {
+      listingRow?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
 
-    expect(listingRow?.className).toContain('bg-accent')
-    expect(deselectButton?.className).toContain('opacity-100')
-    expect(deselectButton?.className).toContain('bg-accent')
+    expect(listingRow?.className.split(/\s+/)).not.toContain('bg-accent')
   })
 
-  it('blurs pointer-selected rows so action visibility can return to hover-only state', async () => {
-    await act(async () => {
-      root.render(<WatchlistTable {...(createTableProps() as any)} />)
-    })
-
-    const selectButton = findButtonByText(container, 'Select symbol') as
-      | HTMLButtonElement
-      | undefined
-
-    expect(selectButton).toBeTruthy()
-
-    await act(async () => {
-      selectButton?.focus()
-      selectButton?.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }))
-    })
-
-    expect(document.activeElement).toBe(document.body)
-  })
-
-  it('does not activate drag when the select button is pressed before clicking', async () => {
-    const onSelectListing = vi.fn()
-
-    await act(async () => {
-      root.render(
-        <WatchlistTable
-          {...(createTableProps({
-            isLinkedSelection: true,
-            onSelectListing,
-          }) as any)}
-        />
-      )
-    })
-
-    const selectButton = findButtonByText(container, 'Select symbol')
-
-    expect(selectButton).toBeTruthy()
-
-    await act(async () => {
-      selectButton?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
-    })
-
-    expect(mockDragActivation).not.toHaveBeenCalled()
-
-    await act(async () => {
-      selectButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    })
-
-    expect(onSelectListing).toHaveBeenCalledWith({
-      listing_id: 'BTC',
-      base_id: '',
-      quote_id: '',
-      listing_type: 'default',
-    })
-  })
-
-  it('calls the listing selection callback when the select button is clicked in linked mode', async () => {
-    const onSelectListing = vi.fn()
-
-    await act(async () => {
-      root.render(
-        <WatchlistTable
-          {...(createTableProps({
-            isLinkedSelection: true,
-            onSelectListing,
-          }) as any)}
-        />
-      )
-    })
-
-    const selectButton = findButtonByText(container, 'Select symbol')
-
-    expect(selectButton).toBeTruthy()
-
-    await act(async () => {
-      selectButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    })
-
-    expect(onSelectListing).toHaveBeenCalledWith({
-      listing_id: 'BTC',
-      base_id: '',
-      quote_id: '',
-      listing_type: 'default',
-    })
-  })
-
-  it('keeps the selected check button visible for linked selections', async () => {
+  it('keeps the linked-selected row highlighted', async () => {
     await act(async () => {
       root.render(
         <WatchlistTable
@@ -456,16 +417,13 @@ describe('WatchlistTable section interactions', () => {
       )
     })
 
-    const listingRow = Array.from(container.querySelectorAll('tr')).find((row) =>
-      row.textContent?.includes('BTC')
-    )
-    const selectButton = findButtonByText(container, 'Deselect symbol')
+    const listingRow = findRowByText(container, 'BTC')
 
     expect(listingRow?.className).toContain('bg-accent')
-    expect(selectButton?.className).toContain('opacity-100')
+    expect(findButtonByText(container, 'Deselect symbol')).toBeFalsy()
   })
 
-  it('calls the listing selection callback with null when the selected button is clicked again', async () => {
+  it('calls the listing selection callback with null when the selected row is clicked again', async () => {
     const onSelectListing = vi.fn()
 
     await act(async () => {
@@ -485,12 +443,12 @@ describe('WatchlistTable section interactions', () => {
       )
     })
 
-    const selectButton = findButtonByText(container, 'Deselect symbol')
+    const listingRow = findRowByText(container, 'BTC')
 
-    expect(selectButton).toBeTruthy()
+    expect(listingRow).toBeTruthy()
 
     await act(async () => {
-      selectButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      listingRow?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
     expect(onSelectListing).toHaveBeenCalledWith(null)
@@ -582,9 +540,18 @@ describe('WatchlistTable section interactions', () => {
 
   it('opens inline symbol editing and commits the selected listing through the update callback', async () => {
     const onUpdateItemListing = vi.fn().mockResolvedValue(true)
+    const onSelectListing = vi.fn()
 
     await act(async () => {
-      root.render(<WatchlistTable {...(createTableProps({ onUpdateItemListing }) as any)} />)
+      root.render(
+        <WatchlistTable
+          {...(createTableProps({
+            onUpdateItemListing,
+            onSelectListing,
+            isLinkedSelection: true,
+          }) as any)}
+        />
+      )
     })
 
     const editButton = Array.from(container.querySelectorAll('button')).find((button) =>
@@ -621,6 +588,7 @@ describe('WatchlistTable section interactions', () => {
       quote_id: '',
       listing_type: 'default',
     })
+    expect(onSelectListing).not.toHaveBeenCalled()
   })
 
   it('updates linked selection when the selected listing is edited', async () => {

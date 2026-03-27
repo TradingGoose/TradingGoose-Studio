@@ -364,7 +364,7 @@ describe('watchlist operations', () => {
         listing_type: 'crypto',
       },
       containerId: 'section-2',
-      sortOrder: 1,
+      sortOrder: 0,
       createdAt: '2026-03-17T10:30:00.000Z',
     })
 
@@ -475,7 +475,7 @@ describe('watchlist operations', () => {
         quote_id: 'USDT',
         listing_type: 'crypto',
       },
-      sortOrder: 1,
+      sortOrder: 0,
     })
     expect(result.watchlist.items).toEqual([
       {
@@ -510,6 +510,111 @@ describe('watchlist operations', () => {
       },
       {
         id: 'item-btc',
+        type: 'listing',
+        listing: {
+          listing_id: '',
+          base_id: 'BTC',
+          quote_id: 'USDT',
+          listing_type: 'crypto',
+        },
+      },
+    ])
+  })
+
+  it('skips persisting imported sections when all section listings are duplicates', async () => {
+    const watchlistRow = createWatchlistRow()
+    const updatedRow = {
+      ...watchlistRow,
+      updatedAt: new Date('2026-03-17T11:00:00.000Z'),
+    }
+    const existingSection = createSectionRow('section-1', 'Macro', 0)
+    const existingApple = createItemRow({
+      id: 'item-a',
+      listing: {
+        listing_id: 'aapl-id',
+        base_id: '',
+        quote_id: '',
+        listing_type: 'default',
+      },
+      sortOrder: 0,
+      createdAt: '2026-03-17T10:15:00.000Z',
+    })
+    const existingBitcoin = createItemRow({
+      id: 'item-b',
+      listing: {
+        listing_id: '',
+        base_id: 'BTC',
+        quote_id: 'USDT',
+        listing_type: 'crypto',
+      },
+      containerId: 'section-1',
+      sortOrder: 0,
+      createdAt: '2026-03-17T10:20:00.000Z',
+    })
+    const insertValues = vi.fn().mockResolvedValue(undefined)
+
+    setupTransaction({
+      updatedRow,
+      insertValues,
+      selectResults: [
+        [watchlistRow],
+        [existingSection],
+        [existingApple, existingBitcoin],
+        [{ sortOrder: 0 }],
+        [{ sortOrder: 0 }],
+        [existingSection],
+        [existingApple, existingBitcoin],
+      ],
+    })
+
+    const result = await appendWatchlistItemsToWatchlist(scope, 'watchlist-1', [
+      {
+        type: 'section',
+        label: 'Tech',
+        items: [
+          {
+            type: 'listing',
+            listing: {
+              listing_id: 'aapl-id',
+              base_id: '',
+              quote_id: '',
+              listing_type: 'default',
+            },
+          },
+          {
+            type: 'listing',
+            listing: {
+              listing_id: '',
+              base_id: 'BTC',
+              quote_id: 'USDT',
+              listing_type: 'crypto',
+            },
+          },
+        ],
+      },
+    ])
+
+    expect(result.addedCount).toBe(0)
+    expect(result.skippedCount).toBe(2)
+    expect(insertValues).not.toHaveBeenCalled()
+    expect(result.watchlist.items).toEqual([
+      {
+        id: 'item-a',
+        type: 'listing',
+        listing: {
+          listing_id: 'aapl-id',
+          base_id: '',
+          quote_id: '',
+          listing_type: 'default',
+        },
+      },
+      {
+        id: 'section-1',
+        type: 'section',
+        label: 'Macro',
+      },
+      {
+        id: 'item-b',
         type: 'listing',
         listing: {
           listing_id: '',

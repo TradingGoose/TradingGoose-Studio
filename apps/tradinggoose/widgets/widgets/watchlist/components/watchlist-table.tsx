@@ -14,8 +14,17 @@ import {
   useRef,
   useState,
 } from 'react'
-import type { DragOverEvent, UniqueIdentifier } from '@dnd-kit/core'
-import { Check, ChevronRight, Pencil, Trash2, X } from 'lucide-react'
+import {
+  type DragOverEvent,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  type UniqueIdentifier,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
+import { ChevronRight, Pencil, Trash2, X } from 'lucide-react'
 import { getListingPrimary, MarketListingRow } from '@/components/listing-selector/listing/row'
 import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import {
@@ -101,7 +110,7 @@ const percentFormatter = new Intl.NumberFormat('en-US', {
 
 const priceFormatter = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 2,
-  maximumFractionDigits: 6,
+  maximumFractionDigits: 2,
 })
 
 const COLUMN_COUNT = 6
@@ -134,11 +143,6 @@ const stopSortableActivation = (
     | ReactTouchEvent<HTMLElement>
 ) => {
   event.stopPropagation()
-}
-
-const blurAfterPointerClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
-  if (event.detail === 0) return
-  event.currentTarget.blur()
 }
 
 const buildListingEditorInstanceId = (itemId: string) => `watchlist-listing-editor-${itemId}`
@@ -376,6 +380,22 @@ export const WatchlistTable = ({
   const hasAnyItem = (watchlist?.items.length ?? 0) > 0
   const hasSections = parsedRows.sections.length > 0
   const dragEnabled = !isMutating
+  const sensors = useSensors(
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 6,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 150,
+        tolerance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
   const sortableIds = useMemo(() => {
     const next: UniqueIdentifier[] = []
 
@@ -568,6 +588,10 @@ export const WatchlistTable = ({
             isEditing && 'relative z-20',
             isDropBefore ? 'bg-primary/10' : isSelected ? 'bg-accent' : 'hover:bg-accent/20'
           )}
+          onClick={() => {
+            if (isEditing || isMutating) return
+            handleToggleListingSelection(row)
+          }}
         >
           <td className={cn('p-3 align-middle', isEditing && 'relative z-20 overflow-visible')}>
             {isEditing ? (
@@ -601,30 +625,6 @@ export const WatchlistTable = ({
           </td>
           <td className='p-3 text-center align-middle'>
             <div className='flex items-center justify-center gap-1'>
-              <Button
-                type='button'
-                variant='ghost'
-                size='icon'
-                aria-pressed={isSelected}
-                className={cn(
-                  'h-8 w-8 transition-colors hover:text-foreground',
-                  isSelected
-                    ? 'pointer-events-auto bg-accent text-foreground opacity-100 hover:bg-accent focus-visible:bg-accent'
-                    : 'pointer-events-none bg-transparent text-muted-foreground opacity-0 hover:bg-transparent group-focus-within/listing:pointer-events-auto group-focus-within/listing:opacity-100 group-hover/listing:pointer-events-auto group-hover/listing:opacity-100'
-                )}
-                onPointerDownCapture={stopSortableActivation}
-                onMouseDown={stopSortableActivation}
-                onTouchStart={stopSortableActivation}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  blurAfterPointerClick(event)
-                  handleToggleListingSelection(row)
-                }}
-                disabled={isMutating}
-              >
-                <Check className='!h-3.5 !w-3.5' />
-                <span className='sr-only'>{isSelected ? 'Deselect symbol' : 'Select symbol'}</span>
-              </Button>
               <div
                 className={cn(
                   'flex items-center justify-center gap-1',
@@ -704,6 +704,8 @@ export const WatchlistTable = ({
         <Sortable
           orientation='vertical'
           value={sortableIds}
+          sensors={sensors}
+          flatCursor
           onDragOver={handleDragOver}
           onDragCancel={resetDragState}
           onDragEnd={resetDragState}
