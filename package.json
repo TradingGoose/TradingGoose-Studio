@@ -44,7 +44,6 @@
     "@tanstack/react-query": "5.90.8",
     "cronstrue": "3.3.0",
     "drizzle-orm": "^0.44.5",
-    "klinecharts": "10.0.0-beta1",
     "lightweight-charts": "5.1.0",
     "mongodb": "6.19.0",
     "pinets": "^0.8.8",

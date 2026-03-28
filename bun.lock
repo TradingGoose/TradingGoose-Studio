@@ -10,7 +10,6 @@
         "@tanstack/react-query": "5.90.8",
         "cronstrue": "3.3.0",
         "drizzle-orm": "^0.44.5",
-        "klinecharts": "10.0.0-beta1",
         "lightweight-charts": "5.1.0",
         "mongodb": "6.19.0",
         "pinets": "^0.8.8",
@@ -137,7 +136,6 @@
         "js-tiktoken": "1.0.21",
         "js-yaml": "^4.1.1",
         "jwt-decode": "^4.0.0",
-        "klinecharts": "10.0.0-beta1",
         "lightweight-charts": "^5.1.0",
         "lucide-react": "0.555.0",
         "mammoth": "^1.9.0",
@@ -2234,8 +2232,6 @@
     "jwt-decode": ["jwt-decode@4.0.0", "", {}, "sha512-+KJGIyHgkGuIq3IEBNftfhW/LfWhXUIY6OmyVWjliu5KH1y0fw7VQ8YndE2O4qZdMSd9SqbnC8GOcZEy0Om7sA=="],
 
     "kleur": ["kleur@3.0.3", "", {}, "sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w=="],
-
-    "klinecharts": ["klinecharts@10.0.0-beta1", "", {}, "sha512-5ZxFGjJeZqt9+q45lZDhApC3kdgrk51i27uSpIELgXJLNgfSc0anlb8XkU+52LVrBYnTv9dFr8/Q7lG81vIV1w=="],
 
     "kysely": ["kysely@0.28.7", "", {}, "sha512-u/cAuTL4DRIiO2/g4vNGRgklEKNIj5Q3CG7RoUB5DV5SfEC2hMvPxKi0GWPmnzwL2ryIeud2VTcEEmqzTzEPNw=="],
 
