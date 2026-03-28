@@ -30,7 +30,7 @@ export default {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
         },
-        'primary-hover': 'hsla(var(--primary-hover),0.8)',
+        'primary-hover': 'hsl(var(--primary-hover) / 0.8)',
         secondary: {
           DEFAULT: 'hsl(var(--secondary))',
           foreground: 'hsl(var(--secondary-foreground))',
@@ -193,6 +193,22 @@ export default {
             transform: 'translateX(0)',
           },
         },
+        'marquee-horizontal': {
+          from: {
+            transform: 'translateX(0)',
+          },
+          to: {
+            transform: 'translateX(calc(-100% - var(--marquee-gap)))',
+          },
+        },
+        'marquee-vertical': {
+          from: {
+            transform: 'translateY(0)',
+          },
+          to: {
+            transform: 'translateY(calc(-100% - var(--marquee-gap)))',
+          },
+        },
       },
       animation: {
         'slide-down': 'slide-down 0.3s ease-out',
@@ -207,6 +223,8 @@ export default {
         'accordion-up': 'accordion-up 0.2s ease-out',
         'slide-left': 'slide-left 80s linear infinite',
         'slide-right': 'slide-right 80s linear infinite',
+        'marquee-horizontal': 'marquee-horizontal var(--marquee-duration) infinite linear',
+        'marquee-vertical': 'marquee-vertical var(--marquee-duration) infinite linear',
       },
     },
   },
