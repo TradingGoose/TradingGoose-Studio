@@ -9,11 +9,15 @@ import { cn } from '@/lib/utils'
 const BackgroundRippleEffect = ({
   rows = 8,
   cols = 27,
-  cellSize = 56.815
+  cellSize = 56.815,
+  maskClassName = 'mask-radial-from-20% mask-radial-at-top',
+  interactive = true
 }: {
   rows?: number
   cols?: number
   cellSize?: number
+  maskClassName?: string
+  interactive?: boolean
 }) => {
   // States
   const [clickedCell, setClickedCell] = useState<{ row: number; col: number } | null>(null)
@@ -25,6 +29,8 @@ const BackgroundRippleEffect = ({
   const gridRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
+    if (!interactive) return
+
     const getCellFromPointer = (event: PointerEvent) => {
       const gridEl = gridRef.current
       if (!gridEl) return null
@@ -66,7 +72,7 @@ const BackgroundRippleEffect = ({
       window.removeEventListener('pointermove', handlePointerMove)
       window.removeEventListener('pointerdown', handlePointerDown)
     }
-  }, [cellSize, cols, rows])
+  }, [cellSize, cols, rows, interactive])
 
   return (
     <div
@@ -79,17 +85,17 @@ const BackgroundRippleEffect = ({
         <div className='pointer-events-none absolute inset-0 z-[2] h-full w-full overflow-hidden' />
         <DivGrid
           key={`base-${rippleKey}`}
-          className='mask-radial-from-20% mask-radial-at-top opacity-40'
+          className={cn(maskClassName, 'opacity-40')}
           rows={rows}
           cols={cols}
           cellSize={cellSize}
           clickedCell={clickedCell}
           hoveredCell={hoveredCell}
-          onCellClick={(row, col) => {
+          onCellClick={interactive ? (row, col) => {
             setClickedCell({ row, col })
             setRippleKey(k => k + 1)
-          }}
-          interactive
+          } : undefined}
+          interactive={interactive}
           gridRef={gridRef}
         />
       </div>
@@ -160,11 +166,11 @@ const DivGrid = ({
             key={idx}
             className={cn(
               'cell relative  border-[1px] opacity-50 transition-all duration-150 will-change-transform shadow-inner shadow-lg',
-              'bg-stone-300 shadow-stone-500  border-amber-600',
-              'dark:bg-stone-800 dark:shadow-stone-600',
+              'bg-primary/10 border-neutral-500',
+              '',
               clickedCell && 'animate-cell-ripple [animation-fill-mode:none]',
               !interactive && 'pointer-events-none',
-              isHovered && 'opacity-90 brightness-95'
+              isHovered && 'opacity-90 border-primary brightness-95'
             )}
             style={{
               ...style

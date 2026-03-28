@@ -23,7 +23,7 @@ const PRICE_RANGE_LINE_NAME = 'PriceRange';
  * ```
  */
 export function registerPriceRangePlugin<HorzScaleItem>(corePlugin: ILineToolsPlugin & { registerLineTool: <H>(type: string, toolClass: new (...args: any[]) => any) => void }): void {
-	
+
 	// Register the PriceRange Tool
 	// We pass the specific name and the class constructor.
 	corePlugin.registerLineTool(PRICE_RANGE_LINE_NAME, LineToolPriceRange);
