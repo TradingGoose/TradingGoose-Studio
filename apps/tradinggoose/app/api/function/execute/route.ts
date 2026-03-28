@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
 import {
   getCodeExecutionConcurrencyLimitMessage,
+  isCodeExecutionConcurrencyBackendUnavailableError,
   isCodeExecutionConcurrencyLimitError,
   withCodeExecutionConcurrencyLimit,
 } from '@/lib/execution/concurrency-limit'
@@ -155,6 +156,10 @@ export async function POST(req: NextRequest) {
 
     return respondSuccess(runtimeExecution.result, executionTime)
   } catch (error: any) {
+    if (isCodeExecutionConcurrencyBackendUnavailableError(error)) {
+      return respondFailure(error.message, Date.now() - startTime, error.statusCode, stdout)
+    }
+
     if (isCodeExecutionConcurrencyLimitError(error)) {
       return respondFailure(
         getCodeExecutionConcurrencyLimitMessage(error),

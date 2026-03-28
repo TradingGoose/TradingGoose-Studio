@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import {
   getCodeExecutionConcurrencyLimitMessage,
+  isCodeExecutionConcurrencyBackendUnavailableError,
   isCodeExecutionConcurrencyLimitError,
   withCodeExecutionConcurrencyLimit,
 } from '@/lib/execution/concurrency-limit'
@@ -173,6 +174,17 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
+    if (isCodeExecutionConcurrencyBackendUnavailableError(error)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message,
+          code: 'execution_backend_unavailable',
+        },
+        { status: error.statusCode }
+      )
+    }
+
     if (isCodeExecutionConcurrencyLimitError(error)) {
       return NextResponse.json(
         {
