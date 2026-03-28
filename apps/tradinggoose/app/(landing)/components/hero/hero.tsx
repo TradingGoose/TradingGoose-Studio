@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
 
 import Image from 'next/image'
 import {
@@ -10,71 +10,17 @@ import {
   CodeXmlIcon,
   ChartLine,
   Workflow,
-  LayoutDashboardIcon
+  LayoutDashboardIcon,
+  ActivityIcon,
+  BlocksIcon,
 } from 'lucide-react'
 
 import { AnimatedBeam } from '@/components/ui/animated-beam'
-import { MotionPreset } from '@/components/ui/motion-preset'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { WordRotate } from '@/components/ui/word-rotate'
 
 const Hero = () => {
-  const imageContainerRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const container = imageContainerRef.current
-
-    if (!container) return
-
-    // Check if screen is large enough for 3D effects (1024px+)
-    const checkScreenSize = () => window.innerWidth >= 1024
-
-    /**
-     * Handle mouse movement for 3D tilt effect
-     * Calculates rotation based on mouse position relative to container center
-     */
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!checkScreenSize()) return
-
-      const rect = container.getBoundingClientRect()
-
-      // Calculate rotation angles (reduced multiplier for subtle effect)
-      const x = (e.clientX - rect.left - rect.width / 2) * 0.0075
-      const y = (e.clientY - rect.top - rect.height / 2) * 0.0075
-
-      // Apply 3D transform with perspective and slight scale
-      container.style.transform = `perspective(1000px) rotateX(${y}deg) rotateY(${x}deg) scale3d(1.01, 1.01, 1.01)`
-      container.style.boxShadow = '0 20px 50px rgba(0, 0, 0, 0.15)'
-    }
-
-    // Initialize hover state with smooth transition
-    const handleMouseEnter = (e: MouseEvent) => {
-      if (!checkScreenSize()) return
-
-      container.style.transition = 'transform 0.2s ease, box-shadow 0.2s ease'
-      handleMouseMove(e)
-    }
-
-    // Reset to neutral position when mouse leaves
-    const handleMouseLeave = () => {
-      container.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) scale3d(1, 1, 1)'
-      container.style.boxShadow = 'none'
-      container.style.transition = 'transform 0.5s ease, box-shadow 0.5s ease'
-    }
-
-    // Add event listeners for 3D tilt interaction
-    container.addEventListener('mouseenter', handleMouseEnter)
-    container.addEventListener('mousemove', handleMouseMove)
-    container.addEventListener('mouseleave', handleMouseLeave)
-
-    // Cleanup event listeners on unmount
-    return () => {
-      container.removeEventListener('mouseenter', handleMouseEnter)
-      container.removeEventListener('mousemove', handleMouseMove)
-      container.removeEventListener('mouseleave', handleMouseLeave)
-    }
-  }, [])
-
   const containerRef = useRef<HTMLDivElement>(null)
   const iconRef1 = useRef<HTMLDivElement>(null)
   const iconRef2 = useRef<HTMLDivElement>(null)
@@ -91,27 +37,53 @@ const Hero = () => {
   const spanRef6 = useRef<HTMLSpanElement>(null)
   const spanRef7 = useRef<HTMLSpanElement>(null)
   const spanRef8 = useRef<HTMLSpanElement>(null)
-
   return (
     <section className='flex-1 pt-8 sm:pt-16 lg:pt-24'>
       <div className='relative z-10 mx-auto flex max-w-7xl flex-col items-center gap-8 px-4 sm:gap-16 sm:px-6 lg:gap-24 lg:px-8'>
         <div className='flex flex-col items-center gap-4 text-center'>
-          <Badge variant='outline' className='relative z-10 text-sm font-normal'>
-            TradingGoose Studio is now live! 🚀
+          <Badge variant='outline' className='relative bg-background z-10 text-sm font-normal'>
+            Honk! Introducing TradingGoose Studio 🚀
           </Badge>
 
           <h1 className='relative z-10 text-2xl font-semibold sm:text-3xl lg:text-5xl lg:font-bold'>
-            LLM Workflows for <span className='underline underline-offset-3'>Trading Analysis</span>
+            <WordRotate words={['Build', 'Test', 'Run']} duration={4000} />
+            {' '}your{' '}
+            <WordRotate
+              words={['Trading Analysis', 'Signal Detection', 'Risk Assessment']}
+              className='underline underline-offset-3'
+              duration={7000}
+            />
+            {' '}with TradingGoose
           </h1>
 
-          <p className='relative z-10 text-muted-foreground max-w-4xl text-xl'>
-            Build and deploy AI agent workflows that fit your investment analysis styles
+          <p className='relative z-10 text-muted-foreground max-w-3xl text-lg leading-relaxed'>
+            Connect your own data providers, write custom indicators to monitor market prices,
+            and wire them into workflows that trigger trade, sell, buy, or any action you define.
           </p>
 
-          <div className='relative z-10 mt-6 flex flex-wrap items-center gap-4'>
+          <div className='relative z-10 flex flex-wrap items-center justify-center gap-2'>
+            <Badge variant='secondary' className='gap-1.5 px-3 py-1 text-xs font-normal'>
+              <BotMessageSquareIcon className='size-3.5' />
+              AI Agent Workflows
+            </Badge>
+            <Badge variant='secondary' className='gap-1.5 px-3 py-1 text-xs font-normal'>
+              <ChartCandlestick className='size-3.5' />
+              Custom Indicators
+            </Badge>
+            <Badge variant='secondary' className='gap-1.5 px-3 py-1 text-xs font-normal'>
+              <ActivityIcon className='size-3.5' />
+              Bring Your Own Data
+            </Badge>
+            <Badge variant='secondary' className='gap-1.5 px-3 py-1 text-xs font-normal'>
+              <BlocksIcon className='size-3.5' />
+              Integrations
+            </Badge>
+          </div>
+
+          <div className='relative z-10 mt-4 flex flex-wrap items-center gap-4'>
             <Button
               size='sm'
-              className='group relative w-fit overflow-hidden rounded-md px-6 font-bold shadow-md before:absolute before:inset-0 before:rounded-[inherit] before:bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.5)_50%,transparent_75%,transparent_100%)] before:bg-[length:250%_250%,100%_100%] before:bg-[position:200%_0,0_0] before:bg-no-repeat before:transition-[background-position_0s_ease] before:duration-1000 hover:before:bg-[position:-100%_0,0_0] dark:before:bg-[linear-gradient(45deg,transparent_25%,rgba(0,0,0,0.2)_50%,transparent_75%,transparent_100%)]'
+              className='group relative w-fit overflow-hidden rounded-md px-6 font-bold shadow-md bg-primary text-black hover:bg-primary-hover'
               asChild
             >
               <a href='#'>
@@ -122,6 +94,7 @@ const Hero = () => {
               <a href='#'>Learn more</a>
             </Button>
           </div>
+
         </div>
 
         <div ref={containerRef} className='relative z-10 flex w-full flex-col items-center'>
@@ -332,38 +305,6 @@ const Hero = () => {
             duration={4.5}
             className='-z-[1] md:hidden'
           />
-        </div>
-      </div>
-      <div className="mx-auto flex max-w-7xl flex-col mt-20 items-center px-4 sm:px-6 lg:px-8">
-        <div className='flex flex-col items-center text-center'>
-          {/* Hero Image with 3D Tilt Effect */}
-          <MotionPreset
-            ref={imageContainerRef}
-            fade
-            zoom={{ initialScale: 0.5 }}
-            delay={1.3}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
-            className='rounded-xl'
-          >
-            <Image
-              src='https://cdn.shadcnstudio.com/ss-assets/blocks/marketing/hero/image-18.png'
-              alt='hero-image'
-              width={1200}
-              height={675}
-              className='w-full rounded-xl object-cover dark:hidden'
-              sizes='200vw'
-              priority
-            />
-            <Image
-              src='https://cdn.shadcnstudio.com/ss-assets/blocks/marketing/hero/image-18-dark.png'
-              alt='hero-image'
-              width={1200}
-              height={675}
-              className='hidden w-full rounded-xl object-cover dark:inline-block'
-              sizes='200vw'
-              priority
-            />
-          </MotionPreset>
         </div>
       </div>
     </section>

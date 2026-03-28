@@ -1052,20 +1052,22 @@ export const WorkflowBlock = memo(
                 </div>
               )}
 
-              <ActionBar
-                blockId={id}
-                blockType={type}
-                workflowId={currentWorkflowId}
-                channelId={workflowChannelId}
-                disabled={!userPermissions.canEdit || isReadOnlyBlock}
-                showWebhookIndicator={showWebhookIndicator}
-                showScheduleBadge={shouldShowScheduleBadge}
-                hasScheduleInfo={hasScheduleInfo}
-                isScheduleDisabled={Boolean(scheduleInfo?.isDisabled)}
-                onScheduleToggle={onScheduleToggle}
-              />
+              {!data.isPreview && (
+                <ActionBar
+                  blockId={id}
+                  blockType={type}
+                  workflowId={currentWorkflowId}
+                  channelId={workflowChannelId}
+                  disabled={!userPermissions.canEdit || isReadOnlyBlock}
+                  showWebhookIndicator={showWebhookIndicator}
+                  showScheduleBadge={shouldShowScheduleBadge}
+                  hasScheduleInfo={hasScheduleInfo}
+                  isScheduleDisabled={Boolean(scheduleInfo?.isDisabled)}
+                  onScheduleToggle={onScheduleToggle}
+                />
+              )}
               {/* Connection Blocks - Don't show for trigger blocks or blocks in trigger mode */}
-              {config.category !== 'triggers' && !displayTriggerMode && !isReadOnlyBlock && (
+              {config.category !== 'triggers' && !displayTriggerMode && (!isReadOnlyBlock || data.isPreview) && (
                 <ConnectionBlocks
                   blockId={id}
                   setIsConnecting={setIsConnecting}

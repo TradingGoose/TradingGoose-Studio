@@ -8,11 +8,9 @@ import LandingTemplates from '@/app/(landing)/components/landing-templates/landi
 import LegalLayout from '@/app/(landing)/components/legal-layout'
 import Nav from '@/app/(landing)/components/nav/nav'
 import StructuredData from '@/app/(landing)/components/structured-data'
-import Testimonials from '@/app/(landing)/components/testimonials/testimonials'
 
 export {
   Integrations,
-  Testimonials,
   LandingTemplates,
   Nav,
   Background,
