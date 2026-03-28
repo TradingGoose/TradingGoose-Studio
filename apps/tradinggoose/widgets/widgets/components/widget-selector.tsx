@@ -35,14 +35,13 @@ type TriggerElementProps = {
   'aria-disabled'?: boolean
 }
 
-const categories = getWidgetCategories()
-
 function WidgetSelectorComponent({
   currentKey,
   onSelect,
   disabled,
   renderTrigger,
 }: WidgetSelectorProps) {
+  const categories = getWidgetCategories()
   const currentDefinition: DashboardWidgetDefinition | undefined = useMemo(() => {
     if (!currentKey) return getWidgetDefinition('empty')
     return getWidgetDefinition(currentKey) ?? getWidgetDefinition('empty')
