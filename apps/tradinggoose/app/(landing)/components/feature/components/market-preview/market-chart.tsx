@@ -60,7 +60,10 @@ function createFillPrimitive(fill: NormalizedPineFill) {
     viewData.topColor = state.topColor
     viewData.bottomColor = state.bottomColor
     viewData.visible = state.visible
-    if (!attached) { viewData.points = []; return }
+    if (!attached) {
+      viewData.points = []
+      return
+    }
 
     const timeScale = attached.chart.timeScale()
     const next: FillRendererPoint[] = []
@@ -68,9 +71,14 @@ function createFillPrimitive(fill: NormalizedPineFill) {
       const x = timeScale.timeToCoordinate(pt.time as any)
       const upper = attached.series.priceToCoordinate(pt.upper)
       const lower = attached.series.priceToCoordinate(pt.lower)
-      if (typeof x === 'number' && Number.isFinite(x) &&
-          typeof upper === 'number' && Number.isFinite(upper) &&
-          typeof lower === 'number' && Number.isFinite(lower)) {
+      if (
+        typeof x === 'number' &&
+        Number.isFinite(x) &&
+        typeof upper === 'number' &&
+        Number.isFinite(upper) &&
+        typeof lower === 'number' &&
+        Number.isFinite(lower)
+      ) {
         next.push({ x, upper, lower })
       }
     })
@@ -110,19 +118,34 @@ function createFillPrimitive(fill: NormalizedPineFill) {
   }
 
   const primitive: ISeriesPrimitive<any> = {
-    attached(a) { state.attached = a; a.requestUpdate() },
-    detached() { state.attached = null },
-    updateAllViews() { updateView() },
-    paneViews() { return [paneView] },
+    attached(a) {
+      state.attached = a
+      a.requestUpdate()
+    },
+    detached() {
+      state.attached = null
+    },
+    updateAllViews() {
+      updateView()
+    },
+    paneViews() {
+      return [paneView]
+    },
   }
 
   return {
     primitive,
     update(f: NormalizedPineFill) {
-      state.points = f.points; state.topColor = f.topColor; state.bottomColor = f.bottomColor
-      state.visible = true; state.attached?.requestUpdate()
+      state.points = f.points
+      state.topColor = f.topColor
+      state.bottomColor = f.bottomColor
+      state.visible = true
+      state.attached?.requestUpdate()
     },
-    setVisible(v: boolean) { state.visible = v; state.attached?.requestUpdate() },
+    setVisible(v: boolean) {
+      state.visible = v
+      state.attached?.requestUpdate()
+    },
   }
 }
 
@@ -180,7 +203,17 @@ export function MarketChart({
 }: MarketChartProps) {
   const indicatorSeriesRefs = React.useRef(new Map<string, Map<string, ISeriesApi<'Line'>>>())
   const seriesMarkersMapRef = React.useRef(new Map<ISeriesApi<any>, ISeriesMarkersPluginApi<any>>())
-  const fillPrimitivesRef = React.useRef(new Map<string, { series: ISeriesApi<any>; primitive: ISeriesPrimitive<any>; update: (f: NormalizedPineFill) => void; setVisible: (v: boolean) => void }>())
+  const fillPrimitivesRef = React.useRef(
+    new Map<
+      string,
+      {
+        series: ISeriesApi<any>
+        primitive: ISeriesPrimitive<any>
+        update: (f: NormalizedPineFill) => void
+        setVisible: (v: boolean) => void
+      }
+    >()
+  )
   const runtimeSignatureRef = React.useRef('')
   const resolvedCandleType = React.useMemo(() => resolveCandleType(candleType), [candleType])
   const themeVersion = useThemeVersion()
@@ -295,9 +328,30 @@ export function MarketChart({
     const pane = getPane(mainSeries)
     const paneIndex = getPaneIndex(mainSeries)
 
-    // Track which pane index each non-overlay indicator should use
+    // Track which pane index each non-overlay indicator should use.
+    // Re-use existing pane assignments from previously created series to avoid
+    // orphaning series on old panes while creating duplicates on new ones.
     const indicatorPaneMap = new Map<string, number>()
     let nextPaneIndex = chart.panes().length // next available pane index
+
+    // Pre-populate pane assignments from already-rendered series so that
+    // re-runs of this effect don't allocate a second pane for the same indicator.
+    indicatorSeriesRefs.current.forEach((seriesMap, indicatorId) => {
+      if (seriesMap.size === 0) return
+      const firstSeries = seriesMap.values().next().value
+      if (!firstSeries) return
+      try {
+        const existingPaneIndex = firstSeries.getPane().paneIndex()
+        if (typeof existingPaneIndex === 'number') {
+          indicatorPaneMap.set(indicatorId, existingPaneIndex)
+          if (existingPaneIndex >= nextPaneIndex) {
+            nextPaneIndex = existingPaneIndex + 1
+          }
+        }
+      } catch {
+        // Series may have been disposed — skip
+      }
+    })
 
     indicators.forEach((indicator, indicatorIndex) => {
       const existingSeriesMap = indicatorSeriesRefs.current.get(indicator.id) ?? new Map()
@@ -350,7 +404,11 @@ export function MarketChart({
 
         // Resolve the series constructor based on the plot's seriesType
         const definition =
-          seriesType === 'Histogram' ? HistogramSeries : seriesType === 'Area' ? AreaSeries : LineSeries
+          seriesType === 'Histogram'
+            ? HistogramSeries
+            : seriesType === 'Area'
+              ? AreaSeries
+              : LineSeries
 
         const options = {
           color,
@@ -364,11 +422,7 @@ export function MarketChart({
         let series = existingSeriesMap.get(key)
         if (!series) {
           // Use paneIndex param: 0 = main pane, higher = separate panes (auto-created)
-          series = chart.addSeries(
-            definition,
-            options,
-            isOverlay ? 0 : assignedPaneIndex
-          )
+          series = chart.addSeries(definition, options, isOverlay ? 0 : assignedPaneIndex)
           existingSeriesMap.set(key, series)
         } else {
           series.applyOptions({
@@ -407,7 +461,8 @@ export function MarketChart({
       })
 
       // Resolve the actual pane and index for the runtime entry
-      const anchorSeries = paneAnchorSeries ?? (plots[0]?.series as ISeriesApi<any> | undefined) ?? null
+      const anchorSeries =
+        paneAnchorSeries ?? (plots[0]?.series as ISeriesApi<any> | undefined) ?? null
       let runtimePane = pane
       let runtimePaneIndex = paneIndex
       if (anchorSeries) {
@@ -451,7 +506,9 @@ export function MarketChart({
       if (!indicator.output?.fills) return
       const fills = indicator.output.fills
       // Find the first overlay series for this indicator to attach fills to
-      const anchorSeries = indicatorSeriesRefs.current.get(indicator.id)?.values().next().value ?? mainSeriesRef.current
+      const anchorSeries =
+        indicatorSeriesRefs.current.get(indicator.id)?.values().next().value ??
+        mainSeriesRef.current
       if (!anchorSeries) return
 
       fills.forEach((fill, fillIndex) => {
