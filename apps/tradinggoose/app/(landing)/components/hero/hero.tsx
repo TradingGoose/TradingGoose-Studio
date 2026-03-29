@@ -61,12 +61,6 @@ const Hero = () => {
             and wire them into workflows that trigger trade, sell, buy, or any action you define.
           </p>
 
-          <p className='relative z-10 max-w-3xl text-balance text-muted-foreground text-sm leading-relaxed'>
-            TradingGoose Studio is built for analytics, charting, monitoring, and workflow
-            automation. You remain solely responsible for any live trading decisions, orders, and
-            resulting gains or losses.
-          </p>
-
           <div className='relative z-10 flex flex-wrap items-center justify-center gap-2'>
             <Badge variant='secondary' className='gap-1.5 px-3 py-1 text-xs font-normal'>
               <BotMessageSquareIcon className='size-3.5' />
