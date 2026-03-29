@@ -4,12 +4,12 @@
 </p>
 
 <picture>
-  <!-- Image for Dark Mode -->
-  <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/4690c73e-b02f-49b5-a0a2-90f76ed9adc5">
   <!-- Image for Light Mode -->
-  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/b60d5e74-3a2f-49fb-b4d0-5ae508c4a2cc">
+  <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/f0c8a9b5-4496-440d-9164-4444bbca9eb0">
+  <!-- Image for Dark Mode -->
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/bdde59b2-b70b-4e66-8e0b-aaa0c79bdf0b">
   <!-- Fallback Image (shown if the browser doesn't support themes) -->
-  <img alt="Project Screenshot" src="https://github.com/user-attachments/assets/b60d5e74-3a2f-49fb-b4d0-5ae508c4a2cc" width="2559">
+  <img alt="Project Screenshot" src="https://github.com/user-attachments/assets/f0c8a9b5-4496-440d-9164-4444bbca9eb0" width="2559">
 </picture>
 
 
