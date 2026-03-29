@@ -148,12 +148,6 @@ export default function Footer({ fullWidth = false }: FooterProps) {
           </div>
           <Separator className='!w-35' />
           <Link
-            href='/blog'
-            className='text-[14px] text-muted-foreground transition-colors hover:text-foreground'
-          >
-            Blog
-          </Link>
-          <Link
             href='/changelog'
             className='text-[14px] text-muted-foreground transition-colors hover:text-foreground'
           >
