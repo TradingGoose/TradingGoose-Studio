@@ -18,7 +18,7 @@ export function useCardGlow() {
         const fblob = cardEl.querySelector('.fake-blob') as HTMLElement
         if (blob && fblob) {
           const rec = fblob.getBoundingClientRect()
-          blob.style.opacity = '0.8'
+          blob.style.opacity = '1'
           blob.animate(
             [
               {

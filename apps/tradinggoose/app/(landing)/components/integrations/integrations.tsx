@@ -1,9 +1,12 @@
+'use client'
+
 import * as Icons from '@/components/icons/icons'
 import * as ProviderIcons from '@/components/icons/provider-icons'
 import { Avatar } from '@/components/ui/avatar'
-import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import { Marquee } from '@/components/ui/marquee'
 import { MotionPreset } from '@/components/ui/motion-preset'
+import { useCardGlow } from '@/app/(landing)/components/use-card-glow'
 
 type BrandLogo = {
   icon: React.ComponentType<{ className?: string }>
@@ -118,73 +121,73 @@ function LogoAvatar({ icon: Icon, style }: BrandLogo) {
 }
 
 export default function Integrations() {
+  useCardGlow()
+
   return (
     <section id='integrations' className='py-8 sm:py-16 lg:py-24'>
-      <div className='mx-auto px-12 sm:px-24 lg:px-32'>
-        <div className='flex justify-between items-center gap-12 max-md:flex-col sm:gap-16 lg:gap-24'>
+      <div className='mx-auto px-20 sm:px-32 lg:px-48'>
+        <div className='flex items-start justify-between gap-12 max-md:flex-col sm:gap-16 lg:gap-24'>
           {/* Header */}
-          <div className='space-y-4'>
-            <MotionPreset
-              component='p'
-              className='font-medium text-[11px] text-muted-foreground uppercase tracking-[0.24em]'
-              fade
-              slide={{ offset: 50 }}
-              blur
-              transition={{ duration: 0.5 }}
-            >
-              Integrations
-            </MotionPreset>
+          <MotionPreset fade slide={{ direction: 'up', offset: 32 }} transition={{ duration: 0.5 }}>
+            <div className='card group relative overflow-hidden rounded-xl bg-foreground/10 p-px transition-all duration-300 ease-in-out'>
+              <div
+                className='blob absolute top-0 left-0 h-[120px] w-[120px] rounded-full opacity-0 blur-xl transition-all duration-300 ease-in-out'
+                style={{ backgroundColor: 'hsl(var(--primary) / 0.7)' }}
+              />
+              <div
+                className='fake-blob absolute top-0 left-0 h-40 w-40 rounded-full'
+                style={{ visibility: 'hidden' }}
+              />
+              <Card className='relative overflow-hidden rounded-xl border shadow-none'>
+                <div
+                  className='pointer-events-none absolute inset-0 z-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100'
+                  style={{
+                    background:
+                      'radial-gradient(circle at var(--shine-x, 50%) var(--shine-y, 50%), hsl(var(--primary) / 0.06), transparent 40%)',
+                  }}
+                />
+                <CardContent className='relative z-10 space-y-4 p-6'>
+                  <p className='font-medium text-[11px] text-muted-foreground uppercase tracking-[0.24em]'>
+                    Integrations
+                  </p>
 
-            <MotionPreset
-              component='h2'
-              className='text-2xl font-semibold md:text-3xl lg:text-4xl'
-              fade
-              slide={{ offset: 50 }}
-              blur
-              delay={0.3}
-              transition={{ duration: 0.5 }}
-            >
-              LLM with more than just prompts.
-            </MotionPreset>
+                  <h2 className='font-semibold text-2xl md:text-3xl lg:text-4xl'>
+                    LLM with more than just prompts.
+                  </h2>
 
-            <div className='space-y-2'>
-              {[
-                'Every integration becomes a tool your AI agents can call',
-                'Built-in blocks for messaging, databases, cloud storage, CRMs, and search',
-                'Custom MCP servers, skills, and tools you define yourself',
-              ].map((text, i) => (
-                <MotionPreset
-                  key={text}
-                  fade
-                  blur
-                  slide={{ offset: 50 }}
-                  delay={0.6 + i * 0.1}
-                  transition={{ duration: 0.5 }}
-                >
-                  <div className='flex items-center gap-3'>
-                    <span className='h-px w-4 shrink-0 bg-primary' />
-                    <p className='text-sm text-muted-foreground'>{text}</p>
+                  <div className='space-y-2'>
+                    {[
+                      'Every integration becomes a tool your AI agents can call',
+                      'Built-in blocks for messaging, databases, cloud storage, CRMs, and search',
+                      'Custom MCP servers, skills, and tools you define yourself',
+                    ].map((text) => (
+                      <div key={text} className='flex items-center gap-3'>
+                        <span className='h-px w-4 shrink-0 bg-primary' />
+                        <p className='text-muted-foreground text-sm'>{text}</p>
+                      </div>
+                    ))}
                   </div>
-                </MotionPreset>
-              ))}
+                </CardContent>
+              </Card>
             </div>
-
-            <MotionPreset fade blur slide={{ offset: 50 }} delay={1.0} transition={{ duration: 0.5 }}>
-              <Button className='rounded-lg text-base' size='lg' asChild>
-                <a href='#feature'>Explore more</a>
-              </Button>
-            </MotionPreset>
-          </div>
+          </MotionPreset>
 
           <div className='relative grid shrink-0 grid-cols-4 gap-4'>
-            <div className='from-background absolute top-0 z-[1] h-1/3 w-full bg-gradient-to-b to-transparent' />
-            <div className='from-background absolute bottom-0 z-[1] h-1/3 w-full bg-gradient-to-t to-transparent' />
+            <div className='absolute top-0 z-[1] h-1/3 w-full bg-gradient-to-b from-background to-transparent' />
+            <div className='absolute bottom-0 z-[1] h-1/3 w-full bg-gradient-to-t from-background to-transparent' />
             <Marquee vertical pauseOnHover duration={60} gap={1} className='h-[540px] w-fit p-0'>
               {col1.map((logo, index) => (
                 <LogoAvatar key={index} {...logo} />
               ))}
             </Marquee>
-            <Marquee vertical pauseOnHover duration={70} gap={1} reverse className='h-[540px] w-fit p-0'>
+            <Marquee
+              vertical
+              pauseOnHover
+              duration={70}
+              gap={1}
+              reverse
+              className='h-[540px] w-fit p-0'
+            >
               {col2.map((logo, index) => (
                 <LogoAvatar key={index} {...logo} />
               ))}
@@ -194,7 +197,14 @@ export default function Integrations() {
                 <LogoAvatar key={index} {...logo} />
               ))}
             </Marquee>
-            <Marquee vertical pauseOnHover duration={75} gap={1} reverse className='h-[540px] w-fit p-0 '>
+            <Marquee
+              vertical
+              pauseOnHover
+              duration={75}
+              gap={1}
+              reverse
+              className='h-[540px] w-fit p-0 '
+            >
               {col4.map((logo, index) => (
                 <LogoAvatar key={index} {...logo} />
               ))}

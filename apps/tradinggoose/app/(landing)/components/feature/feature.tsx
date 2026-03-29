@@ -1,8 +1,9 @@
 'use client'
 
-import React from 'react'
+import type React from 'react'
 import { ChartCandlestick, LayoutDashboardIcon, Workflow } from 'lucide-react'
 import { BackgroundRippleEffect } from '@/components/ui/background-ripple-effect'
+import { Card } from '@/components/ui/card'
 import { MotionPreset } from '@/components/ui/motion-preset'
 import { cn } from '@/lib/utils'
 import { useCardGlow } from '@/app/(landing)/components/use-card-glow'
@@ -73,7 +74,7 @@ function FeaturePoint({ title }: FeatureBullet) {
   return (
     <div className='flex items-center gap-3'>
       <span className='h-px w-4 shrink-0 bg-primary' />
-      <p className='text-sm text-muted-foreground'>{title}</p>
+      <p className='text-muted-foreground text-sm'>{title}</p>
     </div>
   )
 }
@@ -95,28 +96,26 @@ function FeatureRowSection({
   const previewSlideDirection = previewIsLeft ? 'left' : 'right'
 
   return (
-    <div className='grid items-stretch gap-4 lg:h-[70vh] lg:min-h-[50vh] lg:grid-cols-5 lg:gap-6 xl:gap-10'>
+    <div className='grid items-start gap-4 lg:h-[70vh] lg:min-h-[50vh] lg:grid-cols-5 lg:gap-6 xl:gap-10'>
       <MotionPreset
         fade
         slide={{ direction: contentSlideDirection, offset: 48 }}
         transition={{ duration: 0.6 }}
         delay={index * 0.12}
         className={cn(
-          'bg-foreground/10 card isolate m-1 group group/feature relative overflow-hidden rounded-xl p-px transition-all duration-300 ease-in-out lg:col-span-2',
+          'card group group/feature relative isolate m-1 overflow-hidden rounded-xl bg-foreground/10 p-px transition-all duration-300 ease-in-out lg:col-span-2',
           contentOrder
         )}
       >
         <div
           className='blob absolute top-0 left-0 h-[120px] w-[120px] rounded-full opacity-0 blur-xl transition-all duration-300 ease-in-out'
-          style={{ backgroundColor: 'hsl(var(--primary) / 0.4)' }}
+          style={{ backgroundColor: 'hsl(var(--primary) / 0.7)' }}
         />
         <div
           className='fake-blob absolute top-0 left-0 h-40 w-40 rounded-full'
           style={{ visibility: 'hidden' }}
         />
-        <div
-          className='relative flex h-full min-h-0 flex-col gap-10 overflow-hidden rounded-[11px] bg-background p-6 transition-all duration-300 ease-in-out'
-        >
+        <Card className='relative flex h-full min-h-0 flex-col justify-between gap-10 overflow-hidden rounded-xl border p-6 shadow-none transition-all duration-300 ease-in-out'>
           <div
             className='pointer-events-none absolute inset-0 z-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100'
             style={{
@@ -154,7 +153,7 @@ function FeatureRowSection({
               </MotionPreset>
             ))}
           </div>
-        </div>
+        </Card>
       </MotionPreset>
 
       <MotionPreset
@@ -163,7 +162,7 @@ function FeatureRowSection({
         transition={{ duration: 0.75 }}
         delay={index * 0.12 + 0.15}
         className={cn(
-          'flex min-h-[40vh] w-full lg:col-span-3 lg:min-h-0 lg:h-full',
+          'flex min-h-[40vh] w-full lg:col-span-3 lg:h-full lg:min-h-0',
           previewOrder,
           previewIsLeft ? 'lg:justify-start' : 'lg:justify-end'
         )}
@@ -186,8 +185,10 @@ export default function Feature() {
       <div
         className='pointer-events-none absolute inset-0 z-[-1]'
         style={{
-          maskImage: 'linear-gradient(to bottom, transparent, black 40%, black 60%, transparent), linear-gradient(to right, transparent, black 20%, black 80%, transparent)',
-          WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 40%, black 60%, transparent), linear-gradient(to right, transparent, black 20%, black 80%, transparent)',
+          maskImage:
+            'linear-gradient(to bottom, transparent, black 40%, black 60%, transparent), linear-gradient(to right, transparent, black 20%, black 80%, transparent)',
+          WebkitMaskImage:
+            'linear-gradient(to bottom, transparent, black 40%, black 60%, transparent), linear-gradient(to right, transparent, black 20%, black 80%, transparent)',
           maskComposite: 'intersect',
           WebkitMaskComposite: 'destination-in',
         }}

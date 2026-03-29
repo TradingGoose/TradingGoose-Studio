@@ -11,9 +11,12 @@ const HowItWorks = dynamic(() => import('@/app/(landing)/components/how-it-works
   loading: () => <div className='h-[200px] animate-pulse bg-gray-50' />,
 })
 
-const MonitorSection = dynamic(() => import('@/app/(landing)/components/monitor-preview/monitor-section'), {
-  loading: () => <div className='h-[400px] animate-pulse bg-gray-50' />,
-})
+const MonitorSection = dynamic(
+  () => import('@/app/(landing)/components/monitor-preview/monitor-section'),
+  {
+    loading: () => <div className='h-[400px] animate-pulse bg-gray-50' />,
+  }
+)
 
 const Feature = dynamic(() => import('@/app/(landing)/components/feature/feature'), {
   loading: () => <div className='h-[600px] animate-pulse bg-gray-50' />,
@@ -30,18 +33,19 @@ const Integrations = dynamic(() => import('@/app/(landing)/components/integratio
   loading: () => <div className='h-[300px] animate-pulse bg-gray-50' />,
 })
 
+const CallToAction = dynamic(() => import('@/app/(landing)/components/cta/cta'), {
+  loading: () => <div className='h-[200px] animate-pulse bg-gray-50' />,
+})
+
 export default function Landing() {
   return (
     <>
       <StructuredData />
       <Nav />
-      <main className='relative'>
+      <main className='relative border-border border-b pb-48'>
         <Suspense
           fallback={
-            <div
-              className='h-[600px] animate-pulse bg-gray-50'
-              aria-label='Loading hero section'
-            />
+            <div className='h-[600px] animate-pulse bg-gray-50' aria-label='Loading hero section' />
           }
         >
           <Hero />
@@ -99,11 +103,12 @@ export default function Landing() {
         <Suspense
           fallback={
             <div
-              className='h-[150px] animate-pulse bg-gray-50'
-              aria-label='Loading testimonials section'
+              className='h-[200px] animate-pulse bg-gray-50'
+              aria-label='Loading call to action section'
             />
           }
         >
+          <CallToAction />
         </Suspense>
       </main>
       <Footer />

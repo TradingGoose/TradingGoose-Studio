@@ -1,11 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
-import {
-  DiscordIcon,
-  GithubIcon,
-  LinkedInIcon,
-  xIcon as XIcon,
-} from '@/components/icons/icons'
+import { DiscordIcon, GithubIcon, LinkedInIcon, xIcon as XIcon } from '@/components/icons/icons'
 import { Separator } from '@/components/ui/separator'
 
 const blocks = [
@@ -99,7 +94,7 @@ interface FooterProps {
 export default function Footer({ fullWidth = false }: FooterProps) {
   return (
     <footer>
-      <div className='mx-auto grid max-w-[90vw] gap-6 px-4 py-8 sm:grid-cols-2 sm:gap-8 sm:px-6 sm:py-16 md:py-24 lg:grid-cols-4'>
+      <div className='mx-auto grid max-w-[90vw] gap-6 px-4 py-8 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-5'>
         {/* Logo, description, socials, and standalone links */}
         <div className='flex flex-col items-start gap-4 lg:col-span-1'>
           <Link href='/' aria-label='TradingGoose Studio home' className='flex items-center gap-3'>
@@ -112,9 +107,9 @@ export default function Footer({ fullWidth = false }: FooterProps) {
               priority
               quality={100}
             />
-            <span className='text-xl font-semibold'>TradingGoose Studio</span>
+            <span className='font-semibold text-xl'>TradingGoose Studio</span>
           </Link>
-          <p className='text-muted-foreground text-balance'>
+          <p className='text-balance text-muted-foreground'>
             Workspace layouts, charting with indicators, and a visual workflow editor for trading.
           </p>
           <div className='flex items-center gap-4'>
@@ -186,12 +181,14 @@ export default function Footer({ fullWidth = false }: FooterProps) {
           >
             Enterprise
           </Link>
+          {/*
           <Link
             href='/careers'
             className='text-[14px] text-muted-foreground transition-colors hover:text-foreground'
           >
             Careers
           </Link>
+          */}
           <Link
             href='/privacy'
             target='_blank'
@@ -212,15 +209,15 @@ export default function Footer({ fullWidth = false }: FooterProps) {
 
         {/* Blocks */}
         <div className='hidden flex-col gap-5 sm:flex'>
-          <div className='text-lg font-medium'>Blocks</div>
-          <ul className='text-muted-foreground space-y-3'>
+          <div className='font-medium text-lg'>Blocks</div>
+          <ul className='space-y-3 text-muted-foreground'>
             {blocks.map((block) => (
               <li key={block}>
                 <Link
                   href={`https://docs.sim.ai/blocks/${block.toLowerCase().replace(' ', '-')}`}
                   target='_blank'
                   rel='noopener noreferrer'
-                  className='hover:text-foreground transition-colors duration-300'
+                  className='transition-colors duration-300 hover:text-foreground'
                 >
                   {block}
                 </Link>
@@ -231,23 +228,23 @@ export default function Footer({ fullWidth = false }: FooterProps) {
 
         {/* Tools */}
         <div className='hidden flex-col gap-5 sm:flex'>
-          <div className='text-lg font-medium'>Tools</div>
+          <div className='font-medium text-lg'>Tools</div>
           <div className='flex gap-[80px]'>
-            <ul className='text-muted-foreground space-y-3'>
+            <ul className='space-y-3 text-muted-foreground'>
               {tools.slice(0, Math.ceil(tools.length / 4)).map((tool) => (
                 <li key={tool}>
                   <Link
                     href={`https://docs.sim.ai/tools/${tool.toLowerCase().replace(/\s+/g, '_')}`}
                     target='_blank'
                     rel='noopener noreferrer'
-                    className='whitespace-nowrap hover:text-foreground transition-colors duration-300'
+                    className='whitespace-nowrap transition-colors duration-300 hover:text-foreground'
                   >
                     {tool}
                   </Link>
                 </li>
               ))}
             </ul>
-            <ul className='text-muted-foreground space-y-3'>
+            <ul className='space-y-3 text-muted-foreground'>
               {tools
                 .slice(Math.ceil(tools.length / 4), Math.ceil((tools.length * 2) / 4))
                 .map((tool) => (
@@ -256,14 +253,14 @@ export default function Footer({ fullWidth = false }: FooterProps) {
                       href={`https://docs.sim.ai/tools/${tool.toLowerCase().replace(/\s+/g, '_')}`}
                       target='_blank'
                       rel='noopener noreferrer'
-                      className='whitespace-nowrap hover:text-foreground transition-colors duration-300'
+                      className='whitespace-nowrap transition-colors duration-300 hover:text-foreground'
                     >
                       {tool}
                     </Link>
                   </li>
                 ))}
             </ul>
-            <ul className='text-muted-foreground space-y-3'>
+            <ul className='space-y-3 text-muted-foreground'>
               {tools
                 .slice(Math.ceil((tools.length * 2) / 4), Math.ceil((tools.length * 3) / 4))
                 .map((tool) => (
@@ -272,21 +269,21 @@ export default function Footer({ fullWidth = false }: FooterProps) {
                       href={`https://docs.sim.ai/tools/${tool.toLowerCase().replace(/\s+/g, '_')}`}
                       target='_blank'
                       rel='noopener noreferrer'
-                      className='whitespace-nowrap hover:text-foreground transition-colors duration-300'
+                      className='whitespace-nowrap transition-colors duration-300 hover:text-foreground'
                     >
                       {tool}
                     </Link>
                   </li>
                 ))}
             </ul>
-            <ul className='text-muted-foreground space-y-3'>
+            <ul className='space-y-3 text-muted-foreground'>
               {tools.slice(Math.ceil((tools.length * 3) / 4)).map((tool) => (
                 <li key={tool}>
                   <Link
                     href={`https://docs.sim.ai/tools/${tool.toLowerCase().replace(/\s+/g, '_')}`}
                     target='_blank'
                     rel='noopener noreferrer'
-                    className='whitespace-nowrap hover:text-foreground transition-colors duration-300'
+                    className='whitespace-nowrap transition-colors duration-300 hover:text-foreground'
                   >
                     {tool}
                   </Link>
@@ -299,10 +296,10 @@ export default function Footer({ fullWidth = false }: FooterProps) {
 
       <Separator />
 
-      <div className='mx-auto flex max-w-7xl justify-center px-4 py-6 sm:px-6'>
-        <p className='text-center font-medium text-balance'>
+      <div className='mx-auto flex max-w-7xl justify-center p-4 sm:px-6'>
+        <p className='text-balance text-center font-medium'>
           {`©${new Date().getFullYear()} `}
-          <Link href='/' className='hover:text-foreground transition-colors duration-300'>
+          <Link href='/' className='transition-colors duration-300 hover:text-foreground'>
             TradingGoose Studio
           </Link>
         </p>
