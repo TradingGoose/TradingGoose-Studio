@@ -1,15 +1,15 @@
-import { findNeighbour } from 'fumadocs-core/server'
 import type * as PageTree from 'fumadocs-core/page-tree'
+import { findNeighbour } from 'fumadocs-core/server'
 import defaultMdxComponents from 'fumadocs-ui/mdx'
-import { DocsBody, DocsDescription, DocsPage, DocsTitle } from '@/components/layout/page'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { DocsBody, DocsDescription, DocsPage, DocsTitle } from '@/components/layout/page'
 import { StructuredData } from '@/components/structured-data'
 import { CodeBlock } from '@/components/ui/code-block'
 import { CopyPageButton } from '@/components/ui/copy-page-button'
-import { source } from '@/lib/source'
 import { humanizeSlug, supportedLanguages } from '@/lib/page-tree'
+import { source } from '@/lib/source'
 
 export default async function Page(props: { params: Promise<{ slug?: string[]; lang: string }> }) {
   const params = await props.params
@@ -85,7 +85,7 @@ export default async function Page(props: { params: Promise<{ slug?: string[]; l
           />
         </Link>
         <Link
-          href='https://github.com/simstudioai/sim'
+          href='https://github.com/TradingGoose/TradingGoose-Studio'
           target='_blank'
           rel='noopener noreferrer'
           aria-label='GitHub'
@@ -195,10 +195,7 @@ function generateBreadcrumbs(targetUrl: string, pageTitle: string, baseUrl: stri
   let currentPath = ''
 
   urlParts.forEach((part, index) => {
-    if (
-      index === 0 &&
-      supportedLanguages.includes(part as (typeof supportedLanguages)[number])
-    ) {
+    if (index === 0 && supportedLanguages.includes(part as (typeof supportedLanguages)[number])) {
       currentPath = `/${part}`
       return
     }
@@ -220,8 +217,6 @@ function generateBreadcrumbs(targetUrl: string, pageTitle: string, baseUrl: stri
 
   return breadcrumbs
 }
-
-
 
 export async function generateStaticParams() {
   return source.generateParams()

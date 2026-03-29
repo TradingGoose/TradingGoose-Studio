@@ -9,14 +9,15 @@ setup(
     author="Sim",
     author_email="support@sim.ai",
     description="Sim SDK - Execute workflows programmatically",
+    license="AGPL-3.0-only",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/simstudioai/sim",
+    url="https://github.com/TradingGoose/TradingGoose-Studio",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
-        "License :: OSI Approved :: Apache Software License",
+        "License :: OSI Approved :: GNU Affero General Public License v3",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.8",
@@ -44,8 +45,8 @@ setup(
     },
     keywords=["simstudio", "ai", "workflow", "sdk", "api", "automation"],
     project_urls={
-        "Bug Reports": "https://github.com/simstudioai/sim/issues",
-        "Source": "https://github.com/simstudioai/sim",
+        "Bug Reports": "https://github.com/TradingGoose/TradingGoose-Studio/issues",
+        "Source": "https://github.com/TradingGoose/TradingGoose-Studio",
         "Documentation": "https://docs.sim.ai",
     },
 ) 

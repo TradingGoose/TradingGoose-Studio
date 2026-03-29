@@ -1,3 +1,65 @@
+================================================================================
+THIRD-PARTY SOFTWARE LICENSES
+================================================================================
+
+This file contains the full license texts for third-party software used by
+TradingGoose Studio. See the NOTICE file for a summary of attributions.
+
+
+================================================================================
+1. Sim Studio (upstream project)
+================================================================================
+
+Source:  https://github.com/simstudioai/sim
+Commit:  b768ca845e9b05aa98e8e7379f5287efa4829ddb (v0.4.5)
+License: Apache License 2.0
+
+The full text of the Apache License 2.0 is identical to the LICENSE file
+distributed at:
+  LICENSES/Apache-2.0.txt
+
+
+================================================================================
+2. TradingView Lightweight Charts(TM)
+================================================================================
+
+Source:  https://github.com/tradingview/lightweight-charts
+License: Apache License 2.0
+Version:  5.1.0
+
+--- Begin TradingView Lightweight Charts NOTICE ---
+
+TradingView Lightweight Charts(TM)
+Copyright (c) 2025 TradingView, Inc. https://www.tradingview.com/
+
+--- End TradingView Lightweight Charts NOTICE ---
+
+The full text of the Apache License 2.0 is identical to the LICENSE file
+distributed at:
+  LICENSES/Apache-2.0.txt
+
+
+================================================================================
+3. PineTS
+================================================================================
+
+Source:  https://github.com/QuantForgeOrg/PineTS
+License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
+Upstream also offers a commercial license option.
+Version:  0.8.8
+
+Copyright Alaa-eddine KADDOURI
+
+PineTS is used as an unmodified package dependency. The upstream source
+repository is:
+  https://github.com/QuantForgeOrg/PineTS
+
+If TradingGoose Studio modifies PineTS or distributes a build that conveys a
+modified PineTS over a network, AGPL-3.0 Section 13 requires offering
+corresponding source for that modified version.
+
+The full text of the AGPL-3.0 follows:
+
                     GNU AFFERO GENERAL PUBLIC LICENSE
                        Version 3, 19 November 2007
 
@@ -633,8 +695,8 @@ the "copyright" line and a pointer to where the full notice is found.
     Copyright (C) <year>  <name of author>
 
     This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU Affero General Public License as published
-    by the Free Software Foundation, either version 3 of the License, or
+    it under the terms of the GNU Affero General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
 
     This program is distributed in the hope that it will be useful,
@@ -659,3 +721,25 @@ specific requirements.
 if any, to sign a "copyright disclaimer" for the program, if necessary.
 For more information on this, and how to apply and follow the GNU AGPL, see
 <https://www.gnu.org/licenses/>.
+
+
+================================================================================
+4. lightweight-charts-line-tools-core
+================================================================================
+
+Source:  https://github.com/difurious/lightweight-charts-line-tools-core
+License: Mozilla Public License 2.0 (MPL-2.0)
+
+Copyright 2025 difurious
+
+This code is vendored with modifications in:
+  apps/tradinggoose/widgets/widgets/data_chart/plugins/
+
+A copy of the MPL-2.0 license text is included alongside the vendored source
+files at the path above. Per MPL-2.0 Section 3.1, the modified source code in
+that directory is distributed under the terms of the MPL-2.0.
+The project's overall AGPL-3.0-only distribution does not replace or remove
+the MPL-2.0 terms that continue to apply to those vendored source files.
+
+The full text of the MPL-2.0 is available in:
+  apps/tradinggoose/widgets/widgets/data_chart/plugins/LICENSE

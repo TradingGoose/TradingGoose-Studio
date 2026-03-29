@@ -33,4 +33,4 @@ Contributions are welcome! Please open an issue or submit a pull request.
 
 ## License
 
-This project is licensed under the Apache-2.0 License. 
+This project is licensed under the AGPL-3.0-only License.

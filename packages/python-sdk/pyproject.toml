@@ -10,12 +10,12 @@ authors = [
 ]
 description = "Sim SDK - Execute workflows programmatically"
 readme = "README.md"
-license = {text = "Apache-2.0"}
+license = {text = "AGPL-3.0-only"}
 requires-python = ">=3.8"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
@@ -47,8 +47,8 @@ dev = [
 [project.urls]
 Homepage = "https://sim.ai"
 Documentation = "https://docs.sim.ai"
-Repository = "https://github.com/simstudioai/sim"
-"Bug Reports" = "https://github.com/simstudioai/sim/issues"
+Repository = "https://github.com/TradingGoose/TradingGoose-Studio"
+"Bug Reports" = "https://github.com/TradingGoose/TradingGoose-Studio/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]

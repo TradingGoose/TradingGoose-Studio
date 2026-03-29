@@ -239,11 +239,11 @@ The SDKs are automatically published to npm and PyPI when changes are pushed to 
 
 ## License
 
-Both SDKs are licensed under the Apache-2.0 License. See the [LICENSE](../LICENSE) file for details.
+Both SDKs in this repository are licensed under the AGPL-3.0-only License. See the [LICENSE](../LICENSE) file for details.
 
 ## Support
 
 - 📖 [Documentation](https://docs.sim.ai)
 - 💬 [Discord Community](https://discord.gg/simstudio)
-- 🐛 [Issue Tracker](https://github.com/simstudioai/sim/issues)
+- 🐛 [Issue Tracker](https://github.com/TradingGoose/TradingGoose-Studio/issues)
 - 📧 [Email Support](mailto:support@sim.ai) 

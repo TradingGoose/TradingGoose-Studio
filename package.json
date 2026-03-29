@@ -3,7 +3,7 @@
   "packageManager": "bun@1.2.12",
   "version": "0.0.0",
   "private": true,
-  "license": "Apache-2.0",
+  "license": "AGPL-3.0-only",
   "workspaces": [
     "apps/*",
     "packages/*"

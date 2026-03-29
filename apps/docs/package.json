@@ -2,7 +2,7 @@
   "name": "docs",
   "version": "0.0.0",
   "private": true,
-  "license": "Apache-2.0",
+  "license": "AGPL-3.0-only",
   "scripts": {
     "dev": "next dev --port 3001",
     "build": "next build",
