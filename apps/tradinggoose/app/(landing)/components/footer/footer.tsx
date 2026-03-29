@@ -138,7 +138,7 @@ export default function Footer({ fullWidth = false }: FooterProps) {
               <LinkedInIcon className='h-[18px] w-[18px]' aria-hidden='true' />
             </a>
             <a
-              href='https://github.com/simstudioai/sim'
+              href='https://github.com/TradingGoose/TradingGoose-Studio'
               target='_blank'
               rel='noopener noreferrer'
               aria-label='GitHub'
@@ -190,6 +190,14 @@ export default function Footer({ fullWidth = false }: FooterProps) {
             className='text-[14px] text-muted-foreground transition-colors hover:text-foreground'
           >
             Privacy Policy
+          </Link>
+          <Link
+            href='/licenses'
+            target='_blank'
+            rel='noopener noreferrer'
+            className='text-[14px] text-muted-foreground transition-colors hover:text-foreground'
+          >
+            Licenses
           </Link>
           <Link
             href='/terms'

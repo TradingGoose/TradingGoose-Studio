@@ -155,7 +155,7 @@ export default function Integrations() {
                     LLM with more than just prompts.
                   </h2>
 
-                  <div className='space-y-2'>
+                  <div className='space-y-3 pt-10'>
                     {[
                       'Every integration becomes a tool your AI agents can call',
                       'Built-in blocks for messaging, databases, cloud storage, CRMs, and search',

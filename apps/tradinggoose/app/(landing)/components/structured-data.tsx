@@ -22,7 +22,7 @@ export default function StructuredData() {
         image: { '@id': 'https://sim.ai/#logo' },
         sameAs: [
           'https://x.com/simdotai',
-          'https://github.com/simstudioai/sim',
+          'https://github.com/TradingGoose/TradingGoose-Studio',
           'https://www.linkedin.com/company/simstudioai/',
           'https://discord.gg/Hr4UWYEcTT',
         ],

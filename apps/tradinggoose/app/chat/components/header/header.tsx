@@ -49,7 +49,7 @@ export function ChatHeader({ chatConfig, starCount }: ChatHeaderProps) {
       {!brand.logoUrl && (
         <div className='flex items-center gap-[16px]'>
           <a
-            href='https://github.com/simstudioai/sim'
+            href='https://github.com/TradingGoose/TradingGoose-Studio'
             target='_blank'
             rel='noopener noreferrer'
             className='flex items-center gap-2 text-[16px] text-muted-foreground transition-colors hover:text-foreground'

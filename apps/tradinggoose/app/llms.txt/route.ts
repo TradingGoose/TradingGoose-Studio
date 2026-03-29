@@ -25,10 +25,10 @@ Sim lets developers integrate with 100+ apps to streamline workflows with AI age
 
 ## Getting Started
 - [Quick Start Guide](https://docs.sim.ai/quickstart)
-- [GitHub](https://github.com/simstudioai/sim)
+- [GitHub](https://github.com/TradingGoose/TradingGoose-Studio)
 
 ## Resources
-- [GitHub](https://github.com/simstudioai/sim)`
+- [GitHub](https://github.com/TradingGoose/TradingGoose-Studio)`
 
   return new Response(llmsContent, {
     headers: {
