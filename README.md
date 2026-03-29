@@ -1,24 +1,38 @@
-<p align="center">
-  <img src="apps/tradinggoose/public/tradinggoose.svg" alt="TradingGoose Logo" width="120"/>
-</p>
-
 <h1 align="center">TradingGoose Studio</h1>
-
 <p align="center">
   <b>AI Workflow Platform for Tecnical LLM Trading</b>
 </p>
+
+<picture>
+  <!-- Image for Light Mode -->
+  <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/f0c8a9b5-4496-440d-9164-4444bbca9eb0">
+  <!-- Image for Dark Mode -->
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/bdde59b2-b70b-4e66-8e0b-aaa0c79bdf0b">
+  <!-- Fallback Image (shown if the browser doesn't support themes) -->
+  <img alt="Project Screenshot" src="https://github.com/user-attachments/assets/f0c8a9b5-4496-440d-9164-4444bbca9eb0" width="2559">
+</picture>
+
+
+
 
 ---
 
 ## What is TradingGoose Studio?
 
 TradingGoose Studio is an **AI workflow platform for technical LLM trading**, it combines both technical + LLM analysis for your trading decision.
-It is built for analytics, research, charting, monitoring, and workflow automation. You remain solely responsible for any live trading decisions, orders, and resulting gains or losses.
+It is built for analytics, research, charting, monitoring, and workflow automation. 
 
-## Special Thanks
 
-Special thanks to the [Sim Studio](https://github.com/simstudioai) team for open-sourcing the original project this repository is built on top of.
-TradingGoose Studio started from Sim Studio [`v0.4.5`](https://github.com/simstudioai/sim/releases/tag/v0.4.5).
+
+<picture>
+  <!-- Image for Dark Mode -->
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/d6fe11eb-a9fe-4e76-8ab4-eae6fc21d236">
+  <!-- Image for Light Mode -->
+  <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/fed1b97b-336d-4812-8b6c-ffd99f385218">
+  <!-- Fallback Image (Defaults to Light) -->
+  <img alt="Project Overview" src="https://github.com/user-attachments/assets/fed1b97b-336d-4812-8b6c-ffd99f385218" width="2559">
+</picture>
+
 
 
 ## Quick Start
@@ -79,6 +93,13 @@ bun run dev:full
 - **Charting Library**: [Lightweight Charts](https://www.tradingview.com/lightweight-charts/)
 - **Indicator Engine**: [PineTS](https://github.com/QuantForgeOrg/PineTS) (AGPL-3.0-only; commercial license option upstream)
 - **Chart Drawing Tools**: [difurious Line-Tools](https://github.com/difurious/lightweight-charts-line-tools-core)
+
+
+## Special Thanks
+
+Special thanks to the [Sim Studio](https://github.com/simstudioai) team for open-sourcing the original project this repository is built on top of.
+TradingGoose Studio started from Sim Studio [`v0.4.5`](https://github.com/simstudioai/sim/releases/tag/v0.4.5).
+
 ---
 
 ## License
