@@ -5,6 +5,7 @@ import { updateOllamaProviderModels, updateOpenRouterProviderModels } from '@/pr
 import type { ProviderConfig, ProviderName, ProvidersStore } from './types'
 
 const logger = createLogger('ProvidersStore')
+let hasBootstrappedProviderModels = false
 
 const PROVIDER_CONFIGS: Record<ProviderName, ProviderConfig> = {
   base: {
@@ -33,9 +34,7 @@ const resolveApiEndpoint = (endpoint: string): string => {
   }
 
   const baseUrl =
-    typeof window !== 'undefined' && window.location?.origin
-      ? window.location.origin
-      : getBaseUrl()
+    typeof window !== 'undefined' && window.location?.origin ? window.location.origin : getBaseUrl()
 
   try {
     return new URL(endpoint, baseUrl).toString()
@@ -152,12 +151,16 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
   },
 }))
 
-if (typeof window !== 'undefined') {
-  setTimeout(() => {
-    const store = useProvidersStore.getState()
-    store.fetchModels('base')
-    store.fetchModels('ollama')
-    store.fetchModels('openrouter')
-    store.fetchModels('vllm')
-  }, 1000)
+export function bootstrapProviderModels() {
+  if (typeof window === 'undefined' || hasBootstrappedProviderModels) {
+    return
+  }
+
+  hasBootstrappedProviderModels = true
+
+  const store = useProvidersStore.getState()
+  store.fetchModels('base')
+  store.fetchModels('ollama')
+  store.fetchModels('openrouter')
+  store.fetchModels('vllm')
 }
