@@ -1,4 +1,4 @@
-# Sim Development Container
+# TradingGoose Development Container
 
 Development container configuration for VS Code Dev Containers and GitHub Codespaces.
 
@@ -13,7 +13,7 @@ Development container configuration for VS Code Dev Containers and GitHub Codesp
 1. Open this project in VS Code
 2. Click "Reopen in Container" when prompted (or press `F1` → "Dev Containers: Reopen in Container")
 3. Wait for the container to build and initialize
-4. Start developing with `sim-start`
+4. Start developing with `tradinggoose-start`
 
 The setup script will automatically install dependencies and run migrations.
 
@@ -25,17 +25,17 @@ You have two options for running the development environment:
 
 **Option 1: Run everything together (recommended for most development)**
 ```bash
-sim-start  # Runs both app and socket server using concurrently
+tradinggoose-start  # Runs both app and socket server using concurrently
 ```
 
 **Option 2: Run services separately (useful for debugging individual services)**
-- In the **app** container terminal: `sim-app` (starts Next.js app on port 3000)
-- In the **realtime** container terminal: `sim-sockets` (starts socket server on port 3002)
+- In the **app** container terminal: `tradinggoose-app` (starts Next.js app on port 3000)
+- In the **realtime** container terminal: `tradinggoose-sockets` (starts socket server on port 3002)
 
 ### Other Commands
 
-- `sim-migrate` - Push schema changes to the database
-- `sim-generate` - Generate new migrations
+- `tradinggoose-migrate` - Push schema changes to the database
+- `tradinggoose-generate` - Generate new migrations
 - `build` - Build the application
 - `pgc` - Connect to PostgreSQL database
 
@@ -59,7 +59,7 @@ You can develop with services running together or independently.
 
 ### Personalization
 
-**Project commands** (`sim-start`, `sim-app`, etc.) are automatically available via `/workspace/.devcontainer/sim-commands.sh`.
+**Project commands** (`tradinggoose-start`, `tradinggoose-app`, etc.) are automatically available via `/workspace/.devcontainer/tradinggoose-commands.sh`.
 
 **Personal shell customization** (aliases, prompts, etc.) should use VS Code's dotfiles feature:
 1. Create a dotfiles repository (e.g., `github.com/youruser/dotfiles`)

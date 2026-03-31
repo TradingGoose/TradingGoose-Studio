@@ -1,23 +1,23 @@
-# Sim Python SDK
+# TradingGoose Python SDK
 
-The official Python SDK for [Sim](https://sim.ai), allowing you to execute workflows programmatically from your Python applications.
+The official Python SDK for [TradingGoose](https://tradinggoose.ai), allowing you to execute workflows programmatically from your Python applications.
 
 ## Installation
 
 ```bash
-pip install simstudio-sdk
+pip install tradinggoose-sdk
 ```
 
 ## Quick Start
 
 ```python
 import os
-from simstudio import SimStudioClient
+from tradinggoose import TradingGooseClient
 
 # Initialize the client
-client = SimStudioClient(
-    api_key=os.getenv("SIM_API_KEY", "your-api-key-here"),
-    base_url="https://sim.ai"  # optional, defaults to https://sim.ai
+client = TradingGooseClient(
+    api_key=os.getenv("TRADINGGOOSE_API_KEY", "your-api-key-here"),
+    base_url="https://tradinggoose.ai"  # optional, defaults to https://tradinggoose.ai
 )
 
 # Execute a workflow
@@ -30,16 +30,16 @@ except Exception as error:
 
 ## API Reference
 
-### SimStudioClient
+### TradingGooseClient
 
 #### Constructor
 
 ```python
-SimStudioClient(api_key: str, base_url: str = "https://sim.ai")
+TradingGooseClient(api_key: str, base_url: str = "https://tradinggoose.ai")
 ```
 
-- `api_key` (str): Your Sim API key
-- `base_url` (str, optional): Base URL for the Sim API (defaults to `https://sim.ai`)
+- `api_key` (str): Your TradingGoose API key
+- `base_url` (str, optional): Base URL for the TradingGoose API (defaults to `https://tradinggoose.ai`)
 
 #### Methods
 
@@ -162,10 +162,10 @@ class WorkflowStatus:
     needs_redeployment: bool = False
 ```
 
-### SimStudioError
+### TradingGooseError
 
 ```python
-class SimStudioError(Exception):
+class TradingGooseError(Exception):
     def __init__(self, message: str, code: Optional[str] = None, status: Optional[int] = None):
         super().__init__(message)
         self.code = code
@@ -178,9 +178,9 @@ class SimStudioError(Exception):
 
 ```python
 import os
-from simstudio import SimStudioClient
+from tradinggoose import TradingGooseClient
 
-client = SimStudioClient(api_key=os.getenv("SIM_API_KEY"))
+client = TradingGooseClient(api_key=os.getenv("TRADINGGOOSE_API_KEY"))
 
 def run_workflow():
     try:
@@ -213,16 +213,16 @@ run_workflow()
 ### Error Handling
 
 ```python
-from simstudio import SimStudioClient, SimStudioError
+from tradinggoose import TradingGooseClient, TradingGooseError
 import os
 
-client = SimStudioClient(api_key=os.getenv("SIM_API_KEY"))
+client = TradingGooseClient(api_key=os.getenv("TRADINGGOOSE_API_KEY"))
 
 def execute_with_error_handling():
     try:
         result = client.execute_workflow("workflow-id")
         return result
-    except SimStudioError as error:
+    except TradingGooseError as error:
         if error.code == "UNAUTHORIZED":
             print("Invalid API key")
         elif error.code == "TIMEOUT":
@@ -242,11 +242,11 @@ def execute_with_error_handling():
 ### Context Manager Usage
 
 ```python
-from simstudio import SimStudioClient
+from tradinggoose import TradingGooseClient
 import os
 
 # Using context manager to automatically close the session
-with SimStudioClient(api_key=os.getenv("SIM_API_KEY")) as client:
+with TradingGooseClient(api_key=os.getenv("TRADINGGOOSE_API_KEY")) as client:
     result = client.execute_workflow("workflow-id")
     print("Result:", result)
 # Session is automatically closed here
@@ -256,12 +256,12 @@ with SimStudioClient(api_key=os.getenv("SIM_API_KEY")) as client:
 
 ```python
 import os
-from simstudio import SimStudioClient
+from tradinggoose import TradingGooseClient
 
 # Using environment variables
-client = SimStudioClient(
-    api_key=os.getenv("SIM_API_KEY"),
-    base_url=os.getenv("SIM_BASE_URL", "https://sim.ai")
+client = TradingGooseClient(
+    api_key=os.getenv("TRADINGGOOSE_API_KEY"),
+    base_url=os.getenv("TRADINGGOOSE_BASE_URL", "https://tradinggoose.ai")
 )
 ```
 
@@ -290,10 +290,10 @@ Alternatively, you can manually provide files using the URL format:
 ```
 
 ```python
-from simstudio import SimStudioClient
+from tradinggoose import TradingGooseClient
 import os
 
-client = SimStudioClient(api_key=os.getenv("SIM_API_KEY"))
+client = TradingGooseClient(api_key=os.getenv("TRADINGGOOSE_API_KEY"))
 
 # Upload a single file - include it under the field name from your API trigger
 with open('document.pdf', 'rb') as f:
@@ -319,10 +319,10 @@ with open('doc1.pdf', 'rb') as f1, open('doc2.pdf', 'rb') as f2:
 ### Batch Workflow Execution
 
 ```python
-from simstudio import SimStudioClient
+from tradinggoose import TradingGooseClient
 import os
 
-client = SimStudioClient(api_key=os.getenv("SIM_API_KEY"))
+client = TradingGooseClient(api_key=os.getenv("TRADINGGOOSE_API_KEY"))
 
 def execute_workflows_batch(workflow_data_pairs):
     """Execute multiple workflows with different input data."""
@@ -365,7 +365,7 @@ for result in results:
 
 ## Getting Your API Key
 
-1. Log in to your [Sim](https://sim.ai) account
+1. Log in to your [TradingGoose](https://tradinggoose.ai) account
 2. Navigate to your workflow
 3. Click on "Deploy" to deploy your workflow
 4. Select or create an API key during the deployment process
@@ -404,16 +404,16 @@ Run code quality checks:
 
 ```bash
 # Code formatting
-black simstudio/
+black tradinggoose/
 
 # Linting
-flake8 simstudio/ --max-line-length=100
+flake8 tradinggoose/ --max-line-length=100
 
 # Type checking
-mypy simstudio/
+mypy tradinggoose/
 
 # Import sorting
-isort simstudio/
+isort tradinggoose/
 ```
 
 ## Requirements

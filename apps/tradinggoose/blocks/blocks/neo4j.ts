@@ -8,7 +8,7 @@ export const Neo4jBlock: BlockConfig<Neo4jResponse> = {
   description: 'Connect to Neo4j graph database',
   longDescription:
     'Integrate Neo4j graph database into the workflow. Can query, create, merge, update, and delete nodes and relationships.',
-  docsLink: 'https://docs.sim.ai/tools/neo4j',
+  docsLink: 'https://docs.tradinggoose.ai/tools/neo4j',
   category: 'tools',
   bgColor: '#FFFFFF',
   icon: Neo4jIcon,

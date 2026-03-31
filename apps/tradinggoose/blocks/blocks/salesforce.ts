@@ -10,7 +10,7 @@ export const SalesforceBlock: BlockConfig<SalesforceResponse> = {
   authMode: AuthMode.OAuth,
   longDescription:
     'Integrate Salesforce into your workflow. Manage accounts, contacts, leads, opportunities, cases, and tasks with powerful automation capabilities.',
-  docsLink: 'https://docs.sim.ai/tools/salesforce',
+  docsLink: 'https://docs.tradinggoose.ai/tools/salesforce',
   category: 'tools',
   bgColor: '#E0E0E0',
   icon: SalesforceIcon,

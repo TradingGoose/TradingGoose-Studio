@@ -10,7 +10,7 @@ export const MicrosoftExcelBlock: BlockConfig<MicrosoftExcelResponse> = {
   authMode: AuthMode.OAuth,
   longDescription:
     'Integrate Microsoft Excel into the workflow. Can read, write, update, and add to table.',
-  docsLink: 'https://docs.sim.ai/tools/microsoft_excel',
+  docsLink: 'https://docs.tradinggoose.ai/tools/microsoft_excel',
   category: 'tools',
   bgColor: undefined,
   icon: MicrosoftExcelIcon,

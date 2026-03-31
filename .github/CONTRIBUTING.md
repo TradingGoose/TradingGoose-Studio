@@ -1,9 +1,9 @@
-# Contributing to Sim
+# Contributing to TradingGoose
 
-Thank you for your interest in contributing to Sim! Our goal is to provide developers with a powerful, user-friendly platform for building, testing, and optimizing agentic workflows. We welcome contributions in all forms—from bug fixes and design improvements to brand-new features.
+Thank you for your interest in contributing to TradingGoose! Our goal is to provide developers with a powerful, user-friendly platform for building, testing, and optimizing agentic workflows. We welcome contributions in all forms—from bug fixes and design improvements to brand-new features.
 
 > **Project Overview:**  
-> Sim is a monorepo using Turborepo, containing the main application (`apps/tradinggoose/`), documentation (`apps/docs/`), and shared packages (`packages/`). The main application is built with Next.js (app router), ReactFlow, Zustand, Shadcn, and Tailwind CSS. Please ensure your contributions follow our best practices for clarity, maintainability, and consistency.
+> TradingGoose is a monorepo using Turborepo, containing the main application (`apps/tradinggoose/`), documentation (`apps/docs/`), and shared packages (`packages/`). The main application is built with Next.js (app router), ReactFlow, Zustand, Shadcn, and Tailwind CSS. Please ensure your contributions follow our best practices for clarity, maintainability, and consistency.
 
 ---
 
@@ -29,7 +29,7 @@ We strive to keep our workflow as simple as possible. To contribute:
 
 2. **Clone Your Fork**
    ```bash
-   git clone https://github.com/<your-username>/sim.git
+   git clone https://github.com/<your-username>/TradingGoose-Studio.git
    ```
 3. **Create a Feature Branch**  
    Create a new branch with a descriptive name:
@@ -130,17 +130,17 @@ To set up your local development environment:
 
 ### Option 1: Using NPM Package (Simplest)
 
-The easiest way to run Sim locally is using our NPM package:
+The easiest way to run TradingGoose locally is using our NPM package:
 
 ```bash
-npx simstudio
+npx tradinggoose
 ```
 
 After running this command, open [http://localhost:3000/](http://localhost:3000/) in your browser.
 
 #### Options
 
-- `-p, --port <port>`: Specify the port to run Sim on (default: 3000)
+- `-p, --port <port>`: Specify the port to run TradingGoose on (default: 3000)
 - `--no-pull`: Skip pulling the latest Docker images
 
 #### Requirements
@@ -151,10 +151,10 @@ After running this command, open [http://localhost:3000/](http://localhost:3000/
 
 ```bash
 # Clone the repository
-git clone https://github.com/<your-username>/sim.git
-cd sim
+git clone https://github.com/<your-username>/TradingGoose-Studio.git
+cd TradingGoose-Studio
 
-# Start Sim
+# Start TradingGoose
 docker compose -f docker-compose.prod.yml up -d
 ```
 
@@ -162,7 +162,7 @@ Access the application at [http://localhost:3000/](http://localhost:3000/)
 
 #### Using Local Models
 
-To use local models with Sim:
+To use local models with TradingGoose:
 
 1. Install Ollama and pull models:
 
@@ -174,7 +174,7 @@ curl -fsSL https://ollama.ai/install.sh | sh
 ollama pull gemma3:4b
 ```
 
-2. Start Sim with local model support:
+2. Start TradingGoose with local model support:
 
 ```bash
 # With NVIDIA GPU support
@@ -202,8 +202,8 @@ Dev Containers provide a consistent and easy-to-use development environment:
 
    - Clone the repository:
      ```bash
-     git clone https://github.com/<your-username>/sim.git
-     cd sim
+     git clone https://github.com/<your-username>/TradingGoose-Studio.git
+     cd TradingGoose-Studio
      ```
    - Open the project in VS Code/Cursor
    - When prompted, click "Reopen in Container" (or press F1 and select "Remote-Containers: Reopen in Container")
@@ -211,7 +211,7 @@ Dev Containers provide a consistent and easy-to-use development environment:
 
 3. **Start Developing:**
 
-   - Run `bun run dev:full` in the terminal or use the `sim-start` alias
+   - Run `bun run dev:full` in the terminal or use the `tradinggoose-start` alias
    - This starts both the main application and the realtime socket server
    - All dependencies and configurations are automatically set up
    - Your changes will be automatically hot-reloaded
@@ -226,8 +226,8 @@ If you prefer not to use Docker or Dev Containers:
 
 1. **Clone the Repository:**
    ```bash
-   git clone https://github.com/<your-username>/sim.git
-   cd sim
+   git clone https://github.com/<your-username>/TradingGoose-Studio.git
+   cd TradingGoose-Studio
    bun install
    ```
 
@@ -273,14 +273,14 @@ When working on email templates, you can preview them using a local email previe
    - Click on any template to view and test it with various parameters
 
 3. **Templates Location:**
-   - Email templates are located in `sim/app/emails/`
+   - Email templates are located in `apps/tradinggoose/components/emails/`
    - After making changes to templates, they will automatically update in the preview
 
 ---
 
 ## Adding New Blocks and Tools
 
-Sim is built in a modular fashion where blocks and tools extend the platform's functionality. To maintain consistency and quality, please follow the guidelines below when adding a new block or tool.
+TradingGoose is built in a modular fashion where blocks and tools extend the platform's functionality. To maintain consistency and quality, please follow the guidelines below when adding a new block or tool.
 
 ### Where to Add Your Code
 
@@ -489,7 +489,7 @@ Maintaining consistent naming across the codebase is critical for auto-generatio
 
 ### Parameter Visibility System
 
-Sim implements a sophisticated parameter visibility system that controls how parameters are exposed to users and LLMs in agent workflows. Each parameter can have one of four visibility levels:
+TradingGoose implements a sophisticated parameter visibility system that controls how parameters are exposed to users and LLMs in agent workflows. Each parameter can have one of four visibility levels:
 
 | Visibility  | User Sees | LLM Sees | How It Gets Set                |
 |-------------|-----------|----------|--------------------------------|
@@ -555,7 +555,7 @@ This project is licensed under the Apache License 2.0. By contributing, you agre
 
 By contributing to this repository, you agree that your contributions are provided under the terms of the Apache License Version 2.0, as included in the LICENSE file of this repository.
 
-In addition, by submitting your contributions, you grant Sim, Inc. ("The Licensor") a perpetual, irrevocable, worldwide, royalty-free, sublicensable right and license to:
+In addition, by submitting your contributions, you grant TradingGoose, Inc. ("The Licensor") a perpetual, irrevocable, worldwide, royalty-free, sublicensable right and license to:
 
 - Use, copy, modify, distribute, publicly display, publicly perform, and prepare derivative works of your contributions.
 - Incorporate your contributions into other works or products.
@@ -567,4 +567,4 @@ If you do not agree with these terms, you must not contribute your work to this 
 
 ---
 
-Thank you for taking the time to contribute to Sim. We truly appreciate your efforts and look forward to collaborating with you!
+Thank you for taking the time to contribute to TradingGoose. We truly appreciate your efforts and look forward to collaborating with you!

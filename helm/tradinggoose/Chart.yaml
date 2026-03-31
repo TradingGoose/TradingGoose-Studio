@@ -1,0 +1,23 @@
+apiVersion: v2
+name: tradinggoose
+description: A Helm chart for TradingGoose - AI agent workflow platform
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+home: https://tradinggoose.ai
+icon: https://raw.githubusercontent.com/TradingGoose/TradingGoose-Studio/main/apps/tradinggoose/public/tradinggoose.svg
+sources:
+  - https://github.com/TradingGoose/TradingGoose-Studio
+maintainers:
+  - name: TradingGoose Team
+    email: help@tradinggoose.ai
+    url: https://tradinggoose.ai
+keywords:
+  - ai
+  - workflow
+  - automation
+  - agents
+  - nextjs
+annotations:
+  category: AI/ML Platform
+  licenses: Apache-2.0

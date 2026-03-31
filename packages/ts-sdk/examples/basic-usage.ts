@@ -1,10 +1,10 @@
-import { SimStudioClient, SimStudioError } from '../src/index'
+import { TradingGooseClient, TradingGooseError } from '../src/index'
 
 // Example 1: Basic workflow execution
 async function basicExample() {
-  const client = new SimStudioClient({
-    apiKey: process.env.SIM_API_KEY!,
-    baseUrl: 'https://sim.ai',
+  const client = new TradingGooseClient({
+    apiKey: process.env.TRADINGGOOSE_API_KEY!,
+    baseUrl: 'https://tradinggoose.ai',
   })
 
   try {
@@ -19,7 +19,7 @@ async function basicExample() {
       console.log('❌ Workflow failed:', result.error)
     }
   } catch (error) {
-    if (error instanceof SimStudioError) {
+    if (error instanceof TradingGooseError) {
       console.error('SDK Error:', error.message, 'Code:', error.code)
     } else {
       console.error('Unexpected error:', error)
@@ -29,8 +29,8 @@ async function basicExample() {
 
 // Example 2: Workflow execution with input data
 async function withInputExample() {
-  const client = new SimStudioClient({
-    apiKey: process.env.SIM_API_KEY!,
+  const client = new TradingGooseClient({
+    apiKey: process.env.TRADINGGOOSE_API_KEY!,
   })
 
   try {
@@ -59,7 +59,7 @@ async function withInputExample() {
       console.log('❌ Workflow failed:', result.error)
     }
   } catch (error) {
-    if (error instanceof SimStudioError) {
+    if (error instanceof TradingGooseError) {
       console.error('SDK Error:', error.message, 'Code:', error.code)
     } else {
       console.error('Unexpected error:', error)
@@ -69,8 +69,8 @@ async function withInputExample() {
 
 // Example 3: Workflow validation and status checking
 async function statusExample() {
-  const client = new SimStudioClient({
-    apiKey: process.env.SIM_API_KEY!,
+  const client = new TradingGooseClient({
+    apiKey: process.env.TRADINGGOOSE_API_KEY!,
   })
 
   try {
@@ -99,7 +99,7 @@ async function statusExample() {
       }
     }
   } catch (error) {
-    if (error instanceof SimStudioError) {
+    if (error instanceof TradingGooseError) {
       console.error('SDK Error:', error.message, 'Code:', error.code)
     } else {
       console.error('Unexpected error:', error)
@@ -109,8 +109,8 @@ async function statusExample() {
 
 // Example 4: Workflow execution with streaming
 async function streamingExample() {
-  const client = new SimStudioClient({
-    apiKey: process.env.SIM_API_KEY!,
+  const client = new TradingGooseClient({
+    apiKey: process.env.TRADINGGOOSE_API_KEY!,
   })
 
   try {
@@ -131,7 +131,7 @@ async function streamingExample() {
       console.log('❌ Workflow failed:', result.error)
     }
   } catch (error) {
-    if (error instanceof SimStudioError) {
+    if (error instanceof TradingGooseError) {
       console.error('SDK Error:', error.message, 'Code:', error.code)
     } else {
       console.error('Unexpected error:', error)
@@ -142,7 +142,7 @@ async function streamingExample() {
 // Run examples
 if (require.main === module) {
   async function runExamples() {
-    console.log('🚀 Running Sim SDK Examples\n')
+    console.log('🚀 Running TradingGoose SDK Examples\n')
 
     try {
       await basicExample()

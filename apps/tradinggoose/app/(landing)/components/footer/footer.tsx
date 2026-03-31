@@ -130,7 +130,7 @@ export default function Footer({ fullWidth = false }: FooterProps) {
               <XIcon className='h-[18px] w-[18px]' aria-hidden='true' />
             </a>
             <a
-              href='https://www.linkedin.com/company/simstudioai/'
+              href='https://www.linkedin.com/company/tradinggoose/'
               target='_blank'
               rel='noopener noreferrer'
               aria-label='LinkedIn'
@@ -154,7 +154,7 @@ export default function Footer({ fullWidth = false }: FooterProps) {
             Changelog
           </Link>
           <Link
-            href='https://docs.sim.ai'
+            href='https://docs.tradinggoose.ai'
             target='_blank'
             rel='noopener noreferrer'
             className='text-[14px] text-muted-foreground transition-colors hover:text-foreground'
@@ -216,7 +216,7 @@ export default function Footer({ fullWidth = false }: FooterProps) {
             {blocks.map((block) => (
               <li key={block}>
                 <Link
-                  href={`https://docs.sim.ai/blocks/${block.toLowerCase().replace(' ', '-')}`}
+                  href={`https://docs.tradinggoose.ai/blocks/${block.toLowerCase().replace(' ', '-')}`}
                   target='_blank'
                   rel='noopener noreferrer'
                   className='transition-colors duration-300 hover:text-foreground'
@@ -236,7 +236,7 @@ export default function Footer({ fullWidth = false }: FooterProps) {
               {tools.slice(0, Math.ceil(tools.length / 4)).map((tool) => (
                 <li key={tool}>
                   <Link
-                    href={`https://docs.sim.ai/tools/${tool.toLowerCase().replace(/\s+/g, '_')}`}
+                    href={`https://docs.tradinggoose.ai/tools/${tool.toLowerCase().replace(/\s+/g, '_')}`}
                     target='_blank'
                     rel='noopener noreferrer'
                     className='whitespace-nowrap transition-colors duration-300 hover:text-foreground'
@@ -252,7 +252,7 @@ export default function Footer({ fullWidth = false }: FooterProps) {
                 .map((tool) => (
                   <li key={tool}>
                     <Link
-                      href={`https://docs.sim.ai/tools/${tool.toLowerCase().replace(/\s+/g, '_')}`}
+                      href={`https://docs.tradinggoose.ai/tools/${tool.toLowerCase().replace(/\s+/g, '_')}`}
                       target='_blank'
                       rel='noopener noreferrer'
                       className='whitespace-nowrap transition-colors duration-300 hover:text-foreground'
@@ -268,7 +268,7 @@ export default function Footer({ fullWidth = false }: FooterProps) {
                 .map((tool) => (
                   <li key={tool}>
                     <Link
-                      href={`https://docs.sim.ai/tools/${tool.toLowerCase().replace(/\s+/g, '_')}`}
+                      href={`https://docs.tradinggoose.ai/tools/${tool.toLowerCase().replace(/\s+/g, '_')}`}
                       target='_blank'
                       rel='noopener noreferrer'
                       className='whitespace-nowrap transition-colors duration-300 hover:text-foreground'
@@ -282,7 +282,7 @@ export default function Footer({ fullWidth = false }: FooterProps) {
               {tools.slice(Math.ceil((tools.length * 3) / 4)).map((tool) => (
                 <li key={tool}>
                   <Link
-                    href={`https://docs.sim.ai/tools/${tool.toLowerCase().replace(/\s+/g, '_')}`}
+                    href={`https://docs.tradinggoose.ai/tools/${tool.toLowerCase().replace(/\s+/g, '_')}`}
                     target='_blank'
                     rel='noopener noreferrer'
                     className='whitespace-nowrap transition-colors duration-300 hover:text-foreground'

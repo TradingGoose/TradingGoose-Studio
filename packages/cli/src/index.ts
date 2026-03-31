@@ -8,19 +8,19 @@ import { createInterface } from 'readline'
 import chalk from 'chalk'
 import { Command } from 'commander'
 
-const NETWORK_NAME = 'simstudio-network'
-const DB_CONTAINER = 'simstudio-db'
-const MIGRATIONS_CONTAINER = 'simstudio-migrations'
-const REALTIME_CONTAINER = 'simstudio-realtime'
-const APP_CONTAINER = 'simstudio-app'
+const NETWORK_NAME = 'tradinggoose-network'
+const DB_CONTAINER = 'tradinggoose-db'
+const MIGRATIONS_CONTAINER = 'tradinggoose-migrations'
+const REALTIME_CONTAINER = 'tradinggoose-realtime'
+const APP_CONTAINER = 'tradinggoose-app'
 const DEFAULT_PORT = '3000'
 
 const program = new Command()
 
-program.name('simstudio').description('Run Sim using Docker').version('0.1.0')
+program.name('tradinggoose').description('Run TradingGoose using Docker').version('0.1.0')
 
 program
-  .option('-p, --port <port>', 'Port to run Sim on', DEFAULT_PORT)
+  .option('-p, --port <port>', 'Port to run TradingGoose on', DEFAULT_PORT)
   .option('-y, --yes', 'Skip interactive prompts and use defaults')
   .option('--no-pull', 'Skip pulling the latest Docker images')
 
@@ -85,7 +85,7 @@ async function cleanupExistingContainers(): Promise<void> {
 async function main() {
   const options = program.parse().opts()
 
-  console.log(chalk.blue('🚀 Starting Sim...'))
+  console.log(chalk.blue('🚀 Starting TradingGoose...'))
 
   // Check if Docker is installed and running
   const dockerRunning = await isDockerRunning()
@@ -101,9 +101,9 @@ async function main() {
 
   // Pull latest images if not skipped
   if (options.pull) {
-    await pullImage('ghcr.io/simstudioai/simstudio:latest')
-    await pullImage('ghcr.io/simstudioai/migrations:latest')
-    await pullImage('ghcr.io/simstudioai/realtime:latest')
+    await pullImage('ghcr.io/tradinggoose/tradinggoose:latest')
+    await pullImage('ghcr.io/tradinggoose/migrations:latest')
+    await pullImage('ghcr.io/tradinggoose/realtime:latest')
     await pullImage('pgvector/pgvector:pg17')
   }
 
@@ -117,7 +117,7 @@ async function main() {
   await cleanupExistingContainers()
 
   // Create data directory
-  const dataDir = join(homedir(), '.simstudio', 'data')
+  const dataDir = join(homedir(), '.tradinggoose', 'data')
   if (!existsSync(dataDir)) {
     try {
       mkdirSync(dataDir, { recursive: true })
@@ -142,7 +142,7 @@ async function main() {
     '-e',
     'POSTGRES_PASSWORD=postgres',
     '-e',
-    'POSTGRES_DB=simstudio',
+    'POSTGRES_DB=tradinggoose',
     '-v',
     `${dataDir}/postgres:/var/lib/postgresql/data`,
     '-p',
@@ -184,8 +184,8 @@ async function main() {
     '--network',
     NETWORK_NAME,
     '-e',
-    `DATABASE_URL=postgresql://postgres:postgres@${DB_CONTAINER}:5432/simstudio`,
-    'ghcr.io/simstudioai/migrations:latest',
+    `DATABASE_URL=postgresql://postgres:postgres@${DB_CONTAINER}:5432/tradinggoose`,
+    'ghcr.io/tradinggoose/migrations:latest',
     'bun',
     'run',
     'db:migrate',
@@ -209,14 +209,14 @@ async function main() {
     '-p',
     '3002:3002',
     '-e',
-    `DATABASE_URL=postgresql://postgres:postgres@${DB_CONTAINER}:5432/simstudio`,
+    `DATABASE_URL=postgresql://postgres:postgres@${DB_CONTAINER}:5432/tradinggoose`,
     '-e',
     `BETTER_AUTH_URL=http://localhost:${port}`,
     '-e',
     `NEXT_PUBLIC_APP_URL=http://localhost:${port}`,
     '-e',
     'BETTER_AUTH_SECRET=your_auth_secret_here',
-    'ghcr.io/simstudioai/realtime:latest',
+    'ghcr.io/tradinggoose/realtime:latest',
   ])
 
   if (!realtimeSuccess) {
@@ -225,7 +225,7 @@ async function main() {
   }
 
   // Start the main application
-  console.log(chalk.blue('🔄 Starting Sim...'))
+  console.log(chalk.blue('🔄 Starting TradingGoose...'))
   const appSuccess = await runCommand([
     'docker',
     'run',
@@ -237,7 +237,7 @@ async function main() {
     '-p',
     `${port}:3000`,
     '-e',
-    `DATABASE_URL=postgresql://postgres:postgres@${DB_CONTAINER}:5432/simstudio`,
+    `DATABASE_URL=postgresql://postgres:postgres@${DB_CONTAINER}:5432/tradinggoose`,
     '-e',
     `BETTER_AUTH_URL=http://localhost:${port}`,
     '-e',
@@ -246,18 +246,18 @@ async function main() {
     'BETTER_AUTH_SECRET=your_auth_secret_here',
     '-e',
     'ENCRYPTION_KEY=your_encryption_key_here',
-    'ghcr.io/simstudioai/simstudio:latest',
+    'ghcr.io/tradinggoose/tradinggoose:latest',
   ])
 
   if (!appSuccess) {
-    console.error(chalk.red('❌ Failed to start Sim'))
+    console.error(chalk.red('❌ Failed to start TradingGoose'))
     process.exit(1)
   }
 
-  console.log(chalk.green(`✅ Sim is now running at ${chalk.bold(`http://localhost:${port}`)}`))
+  console.log(chalk.green(`✅ TradingGoose is now running at ${chalk.bold(`http://localhost:${port}`)}`))
   console.log(
     chalk.yellow(
-      `🛑 To stop all containers, run: ${chalk.bold('docker stop simstudio-app simstudio-db simstudio-realtime')}`
+      `🛑 To stop all containers, run: ${chalk.bold('docker stop tradinggoose-app tradinggoose-db tradinggoose-realtime')}`
     )
   )
 
@@ -268,14 +268,14 @@ async function main() {
   })
 
   rl.on('SIGINT', async () => {
-    console.log(chalk.yellow('\n🛑 Stopping Sim...'))
+    console.log(chalk.yellow('\n🛑 Stopping TradingGoose...'))
 
     // Stop containers
     await stopAndRemoveContainer(APP_CONTAINER)
     await stopAndRemoveContainer(DB_CONTAINER)
     await stopAndRemoveContainer(REALTIME_CONTAINER)
 
-    console.log(chalk.green('✅ Sim has been stopped'))
+    console.log(chalk.green('✅ TradingGoose has been stopped'))
     process.exit(0)
   })
 }

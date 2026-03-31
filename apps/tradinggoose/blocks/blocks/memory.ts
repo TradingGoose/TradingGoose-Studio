@@ -15,7 +15,7 @@ export const MemoryBlock: BlockConfig = {
   `,
   icon: BrainIcon,
   category: 'blocks',
-  docsLink: 'https://docs.sim.ai/tools/memory',
+  docsLink: 'https://docs.tradinggoose.ai/tools/memory',
   subBlocks: [
     {
       id: 'operation',

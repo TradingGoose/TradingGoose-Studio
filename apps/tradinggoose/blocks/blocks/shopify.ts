@@ -15,7 +15,7 @@ export const ShopifyBlock: BlockConfig<ShopifyResponse> = {
   authMode: AuthMode.OAuth,
   longDescription:
     'Integrate Shopify into your workflow. Manage products, orders, customers, and inventory. Create, read, update, and delete products. List and manage orders. Handle customer data and adjust inventory levels.',
-  docsLink: 'https://docs.sim.ai/tools/shopify',
+  docsLink: 'https://docs.tradinggoose.ai/tools/shopify',
   category: 'tools',
   icon: ShopifyIcon,
   bgColor: '#FFFFFF',

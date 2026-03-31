@@ -8,7 +8,7 @@ export const DynamoDBBlock: BlockConfig<DynamoDBResponse> = {
   description: 'Connect to Amazon DynamoDB',
   longDescription:
     'Integrate Amazon DynamoDB into workflows. Supports Get, Put, Query, Scan, Update, and Delete operations on DynamoDB tables.',
-  docsLink: 'https://docs.sim.ai/tools/dynamodb',
+  docsLink: 'https://docs.tradinggoose.ai/tools/dynamodb',
   category: 'tools',
   bgColor: '#527FFF',
   icon: DynamoDBIcon,

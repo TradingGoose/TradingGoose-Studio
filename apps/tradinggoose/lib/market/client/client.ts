@@ -26,10 +26,13 @@ class MarketClient {
       headers?: Record<string, string>
       apiKey?: string
       body?: unknown
+      timeoutMs?: number
     } = {}
   ): Promise<MarketClientResponse<T>> {
     const requestId = generateRequestId()
-    const { method = 'GET', headers = {}, apiKey, body } = options
+    const { method = 'GET', headers = {}, apiKey, body, timeoutMs } = options
+    const controller = timeoutMs ? new AbortController() : null
+    const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null
 
     try {
       const url = `${this.baseUrl}${endpoint}`
@@ -55,6 +58,7 @@ class MarketClient {
       const fetchOptions: RequestInit = {
         method,
         headers: requestHeaders,
+        signal: controller?.signal,
       }
       if (body !== undefined) {
         fetchOptions.body = JSON.stringify(body)
@@ -89,11 +93,27 @@ class MarketClient {
         status: responseStatus,
       }
     } catch (fetchError) {
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        logger.warn(`[${requestId}] Market request timed out`, {
+          endpoint,
+          timeoutMs,
+        })
+        return {
+          success: false,
+          error: `Request timed out after ${timeoutMs}ms`,
+          status: 408,
+        }
+      }
+
       logger.error(`[${requestId}] Request failed`, fetchError)
       return {
         success: false,
         error: `Connection failed: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`,
         status: 0,
+      }
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
       }
     }
   }

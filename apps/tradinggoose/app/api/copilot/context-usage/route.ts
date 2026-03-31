@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
 
     if (!simAgentResponse.ok) {
       const errorText = await simAgentResponse.text().catch(() => '')
-      logger.warn('[Context Usage API] Sim agent request failed', {
+      logger.warn('[Context Usage API] TradingGoose agent request failed', {
         status: simAgentResponse.status,
         error: errorText,
       })

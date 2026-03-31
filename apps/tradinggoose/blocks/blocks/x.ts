@@ -10,7 +10,7 @@ export const XBlock: BlockConfig<XResponse> = {
   authMode: AuthMode.OAuth,
   longDescription:
     'Integrate X into the workflow. Can post a new tweet, get tweet details, search tweets, and get user profile.',
-  docsLink: 'https://docs.sim.ai/tools/x',
+  docsLink: 'https://docs.tradinggoose.ai/tools/x',
   category: 'tools',
   bgColor: '', // X's black color
   icon: xIcon,

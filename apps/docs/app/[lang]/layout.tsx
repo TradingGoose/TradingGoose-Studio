@@ -75,15 +75,15 @@ export default async function Layout({ children, params }: LayoutProps) {
     '@type': 'WebSite',
     name: 'TradingGoose Documentation',
     description:
-      'Comprehensive documentation for Sim - the visual workflow builder for AI Agent Workflows.',
-    url: 'https://docs.sim.ai',
+      'Comprehensive documentation for TradingGoose - the visual workflow builder for AI Agent Workflows.',
+    url: 'https://docs.tradinggoose.ai',
     publisher: {
       '@type': 'Organization',
-      name: 'Sim',
-      url: 'https://sim.ai',
+      name: 'TradingGoose',
+      url: 'https://tradinggoose.ai',
       logo: {
         '@type': 'ImageObject',
-        url: 'https://docs.sim.ai/static/logo.png',
+        url: 'https://docs.tradinggoose.ai/static/logo.png',
       },
     },
     inLanguage: locale,
@@ -91,7 +91,7 @@ export default async function Layout({ children, params }: LayoutProps) {
       '@type': 'SearchAction',
       target: {
         '@type': 'EntryPoint',
-        urlTemplate: 'https://docs.sim.ai/api/search?q={search_term_string}',
+        urlTemplate: 'https://docs.tradinggoose.ai/api/search?q={search_term_string}',
       },
       'query-input': 'required name=search_term_string',
     },

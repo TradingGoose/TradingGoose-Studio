@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
         Accept: 'image/webp,image/avif,image/apng,image/svg+xml,image/*,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
         'Accept-Encoding': 'gzip, deflate, br',
-        Referer: 'https://sim.ai/',
+        Referer: 'https://tradinggoose.ai/',
         'Sec-Fetch-Dest': 'image',
         'Sec-Fetch-Mode': 'no-cors',
         'Sec-Fetch-Site': 'cross-site',

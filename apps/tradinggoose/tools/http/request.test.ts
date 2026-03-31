@@ -18,7 +18,7 @@ describe('HTTP Request Tool', () => {
 
   beforeEach(() => {
     tester = new ToolTester(requestTool)
-    process.env.NEXT_PUBLIC_APP_URL = 'https://app.simstudio.dev'
+    process.env.NEXT_PUBLIC_APP_URL = 'https://app.tradinggoose.dev'
   })
 
   afterEach(() => {
@@ -122,7 +122,7 @@ describe('HTTP Request Tool', () => {
       Object.defineProperty(global, 'window', {
         value: {
           location: {
-            origin: 'https://app.simstudio.dev',
+            origin: 'https://app.tradinggoose.dev',
           },
         },
         writable: true,
@@ -136,7 +136,7 @@ describe('HTTP Request Tool', () => {
       })
 
       const fetchCall = (global.fetch as any).mock.calls[0]
-      expect(fetchCall[1].headers.Referer).toBe('https://app.simstudio.dev')
+      expect(fetchCall[1].headers.Referer).toBe('https://app.tradinggoose.dev')
 
       global.window = originalWindow
     })
@@ -195,7 +195,7 @@ describe('HTTP Request Tool', () => {
       Object.defineProperty(global, 'window', {
         value: {
           location: {
-            origin: 'https://app.simstudio.dev',
+            origin: 'https://app.tradinggoose.dev',
           },
         },
         writable: true,
@@ -210,7 +210,7 @@ describe('HTTP Request Tool', () => {
       const headers = fetchCall[1].headers
 
       expect(headers.Host).toBe('api.example.com')
-      expect(headers.Referer).toBe('https://app.simstudio.dev')
+      expect(headers.Referer).toBe('https://app.tradinggoose.dev')
       expect(headers['User-Agent']).toContain('Mozilla')
       expect(headers.Accept).toBe('*/*')
       expect(headers['Accept-Encoding']).toContain('gzip')
@@ -398,7 +398,7 @@ describe('HTTP Request Tool', () => {
       Object.defineProperty(global, 'window', {
         value: {
           location: {
-            origin: 'https://app.simstudio.dev',
+            origin: 'https://app.tradinggoose.dev',
           },
         },
         writable: true,
@@ -420,7 +420,7 @@ describe('HTTP Request Tool', () => {
       expect(headers['Sec-Ch-Ua']).toMatch(/Chromium.*Not-A\.Brand/)
       expect(headers['Sec-Ch-Ua-Mobile']).toBe('?0')
       expect(headers['Sec-Ch-Ua-Platform']).toBe('"macOS"')
-      expect(headers.Referer).toBe('https://app.simstudio.dev')
+      expect(headers.Referer).toBe('https://app.tradinggoose.dev')
       expect(headers.Host).toBe('api.example.com')
 
       global.window = originalWindow
@@ -455,7 +455,7 @@ describe('HTTP Request Tool', () => {
       Object.defineProperty(global, 'window', {
         value: {
           location: {
-            origin: 'https://app.simstudio.dev',
+            origin: 'https://app.tradinggoose.dev',
           },
         },
         writable: true,
@@ -473,7 +473,7 @@ describe('HTTP Request Tool', () => {
       Object.defineProperty(global, 'window', {
         value: {
           location: {
-            origin: 'https://sim.ai',
+            origin: 'https://tradinggoose.ai',
           },
         },
         writable: true,

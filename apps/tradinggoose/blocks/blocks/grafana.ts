@@ -10,7 +10,7 @@ export const GrafanaBlock: BlockConfig<GrafanaResponse> = {
   authMode: AuthMode.ApiKey,
   longDescription:
     'Integrate Grafana into workflows. Manage dashboards, alerts, annotations, data sources, folders, and monitor health status.',
-  docsLink: 'https://docs.sim.ai/tools/grafana',
+  docsLink: 'https://docs.tradinggoose.ai/tools/grafana',
   category: 'tools',
   bgColor: '#E0E0E0',
   icon: GrafanaIcon,

@@ -16,7 +16,7 @@ export default function LicensesPage() {
           <h2 className='mb-4 font-semibold text-2xl'>Project License</h2>
           <p className='mb-4'>
             The repository-level license for the combined project is AGPL-3.0-only. The root{' '}
-            <code>NOTICE</code> file preserves the Sim Studio attribution required by the upstream
+            <code>NOTICE</code> file preserves the TradingGoose Studio attribution required by the upstream
             Apache-2.0 source on which this project is based.
           </p>
           <p className='mb-4'>
@@ -41,7 +41,7 @@ export default function LicensesPage() {
         <section>
           <h2 className='mb-4 font-semibold text-2xl'>Why AGPL-3.0-only</h2>
           <p className='mb-4'>
-            Sim Studio, the upstream base project, is Apache-2.0 and its required notices remain
+            TradingGoose Studio, the upstream base project, is Apache-2.0 and its required notices remain
             preserved here. The AGPL status of TradingGoose Studio comes from PineTS, which is used
             as an integrated runtime dependency under AGPL terms in this project.
           </p>
@@ -57,14 +57,14 @@ export default function LicensesPage() {
           <h2 className='mb-4 font-semibold text-2xl'>Third-Party Components</h2>
           <ul className='mb-4 list-disc space-y-2 pl-6'>
             <li>
-              <strong>Sim Studio</strong> - upstream Apache-2.0 project this repository derives
+              <strong>TradingGoose Studio</strong> - upstream Apache-2.0 project this repository derives
               from. Source:{' '}
               <a
-                href='https://github.com/simstudioai/sim/tree/b768ca845e9b05aa98e8e7379f5287efa4829ddb'
+                href='https://github.com/TradingGoose/TradingGoose-Studio/tree/b768ca845e9b05aa98e8e7379f5287efa4829ddb'
                 target='_blank'
                 rel='noopener noreferrer'
               >
-                simstudioai/sim@b768ca8
+                TradingGoose/TradingGoose-Studio@b768ca8
               </a>
               .
             </li>

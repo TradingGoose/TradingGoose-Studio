@@ -141,7 +141,7 @@ export function PaymentFailedEmail({
             <Text style={baseStyles.paragraph}>
               Best regards,
               <br />
-              The Sim Team
+              The TradingGoose Team
             </Text>
 
             <Text style={{ ...baseStyles.paragraph, fontSize: '12px', color: '#666' }}>

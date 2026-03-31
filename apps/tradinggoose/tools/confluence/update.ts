@@ -85,7 +85,7 @@ export const confluenceUpdateTool: ToolConfig<ConfluenceUpdateParams, Confluence
           : undefined,
         version: {
           number: params.version || 1,
-          message: params.version ? 'Updated via Sim' : 'Initial update via Sim',
+          message: params.version ? 'Updated via TradingGoose' : 'Initial update via TradingGoose',
         },
       }
       return body

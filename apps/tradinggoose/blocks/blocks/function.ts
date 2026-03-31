@@ -15,7 +15,7 @@ export const FunctionBlock: BlockConfig<CodeExecutionOutput> = {
   - To execute built-in indicators, call indicator.<ID>(marketSeries), for example: await indicator.RSI(<historical_data>).
   - Can reference workflow variables using <blockName.output> syntax as usual within code. Avoid XML/HTML tags.
   `,
-  docsLink: 'https://docs.sim.ai/blocks/function',
+  docsLink: 'https://docs.tradinggoose.ai/blocks/function',
   category: 'blocks',
   bgColor: '#FF402F',
   icon: CodeIcon,

@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://sim.ai'
+  const baseUrl = 'https://tradinggoose.ai'
 
   // Static pages
   const staticPages = [

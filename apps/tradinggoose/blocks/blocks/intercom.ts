@@ -8,7 +8,7 @@ export const IntercomBlock: BlockConfig = {
   description: 'Manage contacts, companies, conversations, tickets, and messages in Intercom',
   longDescription:
     'Integrate Intercom into the workflow. Can create, get, update, list, search, and delete contacts; create, get, and list companies; get, list, reply, and search conversations; create and get tickets; and create messages.',
-  docsLink: 'https://docs.sim.ai/tools/intercom',
+  docsLink: 'https://docs.tradinggoose.ai/tools/intercom',
   authMode: AuthMode.ApiKey,
   category: 'tools',
   bgColor: '#0057FF',

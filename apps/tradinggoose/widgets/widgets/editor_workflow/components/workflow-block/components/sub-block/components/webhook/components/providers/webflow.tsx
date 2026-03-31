@@ -134,7 +134,7 @@ export function WebflowConfig({
             </>
           )}
           <li>
-            Sim will automatically register the webhook with Webflow when you save this
+            TradingGoose will automatically register the webhook with Webflow when you save this
             configuration.
           </li>
           <li>Make sure your Webflow account has appropriate permissions for the site.</li>

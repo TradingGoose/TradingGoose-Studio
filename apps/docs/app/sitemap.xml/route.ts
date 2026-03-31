@@ -4,7 +4,7 @@ import { source } from '@/lib/source'
 export const revalidate = false
 
 export async function GET() {
-  const baseUrl = 'https://docs.sim.ai'
+  const baseUrl = 'https://docs.tradinggoose.ai'
 
   const allPages = source.getPages()
 

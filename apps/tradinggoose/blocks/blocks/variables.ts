@@ -17,7 +17,7 @@ export const VariablesBlock: BlockConfig = {
   `,
   icon: Variable,
   category: 'blocks',
-  docsLink: 'https://docs.sim.ai/blocks/variables',
+  docsLink: 'https://docs.tradinggoose.ai/blocks/variables',
   subBlocks: [
     {
       id: 'variables',

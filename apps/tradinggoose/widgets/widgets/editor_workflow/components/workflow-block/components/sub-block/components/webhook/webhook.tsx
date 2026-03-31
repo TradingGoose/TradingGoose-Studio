@@ -231,7 +231,7 @@ export const WEBHOOK_PROVIDERS: { [key: string]: WebhookProvider } = {
           padding: '0 4px',
         }}
       >
-        <span className='font-medium text-white text-xs'>Sim</span>
+        <span className='font-medium text-white text-xs'>TradingGoose</span>
       </div>
     ),
     configFields: {

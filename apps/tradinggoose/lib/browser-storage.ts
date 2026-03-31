@@ -103,7 +103,7 @@ export class BrowserStorage {
  * Constants for localStorage keys to avoid typos and provide centralized management
  */
 export const STORAGE_KEYS = {
-  LANDING_PAGE_PROMPT: 'sim_landing_page_prompt',
+  LANDING_PAGE_PROMPT: 'tradinggoose_landing_page_prompt',
 } as const
 
 /**

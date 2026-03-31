@@ -35,7 +35,7 @@ interface ProcessingOptions {
 async function processDocs(options: ProcessingOptions = {}) {
   const config = {
     docsPath: options.docsPath || path.join(process.cwd(), '../../apps/docs/content/docs'),
-    baseUrl: options.baseUrl || (isDev ? 'http://localhost:4000' : 'https://docs.sim.ai'),
+    baseUrl: options.baseUrl || (isDev ? 'http://localhost:4000' : 'https://docs.tradinggoose.ai'),
     chunkSize: options.chunkSize || 1024,
     minChunkSize: options.minChunkSize || 100,
     overlap: options.overlap || 200,

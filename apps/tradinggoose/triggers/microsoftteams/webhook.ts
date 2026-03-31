@@ -73,7 +73,7 @@ export const microsoftTeamsWebhookTrigger: TriggerConfig = {
         'Click the three dots (•••) next to the team name and select "Manage team".',
         'Go to the "Apps" tab and click "Create an outgoing webhook".',
         'Provide a name, description, and optionally a profile picture.',
-        'Set the callback URL to your Sim webhook URL above.',
+        'Set the callback URL to your TradingGoose webhook URL above.',
         'Copy the HMAC security token and paste it into the "HMAC Secret" field.',
         'Click "Create" to finish setup.',
       ]

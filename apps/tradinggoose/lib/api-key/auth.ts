@@ -34,7 +34,7 @@ export function isEncryptedKey(storedKey: string): boolean {
  */
 export async function authenticateApiKey(inputKey: string, storedKey: string): Promise<boolean> {
   try {
-    // If input key has new encrypted prefix (sk-sim-), only check against encrypted storage
+    // If input key has new encrypted prefix (sk-tradinggoose-), only check against encrypted storage
     if (isEncryptedApiKeyFormat(inputKey)) {
       if (isEncryptedKey(storedKey)) {
         try {
@@ -49,7 +49,7 @@ export async function authenticateApiKey(inputKey: string, storedKey: string): P
       return false
     }
 
-    // If input key has legacy prefix (sim_), check both encrypted and plain text
+    // If input key has the plain-text prefix (tradinggoose_), check both encrypted and plain text
     if (isLegacyApiKeyFormat(inputKey)) {
       if (isEncryptedKey(storedKey)) {
         try {
@@ -149,7 +149,7 @@ export function getApiKeyLast4(apiKey: string): string {
 /**
  * Gets the display format for an API key showing prefix and last 4 characters
  * @param encryptedKey - The encrypted API key from the database
- * @returns Promise<string> - The display format like "sk-sim-...r6AA"
+ * @returns Promise<string> - The display format like "sk-tradinggoose-...r6AA"
  */
 export async function getApiKeyDisplayFormat(encryptedKey: string): Promise<string> {
   try {
@@ -168,18 +168,18 @@ export async function getApiKeyDisplayFormat(encryptedKey: string): Promise<stri
 /**
  * Formats an API key for display showing prefix and last 4 characters
  * @param apiKey - The API key (plain text)
- * @returns string - The display format like "sk-sim-...r6AA" or "sim_...r6AA"
+ * @returns string - The display format like "sk-tradinggoose-...r6AA" or "tradinggoose_...r6AA"
  */
 export function formatApiKeyForDisplay(apiKey: string): string {
   if (isEncryptedApiKeyFormat(apiKey)) {
-    // For sk-sim- format: "sk-sim-...r6AA"
+    // For sk-tradinggoose- format: "sk-tradinggoose-...r6AA"
     const last4 = getApiKeyLast4(apiKey)
-    return `sk-sim-...${last4}`
+    return `sk-tradinggoose-...${last4}`
   }
   if (isLegacyApiKeyFormat(apiKey)) {
-    // For sim_ format: "sim_...r6AA"
+    // For tradinggoose_ format: "tradinggoose_...r6AA"
     const last4 = getApiKeyLast4(apiKey)
-    return `sim_...${last4}`
+    return `tradinggoose_...${last4}`
   }
   // Unknown format, just show last 4
   const last4 = getApiKeyLast4(apiKey)

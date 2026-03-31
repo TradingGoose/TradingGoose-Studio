@@ -9,7 +9,7 @@ export const StagehandAgentBlock: BlockConfig<StagehandAgentResponse> = {
   authMode: AuthMode.ApiKey,
   longDescription:
     'Integrate Stagehand Agent into the workflow. Can navigate the web and perform tasks.',
-  docsLink: 'https://docs.sim.ai/tools/stagehand_agent',
+  docsLink: 'https://docs.tradinggoose.ai/tools/stagehand_agent',
   category: 'tools',
   bgColor: '#ffbb33',
   icon: StagehandIcon,

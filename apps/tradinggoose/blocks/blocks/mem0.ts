@@ -11,7 +11,7 @@ export const Mem0Block: BlockConfig<Mem0Response> = {
   bgColor: '',
   icon: Mem0Icon,
   category: 'tools',
-  docsLink: 'https://docs.sim.ai/tools/mem0',
+  docsLink: 'https://docs.tradinggoose.ai/tools/mem0',
   subBlocks: [
     {
       id: 'operation',
@@ -40,7 +40,7 @@ export const Mem0Block: BlockConfig<Mem0Response> = {
       title: 'Messages',
       type: 'code',
       layout: 'full',
-      placeholder: 'JSON array, e.g. [{"role": "user", "content": "I love Sim!"}]',
+      placeholder: 'JSON array, e.g. [{"role": "user", "content": "I love TradingGoose!"}]',
       language: 'json',
       condition: {
         field: 'operation',

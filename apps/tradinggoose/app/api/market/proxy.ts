@@ -120,11 +120,6 @@ export const proxyMarketRequest = async (
     const headers = buildForwardHeaders(request)
     const forwardBody = JSON.stringify({ ...bodyPayload, version })
 
-    logger.info(`[${requestId}] Proxying market request`, {
-      method,
-      targetUrl,
-    })
-
     if (method === 'GET') {
       const target = new URL(targetUrl)
       if (!target.searchParams.get('version')) {

@@ -1,5 +1,5 @@
 {
-  "name": "Sim Dev Environment",
+  "name": "TradingGoose Dev Environment",
   "dockerComposeFile": "docker-compose.yml",
   "service": "app",
   "workspaceFolder": "/workspace",

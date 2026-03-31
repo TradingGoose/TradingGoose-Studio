@@ -11,7 +11,7 @@ export const OutlookBlock: BlockConfig<OutlookResponse> = {
   authMode: AuthMode.OAuth,
   longDescription:
     'Integrate Outlook into the workflow. Can read, draft, and send email messages. Can be used in trigger mode to trigger a workflow when a new email is received.',
-  docsLink: 'https://docs.sim.ai/tools/outlook',
+  docsLink: 'https://docs.tradinggoose.ai/tools/outlook',
   category: 'tools',
   triggerAllowed: true,
   bgColor: undefined,

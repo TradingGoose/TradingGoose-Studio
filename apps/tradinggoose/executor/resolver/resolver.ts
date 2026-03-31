@@ -1838,7 +1838,7 @@ export class InputResolver {
       }
     })
 
-    // Allow references to any known block (mirror sim's global tag resolution)
+    // Allow references to any known block (mirror tradinggoose's global tag resolution)
     this.workflow.blocks.forEach((workflowBlock) => {
       prefixes.add(normalizeBlockName(workflowBlock.id))
       if (workflowBlock.metadata?.name) {

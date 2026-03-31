@@ -63,7 +63,7 @@ describe('Workspace Invitation [invitationId] API Route', () => {
 
     vi.doMock('@/lib/env', () => {
       const mockEnv = {
-        NEXT_PUBLIC_APP_URL: 'https://test.sim.ai',
+        NEXT_PUBLIC_APP_URL: 'https://test.tradinggoose.ai',
         BILLING_ENABLED: false,
       }
       return {
@@ -170,7 +170,7 @@ describe('Workspace Invitation [invitationId] API Route', () => {
 
       expect(response.status).toBe(307)
       expect(response.headers.get('location')).toBe(
-        'https://test.sim.ai/invite/token-abc123?token=token-abc123'
+        'https://test.tradinggoose.ai/invite/token-abc123?token=token-abc123'
       )
     })
 
@@ -204,7 +204,7 @@ describe('Workspace Invitation [invitationId] API Route', () => {
       const response = await GET(request, { params })
 
       expect(response.status).toBe(307)
-      expect(response.headers.get('location')).toBe('https://test.sim.ai/workspace/workspace-456/w')
+      expect(response.headers.get('location')).toBe('https://test.tradinggoose.ai/workspace/workspace-456/w')
     })
 
     it('should redirect to error page when invitation expired', async () => {
@@ -231,7 +231,7 @@ describe('Workspace Invitation [invitationId] API Route', () => {
 
       expect(response.status).toBe(307)
       expect(response.headers.get('location')).toBe(
-        'https://test.sim.ai/invite/invitation-789?error=expired'
+        'https://test.tradinggoose.ai/invite/invitation-789?error=expired'
       )
     })
 
@@ -255,7 +255,7 @@ describe('Workspace Invitation [invitationId] API Route', () => {
 
       expect(response.status).toBe(307)
       expect(response.headers.get('location')).toBe(
-        'https://test.sim.ai/invite/invitation-789?error=email-mismatch'
+        'https://test.tradinggoose.ai/invite/invitation-789?error=email-mismatch'
       )
     })
   })
@@ -390,7 +390,7 @@ describe('Workspace Invitation [invitationId] API Route', () => {
       }))
       vi.doMock('@/lib/env', () => {
         const mockEnv = {
-          NEXT_PUBLIC_APP_URL: 'https://test.sim.ai',
+          NEXT_PUBLIC_APP_URL: 'https://test.tradinggoose.ai',
           BILLING_ENABLED: false,
         }
         return {

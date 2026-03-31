@@ -3,12 +3,12 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "simstudio-sdk"
+name = "tradinggoose-sdk"
 version = "0.1.0"
 authors = [
-    {name = "Sim", email = "support@sim.ai"},
+    {name = "TradingGoose", email = "support@tradinggoose.ai"},
 ]
-description = "Sim SDK - Execute workflows programmatically"
+description = "TradingGoose SDK - Execute workflows programmatically"
 readme = "README.md"
 license = {text = "AGPL-3.0-only"}
 requires-python = ">=3.8"
@@ -27,7 +27,7 @@ classifiers = [
     "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-keywords = ["simstudio", "ai", "workflow", "sdk", "api", "automation"]
+keywords = ["tradinggoose", "ai", "workflow", "sdk", "api", "automation"]
 dependencies = [
     "requests>=2.25.0",
     "typing-extensions>=4.0.0; python_version<'3.10'",
@@ -45,14 +45,14 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://sim.ai"
-Documentation = "https://docs.sim.ai"
+Homepage = "https://tradinggoose.ai"
+Documentation = "https://docs.tradinggoose.ai"
 Repository = "https://github.com/TradingGoose/TradingGoose-Studio"
 "Bug Reports" = "https://github.com/TradingGoose/TradingGoose-Studio/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["simstudio*"]
+include = ["tradinggoose*"]
 
 [tool.black]
 line-length = 100

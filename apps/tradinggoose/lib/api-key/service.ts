@@ -239,35 +239,35 @@ export async function decryptApiKey(encryptedValue: string): Promise<{ decrypted
 }
 
 /**
- * Generates a standardized API key with the 'sim_' prefix (legacy format)
+ * Generates a standardized API key with the 'tradinggoose_' prefix (plain-text format)
  * @returns A new API key string
  */
 export function generateApiKey(): string {
-  return `sim_${nanoid(32)}`
+  return `tradinggoose_${nanoid(32)}`
 }
 
 /**
- * Generates a new encrypted API key with the 'sk-sim-' prefix
+ * Generates a new encrypted API key with the 'sk-tradinggoose-' prefix
  * @returns A new encrypted API key string
  */
 export function generateEncryptedApiKey(): string {
-  return `sk-sim-${nanoid(32)}`
+  return `sk-tradinggoose-${nanoid(32)}`
 }
 
 /**
  * Determines if an API key uses the new encrypted format based on prefix
  * @param apiKey - The API key to check
- * @returns true if the key uses the new encrypted format (sk-sim- prefix)
+ * @returns true if the key uses the new encrypted format (sk-tradinggoose- prefix)
  */
 export function isEncryptedApiKeyFormat(apiKey: string): boolean {
-  return apiKey.startsWith('sk-sim-')
+  return apiKey.startsWith('sk-tradinggoose-')
 }
 
 /**
- * Determines if an API key uses the legacy format based on prefix
+ * Determines if an API key uses the plain-text format based on prefix
  * @param apiKey - The API key to check
- * @returns true if the key uses the legacy format (sim_ prefix)
+ * @returns true if the key uses the plain-text format (tradinggoose_ prefix)
  */
 export function isLegacyApiKeyFormat(apiKey: string): boolean {
-  return apiKey.startsWith('sim_') && !apiKey.startsWith('sk-sim-')
+  return apiKey.startsWith('tradinggoose_') && !apiKey.startsWith('sk-tradinggoose-')
 }

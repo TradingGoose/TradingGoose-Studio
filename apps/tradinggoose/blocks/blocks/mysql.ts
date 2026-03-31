@@ -8,7 +8,7 @@ export const MySQLBlock: BlockConfig<MySQLResponse> = {
   description: 'Connect to MySQL database',
   longDescription:
     'Integrate MySQL into the workflow. Can query, insert, update, delete, and execute raw SQL.',
-  docsLink: 'https://docs.sim.ai/tools/mysql',
+  docsLink: 'https://docs.tradinggoose.ai/tools/mysql',
   category: 'tools',
   bgColor: undefined,
   icon: MySQLIcon,

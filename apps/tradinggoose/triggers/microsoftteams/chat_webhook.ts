@@ -93,7 +93,7 @@ export const microsoftTeamsChatSubscriptionTrigger: TriggerConfig = {
       defaultValue: [
         'Connect your Microsoft Teams account and grant the required permissions.',
         'Enter the Chat ID of the Teams chat you want to monitor.',
-        'We will create a Microsoft Graph change notification subscription that delivers chat message events to your Sim webhook URL.',
+        'We will create a Microsoft Graph change notification subscription that delivers chat message events to your TradingGoose webhook URL.',
       ]
         .map(
           (instruction, index) =>

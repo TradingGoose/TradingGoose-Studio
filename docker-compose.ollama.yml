@@ -1,8 +1,8 @@
-name: sim-with-ollama
+name: tradinggoose-with-ollama
 
 services:
-  # Main Sim Studio Application
-  simstudio:
+  # Main TradingGoose Studio Application
+  tradinggoose:
     build:
       context: .
       dockerfile: docker/app.Dockerfile
@@ -13,10 +13,10 @@ services:
         limits:
           memory: 8G
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-simstudio}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-tradinggoose}
       - BETTER_AUTH_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-sim_auth_secret_$(openssl rand -hex 16)}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-tradinggoose_auth_secret_$(openssl rand -hex 16)}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY:-$(openssl rand -hex 32)}
       - COPILOT_API_KEY=${COPILOT_API_KEY}
       - COPILOT_API_URL=${COPILOT_API_URL}
@@ -43,10 +43,10 @@ services:
       context: .
       dockerfile: docker/realtime.Dockerfile
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-simstudio}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-tradinggoose}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:3000}
-      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-sim_auth_secret_$(openssl rand -hex 16)}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-tradinggoose_auth_secret_$(openssl rand -hex 16)}
     depends_on:
       db:
         condition: service_healthy
@@ -70,7 +70,7 @@ services:
       context: .
       dockerfile: docker/db.Dockerfile
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-simstudio}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-tradinggoose}
     depends_on:
       db:
         condition: service_healthy
@@ -86,7 +86,7 @@ services:
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-      - POSTGRES_DB=${POSTGRES_DB:-simstudio}
+      - POSTGRES_DB=${POSTGRES_DB:-tradinggoose}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -171,7 +171,7 @@ services:
         until ollama list >/dev/null 2>&1; do echo 'Waiting for Ollama...'; sleep 2; done &&
         echo 'Pulling gemma3:4b model (recommended starter model)...' &&
         ollama pull gemma3:4b &&
-        echo 'Model setup complete! You can now use gemma3:4b in Sim.' &&
+        echo 'Model setup complete! You can now use gemma3:4b in TradingGoose.' &&
         echo 'To add more models, run: docker compose -f docker-compose.ollama.yml exec ollama ollama pull <model-name>'
       "
     restart: 'no'

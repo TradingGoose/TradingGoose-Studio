@@ -1,0 +1,92 @@
+{{- if .Values.realtime.enabled }}
+{{- include "tradinggoose.validateSecrets" . }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tradinggoose.fullname" . }}-realtime
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tradinggoose.realtime.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.realtime.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "tradinggoose.realtime.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "tradinggoose.realtime.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "tradinggoose.serviceAccountName" . }}
+      {{- include "tradinggoose.podSecurityContext" .Values.realtime | nindent 6 }}
+      {{- include "tradinggoose.nodeSelector" .Values.realtime | nindent 6 }}
+      {{- include "tradinggoose.tolerations" .Values | nindent 6 }}
+      {{- include "tradinggoose.affinity" .Values | nindent 6 }}
+      containers:
+        - name: realtime
+          image: {{ include "tradinggoose.image" (dict "context" . "image" .Values.realtime.image) }}
+          imagePullPolicy: {{ .Values.realtime.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.realtime.service.targetPort }}
+              protocol: TCP
+          env:
+            - name: DATABASE_URL
+              value: {{ include "tradinggoose.databaseUrl" . | quote }}
+            {{- range $key, $value := .Values.realtime.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- if .Values.telemetry.enabled }}
+            # OpenTelemetry configuration
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://{{ include "tradinggoose.fullname" . }}-otel-collector:4318"
+            - name: OTEL_SERVICE_NAME
+              value: tradinggoose-realtime
+            - name: OTEL_SERVICE_VERSION
+              value: {{ .Chart.AppVersion | quote }}
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "service.name=tradinggoose-realtime,service.version={{ .Chart.AppVersion }},deployment.environment={{ .Values.realtime.env.NODE_ENV }}"
+            {{- end }}
+            {{- with .Values.extraEnvVars }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- if .Values.postgresql.enabled }}
+          envFrom:
+            - secretRef:
+                name: {{ include "tradinggoose.fullname" . }}-postgresql-secret
+          {{- else if .Values.externalDatabase.enabled }}
+          envFrom:
+            - secretRef:
+                name: {{ include "tradinggoose.fullname" . }}-external-db-secret
+          {{- end }}
+          {{- if .Values.realtime.livenessProbe }}
+          livenessProbe:
+            {{- toYaml .Values.realtime.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.realtime.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.realtime.readinessProbe | nindent 12 }}
+          {{- end }}
+          {{- include "tradinggoose.resources" .Values.realtime | nindent 10 }}
+          {{- include "tradinggoose.securityContext" .Values.realtime | nindent 10 }}
+          {{- with .Values.extraVolumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.extraVolumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

@@ -65,7 +65,7 @@ export const getCommentsTool: ToolConfig<RedditCommentsParams, RedditCommentsRes
 
       return {
         Authorization: `Bearer ${params.accessToken}`,
-        'User-Agent': 'sim-studio/1.0 (https://github.com/simstudioai/sim)',
+        'User-Agent': 'tradinggoose-studio/1.0 (https://github.com/TradingGoose/TradingGoose-Studio)',
         Accept: 'application/json',
       }
     },

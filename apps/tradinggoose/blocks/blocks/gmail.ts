@@ -11,7 +11,7 @@ export const GmailBlock: BlockConfig<GmailToolResponse> = {
   authMode: AuthMode.OAuth,
   longDescription:
     'Integrate Gmail into the workflow. Can send, read, and search emails. Can be used in trigger mode to trigger a workflow when a new email is received.',
-  docsLink: 'https://docs.sim.ai/tools/gmail',
+  docsLink: 'https://docs.tradinggoose.ai/tools/gmail',
   category: 'tools',
   bgColor: undefined,
   icon: GmailIcon,

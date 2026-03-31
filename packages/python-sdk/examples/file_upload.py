@@ -5,17 +5,17 @@ This example demonstrates how to upload files when executing a workflow.
 Files are automatically detected and converted to base64 format.
 """
 
-from simstudio import SimStudioClient
+from tradinggoose import TradingGooseClient
 import os
 
 
 def main():
     # Initialize the client
-    api_key = os.getenv('SIM_API_KEY')
+    api_key = os.getenv('TRADINGGOOSE_API_KEY')
     if not api_key:
-        raise ValueError('SIM_API_KEY environment variable is required')
+        raise ValueError('TRADINGGOOSE_API_KEY environment variable is required')
 
-    client = SimStudioClient(api_key=api_key)
+    client = TradingGooseClient(api_key=api_key)
 
     # Example 1: Upload a single file
     # Include file under the field name from your workflow's API trigger input format

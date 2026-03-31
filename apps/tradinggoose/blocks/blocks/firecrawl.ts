@@ -9,7 +9,7 @@ export const FirecrawlBlock: BlockConfig<FirecrawlResponse> = {
   description: 'Scrape or search the web',
   authMode: AuthMode.ApiKey,
   longDescription: 'Integrate Firecrawl into the workflow. Can search, scrape, or crawl websites.',
-  docsLink: 'https://docs.sim.ai/tools/firecrawl',
+  docsLink: 'https://docs.tradinggoose.ai/tools/firecrawl',
   category: 'tools',
   bgColor: undefined,
   icon: FirecrawlIcon,

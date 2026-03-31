@@ -21,7 +21,7 @@ bun-debug.log*
 /dist
 **/dist/
 **/standalone/
-sim-standalone.tar.gz
+tradinggoose-standalone.tar.gz
 
 # misc
 .DS_Store

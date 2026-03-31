@@ -4,9 +4,20 @@ import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
-import type { MonitorStock } from '@/app/(landing)/components/monitor-preview/fetch-listings'
+export type MonitorStock = {
+  ticker: string
+  name: string
+  iconUrl: string
+}
 
 type MonitorEntry = {
   id: string
@@ -40,8 +51,14 @@ const WORKFLOWS = [
 const STATUS_CONFIG: Record<MonitorEntry['status'], { label: string; className: string }> = {
   pending: { label: 'Pending', className: 'bg-muted text-muted-foreground' },
   running: { label: 'Running', className: 'bg-blue-500/15 text-blue-500 border-blue-500/20' },
-  success: { label: 'Success', className: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/20' },
-  failed: { label: 'Failed', className: 'bg-destructive/15 text-destructive border-destructive/20' },
+  success: {
+    label: 'Success',
+    className: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/20',
+  },
+  failed: {
+    label: 'Failed',
+    className: 'bg-destructive/15 text-destructive border-destructive/20',
+  },
 }
 
 const MAX_ROWS = 20
@@ -82,7 +99,9 @@ export default function MonitorPreview({ stocks }: { stocks: MonitorStock[] }) {
     setEntries(
       Array.from({ length: 6 }, (_, i) => {
         const e = createRandomEntry(stocks, i)
-        e.status = ['success', 'running', 'success', 'running', 'success', 'pending'][i] as MonitorEntry['status']
+        e.status = ['success', 'running', 'success', 'running', 'success', 'pending'][
+          i
+        ] as MonitorEntry['status']
         return e
       })
     )
@@ -111,8 +130,8 @@ export default function MonitorPreview({ stocks }: { stocks: MonitorStock[] }) {
   }, [stocks, mounted])
 
   return (
-    <div className='relative w-full overflow-hidden rounded-lg border bg-background/50 backdrop-blur-sm max-h-[420px]'>
-      <div className='pointer-events-none absolute bottom-0 left-0 right-0 z-10 h-1/3 bg-gradient-to-t from-background to-transparent' />
+    <div className='relative max-h-[420px] w-full overflow-hidden rounded-lg border bg-background/50 backdrop-blur-sm'>
+      <div className='pointer-events-none absolute right-0 bottom-0 left-0 z-10 h-1/3 bg-gradient-to-t from-background to-transparent' />
       <Table>
         <TableHeader>
           <TableRow className='hover:bg-transparent'>
@@ -137,33 +156,39 @@ export default function MonitorPreview({ stocks }: { stocks: MonitorStock[] }) {
                   <TableCell>
                     <div className='flex items-center gap-3'>
                       <Avatar className='size-7 rounded-sm bg-secondary/60'>
-                        {entry.stock.iconUrl && <AvatarImage src={entry.stock.iconUrl} alt={entry.stock.ticker} />}
-                        <AvatarFallback className='rounded-sm bg-secondary/60 text-[10px] font-medium'>
+                        {entry.stock.iconUrl && (
+                          <AvatarImage src={entry.stock.iconUrl} alt={entry.stock.ticker} />
+                        )}
+                        <AvatarFallback className='rounded-sm bg-secondary/60 font-medium text-[10px]'>
                           {entry.stock.ticker.slice(0, 2)}
                         </AvatarFallback>
                       </Avatar>
                       <div className='flex flex-col'>
-                        <span className='font-mono font-medium text-sm leading-tight'>{entry.stock.ticker}</span>
-                        <span className='text-xs text-muted-foreground leading-tight'>{entry.stock.name}</span>
+                        <span className='font-medium font-mono text-sm leading-tight'>
+                          {entry.stock.ticker}
+                        </span>
+                        <span className='text-muted-foreground text-xs leading-tight'>
+                          {entry.stock.name}
+                        </span>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className='flex items-center gap-2'>
                       <span
-                        className='size-2 rounded-full shrink-0'
+                        className='size-2 shrink-0 rounded-full'
                         style={{ backgroundColor: entry.indicatorColor }}
                       />
-                      <span className='text-sm text-muted-foreground'>{entry.indicator}</span>
+                      <span className='text-muted-foreground text-sm'>{entry.indicator}</span>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className='flex items-center gap-2'>
                       <span
-                        className='size-2 rounded-full shrink-0'
+                        className='size-2 shrink-0 rounded-full'
                         style={{ backgroundColor: entry.workflowColor }}
                       />
-                      <span className='text-sm text-muted-foreground'>{entry.workflow}</span>
+                      <span className='text-muted-foreground text-sm'>{entry.workflow}</span>
                     </div>
                   </TableCell>
                   <TableCell className='text-right'>

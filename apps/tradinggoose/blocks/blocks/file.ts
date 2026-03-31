@@ -13,7 +13,7 @@ export const FileBlock: BlockConfig<FileParserOutput> = {
   bestPractices: `
   - You should always use the File URL input method and enter the file URL if the user gives it to you or clarify if they have one.
   `,
-  docsLink: 'https://docs.sim.ai/tools/file',
+  docsLink: 'https://docs.tradinggoose.ai/tools/file',
   category: 'tools',
   bgColor: '#40916C',
   icon: DocumentIcon,

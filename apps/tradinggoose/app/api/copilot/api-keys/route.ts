@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const apiKeys = (await res.json().catch(() => null)) as { id: string; apiKey: string }[] | null
 
     if (!Array.isArray(apiKeys)) {
-      return NextResponse.json({ error: 'Invalid response from Sim Agent' }, { status: 500 })
+      return NextResponse.json({ error: 'Invalid response from TradingGoose Agent' }, { status: 500 })
     }
 
     const keys = apiKeys.map((k) => {
@@ -64,7 +64,7 @@ export async function DELETE(request: NextRequest) {
 
     const data = (await res.json().catch(() => null)) as { success?: boolean } | null
     if (!data?.success) {
-      return NextResponse.json({ error: 'Invalid response from Sim Agent' }, { status: 500 })
+      return NextResponse.json({ error: 'Invalid response from TradingGoose Agent' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true }, { status: 200 })

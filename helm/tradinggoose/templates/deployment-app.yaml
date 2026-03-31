@@ -1,0 +1,119 @@
+{{- if .Values.app.enabled }}
+{{- include "tradinggoose.validateSecrets" . }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tradinggoose.fullname" . }}-app
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tradinggoose.app.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.app.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "tradinggoose.app.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "tradinggoose.app.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "tradinggoose.serviceAccountName" . }}
+      {{- include "tradinggoose.podSecurityContext" .Values.app | nindent 6 }}
+      {{- include "tradinggoose.nodeSelector" .Values.app | nindent 6 }}
+      {{- include "tradinggoose.tolerations" .Values | nindent 6 }}
+      {{- include "tradinggoose.affinity" .Values | nindent 6 }}
+      {{- if .Values.migrations.enabled }}
+      initContainers:
+        - name: migrations
+          image: {{ include "tradinggoose.image" (dict "context" . "image" .Values.migrations.image) }}
+          imagePullPolicy: {{ .Values.migrations.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              cd /app/packages/db
+              export DATABASE_URL="{{ include "tradinggoose.databaseUrl" . }}"
+              bun run db:migrate
+          {{- if .Values.postgresql.enabled }}
+          envFrom:
+            - secretRef:
+                name: {{ include "tradinggoose.fullname" . }}-postgresql-secret
+          {{- else if .Values.externalDatabase.enabled }}
+          envFrom:
+            - secretRef:
+                name: {{ include "tradinggoose.fullname" . }}-external-db-secret
+          {{- end }}
+          {{- include "tradinggoose.resources" .Values.migrations | nindent 10 }}
+          {{- include "tradinggoose.securityContext" .Values.migrations | nindent 10 }}
+      {{- end }}
+      containers:
+        - name: app
+          image: {{ include "tradinggoose.image" (dict "context" . "image" .Values.app.image) }}
+          imagePullPolicy: {{ .Values.app.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.app.service.targetPort }}
+              protocol: TCP
+          env:
+            - name: DATABASE_URL
+              value: {{ include "tradinggoose.databaseUrl" . | quote }}
+            - name: SOCKET_SERVER_URL
+              value: {{ .Values.app.env.SOCKET_SERVER_URL | default "http://localhost:3002" | quote }}
+            - name: OLLAMA_URL
+              value: {{ include "tradinggoose.ollamaUrl" . | quote }}
+            {{- range $key, $value := omit .Values.app.env "DATABASE_URL" "SOCKET_SERVER_URL" "OLLAMA_URL" }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- if .Values.telemetry.enabled }}
+            # OpenTelemetry configuration
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://{{ include "tradinggoose.fullname" . }}-otel-collector:4318"
+            - name: OTEL_SERVICE_NAME
+              value: tradinggoose-app
+            - name: OTEL_SERVICE_VERSION
+              value: {{ .Chart.AppVersion | quote }}
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "service.name=tradinggoose-app,service.version={{ .Chart.AppVersion }},deployment.environment={{ .Values.app.env.NODE_ENV }}"
+            {{- end }}
+            {{- with .Values.extraEnvVars }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- if .Values.postgresql.enabled }}
+          envFrom:
+            - secretRef:
+                name: {{ include "tradinggoose.fullname" . }}-postgresql-secret
+          {{- else if .Values.externalDatabase.enabled }}
+          envFrom:
+            - secretRef:
+                name: {{ include "tradinggoose.fullname" . }}-external-db-secret
+          {{- end }}
+          {{- if .Values.app.livenessProbe }}
+          livenessProbe:
+            {{- toYaml .Values.app.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.app.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.app.readinessProbe | nindent 12 }}
+          {{- end }}
+          {{- include "tradinggoose.resources" .Values.app | nindent 10 }}
+          {{- include "tradinggoose.securityContext" .Values.app | nindent 10 }}
+          {{- with .Values.extraVolumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.extraVolumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

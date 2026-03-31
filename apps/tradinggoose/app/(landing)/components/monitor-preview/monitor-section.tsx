@@ -1,6 +1,6 @@
-import MonitorPreview from '@/app/(landing)/components/monitor-preview/monitor-preview'
-import { fetchMonitorStocks } from '@/app/(landing)/components/monitor-preview/fetch-listings'
 import { MotionPreset } from '@/components/ui/motion-preset'
+import { fetchMonitorStocks } from '@/app/(landing)/components/monitor-preview/fetch-listings'
+import MonitorPreview from '@/app/(landing)/components/monitor-preview/monitor-preview'
 
 export default async function MonitorSection() {
   const stocks = await fetchMonitorStocks()
@@ -10,12 +10,17 @@ export default async function MonitorSection() {
       <div className='mx-auto px-10 sm:px-16 lg:px-24'>
         <div className='grid grid-cols-1 gap-12 lg:grid-cols-2 xl:gap-16'>
           {/* Left content — animated table */}
-          <MotionPreset fade blur transition={{ duration: 0.7 }} className='flex items-center order-2 lg:order-1'>
+          <MotionPreset
+            fade
+            blur
+            transition={{ duration: 0.7 }}
+            className='order-2 flex items-center lg:order-1'
+          >
             <MonitorPreview stocks={stocks} />
           </MotionPreset>
 
           {/* Right content */}
-          <div className='space-y-4 order-1 lg:order-2'>
+          <div className='order-1 space-y-4 lg:order-2'>
             <MotionPreset
               fade
               blur
@@ -28,7 +33,7 @@ export default async function MonitorSection() {
             </MotionPreset>
             <MotionPreset
               component='h2'
-              className='text-2xl font-semibold md:text-3xl lg:text-4xl'
+              className='font-semibold text-2xl md:text-3xl lg:text-4xl'
               fade
               blur
               slide={{ direction: 'down', offset: 50 }}
@@ -46,8 +51,9 @@ export default async function MonitorSection() {
               delay={0.3}
               transition={{ duration: 0.5 }}
             >
-              Set up monitors that watch your indicators on live market data. When a signal fires,
-              a workflow runs automatically — place orders, send alerts, log results, or anything else.
+              Set up monitors that watch your indicators on live market data. When a signal fires, a
+              workflow runs automatically — place orders, send alerts, log results, or anything
+              else.
             </MotionPreset>
 
             <div className='space-y-2'>
@@ -66,7 +72,7 @@ export default async function MonitorSection() {
                 >
                   <div className='flex items-center gap-3'>
                     <span className='h-px w-4 shrink-0 bg-primary' />
-                    <p className='text-sm text-muted-foreground'>{text}</p>
+                    <p className='text-muted-foreground text-sm'>{text}</p>
                   </div>
                 </MotionPreset>
               ))}

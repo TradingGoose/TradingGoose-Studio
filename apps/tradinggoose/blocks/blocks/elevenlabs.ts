@@ -8,7 +8,7 @@ export const ElevenLabsBlock: BlockConfig<ElevenLabsBlockResponse> = {
   description: 'Convert TTS using ElevenLabs',
   authMode: AuthMode.ApiKey,
   longDescription: 'Integrate ElevenLabs into the workflow. Can convert text to speech.',
-  docsLink: 'https://docs.sim.ai/tools/elevenlabs',
+  docsLink: 'https://docs.tradinggoose.ai/tools/elevenlabs',
   category: 'tools',
   bgColor: '',
   icon: ElevenLabsIcon,

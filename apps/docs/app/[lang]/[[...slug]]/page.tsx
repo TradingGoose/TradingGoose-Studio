@@ -14,7 +14,7 @@ import { source } from '@/lib/source'
 export default async function Page(props: { params: Promise<{ slug?: string[]; lang: string }> }) {
   const params = await props.params
   const slugSegments = params.slug ?? []
-  const baseUrl = 'https://docs.sim.ai'
+  const baseUrl = 'https://docs.tradinggoose.ai'
 
   const pageTreeRecord = source.pageTree as Record<string, PageTree.Root>
   const pageTree =
@@ -227,8 +227,8 @@ export async function generateMetadata(props: {
 }) {
   const params = await props.params
   const slugSegments = params.slug ?? []
-  const baseUrl = 'https://docs.sim.ai'
-  const defaultDescription = 'Sim visual workflow builder for AI applications documentation'
+  const baseUrl = 'https://docs.tradinggoose.ai'
+  const defaultDescription = 'TradingGoose visual workflow builder for AI applications documentation'
 
   const pageTreeRecord = source.pageTree as Record<string, PageTree.Root>
   const pageTree =
@@ -256,7 +256,7 @@ export async function generateMetadata(props: {
     ]
       .flat()
       .filter(Boolean),
-    authors: [{ name: 'Sim Team' }],
+    authors: [{ name: 'TradingGoose Team' }],
     category: 'Developer Tools',
     openGraph: {
       title: page.data.title,

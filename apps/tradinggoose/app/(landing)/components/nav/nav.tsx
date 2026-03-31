@@ -67,7 +67,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
   const desktopNavLinks = variant === 'landing' && (
     <div className='hidden items-center gap-6 font-medium text-muted-foreground text-sm md:flex'>
       <Link
-        href='https://docs.sim.ai'
+        href='https://docs.tradinggoose.ai'
         target='_blank'
         rel='noopener noreferrer'
         className='transition-colors hover:text-foreground'
@@ -156,7 +156,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
                 className='hidden rounded-md text-base text-black md:inline-flex'
                 size='sm'
                 asChild
-                aria-label='Get started with Sim - Sign up for free'
+                aria-label='Get started with TradingGoose - Sign up for free'
               >
                 <Link href='/signup' prefetch>
                   Get started
@@ -177,7 +177,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
                 <DropdownMenuGroup>
                   <DropdownMenuItem>
                     <Link
-                      href='https://docs.sim.ai'
+                      href='https://docs.tradinggoose.ai'
                       target='_blank'
                       rel='noopener noreferrer'
                       className='w-full'
@@ -222,7 +222,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
                           className='w-full justify-start rounded-lg'
                           size='sm'
                           asChild
-                          aria-label='Get started with Sim - Sign up for free'
+                          aria-label='Get started with TradingGoose - Sign up for free'
                         >
                           <Link href='/signup' prefetch>
                             Get started

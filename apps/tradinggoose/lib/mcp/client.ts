@@ -240,7 +240,7 @@ export class McpClient {
         logging: { level: 'info' },
       },
       clientInfo: {
-        name: 'sim-platform',
+        name: 'tradinggoose-platform',
         version: '1.0.0',
       },
     }

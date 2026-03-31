@@ -29,7 +29,7 @@ export function Navbar() {
             <Link href='/' className='flex min-w-[100px] items-center'>
               <Image
                 src='/static/logo.png'
-                alt='Sim'
+                alt='TradingGoose'
                 width={72}
                 height={28}
                 className='h-7 w-auto'
@@ -45,7 +45,7 @@ export function Navbar() {
           {/* Right cluster aligns with TOC edge */}
           <div className='flex items-center gap-4'>
             <Link
-              href='https://sim.ai'
+              href='https://tradinggoose.ai'
               target='_blank'
               rel='noopener noreferrer'
               className='rounded-xl px-3 py-2 font-normal text-[0.9375rem] text-foreground/60 leading-[1.4] transition-colors hover:bg-foreground/8 hover:text-foreground'

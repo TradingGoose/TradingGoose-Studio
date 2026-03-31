@@ -1,6 +1,6 @@
 import fetch from 'node-fetch'
 
-export interface SimStudioConfig {
+export interface TradingGooseConfig {
   apiKey: string
   baseUrl?: string
 }
@@ -82,13 +82,13 @@ export interface UsageLimits {
   }
 }
 
-export class SimStudioError extends Error {
+export class TradingGooseError extends Error {
   public code?: string
   public status?: number
 
   constructor(message: string, code?: string, status?: number) {
     super(message)
-    this.name = 'SimStudioError'
+    this.name = 'TradingGooseError'
     this.code = code
     this.status = status
   }
@@ -108,14 +108,14 @@ function normalizeBaseUrl(url: string): string {
   return normalized
 }
 
-export class SimStudioClient {
+export class TradingGooseClient {
   private apiKey: string
   private baseUrl: string
   private rateLimitInfo: RateLimitInfo | null = null
 
-  constructor(config: SimStudioConfig) {
+  constructor(config: TradingGooseConfig) {
     this.apiKey = config.apiKey
-    this.baseUrl = normalizeBaseUrl(config.baseUrl || 'https://sim.ai')
+    this.baseUrl = normalizeBaseUrl(config.baseUrl || 'https://tradinggoose.ai')
   }
 
   /**
@@ -220,7 +220,7 @@ export class SimStudioClient {
       // Handle rate limiting with retry
       if (response.status === 429) {
         const retryAfter = this.rateLimitInfo?.retryAfter || 1000
-        throw new SimStudioError(
+        throw new TradingGooseError(
           `Rate limit exceeded. Retry after ${retryAfter}ms`,
           'RATE_LIMIT_EXCEEDED',
           429
@@ -229,7 +229,7 @@ export class SimStudioClient {
 
       if (!response.ok) {
         const errorData = (await response.json().catch(() => ({}))) as unknown as any
-        throw new SimStudioError(
+        throw new TradingGooseError(
           errorData.error || `HTTP ${response.status}: ${response.statusText}`,
           errorData.code,
           response.status
@@ -239,15 +239,15 @@ export class SimStudioClient {
       const result = await response.json()
       return result as WorkflowExecutionResult | AsyncExecutionResult
     } catch (error: any) {
-      if (error instanceof SimStudioError) {
+      if (error instanceof TradingGooseError) {
         throw error
       }
 
       if (error.message === 'TIMEOUT') {
-        throw new SimStudioError(`Workflow execution timed out after ${timeout}ms`, 'TIMEOUT')
+        throw new TradingGooseError(`Workflow execution timed out after ${timeout}ms`, 'TIMEOUT')
       }
 
-      throw new SimStudioError(error?.message || 'Failed to execute workflow', 'EXECUTION_ERROR')
+      throw new TradingGooseError(error?.message || 'Failed to execute workflow', 'EXECUTION_ERROR')
     }
   }
 
@@ -267,7 +267,7 @@ export class SimStudioClient {
 
       if (!response.ok) {
         const errorData = (await response.json().catch(() => ({}))) as unknown as any
-        throw new SimStudioError(
+        throw new TradingGooseError(
           errorData.error || `HTTP ${response.status}: ${response.statusText}`,
           errorData.code,
           response.status
@@ -277,11 +277,11 @@ export class SimStudioClient {
       const result = await response.json()
       return result as WorkflowStatus
     } catch (error: any) {
-      if (error instanceof SimStudioError) {
+      if (error instanceof TradingGooseError) {
         throw error
       }
 
-      throw new SimStudioError(error?.message || 'Failed to get workflow status', 'STATUS_ERROR')
+      throw new TradingGooseError(error?.message || 'Failed to get workflow status', 'STATUS_ERROR')
     }
   }
 
@@ -342,7 +342,7 @@ export class SimStudioClient {
 
       if (!response.ok) {
         const errorData = (await response.json().catch(() => ({}))) as unknown as any
-        throw new SimStudioError(
+        throw new TradingGooseError(
           errorData.error || `HTTP ${response.status}: ${response.statusText}`,
           errorData.code,
           response.status
@@ -352,11 +352,11 @@ export class SimStudioClient {
       const result = await response.json()
       return result
     } catch (error: any) {
-      if (error instanceof SimStudioError) {
+      if (error instanceof TradingGooseError) {
         throw error
       }
 
-      throw new SimStudioError(error?.message || 'Failed to get job status', 'STATUS_ERROR')
+      throw new TradingGooseError(error?.message || 'Failed to get job status', 'STATUS_ERROR')
     }
   }
 
@@ -375,14 +375,14 @@ export class SimStudioClient {
       backoffMultiplier = 2,
     } = retryOptions
 
-    let lastError: SimStudioError | null = null
+    let lastError: TradingGooseError | null = null
     let delay = initialDelay
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         return await this.executeWorkflow(workflowId, options)
       } catch (error: any) {
-        if (!(error instanceof SimStudioError) || error.code !== 'RATE_LIMIT_EXCEEDED') {
+        if (!(error instanceof TradingGooseError) || error.code !== 'RATE_LIMIT_EXCEEDED') {
           throw error
         }
 
@@ -409,7 +409,7 @@ export class SimStudioClient {
       }
     }
 
-    throw lastError || new SimStudioError('Max retries exceeded', 'MAX_RETRIES_EXCEEDED')
+    throw lastError || new TradingGooseError('Max retries exceeded', 'MAX_RETRIES_EXCEEDED')
   }
 
   /**
@@ -457,7 +457,7 @@ export class SimStudioClient {
 
       if (!response.ok) {
         const errorData = (await response.json().catch(() => ({}))) as unknown as any
-        throw new SimStudioError(
+        throw new TradingGooseError(
           errorData.error || `HTTP ${response.status}: ${response.statusText}`,
           errorData.code,
           response.status
@@ -467,14 +467,14 @@ export class SimStudioClient {
       const result = await response.json()
       return result as UsageLimits
     } catch (error: any) {
-      if (error instanceof SimStudioError) {
+      if (error instanceof TradingGooseError) {
         throw error
       }
 
-      throw new SimStudioError(error?.message || 'Failed to get usage limits', 'USAGE_ERROR')
+      throw new TradingGooseError(error?.message || 'Failed to get usage limits', 'USAGE_ERROR')
     }
   }
 }
 
 // Export types and classes
-export { SimStudioClient as default }
+export { TradingGooseClient as default }

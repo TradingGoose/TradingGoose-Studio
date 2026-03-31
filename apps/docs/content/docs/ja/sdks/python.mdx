@@ -7,7 +7,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
 
-Simの公式Python SDKを使用すると、公式Python SDKを使用してPythonアプリケーションからプログラムでワークフローを実行できます。
+TradingGooseの公式Python SDKを使用すると、公式Python SDKを使用してPythonアプリケーションからプログラムでワークフローを実行できます。
 
 <Callout type="info">
   Python SDKはPython 3.8以上をサポートし、非同期実行、指数バックオフによる自動レート制限、使用状況追跡機能を提供します。
@@ -18,7 +18,7 @@ Simの公式Python SDKを使用すると、公式Python SDKを使用してPython
 pipを使用してSDKをインストールします：
 
 ```bash
-pip install simstudio-sdk
+pip install tradinggoose-sdk
 ```
 
 ## クイックスタート
@@ -26,12 +26,12 @@ pip install simstudio-sdk
 以下は、始めるための簡単な例です：
 
 ```python
-from simstudio import SimStudioClient
+from tradinggoose import TradingGooseClient
 
 # Initialize the client
-client = SimStudioClient(
+client = TradingGooseClient(
     api_key="your-api-key-here",
-    base_url="https://sim.ai"  # optional, defaults to https://sim.ai
+    base_url="https://tradinggoose.ai"  # optional, defaults to https://tradinggoose.ai
 )
 
 # Execute a workflow
@@ -44,17 +44,17 @@ except Exception as error:
 
 ## APIリファレンス
 
-### SimStudioClient
+### TradingGooseClient
 
 #### コンストラクタ
 
 ```python
-SimStudioClient(api_key: str, base_url: str = "https://sim.ai")
+TradingGooseClient(api_key: str, base_url: str = "https://tradinggoose.ai")
 ```
 
 **パラメータ：**
-- `api_key` (str): SimのAPIキー
-- `base_url` (str, オプション): Sim APIのベースURL
+- `api_key` (str): TradingGooseのAPIキー
+- `base_url` (str, オプション): TradingGoose APIのベースURL
 
 #### メソッド
 
@@ -309,10 +309,10 @@ class UsageLimits:
     usage: Dict[str, Any]
 ```
 
-### SimStudioError
+### TradingGooseError
 
 ```python
-class SimStudioError(Exception):
+class TradingGooseError(Exception):
     def __init__(self, message: str, code: Optional[str] = None, status: Optional[int] = None):
         super().__init__(message)
         self.code = code
@@ -332,7 +332,7 @@ class SimStudioError(Exception):
 
 <Steps>
   <Step title="クライアントの初期化">
-    APIキーを使用してSimStudioClientをセットアップします。
+    APIキーを使用してTradingGooseClientをセットアップします。
   </Step>
   <Step title="ワークフローの検証">
     ワークフローがデプロイされ、実行準備ができているか確認します。
@@ -347,9 +347,9 @@ class SimStudioError(Exception):
 
 ```python
 import os
-from simstudio import SimStudioClient
+from tradinggoose import TradingGooseClient
 
-client = SimStudioClient(api_key=os.getenv("SIM_API_KEY"))
+client = TradingGooseClient(api_key=os.getenv("TRADINGGOOSE_API_KEY"))
 
 def run_workflow():
     try:
@@ -384,16 +384,16 @@ run_workflow()
 ワークフロー実行中に発生する可能性のある様々なタイプのエラーを処理します：
 
 ```python
-from simstudio import SimStudioClient, SimStudioError
+from tradinggoose import TradingGooseClient, TradingGooseError
 import os
 
-client = SimStudioClient(api_key=os.getenv("SIM_API_KEY"))
+client = TradingGooseClient(api_key=os.getenv("TRADINGGOOSE_API_KEY"))
 
 def execute_with_error_handling():
     try:
         result = client.execute_workflow("workflow-id")
         return result
-    except SimStudioError as error:
+    except TradingGooseError as error:
         if error.code == "UNAUTHORIZED":
             print("Invalid API key")
         elif error.code == "TIMEOUT":
@@ -415,11 +415,11 @@ def execute_with_error_handling():
 リソースのクリーンアップを自動的に処理するためにクライアントをコンテキストマネージャーとして使用します：
 
 ```python
-from simstudio import SimStudioClient
+from tradinggoose import TradingGooseClient
 import os
 
 # Using context manager to automatically close the session
-with SimStudioClient(api_key=os.getenv("SIM_API_KEY")) as client:
+with TradingGooseClient(api_key=os.getenv("TRADINGGOOSE_API_KEY")) as client:
     result = client.execute_workflow("workflow-id")
     print("Result:", result)
 # Session is automatically closed here
@@ -430,10 +430,10 @@ with SimStudioClient(api_key=os.getenv("SIM_API_KEY")) as client:
 複数のワークフローを効率的に実行します：
 
 ```python
-from simstudio import SimStudioClient
+from tradinggoose import TradingGooseClient
 import os
 
-client = SimStudioClient(api_key=os.getenv("SIM_API_KEY"))
+client = TradingGooseClient(api_key=os.getenv("TRADINGGOOSE_API_KEY"))
 
 def execute_workflows_batch(workflow_data_pairs):
     """Execute multiple workflows with different input data."""
@@ -481,9 +481,9 @@ for result in results:
 ```python
 import os
 import time
-from simstudio import SimStudioClient
+from tradinggoose import TradingGooseClient
 
-client = SimStudioClient(api_key=os.getenv("SIM_API_KEY"))
+client = TradingGooseClient(api_key=os.getenv("TRADINGGOOSE_API_KEY"))
 
 def execute_async():
     try:
@@ -526,9 +526,9 @@ execute_async()
 
 ```python
 import os
-from simstudio import SimStudioClient, SimStudioError
+from tradinggoose import TradingGooseClient, TradingGooseError
 
-client = SimStudioClient(api_key=os.getenv("SIM_API_KEY"))
+client = TradingGooseClient(api_key=os.getenv("TRADINGGOOSE_API_KEY"))
 
 def execute_with_retry_handling():
     try:
@@ -543,7 +543,7 @@ def execute_with_retry_handling():
         )
 
         print(f"Success: {result}")
-    except SimStudioError as error:
+    except TradingGooseError as error:
         if error.code == "RATE_LIMIT_EXCEEDED":
             print("Rate limit exceeded after all retries")
 
@@ -563,9 +563,9 @@ execute_with_retry_handling()
 
 ```python
 import os
-from simstudio import SimStudioClient
+from tradinggoose import TradingGooseClient
 
-client = SimStudioClient(api_key=os.getenv("SIM_API_KEY"))
+client = TradingGooseClient(api_key=os.getenv("TRADINGGOOSE_API_KEY"))
 
 def check_usage():
     try:
@@ -606,10 +606,10 @@ check_usage()
 リアルタイムのストリーミングレスポンスでワークフローを実行します：
 
 ```python
-from simstudio import SimStudioClient
+from tradinggoose import TradingGooseClient
 import os
 
-client = SimStudioClient(api_key=os.getenv("SIM_API_KEY"))
+client = TradingGooseClient(api_key=os.getenv("TRADINGGOOSE_API_KEY"))
 
 def execute_with_streaming():
     """Execute workflow with streaming enabled."""
@@ -657,10 +657,10 @@ def stream_workflow():
 
     def generate():
         response = requests.post(
-            'https://sim.ai/api/workflows/WORKFLOW_ID/execute',
+            'https://tradinggoose.ai/api/workflows/WORKFLOW_ID/execute',
             headers={
                 'Content-Type': 'application/json',
-                'X-API-Key': os.getenv('SIM_API_KEY')   
+                'X-API-Key': os.getenv('TRADINGGOOSE_API_KEY')   
             },
             json={
                 'message': 'Generate a story',
@@ -707,12 +707,12 @@ if __name__ == '__main__':
 
     ```python
     import os
-    from simstudio import SimStudioClient
+    from tradinggoose import TradingGooseClient
 
     # Development configuration
-    client = SimStudioClient(
-        api_key=os.getenv("SIM_API_KEY")
-        base_url=os.getenv("SIM_BASE_URL", "https://sim.ai")
+    client = TradingGooseClient(
+        api_key=os.getenv("TRADINGGOOSE_API_KEY")
+        base_url=os.getenv("TRADINGGOOSE_BASE_URL", "https://tradinggoose.ai")
     )
     ```
 
@@ -721,16 +721,16 @@ if __name__ == '__main__':
 
     ```python
     import os
-    from simstudio import SimStudioClient
+    from tradinggoose import TradingGooseClient
 
     # Production configuration with error handling
-    api_key = os.getenv("SIM_API_KEY")
+    api_key = os.getenv("TRADINGGOOSE_API_KEY")
     if not api_key:
-        raise ValueError("SIM_API_KEY environment variable is required")
+        raise ValueError("TRADINGGOOSE_API_KEY environment variable is required")
 
-    client = SimStudioClient(
+    client = TradingGooseClient(
         api_key=api_key,
-        base_url=os.getenv("SIM_BASE_URL", "https://sim.ai")
+        base_url=os.getenv("TRADINGGOOSE_BASE_URL", "https://tradinggoose.ai")
     )
     ```
 
@@ -740,8 +740,8 @@ if __name__ == '__main__':
 ## APIキーの取得方法
 
 <Steps>
-  <Step title="Simにログイン">
-    [Sim](https://sim.ai)に移動してアカウントにログインします。
+  <Step title="TradingGooseにログイン">
+    [TradingGoose](https://tradinggoose.ai)に移動してアカウントにログインします。
   </Step>
   <Step title="ワークフローを開く">
     プログラムで実行したいワークフローに移動します。

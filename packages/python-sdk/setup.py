@@ -4,11 +4,11 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setup(
-    name="simstudio-sdk",
+    name="tradinggoose-sdk",
     version="0.1.0",
-    author="Sim",
-    author_email="support@sim.ai",
-    description="Sim SDK - Execute workflows programmatically",
+    author="TradingGoose",
+    author_email="support@tradinggoose.ai",
+    description="TradingGoose SDK - Execute workflows programmatically",
     license="AGPL-3.0-only",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -43,10 +43,10 @@ setup(
             "pytest>=6.0.0",
         ],
     },
-    keywords=["simstudio", "ai", "workflow", "sdk", "api", "automation"],
+    keywords=["tradinggoose", "ai", "workflow", "sdk", "api", "automation"],
     project_urls={
         "Bug Reports": "https://github.com/TradingGoose/TradingGoose-Studio/issues",
         "Source": "https://github.com/TradingGoose/TradingGoose-Studio",
-        "Documentation": "https://docs.sim.ai",
+        "Documentation": "https://docs.tradinggoose.ai",
     },
 ) 

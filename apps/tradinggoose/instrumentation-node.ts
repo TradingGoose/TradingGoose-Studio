@@ -1,5 +1,5 @@
 /**
- * Sim OpenTelemetry - Server-side Instrumentation
+ * TradingGoose OpenTelemetry - Server-side Instrumentation
  */
 
 import { DiagConsoleLogger, DiagLogLevel, diag } from '@opentelemetry/api'
@@ -11,8 +11,8 @@ diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.ERROR)
 const logger = createLogger('OTelInstrumentation')
 
 const DEFAULT_TELEMETRY_CONFIG = {
-  endpoint: env.TELEMETRY_ENDPOINT || 'https://telemetry.simstudio.ai/v1/traces',
-  serviceName: 'sim-studio',
+  endpoint: env.TELEMETRY_ENDPOINT || 'https://telemetry.tradinggoose.ai/v1/traces',
+  serviceName: 'tradinggoose-studio',
   serviceVersion: '0.1.0',
   serverSide: { enabled: true },
   batchSettings: {
@@ -74,7 +74,7 @@ async function initializeOpenTelemetry() {
         [ATTR_SERVICE_NAME]: telemetryConfig.serviceName,
         [ATTR_SERVICE_VERSION]: telemetryConfig.serviceVersion,
         [ATTR_DEPLOYMENT_ENVIRONMENT]: env.NODE_ENV || 'development',
-        'service.namespace': 'sim-ai-platform',
+        'service.namespace': 'tradinggoose-ai-platform',
         'telemetry.sdk.name': 'opentelemetry',
         'telemetry.sdk.language': 'nodejs',
         'telemetry.sdk.version': '1.0.0',

@@ -10,7 +10,7 @@ export const DatadogBlock: BlockConfig<DatadogResponse> = {
   authMode: AuthMode.ApiKey,
   longDescription:
     'Integrate Datadog monitoring into workflows. Submit metrics, manage monitors, query logs, create events, handle downtimes, and more.',
-  docsLink: 'https://docs.sim.ai/tools/datadog',
+  docsLink: 'https://docs.tradinggoose.ai/tools/datadog',
   category: 'tools',
   bgColor: '#632CA6',
   icon: DatadogIcon,

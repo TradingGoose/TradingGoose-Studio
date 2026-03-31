@@ -10,7 +10,7 @@ export const PostHogBlock: BlockConfig<PostHogResponse> = {
   authMode: AuthMode.ApiKey,
   longDescription:
     'Integrate PostHog into your workflow. Track events, manage feature flags, analyze user behavior, run experiments, create surveys, and access session recordings.',
-  docsLink: 'https://docs.sim.ai/tools/posthog',
+  docsLink: 'https://docs.tradinggoose.ai/tools/posthog',
   category: 'tools',
   bgColor: '#E0E0E0',
   icon: PosthogIcon,

@@ -12,7 +12,7 @@ const logger = createLogger('TeamsSubscriptionRenewal')
  * Cron endpoint to renew Microsoft Teams chat subscriptions before they expire
  *
  * Teams subscriptions expire after ~3 days and must be renewed.
- * Configured in helm/sim/values.yaml under cronjobs.jobs.renewSubscriptions
+ * Configured in helm/tradinggoose/values.yaml under cronjobs.jobs.renewSubscriptions
  */
 export async function GET(request: NextRequest) {
   try {

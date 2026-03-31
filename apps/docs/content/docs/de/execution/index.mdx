@@ -6,7 +6,7 @@ import { Callout } from 'fumadocs-ui/components/callout'
 import { Card, Cards } from 'fumadocs-ui/components/card'
 import { Image } from '@/components/ui/image'
 
-Die Ausführungs-Engine von Sim bringt Ihre Workflows zum Leben, indem sie Blöcke in der richtigen Reihenfolge verarbeitet, den Datenfluss verwaltet und Fehler elegant behandelt, sodass Sie genau verstehen können, wie Workflows in Sim ausgeführt werden.
+Die Ausführungs-Engine von TradingGoose bringt Ihre Workflows zum Leben, indem sie Blöcke in der richtigen Reihenfolge verarbeitet, den Datenfluss verwaltet und Fehler elegant behandelt, sodass Sie genau verstehen können, wie Workflows in TradingGoose ausgeführt werden.
 
 <Callout type="info">
   Jede Workflow-Ausführung folgt einem deterministischen Pfad, der auf Ihren Blockverbindungen und Ihrer Logik basiert, um vorhersehbare und zuverlässige Ergebnisse zu gewährleisten.
@@ -64,8 +64,8 @@ Workflows können über mehrere Kanäle ausgeführt werden:
 
 ### Als API bereitstellen
 
-Wenn Sie einen Workflow als API bereitstellen, macht Sim Folgendes:
-- Erstellt einen eindeutigen HTTP-Endpunkt: `https://sim.ai/api/workflows/{workflowId}/execute`
+Wenn Sie einen Workflow als API bereitstellen, macht TradingGoose Folgendes:
+- Erstellt einen eindeutigen HTTP-Endpunkt: `https://tradinggoose.ai/api/workflows/{workflowId}/execute`
 - Generiert einen API-Schlüssel zur Authentifizierung
 - Akzeptiert POST-Anfragen mit JSON-Payloads
 - Gibt Workflow-Ausführungsergebnisse als JSON zurück
@@ -73,7 +73,7 @@ Wenn Sie einen Workflow als API bereitstellen, macht Sim Folgendes:
 Beispiel für einen API-Aufruf:
 
 ```bash
-curl -X POST https://sim.ai/api/workflows/your-workflow-id/execute \
+curl -X POST https://tradinggoose.ai/api/workflows/your-workflow-id/execute \
   -H "X-API-Key: your-api-key" \
   -H "Content-Type: application/json" \
   -d '{"input": "your data here"}'
@@ -82,7 +82,7 @@ curl -X POST https://sim.ai/api/workflows/your-workflow-id/execute \
 ### Als Chat bereitstellen
 
 Die Chat-Bereitstellung erstellt eine Konversationsschnittstelle für Ihren Workflow:
-- Gehostet auf einer benutzerdefinierten Subdomain: `https://your-name.sim.ai`
+- Gehostet auf einer benutzerdefinierten Subdomain: `https://your-name.tradinggoose.ai`
 - Optionale Authentifizierung (öffentlich, passwortgeschützt oder E-Mail-basiert)
 - Anpassbare Benutzeroberfläche mit Ihrem Branding
 - Streaming-Antworten für Echtzeit-Interaktion
@@ -112,17 +112,17 @@ Führe Workflows aus deinen Anwendungen mit unseren offiziellen SDKs aus:
 
 ```bash
 # TypeScript/JavaScript
-npm install simstudio-ts-sdk
+npm install tradinggoose-ts-sdk
 
 # Python
-pip install simstudio-sdk
+pip install tradinggoose-sdk
 ```
 
 ```typescript
 // TypeScript Example
-import { SimStudioClient } from 'simstudio-ts-sdk';
+import { TradingGooseClient } from 'tradinggoose-ts-sdk';
 
-const client = new SimStudioClient({ 
+const client = new TradingGooseClient({ 
   apiKey: 'your-api-key' 
 });
 

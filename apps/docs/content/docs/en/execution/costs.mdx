@@ -7,7 +7,7 @@ import { Callout } from 'fumadocs-ui/components/callout'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
 import { Image } from '@/components/ui/image'
 
-Sim automatically calculates costs for all workflow executions, providing transparent pricing based on AI model usage and execution charges. Understanding these costs helps you optimize workflows and manage your budget effectively.
+TradingGoose automatically calculates costs for all workflow executions, providing transparent pricing based on AI model usage and execution charges. Understanding these costs helps you optimize workflows and manage your budget effectively.
 
 ## How Costs Are Calculated
 
@@ -49,7 +49,7 @@ The model breakdown shows:
 
 <Tabs items={['Hosted Models', 'Bring Your Own API Key']}>
   <Tab>
-    **Hosted Models** - Sim provides API keys with a 2.5x pricing multiplier:
+    **Hosted Models** - TradingGoose provides API keys with a 2.5x pricing multiplier:
     
     | Model | Base Price (Input/Output) | Hosted Price (Input/Output) |
     |-------|---------------------------|----------------------------|
@@ -130,7 +130,7 @@ GET /api/users/me/usage-limits
 
 **Example Request:**
 ```bash
-curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" https://sim.ai/api/users/me/usage-limits
+curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" https://tradinggoose.ai/api/users/me/usage-limits
 ```
 
 **Example Response:**
@@ -168,7 +168,7 @@ Different subscription plans have different usage limits:
 
 ## Billing Model
 
-Sim uses a **base subscription + overage** billing model:
+TradingGoose uses a **base subscription + overage** billing model:
 
 ### How It Works
 
@@ -189,7 +189,7 @@ Sim uses a **base subscription + overage** billing model:
 
 ### Threshold Billing
 
-When unbilled overage reaches $50, Sim automatically bills the full unbilled amount.
+When unbilled overage reaches $50, TradingGoose automatically bills the full unbilled amount.
 
 **Example:**
 - Day 10: $70 overage → Bill $70 immediately
@@ -208,7 +208,7 @@ This spreads large overage charges throughout the month instead of one large bil
 
 ## Next Steps
 
-- Review your current usage in [Settings → Subscription](https://sim.ai/settings/subscription)
+- Review your current usage in [Settings → Subscription](https://tradinggoose.ai/settings/subscription)
 - Learn about [Logging](/execution/logging) to track execution details
 - Explore the [External API](/execution/api) for programmatic cost monitoring
 - Check out [workflow optimization techniques](/blocks) to reduce costs

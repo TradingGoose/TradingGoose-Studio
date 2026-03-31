@@ -1451,7 +1451,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 '_Provider config not allowed for non-enterprise users. Please remove the provider config and try again_'
             } else if (result.status === 426) {
               errorContent =
-                '_Please upgrade to the latest version of the Sim platform to continue using the copilot._'
+                '_Please upgrade to the latest version of the TradingGoose platform to continue using the copilot._'
             } else if (result.status === 429) {
               errorContent = '_Provider rate limit exceeded. Please try again later._'
             }

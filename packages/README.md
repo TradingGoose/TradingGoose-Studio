@@ -1,15 +1,15 @@
-# Sim SDKs
+# TradingGoose SDKs
 
-This directory contains the official SDKs for [Sim](https://sim.ai), allowing developers to execute workflows programmatically from their applications.
+This directory contains the official SDKs for [TradingGoose](https://tradinggoose.ai), allowing developers to execute workflows programmatically from their applications.
 
 ## Available SDKs
 
 ### Package Installation Commands
 
-- **TypeScript/JavaScript**: `npm install simstudio-ts-sdk`
-- **Python**: `pip install simstudio-sdk`
+- **TypeScript/JavaScript**: `npm install tradinggoose-ts-sdk`
+- **Python**: `pip install tradinggoose-sdk`
 
-### 🟢 TypeScript/JavaScript SDK (`simstudio-ts-sdk`)
+### 🟢 TypeScript/JavaScript SDK (`tradinggoose-ts-sdk`)
 
 **Directory:** `ts-sdk/`
 
@@ -17,18 +17,18 @@ The TypeScript SDK provides type-safe workflow execution for Node.js and browser
 
 **Installation:**
 ```bash
-npm install simstudio-ts-sdk
+npm install tradinggoose-ts-sdk
 # or 
-yarn add simstudio-ts-sdk
+yarn add tradinggoose-ts-sdk
 # or
-bun add simstudio-ts-sdk
+bun add tradinggoose-ts-sdk
 ```
 
 **Quick Start:**
 ```typescript
-import { SimStudioClient } from 'simstudio-ts-sdk';
+import { TradingGooseClient } from 'tradinggoose-ts-sdk';
 
-const client = new SimStudioClient({
+const client = new TradingGooseClient({
   apiKey: 'your-api-key-here'
 });
 
@@ -37,7 +37,7 @@ const result = await client.executeWorkflow('workflow-id', {
 });
 ```
 
-### 🐍 Python SDK (`simstudio-sdk`)
+### 🐍 Python SDK (`tradinggoose-sdk`)
 
 **Directory:** `python-sdk/`
 
@@ -45,14 +45,14 @@ The Python SDK provides Pythonic workflow execution with comprehensive error han
 
 **Installation:**
 ```bash
-pip install simstudio-sdk
+pip install tradinggoose-sdk
 ```
 
 **Quick Start:**
 ```python
-from simstudio import SimStudioClient
+from tradinggoose import TradingGooseClient
 
-client = SimStudioClient(api_key='your-api-key-here')
+client = TradingGooseClient(api_key='your-api-key-here')
 
 result = client.execute_workflow('workflow-id', 
     input_data={'message': 'Hello, world!'})
@@ -80,7 +80,7 @@ Both SDKs are built on top of the same REST API endpoints:
 
 Both SDKs use API key authentication via the `X-API-Key` header. You can obtain an API key by:
 
-1. Logging in to your [Sim](https://sim.ai) account
+1. Logging in to your [TradingGoose](https://tradinggoose.ai) account
 2. Navigating to your workflow
 3. Clicking "Deploy" to deploy your workflow
 4. Creating or selecting an API key during deployment
@@ -91,10 +91,10 @@ Both SDKs support environment variable configuration:
 
 ```bash
 # Required
-SIM_API_KEY=your-api-key-here
+TRADINGGOOSE_API_KEY=your-api-key-here
 
 # Optional
-SIM_BASE_URL=https://sim.ai  # or your custom domain
+TRADINGGOOSE_BASE_URL=https://tradinggoose.ai  # or your custom domain
 ```
 
 ## Error Handling
@@ -115,10 +115,10 @@ Both SDKs provide consistent error handling with these error codes:
 ### TypeScript Example
 
 ```typescript
-import { SimStudioClient, SimStudioError } from 'simstudio-ts-sdk';
+import { TradingGooseClient, TradingGooseError } from 'tradinggoose-ts-sdk';
 
-const client = new SimStudioClient({
-  apiKey: process.env.SIM_API_KEY!
+const client = new TradingGooseClient({
+  apiKey: process.env.TRADINGGOOSE_API_KEY!
 });
 
 try {
@@ -138,7 +138,7 @@ try {
     console.log('Output:', result.output);
   }
 } catch (error) {
-  if (error instanceof SimStudioError) {
+  if (error instanceof TradingGooseError) {
     console.error(`Error ${error.code}: ${error.message}`);
   }
 }
@@ -147,10 +147,10 @@ try {
 ### Python Example
 
 ```python
-from simstudio import SimStudioClient, SimStudioError
+from tradinggoose import TradingGooseClient, TradingGooseError
 import os
 
-client = SimStudioClient(api_key=os.getenv('SIM_API_KEY'))
+client = TradingGooseClient(api_key=os.getenv('TRADINGGOOSE_API_KEY'))
 
 try:
     # Check if workflow is ready
@@ -166,7 +166,7 @@ try:
     if result.success:
         print(f'Output: {result.output}')
         
-except SimStudioError as error:
+except TradingGooseError as error:
     print(f'Error {error.code}: {error}')
 ```
 
@@ -193,13 +193,13 @@ python -m build
 **TypeScript:**
 ```bash
 cd packages/ts-sdk
-SIM_API_KEY=your-key bun run examples/basic-usage.ts
+TRADINGGOOSE_API_KEY=your-key bun run examples/basic-usage.ts
 ```
 
 **Python:**
 ```bash
 cd packages/python-sdk
-SIM_API_KEY=your-key python examples/basic_usage.py
+TRADINGGOOSE_API_KEY=your-key python examples/basic_usage.py
 ```
 
 ### Testing
@@ -243,7 +243,7 @@ Both SDKs in this repository are licensed under the AGPL-3.0-only License. See t
 
 ## Support
 
-- 📖 [Documentation](https://docs.sim.ai)
-- 💬 [Discord Community](https://discord.gg/simstudio)
+- 📖 [Documentation](https://docs.tradinggoose.ai)
+- 💬 [Discord Community](https://discord.gg/tradinggoose)
 - 🐛 [Issue Tracker](https://github.com/TradingGoose/TradingGoose-Studio/issues)
-- 📧 [Email Support](mailto:support@sim.ai) 
+- 📧 [Email Support](mailto:support@tradinggoose.ai) 

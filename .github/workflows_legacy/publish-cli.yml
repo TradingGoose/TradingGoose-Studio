@@ -40,7 +40,7 @@ jobs:
       - name: Check if version already exists
         id: version_check
         run: |
-          if npm view simstudio@${{ steps.package_version.outputs.version }} version &> /dev/null; then
+          if npm view tradinggoose@${{ steps.package_version.outputs.version }} version &> /dev/null; then
             echo "exists=true" >> $GITHUB_OUTPUT
           else
             echo "exists=false" >> $GITHUB_OUTPUT

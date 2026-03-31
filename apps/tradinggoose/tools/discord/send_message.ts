@@ -53,7 +53,7 @@ export const discordSendMessageTool: ToolConfig<
       return {
         botToken: params.botToken,
         channelId: params.channelId,
-        content: params.content || 'Message sent from Sim',
+        content: params.content || 'Message sent from TradingGoose',
         files: params.files || null,
       }
     },

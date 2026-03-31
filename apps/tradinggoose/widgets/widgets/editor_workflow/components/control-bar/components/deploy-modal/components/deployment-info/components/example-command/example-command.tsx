@@ -45,7 +45,7 @@ export function ExampleCommand({
   const formatCurlCommand = (command: string, apiKey: string) => {
     if (!command.includes('curl')) return command
 
-    const sanitizedCommand = command.replace(apiKey, '$SIM_API_KEY')
+    const sanitizedCommand = command.replace(apiKey, '$TRADINGGOOSE_API_KEY')
 
     return sanitizedCommand
       .replace(' -H ', '\n  -H ')
@@ -63,7 +63,7 @@ export function ExampleCommand({
   }
 
   const getDisplayCommand = () => {
-    const baseEndpoint = endpoint.replace(apiKey, '$SIM_API_KEY')
+    const baseEndpoint = endpoint.replace(apiKey, '$TRADINGGOOSE_API_KEY')
     const inputExample = getInputFormatExample
       ? getInputFormatExample(false)
       : ' -d \'{"input": "your data here"}\''
@@ -93,28 +93,28 @@ export function ExampleCommand({
       case 'sync':
         if (getInputFormatExample) {
           const syncInputExample = getInputFormatExample(false)
-          return `curl -X POST \\\n  -H "X-API-Key: $SIM_API_KEY" \\\n  -H "Content-Type: application/json"${syncInputExample} \\\n  ${baseEndpoint}`
+          return `curl -X POST \\\n  -H "X-API-Key: $TRADINGGOOSE_API_KEY" \\\n  -H "Content-Type: application/json"${syncInputExample} \\\n  ${baseEndpoint}`
         }
         return formatCurlCommand(command, apiKey)
 
       case 'stream': {
         const streamDashD = addStreamingParams(inputExample)
-        return `curl -X POST \\\n  -H "X-API-Key: $SIM_API_KEY" \\\n  -H "Content-Type: application/json"${streamDashD} \\\n  ${baseEndpoint}`
+        return `curl -X POST \\\n  -H "X-API-Key: $TRADINGGOOSE_API_KEY" \\\n  -H "Content-Type: application/json"${streamDashD} \\\n  ${baseEndpoint}`
       }
 
       case 'async':
         switch (exampleType) {
           case 'execute':
-            return `curl -X POST \\\n  -H "X-API-Key: $SIM_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -H "X-Execution-Mode: async"${inputExample} \\\n  ${baseEndpoint}`
+            return `curl -X POST \\\n  -H "X-API-Key: $TRADINGGOOSE_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -H "X-Execution-Mode: async"${inputExample} \\\n  ${baseEndpoint}`
 
           case 'status': {
             const baseUrl = baseEndpoint.split('/api/workflows/')[0]
-            return `curl -H "X-API-Key: $SIM_API_KEY" \\\n  ${baseUrl}/api/jobs/JOB_ID_FROM_EXECUTION`
+            return `curl -H "X-API-Key: $TRADINGGOOSE_API_KEY" \\\n  ${baseUrl}/api/jobs/JOB_ID_FROM_EXECUTION`
           }
 
           case 'rate-limits': {
             const baseUrlForRateLimit = baseEndpoint.split('/api/workflows/')[0]
-            return `curl -H "X-API-Key: $SIM_API_KEY" \\\n  ${baseUrlForRateLimit}/api/users/me/usage-limits`
+            return `curl -H "X-API-Key: $TRADINGGOOSE_API_KEY" \\\n  ${baseUrlForRateLimit}/api/users/me/usage-limits`
           }
 
           default:

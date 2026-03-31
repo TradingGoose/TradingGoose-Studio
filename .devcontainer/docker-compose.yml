@@ -13,7 +13,7 @@ services:
           memory: 8G
     environment:
       - NODE_ENV=development
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/simstudio
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/tradinggoose
       - BETTER_AUTH_URL=http://localhost:3000
       - NEXT_PUBLIC_APP_URL=http://localhost:3000
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-your_auth_secret_here}
@@ -47,7 +47,7 @@ services:
           memory: 4G
     environment:
       - NODE_ENV=development
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/simstudio
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/tradinggoose
       - BETTER_AUTH_URL=http://localhost:3000
       - NEXT_PUBLIC_APP_URL=http://localhost:3000
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-your_auth_secret_here}
@@ -63,7 +63,7 @@ services:
       context: ..
       dockerfile: docker/db.Dockerfile
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/simstudio
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/tradinggoose
     depends_on:
       db:
         condition: service_healthy
@@ -78,7 +78,7 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=simstudio
+      - POSTGRES_DB=tradinggoose
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:

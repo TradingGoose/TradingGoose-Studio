@@ -6,7 +6,7 @@ import { Callout } from 'fumadocs-ui/components/callout'
 import { Card, Cards } from 'fumadocs-ui/components/card'
 import { Image } from '@/components/ui/image'
 
-El motor de ejecución de Sim da vida a tus flujos de trabajo procesando bloques en el orden correcto, gestionando el flujo de datos y manejando errores con elegancia, para que puedas entender exactamente cómo se ejecutan los flujos de trabajo en Sim.
+El motor de ejecución de TradingGoose da vida a tus flujos de trabajo procesando bloques en el orden correcto, gestionando el flujo de datos y manejando errores con elegancia, para que puedas entender exactamente cómo se ejecutan los flujos de trabajo en TradingGoose.
 
 <Callout type="info">
   Cada ejecución de flujo de trabajo sigue una ruta determinista basada en tus conexiones de bloques y lógica, asegurando resultados predecibles y confiables.
@@ -64,8 +64,8 @@ Los flujos de trabajo pueden ejecutarse a través de múltiples canales:
 
 ### Desplegar como API
 
-Cuando despliegas un flujo de trabajo como API, Sim:
-- Crea un punto de conexión HTTP único: `https://sim.ai/api/workflows/{workflowId}/execute`
+Cuando despliegas un flujo de trabajo como API, TradingGoose:
+- Crea un punto de conexión HTTP único: `https://tradinggoose.ai/api/workflows/{workflowId}/execute`
 - Genera una clave API para autenticación
 - Acepta solicitudes POST con cargas útiles JSON
 - Devuelve los resultados de ejecución del flujo de trabajo como JSON
@@ -73,7 +73,7 @@ Cuando despliegas un flujo de trabajo como API, Sim:
 Ejemplo de llamada API:
 
 ```bash
-curl -X POST https://sim.ai/api/workflows/your-workflow-id/execute \
+curl -X POST https://tradinggoose.ai/api/workflows/your-workflow-id/execute \
   -H "X-API-Key: your-api-key" \
   -H "Content-Type: application/json" \
   -d '{"input": "your data here"}'
@@ -82,7 +82,7 @@ curl -X POST https://sim.ai/api/workflows/your-workflow-id/execute \
 ### Desplegar como Chat
 
 El despliegue de chat crea una interfaz conversacional para tu flujo de trabajo:
-- Alojado en un subdominio personalizado: `https://your-name.sim.ai`
+- Alojado en un subdominio personalizado: `https://your-name.tradinggoose.ai`
 - Autenticación opcional (pública, con contraseña o basada en correo electrónico)
 - Interfaz de usuario personalizable con tu marca
 - Respuestas en streaming para interacción en tiempo real
@@ -112,17 +112,17 @@ Ejecuta flujos de trabajo desde tus aplicaciones usando nuestros SDK oficiales:
 
 ```bash
 # TypeScript/JavaScript
-npm install simstudio-ts-sdk
+npm install tradinggoose-ts-sdk
 
 # Python
-pip install simstudio-sdk
+pip install tradinggoose-sdk
 ```
 
 ```typescript
 // TypeScript Example
-import { SimStudioClient } from 'simstudio-ts-sdk';
+import { TradingGooseClient } from 'tradinggoose-ts-sdk';
 
-const client = new SimStudioClient({ 
+const client = new TradingGooseClient({ 
   apiKey: 'your-api-key' 
 });
 

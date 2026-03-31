@@ -12,7 +12,7 @@ export const HubSpotBlock: BlockConfig<HubSpotResponse> = {
   authMode: AuthMode.OAuth,
   longDescription:
     'Integrate HubSpot into your workflow. Manage contacts, companies, deals, tickets, and other CRM objects with powerful automation capabilities. Can be used in trigger mode to start workflows when contacts are created, deleted, or updated.',
-  docsLink: 'https://docs.sim.ai/tools/hubspot',
+  docsLink: 'https://docs.tradinggoose.ai/tools/hubspot',
   category: 'tools',
   bgColor: '#FF7A59',
   icon: HubspotIcon,

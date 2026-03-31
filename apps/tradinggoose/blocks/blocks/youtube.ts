@@ -10,7 +10,7 @@ export const YouTubeBlock: BlockConfig<YouTubeResponse> = {
   authMode: AuthMode.ApiKey,
   longDescription:
     'Integrate YouTube into the workflow. Can search for videos, get video details, get channel information, get playlist items, and get video comments.',
-  docsLink: 'https://docs.sim.ai/tools/youtube',
+  docsLink: 'https://docs.tradinggoose.ai/tools/youtube',
   category: 'tools',
   bgColor: '',
   icon: YouTubeIcon,

@@ -7,7 +7,7 @@ import { Callout } from 'fumadocs-ui/components/callout'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
 import { Image } from '@/components/ui/image'
 
-Sim calcule automatiquement les coûts pour toutes les exécutions de flux de travail, offrant une tarification transparente basée sur l'utilisation des modèles d'IA et les frais d'exécution. Comprendre ces coûts vous aide à optimiser les flux de travail et à gérer efficacement votre budget.
+TradingGoose calcule automatiquement les coûts pour toutes les exécutions de flux de travail, offrant une tarification transparente basée sur l'utilisation des modèles d'IA et les frais d'exécution. Comprendre ces coûts vous aide à optimiser les flux de travail et à gérer efficacement votre budget.
 
 ## Comment les coûts sont calculés
 
@@ -50,7 +50,7 @@ La répartition des modèles montre :
 
 <Tabs items={['Modèles hébergés', 'Apportez votre propre clé API']}>
   <Tab>
-    **Modèles hébergés** - Sim fournit des clés API avec un multiplicateur de prix de 2,5x :
+    **Modèles hébergés** - TradingGoose fournit des clés API avec un multiplicateur de prix de 2,5x :
     
     | Modèle | Prix de base (Entrée/Sortie) | Prix hébergé (Entrée/Sortie) |
     |-------|---------------------------|----------------------------|
@@ -133,7 +133,7 @@ GET /api/users/me/usage-limits
 **Exemple de requête :**
 
 ```bash
-curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" https://sim.ai/api/users/me/usage-limits
+curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" https://tradinggoose.ai/api/users/me/usage-limits
 ```
 
 **Exemple de réponse :**
@@ -180,7 +180,7 @@ Les différents forfaits d'abonnement ont des limites d'utilisation différentes
 
 ## Prochaines étapes
 
-- Examinez votre utilisation actuelle dans [Paramètres → Abonnement](https://sim.ai/settings/subscription)
+- Examinez votre utilisation actuelle dans [Paramètres → Abonnement](https://tradinggoose.ai/settings/subscription)
 - Apprenez-en plus sur la [Journalisation](/execution/logging) pour suivre les détails d'exécution
 - Explorez l'[API externe](/execution/api) pour la surveillance programmatique des coûts
 - Découvrez les [techniques d'optimisation de flux de travail](/blocks) pour réduire les coûts
@@ -196,7 +196,7 @@ Les différents forfaits d'abonnement ont des limites d'utilisation différentes
 
 ### Facturation par seuil
 
-Lorsque le dépassement non facturé atteint 50 $, Sim facture automatiquement le montant total non facturé.
+Lorsque le dépassement non facturé atteint 50 $, TradingGoose facture automatiquement le montant total non facturé.
 
 **Exemple :**
 - Jour 10 : 70 $ de dépassement → Facturation immédiate de 70 $
@@ -215,7 +215,7 @@ Cela répartit les frais de dépassement importants tout au long du mois au lieu
 
 ## Prochaines étapes
 
-- Consultez votre utilisation actuelle dans [Paramètres → Abonnement](https://sim.ai/settings/subscription)
+- Consultez votre utilisation actuelle dans [Paramètres → Abonnement](https://tradinggoose.ai/settings/subscription)
 - Découvrez la [Journalisation](/execution/logging) pour suivre les détails d'exécution
 - Explorez l'[API externe](/execution/api) pour la surveillance programmatique des coûts
 - Consultez les [techniques d'optimisation des flux de travail](/blocks) pour réduire les coûts
