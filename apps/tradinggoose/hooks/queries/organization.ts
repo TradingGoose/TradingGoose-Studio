@@ -39,10 +39,11 @@ async function fetchOrganizations() {
 /**
  * Hook to fetch all organizations
  */
-export function useOrganizations() {
+export function useOrganizations(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: organizationKeys.lists(),
     queryFn: fetchOrganizations,
+    enabled: options?.enabled ?? true,
     staleTime: 30 * 1000,
     placeholderData: keepPreviousData,
   })
