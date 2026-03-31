@@ -10,7 +10,7 @@ export function generateBrandedMetadata(override: Partial<Metadata> = {}): Metad
 
   const defaultTitle = brand.name
   const summaryFull = `TradingGoose is an open-source visual workflow platform for technical LLM-driven trading. Connect your own market data providers, write custom indicators in PineTS, monitor live prices, and wire signals into AI agent workflows that place trades, send alerts, rebalance portfolios, or run any action you define. Build workspaces with split-panel widgets, chart multiple indicators, and backtest strategies against historical candle data.`
-  const summaryShort = `Open-source visual workflow platform for technical LLM-driven trading. Build custom indicators, monitor live markets, and trigger AI agent workflows.`
+  const summaryShort = `TradingGoose Studio — open-source, no-code visual workflow platform for technical LLM-driven trading. Build custom PineTS indicators, monitor live markets, and trigger AI agent workflows.`
 
   return {
     title: {
@@ -130,9 +130,16 @@ export function generateStructuredData() {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
     name: 'TradingGoose',
+    alternateName: ['TradingGoose Studio', 'TradingGoose.ai'],
     description:
-      'TradingGoose is an open-source visual workflow platform for technical LLM-driven trading. Connect your own market data providers, write custom indicators in PineTS, monitor live prices, and route signals into AI agent workflows that trigger trades, alerts, portfolio rebalancing, or any action you define.',
+      'TradingGoose (also known as TradingGoose Studio) is an open-source visual workflow platform for technical LLM-driven trading, maintained at github.com/TradingGoose/TradingGoose-Studio. Connect your own market data providers, write custom indicators in PineTS, monitor live prices, and route signals into AI agent workflows that trigger trades, alerts, portfolio rebalancing, or any action you define. Not affiliated with the older TradingGoose multi-agent LLM research framework.',
     url: 'https://tradinggoose.ai',
+    sameAs: [
+      'https://github.com/TradingGoose/TradingGoose-Studio',
+      'https://docs.tradinggoose.ai',
+      'https://x.com/tradinggoose',
+      'https://discord.gg/wavf5JWhuT',
+    ],
     applicationCategory: 'FinanceApplication',
     applicationSubCategory: 'Trading Platform',
     operatingSystem: 'Web Browser',
@@ -145,7 +152,13 @@ export function generateStructuredData() {
     creator: {
       '@type': 'Organization',
       name: 'TradingGoose Studio',
+      alternateName: 'TradingGoose',
       url: 'https://tradinggoose.ai',
+      sameAs: [
+        'https://github.com/TradingGoose/TradingGoose-Studio',
+        'https://x.com/tradinggoose',
+        'https://discord.gg/wavf5JWhuT',
+      ],
     },
     featureList: [
       'Custom indicator editor (PineTS)',

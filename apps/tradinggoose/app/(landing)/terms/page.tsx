@@ -20,7 +20,7 @@ export default function TermsOfService() {
   }, [])
 
   return (
-    <LegalLayout title='Terms of Service'>
+    <LegalLayout title='Terms of Service' path='/terms'>
       <div className='prose prose-gray mx-auto prose-h2:mt-12 prose-h3:mt-8 prose-h2:mb-6 prose-h3:mb-4 space-y-8 rounded-2xl border border-border bg-muted/50 p-12 text-accent-foreground'>
         <section>
           <p className='mb-4'>Last Updated: March 28, 2026</p>
