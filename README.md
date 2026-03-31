@@ -98,7 +98,7 @@ bun run dev:full
 ## Special Thanks
 
 Special thanks to the [Sim Studio](https://github.com/simstudioai) team for open-sourcing the original project this repository is built on top of.
-TradingGoose Studio started from Sim Studio [`v0.4.5`](https://github.com/simstudioai/sim/releases/tag/v0.4.5).
+TradingGoose Studio started from Sim Studio [`v0.4.25`](https://github.com/simstudioai/sim/releases/tag/v0.4.25).
 
 ---
 
