@@ -45,7 +45,7 @@ vi.mock('@/stores/skills/store', () => ({
   },
 }))
 
-describe('manage_* tool Sim parity', () => {
+describe('manage_* tool TradingGoose parity', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
@@ -274,7 +274,7 @@ describe('manage_* tool Sim parity', () => {
     expect(markCompleteBody.data.servers).toHaveLength(1)
   })
 
-  it('registry schemas accept Sim-style list operations and list results', () => {
+  it('registry schemas accept TradingGoose-style list operations and list results', () => {
     expect(ToolArgSchemas.manage_custom_tool.parse({ operation: 'list' })).toMatchObject({
       operation: 'list',
     })

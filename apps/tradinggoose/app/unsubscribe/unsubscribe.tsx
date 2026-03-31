@@ -282,7 +282,7 @@ function UnsubscribeContent() {
           <CardTitle className='text-foreground'>We&apos;re sorry to see you go!</CardTitle>
           <CardDescription className='text-muted-foreground'>
             We understand email preferences are personal. Choose which emails you&apos;d like to
-            stop receiving from Sim.
+            stop receiving from TradingGoose.
           </CardDescription>
           <div className='mt-2 rounded-lg border bg-muted/50 p-3'>
             <p className='text-muted-foreground text-xs'>

@@ -9,7 +9,7 @@ export const ImageGeneratorBlock: BlockConfig<DalleResponse> = {
   authMode: AuthMode.ApiKey,
   longDescription:
     'Integrate Image Generator into the workflow. Can generate images using DALL-E 3 or GPT Image.',
-  docsLink: 'https://docs.sim.ai/tools/image_generator',
+  docsLink: 'https://docs.tradinggoose.ai/tools/image_generator',
   category: 'tools',
   bgColor: '#4D5FFF',
   icon: ImageIcon,

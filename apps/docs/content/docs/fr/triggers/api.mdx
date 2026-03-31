@@ -30,7 +30,7 @@ Les exécutions manuelles dans l'éditeur utilisent la colonne `value` pour que 
 
 ```bash
 curl -X POST \
-  https://sim.ai/api/workflows/WORKFLOW_ID/execute \
+  https://tradinggoose.ai/api/workflows/WORKFLOW_ID/execute \
   -H 'Content-Type: application/json' \
   -H 'X-API-Key: YOUR_KEY' \
   -d '{"userId":"demo-user","maxTokens":1024}'
@@ -59,7 +59,7 @@ Utilisez le format `blockName.attribute` pour spécifier quelles sorties de bloc
 
 ```bash
 curl -X POST \
-  https://sim.ai/api/workflows/WORKFLOW_ID/execute \
+  https://tradinggoose.ai/api/workflows/WORKFLOW_ID/execute \
   -H 'Content-Type: application/json' \
   -H 'X-API-Key: YOUR_KEY' \
   -d '{
@@ -96,7 +96,7 @@ Lorsque `selectedOutputs` inclut plusieurs blocs, chaque fragment indique quel b
 
 ```bash
 curl -X POST \
-  https://sim.ai/api/workflows/WORKFLOW_ID/execute \
+  https://tradinggoose.ai/api/workflows/WORKFLOW_ID/execute \
   -H 'Content-Type: application/json' \
   -H 'X-API-Key: YOUR_KEY' \
   -d '{

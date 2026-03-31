@@ -237,7 +237,7 @@ describe('Function Execute API Route', () => {
         useLocalVM: true,
         params: {
           email: {
-            from: 'Waleed Latif <waleed@sim.ai>',
+            from: 'Waleed Latif <waleed@tradinggoose.ai>',
             to: 'User <user@example.com>',
           },
         },
@@ -247,7 +247,7 @@ describe('Function Execute API Route', () => {
       const response = await POST(req)
 
       expect(response.status).toBe(200)
-      // Should not try to replace <waleed@sim.ai> as a template variable
+      // Should not try to replace <waleed@tradinggoose.ai> as a template variable
     })
 
     it('should only match valid variable names in angle brackets', async () => {
@@ -275,7 +275,7 @@ describe('Function Execute API Route', () => {
         const gmailData = {
           email: {
             id: '123',
-            from: 'Waleed Latif <waleed@sim.ai>',
+            from: 'Waleed Latif <waleed@tradinggoose.ai>',
             to: 'User <user@example.com>',
             subject: 'Test Email',
             bodyText: 'Hello world',
@@ -284,7 +284,7 @@ describe('Function Execute API Route', () => {
             id: '123',
             payload: {
               headers: [
-                { name: 'From', value: 'Waleed Latif <waleed@sim.ai>' },
+                { name: 'From', value: 'Waleed Latif <waleed@tradinggoose.ai>' },
                 { name: 'To', value: 'User <user@example.com>' },
               ],
             },

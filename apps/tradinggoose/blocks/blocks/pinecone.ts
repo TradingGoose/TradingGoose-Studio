@@ -10,7 +10,7 @@ export const PineconeBlock: BlockConfig<PineconeResponse> = {
   authMode: AuthMode.ApiKey,
   longDescription:
     'Integrate Pinecone into the workflow. Can generate embeddings, upsert text, search with text, fetch vectors, and search with vectors.',
-  docsLink: 'https://docs.sim.ai/tools/pinecone',
+  docsLink: 'https://docs.tradinggoose.ai/tools/pinecone',
   category: 'tools',
   bgColor: '#1C17FF',
   icon: PineconeIcon,

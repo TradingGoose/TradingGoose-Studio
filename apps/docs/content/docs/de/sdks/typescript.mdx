@@ -7,7 +7,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
 
-Das offizielle TypeScript/JavaScript SDK für Sim bietet vollständige Typsicherheit und unterstützt sowohl Node.js- als auch Browser-Umgebungen, sodass Sie Workflows programmatisch aus Ihren Node.js-Anwendungen, Webanwendungen und anderen JavaScript-Umgebungen ausführen können.
+Das offizielle TypeScript/JavaScript SDK für TradingGoose bietet vollständige Typsicherheit und unterstützt sowohl Node.js- als auch Browser-Umgebungen, sodass Sie Workflows programmatisch aus Ihren Node.js-Anwendungen, Webanwendungen und anderen JavaScript-Umgebungen ausführen können.
 
 <Callout type="info">
   Das TypeScript SDK bietet vollständige Typsicherheit, Unterstützung für asynchrone Ausführung, automatische Ratenbegrenzung mit exponentiellem Backoff und Nutzungsverfolgung.
@@ -21,21 +21,21 @@ Installieren Sie das SDK mit Ihrem bevorzugten Paketmanager:
   <Tab value="npm">
 
     ```bash
-    npm install simstudio-ts-sdk
+    npm install tradinggoose-ts-sdk
     ```
 
   </Tab>
   <Tab value="yarn">
 
     ```bash
-    yarn add simstudio-ts-sdk
+    yarn add tradinggoose-ts-sdk
     ```
 
   </Tab>
   <Tab value="bun">
 
     ```bash
-    bun add simstudio-ts-sdk
+    bun add tradinggoose-ts-sdk
     ```
 
   </Tab>
@@ -46,12 +46,12 @@ Installieren Sie das SDK mit Ihrem bevorzugten Paketmanager:
 Hier ist ein einfaches Beispiel für den Einstieg:
 
 ```typescript
-import { SimStudioClient } from 'simstudio-ts-sdk';
+import { TradingGooseClient } from 'tradinggoose-ts-sdk';
 
 // Initialize the client
-const client = new SimStudioClient({
+const client = new TradingGooseClient({
   apiKey: 'your-api-key-here',
-  baseUrl: 'https://sim.ai' // optional, defaults to https://sim.ai
+  baseUrl: 'https://tradinggoose.ai' // optional, defaults to https://tradinggoose.ai
 });
 
 // Execute a workflow
@@ -65,17 +65,17 @@ try {
 
 ## API-Referenz
 
-### SimStudioClient
+### TradingGooseClient
 
 #### Konstruktor
 
 ```typescript
-new SimStudioClient(config: SimStudioConfig)
+new TradingGooseClient(config: TradingGooseConfig)
 ```
 
 **Konfiguration:**
-- `config.apiKey` (string): Ihr Sim API-Schlüssel
-- `config.baseUrl` (string, optional): Basis-URL für die Sim API (standardmäßig `https://sim.ai`)
+- `config.apiKey` (string): Ihr TradingGoose API-Schlüssel
+- `config.baseUrl` (string, optional): Basis-URL für die TradingGoose API (standardmäßig `https://tradinggoose.ai`)
 
 #### Methoden
 
@@ -345,10 +345,10 @@ interface UsageLimits {
 }
 ```
 
-### SimStudioError
+### TradingGooseError
 
 ```typescript
-class SimStudioError extends Error {
+class TradingGooseError extends Error {
   code?: string;
   status?: number;
 }
@@ -367,7 +367,7 @@ class SimStudioError extends Error {
 
 <Steps>
   <Step title="Client initialisieren">
-    Richten Sie den SimStudioClient mit Ihrem API-Schlüssel ein.
+    Richten Sie den TradingGooseClient mit Ihrem API-Schlüssel ein.
   </Step>
   <Step title="Workflow validieren">
     Prüfen Sie, ob der Workflow bereitgestellt und für die Ausführung bereit ist.
@@ -381,10 +381,10 @@ class SimStudioError extends Error {
 </Steps>
 
 ```typescript
-import { SimStudioClient } from 'simstudio-ts-sdk';
+import { TradingGooseClient } from 'tradinggoose-ts-sdk';
 
-const client = new SimStudioClient({
-  apiKey: process.env.SIM_API_KEY!
+const client = new TradingGooseClient({
+  apiKey: process.env.TRADINGGOOSE_API_KEY!
 });
 
 async function runWorkflow() {
@@ -422,10 +422,10 @@ runWorkflow();
 Behandeln Sie verschiedene Fehlertypen, die während der Workflow-Ausführung auftreten können:
 
 ```typescript
-import { SimStudioClient, SimStudioError } from 'simstudio-ts-sdk';
+import { TradingGooseClient, TradingGooseError } from 'tradinggoose-ts-sdk';
 
-const client = new SimStudioClient({
-  apiKey: process.env.SIM_API_KEY!
+const client = new TradingGooseClient({
+  apiKey: process.env.TRADINGGOOSE_API_KEY!
 });
 
 async function executeWithErrorHandling() {
@@ -433,7 +433,7 @@ async function executeWithErrorHandling() {
     const result = await client.executeWorkflow('workflow-id');
     return result;
   } catch (error) {
-    if (error instanceof SimStudioError) {
+    if (error instanceof TradingGooseError) {
       switch (error.code) {
         case 'UNAUTHORIZED':
           console.error('Invalid API key');
@@ -466,17 +466,17 @@ Konfigurieren Sie den Client mit Umgebungsvariablen:
   <Tab value="Development">
 
     ```typescript
-    import { SimStudioClient } from 'simstudio-ts-sdk';
+    import { TradingGooseClient } from 'tradinggoose-ts-sdk';
 
     // Development configuration
-    const apiKey = process.env.SIM_API_KEY;
+    const apiKey = process.env.TRADINGGOOSE_API_KEY;
     if (!apiKey) {
-      throw new Error('SIM_API_KEY environment variable is required');
+      throw new Error('TRADINGGOOSE_API_KEY environment variable is required');
     }
 
-    const client = new SimStudioClient({
+    const client = new TradingGooseClient({
       apiKey,
-      baseUrl: process.env.SIM_BASE_URL // optional
+      baseUrl: process.env.TRADINGGOOSE_BASE_URL // optional
     });
     ```
 
@@ -484,17 +484,17 @@ Konfigurieren Sie den Client mit Umgebungsvariablen:
   <Tab value="Production">
 
     ```typescript
-    import { SimStudioClient } from 'simstudio-ts-sdk';
+    import { TradingGooseClient } from 'tradinggoose-ts-sdk';
 
     // Production configuration with validation
-    const apiKey = process.env.SIM_API_KEY;
+    const apiKey = process.env.TRADINGGOOSE_API_KEY;
     if (!apiKey) {
-      throw new Error('SIM_API_KEY environment variable is required');
+      throw new Error('TRADINGGOOSE_API_KEY environment variable is required');
     }
 
-    const client = new SimStudioClient({
+    const client = new TradingGooseClient({
       apiKey,
-      baseUrl: process.env.SIM_BASE_URL || 'https://sim.ai'
+      baseUrl: process.env.TRADINGGOOSE_BASE_URL || 'https://tradinggoose.ai'
     });
     ```
 
@@ -507,11 +507,11 @@ Integration mit einem Express.js-Server:
 
 ```typescript
 import express from 'express';
-import { SimStudioClient } from 'simstudio-ts-sdk';
+import { TradingGooseClient } from 'tradinggoose-ts-sdk';
 
 const app = express();
-const client = new SimStudioClient({
-  apiKey: process.env.SIM_API_KEY!
+const client = new TradingGooseClient({
+  apiKey: process.env.TRADINGGOOSE_API_KEY!
 });
 
 app.use(express.json());
@@ -550,10 +550,10 @@ Verwendung mit Next.js API-Routen:
 ```typescript
 // pages/api/workflow.ts or app/api/workflow/route.ts
 import { NextApiRequest, NextApiResponse } from 'next';
-import { SimStudioClient } from 'simstudio-ts-sdk';
+import { TradingGooseClient } from 'tradinggoose-ts-sdk';
 
-const client = new SimStudioClient({
-  apiKey: process.env.SIM_API_KEY!
+const client = new TradingGooseClient({
+  apiKey: process.env.TRADINGGOOSE_API_KEY!
 });
 
 export default async function handler(
@@ -587,12 +587,12 @@ export default async function handler(
 Verwendung im Browser (mit korrekter CORS-Konfiguration):
 
 ```typescript
-import { SimStudioClient } from 'simstudio-ts-sdk';
+import { TradingGooseClient } from 'tradinggoose-ts-sdk';
 
 // Note: In production, use a proxy server to avoid exposing API keys
-const client = new SimStudioClient({
+const client = new TradingGooseClient({
   apiKey: 'your-public-api-key', // Use with caution in browser
-  baseUrl: 'https://sim.ai'
+  baseUrl: 'https://tradinggoose.ai'
 });
 
 async function executeClientSideWorkflow() {
@@ -644,10 +644,10 @@ Alternativ können Sie Dateien manuell im URL-Format bereitstellen:
   <Tab value="Browser">
 
     ```typescript
-    import { SimStudioClient } from 'simstudio-ts-sdk';
+    import { TradingGooseClient } from 'tradinggoose-ts-sdk';
 
-    const client = new SimStudioClient({
-      apiKey: process.env.NEXT_PUBLIC_SIM_API_KEY!
+    const client = new TradingGooseClient({
+      apiKey: process.env.NEXT_PUBLIC_TRADINGGOOSE_API_KEY!
     });
 
     // From file input
@@ -671,11 +671,11 @@ Alternativ können Sie Dateien manuell im URL-Format bereitstellen:
   <Tab value="Node.js">
 
     ```typescript
-    import { SimStudioClient } from 'simstudio-ts-sdk';
+    import { TradingGooseClient } from 'tradinggoose-ts-sdk';
     import fs from 'fs';
 
-    const client = new SimStudioClient({
-      apiKey: process.env.SIM_API_KEY!
+    const client = new TradingGooseClient({
+      apiKey: process.env.TRADINGGOOSE_API_KEY!
     });
 
     // Read file and create File object
@@ -706,10 +706,10 @@ Erstellen Sie einen benutzerdefinierten React-Hook für die Workflow-Ausführung
 
 ```typescript
 import { useState, useCallback } from 'react';
-import { SimStudioClient, WorkflowExecutionResult } from 'simstudio-ts-sdk';
+import { TradingGooseClient, WorkflowExecutionResult } from 'tradinggoose-ts-sdk';
 
-const client = new SimStudioClient({
-  apiKey: process.env.SIM_API_KEY!
+const client = new TradingGooseClient({
+  apiKey: process.env.TRADINGGOOSE_API_KEY!
 });
 
 interface UseWorkflowResult {
@@ -783,10 +783,10 @@ function WorkflowComponent() {
 Führen Sie Workflows asynchron für lang laufende Aufgaben aus:
 
 ```typescript
-import { SimStudioClient, AsyncExecutionResult } from 'simstudio-ts-sdk';
+import { TradingGooseClient, AsyncExecutionResult } from 'tradinggoose-ts-sdk';
 
-const client = new SimStudioClient({
-  apiKey: process.env.SIM_API_KEY!
+const client = new TradingGooseClient({
+  apiKey: process.env.TRADINGGOOSE_API_KEY!
 });
 
 async function executeAsync() {
@@ -832,10 +832,10 @@ executeAsync();
 Automatische Behandlung von Rate-Limits mit exponentiellem Backoff:
 
 ```typescript
-import { SimStudioClient, SimStudioError } from 'simstudio-ts-sdk';
+import { TradingGooseClient, TradingGooseError } from 'tradinggoose-ts-sdk';
 
-const client = new SimStudioClient({
-  apiKey: process.env.SIM_API_KEY!
+const client = new TradingGooseClient({
+  apiKey: process.env.TRADINGGOOSE_API_KEY!
 });
 
 async function executeWithRetryHandling() {
@@ -852,7 +852,7 @@ async function executeWithRetryHandling() {
 
     console.log('Success:', result);
   } catch (error) {
-    if (error instanceof SimStudioError && error.code === 'RATE_LIMIT_EXCEEDED') {
+    if (error instanceof TradingGooseError && error.code === 'RATE_LIMIT_EXCEEDED') {
       console.error('Rate limit exceeded after all retries');
 
       // Check rate limit info
@@ -870,10 +870,10 @@ async function executeWithRetryHandling() {
 Überwachen Sie Ihre Kontonutzung und -limits:
 
 ```typescript
-import { SimStudioClient } from 'simstudio-ts-sdk';
+import { TradingGooseClient } from 'tradinggoose-ts-sdk';
 
-const client = new SimStudioClient({
-  apiKey: process.env.SIM_API_KEY!
+const client = new TradingGooseClient({
+  apiKey: process.env.TRADINGGOOSE_API_KEY!
 });
 
 async function checkUsage() {
@@ -917,10 +917,10 @@ checkUsage();
 Führen Sie Workflows mit Echtzeit-Streaming-Antworten aus:
 
 ```typescript
-import { SimStudioClient } from 'simstudio-ts-sdk';
+import { TradingGooseClient } from 'tradinggoose-ts-sdk';
 
-const client = new SimStudioClient({
-  apiKey: process.env.SIM_API_KEY!
+const client = new TradingGooseClient({
+  apiKey: process.env.TRADINGGOOSE_API_KEY!
 });
 
 async function executeWithStreaming() {
@@ -966,11 +966,11 @@ function StreamingWorkflow() {
 
     // IMPORTANT: Make this API call from your backend server, not the browser
     // Never expose your API key in client-side code
-    const response = await fetch('https://sim.ai/api/workflows/WORKFLOW_ID/execute', {
+    const response = await fetch('https://tradinggoose.ai/api/workflows/WORKFLOW_ID/execute', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': process.env.SIM_API_KEY! // Server-side environment variable only
+        'X-API-Key': process.env.TRADINGGOOSE_API_KEY! // Server-side environment variable only
       },
       body: JSON.stringify({
         message: 'Generate a story',
@@ -1026,8 +1026,8 @@ function StreamingWorkflow() {
 ## API-Schlüssel erhalten
 
 <Steps>
-  <Step title="Bei Sim anmelden">
-    Navigieren Sie zu [Sim](https://sim.ai) und melden Sie sich bei Ihrem Konto an.
+  <Step title="Bei TradingGoose anmelden">
+    Navigieren Sie zu [TradingGoose](https://tradinggoose.ai) und melden Sie sich bei Ihrem Konto an.
   </Step>
   <Step title="Öffnen Sie Ihren Workflow">
     Navigieren Sie zu dem Workflow, den Sie programmatisch ausführen möchten.
@@ -1050,4 +1050,4 @@ function StreamingWorkflow() {
 
 ## Lizenz
 
-Apache-2.0
+AGPL-3.0-only

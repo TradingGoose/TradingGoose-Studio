@@ -3,7 +3,7 @@ import { source } from '@/lib/source'
 export const revalidate = false
 
 export async function GET() {
-  const baseUrl = 'https://docs.sim.ai'
+  const baseUrl = 'https://docs.tradinggoose.ai'
 
   try {
     const pages = source.getPages().filter((page) => {
@@ -39,7 +39,7 @@ export async function GET() {
 
 > Visual Workflow Builder for AI Applications
 
-Sim is a visual workflow builder for AI applications that lets you build AI agent workflows visually. Create powerful AI agents, automation workflows, and data processing pipelines by connecting blocks on a canvas—no coding required.
+TradingGoose is a visual workflow builder for AI applications that lets you build AI agent workflows visually. Create powerful AI agents, automation workflows, and data processing pipelines by connecting blocks on a canvas—no coding required.
 
 ## Documentation Overview
 

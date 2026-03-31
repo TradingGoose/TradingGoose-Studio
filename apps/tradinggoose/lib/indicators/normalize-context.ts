@@ -269,7 +269,23 @@ export function normalizeContext({
       const data = Array.isArray((plot as any).data) ? (plot as any).data : []
       data.forEach((point: any) => {
         if (!point || typeof point !== 'object') return
+        const pointValue = point.value
         const pointOptions = point.options ?? {}
+        const rawLocation = mapLocation(pointOptions.location as string | undefined) ?? plotLocation
+        if (!rawLocation) return
+        const isAbsoluteLocation =
+          rawLocation === 'atPriceTop' ||
+          rawLocation === 'atPriceBottom' ||
+          rawLocation === 'atPriceMiddle'
+        if (
+          pointValue === null ||
+          pointValue === undefined ||
+          pointValue === false ||
+          (!isAbsoluteLocation && pointValue === 0) ||
+          (typeof pointValue === 'number' && !Number.isFinite(pointValue))
+        ) {
+          return
+        }
         const offset = resolveOffset(pointOptions, plotOptions)
         const timeMs = resolveTimeWithOffset(
           Number(point.time),
@@ -281,8 +297,7 @@ export function normalizeContext({
         const mappedTime = toSeconds(timeMs as number)
 
         const rawShape = mapShape(pointOptions.shape as string | undefined) ?? plotShape ?? 'circle'
-        const rawLocation = mapLocation(pointOptions.location as string | undefined) ?? plotLocation
-        if (!rawShape || !rawLocation) return
+        if (!rawShape) return
 
         const marker: NormalizedPineMarker = {
           time: mappedTime,

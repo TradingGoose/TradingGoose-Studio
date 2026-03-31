@@ -10,7 +10,7 @@ export const NotionBlock: BlockConfig<NotionResponse> = {
   authMode: AuthMode.OAuth,
   longDescription:
     'Integrate with Notion into the workflow. Can read page, read database, create page, create database, append content, query database, and search workspace.',
-  docsLink: 'https://docs.sim.ai/tools/notion',
+  docsLink: 'https://docs.tradinggoose.ai/tools/notion',
   category: 'tools',
   bgColor: '',
   icon: NotionIcon,

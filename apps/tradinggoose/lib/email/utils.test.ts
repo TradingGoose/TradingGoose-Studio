@@ -23,7 +23,7 @@ describe('getFromEmailAddress', () => {
     // Mock env with FROM_EMAIL_ADDRESS
     vi.doMock('@/lib/env', () => ({
       env: {
-        FROM_EMAIL_ADDRESS: 'Sim <noreply@sim.ai>',
+        FROM_EMAIL_ADDRESS: 'TradingGoose <noreply@tradinggoose.ai>',
         EMAIL_DOMAIN: 'example.com',
       },
     }))
@@ -31,13 +31,13 @@ describe('getFromEmailAddress', () => {
     const { getFromEmailAddress } = await import('./utils')
     const result = getFromEmailAddress()
 
-    expect(result).toBe('Sim <noreply@sim.ai>')
+    expect(result).toBe('TradingGoose <noreply@tradinggoose.ai>')
   })
 
   it('should return simple email format when FROM_EMAIL_ADDRESS is set without display name', async () => {
     vi.doMock('@/lib/env', () => ({
       env: {
-        FROM_EMAIL_ADDRESS: 'noreply@sim.ai',
+        FROM_EMAIL_ADDRESS: 'noreply@tradinggoose.ai',
         EMAIL_DOMAIN: 'example.com',
       },
     }))
@@ -45,7 +45,7 @@ describe('getFromEmailAddress', () => {
     const { getFromEmailAddress } = await import('./utils')
     const result = getFromEmailAddress()
 
-    expect(result).toBe('noreply@sim.ai')
+    expect(result).toBe('noreply@tradinggoose.ai')
   })
 
   it('should return Azure ACS format when FROM_EMAIL_ADDRESS is set', async () => {

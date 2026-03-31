@@ -8,12 +8,13 @@ import { PostHogProvider } from '@/lib/posthog/provider'
 import 'monaco-editor/min/vs/editor/editor.main.css'
 import '@/app/globals.css'
 
-import { QueryProvider } from '@/app/query-provider'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { SessionProvider } from '@/lib/session/session-context'
+import { ProviderModelsBootstrap } from '@/app/provider-models-bootstrap'
+import { QueryProvider } from '@/app/query-provider'
 import { ThemeProvider } from '@/app/theme-provider'
 import { ZoomPrevention } from '@/app/zoom-prevention'
 import { GlobalNavbar } from '@/global-navbar'
-import { TooltipProvider } from '@/components/ui/tooltip'
 
 const logger = createLogger('RootLayout')
 
@@ -97,6 +98,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <ThemeProvider>
             <QueryProvider>
               <SessionProvider>
+                <ProviderModelsBootstrap />
                 <TooltipProvider delayDuration={100} skipDelayDuration={0}>
                   <BrandedLayout>
                     <ZoomPrevention />

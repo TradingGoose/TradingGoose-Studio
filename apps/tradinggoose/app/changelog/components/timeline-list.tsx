@@ -66,7 +66,7 @@ export default function ChangelogList({ initialEntries }: Props) {
     try {
       const nextPage = page + 1
       const res = await fetch(
-        `https://api.github.com/repos/simstudioai/sim/releases?per_page=10&page=${nextPage}`,
+        `https://api.github.com/repos/TradingGoose/TradingGoose-Studio/releases?per_page=10&page=${nextPage}`,
         { headers: { Accept: 'application/vnd.github+json' } }
       )
       const releases: any[] = await res.json()

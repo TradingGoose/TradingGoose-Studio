@@ -198,7 +198,7 @@ export default function Invite() {
           title="You've been invited!"
           description={
             isNewUser
-              ? 'Create an account to join this workspace on Sim'
+              ? 'Create an account to join this workspace on TradingGoose'
               : 'Sign in to your account to accept this invitation'
           }
           icon='userPlus'

@@ -1,206 +1,242 @@
 'use client'
 
-import React from 'react'
-import { type Edge, type Node, Position } from 'reactflow'
+import type React from 'react'
+import { ChartCandlestick, LayoutDashboardIcon, Workflow } from 'lucide-react'
+import { BackgroundRippleEffect } from '@/components/ui/background-ripple-effect'
+import { Card } from '@/components/ui/card'
+import { MotionPreset } from '@/components/ui/motion-preset'
+import { cn } from '@/lib/utils'
+import { useCardGlow } from '@/app/(landing)/components/use-card-glow'
+import { LayoutPreview } from './components/layout-preview/layout-preview'
+import { MarketPreview } from './components/market-preview/market-preview'
+import { WorkflowPreview } from './components/workflow-preview/workflow-preview'
 
-import { BinaryIcon, BookIcon, CalendarIcon, CodeIcon, Globe2Icon, MessageSquareIcon, VariableIcon } from 'lucide-react'
-import { AgentIcon, PackageSearchIcon, ScheduleIcon } from '@/components/icons/icons'
-import { OpenAIIcon } from '@/components/icons/provider-icons'
-import { soehne } from '@/app/fonts/soehne/soehne'
-import {
-  CARD_WIDTH,
-  LandingCanvas,
-  type LandingGroupData,
-  type LandingManualBlock,
-  type LandingViewportApi,
-} from '@/app/(landing)/components/feature/components'
+type FeatureBullet = {
+  title: string
+}
 
-const LANDING_BLOCKS: LandingManualBlock[] = [
+type FeatureRow = {
+  badge: string
+  title: string
+  description: string
+  bullets: FeatureBullet[]
+  preview: React.ReactNode
+  previewSide: 'left' | 'right'
+  icon: React.ReactNode
+}
+
+const FEATURE_ROWS: FeatureRow[] = [
   {
-    id: 'schedule',
-    name: 'Schedule',
-    color: '#7B68EE',
-    icon: <ScheduleIcon className='h-4 w-4' />,
-    positions: {
-      mobile: { x: 8, y: 60 },
-      tablet: { x: 40, y: 120 },
-      desktop: { x: 60, y: 180 },
-    },
-    tags: [
-      { icon: <CalendarIcon className='h-3 w-3' />, label: '09:00AM Daily' },
-      { icon: <Globe2Icon className='h-3 w-3' />, label: 'PST' },
+    badge: 'Workspace',
+    title: 'Widget layouts',
+    description:
+      'Split the workspace to place widgets side by side or stacked. Save and switch between named layouts per workspace.',
+    bullets: [
+      { title: 'Recursive splitting' },
+      { title: 'Saved layouts per workspace' },
+      { title: 'Shared widget action menu' },
     ],
+    preview: <LayoutPreview />,
+    previewSide: 'left',
+    icon: <LayoutDashboardIcon className='size-5' />,
   },
   {
-    id: 'knowledge',
-    name: 'Knowledge',
-    color: '#00B0B0',
-    icon: <PackageSearchIcon className='h-4 w-4' />,
-    positions: {
-      mobile: { x: 120, y: 140 },
-      tablet: { x: 220, y: 200 },
-      desktop: { x: 420, y: 241 },
-    },
-    tags: [
-      { icon: <BookIcon className='h-3 w-3' />, label: 'Product Vector DB' },
-      { icon: <BinaryIcon className='h-3 w-3' />, label: 'Limit: 10' },
+    badge: 'Charting',
+    title: 'Indicators and live data',
+    description:
+      'Built-in indicators and a PineTS editor for writing custom ones. Connect your own data provider and monitor prices in real time.',
+    bullets: [
+      { title: 'Configurable indicator inputs' },
+      { title: 'Live re-execution per bar' },
+      { title: 'Crosshair legend and chart markers' },
     ],
+    preview: <MarketPreview />,
+    previewSide: 'right',
+    icon: <ChartCandlestick className='size-5' />,
   },
   {
-    id: 'agent',
-    name: 'Agent',
-    color: '#802FFF',
-    icon: <AgentIcon className='h-4 w-4' />,
-    positions: {
-      mobile: { x: 340, y: 60 },
-      tablet: { x: 540, y: 120 },
-      desktop: { x: 880, y: 142 },
-    },
-    tags: [
-      { icon: <OpenAIIcon className='h-3 w-3' />, label: 'gpt-5' },
-      { icon: <MessageSquareIcon className='h-3 w-3' />, label: 'You are a support ag...' },
+    badge: 'Workflows',
+    title: 'AI-powered workflows',
+    description:
+      'Build workflows on a canvas with AI agent blocks that make LLM-driven decisions. Integrate with Slack, Discord, GitHub, Gmail, and more — then route orders to Alpaca, Tradier, or Robinhood.',
+    bullets: [
+      { title: 'AI agent blocks for autonomous analysis and decisions' },
+      { title: 'Integrations with Slack, Discord, GitHub, Gmail, and more' },
+      { title: 'Data, condition, loop, parallel, and trading action blocks' },
     ],
-  },
-  {
-    id: 'function',
-    name: 'Function',
-    color: '#FF402F',
-    icon: <CodeIcon className='h-4 w-4' />,
-    positions: {
-      mobile: { x: 480, y: 220 },
-      tablet: { x: 740, y: 280 },
-      desktop: { x: 880, y: 340 },
-    },
-    tags: [
-      { icon: <CodeIcon className='h-3 w-3' />, label: 'Python' },
-      { icon: <VariableIcon className='h-3 w-3' />, label: 'time = "2025-09-01...' },
-    ],
+    preview: <WorkflowPreview />,
+    previewSide: 'left',
+    icon: <Workflow className='size-5' />,
   },
 ]
 
-const SAMPLE_WORKFLOW_EDGES = [
-  { id: 'e1', from: 'schedule', to: 'knowledge' },
-  { id: 'e2', from: 'knowledge', to: 'agent' },
-  { id: 'e3', from: 'knowledge', to: 'function' },
-]
+function FeaturePoint({ title }: FeatureBullet) {
+  return (
+    <div className='flex items-center gap-3'>
+      <span className='h-px w-4 shrink-0 bg-primary' />
+      <p className='text-muted-foreground text-sm'>{title}</p>
+    </div>
+  )
+}
+
+function FeatureRowSection({
+  badge,
+  title,
+  description,
+  bullets,
+  preview,
+  previewSide,
+  icon,
+  index,
+}: FeatureRow & { index: number }) {
+  const previewIsLeft = previewSide === 'left'
+  const contentOrder = previewIsLeft ? 'order-1 lg:order-2' : 'order-1 lg:order-1'
+  const previewOrder = previewIsLeft ? 'order-2 lg:order-1' : 'order-2 lg:order-2'
+  const contentSlideDirection = previewIsLeft ? 'right' : 'left'
+  const previewSlideDirection = previewIsLeft ? 'left' : 'right'
+
+  return (
+    <div className='grid items-start gap-4 lg:h-[70vh] lg:min-h-[50vh] lg:grid-cols-5 lg:gap-6 xl:gap-10'>
+      <MotionPreset
+        fade
+        slide={{ direction: contentSlideDirection, offset: 48 }}
+        transition={{ duration: 0.6 }}
+        delay={index * 0.12}
+        className={cn(
+          'card group group/feature relative isolate m-1 overflow-hidden rounded-xl bg-foreground/10 p-px transition-all duration-300 ease-in-out lg:col-span-2',
+          contentOrder
+        )}
+      >
+        <div
+          className='blob absolute top-0 left-0 h-[120px] w-[120px] rounded-full opacity-0 blur-xl transition-all duration-300 ease-in-out'
+          style={{ backgroundColor: 'hsl(var(--primary) / 0.7)' }}
+        />
+        <div
+          className='fake-blob absolute top-0 left-0 h-40 w-40 rounded-full'
+          style={{ visibility: 'hidden' }}
+        />
+        <Card className='relative flex h-full min-h-0 flex-col justify-between gap-10 overflow-hidden rounded-xl border p-6 shadow-none transition-all duration-300 ease-in-out'>
+          <div
+            className='pointer-events-none absolute inset-0 z-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100'
+            style={{
+              background:
+                'radial-gradient(circle at var(--shine-x, 50%) var(--shine-y, 50%), hsl(var(--primary) / 0.06), transparent 40%)',
+            }}
+          />
+          <div className='relative z-10 space-y-4'>
+            <div className='flex items-center gap-3'>
+              <div className='flex size-11 items-center justify-center rounded-lg border border-border/70 bg-muted/40 text-foreground shadow-sm'>
+                {icon}
+              </div>
+              <p className='font-semibold text-[11px] text-muted-foreground uppercase tracking-[0.24em]'>
+                {badge}
+              </p>
+            </div>
+
+            <h3 className='font-semibold text-2xl text-foreground tracking-tight sm:text-3xl'>
+              {title}
+            </h3>
+
+            <p className='max-w-xl text-base text-muted-foreground leading-7'>{description}</p>
+          </div>
+
+          <div className='relative z-10 space-y-3.5'>
+            {bullets.map((bullet, bulletIndex) => (
+              <MotionPreset
+                key={bullet.title}
+                fade
+                slide={{ direction: contentSlideDirection, offset: 28 }}
+                transition={{ duration: 0.45 }}
+                delay={index * 0.12 + 0.2 + bulletIndex * 0.12}
+              >
+                <FeaturePoint {...bullet} />
+              </MotionPreset>
+            ))}
+          </div>
+        </Card>
+      </MotionPreset>
+
+      <MotionPreset
+        fade
+        slide={{ direction: previewSlideDirection, offset: 56 }}
+        transition={{ duration: 0.75 }}
+        delay={index * 0.12 + 0.15}
+        className={cn(
+          'flex min-h-[40vh] w-full lg:col-span-3 lg:h-full lg:min-h-0',
+          previewOrder,
+          previewIsLeft ? 'lg:justify-start' : 'lg:justify-end'
+        )}
+      >
+        <div className='h-full min-h-0 w-full max-w-none'>{preview}</div>
+      </MotionPreset>
+    </div>
+  )
+}
 
 export default function Feature() {
-  const [isMobile, setIsMobile] = React.useState(false)
-  const [rfNodes, setRfNodes] = React.useState<Node[]>([])
-  const [rfEdges, setRfEdges] = React.useState<Edge[]>([])
-  const [groupBox] = React.useState<LandingGroupData | null>(null)
-  const [worldWidth, setWorldWidth] = React.useState<number>(1000)
-  const viewportApiRef = React.useRef<LandingViewportApi | null>(null)
-
-  React.useEffect(() => {
-    const updateMatch = () => {
-      if (typeof window !== 'undefined') {
-        setIsMobile(window.innerWidth < 640)
-      }
-    }
-
-    updateMatch()
-    window.addEventListener('resize', updateMatch)
-
-    return () => window.removeEventListener('resize', updateMatch)
-  }, [])
-
-  React.useEffect(() => {
-    const breakpoint =
-      typeof window !== 'undefined' && window.innerWidth < 640
-        ? 'mobile'
-        : typeof window !== 'undefined' && window.innerWidth < 1024
-          ? 'tablet'
-          : 'desktop'
-
-    const nodes: Node[] = [
-      {
-        id: 'loop',
-        type: 'group',
-        position: { x: 720, y: 20 },
-        data: { label: 'Loop' },
-        draggable: false,
-        selectable: false,
-        focusable: false,
-        connectable: false,
-        style: {
-          width: 1198,
-          height: 528,
-          backgroundColor: 'transparent',
-          border: 'none',
-          padding: 0,
-        },
-      },
-      ...LANDING_BLOCKS.map((block, index) => {
-        const isLoopChild = block.id === 'agent' || block.id === 'function'
-        const baseNode = {
-          id: block.id,
-          type: 'landing',
-          position: isLoopChild
-            ? {
-              x: block.id === 'agent' ? 160 : 160,
-              y: block.id === 'agent' ? 122 : 320,
-            }
-            : block.positions[breakpoint],
-          data: {
-            icon: block.icon,
-            color: block.color,
-            name: block.name,
-            tags: block.tags,
-            delay: index * 0.18,
-            hideTargetHandle: block.id === 'schedule',
-            hideSourceHandle: block.id === 'agent' || block.id === 'function',
-          },
-          sourcePosition: Position.Right,
-          targetPosition: Position.Left,
-        }
-
-        if (isLoopChild) {
-          return {
-            ...baseNode,
-            parentId: 'loop',
-            extent: 'parent',
-          }
-        }
-
-        return baseNode
-      }),
-    ]
-
-    const edges: Edge[] = SAMPLE_WORKFLOW_EDGES.map((edge) => ({
-      id: edge.id,
-      source: edge.from,
-      target: edge.to,
-      type: 'landingEdge',
-      animated: false,
-      data: { delay: 0.6 },
-    }))
-
-    setRfNodes(nodes)
-    setRfEdges(edges)
-
-    const maxX = Math.max(...nodes.map((node) => node.position.x))
-    setWorldWidth(maxX + CARD_WIDTH + 32)
-  }, [])
-
-  if (isMobile) {
-    return null
-  }
+  useCardGlow()
 
   return (
     <section
       id='feature'
-      className={`${soehne.className} flex w-full flex-col items-center justify-center`}
+      className='relative isolate w-full overflow-hidden py-20 sm:py-28'
       aria-label='Feature'
     >
-      <div className='mt-[60px] w-full max-w-[1308px] sm:mt-[127.5px]'>
-        <LandingCanvas
-          nodes={rfNodes}
-          edges={rfEdges}
-          groupBox={groupBox}
-          worldWidth={worldWidth}
-          viewportApiRef={viewportApiRef}
+      <div
+        className='pointer-events-none absolute inset-0 z-[-1]'
+        style={{
+          maskImage:
+            'linear-gradient(to bottom, transparent, black 40%, black 60%, transparent), linear-gradient(to right, transparent, black 20%, black 80%, transparent)',
+          WebkitMaskImage:
+            'linear-gradient(to bottom, transparent, black 40%, black 60%, transparent), linear-gradient(to right, transparent, black 20%, black 80%, transparent)',
+          maskComposite: 'intersect',
+          WebkitMaskComposite: 'destination-in',
+        }}
+      >
+        <BackgroundRippleEffect
+          cellSize={90}
+          rows={60}
+          cols={27}
+          maskClassName=''
+          interactive={false}
         />
+      </div>
+
+      <div className='mx-auto px-12 sm:px-6 lg:px-20 xl:px-24'>
+        <div className='mx-auto max-w-3xl text-center'>
+          <MotionPreset
+            fade
+            slide
+            component='p'
+            className='font-medium text-[11px] text-muted-foreground uppercase tracking-[0.24em]'
+          >
+            Features
+          </MotionPreset>
+          <MotionPreset
+            fade
+            slide
+            component='h2'
+            delay={0.12}
+            className='mt-5 font-semibold text-3xl text-foreground tracking-tight sm:text-5xl'
+          >
+            Your workspace, your way
+          </MotionPreset>
+          <MotionPreset
+            fade
+            slide
+            component='p'
+            delay={0.24}
+            className='mx-auto mt-4 max-w-2xl text-lg text-muted-foreground leading-8'
+          >
+            Layouts, charts, and workflows — each designed to work on its own or together.
+          </MotionPreset>
+        </div>
+
+        <div className='mt-24 space-y-24 lg:mt-32 lg:space-y-56'>
+          {FEATURE_ROWS.map((row, index) => (
+            <FeatureRowSection key={row.title} {...row} index={index} />
+          ))}
+        </div>
       </div>
     </section>
   )

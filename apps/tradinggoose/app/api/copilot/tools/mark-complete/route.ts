@@ -23,7 +23,7 @@ const MarkCompleteSchema = z.object({
 
 /**
  * POST /api/copilot/tools/mark-complete
- * Proxy to Sim Agent: POST /api/tools/mark-complete
+ * Proxy to TradingGoose Agent: POST /api/tools/mark-complete
  */
 export async function POST(req: NextRequest) {
   const tracker = createRequestTracker()

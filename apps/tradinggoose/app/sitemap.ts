@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://sim.ai'
+  const baseUrl = 'https://tradinggoose.ai'
 
   // Static pages
   const staticPages = [
@@ -34,6 +34,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: new Date(),
       changeFrequency: 'monthly' as const,
       priority: 0.5,
+    },
+    {
+      url: `${baseUrl}/licenses`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly' as const,
+      priority: 0.4,
     },
   ]
 

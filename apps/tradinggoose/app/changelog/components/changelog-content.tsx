@@ -24,7 +24,7 @@ export default async function ChangelogContent() {
 
   try {
     const res = await fetch(
-      'https://api.github.com/repos/simstudioai/sim/releases?per_page=10&page=1',
+      'https://api.github.com/repos/TradingGoose/TradingGoose-Studio/releases?per_page=10&page=1',
       {
         headers: { Accept: 'application/vnd.github+json' },
         next: { revalidate: 3600 },
@@ -60,14 +60,14 @@ export default async function ChangelogContent() {
               Changelog
             </h1>
             <p className={`${inter.className} mt-4 text-muted-foreground text-sm`}>
-              Stay up-to-date with the latest features, improvements, and bug fixes in Sim. All
+              Stay up-to-date with the latest features, improvements, and bug fixes in TradingGoose. All
               changes are documented here with detailed release notes.
             </p>
             <hr className='mt-6 border-border' />
 
             <div className='mt-6 flex flex-wrap items-center gap-3 text-sm'>
               <Link
-                href='https://github.com/simstudioai/sim/releases'
+                href='https://github.com/TradingGoose/TradingGoose-Studio/releases'
                 target='_blank'
                 rel='noopener noreferrer'
                 className='group inline-flex items-center justify-center gap-2 rounded-md border border-[#6F3DFA] bg-gradient-to-b from-[#8357FF] to-[#6F3DFA] py-[6px] pr-[10px] pl-[12px] text-[14px] text-white shadow-[inset_0_2px_4px_0_#9B77FF] transition-all sm:text-[16px]'
@@ -76,7 +76,7 @@ export default async function ChangelogContent() {
                 View on GitHub
               </Link>
               <Link
-                href='https://docs.sim.ai'
+                href='https://docs.tradinggoose.ai'
                 className='inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 hover:bg-card'
               >
                 <BookOpen className='h-4 w-4' />

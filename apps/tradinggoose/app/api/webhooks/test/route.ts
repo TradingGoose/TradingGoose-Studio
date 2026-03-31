@@ -525,7 +525,7 @@ export async function GET(request: NextRequest) {
               type: 'message',
               id: '1234567890',
               timestamp: new Date().toISOString(),
-              text: 'Hello Sim Bot!',
+              text: 'Hello TradingGoose Bot!',
               from: {
                 id: '29:1234567890abcdef',
                 name: 'Test User',

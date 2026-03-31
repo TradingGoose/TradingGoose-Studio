@@ -10,7 +10,7 @@ export const GoogleSlidesBlock: BlockConfig<GoogleSlidesResponse> = {
   authMode: AuthMode.OAuth,
   longDescription:
     'Integrate Google Slides into the workflow. Can read, write, create presentations, replace text, add slides, add images, and get thumbnails.',
-  docsLink: 'https://docs.sim.ai/tools/google_slides',
+  docsLink: 'https://docs.tradinggoose.ai/tools/google_slides',
   category: 'tools',
   bgColor: '#E0E0E0',
   icon: GoogleSlidesIcon,

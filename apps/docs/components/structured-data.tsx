@@ -17,7 +17,7 @@ export function StructuredData({
   dateModified,
   breadcrumb,
 }: StructuredDataProps) {
-  const baseUrl = 'https://docs.sim.ai'
+  const baseUrl = 'https://docs.tradinggoose.ai'
 
   const articleStructuredData = {
     '@context': 'https://schema.org',
@@ -29,12 +29,12 @@ export function StructuredData({
     dateModified: dateModified || new Date().toISOString(),
     author: {
       '@type': 'Organization',
-      name: 'Sim Team',
+      name: 'TradingGoose Team',
       url: baseUrl,
     },
     publisher: {
       '@type': 'Organization',
-      name: 'Sim',
+      name: 'TradingGoose',
       url: baseUrl,
       logo: {
         '@type': 'ImageObject',
@@ -74,10 +74,10 @@ export function StructuredData({
     name: 'TradingGoose Documentation',
     url: baseUrl,
     description:
-      'Comprehensive documentation for Sim visual workflow builder for AI applications. Create powerful AI agents, automation workflows, and data processing pipelines.',
+      'Comprehensive documentation for TradingGoose visual workflow builder for AI applications. Create powerful AI agents, automation workflows, and data processing pipelines.',
     publisher: {
       '@type': 'Organization',
-      name: 'Sim',
+      name: 'TradingGoose',
       url: baseUrl,
     },
     potentialAction: {
@@ -100,7 +100,7 @@ export function StructuredData({
   const softwareStructuredData = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
-    name: 'Sim',
+    name: 'TradingGoose',
     applicationCategory: 'DeveloperApplication',
     operatingSystem: 'Any',
     description:
@@ -108,7 +108,7 @@ export function StructuredData({
     url: baseUrl,
     author: {
       '@type': 'Organization',
-      name: 'Sim Team',
+      name: 'TradingGoose Team',
     },
     offers: {
       '@type': 'Offer',

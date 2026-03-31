@@ -9,7 +9,7 @@ export const SearchBlock: BlockConfig = {
   bgColor: '#3B82F6',
   icon: SearchIcon,
   category: 'tools',
-  docsLink: 'https://docs.sim.ai/tools/search',
+  docsLink: 'https://docs.tradinggoose.ai/tools/search',
   subBlocks: [
     {
       id: 'query',

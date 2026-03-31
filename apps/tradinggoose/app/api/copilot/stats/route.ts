@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
     const { messageId, diffCreated, diffAccepted } = parsed.data as any
 
-    // Build outgoing payload for Sim Agent with only required fields
+    // Build outgoing payload for TradingGoose Agent with only required fields
     const payload: Record<string, any> = {
       messageId,
       diffCreated,

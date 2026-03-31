@@ -7,7 +7,7 @@ export const ResendBlock: BlockConfig<MailSendResult> = {
   name: 'Resend',
   description: 'Send emails with Resend.',
   longDescription: 'Integrate Resend into the workflow. Can send emails. Requires API Key.',
-  docsLink: 'https://docs.sim.ai/tools/resend',
+  docsLink: 'https://docs.tradinggoose.ai/tools/resend',
   category: 'tools',
   bgColor: undefined,
   icon: ResendIcon,

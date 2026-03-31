@@ -9,7 +9,7 @@ export const PerplexityBlock: BlockConfig<PerplexityChatResponse> = {
   longDescription:
     'Integrate Perplexity into the workflow. Can generate completions using Perplexity AI chat models.',
   authMode: AuthMode.ApiKey,
-  docsLink: 'https://docs.sim.ai/tools/perplexity',
+  docsLink: 'https://docs.tradinggoose.ai/tools/perplexity',
   category: 'tools',
   bgColor: undefined, // Perplexity turquoise color
   icon: PerplexityIcon,

@@ -1,10 +1,10 @@
 # TradingGoose Documentation
 
-Sim is a visual workflow builder for AI applications that lets you build AI agent workflows visually. Create powerful AI agents, automation workflows, and data processing pipelines by connecting blocks on a canvas—no coding required.
+TradingGoose is a visual workflow builder for AI applications that lets you build AI agent workflows visually. Create powerful AI agents, automation workflows, and data processing pipelines by connecting blocks on a canvas—no coding required.
 
-## What is Sim?
+## What is TradingGoose?
 
-Sim provides a complete ecosystem for AI workflow automation including:
+TradingGoose provides a complete ecosystem for AI workflow automation including:
 - Visual workflow builder with drag-and-drop interface
 - AI agent creation and automation
 - 80+ built-in integrations (OpenAI, Slack, Gmail, GitHub, etc.)
@@ -16,7 +16,7 @@ Sim provides a complete ecosystem for AI workflow automation including:
 
 Here are the key areas covered in our documentation:
 
-/introduction - Getting started with Sim visual workflow builder
+/introduction - Getting started with TradingGoose visual workflow builder
 /getting-started - Quick start guide for building your first workflow
 /blocks - Understanding workflow blocks (AI agents, APIs, functions)
 /tools - 80+ built-in integrations and tools
@@ -46,7 +46,7 @@ For the full documentation with all pages, examples, and interactive features, v
 - MCP protocol documentation for custom integrations
 - Self-hosting guides and Docker deployment
 
-For the complete documentation with interactive examples and visual workflow builder guides, visit https://docs.sim.ai
+For the complete documentation with interactive examples and visual workflow builder guides, visit https://docs.tradinggoose.ai
 
 ---
 

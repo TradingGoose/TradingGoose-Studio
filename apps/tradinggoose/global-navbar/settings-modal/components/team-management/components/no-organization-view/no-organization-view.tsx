@@ -74,7 +74,7 @@ export function NoOrganizationView({
               </Label>
               <div className='mt-1 flex items-center'>
                 <div className='rounded-l-[8px] border border-r-0 bg-muted px-3 py-2 text-muted-foreground text-sm'>
-                  sim.ai/team/
+                  tradinggoose.ai/team/
                 </div>
                 <Input
                   id='orgSlug'

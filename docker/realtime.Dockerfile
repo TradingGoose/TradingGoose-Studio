@@ -40,7 +40,7 @@ ENV NODE_ENV=production
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001
 
-# Copy the sim app and the shared db package needed by socket-server
+# Copy the tradinggoose app and the shared db package needed by socket-server
 COPY --from=builder --chown=nextjs:nodejs /app/apps/tradinggoose ./apps/tradinggoose
 COPY --from=builder --chown=nextjs:nodejs /app/packages/db ./packages/db
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules

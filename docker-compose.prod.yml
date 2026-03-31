@@ -1,6 +1,6 @@
 services:
-  simstudio:
-    image: ghcr.io/simstudioai/simstudio:latest
+  tradinggoose:
+    image: ghcr.io/tradinggoose/tradinggoose:latest
     restart: unless-stopped
     ports:
       - '3000:3000'
@@ -10,7 +10,7 @@ services:
           memory: 8G
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-simstudio}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-tradinggoose}
       - BETTER_AUTH_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-your_auth_secret_here}
@@ -35,7 +35,7 @@ services:
       start_period: 10s
 
   realtime:
-    image: ghcr.io/simstudioai/realtime:latest
+    image: ghcr.io/tradinggoose/realtime:latest
     restart: unless-stopped
     ports:
       - '3002:3002'
@@ -44,7 +44,7 @@ services:
         limits:
           memory: 4G
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-simstudio}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-tradinggoose}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:3000}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-your_auth_secret_here}
@@ -59,10 +59,10 @@ services:
       start_period: 10s
 
   migrations:
-    image: ghcr.io/simstudioai/migrations:latest
+    image: ghcr.io/tradinggoose/migrations:latest
     working_dir: /app/packages/db
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-simstudio}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-tradinggoose}
     depends_on:
       db:
         condition: service_healthy
@@ -77,7 +77,7 @@ services:
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-      - POSTGRES_DB=${POSTGRES_DB:-simstudio}
+      - POSTGRES_DB=${POSTGRES_DB:-tradinggoose}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

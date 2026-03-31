@@ -13,7 +13,7 @@ export const SharepointBlock: BlockConfig<SharepointResponse> = {
   authMode: AuthMode.OAuth,
   longDescription:
     'Integrate SharePoint into the workflow. Read/create pages, list sites, and work with lists (read, create, update items). Requires OAuth.',
-  docsLink: 'https://docs.sim.ai/tools/sharepoint',
+  docsLink: 'https://docs.tradinggoose.ai/tools/sharepoint',
   category: 'tools',
   bgColor: undefined,
   icon: MicrosoftSharepointIcon,

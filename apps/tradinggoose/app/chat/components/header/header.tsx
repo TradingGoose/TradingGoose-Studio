@@ -49,7 +49,7 @@ export function ChatHeader({ chatConfig, starCount }: ChatHeaderProps) {
       {!brand.logoUrl && (
         <div className='flex items-center gap-[16px]'>
           <a
-            href='https://github.com/simstudioai/sim'
+            href='https://github.com/TradingGoose/TradingGoose-Studio'
             target='_blank'
             rel='noopener noreferrer'
             className='flex items-center gap-2 text-[16px] text-muted-foreground transition-colors hover:text-foreground'
@@ -60,17 +60,17 @@ export function ChatHeader({ chatConfig, starCount }: ChatHeaderProps) {
               {starCount}
             </span>
           </a>
-          {/* Only show Sim logo if no custom branding is set */}
+          {/* Only show TradingGoose logo if no custom branding is set */}
 
           <Link
-            href='https://sim.ai'
+            href='https://tradinggoose.ai'
             target='_blank'
             rel='noopener noreferrer'
-            aria-label='Sim home'
+            aria-label='TradingGoose home'
           >
             <Image
               src='/logo/b&w/text/small.png'
-              alt='Sim - Workflows for LLMs'
+              alt='TradingGoose - Workflows for LLMs'
               width={29.869884}
               height={14.5656}
               className='h-[14.5656px] w-auto pb-[1px]'

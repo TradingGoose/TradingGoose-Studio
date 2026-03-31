@@ -37,7 +37,7 @@ jobs:
       - name: Check if version already exists
         id: version_check
         run: |
-          if pip index versions simstudio-sdk | grep -q "${{ steps.package_version.outputs.version }}"; then
+          if pip index versions tradinggoose-sdk | grep -q "${{ steps.package_version.outputs.version }}"; then
             echo "exists=true" >> $GITHUB_OUTPUT
           else
             echo "exists=false" >> $GITHUB_OUTPUT
@@ -76,14 +76,14 @@ jobs:
           body: |
             ## Python SDK v${{ steps.package_version.outputs.version }}
             
-            Published simstudio-sdk==${{ steps.package_version.outputs.version }} to PyPI.
+            Published tradinggoose-sdk==${{ steps.package_version.outputs.version }} to PyPI.
             
             ### Installation
             ```bash
-            pip install simstudio-sdk==${{ steps.package_version.outputs.version }}
+            pip install tradinggoose-sdk==${{ steps.package_version.outputs.version }}
             ```
             
             ### Documentation
-            See the [README](https://github.com/simstudioai/sim/tree/main/packages/python-sdk) or the [docs](https://docs.sim.ai/sdks/python) for more information.
+            See the [README](https://github.com/TradingGoose/TradingGoose-Studio/tree/main/packages/python-sdk) or the [docs](https://docs.tradinggoose.ai/sdks/python) for more information.
           draft: false
           prerelease: false 

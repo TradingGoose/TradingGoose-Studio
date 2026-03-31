@@ -31,13 +31,13 @@ jobs:
       matrix:
         include:
           - dockerfile: ./docker/app.Dockerfile
-            ghcr_image: ghcr.io/simstudioai/simstudio
+            ghcr_image: ghcr.io/tradinggoose/tradinggoose
             ecr_repo_secret: ECR_APP
           - dockerfile: ./docker/db.Dockerfile
-            ghcr_image: ghcr.io/simstudioai/migrations
+            ghcr_image: ghcr.io/tradinggoose/migrations
             ecr_repo_secret: ECR_MIGRATIONS
           - dockerfile: ./docker/realtime.Dockerfile
-            ghcr_image: ghcr.io/simstudioai/realtime
+            ghcr_image: ghcr.io/tradinggoose/realtime
             ecr_repo_secret: ECR_REALTIME
     steps:
       - name: Checkout code
@@ -122,11 +122,11 @@ jobs:
       matrix:
         include:
           - dockerfile: ./docker/app.Dockerfile
-            image: ghcr.io/simstudioai/simstudio
+            image: ghcr.io/tradinggoose/tradinggoose
           - dockerfile: ./docker/db.Dockerfile
-            image: ghcr.io/simstudioai/migrations
+            image: ghcr.io/tradinggoose/migrations
           - dockerfile: ./docker/realtime.Dockerfile
-            image: ghcr.io/simstudioai/realtime
+            image: ghcr.io/tradinggoose/realtime
 
     steps:
       - name: Checkout code
@@ -170,9 +170,9 @@ jobs:
     strategy:
       matrix:
         include:
-          - image: ghcr.io/simstudioai/simstudio
-          - image: ghcr.io/simstudioai/migrations
-          - image: ghcr.io/simstudioai/realtime
+          - image: ghcr.io/tradinggoose/tradinggoose
+          - image: ghcr.io/tradinggoose/migrations
+          - image: ghcr.io/tradinggoose/realtime
 
     steps:
       - name: Login to GHCR

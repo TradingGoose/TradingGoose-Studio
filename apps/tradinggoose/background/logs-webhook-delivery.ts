@@ -206,16 +206,16 @@ export const logsWebhookDelivery = task({
       const body = JSON.stringify(payload)
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        'sim-event': 'workflow.execution.completed',
-        'sim-timestamp': timestamp.toString(),
-        'sim-delivery-id': deliveryId,
+        'tradinggoose-event': 'workflow.execution.completed',
+        'tradinggoose-timestamp': timestamp.toString(),
+        'tradinggoose-delivery-id': deliveryId,
         'Idempotency-Key': deliveryId,
       }
 
       if (subscription.secret) {
         const { decrypted } = await decryptSecret(subscription.secret)
         const signature = generateSignature(decrypted, timestamp, body)
-        headers['sim-signature'] = `t=${timestamp},v1=${signature}`
+        headers['tradinggoose-signature'] = `t=${timestamp},v1=${signature}`
       }
 
       logger.info(`Attempting webhook delivery ${deliveryId} (attempt ${attempts})`, {

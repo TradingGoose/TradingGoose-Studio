@@ -1,4 +1,4 @@
-# robots.txt for https://sim.ai
+# robots.txt for https://tradinggoose.ai
 
 # Allow all crawlers
 User-agent: *
@@ -35,7 +35,7 @@ User-agent: Claude-Web
 Allow: /
 
 # Sitemap location
-Sitemap: https://sim.ai/sitemap.xml
+Sitemap: https://tradinggoose.ai/sitemap.xml
 
 # Host
-Host: https://sim.ai
+Host: https://tradinggoose.ai

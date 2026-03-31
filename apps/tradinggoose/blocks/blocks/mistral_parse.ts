@@ -8,7 +8,7 @@ export const MistralParseBlock: BlockConfig<MistralParserOutput> = {
   description: 'Extract text from PDF documents',
   authMode: AuthMode.ApiKey,
   longDescription: `Integrate Mistral Parse into the workflow. Can extract text from uploaded PDF documents, or from a URL.`,
-  docsLink: 'https://docs.sim.ai/tools/mistral_parse',
+  docsLink: 'https://docs.tradinggoose.ai/tools/mistral_parse',
   category: 'tools',
   bgColor: undefined,
   icon: MistralIcon,

@@ -1,5 +1,5 @@
 services:
-  simstudio:
+  tradinggoose:
     build:
       context: .
       dockerfile: docker/app.Dockerfile
@@ -11,7 +11,7 @@ services:
           memory: 8G
     environment:
       - NODE_ENV=development
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-simstudio}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-tradinggoose}
       - BETTER_AUTH_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-your_auth_secret_here}
@@ -39,7 +39,7 @@ services:
       context: .
       dockerfile: docker/realtime.Dockerfile
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-simstudio}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-tradinggoose}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:3000}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-your_auth_secret_here}
@@ -66,7 +66,7 @@ services:
       dockerfile: docker/db.Dockerfile
     working_dir: /app/packages/db
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-simstudio}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-tradinggoose}
     depends_on:
       db:
         condition: service_healthy
@@ -81,7 +81,7 @@ services:
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-      - POSTGRES_DB=${POSTGRES_DB:-simstudio}
+      - POSTGRES_DB=${POSTGRES_DB:-tradinggoose}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

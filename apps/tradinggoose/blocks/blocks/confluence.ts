@@ -9,7 +9,7 @@ export const ConfluenceBlock: BlockConfig<ConfluenceResponse> = {
   description: 'Interact with Confluence',
   authMode: AuthMode.OAuth,
   longDescription: 'Integrate Confluence into the workflow. Can read and update a page.',
-  docsLink: 'https://docs.sim.ai/tools/confluence',
+  docsLink: 'https://docs.tradinggoose.ai/tools/confluence',
   category: 'tools',
   bgColor: undefined,
   icon: ConfluenceIcon,
@@ -30,7 +30,7 @@ export const ConfluenceBlock: BlockConfig<ConfluenceResponse> = {
       title: 'Domain',
       type: 'short-input',
       layout: 'full',
-      placeholder: 'Enter Confluence domain (e.g., simstudio.atlassian.net)',
+      placeholder: 'Enter Confluence domain (e.g., tradinggoose.atlassian.net)',
       required: true,
     },
     {

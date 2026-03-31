@@ -24,7 +24,7 @@ bun-debug.log*
 /dist
 **/dist/
 **/standalone/
-sim-standalone.tar.gz
+tradinggoose-standalone.tar.gz
 
 # misc
 .DS_Store
@@ -69,6 +69,6 @@ start-collector.sh
 .vscode
 
 ## Helm Chart Tests
-helm/sim/test
+helm/tradinggoose/test
 i18n.cache
 *.react-email

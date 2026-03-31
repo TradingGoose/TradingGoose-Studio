@@ -150,16 +150,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const deliveryId = `delivery_test_${uuidv4()}`
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'sim-event': 'workflow.execution.completed',
-      'sim-timestamp': timestamp.toString(),
-      'sim-delivery-id': deliveryId,
+      'tradinggoose-event': 'workflow.execution.completed',
+      'tradinggoose-timestamp': timestamp.toString(),
+      'tradinggoose-delivery-id': deliveryId,
       'Idempotency-Key': deliveryId,
     }
 
     if (webhook.secret) {
       const { decrypted } = await decryptSecret(webhook.secret)
       const signature = generateSignature(decrypted, timestamp, body)
-      headers['sim-signature'] = `t=${timestamp},v1=${signature}`
+      headers['tradinggoose-signature'] = `t=${timestamp},v1=${signature}`
     }
 
     logger.info(`Sending test webhook to ${webhook.url}`, { workflowId, webhookId })

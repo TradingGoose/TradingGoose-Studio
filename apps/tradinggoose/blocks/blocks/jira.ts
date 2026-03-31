@@ -9,7 +9,7 @@ export const JiraBlock: BlockConfig<JiraResponse> = {
   description: 'Interact with Jira',
   authMode: AuthMode.OAuth,
   longDescription: 'Integrate Jira into the workflow. Can read, write, and update issues.',
-  docsLink: 'https://docs.sim.ai/tools/jira',
+  docsLink: 'https://docs.tradinggoose.ai/tools/jira',
   category: 'tools',
   bgColor: undefined,
   icon: JiraIcon,
@@ -32,7 +32,7 @@ export const JiraBlock: BlockConfig<JiraResponse> = {
       type: 'short-input',
       layout: 'full',
       required: true,
-      placeholder: 'Enter Jira domain (e.g., simstudio.atlassian.net)',
+      placeholder: 'Enter Jira domain (e.g., tradinggoose.atlassian.net)',
     },
     {
       id: 'credential',

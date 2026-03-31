@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto'
 import { db } from '@tradinggoose/db'
 import { pineIndicators, webhook, workflow } from '@tradinggoose/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
-import { withCodeExecutionConcurrencyLimit } from '@/lib/execution/concurrency-limit'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
+import { withCodeExecutionConcurrencyLimit } from '@/lib/execution/concurrency-limit'
 import { DEFAULT_INDICATOR_RUNTIME_MAP } from '@/lib/indicators/default/runtime'
 import {
   applyIndicatorTriggerPayloadBudget,
@@ -23,12 +23,7 @@ import {
 import type { BarMs, NormalizedPineSignal } from '@/lib/indicators/types'
 import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  acquireLock,
-  getRedisClient,
-  getRedisStorageMode,
-  releaseLock,
-} from '@/lib/redis'
+import { acquireLock, getRedisClient, getRedisStorageMode, releaseLock } from '@/lib/redis'
 import { decryptSecret } from '@/lib/utils'
 import {
   checkRateLimits,
@@ -41,8 +36,8 @@ import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
 import type { MarketBar, MarketSeries } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
-import type { AuthenticatedSocket } from '@/socket-server/middleware/auth'
 import { marketStreamManager } from '@/socket-server/market/manager'
+import type { AuthenticatedSocket } from '@/socket-server/middleware/auth'
 
 type MonitorRuntimeStatus = 'not_initialized' | 'running' | 'degraded' | 'disabled'
 
@@ -119,6 +114,31 @@ const LOCK_EXPIRY_SECONDS = 60 * 60
 const RECONCILE_INTERVAL_MS = 30_000
 const MONITOR_WINDOW_BARS = 2000
 const ENV_VAR_PATTERN = /\{\{([^}]+)\}\}/g
+const DATABASE_CONNECTION_ERROR_CODES = new Set([
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'EHOSTUNREACH',
+])
+
+function isDatabaseConnectionError(error: unknown): boolean {
+  const seen = new Set<object>()
+  let current: unknown = error
+
+  while (current && typeof current === 'object' && !seen.has(current)) {
+    seen.add(current)
+
+    const code = (current as { code?: unknown }).code
+    if (typeof code === 'string' && DATABASE_CONNECTION_ERROR_CODES.has(code)) {
+      return true
+    }
+
+    current = (current as { cause?: unknown }).cause
+  }
+
+  return false
+}
 
 const toTrimmedString = (value: unknown): string | null => {
   if (typeof value !== 'string') return null
@@ -376,6 +396,7 @@ export class IndicatorMonitorRuntime {
   private lockHeld = false
   private instanceId = randomUUID()
   private reconcileTimer: ReturnType<typeof setInterval> | null = null
+  private retryTimer: ReturnType<typeof setTimeout> | null = null
   private isReconciling = false
   private pendingReconcile = false
   private lastReconcileAt: string | null = null
@@ -413,12 +434,88 @@ export class IndicatorMonitorRuntime {
     }
   }
 
+  private clearRetryTimer() {
+    if (!this.retryTimer) return
+    clearTimeout(this.retryTimer)
+    this.retryTimer = null
+  }
+
+  private clearReconcileTimer() {
+    if (!this.reconcileTimer) return
+    clearInterval(this.reconcileTimer)
+    this.reconcileTimer = null
+  }
+
+  private stopSubscriptions() {
+    const subscriptions = Array.from(this.subscriptions.values())
+    subscriptions.forEach((subscription) => {
+      try {
+        subscription.stream.close()
+      } catch {
+        // no-op
+      }
+    })
+    this.subscriptions.clear()
+  }
+
+  private async releaseLockIfHeld() {
+    if (!this.lockHeld) return
+
+    try {
+      await releaseLock(LOCK_KEY, this.instanceId)
+    } catch (error) {
+      this.logger.warn('Failed to release indicator monitor runtime lock', { error })
+    } finally {
+      this.lockHeld = false
+    }
+  }
+
+  private scheduleRetry() {
+    if (this.retryTimer) return
+
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null
+      void this.start()
+    }, RECONCILE_INTERVAL_MS)
+    this.retryTimer.unref?.()
+  }
+
+  private async enterDegradedState(
+    reason: 'startup' | 'interval' | 'request',
+    error: unknown,
+    shouldLogWarning: boolean
+  ) {
+    this.lastReconcileError = error instanceof Error ? error.message : String(error)
+    this.status = 'degraded'
+    this.running = false
+    this.pendingReconcile = false
+    this.clearReconcileTimer()
+    this.stopSubscriptions()
+    await this.releaseLockIfHeld()
+    this.scheduleRetry()
+
+    if (shouldLogWarning) {
+      this.logger.warn('Indicator monitor paused; database unavailable', {
+        reason,
+        error:
+          error instanceof Error
+            ? {
+                message: error.message,
+                stack: error.stack,
+              }
+            : error,
+      })
+    }
+  }
+
   async start() {
     if (this.running || this.starting) return
 
     this.starting = true
 
     try {
+      this.clearRetryTimer()
+
       let lockAcquired = false
       try {
         lockAcquired = await acquireLock(LOCK_KEY, this.instanceId, LOCK_EXPIRY_SECONDS)
@@ -431,49 +528,34 @@ export class IndicatorMonitorRuntime {
         this.lockHeld = false
         this.status = getRedisStorageMode() === 'redis' ? 'degraded' : 'disabled'
         this.logger.warn('Indicator monitor runtime disabled; lock acquisition failed.')
-
-        if (!this.reconcileTimer) {
-          this.reconcileTimer = setInterval(() => {
-            void this.start()
-          }, RECONCILE_INTERVAL_MS)
-        }
+        this.scheduleRetry()
         return
       }
 
       this.lockHeld = true
       this.running = true
       this.status = 'running'
-
-      if (this.reconcileTimer) {
-        clearInterval(this.reconcileTimer)
-        this.reconcileTimer = null
-      }
+      this.clearReconcileTimer()
 
       await this.reconcile('startup')
+
+      if (!this.running) {
+        return
+      }
 
       this.reconcileTimer = setInterval(() => {
         void this.reconcile('interval')
       }, RECONCILE_INTERVAL_MS)
+      this.reconcileTimer.unref?.()
     } finally {
       this.starting = false
     }
   }
 
   async stop() {
-    if (this.reconcileTimer) {
-      clearInterval(this.reconcileTimer)
-      this.reconcileTimer = null
-    }
-
-    const subscriptions = Array.from(this.subscriptions.values())
-    subscriptions.forEach((subscription) => {
-      try {
-        subscription.stream.close()
-      } catch {
-        // no-op
-      }
-    })
-    this.subscriptions.clear()
+    this.clearRetryTimer()
+    this.clearReconcileTimer()
+    this.stopSubscriptions()
 
     if (this.lockHeld) {
       await releaseLock(LOCK_KEY, this.instanceId)
@@ -552,12 +634,15 @@ export class IndicatorMonitorRuntime {
       })
 
       if (rows.length > 0 && monitors.length === 0) {
-        this.logger.warn('Indicator monitor reconcile found rows but no runtime-eligible monitors', {
-          reason,
-          totalRows: rows.length,
-          skippedMissingWorkspace,
-          skippedInvalidConfig,
-        })
+        this.logger.warn(
+          'Indicator monitor reconcile found rows but no runtime-eligible monitors',
+          {
+            reason,
+            totalRows: rows.length,
+            skippedMissingWorkspace,
+            skippedInvalidConfig,
+          }
+        )
       }
 
       const indicatorDefinitions = await resolveIndicatorDefinitions(monitors)
@@ -622,6 +707,12 @@ export class IndicatorMonitorRuntime {
       })
     } catch (error) {
       this.lastReconcileError = error instanceof Error ? error.message : String(error)
+
+      if (isDatabaseConnectionError(error)) {
+        await this.enterDegradedState(reason, error, this.subscriptions.size > 0)
+        return
+      }
+
       this.logger.error('Indicator monitor reconcile failed', {
         reason,
         error,

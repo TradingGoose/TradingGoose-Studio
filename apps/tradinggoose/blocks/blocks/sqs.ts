@@ -7,7 +7,7 @@ export const SQSBlock: BlockConfig<SqsResponse> = {
   name: 'Amazon SQS',
   description: 'Connect to Amazon SQS',
   longDescription: 'Integrate Amazon SQS into the workflow. Can send messages to SQS queues.',
-  docsLink: 'https://docs.sim.ai/tools/sqs',
+  docsLink: 'https://docs.tradinggoose.ai/tools/sqs',
   category: 'tools',
   bgColor: '#527FFF',
   icon: SQSIcon,

@@ -7,7 +7,7 @@ import { Callout } from 'fumadocs-ui/components/callout'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
 import { Image } from '@/components/ui/image'
 
-Sim 会自动计算所有工作流执行的成本，提供基于 AI 模型使用和执行费用的透明定价。了解这些成本有助于您优化工作流并有效管理预算。
+TradingGoose 会自动计算所有工作流执行的成本，提供基于 AI 模型使用和执行费用的透明定价。了解这些成本有助于您优化工作流并有效管理预算。
 
 ## 成本如何计算
 
@@ -50,7 +50,7 @@ totalCost = baseExecutionCharge + modelCost
 
 <Tabs items={['托管模型', '自带 API 密钥']}>
   <Tab>
-    **托管模型** - Sim 提供 API 密钥，价格有 2.5 倍的加成：
+    **托管模型** - TradingGoose 提供 API 密钥，价格有 2.5 倍的加成：
     
     | 模型 | 基础价格（输入/输出） | 托管价格（输入/输出） |
     |-------|---------------------------|----------------------------|
@@ -133,7 +133,7 @@ GET /api/users/me/usage-limits
 **示例请求：**
 
 ```bash
-curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" https://sim.ai/api/users/me/usage-limits
+curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" https://tradinggoose.ai/api/users/me/usage-limits
 ```
 
 **示例响应：**
@@ -180,7 +180,7 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
 
 ## 下一步
 
-- 在 [设置 → 订阅](https://sim.ai/settings/subscription) 中查看您当前的使用情况
+- 在 [设置 → 订阅](https://tradinggoose.ai/settings/subscription) 中查看您当前的使用情况
 - 了解 [日志记录](/execution/logging) 以跟踪执行详情
 - 探索 [外部 API](/execution/api) 以实现程序化成本监控
 - 查看 [工作流优化技术](/blocks) 以降低成本
@@ -196,7 +196,7 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
 
 ### 阈值计费
 
-当未结算的超额费用达到 $50 时，Sim 会自动结算全部未结算金额。
+当未结算的超额费用达到 $50 时，TradingGoose 会自动结算全部未结算金额。
 
 **示例：**
 - 第 10 天：$70 超额 → 立即结算 $70
@@ -215,7 +215,7 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
 
 ## 下一步
 
-- 在 [设置 → 订阅](https://sim.ai/settings/subscription) 中查看您当前的使用情况
+- 在 [设置 → 订阅](https://tradinggoose.ai/settings/subscription) 中查看您当前的使用情况
 - 了解 [日志记录](/execution/logging) 以跟踪执行详情
 - 探索 [外部 API](/execution/api) 以实现程序化成本监控
 - 查看 [工作流优化技术](/blocks) 以降低成本

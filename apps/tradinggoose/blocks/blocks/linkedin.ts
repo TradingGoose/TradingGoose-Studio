@@ -10,7 +10,7 @@ export const LinkedInBlock: BlockConfig<LinkedInResponse> = {
   authMode: AuthMode.OAuth,
   longDescription:
     'Integrate LinkedIn into workflows. Share posts to your personal feed and access your LinkedIn profile information.',
-  docsLink: 'https://docs.sim.ai/tools/linkedin',
+  docsLink: 'https://docs.tradinggoose.ai/tools/linkedin',
   category: 'tools',
   bgColor: '#0072B1',
   icon: LinkedInIcon,

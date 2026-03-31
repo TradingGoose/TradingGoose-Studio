@@ -10,7 +10,7 @@ export const DropboxBlock: BlockConfig<DropboxResponse> = {
   authMode: AuthMode.OAuth,
   longDescription:
     'Integrate Dropbox into your workflow for file management, sharing, and collaboration. Upload files, download content, create folders, manage shared links, and more.',
-  docsLink: 'https://docs.sim.ai/tools/dropbox',
+  docsLink: 'https://docs.tradinggoose.ai/tools/dropbox',
   category: 'tools',
   icon: DropboxIcon,
   bgColor: '#0061FF',

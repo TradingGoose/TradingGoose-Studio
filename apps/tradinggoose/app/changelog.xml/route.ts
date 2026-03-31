@@ -24,7 +24,7 @@ function escapeXml(str: string) {
 
 export async function GET() {
   try {
-    const res = await fetch('https://api.github.com/repos/simstudioai/sim/releases', {
+    const res = await fetch('https://api.github.com/repos/TradingGoose/TradingGoose-Studio/releases', {
       headers: { Accept: 'application/vnd.github+json' },
       next: { revalidate },
     })
@@ -47,9 +47,9 @@ export async function GET() {
     const xml = `<?xml version="1.0" encoding="UTF-8" ?>
       <rss version="2.0">
         <channel>
-          <title>Sim Changelog</title>
-          <link>https://sim.ai/changelog</link>
-          <description>Latest changes, fixes and updates in Sim.</description>
+          <title>TradingGoose Changelog</title>
+          <link>https://tradinggoose.ai/changelog</link>
+          <description>Latest changes, fixes and updates in TradingGoose.</description>
           <language>en-us</language>
           ${items}
         </channel>

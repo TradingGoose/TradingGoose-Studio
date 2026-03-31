@@ -12,7 +12,7 @@ export const ZepBlock: BlockConfig<ZepResponse> = {
   bgColor: undefined,
   icon: ZepIcon,
   category: 'tools',
-  docsLink: 'https://docs.sim.ai/tools/zep',
+  docsLink: 'https://docs.tradinggoose.ai/tools/zep',
   subBlocks: [
     {
       id: 'operation',

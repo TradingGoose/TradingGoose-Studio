@@ -16,8 +16,8 @@ export async function signTestWebhookToken(webhookId: string, ttlSeconds: number
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(`${ttlSeconds}s`)
-    .setIssuer('sim-webhooks')
-    .setAudience('sim-test')
+    .setIssuer('tradinggoose-webhooks')
+    .setAudience('tradinggoose-test')
     .sign(secret)
 
   return token
@@ -30,8 +30,8 @@ export async function verifyTestWebhookToken(
   try {
     const secret = getSecretKey()
     const { payload } = await jwtVerify(token, secret, {
-      issuer: 'sim-webhooks',
-      audience: 'sim-test',
+      issuer: 'tradinggoose-webhooks',
+      audience: 'tradinggoose-test',
     })
 
     if (

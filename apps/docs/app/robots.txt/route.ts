@@ -1,7 +1,7 @@
 export const revalidate = false
 
 export async function GET() {
-  const baseUrl = 'https://docs.sim.ai'
+  const baseUrl = 'https://docs.tradinggoose.ai'
 
   const robotsTxt = `# Robots.txt for TradingGoose Documentation
 # Generated on ${new Date().toISOString()}

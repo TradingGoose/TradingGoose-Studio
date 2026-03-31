@@ -29,8 +29,8 @@ export const env = createEnv({
     // Copilot
     COPILOT_PROVIDER: z.string().optional(),                  // Provider for copilot API calls
     COPILOT_MODEL: z.string().optional(),                  // Model for copilot API calls
-    COPILOT_API_KEY: z.string().min(1).optional(),           // Secret for internal sim agent API authentication
-    COPILOT_API_URL: z.string().url().optional(),            // URL for internal sim agent API
+    COPILOT_API_KEY: z.string().min(1).optional(),           // Secret for internal tradinggoose agent API authentication
+    COPILOT_API_URL: z.string().url().optional(),            // URL for internal tradinggoose agent API
     AGENT_INDEXER_URL: z.string().url().optional(),            // URL for agent training data indexer
     AGENT_INDEXER_API_KEY: z.string().min(1).optional(),           // API key for agent indexer authentication
 
@@ -61,7 +61,7 @@ export const env = createEnv({
     // Email & Communication
     EMAIL_VERIFICATION_ENABLED: z.boolean().optional(),                 // Enable email verification for user registration and login (defaults to false)
     RESEND_API_KEY: z.string().min(1).optional(),           // Resend API key for transactional emails
-    FROM_EMAIL_ADDRESS: z.string().min(1).optional(),           // Complete from address (e.g., "Sim <noreply@domain.com>" or "noreply@domain.com")
+    FROM_EMAIL_ADDRESS: z.string().min(1).optional(),           // Complete from address (e.g., "TradingGoose <noreply@domain.com>" or "noreply@domain.com")
     EMAIL_DOMAIN: z.string().min(1).optional(),           // Domain for sending emails (fallback when FROM_EMAIL_ADDRESS not set)
     AZURE_ACS_CONNECTION_STRING: z.string().optional(),                  // Azure Communication Services connection string
 
@@ -264,7 +264,7 @@ export const env = createEnv({
 
   client: {
     // Core Application URLs - Required for frontend functionality
-    NEXT_PUBLIC_APP_URL: z.string().url(),                       // Base URL of the application (e.g., https://app.sim.ai)
+    NEXT_PUBLIC_APP_URL: z.string().url(),                       // Base URL of the application (e.g., https://app.tradinggoose.ai)
 
     // Client-side Services
     NEXT_PUBLIC_SOCKET_URL: z.string().url().optional(),            // WebSocket server URL for real-time features
@@ -282,7 +282,7 @@ export const env = createEnv({
     NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),                  // PostHog project API key
 
     // UI Branding & Whitelabeling
-    NEXT_PUBLIC_BRAND_NAME: z.string().optional(),                  // Custom brand name (defaults to "Sim")
+    NEXT_PUBLIC_BRAND_NAME: z.string().optional(),                  // Custom brand name (defaults to "TradingGoose")
     NEXT_PUBLIC_BRAND_LOGO_URL: z.string().url().optional(),            // Custom logo URL
     NEXT_PUBLIC_BRAND_FAVICON_URL: z.string().url().optional(),            // Custom favicon URL
     NEXT_PUBLIC_CUSTOM_CSS_URL: z.string().url().optional(),            // Custom CSS stylesheet URL

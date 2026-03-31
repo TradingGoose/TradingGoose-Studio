@@ -1,9 +1,9 @@
 // lightweight-charts-line-tools-market-depth/src/index.ts
 
 /**
- * Main entry point for the 'lightweight-charts-line-tools-market-depth' plugin.
- * This file registers the MarketDepth line tool with the core line tools plugin.
- */
+ * Main entry point for the 'lightweight-charts-line-tools-market-depth' plugin.
+ * This file registers the MarketDepth line tool with the core line tools plugin.
+ */
 
 import { ILineToolsPlugin } from '../core';
 import { LineToolMarketDepth } from './model/LineToolMarketDepth';
@@ -23,7 +23,7 @@ const MARKET_DEPTH_NAME = 'MarketDepth';
  * ```
  */
 export function registerMarketDepthPlugin<HorzScaleItem>(corePlugin: ILineToolsPlugin & { registerLineTool: <H>(type: string, toolClass: new (...args: any[]) => any) => void }): void {
-	
+
 	// Register the MarketDepth Tool
 	corePlugin.registerLineTool(MARKET_DEPTH_NAME, LineToolMarketDepth);
 

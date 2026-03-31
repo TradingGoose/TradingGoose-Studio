@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import Background from '@/app/(landing)/components/background/background'
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://sim.ai'),
-  manifest: '/manifest.json',
+  metadataBase: new URL('https://tradinggoose.ai'),
+  manifest: '/manifest.webmanifest',
   icons: {
     icon: '/favicon.ico',
     apple: '/apple-icon.png',

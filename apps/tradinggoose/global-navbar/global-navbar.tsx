@@ -12,7 +12,6 @@ import {
   SidebarRail,
 } from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Button } from '@/components/ui/button'
 import { useSession } from '@/lib/auth-client'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { isBillingEnabled } from '@/lib/environment'
@@ -43,7 +42,6 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const brand = React.useMemo(() => getBrandConfig(), [])
   const { data: sessionData, isPending: isSessionLoading } = useSession()
-  const { data: organizationsData } = useOrganizations()
   const switchToWorkspace = useWorkflowRegistry((state) => state.switchToWorkspace)
   const workspaceId = React.useMemo(() => getWorkspaceIdFromPath(pathname), [pathname])
   const workspaceNavItems = React.useMemo(() => createWorkspaceNav(workspaceId), [workspaceId])
@@ -52,6 +50,21 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
     [pathname, workspaceNavItems]
   )
   const activeNavItem = React.useMemo(() => navMain.find((item) => item.isActive), [navMain])
+  const isAuthenticated = Boolean(sessionData?.user?.id)
+  const isAuthRoute = React.useMemo(
+    () => AUTH_ROUTE_PREFIXES.some((route) => pathname.startsWith(route)),
+    [pathname]
+  )
+  const isLandingRoute = React.useMemo(
+    () => pathname === '/' || LANDING_ROUTE_PREFIXES.some((route) => pathname.startsWith(route)),
+    [pathname]
+  )
+  const isSidebarRoute = React.useMemo(() => navMain.some((item) => item.isActive), [navMain])
+  const shouldRenderNavbar = isSidebarRoute && !isLandingRoute && !isAuthRoute
+  const shouldShowSkeleton = shouldRenderNavbar && isSessionLoading
+  const { data: organizationsData } = useOrganizations({
+    enabled: shouldRenderNavbar && isAuthenticated && !isSessionLoading,
+  })
   const billingEnabled = isBillingEnabled
   const hasOrganization = Boolean(organizationsData?.activeOrganization?.id)
   const canManageTeam = billingEnabled && hasOrganization
@@ -71,7 +84,8 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
   const [workspaceToDelete, setWorkspaceToDelete] = React.useState<Workspace | null>(null)
   const [isDeletingWorkspace, setIsDeletingWorkspace] = React.useState(false)
   const [deleteError, setDeleteError] = React.useState<string | null>(null)
-  const [activeSettingsSection, setActiveSettingsSection] = React.useState<SettingsSection>('account')
+  const [activeSettingsSection, setActiveSettingsSection] =
+    React.useState<SettingsSection>('account')
   const [isSettingsModalOpen, setIsSettingsModalOpen] = React.useState(false)
   const [userNameOverride, setUserNameOverride] = React.useState<string | null>(null)
   const [userAvatarOverride, setUserAvatarOverride] = React.useState<{
@@ -79,28 +93,13 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
     version: number | string | null
   }>({ url: null, version: null })
 
-  const isAuthenticated = Boolean(sessionData?.user?.id)
-  const isAuthRoute = React.useMemo(
-    () => AUTH_ROUTE_PREFIXES.some((route) => pathname.startsWith(route)),
-    [pathname]
-  )
-  const isLandingRoute = React.useMemo(
-    () => pathname === '/' || LANDING_ROUTE_PREFIXES.some((route) => pathname.startsWith(route)),
-    [pathname]
-  )
-  const isSidebarRoute = React.useMemo(() => navMain.some((item) => item.isActive), [navMain])
-  const shouldRenderNavbar = isSidebarRoute && !isLandingRoute && !isAuthRoute
-  const shouldShowSkeleton = shouldRenderNavbar && isSessionLoading
-
   const userId = sessionData?.user?.id ?? null
   const userName = userNameOverride ?? sessionData?.user?.name ?? brand.name
   const userEmail = sessionData?.user?.email ?? brand.supportEmail ?? 'help@tradinggoose.ai'
   const userAvatar = userAvatarOverride.url ?? sessionData?.user?.image ?? brand.logoUrl
   const userAvatarVersion =
     userAvatarOverride.version ??
-    (sessionData?.user?.updatedAt
-      ? new Date(sessionData.user.updatedAt).getTime()
-      : null)
+    (sessionData?.user?.updatedAt ? new Date(sessionData.user.updatedAt).getTime() : null)
 
   const resolveSettingsSection = React.useCallback(
     (section: SettingsSection): SettingsSection => {
@@ -147,7 +146,6 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
             return 'subscription'
           case 'sso':
             return 'sso'
-          case 'account':
           default:
             return 'account'
         }
@@ -183,7 +181,7 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
     const handleNameEvent = (event: Event) => {
       const customEvent = event as CustomEvent<{ name?: string | null }>
       const detail = customEvent.detail
-      setUserNameOverride(detail && 'name' in detail ? detail?.name ?? null : null)
+      setUserNameOverride(detail && 'name' in detail ? (detail?.name ?? null) : null)
     }
 
     readStoredName()
@@ -223,11 +221,11 @@ export function GlobalNavbar({ children }: { children: React.ReactNode }) {
       const customEvent = event as CustomEvent<{ url?: string | null; version?: number }>
       const detail = customEvent.detail
       setUserAvatarOverride((prev) => ({
-        url: detail && 'url' in detail ? detail?.url ?? null : prev.url,
+        url: detail && 'url' in detail ? (detail?.url ?? null) : prev.url,
         version:
           detail && 'version' in detail
-            ? detail?.version ?? prev.version ?? Date.now()
-            : prev.version ?? Date.now(),
+            ? (detail?.version ?? prev.version ?? Date.now())
+            : (prev.version ?? Date.now()),
       }))
     }
 

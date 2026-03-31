@@ -9,7 +9,7 @@ export const SttBlock: BlockConfig<SttBlockResponse> = {
   authMode: AuthMode.ApiKey,
   longDescription:
     'Transcribe audio and video files to text using leading AI providers. Supports multiple languages, timestamps, and speaker diarization.',
-  docsLink: 'https://docs.sim.ai/tools/stt',
+  docsLink: 'https://docs.tradinggoose.ai/tools/stt',
   category: 'tools',
   bgColor: undefined,
   icon: STTIcon,

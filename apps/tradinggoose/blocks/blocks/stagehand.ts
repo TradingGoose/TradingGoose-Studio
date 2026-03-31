@@ -15,7 +15,7 @@ export const StagehandBlock: BlockConfig<StagehandExtractResponse> = {
   authMode: AuthMode.ApiKey,
   longDescription:
     'Integrate Stagehand into the workflow. Can extract structured data from webpages.',
-  docsLink: 'https://docs.sim.ai/tools/stagehand',
+  docsLink: 'https://docs.tradinggoose.ai/tools/stagehand',
   category: 'tools',
   bgColor: '#ffbb33',
   icon: StagehandIcon,

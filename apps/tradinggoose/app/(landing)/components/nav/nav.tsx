@@ -6,7 +6,7 @@ import { MenuIcon } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-
+import { GithubIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -14,10 +14,9 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Separator } from '@/components/ui/separator'
-import { GithubIcon } from '@/components/icons/icons'
 import { useBrandConfig } from '@/lib/branding/branding'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getFormattedGitHubStars } from '@/app/(landing)/actions/github'
@@ -31,7 +30,7 @@ interface NavProps {
 }
 
 export default function Nav({ hideAuthButtons = false, variant = 'landing' }: NavProps = {}) {
-  const [githubStars, setGithubStars] = useState('17.4k')
+  const [githubStars, setGithubStars] = useState('0')
   const router = useRouter()
   const brand = useBrandConfig()
 
@@ -66,9 +65,9 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
   }, [])
 
   const desktopNavLinks = variant === 'landing' && (
-    <div className='text-muted-foreground hidden items-center gap-6 text-sm font-medium md:flex'>
+    <div className='hidden items-center gap-6 font-medium text-muted-foreground text-sm md:flex'>
       <Link
-        href='https://docs.sim.ai'
+        href='https://docs.tradinggoose.ai'
         target='_blank'
         rel='noopener noreferrer'
         className='transition-colors hover:text-foreground'
@@ -88,7 +87,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
         Enterprise
       </button>
       <a
-        href='https://github.com/simstudioai/sim'
+        href='https://github.com/TradingGoose/TradingGoose-Studio'
         target='_blank'
         rel='noopener noreferrer'
         className='flex items-center gap-2 transition-colors hover:text-foreground'
@@ -103,7 +102,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
   return (
     <nav
       aria-label='Primary navigation'
-      className={`${soehne.className} sticky inset-x-0 top-0 z-50 w-full border-b border-border backdrop-blur supports-[backdrop-filter]:bg-background/20`}
+      className={`${soehne.className} sticky inset-x-0 top-0 z-50 w-full border-border border-b backdrop-blur supports-[backdrop-filter]:bg-background/20`}
       itemScope
       itemType='https://schema.org/SiteNavigationElement'
     >
@@ -117,7 +116,10 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
           <span itemProp='name' className='sr-only'>
             {brand.name} Home
           </span>
-          <span className='flex items-center gap-2 text-[18px] font-semibold tracking-tight text-foreground' aria-hidden='true'>
+          <span
+            className='flex items-center gap-2 font-semibold text-[18px] text-foreground tracking-tight'
+            aria-hidden='true'
+          >
             <Image
               src='/icon.svg'
               alt=''
@@ -134,14 +136,16 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
 
         <div className='flex items-center gap-3 sm:gap-4'>
           {desktopNavLinks}
-          {variant === 'landing' && <Separator orientation='vertical' className='hidden h-6 md:block' />}
+          {variant === 'landing' && (
+            <Separator orientation='vertical' className='hidden h-6 md:block' />
+          )}
 
           {!hideAuthButtons && (
             <>
               <Button
                 variant='ghost'
                 size='sm'
-                className='hidden rounded-md text-base font-medium text-foreground md:inline-flex'
+                className='hidden rounded-md font-medium text-base text-foreground md:inline-flex'
                 onClick={handleLoginClick}
                 type='button'
                 aria-label='Log in to your account'
@@ -152,7 +156,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
                 className='hidden rounded-md text-base text-black md:inline-flex'
                 size='sm'
                 asChild
-                aria-label='Get started with Sim - Sign up for free'
+                aria-label='Get started with TradingGoose - Sign up for free'
               >
                 <Link href='/signup' prefetch>
                   Get started
@@ -173,7 +177,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
                 <DropdownMenuGroup>
                   <DropdownMenuItem>
                     <Link
-                      href='https://docs.sim.ai'
+                      href='https://docs.tradinggoose.ai'
                       target='_blank'
                       rel='noopener noreferrer'
                       className='w-full'
@@ -187,12 +191,10 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
                       Pricing
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={handleEnterpriseClick}>
-                    Enterprise
-                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={handleEnterpriseClick}>Enterprise</DropdownMenuItem>
                   <DropdownMenuItem>
                     <a
-                      href='https://github.com/simstudioai/sim'
+                      href='https://github.com/TradingGoose/TradingGoose-Studio'
                       target='_blank'
                       rel='noopener noreferrer'
                       className='flex w-full items-center gap-2'
@@ -205,12 +207,23 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem className='!bg-transparent'>
-                        <Button className='w-full justify-start' variant='ghost' size='sm' onClick={handleLoginClick} aria-label='Log in to your account'>
+                        <Button
+                          className='w-full justify-start'
+                          variant='ghost'
+                          size='sm'
+                          onClick={handleLoginClick}
+                          aria-label='Log in to your account'
+                        >
                           Log in
                         </Button>
                       </DropdownMenuItem>
                       <DropdownMenuItem className='!bg-transparent'>
-                        <Button className='w-full justify-start rounded-lg' size='sm' asChild aria-label='Get started with Sim - Sign up for free'>
+                        <Button
+                          className='w-full justify-start rounded-lg'
+                          size='sm'
+                          asChild
+                          aria-label='Get started with TradingGoose - Sign up for free'
+                        >
                           <Link href='/signup' prefetch>
                             Get started
                           </Link>

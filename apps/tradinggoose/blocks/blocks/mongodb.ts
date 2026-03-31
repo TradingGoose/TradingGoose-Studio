@@ -8,7 +8,7 @@ export const MongoDBBlock: BlockConfig<MongoDBResponse> = {
   description: 'Connect to MongoDB database',
   longDescription:
     'Integrate MongoDB into the workflow. Can find, insert, update, delete, and aggregate data.',
-  docsLink: 'https://docs.sim.ai/tools/mongodb',
+  docsLink: 'https://docs.tradinggoose.ai/tools/mongodb',
   category: 'tools',
   bgColor: undefined,
   icon: MongoDBIcon,

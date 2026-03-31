@@ -10,7 +10,7 @@ export const SpotifyBlock: BlockConfig<ToolResponse> = {
   authMode: AuthMode.OAuth,
   longDescription:
     'Integrate Spotify into your workflow. Search for tracks, albums, artists, and playlists. Manage playlists, access your library, control playback, browse podcasts and audiobooks.',
-  docsLink: 'https://docs.sim.ai/tools/spotify',
+  docsLink: 'https://docs.tradinggoose.ai/tools/spotify',
   category: 'tools',
   bgColor: '#1ed760',
   icon: SpotifyIcon,

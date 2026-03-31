@@ -10,7 +10,7 @@ export const GoogleDocsBlock: BlockConfig<GoogleDocsResponse> = {
   authMode: AuthMode.OAuth,
   longDescription:
     'Integrate Google Docs into the workflow. Can read, write, and create documents.',
-  docsLink: 'https://docs.sim.ai/tools/google_docs',
+  docsLink: 'https://docs.tradinggoose.ai/tools/google_docs',
   category: 'tools',
   bgColor: undefined,
   icon: GoogleDocsIcon,

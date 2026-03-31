@@ -46,7 +46,7 @@ export const CareersConfirmationEmail = ({
             <Text style={baseStyles.paragraph}>
               In the meantime, explore our{' '}
               <a
-                href='https://docs.sim.ai'
+                href='https://docs.tradinggoose.ai'
                 target='_blank'
                 rel='noopener noreferrer'
                 style={baseStyles.link}

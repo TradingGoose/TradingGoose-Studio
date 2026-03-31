@@ -10,7 +10,7 @@ export const TypeformBlock: BlockConfig<TypeformResponse> = {
   authMode: AuthMode.ApiKey,
   longDescription:
     'Integrate Typeform into the workflow. Can retrieve responses, download files, and get form insights. Requires API Key.',
-  docsLink: 'https://docs.sim.ai/tools/typeform',
+  docsLink: 'https://docs.tradinggoose.ai/tools/typeform',
   category: 'tools',
   bgColor: undefined, // Typeform brand color
   icon: TypeformIcon,

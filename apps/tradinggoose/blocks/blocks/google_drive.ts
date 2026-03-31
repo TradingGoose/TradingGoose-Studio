@@ -9,7 +9,7 @@ export const GoogleDriveBlock: BlockConfig<GoogleDriveResponse> = {
   description: 'Create, upload, and list files',
   authMode: AuthMode.OAuth,
   longDescription: 'Integrate Google Drive into the workflow. Can create, upload, and list files.',
-  docsLink: 'https://docs.sim.ai/tools/google_drive',
+  docsLink: 'https://docs.tradinggoose.ai/tools/google_drive',
   category: 'tools',
   bgColor: undefined,
   icon: GoogleDriveIcon,

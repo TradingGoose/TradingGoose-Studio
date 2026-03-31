@@ -11,7 +11,7 @@ export const TelegramBlock: BlockConfig<TelegramResponse> = {
   authMode: AuthMode.BotToken,
   longDescription:
     'Integrate Telegram into the workflow. Can send and delete messages. Can be used in trigger mode to trigger a workflow when a message is sent to a chat.',
-  docsLink: 'https://docs.sim.ai/tools/telegram',
+  docsLink: 'https://docs.tradinggoose.ai/tools/telegram',
   category: 'tools',
   bgColor: undefined,
   icon: TelegramIcon,
@@ -55,7 +55,7 @@ export const TelegramBlock: BlockConfig<TelegramResponse> = {
       placeholder: 'Enter Telegram Chat ID',
       description: `Getting Chat ID:
 1. Add your bot as a member to desired Telegram channel
-2. Send any message to the channel (e.g. "I love Sim")
+2. Send any message to the channel (e.g. "I love TradingGoose")
 3. Visit https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates
 4. Look for the chat field in the JSON response at the very bottom where you'll find the chat ID`,
       required: true,

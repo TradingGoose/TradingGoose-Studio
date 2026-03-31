@@ -11,7 +11,7 @@ export const SlackBlock: BlockConfig<SlackResponse> = {
   authMode: AuthMode.OAuth,
   longDescription:
     'Integrate Slack into the workflow. Can send messages, create canvases, and read messages. Requires Bot Token instead of OAuth in advanced mode. Can be used in trigger mode to trigger a workflow when a message is sent to a channel.',
-  docsLink: 'https://docs.sim.ai/tools/slack',
+  docsLink: 'https://docs.tradinggoose.ai/tools/slack',
   category: 'tools',
   bgColor: '',
   icon: SlackIcon,
@@ -35,7 +35,7 @@ export const SlackBlock: BlockConfig<SlackResponse> = {
       type: 'dropdown',
       layout: 'full',
       options: [
-        { label: 'Sim Bot', id: 'oauth' },
+        { label: 'TradingGoose Bot', id: 'oauth' },
         { label: 'Custom Bot', id: 'bot_token' },
       ],
       value: () => 'oauth',
@@ -237,7 +237,7 @@ export const SlackBlock: BlockConfig<SlackResponse> = {
         } else {
           // Default to OAuth
           if (!credential) {
-            throw new Error('Slack account credential is required when using Sim Bot')
+            throw new Error('Slack account credential is required when using TradingGoose Bot')
           }
           baseParams.credential = credential
         }

@@ -9,8 +9,8 @@ export function generateBrandedMetadata(override: Partial<Metadata> = {}): Metad
   const brand = getBrandConfig()
 
   const defaultTitle = brand.name
-  const summaryFull = `Sim is an open-source AI agent workflow builder. Developers at trail-blazing startups to Fortune 500 companies deploy agentic workflows on the Sim platform.  35,000+ developers are already using Sim to build and deploy AI agent workflows. Sim lets developers integrate with 100+ apps to streamline workflows with AI agents. Sim is SOC2 and HIPAA compliant, ensuring enterprise-level security.`
-  const summaryShort = `Sim is an open-source AI agent workflow builder.`
+  const summaryFull = `TradingGoose is an open-source AI agent workflow builder. Developers at trail-blazing startups to Fortune 500 companies deploy agentic workflows on the TradingGoose platform.  35,000+ developers are already using TradingGoose to build and deploy AI agent workflows. TradingGoose lets developers integrate with 100+ apps to streamline workflows with AI agents. TradingGoose is SOC2 and HIPAA compliant, ensuring enterprise-level security.`
+  const summaryShort = `TradingGoose is an open-source AI agent workflow builder.`
 
   return {
     title: {
@@ -79,8 +79,8 @@ export function generateBrandedMetadata(override: Partial<Metadata> = {}): Metad
       title: defaultTitle,
       description: summaryFull,
       images: [brand.logoUrl || '/social/twitter.png'],
-      creator: '@simstudioai',
-      site: '@simstudioai',
+      creator: '@tradinggoose',
+      site: '@tradinggoose',
     },
     manifest: '/manifest.webmanifest',
     icons: {
@@ -114,7 +114,7 @@ export function generateBrandedMetadata(override: Partial<Metadata> = {}): Metad
     other: {
       'apple-mobile-web-app-capable': 'yes',
       'mobile-web-app-capable': 'yes',
-      'msapplication-TileColor': '#701FFC', // Default Sim brand primary color
+      'msapplication-TileColor': '#701FFC', // Default TradingGoose brand primary color
       'msapplication-config': '/favicon/browserconfig.xml',
     },
     ...override,
@@ -128,10 +128,10 @@ export function generateStructuredData() {
   return {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
-    name: 'Sim',
+    name: 'TradingGoose',
     description:
-      'Sim is an open-source AI agent workflow builder. Developers at trail-blazing startups to Fortune 500 companies deploy agentic workflows on the Sim platform.  30,000+ developers are already using Sim to build and deploy AI agent workflows. Sim lets developers integrate with 100+ apps to streamline workflows with AI agents. Sim is SOC2 and HIPAA compliant, ensuring enterprise-level security.',
-    url: 'https://sim.ai',
+      'TradingGoose is an open-source AI agent workflow builder. Developers at trail-blazing startups to Fortune 500 companies deploy agentic workflows on the TradingGoose platform.  30,000+ developers are already using TradingGoose to build and deploy AI agent workflows. TradingGoose lets developers integrate with 100+ apps to streamline workflows with AI agents. TradingGoose is SOC2 and HIPAA compliant, ensuring enterprise-level security.',
+    url: 'https://tradinggoose.ai',
     applicationCategory: 'BusinessApplication',
     operatingSystem: 'Web Browser',
     offers: {
@@ -140,8 +140,8 @@ export function generateStructuredData() {
     },
     creator: {
       '@type': 'Organization',
-      name: 'Sim',
-      url: 'https://sim.ai',
+      name: 'TradingGoose',
+      url: 'https://tradinggoose.ai',
     },
     featureList: [
       'Visual AI Agent Builder',

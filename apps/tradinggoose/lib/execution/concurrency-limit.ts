@@ -23,10 +23,15 @@ type ConcurrencyLimitError = Error & {
   }
 }
 
+type ConcurrencyBackendUnavailableError = Error & {
+  code: 'CODE_EXECUTION_CONCURRENCY_BACKEND_UNAVAILABLE'
+  statusCode: 503
+}
+
 const activeExecutionsByUser = new Map<string, number>()
 type Lease = {
   activeExecutions: number
-  release?: () => Promise<void>
+  release: () => Promise<void>
 }
 
 const REDIS_ACQUIRE_SCRIPT = `
@@ -57,50 +62,70 @@ const redisKey = (userId: string) => `${CONCURRENCY_KEY_PREFIX}:${userId}`
 
 const acquireExecutionLease = async ({
   userId,
+  tier,
   maxConcurrentExecutions,
 }: {
   userId: string
+  tier: CodeExecutionTier
   maxConcurrentExecutions: number
 }): Promise<Lease> => {
   const redisConfigured = Boolean(env.REDIS_URL)
   const redis = getRedisClient()
-  if (redisConfigured && !redis) return { activeExecutions: maxConcurrentExecutions }
+  if (redisConfigured && !redis) {
+    throw buildConcurrencyBackendUnavailableError()
+  }
 
   if (redis) {
+    let rawResult: unknown
     try {
-      const rawResult = (await redis.eval(
+      rawResult = (await redis.eval(
         REDIS_ACQUIRE_SCRIPT,
         1,
         redisKey(userId),
         maxConcurrentExecutions.toString(),
         CONCURRENCY_TTL_MS.toString()
       )) as unknown
-      const acquired = Array.isArray(rawResult) ? Number(rawResult[0] ?? 0) : 0
-      const activeExecutions = Array.isArray(rawResult)
-        ? Number(rawResult[1] ?? maxConcurrentExecutions)
-        : maxConcurrentExecutions
-      if (acquired !== 1) return { activeExecutions }
-
-      return {
-        activeExecutions,
-        release: async () => {
-          try {
-            await redis.eval(
-              REDIS_RELEASE_SCRIPT,
-              1,
-              redisKey(userId),
-              CONCURRENCY_TTL_MS.toString()
-            )
-          } catch {}
-        },
-      }
     } catch {
-      if (redisConfigured) return { activeExecutions: maxConcurrentExecutions }
+      throw buildConcurrencyBackendUnavailableError()
+    }
+
+    if (!Array.isArray(rawResult)) {
+      throw buildConcurrencyBackendUnavailableError()
+    }
+
+    const acquired = Number(rawResult[0] ?? 0)
+    const activeExecutions = Number(rawResult[1] ?? maxConcurrentExecutions)
+    if (!Number.isFinite(acquired) || !Number.isFinite(activeExecutions)) {
+      throw buildConcurrencyBackendUnavailableError()
+    }
+    if (acquired !== 1) {
+      throw buildConcurrencyLimitError({
+        userId,
+        tier,
+        activeExecutions,
+        maxConcurrentExecutions,
+      })
+    }
+
+    return {
+      activeExecutions,
+      release: async () => {
+        try {
+          await redis.eval(REDIS_RELEASE_SCRIPT, 1, redisKey(userId), CONCURRENCY_TTL_MS.toString())
+        } catch {}
+      },
     }
   }
 
   const activeExecutions = activeExecutionsByUser.get(userId) ?? 0
-  if (activeExecutions >= maxConcurrentExecutions) return { activeExecutions }
+  if (activeExecutions >= maxConcurrentExecutions) {
+    throw buildConcurrencyLimitError({
+      userId,
+      tier,
+      activeExecutions,
+      maxConcurrentExecutions,
+    })
+  }
   activeExecutionsByUser.set(userId, activeExecutions + 1)
   return {
     activeExecutions: activeExecutions + 1,
@@ -124,22 +149,38 @@ export const isCodeExecutionConcurrencyLimitError = (
       (error as { code?: string }).code === 'CODE_EXECUTION_CONCURRENCY_LIMIT'
   )
 
-export const getCodeExecutionConcurrencyLimitMessage = (
-  error: ConcurrencyLimitError
-) =>
+export const getCodeExecutionConcurrencyLimitMessage = (error: ConcurrencyLimitError) =>
   `Too many concurrent code executions for your plan. Active: ${error.details.activeExecutions}, limit: ${error.details.maxConcurrentExecutions}.`
+
+export const isCodeExecutionConcurrencyBackendUnavailableError = (
+  error: unknown
+): error is ConcurrencyBackendUnavailableError =>
+  Boolean(
+    error &&
+      typeof error === 'object' &&
+      (error as { code?: string }).code === 'CODE_EXECUTION_CONCURRENCY_BACKEND_UNAVAILABLE'
+  )
 
 const resolveTier = (plan?: string | null): CodeExecutionTier => {
   if (plan === 'enterprise' || plan === 'team' || plan === 'pro' || plan === 'free') return plan
   return 'free'
 }
 
-const buildConcurrencyLimitError = (details: ConcurrencyLimitError['details']): ConcurrencyLimitError =>
+const buildConcurrencyLimitError = (
+  details: ConcurrencyLimitError['details']
+): ConcurrencyLimitError =>
   Object.assign(new Error('Code execution concurrency limit reached'), {
     name: 'CodeExecutionConcurrencyLimitError',
     code: 'CODE_EXECUTION_CONCURRENCY_LIMIT' as const,
     statusCode: 429 as const,
     details,
+  })
+
+const buildConcurrencyBackendUnavailableError = (): ConcurrencyBackendUnavailableError =>
+  Object.assign(new Error('Code execution backend unavailable'), {
+    name: 'CodeExecutionConcurrencyBackendUnavailableError',
+    code: 'CODE_EXECUTION_CONCURRENCY_BACKEND_UNAVAILABLE' as const,
+    statusCode: 503 as const,
   })
 
 export const withCodeExecutionConcurrencyLimit = async <T>({
@@ -158,21 +199,13 @@ export const withCodeExecutionConcurrencyLimit = async <T>({
   const maxConcurrentExecutions = CODE_EXECUTION_CONCURRENT_LIMITS[tier]
   const leaseResult = await acquireExecutionLease({
     userId,
+    tier,
     maxConcurrentExecutions,
   })
-
-  if (!leaseResult.release) {
-    throw buildConcurrencyLimitError({
-      userId,
-      tier,
-      activeExecutions: leaseResult.activeExecutions,
-      maxConcurrentExecutions,
-    })
-  }
 
   try {
     return await task()
   } finally {
-    await leaseResult.release?.()
+    await leaseResult.release()
   }
 }

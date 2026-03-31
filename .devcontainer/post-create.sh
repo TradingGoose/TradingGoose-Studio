@@ -3,7 +3,7 @@
 # Exit on error, but with some error handling
 set -e
 
-echo "🔧 Setting up Sim development environment..."
+echo "🔧 Setting up TradingGoose development environment..."
 
 # Change to the workspace root directory
 cd /workspace
@@ -24,15 +24,15 @@ fi
 
 # Add project commands to shell profile
 echo "📄 Setting up project commands..."
-# Add sourcing of sim-commands.sh to user's shell config files if they exist
+# Add sourcing of tradinggoose-commands.sh to user's shell config files if they exist
 for rcfile in ~/.bashrc ~/.zshrc; do
   if [ -f "$rcfile" ]; then
     # Check if already added
-    if ! grep -q "sim-commands.sh" "$rcfile"; then
+    if ! grep -q "tradinggoose-commands.sh" "$rcfile"; then
       echo "" >> "$rcfile"
-      echo "# Sim project commands" >> "$rcfile"
-      echo "if [ -f /workspace/.devcontainer/sim-commands.sh ]; then" >> "$rcfile"
-      echo "  source /workspace/.devcontainer/sim-commands.sh" >> "$rcfile"
+      echo "# TradingGoose project commands" >> "$rcfile"
+      echo "if [ -f /workspace/.devcontainer/tradinggoose-commands.sh ]; then" >> "$rcfile"
+      echo "  source /workspace/.devcontainer/tradinggoose-commands.sh" >> "$rcfile"
       echo "fi" >> "$rcfile"
     fi
   fi
@@ -40,9 +40,9 @@ done
 
 # If no rc files exist yet, create a minimal one
 if [ ! -f ~/.bashrc ] && [ ! -f ~/.zshrc ]; then
-  echo "# Source Sim project commands" > ~/.bashrc
-  echo "if [ -f /workspace/.devcontainer/sim-commands.sh ]; then" >> ~/.bashrc
-  echo "  source /workspace/.devcontainer/sim-commands.sh" >> ~/.bashrc
+  echo "# Source TradingGoose project commands" > ~/.bashrc
+  echo "if [ -f /workspace/.devcontainer/tradinggoose-commands.sh ]; then" >> ~/.bashrc
+  echo "  source /workspace/.devcontainer/tradinggoose-commands.sh" >> ~/.bashrc
   echo "fi" >> ~/.bashrc
 fi
 
@@ -69,13 +69,13 @@ if grep -q '"trustedDependencies"' apps/tradinggoose/package.json 2>/dev/null; t
   echo "⚠️ Native dependencies detected. Bun will handle compatibility during install."
 fi
 
-# Set up environment variables if .env doesn't exist for the sim app
+# Set up environment variables if .env doesn't exist for the tradinggoose app
 if [ ! -f "apps/tradinggoose/.env" ]; then
   echo "📄 Creating .env file from template..."
   if [ -f "apps/tradinggoose/.env.example" ]; then
     cp apps/tradinggoose/.env.example apps/tradinggoose/.env
   else
-    echo "DATABASE_URL=postgresql://postgres:postgres@db:5432/simstudio" > apps/tradinggoose/.env
+    echo "DATABASE_URL=postgresql://postgres:postgres@db:5432/tradinggoose" > apps/tradinggoose/.env
   fi
 fi
 
@@ -94,7 +94,7 @@ echo "Waiting for database to be ready..."
     if PGPASSWORD=postgres psql -h db -U postgres -c '\q' 2>/dev/null; then
       echo "Database is ready!"
       cd apps/tradinggoose
-      DATABASE_URL=postgresql://postgres:postgres@db:5432/simstudio bunx drizzle-kit push
+      DATABASE_URL=postgresql://postgres:postgres@db:5432/tradinggoose bunx drizzle-kit push
       cd ../..
       break
     fi
@@ -109,16 +109,16 @@ echo "Waiting for database to be ready..."
 ) || echo "⚠️ Database setup had issues but continuing..."
 
 # Clear the welcome message flag to ensure it shows after setup
-unset SIM_WELCOME_SHOWN
+unset TRADINGGOOSE_WELCOME_SHOWN
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "✅ Sim development environment setup complete!"
+echo "✅ TradingGoose development environment setup complete!"
 echo ""
 echo "Your environment is now ready. A new terminal session will show"
 echo "available commands. You can start the development server with:"
 echo ""
-echo "  sim-start"
+echo "  tradinggoose-start"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 

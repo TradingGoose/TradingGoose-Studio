@@ -1,5 +1,5 @@
 /**
- * OpenTelemetry Integration for Sim Execution Pipeline
+ * OpenTelemetry Integration for TradingGoose Execution Pipeline
  *
  * This module integrates OpenTelemetry tracing with the existing execution logging system.
  * It converts TraceSpans and BlockLogs into proper OpenTelemetry spans with semantic conventions.
@@ -68,7 +68,7 @@ let _tracer: ReturnType<typeof trace.getTracer> | null = null
 
 function getTracer() {
   if (!_tracer) {
-    _tracer = trace.getTracer('sim-ai-platform', '1.0.0')
+    _tracer = trace.getTracer('tradinggoose-ai-platform', '1.0.0')
   }
   return _tracer
 }

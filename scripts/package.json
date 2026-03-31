@@ -1,7 +1,7 @@
 {
-  "name": "sim-doc-generator",
+  "name": "tradinggoose-doc-generator",
   "version": "1.0.0",
-  "description": "Documentation generator for Sim blocks",
+  "description": "Documentation generator for TradingGoose blocks",
   "type": "module",
   "private": true,
   "dependencies": {

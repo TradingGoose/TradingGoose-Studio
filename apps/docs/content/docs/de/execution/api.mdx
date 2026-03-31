@@ -8,7 +8,7 @@ import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
 import { CodeBlock } from 'fumadocs-ui/components/codeblock'
 import { Video } from '@/components/ui/video'
 
-Sim bietet eine umfassende externe API zum Abfragen von Workflow-Ausführungsprotokollen und zum Einrichten von Webhooks für Echtzeit-Benachrichtigungen, wenn Workflows abgeschlossen werden.
+TradingGoose bietet eine umfassende externe API zum Abfragen von Workflow-Ausführungsprotokollen und zum Einrichten von Webhooks für Echtzeit-Benachrichtigungen, wenn Workflows abgeschlossen werden.
 
 ## Authentifizierung
 
@@ -16,10 +16,10 @@ Alle API-Anfragen erfordern einen API-Schlüssel, der im Header `x-api-key` übe
 
 ```bash
 curl -H "x-api-key: YOUR_API_KEY" \
-  https://sim.ai/api/v1/logs?workspaceId=YOUR_WORKSPACE_ID
+  https://tradinggoose.ai/api/v1/logs?workspaceId=YOUR_WORKSPACE_ID
 ```
 
-Sie können API-Schlüssel in Ihren Benutzereinstellungen im Sim-Dashboard generieren.
+Sie können API-Schlüssel in Ihren Benutzereinstellungen im TradingGoose-Dashboard generieren.
 
 ## Logs-API
 
@@ -255,7 +255,7 @@ Rufen Sie Ausführungsdetails einschließlich des Workflow-Zustandsschnappschuss
 
 ## Webhook-Abonnements
 
-Erhalten Sie Echtzeitbenachrichtigungen, wenn Workflow-Ausführungen abgeschlossen werden. Webhooks werden über die Sim-Benutzeroberfläche im Workflow-Editor konfiguriert.
+Erhalten Sie Echtzeitbenachrichtigungen, wenn Workflow-Ausführungen abgeschlossen werden. Webhooks werden über die TradingGoose-Benutzeroberfläche im Workflow-Editor konfiguriert.
 
 ### Konfiguration
 
@@ -278,7 +278,7 @@ Webhooks können für jeden Workflow über die Benutzeroberfläche des Workflow-
 
 ### Webhook-Nutzlast
 
-Wenn eine Workflow-Ausführung abgeschlossen ist, sendet Sim eine POST-Anfrage an Ihre Webhook-URL:
+Wenn eine Workflow-Ausführung abgeschlossen ist, sendet TradingGoose eine POST-Anfrage an Ihre Webhook-URL:
 
 ```json
 {
@@ -331,15 +331,15 @@ Wenn eine Workflow-Ausführung abgeschlossen ist, sendet Sim eine POST-Anfrage a
 
 Jede Webhook-Anfrage enthält diese Header:
 
-- `sim-event`: Ereignistyp (immer `workflow.execution.completed`)
-- `sim-timestamp`: Unix-Zeitstempel in Millisekunden
-- `sim-delivery-id`: Eindeutige Lieferungs-ID für Idempotenz
-- `sim-signature`: HMAC-SHA256-Signatur zur Verifizierung (falls Secret konfiguriert)
+- `tradinggoose-event`: Ereignistyp (immer `workflow.execution.completed`)
+- `tradinggoose-timestamp`: Unix-Zeitstempel in Millisekunden
+- `tradinggoose-delivery-id`: Eindeutige Lieferungs-ID für Idempotenz
+- `tradinggoose-signature`: HMAC-SHA256-Signatur zur Verifizierung (falls Secret konfiguriert)
 - `Idempotency-Key`: Identisch mit der Lieferungs-ID zur Erkennung von Duplikaten
 
 ### Signaturverifizierung
 
-Wenn Sie ein Webhook-Secret konfigurieren, überprüfen Sie die Signatur, um sicherzustellen, dass der Webhook von Sim stammt:
+Wenn Sie ein Webhook-Secret konfigurieren, überprüfen Sie die Signatur, um sicherzustellen, dass der Webhook von TradingGoose stammt:
 
 <Tabs items={['Node.js', 'Python']}>
   <Tab value="Node.js">
@@ -362,7 +362,7 @@ Wenn Sie ein Webhook-Secret konfigurieren, überprüfen Sie die Signatur, um sic
 
     // In your webhook handler
     app.post('/webhook', (req, res) => {
-      const signature = req.headers['sim-signature'];
+      const signature = req.headers['tradinggoose-signature'];
       const body = JSON.stringify(req.body);
       
       if (!verifyWebhookSignature(body, signature, process.env.WEBHOOK_SECRET)) {
@@ -398,7 +398,7 @@ Wenn Sie ein Webhook-Secret konfigurieren, überprüfen Sie die Signatur, um sic
     # In your webhook handler
     @app.route('/webhook', methods=['POST'])
     def webhook():
-        signature = request.headers.get('sim-signature')
+        signature = request.headers.get('tradinggoose-signature')
         body = json.dumps(request.json)
         
         if not verify_webhook_signature(body, signature, os.environ['WEBHOOK_SECRET']):
@@ -428,7 +428,7 @@ Fehlgeschlagene Webhook-Zustellungen werden mit exponentiellem Backoff und Jitte
 
 1. **Polling-Strategie**: Verwenden Sie beim Abfragen von Logs die cursorbasierte Paginierung mit `order=asc` und `startDate`, um neue Logs effizient abzurufen.
 
-2. **Webhook-Sicherheit**: Konfigurieren Sie immer ein Webhook-Secret und überprüfen Sie Signaturen, um sicherzustellen, dass Anfragen von Sim stammen.
+2. **Webhook-Sicherheit**: Konfigurieren Sie immer ein Webhook-Secret und überprüfen Sie Signaturen, um sicherzustellen, dass Anfragen von TradingGoose stammen.
 
 3. **Idempotenz**: Verwenden Sie den `Idempotency-Key`Header, um doppelte Webhook-Zustellungen zu erkennen und zu behandeln.
 
@@ -470,7 +470,7 @@ async function pollLogs() {
   }
   
   const response = await fetch(
-    `https://sim.ai/api/v1/logs?${params}`,
+    `https://tradinggoose.ai/api/v1/logs?${params}`,
     {
       headers: {
         'x-api-key': 'YOUR_API_KEY'
@@ -506,9 +506,9 @@ import crypto from 'crypto';
 const app = express();
 app.use(express.json());
 
-app.post('/sim-webhook', (req, res) => {
+app.post('/tradinggoose-webhook', (req, res) => {
   // Verify signature
-  const signature = req.headers['sim-signature'];
+  const signature = req.headers['tradinggoose-signature'];
   const body = JSON.stringify(req.body);
   
   if (!verifyWebhookSignature(body, signature, process.env.WEBHOOK_SECRET)) {
@@ -516,7 +516,7 @@ app.post('/sim-webhook', (req, res) => {
   }
   
   // Check timestamp to prevent replay attacks
-  const timestamp = parseInt(req.headers['sim-timestamp']);
+  const timestamp = parseInt(req.headers['tradinggoose-timestamp']);
   const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
   
   if (timestamp < fiveMinutesAgo) {

@@ -11,7 +11,7 @@ export const GitHubBlock: BlockConfig<GitHubResponse> = {
   authMode: AuthMode.ApiKey,
   longDescription:
     'Integrate Github into the workflow. Can get get PR details, create PR comment, get repository info, and get latest commit. Can be used in trigger mode to trigger a workflow when a PR is created, commented on, or a commit is pushed.',
-  docsLink: 'https://docs.sim.ai/tools/github',
+  docsLink: 'https://docs.tradinggoose.ai/tools/github',
   category: 'tools',
   bgColor: undefined,
   icon: GithubIcon,

@@ -4,8 +4,8 @@ import { execSync } from 'node:child_process'
 import { Octokit } from '@octokit/rest'
 
 const GITHUB_TOKEN = process.env.GH_PAT
-const REPO_OWNER = 'simstudioai'
-const REPO_NAME = 'sim'
+const REPO_OWNER = 'tradinggoose'
+const REPO_NAME = 'tradinggoose'
 
 if (!GITHUB_TOKEN) {
   console.error('❌ GH_PAT environment variable is required')

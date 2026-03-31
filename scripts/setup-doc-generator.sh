@@ -10,9 +10,9 @@ echo "Setting up documentation generator..."
 # Create package.json for scripts directory
 cat > package.json << EOF
 {
-  "name": "sim-doc-generator",
+  "name": "tradinggoose-doc-generator",
   "version": "1.0.0",
-  "description": "Documentation generator for Sim blocks",
+  "description": "Documentation generator for TradingGoose blocks",
   "type": "module",
   "private": true
 }

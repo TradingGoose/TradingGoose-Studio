@@ -414,7 +414,7 @@ export default function CareersPage() {
               </Label>
               <Textarea
                 id='message'
-                placeholder='Tell us about your experience, what excites you about Sim, and why you would be a great fit for this role...'
+                placeholder='Tell us about your experience, what excites you about TradingGoose, and why you would be a great fit for this role...'
                 className={cn(
                   'min-h-[140px]',
                   showErrors &&
@@ -511,10 +511,10 @@ export default function CareersPage() {
           <p>
             Questions? Email us at{' '}
             <a
-              href='mailto:careers@sim.ai'
+              href='mailto:careers@tradinggoose.ai'
               className='font-medium underline transition-colors'
             >
-              careers@sim.ai
+              careers@tradinggoose.ai
             </a>
           </p>
         </section>

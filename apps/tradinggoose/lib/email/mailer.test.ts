@@ -36,14 +36,14 @@ vi.mock('@/lib/env', () => ({
     RESEND_API_KEY: 'test-api-key',
     AZURE_ACS_CONNECTION_STRING: 'test-azure-connection-string',
     AZURE_COMMUNICATION_EMAIL_DOMAIN: 'test.azurecomm.net',
-    NEXT_PUBLIC_APP_URL: 'https://test.sim.ai',
-    FROM_EMAIL_ADDRESS: 'Sim <noreply@sim.ai>',
+    NEXT_PUBLIC_APP_URL: 'https://test.tradinggoose.ai',
+    FROM_EMAIL_ADDRESS: 'TradingGoose <noreply@tradinggoose.ai>',
   },
 }))
 
 vi.mock('@/lib/urls/utils', () => ({
-  getEmailDomain: vi.fn().mockReturnValue('sim.ai'),
-  getBaseUrl: vi.fn().mockReturnValue('https://test.sim.ai'),
+  getEmailDomain: vi.fn().mockReturnValue('tradinggoose.ai'),
+  getBaseUrl: vi.fn().mockReturnValue('https://test.tradinggoose.ai'),
 }))
 
 import { type EmailType, sendBatchEmails, sendEmail } from '@/lib/email/mailer'
@@ -99,7 +99,7 @@ describe('mailer', () => {
 
       // Should call Resend with correct parameters
       expect(mockSend).toHaveBeenCalledWith({
-        from: 'Sim <noreply@sim.ai>',
+        from: 'TradingGoose <noreply@tradinggoose.ai>',
         to: testEmailOptions.to,
         subject: testEmailOptions.subject,
         html: testEmailOptions.html,
@@ -126,13 +126,13 @@ describe('mailer', () => {
 
       // Should call Resend with unsubscribe headers
       expect(mockSend).toHaveBeenCalledWith({
-        from: 'Sim <noreply@sim.ai>',
+        from: 'TradingGoose <noreply@tradinggoose.ai>',
         to: testEmailOptions.to,
         subject: testEmailOptions.subject,
         html: '<p>Test content</p><a href="mock-token-123">Unsubscribe</a>',
         headers: {
           'List-Unsubscribe':
-            '<https://test.sim.ai/unsubscribe?token=mock-token-123&email=test%40example.com>',
+            '<https://test.tradinggoose.ai/unsubscribe?token=mock-token-123&email=test%40example.com>',
           'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         },
       })
@@ -255,7 +255,7 @@ describe('mailer', () => {
 
       // Should have fallen back to Azure
       expect(mockAzureBeginSend).toHaveBeenCalledWith({
-        senderAddress: 'noreply@sim.ai',
+        senderAddress: 'noreply@tradinggoose.ai',
         content: {
           subject: testEmailOptions.subject,
           html: testEmailOptions.html,

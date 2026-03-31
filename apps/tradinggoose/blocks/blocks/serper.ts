@@ -9,7 +9,7 @@ export const SerperBlock: BlockConfig<SearchResponse> = {
   description: 'Search the web using Serper',
   authMode: AuthMode.ApiKey,
   longDescription: 'Integrate Serper into the workflow. Can search the web.',
-  docsLink: 'https://docs.sim.ai/tools/serper',
+  docsLink: 'https://docs.tradinggoose.ai/tools/serper',
   category: 'tools',
   bgColor: undefined,
   icon: SerperIcon,

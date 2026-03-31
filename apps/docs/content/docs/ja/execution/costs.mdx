@@ -7,7 +7,7 @@ import { Callout } from 'fumadocs-ui/components/callout'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
 import { Image } from '@/components/ui/image'
 
-Simはすべてのワークフロー実行のコストを自動的に計算し、AIモデルの使用量と実行料金に基づいた透明な価格設定を提供します。これらのコストを理解することで、ワークフローを最適化し、予算を効果的に管理することができます。
+TradingGooseはすべてのワークフロー実行のコストを自動的に計算し、AIモデルの使用量と実行料金に基づいた透明な価格設定を提供します。これらのコストを理解することで、ワークフローを最適化し、予算を効果的に管理することができます。
 
 ## コストの計算方法
 
@@ -50,7 +50,7 @@ AIブロックを使用するワークフローでは、ログで詳細なコス
 
 <Tabs items={['ホステッドモデル', '自前のAPIキー']}>
   <Tab>
-    **ホステッドモデル** - Simは2.5倍の価格倍率でAPIキーを提供します：
+    **ホステッドモデル** - TradingGooseは2.5倍の価格倍率でAPIキーを提供します：
     
     | モデル | 基本価格（入力/出力） | ホステッド価格（入力/出力） |
     |-------|---------------------------|----------------------------|
@@ -133,7 +133,7 @@ GET /api/users/me/usage-limits
 **リクエスト例：**
 
 ```bash
-curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" https://sim.ai/api/users/me/usage-limits
+curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" https://tradinggoose.ai/api/users/me/usage-limits
 ```
 
 **レスポンス例：**
@@ -180,7 +180,7 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
 
 ## 次のステップ
 
-- [設定 → サブスクリプション](https://sim.ai/settings/subscription)で現在の使用状況を確認する
+- [設定 → サブスクリプション](https://tradinggoose.ai/settings/subscription)で現在の使用状況を確認する
 - 実行詳細を追跡するための[ロギング](/execution/logging)について学ぶ
 - プログラムによるコスト監視のための[外部API](/execution/api)を探索する
 - コスト削減のための[ワークフロー最適化テクニック](/blocks)をチェックする
@@ -196,7 +196,7 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
 
 ### 閾値請求
 
-未請求の超過料金が$50に達すると、Simは自動的に未請求の全額を請求します。
+未請求の超過料金が$50に達すると、TradingGooseは自動的に未請求の全額を請求します。
 
 **例：**
 - 10日目：$70の超過料金 → 即時に$70を請求
@@ -215,7 +215,7 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
 
 ## 次のステップ
 
-- [設定 → サブスクリプション](https://sim.ai/settings/subscription)で現在の使用状況を確認
+- [設定 → サブスクリプション](https://tradinggoose.ai/settings/subscription)で現在の使用状況を確認
 - 実行詳細を追跡するための[ロギング](/execution/logging)について学ぶ
 - プログラムによるコスト監視のための[外部API](/execution/api)を探索
 - コスト削減のための[ワークフロー最適化テクニック](/blocks)をチェック

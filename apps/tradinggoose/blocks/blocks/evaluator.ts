@@ -159,7 +159,7 @@ export const EvaluatorBlock: BlockConfig<EvaluatorResponse> = {
   description: 'Evaluate content',
   longDescription:
     'This is a core workflow block. Assess content quality using customizable evaluation metrics and scoring criteria. Create objective evaluation frameworks with numeric scoring to measure performance across multiple dimensions.',
-  docsLink: 'https://docs.sim.ai/blocks/evaluator',
+  docsLink: 'https://docs.tradinggoose.ai/blocks/evaluator',
   category: 'tools',
   bgColor: '#4D5FFF',
   icon: ChartBarIcon,

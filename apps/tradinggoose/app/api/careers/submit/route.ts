@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
 
     // Send email with resume attachment
     const careersEmailResult = await sendEmail({
-      to: 'careers@sim.ai',
+      to: 'careers@tradinggoose.ai',
       subject: `New Career Application: ${validatedData.name} - ${validatedData.position}`,
       html: careersEmailHtml,
       emailType: 'transactional',
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (!careersEmailResult.success) {
-      logger.error(`[${requestId}] Failed to send email to careers@sim.ai`, {
+      logger.error(`[${requestId}] Failed to send email to careers@tradinggoose.ai`, {
         error: careersEmailResult.message,
       })
       throw new Error('Failed to submit application')
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
 
     const confirmationResult = await sendEmail({
       to: validatedData.email,
-      subject: `Your Application to Sim - ${validatedData.position}`,
+      subject: `Your Application to TradingGoose - ${validatedData.position}`,
       html: confirmationEmailHtml,
       emailType: 'transactional',
       replyTo: validatedData.email,
@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         message:
-          'Failed to submit application. Please try again or email us directly at careers@sim.ai',
+          'Failed to submit application. Please try again or email us directly at careers@tradinggoose.ai',
       },
       { status: 500 }
     )

@@ -22,7 +22,7 @@ export const MicrosoftPlannerBlock: BlockConfig<MicrosoftPlannerResponse> = {
   description: 'Read and create tasks in Microsoft Planner',
   authMode: AuthMode.OAuth,
   longDescription: 'Integrate Microsoft Planner into the workflow. Can read and create tasks.',
-  docsLink: 'https://docs.sim.ai/tools/microsoft_planner',
+  docsLink: 'https://docs.tradinggoose.ai/tools/microsoft_planner',
   category: 'tools',
   bgColor: undefined,
   icon: MicrosoftPlannerIcon,

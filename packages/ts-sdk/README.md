@@ -1,26 +1,26 @@
-# Sim TypeScript SDK
+# TradingGoose TypeScript SDK
 
-The official TypeScript/JavaScript SDK for [Sim](https://sim.ai), allowing you to execute workflows programmatically from your applications.
+The official TypeScript/JavaScript SDK for [TradingGoose](https://tradinggoose.ai), allowing you to execute workflows programmatically from your applications.
 
 ## Installation
 
 ```bash
-npm install simstudio-ts-sdk
+npm install tradinggoose-ts-sdk
 # or 
-yarn add simstudio-ts-sdk
+yarn add tradinggoose-ts-sdk
 # or
-bun add simstudio-ts-sdk
+bun add tradinggoose-ts-sdk
 ```
 
 ## Quick Start
 
 ```typescript
-import { SimStudioClient } from 'simstudio-ts-sdk';
+import { TradingGooseClient } from 'tradinggoose-ts-sdk';
 
 // Initialize the client
-const client = new SimStudioClient({
+const client = new TradingGooseClient({
   apiKey: 'your-api-key-here',
-  baseUrl: 'https://sim.ai' // optional, defaults to https://sim.ai
+  baseUrl: 'https://tradinggoose.ai' // optional, defaults to https://tradinggoose.ai
 });
 
 // Execute a workflow
@@ -34,16 +34,16 @@ try {
 
 ## API Reference
 
-### SimStudioClient
+### TradingGooseClient
 
 #### Constructor
 
 ```typescript
-new SimStudioClient(config: SimStudioConfig)
+new TradingGooseClient(config: TradingGooseConfig)
 ```
 
-- `config.apiKey` (string): Your Sim API key
-- `config.baseUrl` (string, optional): Base URL for the Sim API (defaults to `https://sim.ai`)
+- `config.apiKey` (string): Your TradingGoose API key
+- `config.baseUrl` (string, optional): Base URL for the TradingGoose API (defaults to `https://tradinggoose.ai`)
 
 #### Methods
 
@@ -162,10 +162,10 @@ interface WorkflowStatus {
 }
 ```
 
-### SimStudioError
+### TradingGooseError
 
 ```typescript
-class SimStudioError extends Error {
+class TradingGooseError extends Error {
   code?: string;
   status?: number;
 }
@@ -176,10 +176,10 @@ class SimStudioError extends Error {
 ### Basic Workflow Execution
 
 ```typescript
-import { SimStudioClient } from 'simstudio-ts-sdk';
+import { TradingGooseClient } from 'tradinggoose-ts-sdk';
 
-const client = new SimStudioClient({
-  apiKey: process.env.SIM_API_KEY!
+const client = new TradingGooseClient({
+  apiKey: process.env.TRADINGGOOSE_API_KEY!
 });
 
 async function runWorkflow() {
@@ -215,10 +215,10 @@ runWorkflow();
 ### Error Handling
 
 ```typescript
-import { SimStudioClient, SimStudioError } from 'simstudio-ts-sdk';
+import { TradingGooseClient, TradingGooseError } from 'tradinggoose-ts-sdk';
 
-const client = new SimStudioClient({
-  apiKey: process.env.SIM_API_KEY!
+const client = new TradingGooseClient({
+  apiKey: process.env.TRADINGGOOSE_API_KEY!
 });
 
 async function executeWithErrorHandling() {
@@ -226,7 +226,7 @@ async function executeWithErrorHandling() {
     const result = await client.executeWorkflow('workflow-id');
     return result;
   } catch (error) {
-    if (error instanceof SimStudioError) {
+    if (error instanceof TradingGooseError) {
       switch (error.code) {
         case 'UNAUTHORIZED':
           console.error('Invalid API key');
@@ -255,9 +255,9 @@ async function executeWithErrorHandling() {
 
 ```typescript
 // Using environment variables
-const client = new SimStudioClient({
-  apiKey: process.env.SIM_API_KEY!,
-  baseUrl: process.env.SIM_BASE_URL // optional
+const client = new TradingGooseClient({
+  apiKey: process.env.TRADINGGOOSE_API_KEY!,
+  baseUrl: process.env.TRADINGGOOSE_BASE_URL // optional
 });
 ```
 
@@ -286,11 +286,11 @@ Alternatively, you can manually provide files using the URL format:
 ```
 
 ```typescript
-import { SimStudioClient } from 'simstudio-ts-sdk';
+import { TradingGooseClient } from 'tradinggoose-ts-sdk';
 import fs from 'fs';
 
-const client = new SimStudioClient({
-  apiKey: process.env.SIM_API_KEY!
+const client = new TradingGooseClient({
+  apiKey: process.env.TRADINGGOOSE_API_KEY!
 });
 
 // Node.js: Read file and create File object
@@ -321,7 +321,7 @@ const handleFileUpload = async (event: Event) => {
 
 ## Getting Your API Key
 
-1. Log in to your [Sim](https://sim.ai) account
+1. Log in to your [TradingGoose](https://tradinggoose.ai) account
 2. Navigate to your workflow
 3. Click on "Deploy" to deploy your workflow
 4. Select or create an API key during the deployment process
@@ -373,4 +373,4 @@ bun run dev
 
 ## License
 
-Apache-2.0 
+AGPL-3.0-only

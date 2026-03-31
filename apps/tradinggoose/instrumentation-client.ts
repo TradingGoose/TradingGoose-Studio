@@ -1,11 +1,11 @@
 /**
- * Sim Telemetry - Client-side Instrumentation
+ * TradingGoose Telemetry - Client-side Instrumentation
  */
 
 import { env } from './lib/env'
 
 if (typeof window !== 'undefined') {
-  const TELEMETRY_STATUS_KEY = 'simstudio-telemetry-status'
+  const TELEMETRY_STATUS_KEY = 'tradinggoose-telemetry-status'
   const BATCH_INTERVAL_MS = 10000 // Send batches every 10 seconds
   const MAX_BATCH_SIZE = 50 // Max events per batch
   let telemetryEnabled = true

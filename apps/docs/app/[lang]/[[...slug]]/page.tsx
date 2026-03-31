@@ -1,20 +1,20 @@
-import { findNeighbour } from 'fumadocs-core/server'
 import type * as PageTree from 'fumadocs-core/page-tree'
+import { findNeighbour } from 'fumadocs-core/server'
 import defaultMdxComponents from 'fumadocs-ui/mdx'
-import { DocsBody, DocsDescription, DocsPage, DocsTitle } from '@/components/layout/page'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { DocsBody, DocsDescription, DocsPage, DocsTitle } from '@/components/layout/page'
 import { StructuredData } from '@/components/structured-data'
 import { CodeBlock } from '@/components/ui/code-block'
 import { CopyPageButton } from '@/components/ui/copy-page-button'
-import { source } from '@/lib/source'
 import { humanizeSlug, supportedLanguages } from '@/lib/page-tree'
+import { source } from '@/lib/source'
 
 export default async function Page(props: { params: Promise<{ slug?: string[]; lang: string }> }) {
   const params = await props.params
   const slugSegments = params.slug ?? []
-  const baseUrl = 'https://docs.sim.ai'
+  const baseUrl = 'https://docs.tradinggoose.ai'
 
   const pageTreeRecord = source.pageTree as Record<string, PageTree.Root>
   const pageTree =
@@ -85,7 +85,7 @@ export default async function Page(props: { params: Promise<{ slug?: string[]; l
           />
         </Link>
         <Link
-          href='https://github.com/simstudioai/sim'
+          href='https://github.com/TradingGoose/TradingGoose-Studio'
           target='_blank'
           rel='noopener noreferrer'
           aria-label='GitHub'
@@ -195,10 +195,7 @@ function generateBreadcrumbs(targetUrl: string, pageTitle: string, baseUrl: stri
   let currentPath = ''
 
   urlParts.forEach((part, index) => {
-    if (
-      index === 0 &&
-      supportedLanguages.includes(part as (typeof supportedLanguages)[number])
-    ) {
+    if (index === 0 && supportedLanguages.includes(part as (typeof supportedLanguages)[number])) {
       currentPath = `/${part}`
       return
     }
@@ -221,8 +218,6 @@ function generateBreadcrumbs(targetUrl: string, pageTitle: string, baseUrl: stri
   return breadcrumbs
 }
 
-
-
 export async function generateStaticParams() {
   return source.generateParams()
 }
@@ -232,8 +227,8 @@ export async function generateMetadata(props: {
 }) {
   const params = await props.params
   const slugSegments = params.slug ?? []
-  const baseUrl = 'https://docs.sim.ai'
-  const defaultDescription = 'Sim visual workflow builder for AI applications documentation'
+  const baseUrl = 'https://docs.tradinggoose.ai'
+  const defaultDescription = 'TradingGoose visual workflow builder for AI applications documentation'
 
   const pageTreeRecord = source.pageTree as Record<string, PageTree.Root>
   const pageTree =
@@ -261,7 +256,7 @@ export async function generateMetadata(props: {
     ]
       .flat()
       .filter(Boolean),
-    authors: [{ name: 'Sim Team' }],
+    authors: [{ name: 'TradingGoose Team' }],
     category: 'Developer Tools',
     openGraph: {
       title: page.data.title,

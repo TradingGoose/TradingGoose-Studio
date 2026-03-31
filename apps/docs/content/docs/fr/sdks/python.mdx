@@ -7,7 +7,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
 
-Le SDK Python officiel pour Sim vous permet d'exécuter des workflows de manière programmatique à partir de vos applications Python en utilisant le SDK Python officiel.
+Le SDK Python officiel pour TradingGoose vous permet d'exécuter des workflows de manière programmatique à partir de vos applications Python en utilisant le SDK Python officiel.
 
 <Callout type="info">
   Le SDK Python prend en charge Python 3.8+ avec support d'exécution asynchrone, limitation automatique du débit avec backoff exponentiel, et suivi d'utilisation.
@@ -18,7 +18,7 @@ Le SDK Python officiel pour Sim vous permet d'exécuter des workflows de manièr
 Installez le SDK en utilisant pip :
 
 ```bash
-pip install simstudio-sdk
+pip install tradinggoose-sdk
 ```
 
 ## Démarrage rapide
@@ -26,12 +26,12 @@ pip install simstudio-sdk
 Voici un exemple simple pour commencer :
 
 ```python
-from simstudio import SimStudioClient
+from tradinggoose import TradingGooseClient
 
 # Initialize the client
-client = SimStudioClient(
+client = TradingGooseClient(
     api_key="your-api-key-here",
-    base_url="https://sim.ai"  # optional, defaults to https://sim.ai
+    base_url="https://tradinggoose.ai"  # optional, defaults to https://tradinggoose.ai
 )
 
 # Execute a workflow
@@ -44,17 +44,17 @@ except Exception as error:
 
 ## Référence de l'API
 
-### SimStudioClient
+### TradingGooseClient
 
 #### Constructeur
 
 ```python
-SimStudioClient(api_key: str, base_url: str = "https://sim.ai")
+TradingGooseClient(api_key: str, base_url: str = "https://tradinggoose.ai")
 ```
 
 **Paramètres :**
-- `api_key` (str) : Votre clé API Sim
-- `base_url` (str, facultatif) : URL de base pour l'API Sim
+- `api_key` (str) : Votre clé API TradingGoose
+- `base_url` (str, facultatif) : URL de base pour l'API TradingGoose
 
 #### Méthodes
 
@@ -309,10 +309,10 @@ class UsageLimits:
     usage: Dict[str, Any]
 ```
 
-### SimStudioError
+### TradingGooseError
 
 ```python
-class SimStudioError(Exception):
+class TradingGooseError(Exception):
     def __init__(self, message: str, code: Optional[str] = None, status: Optional[int] = None):
         super().__init__(message)
         self.code = code
@@ -332,7 +332,7 @@ class SimStudioError(Exception):
 
 <Steps>
   <Step title="Initialiser le client">
-    Configurez le SimStudioClient avec votre clé API.
+    Configurez le TradingGooseClient avec votre clé API.
   </Step>
   <Step title="Valider le workflow">
     Vérifiez si le workflow est déployé et prêt pour l'exécution.
@@ -347,9 +347,9 @@ class SimStudioError(Exception):
 
 ```python
 import os
-from simstudio import SimStudioClient
+from tradinggoose import TradingGooseClient
 
-client = SimStudioClient(api_key=os.getenv("SIM_API_KEY"))
+client = TradingGooseClient(api_key=os.getenv("TRADINGGOOSE_API_KEY"))
 
 def run_workflow():
     try:
@@ -384,16 +384,16 @@ run_workflow()
 Gérez différents types d'erreurs qui peuvent survenir pendant l'exécution du workflow :
 
 ```python
-from simstudio import SimStudioClient, SimStudioError
+from tradinggoose import TradingGooseClient, TradingGooseError
 import os
 
-client = SimStudioClient(api_key=os.getenv("SIM_API_KEY"))   
+client = TradingGooseClient(api_key=os.getenv("TRADINGGOOSE_API_KEY"))   
 
 def execute_with_error_handling():
     try:
         result = client.execute_workflow("workflow-id")
         return result
-    except SimStudioError as error:
+    except TradingGooseError as error:
         if error.code == "UNAUTHORIZED":
             print("Invalid API key")
         elif error.code == "TIMEOUT":
@@ -415,11 +415,11 @@ def execute_with_error_handling():
 Utilisez le client comme gestionnaire de contexte pour gérer automatiquement le nettoyage des ressources :
 
 ```python
-from simstudio import SimStudioClient
+from tradinggoose import TradingGooseClient
 import os
 
 # Using context manager to automatically close the session
-with SimStudioClient(api_key=os.getenv("SIM_API_KEY")) as client:
+with TradingGooseClient(api_key=os.getenv("TRADINGGOOSE_API_KEY")) as client:
     result = client.execute_workflow("workflow-id")
     print("Result:", result)
 # Session is automatically closed here
@@ -430,10 +430,10 @@ with SimStudioClient(api_key=os.getenv("SIM_API_KEY")) as client:
 Exécutez plusieurs workflows efficacement :
 
 ```python
-from simstudio import SimStudioClient
+from tradinggoose import TradingGooseClient
 import os
 
-client = SimStudioClient(api_key=os.getenv("SIM_API_KEY"))
+client = TradingGooseClient(api_key=os.getenv("TRADINGGOOSE_API_KEY"))
 
 def execute_workflows_batch(workflow_data_pairs):
     """Execute multiple workflows with different input data."""
@@ -481,9 +481,9 @@ Exécutez des workflows de manière asynchrone pour les tâches de longue durée
 ```python
 import os
 import time
-from simstudio import SimStudioClient
+from tradinggoose import TradingGooseClient
 
-client = SimStudioClient(api_key=os.getenv("SIM_API_KEY"))
+client = TradingGooseClient(api_key=os.getenv("TRADINGGOOSE_API_KEY"))
 
 def execute_async():
     try:
@@ -526,9 +526,9 @@ Gérez les limites de débit automatiquement avec un retrait exponentiel :
 
 ```python
 import os
-from simstudio import SimStudioClient, SimStudioError
+from tradinggoose import TradingGooseClient, TradingGooseError
 
-client = SimStudioClient(api_key=os.getenv("SIM_API_KEY"))
+client = TradingGooseClient(api_key=os.getenv("TRADINGGOOSE_API_KEY"))
 
 def execute_with_retry_handling():
     try:
@@ -543,7 +543,7 @@ def execute_with_retry_handling():
         )
 
         print(f"Success: {result}")
-    except SimStudioError as error:
+    except TradingGooseError as error:
         if error.code == "RATE_LIMIT_EXCEEDED":
             print("Rate limit exceeded after all retries")
 
@@ -563,9 +563,9 @@ Surveillez l'utilisation et les limites de votre compte :
 
 ```python
 import os
-from simstudio import SimStudioClient
+from tradinggoose import TradingGooseClient
 
-client = SimStudioClient(api_key=os.getenv("SIM_API_KEY"))
+client = TradingGooseClient(api_key=os.getenv("TRADINGGOOSE_API_KEY"))
 
 def check_usage():
     try:
@@ -606,10 +606,10 @@ check_usage()
 Exécutez des workflows avec des réponses en streaming en temps réel :
 
 ```python
-from simstudio import SimStudioClient
+from tradinggoose import TradingGooseClient
 import os
 
-client = SimStudioClient(api_key=os.getenv("SIM_API_KEY"))   
+client = TradingGooseClient(api_key=os.getenv("TRADINGGOOSE_API_KEY"))   
 
 def execute_with_streaming():
     """Execute workflow with streaming enabled."""
@@ -657,10 +657,10 @@ def stream_workflow():
 
     def generate():
         response = requests.post(
-            'https://sim.ai/api/workflows/WORKFLOW_ID/execute',
+            'https://tradinggoose.ai/api/workflows/WORKFLOW_ID/execute',
             headers={
                 'Content-Type': 'application/json',
-                'X-API-Key': os.getenv('SIM_API_KEY')
+                'X-API-Key': os.getenv('TRADINGGOOSE_API_KEY')
             },
             json={
                 'message': 'Generate a story',
@@ -707,12 +707,12 @@ Configurez le client en utilisant des variables d'environnement :
 
     ```python
     import os
-    from simstudio import SimStudioClient
+    from tradinggoose import TradingGooseClient
 
     # Development configuration
-    client = SimStudioClient(
-        api_key=os.getenv("SIM_API_KEY")
-        base_url=os.getenv("SIM_BASE_URL", "https://sim.ai")
+    client = TradingGooseClient(
+        api_key=os.getenv("TRADINGGOOSE_API_KEY")
+        base_url=os.getenv("TRADINGGOOSE_BASE_URL", "https://tradinggoose.ai")
     )
     ```
 
@@ -721,16 +721,16 @@ Configurez le client en utilisant des variables d'environnement :
 
     ```python
     import os
-    from simstudio import SimStudioClient
+    from tradinggoose import TradingGooseClient
 
     # Production configuration with error handling
-    api_key = os.getenv("SIM_API_KEY")
+    api_key = os.getenv("TRADINGGOOSE_API_KEY")
     if not api_key:
-        raise ValueError("SIM_API_KEY environment variable is required")
+        raise ValueError("TRADINGGOOSE_API_KEY environment variable is required")
 
-    client = SimStudioClient(
+    client = TradingGooseClient(
         api_key=api_key,
-        base_url=os.getenv("SIM_BASE_URL", "https://sim.ai")
+        base_url=os.getenv("TRADINGGOOSE_BASE_URL", "https://tradinggoose.ai")
     )
     ```
 
@@ -740,8 +740,8 @@ Configurez le client en utilisant des variables d'environnement :
 ## Obtention de votre clé API
 
 <Steps>
-  <Step title="Connectez-vous à Sim">
-    Accédez à [Sim](https://sim.ai) et connectez-vous à votre compte.
+  <Step title="Connectez-vous à TradingGoose">
+    Accédez à [TradingGoose](https://tradinggoose.ai) et connectez-vous à votre compte.
   </Step>
   <Step title="Ouvrez votre workflow">
     Accédez au workflow que vous souhaitez exécuter par programmation.
@@ -764,4 +764,4 @@ Configurez le client en utilisant des variables d'environnement :
 
 ## Licence
 
-Apache-2.0
+AGPL-3.0-only

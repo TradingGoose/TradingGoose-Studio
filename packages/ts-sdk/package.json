@@ -1,7 +1,7 @@
 {
-  "name": "simstudio-ts-sdk",
+  "name": "tradinggoose-ts-sdk",
   "version": "0.1.0",
-  "description": "Sim SDK - Execute workflows programmatically",
+  "description": "TradingGoose SDK - Execute workflows programmatically",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.js",
@@ -24,7 +24,7 @@
     "dist"
   ],
   "keywords": [
-    "simstudio",
+    "tradinggoose",
     "ai",
     "workflow",
     "sdk",
@@ -32,8 +32,8 @@
     "automation",
     "typescript"
   ],
-  "author": "Sim",
-  "license": "Apache-2.0",
+  "author": "TradingGoose",
+  "license": "AGPL-3.0-only",
   "dependencies": {
     "node-fetch": "^3.3.2"
   },
@@ -51,11 +51,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/simstudioai/sim.git",
+    "url": "https://github.com/TradingGoose/TradingGoose-Studio.git",
     "directory": "packages/ts-sdk"
   },
-  "homepage": "https://sim.ai",
+  "homepage": "https://tradinggoose.ai",
   "bugs": {
-    "url": "https://github.com/simstudioai/sim/issues"
+    "url": "https://github.com/TradingGoose/TradingGoose-Studio/issues"
   }
 }

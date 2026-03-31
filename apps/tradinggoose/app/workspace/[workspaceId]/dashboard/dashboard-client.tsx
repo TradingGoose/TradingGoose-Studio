@@ -464,7 +464,7 @@ export function DashboardClient({
         id: 'docs',
         name: 'Docs',
         icon: BookOpen,
-        href: brand.documentationUrl || 'https://docs.sim.ai/',
+        href: brand.documentationUrl || 'https://docs.tradinggoose.ai/',
       },
     ],
     [brand.documentationUrl, workspaceId]

@@ -1,11 +1,11 @@
 {
-  "name": "simstudio",
+  "name": "tradinggoose",
   "version": "0.1.19",
-  "description": "Sim CLI - Run Sim with a single command",
+  "description": "TradingGoose CLI - Run TradingGoose with a single command",
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "simstudio": "dist/index.js"
+    "tradinggoose": "dist/index.js"
   },
   "scripts": {
     "build": "bun run build:tsc",
@@ -16,20 +16,20 @@
     "dist"
   ],
   "keywords": [
-    "simstudio",
+    "tradinggoose",
     "ai",
     "workflow",
     "ui",
     "cli",
-    "sim",
-    "sim-studio",
+    "tradinggoose",
+    "tradinggoose-studio",
     "agent",
     "agents",
     "automation",
     "docker"
   ],
-  "author": "Sim",
-  "license": "Apache-2.0",
+  "author": "TradingGoose",
+  "license": "AGPL-3.0-only",
   "dependencies": {
     "chalk": "^4.1.2",
     "commander": "^11.1.0",

@@ -4,7 +4,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('AuthErrorHandler')
 let isHandlingAuthError = false
-const LAST_RECOVERY_KEY = 'sim-auth-recovery-ts'
+const LAST_RECOVERY_KEY = 'tradinggoose-auth-recovery-ts'
 const AUTH_COOKIE_NAMES = [
   'better-auth.session_token',
   'better-auth.session_data',

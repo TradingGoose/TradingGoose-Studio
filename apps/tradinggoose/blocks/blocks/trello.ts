@@ -18,7 +18,7 @@ export const TrelloBlock: BlockConfig<ToolResponse> = {
   authMode: AuthMode.OAuth,
   longDescription:
     'Integrate with Trello to manage boards and cards. List boards, list cards, create cards, update cards, get actions, and add comments.',
-  docsLink: 'https://docs.sim.ai/tools/trello',
+  docsLink: 'https://docs.tradinggoose.ai/tools/trello',
   category: 'tools',
   bgColor: '#0052CC',
   icon: TrelloIcon,

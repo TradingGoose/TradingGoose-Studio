@@ -82,9 +82,9 @@
     --popover-foreground: 240 10% 3.922%;
 
     /* Primary Colors */
-    --primary: 48, 100%, 50%;
+    --primary: 48 100% 50%;
     --primary-foreground: 20 14.3% 4.1%;
-    --primary-hover: 48, 100%, 50%;
+    --primary-hover: 48 100% 50%;
 
     /* Secondary Colors */
     --secondary: 240 4.8% 90.9%;
@@ -160,9 +160,9 @@
     --popover-foreground: 0 0% 98.039%;
 
     /* Primary Colors */
-    --primary: 48, 100%, 50%;
+    --primary: 48 100% 50%;
     --primary-foreground: 20 14.3% 4.1%;
-    --primary-hover: 48, 100%, 50%;
+    --primary-hover: 48 100% 50%;
 
     /* Secondary Colors */
     --secondary: 240 6.5% 15.1%;

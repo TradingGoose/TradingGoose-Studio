@@ -12,7 +12,7 @@ export const SupabaseBlock: BlockConfig<SupabaseResponse> = {
   authMode: AuthMode.ApiKey,
   longDescription:
     'Integrate Supabase into the workflow. Can get many rows, get, create, update, delete, and upsert a row.',
-  docsLink: 'https://docs.sim.ai/tools/supabase',
+  docsLink: 'https://docs.tradinggoose.ai/tools/supabase',
   category: 'tools',
   bgColor: undefined,
   icon: SupabaseIcon,

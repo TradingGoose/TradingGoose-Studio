@@ -22,8 +22,8 @@ export async function generateInternalToken(): Promise<string> {
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('5m')
-    .setIssuer('sim-internal')
-    .setAudience('sim-api')
+    .setIssuer('tradinggoose-internal')
+    .setAudience('tradinggoose-api')
     .sign(secret)
 
   return token
@@ -38,8 +38,8 @@ export async function verifyInternalToken(token: string): Promise<boolean> {
     const secret = getJwtSecret()
 
     const { payload } = await jwtVerify(token, secret, {
-      issuer: 'sim-internal',
-      audience: 'sim-api',
+      issuer: 'tradinggoose-internal',
+      audience: 'tradinggoose-api',
     })
 
     // Check that it's an internal token

@@ -7,7 +7,7 @@ import { Callout } from 'fumadocs-ui/components/callout'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
 import { Image } from '@/components/ui/image'
 
-Sim berechnet automatisch die Kosten für alle Workflow-Ausführungen und bietet transparente Preise basierend auf der Nutzung von KI-Modellen und Ausführungsgebühren. Das Verständnis dieser Kosten hilft Ihnen, Workflows zu optimieren und Ihr Budget effektiv zu verwalten.
+TradingGoose berechnet automatisch die Kosten für alle Workflow-Ausführungen und bietet transparente Preise basierend auf der Nutzung von KI-Modellen und Ausführungsgebühren. Das Verständnis dieser Kosten hilft Ihnen, Workflows zu optimieren und Ihr Budget effektiv zu verwalten.
 
 ## Wie Kosten berechnet werden
 
@@ -50,7 +50,7 @@ Die Modellaufschlüsselung zeigt:
 
 <Tabs items={['Gehostete Modelle', 'Eigener API-Schlüssel']}>
   <Tab>
-    **Gehostete Modelle** - Sim stellt API-Schlüssel mit einem 2,5-fachen Preismultiplikator bereit:
+    **Gehostete Modelle** - TradingGoose stellt API-Schlüssel mit einem 2,5-fachen Preismultiplikator bereit:
     
     | Modell | Basispreis (Eingabe/Ausgabe) | Gehosteter Preis (Eingabe/Ausgabe) |
     |-------|---------------------------|----------------------------|
@@ -133,7 +133,7 @@ GET /api/users/me/usage-limits
 **Beispielanfrage:**
 
 ```bash
-curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" https://sim.ai/api/users/me/usage-limits
+curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" https://tradinggoose.ai/api/users/me/usage-limits
 ```
 
 **Beispielantwort:**
@@ -180,7 +180,7 @@ Verschiedene Abonnementpläne haben unterschiedliche Nutzungslimits:
 
 ## Nächste Schritte
 
-- Überprüfen Sie Ihre aktuelle Nutzung unter [Einstellungen → Abonnement](https://sim.ai/settings/subscription)
+- Überprüfen Sie Ihre aktuelle Nutzung unter [Einstellungen → Abonnement](https://tradinggoose.ai/settings/subscription)
 - Erfahren Sie mehr über [Logging](/execution/logging), um Ausführungsdetails zu verfolgen
 - Erkunden Sie die [Externe API](/execution/api) für programmatische Kostenüberwachung
 - Sehen Sie sich [Workflow-Optimierungstechniken](/blocks) an, um Kosten zu reduzieren
@@ -196,7 +196,7 @@ Verschiedene Abonnementpläne haben unterschiedliche Nutzungslimits:
 
 ### Schwellenwertabrechnung
 
-Wenn die nicht abgerechnete Überschreitung 50 $ erreicht, berechnet Sim automatisch den gesamten nicht abgerechneten Betrag.
+Wenn die nicht abgerechnete Überschreitung 50 $ erreicht, berechnet TradingGoose automatisch den gesamten nicht abgerechneten Betrag.
 
 **Beispiel:**
 - Tag 10: 70 $ Überschreitung → Sofortige Abrechnung von 70 $
@@ -215,7 +215,7 @@ Dies verteilt hohe Überschreitungsgebühren über den Monat, anstatt eine groß
 
 ## Nächste Schritte
 
-- Überprüfen Sie Ihre aktuelle Nutzung unter [Einstellungen → Abonnement](https://sim.ai/settings/subscription)
+- Überprüfen Sie Ihre aktuelle Nutzung unter [Einstellungen → Abonnement](https://tradinggoose.ai/settings/subscription)
 - Erfahren Sie mehr über [Protokollierung](/execution/logging), um Ausführungsdetails zu verfolgen
 - Erkunden Sie die [externe API](/execution/api) für programmatische Kostenüberwachung
 - Sehen Sie sich [Workflow-Optimierungstechniken](/blocks) zur Kostenreduzierung an

@@ -25,7 +25,7 @@ import { BlockInfoCard } from "@/components/ui/block-info-card"
 
 ## Aperçu
 
-Le bloc Webhook générique vous permet de recevoir des webhooks depuis n'importe quel service externe. C'est un déclencheur flexible qui peut traiter n'importe quelle charge utile JSON, ce qui le rend idéal pour l'intégration avec des services qui n'ont pas de bloc Sim dédié.
+Le bloc Webhook générique vous permet de recevoir des webhooks depuis n'importe quel service externe. C'est un déclencheur flexible qui peut traiter n'importe quelle charge utile JSON, ce qui le rend idéal pour l'intégration avec des services qui n'ont pas de bloc TradingGoose dédié.
 
 ## Utilisation de base
 
@@ -34,9 +34,9 @@ Le bloc Webhook générique vous permet de recevoir des webhooks depuis n'import
 Sans définir un format d'entrée, le webhook transmet l'intégralité du corps de la requête tel quel :
 
 ```bash
-curl -X POST https://sim.ai/api/webhooks/trigger/{webhook-path} \
+curl -X POST https://tradinggoose.ai/api/webhooks/trigger/{webhook-path} \
   -H "Content-Type: application/json" \
-  -H "X-Sim-Secret: your-secret" \
+  -H "X-TradingGoose-Secret: your-secret" \
   -d '{
     "message": "Test webhook trigger",
     "data": {
@@ -66,9 +66,9 @@ Définissez un schéma d'entrée pour obtenir des champs typés et activer des f
 **Requête webhook :**
 
 ```bash
-curl -X POST https://sim.ai/api/webhooks/trigger/{webhook-path} \
+curl -X POST https://tradinggoose.ai/api/webhooks/trigger/{webhook-path} \
   -H "Content-Type: application/json" \
-  -H "X-Sim-Secret: your-secret" \
+  -H "X-TradingGoose-Secret: your-secret" \
   -d '{
     "message": "Invoice submission",
     "priority": 1,
@@ -156,9 +156,9 @@ echo "Hello World" | base64
 # SGVsbG8gV29ybGQK
 
 # Send webhook with file
-curl -X POST https://sim.ai/api/webhooks/trigger/{webhook-path} \
+curl -X POST https://tradinggoose.ai/api/webhooks/trigger/{webhook-path} \
   -H "Content-Type: application/json" \
-  -H "X-Sim-Secret: your-secret" \
+  -H "X-TradingGoose-Secret: your-secret" \
   -d '{
     "subject": "Document for review",
     "attachments": [
@@ -180,20 +180,20 @@ Dans la configuration du webhook :
 1. Activez "Exiger l'authentification"
 2. Définissez un jeton secret
 3. Choisissez le type d'en-tête :
-   - **En-tête personnalisé** : `X-Sim-Secret: your-token`
+   - **En-tête personnalisé** : `X-TradingGoose-Secret: your-token`
    - **Autorisation Bearer** : `Authorization: Bearer your-token`
 
 ### Utilisation de l'authentification
 
 ```bash
 # With custom header
-curl -X POST https://sim.ai/api/webhooks/trigger/{webhook-path} \
+curl -X POST https://tradinggoose.ai/api/webhooks/trigger/{webhook-path} \
   -H "Content-Type: application/json" \
-  -H "X-Sim-Secret: your-secret-token" \
+  -H "X-TradingGoose-Secret: your-secret-token" \
   -d '{"message": "Authenticated request"}'
 
 # With bearer token
-curl -X POST https://sim.ai/api/webhooks/trigger/{webhook-path} \
+curl -X POST https://tradinggoose.ai/api/webhooks/trigger/{webhook-path} \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-secret-token" \
   -d '{"message": "Authenticated request"}'
