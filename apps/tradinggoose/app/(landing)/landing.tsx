@@ -22,12 +22,7 @@ const Feature = dynamic(() => import('@/app/(landing)/components/feature/feature
   loading: () => <div className='h-[600px] animate-pulse bg-gray-50' />,
 })
 
-const LandingPricing = dynamic(
-  () => import('@/app/(landing)/components/landing-pricing/landing-pricing'),
-  {
-    loading: () => <div className='h-[400px] animate-pulse bg-gray-50' />,
-  }
-)
+
 
 const Integrations = dynamic(() => import('@/app/(landing)/components/integrations/integrations'), {
   loading: () => <div className='h-[300px] animate-pulse bg-gray-50' />,
@@ -90,16 +85,7 @@ export default function Landing() {
         >
           <Integrations />
         </Suspense>
-        <Suspense
-          fallback={
-            <div
-              className='h-[400px] animate-pulse bg-gray-50'
-              aria-label='Loading pricing section'
-            />
-          }
-        >
-          <LandingPricing />
-        </Suspense>
+        {/* Pricing section hidden for now */}
         <Suspense
           fallback={
             <div

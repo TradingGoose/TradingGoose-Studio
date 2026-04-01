@@ -50,7 +50,7 @@ const ProcessFlow = ({ initialProcess }: { initialProcess: Process[] }) => {
             delay: index * 0.05,
           }}
         >
-          <div className='card group relative h-full overflow-hidden rounded-xl bg-foreground/10 p-px transition-all duration-300 ease-in-out'>
+          <div className='card group relative h-full overflow-hidden rounded-lg bg-foreground/10 p-px transition-all duration-300 ease-in-out'>
             <div
               className='blob absolute top-0 left-0 h-[120px] w-[120px] rounded-full opacity-0 blur-xl transition-all duration-300 ease-in-out'
               style={{ backgroundColor: 'hsl(var(--primary) / 0.7)' }}
@@ -59,7 +59,7 @@ const ProcessFlow = ({ initialProcess }: { initialProcess: Process[] }) => {
               className='fake-blob absolute top-0 left-0 h-40 w-40 rounded-full'
               style={{ visibility: 'hidden' }}
             />
-            <Card className='relative h-full overflow-hidden rounded-xl border shadow-none'>
+            <Card className='relative h-full overflow-hidden rounded-lg border shadow-none'>
               <div
                 className='pointer-events-none absolute inset-0 z-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100'
                 style={{

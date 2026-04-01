@@ -1,6 +1,7 @@
 'use client'
 
-import { ArrowRightIcon, CreditCardIcon } from 'lucide-react'
+import { CreditCardIcon } from 'lucide-react'
+import { DiscordIcon } from '@/components/icons/icons'
 import { BackgroundRippleEffect } from '@/components/ui/background-ripple-effect'
 import { Button } from '@/components/ui/button'
 
@@ -27,13 +28,15 @@ export default function CallToAction() {
               Let AI agents work your trading strategy.
             </h2>
             <p className='text-balance text-center text-muted-foreground text-sm md:text-base'>
-              Start building for free. No credit card{' '}
-              <CreditCardIcon className='inline-block size-4' /> required.
+              See what the commutity is building with TradingGoose.
             </p>
           </div>
           <div className='flex items-center justify-center'>
-            <Button className='shadow'>
-              Get Started <ArrowRightIcon data-icon='inline-end' />
+            <Button variant='outline' asChild>
+              <a href='https://discord.gg/wavf5JWhuT' target='_blank' rel='noopener noreferrer'>
+                <DiscordIcon className='size-4' />
+                Join Discord
+              </a>
             </Button>
           </div>
         </div>

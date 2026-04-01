@@ -141,28 +141,14 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
           )}
 
           {!hideAuthButtons && (
-            <>
-              <Button
-                variant='ghost'
-                size='sm'
-                className='hidden rounded-md font-medium text-base text-foreground md:inline-flex'
-                onClick={handleLoginClick}
-                type='button'
-                aria-label='Log in to your account'
-              >
-                Log in
-              </Button>
-              <Button
-                className='hidden rounded-md text-base text-black md:inline-flex'
-                size='sm'
-                asChild
-                aria-label='Get started with TradingGoose - Sign up for free'
-              >
-                <Link href='/signup' prefetch>
-                  Get started
-                </Link>
-              </Button>
-            </>
+            <Button
+              size='sm'
+              disabled
+              className='hidden rounded-md text-base md:inline-flex'
+              aria-label='Coming soon'
+            >
+              Coming soon
+            </Button>
           )}
 
           {variant === 'landing' && (
@@ -208,25 +194,12 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
                       <DropdownMenuSeparator />
                       <DropdownMenuItem className='!bg-transparent'>
                         <Button
-                          className='w-full justify-start'
-                          variant='ghost'
-                          size='sm'
-                          onClick={handleLoginClick}
-                          aria-label='Log in to your account'
-                        >
-                          Log in
-                        </Button>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className='!bg-transparent'>
-                        <Button
                           className='w-full justify-start rounded-lg'
                           size='sm'
-                          asChild
-                          aria-label='Get started with TradingGoose - Sign up for free'
+                          disabled
+                          aria-label='Coming soon'
                         >
-                          <Link href='/signup' prefetch>
-                            Get started
-                          </Link>
+                          Coming soon
                         </Button>
                       </DropdownMenuItem>
                     </>

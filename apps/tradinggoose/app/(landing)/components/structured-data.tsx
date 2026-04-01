@@ -24,7 +24,7 @@ export default function StructuredData() {
           'https://x.com/simdotai',
           'https://github.com/TradingGoose/TradingGoose-Studio',
           'https://www.linkedin.com/company/tradinggoose/',
-          'https://discord.gg/Hr4UWYEcTT',
+          'https://discord.gg/wavf5JWhuT',
         ],
         contactPoint: {
           '@type': 'ContactPoint',

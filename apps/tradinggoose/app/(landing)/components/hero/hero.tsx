@@ -2,19 +2,19 @@
 
 import { useRef } from 'react'
 
-import Image from 'next/image'
 import {
-  ArrowRightIcon,
-  BotMessageSquareIcon,
-  ChartCandlestick,
-  CodeXmlIcon,
-  ChartLine,
-  Workflow,
-  LayoutDashboardIcon,
   ActivityIcon,
   BlocksIcon,
+  BotMessageSquareIcon,
+  ChartCandlestick,
+  ChartLine,
+  CodeXmlIcon,
+  LayoutDashboardIcon,
+  Workflow,
 } from 'lucide-react'
-
+import Image from 'next/image'
+import { PerplexityIcon } from '@/components/icons/icons'
+import { GeminiIcon } from '@/components/icons/provider-icons'
 import { AnimatedBeam } from '@/components/ui/animated-beam'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -42,7 +42,7 @@ const Hero = () => {
       <div className='relative z-10 mx-auto flex max-w-7xl flex-col items-center gap-8 px-4 sm:gap-16 sm:px-6 lg:gap-24 lg:px-8'>
         <div className='flex flex-col items-center gap-4 text-center'>
           <Badge variant='outline' className='relative bg-background z-10 text-sm font-normal'>
-            Honk! Introducing TradingGoose Studio 🚀
+            Honk! TradingGoose-Studio comming soon 🚀
           </Badge>
 
           <h1 className='relative z-10 text-2xl font-semibold sm:text-3xl lg:text-5xl lg:font-bold'>
@@ -80,18 +80,26 @@ const Hero = () => {
             </Badge>
           </div>
 
-          <div className='relative z-10 mt-4 flex flex-wrap items-center gap-4'>
-            <Button
-              size='sm'
-              className='group relative w-fit overflow-hidden rounded-md px-6 font-bold shadow-md bg-primary text-black hover:bg-primary-hover'
-              asChild
-            >
-              <a href='#'>
-                Get started <ArrowRightIcon className='transition-transform duration-200 group-hover:translate-x-0.5' />
+          <div className='relative z-10 mt-4 flex flex-wrap items-center justify-center gap-3'>
+            <Button variant='outline' size='sm' asChild>
+              <a
+                href='https://google.com/ai?q=I+am+using+TradingGoose-Studio+from+https%3A%2F%2Fgithub.com%2FTradingGoose%2FTradingGoose-Studio.+How+do+I+automate+a+strategy+using+this+library'
+                target='_blank'
+                rel='noopener noreferrer'
+              >
+                <GeminiIcon className='size-4' />
+                Ask Google Gemini
               </a>
             </Button>
-            <Button size='sm' asChild className='rounded-md px-6 text-base bg-secondary text-secondary-foreground hover:bg-secondary/50 shadow-md'>
-              <a href='#'>Learn more</a>
+            <Button variant='outline' size='sm' asChild>
+              <a
+                href='https://perplexity.ai?q=I+am+using+TradingGoose-Studio+from+https%3A%2F%2Fgithub.com%2FTradingGoose%2FTradingGoose-Studio.+How+do+I+automate+a+strategy+using+this+library'
+                target='_blank'
+                rel='noopener noreferrer'
+              >
+                <PerplexityIcon className='size-4' />
+                Ask Perplexity
+              </a>
             </Button>
           </div>
 
