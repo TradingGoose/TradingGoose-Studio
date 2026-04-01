@@ -704,4 +704,4 @@ kubectl logs job/<release>-migrations
 
 - Documentation: https://docs.tradinggoose.ai
 - GitHub Issues: https://github.com/TradingGoose/TradingGoose-Studio/issues
-- Discord: https://discord.gg/Hr4UWYEcTT
+- Discord: https://discord.gg/wavf5JWhuT

@@ -105,7 +105,7 @@ export default async function Page(props: { params: Promise<{ slug?: string[]; l
           />
         </Link>
         <Link
-          href='https://discord.gg/Hr4UWYEcTT'
+          href='https://discord.gg/wavf5JWhuT'
           target='_blank'
           rel='noopener noreferrer'
           aria-label='Discord'
