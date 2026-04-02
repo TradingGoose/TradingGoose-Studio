@@ -15,9 +15,9 @@ const productLinks: FooterLink[] = [
   { label: 'Widgets', href: 'https://docs.tradinggoose.ai/widgets', external: true },
   { label: 'Blocks', href: 'https://docs.tradinggoose.ai/blocks', external: true },
   { label: 'Tools', href: 'https://docs.tradinggoose.ai/tools', external: true },
-  { label: 'Pricing', href: '/#pricing', external: false },
+  //{ label: 'Pricing', href: '/#pricing', external: false },
   { label: 'Changelog', href: '/changelog', external: false },
-  { label: 'Enterprise', href: 'https://form.typeform.com/to/jqCO12pF', external: true },
+  //{ label: 'Enterprise', href: '', external: true },
 ]
 
 const legalLinks: FooterLink[] = [

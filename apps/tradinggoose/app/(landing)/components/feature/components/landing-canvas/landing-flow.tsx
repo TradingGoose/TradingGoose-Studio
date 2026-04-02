@@ -8,6 +8,14 @@ import { LandingNode } from './landing-block/landing-node'
 import { CARD_WIDTH, type LandingCanvasProps } from './landing-canvas'
 import { LandingEdge } from './landing-edge/landing-edge'
 
+const nodeTypes = {
+  landing: LandingNode,
+  landingLoop: LandingLoopNode,
+  group: LandingLoopNode,
+}
+
+const edgeTypes = { landingEdge: LandingEdge }
+
 /**
  * Props for the LandingFlow component
  */
@@ -43,17 +51,6 @@ export function LandingFlow({
   const onNodesChange = React.useCallback((changes: NodeChange[]) => {
     setLocalNodes((nds) => applyNodeChanges(changes, nds))
   }, [])
-
-  // Node and edge types map
-  const nodeTypes = React.useMemo(
-    () => ({
-      landing: LandingNode,
-      landingLoop: LandingLoopNode,
-      group: LandingLoopNode, // Use our custom loop node for group type
-    }),
-    []
-  )
-  const edgeTypes = React.useMemo(() => ({ landingEdge: LandingEdge }), [])
 
   // Compose nodes with optional group overlay
   const flowNodes = localNodes

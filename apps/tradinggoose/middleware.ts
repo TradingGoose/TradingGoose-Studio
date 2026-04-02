@@ -6,6 +6,30 @@ import { generateRuntimeCSP } from './lib/security/csp'
 const logger = createLogger('Middleware')
 
 const AUTH_ROUTES = new Set(['/login', '/signup'])
+
+/**
+ * When running in hosted mode (tradinggoose.ai / staging), only landing pages
+ * are served. Every other route gets a 404 so we can show "coming soon" only.
+ */
+const HOSTED_ALLOWED_PATHS = new Set(['/', '/licenses', '/privacy', '/terms'])
+
+function isHostedEnvironment(): boolean {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL
+  return appUrl === 'https://www.tradinggoose.ai' || appUrl === 'https://staging.tradinggoose.ai'
+}
+
+function isAllowedInHostedMode(pathname: string): boolean {
+  if (HOSTED_ALLOWED_PATHS.has(pathname)) return true
+  // Allow static assets, Next.js internals, and public files
+  if (pathname.startsWith('/_next/')) return true
+  if (pathname.startsWith('/favicon')) return true
+  if (pathname.startsWith('/social/')) return true
+  if (pathname.startsWith('/logo/')) return true
+  if (pathname.startsWith('/static/')) return true
+  if (pathname === '/robots.txt' || pathname === '/sitemap.xml' || pathname === '/manifest.webmanifest') return true
+  if (pathname === '/changelog.xml' || pathname === '/llms.txt') return true
+  return false
+}
 const AUTH_COOKIE_KEYS = [
   'better-auth.session_token',
   'better-auth.session_data',
@@ -100,6 +124,11 @@ function handleSecurityFiltering(request: NextRequest): NextResponse | null {
 
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl
+
+  // In hosted mode, only serve landing pages — everything else is 404
+  if (isHostedEnvironment() && !isAllowedInHostedMode(url.pathname)) {
+    return NextResponse.rewrite(new URL('/not-found', request.url), { status: 404 })
+  }
 
   const hasActiveSession = Boolean(getSessionCookie(request))
 

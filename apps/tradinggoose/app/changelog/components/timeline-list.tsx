@@ -102,7 +102,9 @@ export default function ChangelogList({ initialEntries }: Props) {
           {/* Left: sticky version + date (desktop) */}
           <div className='sticky top-19 flex w-36 flex-col items-end gap-2 self-start pb-4 max-md:hidden'>
             <Badge className='flex w-auto justify-end rounded-sm text-sm font-medium'>
-              {entry.tag}
+              <a href={entry.url} target='_blank' rel='noopener noreferrer'>
+                {entry.tag}
+              </a>
             </Badge>
             <div className={`${inter.className} text-right text-sm text-muted-foreground`}>
               {new Date(entry.date).toLocaleDateString('en-US', {

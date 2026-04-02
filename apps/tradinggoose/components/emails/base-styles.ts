@@ -38,7 +38,7 @@ export const baseStyles = {
   logo: {
     width: '40px',
     height: '40px',
-    borderRadius: '14px',
+    borderRadius: '8px',
     objectFit: 'cover' as const,
   },
   brandName: {
@@ -77,7 +77,7 @@ export const baseStyles = {
     display: 'inline-block',
     backgroundColor: primaryColor,
     color: '#000000',
-    fontWeight: 800,
+    fontWeight: 600,
     fontSize: '15px',
     padding: '12px 24px',
     borderRadius: '20px',

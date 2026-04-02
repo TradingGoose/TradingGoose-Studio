@@ -1,12 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef } from 'react'
-import ReactFlow, {
-  Background,
-  ConnectionLineType,
-  type Node,
-  ReactFlowProvider,
-} from 'reactflow'
+import ReactFlow, { Background, ConnectionLineType, type Node, ReactFlowProvider } from 'reactflow'
 import 'reactflow/dist/style.css'
 import { cn } from '@/lib/utils'
 import { getBlock } from '@/blocks'
@@ -18,9 +13,9 @@ import {
 } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/block-registry'
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
-// Stable references outside component to prevent ReactFlow warning #002
-const nodeTypes = { ...importedNodeTypes }
-const edgeTypes = { ...importedEdgeTypes }
+// Stable references outside the component prevent ReactFlow warning #002.
+const nodeTypes = importedNodeTypes
+const edgeTypes = importedEdgeTypes
 
 const LANDING_WORKSPACE_ID = 'landing-preview'
 const LANDING_WORKFLOW_ID = 'landing-workflow'

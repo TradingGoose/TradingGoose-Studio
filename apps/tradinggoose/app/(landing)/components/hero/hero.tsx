@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { useCallback, useRef } from 'react'
 
 import {
   ActivityIcon,
@@ -37,6 +37,40 @@ const Hero = () => {
   const spanRef6 = useRef<HTMLSpanElement>(null)
   const spanRef7 = useRef<HTMLSpanElement>(null)
   const spanRef8 = useRef<HTMLSpanElement>(null)
+
+  const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)]
+
+  const buildPrompt = () => {
+    const intros = [
+      'I am exploring TradingGoose-Studio (https://github.com/TradingGoose/TradingGoose-Studio).',
+      'I just discovered TradingGoose-Studio from https://github.com/TradingGoose/TradingGoose-Studio.',
+      'I want to try TradingGoose-Studio (https://github.com/TradingGoose/TradingGoose-Studio) for my trading setup.',
+    ]
+    const actions = [
+      'How do I', 'Can you show me how to', 'What is the best way to', 'Walk me through how to',
+    ]
+    const topics = [
+      'automate a trading strategy end-to-end',
+      'build a custom indicator using PineTS',
+      'connect a live data provider and stream real-time prices',
+      'create an AI agent workflow that places trades automatically',
+      'set up workspace layouts with split panels and widgets',
+      'integrate Slack or Discord alerts into a workflow',
+      'backtest a strategy using historical candle data',
+      'use condition and loop blocks to build branching logic',
+      'deploy a workflow that monitors RSI and triggers a buy order',
+      'combine multiple indicators on a single chart',
+    ]
+    return `${pick(intros)} ${pick(actions)} ${pick(topics)}?`
+  }
+
+  const handleAskClick = useCallback(
+    (base: string) => () => {
+      window.open(`${base}${encodeURIComponent(buildPrompt())}`, '_blank')
+    },
+    []
+  )
+
   return (
     <section className='flex-1 pt-8 sm:pt-16 lg:pt-24'>
       <div className='relative z-10 mx-auto flex max-w-7xl flex-col items-center gap-8 px-4 sm:gap-16 sm:px-6 lg:gap-24 lg:px-8'>
@@ -81,25 +115,23 @@ const Hero = () => {
           </div>
 
           <div className='relative z-10 mt-4 flex flex-wrap items-center justify-center gap-3'>
-            <Button variant='outline' size='sm' asChild>
-              <a
-                href='https://google.com/ai?q=I+am+using+TradingGoose-Studio+from+https%3A%2F%2Fgithub.com%2FTradingGoose%2FTradingGoose-Studio.+How+do+I+automate+a+strategy+using+this+library'
-                target='_blank'
-                rel='noopener noreferrer'
-              >
-                <GeminiIcon className='size-4' />
-                Ask Google Gemini
-              </a>
+            <Button
+              variant='outline'
+              className='bg-background'
+              size='sm'
+              onClick={handleAskClick('https://google.com/ai?q=')}
+            >
+              <GeminiIcon className='size-4 bg-background' />
+              Ask Google Gemini
             </Button>
-            <Button variant='outline' size='sm' asChild>
-              <a
-                href='https://perplexity.ai?q=I+am+using+TradingGoose-Studio+from+https%3A%2F%2Fgithub.com%2FTradingGoose%2FTradingGoose-Studio.+How+do+I+automate+a+strategy+using+this+library'
-                target='_blank'
-                rel='noopener noreferrer'
-              >
-                <PerplexityIcon className='size-4' />
-                Ask Perplexity
-              </a>
+            <Button
+              variant='outline'
+              size='sm'
+              className='bg-background'
+              onClick={handleAskClick('https://perplexity.ai?q=')}
+            >
+              <PerplexityIcon className='size-4 bg-background' />
+              Ask Perplexity
             </Button>
           </div>
 

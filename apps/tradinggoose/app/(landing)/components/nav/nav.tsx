@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Separator } from '@/components/ui/separator'
 import { useBrandConfig } from '@/lib/branding/branding'
+import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getFormattedGitHubStars } from '@/app/(landing)/actions/github'
 import { soehne } from '@/app/fonts/soehne/soehne'
@@ -75,6 +76,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
       >
         Docs
       </Link>
+      {/*
       <Link href='#pricing' className='transition-colors hover:text-foreground' scroll>
         Pricing
       </Link>
@@ -86,6 +88,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
       >
         Enterprise
       </button>
+      */}
       <a
         href='https://github.com/TradingGoose/TradingGoose-Studio'
         target='_blank'
@@ -140,7 +143,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
             <Separator orientation='vertical' className='hidden h-6 md:block' />
           )}
 
-          {!hideAuthButtons && (
+          {!hideAuthButtons && isHosted && (
             <Button
               size='sm'
               disabled
@@ -149,6 +152,25 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
             >
               Coming soon
             </Button>
+          )}
+          {!hideAuthButtons && !isHosted && (
+            <div className='hidden items-center gap-2 md:flex'>
+              <Button
+                variant='ghost'
+                size='sm'
+                onClick={handleLoginClick}
+                className='rounded-md text-base'
+              >
+                Login
+              </Button>
+              <Button
+                size='sm'
+                onClick={() => router.push('/signup')}
+                className='rounded-md text-base'
+              >
+                Get Started
+              </Button>
+            </div>
           )}
 
           {variant === 'landing' && (
@@ -172,12 +194,14 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
                       Docs
                     </Link>
                   </DropdownMenuItem>
+                  {/*
                   <DropdownMenuItem>
                     <Link href='#pricing' scroll className='w-full'>
                       Pricing
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem onSelect={handleEnterpriseClick}>Enterprise</DropdownMenuItem>
+                  */}
                   <DropdownMenuItem>
                     <a
                       href='https://github.com/TradingGoose/TradingGoose-Studio'
@@ -189,7 +213,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
                       <span aria-live='polite'>{githubStars}</span>
                     </a>
                   </DropdownMenuItem>
-                  {!hideAuthButtons && (
+                  {!hideAuthButtons && isHosted && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem className='!bg-transparent'>
@@ -200,6 +224,30 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
                           aria-label='Coming soon'
                         >
                           Coming soon
+                        </Button>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  {!hideAuthButtons && !isHosted && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className='!bg-transparent'>
+                        <Button
+                          variant='ghost'
+                          className='w-full justify-start rounded-lg'
+                          size='sm'
+                          onClick={handleLoginClick}
+                        >
+                          Login
+                        </Button>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className='!bg-transparent'>
+                        <Button
+                          className='w-full justify-start rounded-lg'
+                          size='sm'
+                          onClick={() => router.push('/signup')}
+                        >
+                          Get Started
                         </Button>
                       </DropdownMenuItem>
                     </>
