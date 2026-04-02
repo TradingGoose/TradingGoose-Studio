@@ -38,12 +38,12 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/widgets/widgets/components/widget-header-control'
-import { CustomToolListItem } from '@/widgets/widgets/custom_tool/components/custom-tool-list-item'
+import { CustomToolListItem } from '@/widgets/widgets/_shared/custom_tool/components/custom-tool-list-item'
 import {
   CUSTOM_TOOL_EDITOR_WIDGET_KEY,
   CUSTOM_TOOL_LIST_WIDGET_KEY,
   resolveCustomToolId,
-} from '@/widgets/widgets/custom_tool/utils'
+} from '@/widgets/widgets/_shared/custom_tool/utils'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 
 const DEFAULT_CUSTOM_TOOL_NAME = 'newCustomTool'

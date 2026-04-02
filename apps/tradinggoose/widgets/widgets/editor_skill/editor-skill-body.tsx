@@ -10,7 +10,7 @@ import { useSkillEditorActions } from '@/widgets/utils/skill-editor-actions'
 import { useSkillSelectionPersistence } from '@/widgets/utils/skill-selection'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 import { SkillEditor } from '@/widgets/widgets/editor_skill/skill-editor'
-import { getSkillIdFromParams } from '@/widgets/widgets/skill/utils'
+import { getSkillIdFromParams } from '@/widgets/widgets/_shared/skill/utils'
 
 type EditorSkillWidgetBodyProps = WidgetComponentProps
 

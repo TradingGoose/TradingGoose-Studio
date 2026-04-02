@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import type { McpServerTestResult } from '@/hooks/use-mcp-server-test'
-import type { McpServerFormData } from '@/widgets/widgets/mcp/utils'
+import type { McpServerFormData } from '@/widgets/widgets/_shared/mcp/utils'
 
 interface McpServerFormProps {
   formData: McpServerFormData

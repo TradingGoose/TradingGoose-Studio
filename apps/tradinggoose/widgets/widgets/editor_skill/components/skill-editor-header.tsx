@@ -8,7 +8,7 @@ import type { PairColor } from '@/widgets/pair-colors'
 import { emitSkillEditorAction } from '@/widgets/utils/skill-editor-actions'
 import { emitSkillSelectionChange } from '@/widgets/utils/skill-selection'
 import { SkillDropdown } from '@/widgets/widgets/components/skill-dropdown'
-import { SKILL_EDITOR_WIDGET_KEY } from '@/widgets/widgets/skill/utils'
+import { SKILL_EDITOR_WIDGET_KEY } from '@/widgets/widgets/_shared/skill/utils'
 
 interface SkillEditorSelectorProps {
   workspaceId?: string

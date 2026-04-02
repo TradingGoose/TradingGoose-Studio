@@ -13,13 +13,13 @@ import {
   useSkillSelectionPersistence,
 } from '@/widgets/utils/skill-selection'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
-import { SkillListItem } from '@/widgets/widgets/skill/components/skill-list-item'
+import { SkillListItem } from '@/widgets/widgets/_shared/skill/components/skill-list-item'
 import {
   normalizeSkillName,
   resolveSkillId,
   SKILL_EDITOR_WIDGET_KEY,
   SKILL_LIST_WIDGET_KEY,
-} from '@/widgets/widgets/skill/utils'
+} from '@/widgets/widgets/_shared/skill/utils'
 
 export const SkillListMessage = WidgetStateMessage
 

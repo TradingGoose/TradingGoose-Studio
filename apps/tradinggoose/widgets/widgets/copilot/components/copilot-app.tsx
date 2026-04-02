@@ -12,7 +12,7 @@ import {
 } from '@/stores/workflows/workflow/store-client'
 import type { PairColor } from '@/widgets/pair-colors'
 
-interface WorkflowCopilotAppProps {
+interface copilotAppProps {
   workspaceId: string
   workflowId: string
   panelWidth: number
@@ -23,7 +23,7 @@ interface WorkflowCopilotAppProps {
   onChatChange?: (chatId: string | null) => void
 }
 
-const WorkflowCopilotApp = ({
+const copilotApp = ({
   workspaceId,
   workflowId,
   panelWidth,
@@ -32,7 +32,7 @@ const WorkflowCopilotApp = ({
   pairColor,
   chatId,
   onChatChange,
-}: WorkflowCopilotAppProps) => {
+}: copilotAppProps) => {
   const session = useSession()
   const copilotStoreChannel = copilotChannelId ?? channelId
 
@@ -71,5 +71,5 @@ const WorkflowCopilotApp = ({
   )
 }
 
-export default WorkflowCopilotApp
-export { WorkflowCopilotApp }
+export default copilotApp
+export { copilotApp }
