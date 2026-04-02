@@ -12,10 +12,32 @@ const rootDir = path.resolve(__dirname, '..')
 
 const BLOCKS_PATH = path.join(rootDir, 'apps/tradinggoose/blocks/blocks')
 const DOCS_OUTPUT_PATH = path.join(rootDir, 'apps/docs/content/docs/en/tools')
-const ICONS_PATH = path.join(rootDir, 'apps/tradinggoose/components/icons.tsx')
+const ICONS_PATHS = [
+  path.join(rootDir, 'apps/tradinggoose/components/icons/icons.tsx'),
+  path.join(rootDir, 'apps/tradinggoose/components/icons/provider-icons.tsx'),
+  path.join(rootDir, 'apps/tradinggoose/components/icons/util-icons.tsx'),
+]
 
 if (!fs.existsSync(DOCS_OUTPUT_PATH)) {
   fs.mkdirSync(DOCS_OUTPUT_PATH, { recursive: true })
+}
+
+interface DocSubBlock {
+  id: string
+  title?: string
+  type: string
+  layout?: string
+  placeholder?: string
+  description?: string
+  defaultValue?: string | number | boolean
+  options?: Array<{ label: string; id: string }>
+  required?: boolean
+  password?: boolean
+  min?: number
+  max?: number
+  step?: number
+  language?: string
+  provider?: string
 }
 
 interface BlockConfig {
@@ -29,13 +51,28 @@ interface BlockConfig {
   tools?: {
     access?: string[]
   }
+  subBlocks?: DocSubBlock[]
   [key: string]: any
 }
 
 function extractIcons(): Record<string, string> {
   try {
-    const iconsContent = fs.readFileSync(ICONS_PATH, 'utf-8')
     const icons: Record<string, string> = {}
+
+    for (const iconPath of ICONS_PATHS) {
+      if (!fs.existsSync(iconPath)) continue
+      extractIconsFromFile(fs.readFileSync(iconPath, 'utf-8'), icons)
+    }
+
+    console.log(`Extracted ${Object.keys(icons).length} icons from ${ICONS_PATHS.length} files`)
+    return icons
+  } catch (error) {
+    console.error('Error extracting icons:', error)
+    return {}
+  }
+}
+
+function extractIconsFromFile(iconsContent: string, icons: Record<string, string>) {
 
     const functionDeclarationRegex =
       /export\s+function\s+(\w+Icon)\s*\([^)]*\)\s*{[\s\S]*?return\s*\(\s*<svg[\s\S]*?<\/svg>\s*\)/g
@@ -74,11 +111,6 @@ function extractIcons(): Record<string, string> {
         icons[iconName] = cleanedSvg
       }
     }
-    return icons
-  } catch (error) {
-    console.error('Error extracting icons:', error)
-    return {}
-  }
 }
 
 function extractBlockConfig(fileContent: string): BlockConfig | null {
@@ -97,12 +129,13 @@ function extractBlockConfig(fileContent: string): BlockConfig | null {
     const description = extractStringProperty(fileContent, 'description') || ''
     const longDescription = extractStringProperty(fileContent, 'longDescription') || ''
     const category = extractStringProperty(fileContent, 'category') || 'misc'
-    const bgColor = extractStringProperty(fileContent, 'bgColor') || '#F5F5F5'
+    const rawBgColor = extractStringProperty(fileContent, 'bgColor')
+    const bgColor = rawBgColor && rawBgColor.length > 0 ? rawBgColor : ''
     const iconName = extractIconName(fileContent) || ''
 
     const outputs = extractOutputs(fileContent)
-
     const toolsAccess = extractToolsAccess(fileContent)
+    const subBlocks = extractSubBlocks(fileContent)
 
     return {
       type: blockType || blockName.toLowerCase(),
@@ -116,6 +149,7 @@ function extractBlockConfig(fileContent: string): BlockConfig | null {
       tools: {
         access: toolsAccess,
       },
+      subBlocks,
     }
   } catch (error) {
     console.error('Error extracting block configuration:', error)
@@ -304,6 +338,138 @@ function extractToolsAccess(content: string): string[] {
   }
 
   return tools
+}
+
+function extractSubBlocks(content: string): DocSubBlock[] {
+  const subBlocksStart = content.search(/subBlocks\s*:\s*\[/)
+  if (subBlocksStart === -1) return []
+
+  const bracketPos = content.indexOf('[', subBlocksStart)
+  if (bracketPos === -1) return []
+
+  // Find matching ]
+  let depth = 1
+  let pos = bracketPos + 1
+  while (pos < content.length && depth > 0) {
+    if (content[pos] === '[') depth++
+    else if (content[pos] === ']') depth--
+    pos++
+  }
+  if (depth !== 0) return []
+
+  const arrayContent = content.substring(bracketPos + 1, pos - 1)
+
+  // Split into individual block objects by finding top-level { }
+  const blocks: DocSubBlock[] = []
+  let blockDepth = 0
+  let blockStart = -1
+
+  for (let i = 0; i < arrayContent.length; i++) {
+    const ch = arrayContent[i]
+    if (ch === '{') {
+      if (blockDepth === 0) blockStart = i
+      blockDepth++
+    } else if (ch === '}') {
+      blockDepth--
+      if (blockDepth === 0 && blockStart >= 0) {
+        const blockStr = arrayContent.substring(blockStart, i + 1)
+        const parsed = parseSubBlockObject(blockStr)
+        if (parsed) blocks.push(parsed)
+        blockStart = -1
+      }
+    }
+  }
+
+  return blocks
+}
+
+function parseSubBlockObject(blockStr: string): DocSubBlock | null {
+  const getString = (prop: string): string | undefined => {
+    const m =
+      blockStr.match(new RegExp(`${prop}\\s*:\\s*'([^']*)'`)) ||
+      blockStr.match(new RegExp(`${prop}\\s*:\\s*"([^"]*)"`))
+    return m ? m[1] : undefined
+  }
+
+  const id = getString('id')
+  if (!id) return null
+
+  const type = getString('type')
+  if (!type) return null
+
+  // Skip hidden/internal fields
+  if (blockStr.match(/hidden\s*:\s*true/)) return null
+  if (blockStr.match(/hideFromPreview\s*:\s*true/)) return null
+
+  // Skip trigger-only fields in tool docs
+  const mode = getString('mode')
+  if (mode === 'trigger') return null
+
+  const title = getString('title')
+  const layout = getString('layout')
+  const placeholder = getString('placeholder')
+  const description = getString('description')
+  const language = getString('language')
+  const provider = getString('provider')
+
+  const password = /password\s*:\s*true/.test(blockStr) ? true : undefined
+  const required = /required\s*:\s*true/.test(blockStr) ? true : undefined
+
+  // Extract numeric props
+  const getNumber = (prop: string): number | undefined => {
+    const m = blockStr.match(new RegExp(`${prop}\\s*:\\s*(\\d+(?:\\.\\d+)?)`))
+    return m ? Number(m[1]) : undefined
+  }
+  const min = getNumber('min')
+  const max = getNumber('max')
+  const step = getNumber('step')
+
+  // Extract default value
+  let defaultValue: string | number | boolean | undefined
+  const dvMatch =
+    blockStr.match(/defaultValue\s*:\s*'([^']*)'/) ||
+    blockStr.match(/defaultValue\s*:\s*"([^"]*)"/)
+  if (dvMatch) {
+    defaultValue = dvMatch[1]
+  } else if (/defaultValue\s*:\s*true/.test(blockStr)) {
+    defaultValue = true
+  } else if (/defaultValue\s*:\s*false/.test(blockStr)) {
+    defaultValue = false
+  } else {
+    const numDv = blockStr.match(/defaultValue\s*:\s*(\d+(?:\.\d+)?)/)
+    if (numDv) defaultValue = Number(numDv[1])
+  }
+
+  // Extract static options array
+  let options: Array<{ label: string; id: string }> | undefined
+  const optionsMatch = blockStr.match(/options\s*:\s*\[([^\]]*)\]/)
+  if (optionsMatch) {
+    const optStr = optionsMatch[1]
+    const opts: Array<{ label: string; id: string }> = []
+    const optRegex = /\{\s*label\s*:\s*['"]([^'"]+)['"]\s*,\s*id\s*:\s*['"]([^'"]+)['"]/g
+    let optMatch
+    while ((optMatch = optRegex.exec(optStr)) !== null) {
+      opts.push({ label: optMatch[1], id: optMatch[2] })
+    }
+    if (opts.length > 0) options = opts
+  }
+
+  const result: DocSubBlock = { id, type }
+  if (title) result.title = title
+  if (layout) result.layout = layout as 'full' | 'half'
+  if (placeholder) result.placeholder = placeholder
+  if (description) result.description = description
+  if (defaultValue !== undefined) result.defaultValue = defaultValue
+  if (options) result.options = options
+  if (required) result.required = required
+  if (password) result.password = password
+  if (min !== undefined) result.min = min
+  if (max !== undefined) result.max = max
+  if (step !== undefined) result.step = step
+  if (language) result.language = language
+  if (provider) result.provider = provider
+
+  return result
 }
 
 function extractToolInfo(
@@ -787,7 +953,7 @@ function mergeWithManualContent(
   Object.entries(manualSections).forEach(([sectionName, content]) => {
     const insertionPoints: Record<string, { regex: RegExp }> = {
       intro: {
-        regex: /<BlockInfoCard[\s\S]*?<\/svg>`}\s*\/>/,
+        regex: /<BlockInfoCard[\s\S]*?\/>/,
       },
       usage: {
         regex: /## Usage Instructions/,
@@ -1053,20 +1219,73 @@ async function generateMarkdownForBlock(
     usageInstructions = `## Usage Instructions\n\n${longDescription}\n\n`
   }
 
+  // Build subBlocks JSON for BlockConfigPreview
+  const subBlocksArr = blockConfig.subBlocks || []
+  const subBlocksJson = JSON.stringify(subBlocksArr, null, 6)
+    .split('\n')
+    .map((line, i) => (i === 0 ? line : `    ${line}`))
+    .join('\n')
+
+  // Build outputs JSON for BlockConfigPreview
+  const outputsList: Array<{ key: string; type: string; description?: string }> = []
+  if (outputs && typeof outputs === 'object') {
+    for (const [key, val] of Object.entries(outputs)) {
+      if (typeof val === 'object' && val !== null) {
+        outputsList.push({
+          key,
+          type: val.type || 'string',
+          description: val.description || `${key} output`,
+        })
+      }
+    }
+  }
+  const outputsJson = outputsList.length > 0
+    ? JSON.stringify(outputsList, null, 6)
+        .split('\n')
+        .map((line, i) => (i === 0 ? line : `    ${line}`))
+        .join('\n')
+    : '[]'
+
+  const toolsArray = tools.access?.length
+    ? JSON.stringify(tools.access)
+    : undefined
+
+  // Config preview section (only if we have subBlocks)
+  let configSection = ''
+  if (subBlocksArr.length > 0) {
+    configSection = `## Configuration
+
+<ShowcaseCard caption="${name} configuration">
+  <BlockConfigPreview
+    name="${name}"
+    type="${type}"
+    color="${bgColor || '#F5F5F5'}"${iconSvg ? `\n    iconSvg={\`${iconSvg}\`}` : ''}
+    hideHeader
+    subBlocks={${subBlocksJson}}
+    outputs={${outputsJson}}${toolsArray ? `\n    tools={${toolsArray}}` : ''}
+  />
+</ShowcaseCard>
+
+`
+  }
+
   return `---
 title: ${name}
 description: ${description}
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard 
+<BlockInfoCard
   type="${type}"
   color="${bgColor || '#F5F5F5'}"
   icon={${iconSvg ? 'true' : 'false'}}
   iconSvg={\`${iconSvg || ''}\`}
 />
 
+${configSection}
 ${usageInstructions}
 
 ${toolsSection}
